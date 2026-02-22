@@ -1,0 +1,160 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
+    <!-- Header -->
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+        <div class="flex-1 min-w-0">
+            <!-- Breadcrumbs -->
+            <div>
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    </div>
+                    <!-- <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <a class="ml-1 text-base text-primary-500">kho node</a>
+                    </div> -->
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <span class="ml-1 text-base text-secondary">kho node được quét trên internet</span>
+                    </div>
+                </div>
+                <div class="flex sm:hidden">
+                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                        <mat-icon class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
+                </div>
+            </div>
+            <!-- Title -->
+            <!-- <div class="mt-2">
+                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+                    node được lưu trữ trong quá trình sử dụng của bạn.
+                </p>
+            </div> -->
+        </div>
+
+        <!-- Actions -->
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <mat-form-field class="ml-2 w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                appearance="fill">
+                <input matInput (keyup.enter)="searchNode($event)" [placeholder]="'Tìm theo tiêu đề'">
+                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
+            </mat-form-field>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto relative">
+        <!-- CONTENT GOES HERE -->
+        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
+            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
+            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
+            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+
+            <!-- Column Templates -->
+            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+
+            <!-- Column Templates -->
+            <ngx-datatable-column name="Tiêu đề" [width]="400" [sortable]="true" [canAutoResize]="true"
+                [draggable]="false" [resizeable]="true">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <p class="font-normal truncate hover:text-clip">
+                        {{row.title}}
+                    </p>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Column Templates -->
+            <ngx-datatable-column name="" [width]="200" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <a mat-icon-button matTooltipPosition="above" (click)="details(row)" [matTooltip]="'Xem chi tiết'"
+                        class="ml-0">
+                        <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:info'"></mat-icon>
+                    </a>
+
+                    <a mat-icon-button matTooltipPosition="above" (click)="convert(row)"
+                        [matTooltip]="'Chuyển sang văn bản'">
+                        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                    </a>
+
+                    <a mat-icon-button matTooltipPosition="above" (click)="crawlCompany(row.url)"
+                        [matTooltip]="'Quét lại'" class="ml-0">
+                        <mat-icon class="icon-size-4 text-blue-600" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                    </a>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Column Templates -->
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
+                name="Link gốc" [width]="200">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center justify-self-stretch">
+                        <mat-label matTooltipPosition="above" [matTooltip]="'Copy link ' + row.url"
+                            (click)="copy(row.url)"
+                            class="h-7 leading-7 items-center cursor-pointer px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-semibold">
+                            {{ row.url | shortDomain }}
+                        </mat-label>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Column Templates -->
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="false"
+                name="Mã node" [width]="300">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center justify-self-stretch" *ngIf="row.uuids.length > 0">
+                        <mat-label *ngFor="let uuid of row.uuids" matTooltipPosition="above"
+                            matTooltip="Tiếp tục sửa nội dung" [routerLink]="['/ai-writer', user.name, uuid]"
+                            class="h-7 leading-7 mr-2 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
+                            {{uuid}}
+                        </mat-label>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Column Templates -->
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
+                name="Ngày tạo" [width]="150">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center justify-self-stretch">
+                        {{row.createdAt | timeago}}
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-footer>
+                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
+                    let-isVisible="isVisible">
+                    <div class="flex w-full sm:items-center sm:justify-between">
+                        <div class="flex-1 min-w-0">
+                            <!-- Breadcrumbs -->
+                            <div class="page-count">
+                                Đã chọn {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} trong {{ (rowCount) ? rowCount.toLocaleString() : 0 }}
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex shrink-0 items-center pr-4">
+                            <mat-label (click)="createJsonLink()" *ngIf="selected.length > 0" class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-red-500 hover:bg-red-600 text-white">
+                                Xuất dữ liệu
+                            </mat-label>
+                        </div>
+                    </div>
+
+                    <!-- <datatable-pager [pagerLeftArrowIcon]="'datatable-icon-left'"
+                        [pagerRightArrowIcon]="'datatable-icon-right'" [pagerPreviousIcon]="'datatable-icon-prev'"
+                        [pagerNextIcon]="'datatable-icon-skip'" [page]="curPage" [size]="pageSize" [count]="rowCount"
+                        [hidden]="!((rowCount / pageSize) > 1)" (change)="table.onFooterPage($event)">
+                    </datatable-pager> -->
+                </ng-template>
+            </ngx-datatable-footer>
+        </ngx-datatable>
+    </div>
+</div>

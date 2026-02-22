@@ -1,0 +1,112 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        <div class="flex-1 min-w-0">
+            <div class="hidden sm:flex flex-wrap items-center font-medium">
+                <div class="flex items-center whitespace-nowrap">
+                    <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                </div>
+                <div class="flex items-center ml-1 whitespace-nowrap">
+                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                    <span class="ml-1 text-base text-secondary">lưu trữ hình ảnh của bạn</span>
+                </div>
+            </div>
+            <div class="flex sm:hidden">
+                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                    <span class="ml-1 text-base">quay lại</span>
+                </a>
+            </div>
+        </div>
+
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <mat-form-field *ngIf="domains" stopPropagation (stop2click)="handler($event)"
+                class="min-w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-text matPrefix>Tải lên</mat-text>
+                <mat-select (selectionChange)="connect($event)" [(ngModel)]="domain">
+                    <ng-container *ngFor="let item of domains; let i = index">
+                        <mat-option [value]="item">{{item.domain}}</mat-option>
+                    </ng-container>
+                </mat-select>
+            </mat-form-field>
+        </div>
+    </div>
+
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <mat-drawer-container class="flex-auto h-full bg-white place-items-center">
+            <mat-drawer-content class="m-auto w-full bg-transparent">
+                <div class="absolute inset-0 flex flex-col overflow-hidden">
+                    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between">
+                        <div class="flex-1 min-w-100 max-w-1/2 mx-auto p-4 md:px-4 sm:px-10">
+                            <form [formGroup]="imageAIForm">
+                                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+                                    Prompt tạo hình (Hình ảnh sẽ được lưu trong thư mục
+                                    <code>\Documents\ai.type\data\uploads\thumbnails</code>)
+                                </p>
+
+                                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                                    [subscriptSizing]="'dynamic'">
+                                    <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="createImg()"
+                                        required matInput>
+                                    <mat-hint class="mt-1 text-md">Sử dụng công cụ trả phí mạnh mẽ <a
+                                            (click)="createImgWithDreamina('https://dreamina.capcut.com')"
+                                            href="javascript:void(0)">Dreamina AI</a> tạo hình ảnh bằng Nano Banana
+                                        Pro</mat-hint>
+
+                                    <button mat-icon-button type="button" (click)="createImg()" matSuffix>
+                                        <mat-icon class="icon-size-5" [svgIcon]="'mat_outline:image_search'"></mat-icon>
+                                    </button>
+                                </mat-form-field>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="flex-auto relative rounded-md overflow-y-auto">
+                        <div class="mx-auto w-full bg-transparent" cdkScrollable>
+                            <ng-container *ngIf="rows.length > 0">
+                                <ngx-datatable #datatable class="material fullscreen image-thumbnails" [rows]="rows"
+                                    [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
+                                    [headerHeight]="0" [footerHeight]="0" [columnMode]="'force'">
+                                    <ngx-datatable-column [flexGrow]="1">
+                                        <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
+                                            <div class="row-grid w-full flex flex-wrap">
+                                                <div class="thumb-wrap px-1 py-0 box-border"
+                                                    *ngFor="let img of row.images; let i = index" [ngStyle]="{
+                                                    flex: '0 0 ' + (100 / gridSize) + '%',
+                                                }">
+                                                    <img [src]="'file:///' + img"
+                                                        class="thumb w-full h-auto object-cover rounded-3xl" />
+
+                                                    <div class="thumb-actions">
+                                                        <button mat-icon-button class="bg-white bg-opacity-10"
+                                                            (click)="editImage(img)">
+                                                            <mat-icon class="icon-size-4 text-green-500"
+                                                                svgIcon="heroicons_outline:sparkles"></mat-icon>
+                                                        </button>
+
+                                                        <button mat-icon-button class="bg-white bg-opacity-10"
+                                                            (click)="uploadImage(img)">
+                                                            <mat-icon class="icon-size-4 text-blue-500"
+                                                                svgIcon="feather:cloud"></mat-icon>
+                                                        </button>
+
+                                                        <button mat-icon-button class="bg-white bg-opacity-10"
+                                                            (click)="deleteImage(img, rowIndex * gridSize + i)">
+                                                            <mat-icon class="icon-size-4 text-red-500"
+                                                                svgIcon="feather:trash"></mat-icon>
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </ng-template>
+                                    </ngx-datatable-column>
+                                </ngx-datatable>
+                            </ng-container>
+                        </div>
+                    </div>
+                </div>
+            </mat-drawer-content>
+        </mat-drawer-container>
+    </div>
+</div>

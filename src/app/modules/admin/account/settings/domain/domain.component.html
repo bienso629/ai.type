@@ -1,0 +1,105 @@
+<div class="w-full max-w-full">
+    <!-- Section -->
+    <div class="w-full">
+        <!-- <div class="text-xl">Kết nối Website của bạn</div> -->
+        <div class="text-secondary leading-8 mt-2">
+            <p>Tên miền được sử dụng trong quá trình tạo content. Hiện tại chúng tôi chỉ phục vụ 2 nền tảng CMS chính là
+                Wordpress và NodeBB.</p>
+        </div>
+        <div class="text-secondary leading-8 mt-4">
+            <fuse-alert [appearance]="'outline'" [type]="'warning'">
+                Không sử dụng mật khẩu chính. Tên miền tạo ra không thể thay đổi được.
+            </fuse-alert>
+        </div>
+    </div>
+
+    <div class="mt-8">
+        <ngx-datatable [virtualization]="true" #mydatatable class="material shadow-none border rounded-lg"
+            [headerHeight]="50" [columnMode]="ColumnMode.force" [footerHeight]="70" [rowHeight]="getRowHeight"
+            rowHeight="auto" [rows]="rows">
+            <ngx-datatable-column name="Tên miền" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                [resizeable]="true">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                    <span *ngIf="!rows[rowIndex].addnew" class="relative">
+                        {{ row.domain }}
+
+                        <div *ngIf="rowIndex === 0"
+                            class="absolute -right-18 -top-2 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-8 bg-primary-200 text-primary-700">
+                            Mặc định
+                        </div>
+                    </span>
+
+                    <input placeholder="domain của bạn" *ngIf="rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded p-2"
+                        type="text" [value]="row.domain" />
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Tên đăng nhập" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                [resizeable]="true">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <span matTooltipPosition="above" [matTooltip]="'Bấm 2 lần để sửa'"
+                        (dblclick)="editing[rowIndex + '-username'] = true"
+                        *ngIf="!editing[rowIndex + '-username'] && !rows[rowIndex].addnew">
+                        {{ row.username }}
+                    </span>
+
+                    <input placeholder="tên đăng nhập" *ngIf="editing[rowIndex + '-username'] && !rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded p-2"
+                        type="text" [value]="row.username" />
+
+                    <input placeholder="tên đăng nhập" *ngIf="rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded p-2"
+                        type="text" [value]="row.username" />
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Mật khẩu 2" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                [resizeable]="true">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <span matTooltipPosition="above" [matTooltip]="'Bấm 2 lần để sửa'"
+                        (dblclick)="editing[rowIndex + '-password'] = true"
+                        *ngIf="!editing[rowIndex + '-password'] && !rows[rowIndex].addnew">
+                        {{ showPassword ? row.password : maskPassword(row.password) }}
+                    </span>
+
+                    <input placeholder="mật khẩu cấp 2"
+                        *ngIf="editing[rowIndex + '-password'] && !rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded p-2"
+                        type="password" [value]="row.password" />
+
+                    <input placeholder="mật khẩu cấp 2" *ngIf="rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded p-2"
+                        type="password" [value]="row.password" />
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="" [width]="100" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                [resizeable]="true">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <div class="flex items-center justify-self-stretch">
+                        <mat-label *ngIf="!row.addnew"
+                            class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
+                            (click)="edit(rowIndex)">
+                            Lưu lại
+                        </mat-label>
+
+                        <mat-label *ngIf="row.addnew"
+                            class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
+                            (click)="add(rowIndex)">
+                            Thêm mới
+                        </mat-label>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-footer *ngIf="true">
+                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset">
+                    <button class="ml-4" [disabled]="rows[rowCount - 1] && rows[rowCount - 1].addnew" mat-flat-button
+                        type="button" (click)="addNewForm()" [color]="'primary'">Thêm (+)</button>
+                </ng-template>
+            </ngx-datatable-footer>
+        </ngx-datatable>
+    </div>
+</div>

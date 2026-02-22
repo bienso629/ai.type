@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset
+	xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
+	xmlns:xhtml="http://www.w3.org/1999/xhtml"
+	xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"
+>
+    <!-- created with Free Online Sitemap Generator www.xml-sitemaps.com -->
+    <url>
+        <loc><![CDATA[https://type.vn]]></loc>
+		<lastmod><![CDATA[2024-12-27T01:13:28+00:00]]></lastmod>
+		<changefreq><![CDATA[weekly]]></changefreq>
+		<priority><![CDATA[0.7]]></priority>
+		<image:image>
+			<image:loc><![CDATA[https://type.vn/assets/images/banner/4.jpg]]></image:loc>
+		</image:image>
+    </url>
+</urlset>

@@ -1,0 +1,17 @@
+/* ----------------------------------------------------------------------------------------------------- */
+/*  @ Main Tailwind file for injecting utilities.
+/* ----------------------------------------------------------------------------------------------------- */
+@tailwind utilities;
+
+html {
+    line-height: 1.5;
+    -webkit-text-size-adjust: 100%;
+    tab-size: 4;
+    font-family: "Noto Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    font-feature-settings: normal;
+
+    body {
+        font-size: 1.075rem;
+        line-height: 1.375rem;
+    }
+}

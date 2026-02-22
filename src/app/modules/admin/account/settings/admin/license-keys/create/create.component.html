@@ -1,0 +1,111 @@
+<form [formGroup]="createForm" (ngSubmit)="submit()">
+  <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
+    <mat-icon class="self-center mr-2 icon-size-4" [svgIcon]="data.icon"></mat-icon>
+    <mat-label class="self-center">{{data.title}}</mat-label>
+  </div>
+
+  <div class="mb-0 text-md text-hint">Nhập đầy đủ thông tin form dưới đây</div>
+
+  <div mat-dialog-content class="mt-4 p-0">
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-0" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">ID phần mềm</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:code'"></mat-icon>
+      <input [formControlName]="'appId'" [readonly]="data && data.type === 'extend'" [placeholder]="'Ví dụ: ai.type'"
+        type="text" (input)="licensekey()" required matInput />
+      <!-- <mat-hint class="px-1">ID phần mềm dùng để truy xuất API</mat-hint> -->
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">Phiên bản</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:package'"></mat-icon>
+      <input [formControlName]="'appVersion'" [readonly]="data && data.type === 'extend'" [placeholder]="'1.0.1'"
+        type="text" (input)="licensekey()" required matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense input-disabled fuse-mat-emphasized-affix p-0 mt-2"
+      [subscriptSizing]="'dynamic'">
+      <span matPrefix class="w-30">App Token</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:shield'"></mat-icon>
+      <input [formControlName]="'appToken'" [placeholder]="'App Token'" type="text" readonly required matInput />
+      <!-- <mat-hint class="px-1">App Token dùng để truy xuất API</mat-hint> -->
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">Tên người mua</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
+      <input [formControlName]="'customerName'" [readonly]="data && data.type === 'extend'"
+        [placeholder]="'Nguyễn Văn A'" type="text" (input)="licensekey()" required matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">Địa chỉ</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:map'"></mat-icon>
+      <input [formControlName]="'address'" [readonly]="data && data.type === 'extend'" [placeholder]="'Tp.HCM'"
+        type="text" (input)="licensekey()" matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">Số điện thoại</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:smartphone'"></mat-icon>
+      <input [formControlName]="'phoneNumber'" [readonly]="data && data.type === 'extend'" [placeholder]="'0987654321'"
+        type="text" (input)="licensekey()" matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">Email người mua</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
+      <input [formControlName]="'email'" [readonly]="data && data.type === 'extend'"
+        [placeholder]="'nguyenvana@gmail.com'" type="text" (input)="licensekey()" matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
+      <span matPrefix class="w-30">Điểm uy tín</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:heart'"></mat-icon>
+      <input [formControlName]="'reputationScore'" [placeholder]="'1000'" type="number" required matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
+      <span matPrefix class="w-30">Ngày mua</span>
+      <input [formControlName]="'createDate'" [placeholder]="'20/11/1986'" [matDatepicker]="picker1"
+        (dateInput)="licensekey()" required readonly matInput />
+      <mat-datepicker-toggle matIconSuffix [for]="picker1">
+        <mat-icon matDatepickerToggleIcon class="icon-size-4" [svgIcon]="'feather:clock'"></mat-icon>
+      </mat-datepicker-toggle>
+      <mat-datepicker #picker1></mat-datepicker>
+      <!-- <mat-hint class="px-1">Ví dụ: 30/06/2024 (Ba mươi tháng sáu năm hai không hai tư)</mat-hint> -->
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
+      <span matPrefix class="w-30">Ngày hết hạn</span>
+      <input [formControlName]="'expirationDate'" [placeholder]="'20/11/1987'" [matDatepicker]="picker2"
+        (dateInput)="licensekey()" required readonly matInput />
+      <mat-datepicker-toggle matIconSuffix [for]="picker2">
+        <mat-icon matDatepickerToggleIcon class="icon-size-4" [svgIcon]="'feather:clock'"></mat-icon>
+      </mat-datepicker-toggle>
+      <mat-datepicker #picker2></mat-datepicker>
+      <!-- <mat-hint class="px-1">Ví dụ: 30/06/2025 (Ba mươi tháng sáu năm hai không hai năm)</mat-hint> -->
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
+      [ngClass]="{'input-disabled': data && data.type === 'extend'}">
+      <span matPrefix class="w-30">License Key</span>
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:key'"></mat-icon>
+      <input [formControlName]="'licenseKey'" [placeholder]="'Tự động tạo ra'" type="text" readonly required matInput />
+      <!-- <mat-hint class="px-1">License Key tự động tạo ra</mat-hint> -->
+    </mat-form-field>
+  </div>
+
+  <div mat-dialog-actions class="p-0 mt-4">
+    <button mat-flat-button color="primary" type="submit" class="float-right">
+      <mat-label>{{data.title}}</mat-label>
+    </button>
+
+    <button mat-flat-button color="medium" [mat-dialog-close] class="float-right">Đóng cửa sổ</button>
+  </div>
+</form>

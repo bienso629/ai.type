@@ -1,0 +1,206 @@
+.zoom-container {
+    display: flex;
+    align-items: center;
+    margin: 20px 0;
+}
+
+.zoom-container button {
+    margin: 0 5px;
+    min-width: 60px;
+    cursor: pointer;
+}
+
+.mode {
+    margin-left: 10px;
+}
+
+/* script.component.scss (hoặc global styles) */
+.livestream {
+    min-height: 240px;
+    min-width: 400px;
+    z-index: 99999;
+    background: aliceblue;
+    bottom: 100px !important;
+    right: 100px !important;
+    border-radius: 16px;
+    overflow: hidden;
+    max-width: 500px;
+}
+
+.custom-dialog-like, .custom-dialog-comment, .custom-dialog-n8n, .custom-dialog-prompt {
+    .mat-mdc-dialog-surface {
+        padding: 0 !important;
+    }
+}
+
+.timeline-container {
+    timeline-scale-header {
+        background-color: #fff !important;
+    }
+
+    .label {
+        background-color: #ffffff;
+        border-bottom: 1px solid #e9eef4 !important;
+        font-weight: 600;
+        font-size: 20px;
+    }
+
+    .panel {
+        display: inline-table !important;
+        background: #fff;
+        border-right: 1px solid #e9eef4 !important;
+        background-color: #fff !important;
+
+        .item-name {
+            font-size: 12px;
+        }
+    }
+
+    .columns {
+        border-bottom: 1px solid #e9eef4 !important;
+
+        .column {
+            font-size: 12px;
+
+            &:after {
+                background: transparent !important;
+                border-right: 1px solid #e9eef4;
+            }
+        }
+    }
+
+    .groups {
+        .group {
+            font-weight: 600;
+            font-size: 20px;
+            border-bottom: 1px solid #e9eef4 !important;
+
+            &:after {
+                background: transparent !important;
+                border-right: 1px solid #e9eef4;
+            }
+        }
+    }
+
+    .item-row {
+        border-bottom: 1px solid #e9eef4 !important;
+    }
+
+    timeline-calendar {
+        .column-separators .line {
+            background-color: transparent !important;
+            border-right: 1px solid #e9eef4;
+        }
+    }
+
+    timeline-panel {
+        .panel-item {
+            background-color: #ffffff;
+            border-bottom: 1px solid #e9eef4 !important;
+        }
+    }
+
+    timeline-item {
+        .default-content {
+            padding: 2px 16px !important;
+            border-radius: 50px !important;
+            font-size: 12px;
+        }
+
+        .timeline-item {
+            width: auto !important;
+            background: #2ac226;
+            color: #fff;
+            padding: 5px 16px;
+            border-radius: 3px;
+            line-height: 20px;
+            font-size: 12px;
+            margin: 0 6px;
+            cursor: pointer;
+
+            &:hover {
+                background: var(--fuse-primary-500);
+                ;
+                color: #ffffff;
+                // border: 1px solid #85b9f8;
+            }
+        }
+    }
+
+    timeline-data-maker {
+        .date-marker {
+            width: 1px !important;
+            z-index: 9999;
+        }
+    }
+}
+
+.captions-panel {
+    .live-layout {
+        display: grid;
+        grid-template-columns: 1fr 0fr;
+        // grid-template-columns: 1fr 1fr;
+        // gap: 12px;
+        // padding: 16px;
+        // font-size: 14px;
+    }
+
+    .panel {
+        // background: var(--surface, #181a1b);
+        border-radius: 12px;
+        // box-shadow: 0 1px 6px rgba(0, 0, 0, .08);
+        display: flex;
+        flex-direction: column;
+        min-height: 200px;
+    }
+
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid rgba(0, 0, 0, .08);
+    }
+
+    .mono {
+        white-space: pre-wrap;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+        line-height: 1.5;
+    }
+
+    .list .row {
+        display: flex;
+        gap: 8px;
+        padding: 6px 0;
+        border-bottom: 1px dashed rgba(255, 255, 255, .08);
+    }
+
+    .list .row:last-child {
+        border-bottom: 0;
+    }
+
+    .idx {
+        flex: 0 0 auto;
+        width: 56px;
+        opacity: .8;
+        font-weight: 600;
+    }
+
+    .text {
+        flex: 1 1 auto;
+    }
+
+    .empty {
+        opacity: .6;
+        font-style: italic;
+    }
+
+    @media (max-width: 1024px) {
+        .live-layout {
+            grid-template-columns: 1fr;
+        }
+
+        .body {
+            height: 28vh;
+        }
+    }
+}

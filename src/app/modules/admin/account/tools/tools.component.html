@@ -1,0 +1,338 @@
+<div class="absolute inset-0 flex flex-col min-w-0 bg-white overflow-hidden" *ngIf="user">
+    <!-- Main -->
+    <div class="flex-auto overflow-hidden w-full h-full" cdkScrollable>
+        <!-- CONTENT GOES HERE -->
+        <swiper-container fmSwiper [config]="swipe" init="false" class="flex items-center justify-center w-full h-full">
+            <!-- Trang 1 -->
+            <swiper-slide data-hash="content" class="h-full w-full" *ngIf="user.reputation >= 0">
+                <fm-stream-item>
+                    <div class="flex items-center justify-center h-full w-full">
+                        <div class="flex flex-col">
+                            <mat-label class="text-sm mb-2 text-gray-400">Tạo nội dung</mat-label>
+
+                            <mat-grid-list class="min-w-160 sm:min-w-160 md:min-w-200 lg:min-w-200" [cols]="cols"
+                                gutterSize="20px" rowHeight="100:100">
+                                <mat-grid-tile *ngIf="user.reputation >= 0"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/ai-writer']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Viết bài</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Công cụ giúp bạn viết bài nhanh, chính
+                                            xác & mượt mà hơn.
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 0, 'text-red-600': user.reputation < 0}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 0"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/settings']" [queryParams]="{ tab: 'domain' }">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Tên miền</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Quản lý tên miền hoạt động của bạn
+                                            phục vụ cho công
+                                            việc</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 0, 'text-red-600': user.reputation < 0}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 0"
+                                    class="rounded-lg border-b hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/import']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:git-merge'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Sitemap</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Thu thập dữ liệu từ sitemap và phát
+                                            triển
+                                            content
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 0, 'text-red-600': user.reputation < 0}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 0"
+                                    class="rounded-lg border-b hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/synonym']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:type'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Từ điển</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tra cứu & giải nghĩa các từ tiếng Việt
+                                            phục vụ cho
+                                            công việc</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 0, 'text-red-600': user.reputation < 0}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+                            </mat-grid-list>
+                        </div>
+                    </div>
+                </fm-stream-item>
+            </swiper-slide>
+
+            <!-- Trang 2 -->
+            <swiper-slide data-hash="social" class="h-full w-full" *ngIf="user.reputation >= 2000 && cn['cn2'] > 0">
+                <fm-stream-item>
+                    <div class="flex items-center justify-center h-full w-full">
+                        <div class="flex flex-col">
+                            <mat-label class="text-sm mb-2 text-gray-400">Công cụ nâng cao</mat-label>
+                            <mat-grid-list class="min-w-160 sm:min-w-160 md:min-w-200 lg:min-w-200" [cols]="cols"
+                                gutterSize="20px" rowHeight="1:1">
+                                <!-- <mat-grid-tile *ngIf="user.reputation >= 2000"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/ai-text2speech']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:speaker'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Speech2Text</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Chuyển video thành văn bản nhanh chóng phục vụ
+                                            công việc của bạn
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 0, 'text-red-600': user.reputation < 2000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile> -->
+
+                                <mat-grid-tile *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/ai-image']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:image'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Tạo hình</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tạo hình ảnh chất lượng theo yêu cầu
+                                            cho
+                                            của bạn
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 2000, 'text-red-600': user.reputation < 2000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <!-- <mat-grid-tile *ngIf="user.reputation >= 2000"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/ai-film']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:film'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">AI tạo video</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tạo video giới thiệu sản phẩm bằng Sora, Heygen,
+                                            Veo, Kling.
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 2000, 'text-red-600': user.reputation < 2000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile> -->
+
+                                <mat-grid-tile *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/all-tube']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Tải xuống</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tải hết video từ kênh Youtube, Tiktok,
+                                            Facebook,...
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 2000, 'text-red-600': user.reputation < 2000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/face2node']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:radio'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Trend</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Quét & Tìm kiếm xu hướng từ
+                                            Facebook và MXH khác</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 10000, 'text-red-600': user.reputation < 10000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/ai-crawl']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:package'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Thu thập</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Thu thập dữ liệu số điện thoại, email,
+                                            nhu cầu
+                                            khách hàng</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 10000, 'text-red-600': user.reputation < 10000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 50000 && user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/ai-text2speech']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Giọng đọc</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Chuyển đổi văn bản thành giọng nam &
+                                            nữ
+                                            truyền cảm
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 50000, 'text-red-600': user.reputation < 50000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 100000 && user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/data']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:database'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Dữ liệu</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Quản lý & phân tích dữ liệu bằng AI tự
+                                            động của
+                                            bạn.</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 100000, 'text-red-600': user.reputation < 100000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+                            </mat-grid-list>
+                        </div>
+                    </div>
+                </fm-stream-item>
+            </swiper-slide>
+
+            <!-- Trang 3 -->
+            <swiper-slide data-hash="manager" class="h-full w-full" *ngIf="user.reputation >= 1000000 && cn['cn3'] > 0">
+                <fm-stream-item>
+                    <div class="flex items-center justify-center h-full w-full">
+                        <div class="flex flex-col">
+                            <mat-label class="text-sm mb-2 text-gray-400">Chăm sóc khách hàng</mat-label>
+
+                            <mat-grid-list class="min-w-160 sm:min-w-160 md:min-w-200 lg:min-w-200" [cols]="cols"
+                                gutterSize="20px" rowHeight="1:1">
+                                <mat-grid-tile *ngIf="user.reputation >= 1000000 && user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/chatbot']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Chatbot</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tạo Chatbot để phục vụ công việc kinh
+                                            doanh & bán
+                                            hàng</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 1000000, 'text-red-600': user.reputation < 1000000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 2000000 && user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/profiles']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trending-up'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Tăng traffic</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tăng chất lượng từ khoá và tăng
+                                            traffic cho website
+                                            mạnh hơn</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 2000000, 'text-red-600': user.reputation < 2000000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/links']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'mat_outline:ads_click'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Link hay</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Bộ sưu tập link hay của bạn, kiểm tra
+                                            SEO của link
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 3000000, 'text-red-600': user.reputation < 3000000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/gscr']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:pie-chart'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Báo cáo</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Phân tích báo cáo của Google Analytics
+                                            & Search
+                                            Console
+                                        </p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 3000000, 'text-red-600': user.reputation < 3000000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-n8n-tự-động-hoá')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/amxh']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:tablet'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Kịch bản</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tự động chơi MXH như xem video, bấm
+                                            like và viết
+                                            comment</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 4000000, 'text-red-600': user.reputation < 4000000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <mat-grid-tile *ngIf="user.reputation >= 5000000 && user.groups?.includes('nhóm-sử-dụng-zms')"
+                                    class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/customers']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:phone-call'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">Chăm sóc</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Chăm sóc khách hàng Email, SMS &
+                                            ZNS và Notification</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 5000000, 'text-red-600': user.reputation < 5000000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile>
+
+                                <!-- <mat-grid-tile *ngIf="user.reputation >= 7000"
+                                    class="rounded-lg border-b hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
+                                    [routerLink]="['/woocommerce']">
+                                    <div class="flex flex-col items-center">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:package'"></mat-icon>
+                                        <mat-label class="mt-3 text-md">2xWoocommerce</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Quét và tạo lại Producs để sử dụng cho Website của
+                                            bạn</p>
+                                    </div>
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
+                                        [ngClass]="{'text-green-600': user.reputation >= 7000, 'text-red-600': user.reputation < 7000}">
+                                        Kích hoạt</div>
+                                </mat-grid-tile> -->
+
+                                <!-- <mat-grid-tile class="" [routerLink]="['/customers']"></mat-grid-tile>
+                                <mat-grid-tile class="" [routerLink]="['/customers']"></mat-grid-tile>
+                                <mat-grid-tile class="" [routerLink]="['/customers']"></mat-grid-tile> -->
+                            </mat-grid-list>
+                        </div>
+                    </div>
+                </fm-stream-item>
+            </swiper-slide>
+        </swiper-container>
+    </div>
+</div>

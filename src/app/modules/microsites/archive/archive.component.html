@@ -1,0 +1,424 @@
+<div class="absolute inset-0 flex flex-col bg-white min-w-0 overflow-hidden">
+	<!-- Header -->
+	<div
+		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10">
+		<div class="flex-1 min-w-0">
+			<!-- Breadcrumbs -->
+			<div>
+				<div class="hidden sm:flex flex-wrap items-center font-medium">
+					<div class="flex items-center whitespace-nowrap">
+						<a [routerLink]="['/']" class="text-base text-primary-500">typing</a>
+					</div>
+					<div class="flex items-center ml-1 whitespace-nowrap">
+						<mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+							[svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+						<a [routerLink]="['/archives']" class="ml-1 text-base text-primary-500">{{name}}</a>
+					</div>
+					<div class="flex items-center ml-1 whitespace-nowrap">
+						<mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+							[svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+						<span class="ml-1 text-base text-secondary">{{uuid}}</span>
+					</div>
+				</div>
+				<div class="flex sm:hidden">
+					<a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+						<mat-icon class="icon-size-4 text-secondary"
+							[svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+						<span class="ml-1 text-base">quay lại</span>
+					</a>
+				</div>
+			</div>
+			<!-- Title -->
+			<div class="mt-2">
+				<p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate tw"
+					[innerHTML]="title"></p>
+			</div>
+		</div>
+
+		<!-- Actions -->
+		<div class="flex flex-row shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
+			<fuse-fullscreen class="hidden md:block"></fuse-fullscreen>
+
+			<button mat-icon-button class="ml-2" color="primary" (click)="payment()" matTooltip="Mua 1 ly cafe">
+				<mat-icon class="icon-size-6" [svgIcon]="'feather:dollar-sign'"></mat-icon>
+				<!-- <mat-label class="ml-2">mua 1 ly cafe</mat-label> -->
+			</button>
+		</div>
+	</div>
+
+	<!-- Main -->
+	<div class="flex-auto overflow-y-auto" *ngIf="details" cdkScrollable>
+		<fuse-alert *ngIf="details.authors.includes(user.name)" class="w-full rounded-none" [type]="'warning'"
+			[name]="'alertBox4'" [appearance]="'soft'" [dismissible]="true">
+			<span fuseAlertTitle>Mời viết chung</span>
+			Tác giả <b>{{name}}</b> đã mời bạn viết cùng nội dung này. Bạn sẽ đồng ý chứ? <mat-label
+				class="cursor-pointer hover:opacity-50 font-semibold" (click)="agree()">Đồng ý</mat-label>
+		</fuse-alert>
+
+		<!-- CONTENT GOES HERE -->
+		<mat-tab-group class="mt-0" mat-stretch-tabs="false" mat-align-tabs="center" [animationDuration]="'0'">
+			<mat-tab label="Dàn ý">
+				<div class="p-4 w-full">
+					<div class="flex items-center w-full bg-slate-50 hover:bg-slate-100 p-2 mb-2 rounded-md"
+						*ngFor="let item of done; let i = index">
+						<div class="flex-1 text-base relative">
+							<div class="absolute -left-4 -top-4 bg-slate-50 opacity-75 border w-6 h-6 text-sm justify-center items-center text-center rounded-full"
+								style="margin-left: -4px;">
+								{{i + 1}}
+							</div>
+
+							<ng-container *ngIf="item | isObject">{{item |
+								json}}</ng-container>
+							<ng-container *ngIf="!(item | isObject)">
+								<div class="z-10 relative leading-8" [innerHTML]="item"></div>
+							</ng-container>
+						</div>
+
+						<div class="flex shrink-0">
+							<button class="ml-2" mat-icon-button [matMenuTriggerFor]="menu">
+								<mat-icon>more_vert</mat-icon>
+							</button>
+							<mat-menu #menu="matMenu">
+								<button mat-menu-item [cdkCopyToClipboard]="item | removeHTML" [color]="'primary'">
+									<mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
+									<span>Copy text</span>
+								</button>
+							</mat-menu>
+						</div>
+					</div>
+				</div>
+			</mat-tab>
+
+			<mat-tab label="Điểm SEO">
+				<div class="px-4">
+					<p class="my-2 pb-2 font-normal text-base">Thông tin kiểm tra {{score}}/100</p>
+
+					<ul>
+						<!-- SEO title -->
+						<li class="font-normal text-base mb-2">
+							<mat-label class="my-2 pb-2 ml-0">Tiêu đề</mat-label>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.title.characters > 60">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Tiêu đề quá dài
+									({{seo.title.characters}}/60 ký tự)</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.title.characters < 30">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Tiêu đề quá ngắn
+									({{seo.title.characters}}/60 ký tự)</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey < 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Tiêu đề không tìm thấy khoá
+									chính</mat-label>
+							</div>
+						</li>
+						<!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
+                                    <div class="flex items-center justify-self-stretch">
+                                        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:check-square'"></mat-icon>
+                                        <mat-label class="ml-2 text-green-600">Tiêu đề chuẩn ({{seo.title.characters}}/60 ký tự)</mat-label>
+                                    </div>
+                                </li> -->
+						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey > 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Khoá chính nên xuất hiện đầu tiêu
+									đề</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey == 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Khoá chính xuất hiện đầu tiêu
+									đề</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2"
+							*ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Tiêu đề đạt
+									{{seo.title.characters}}/60 ký tự</mat-label>
+							</div>
+						</li>
+
+						<!-- SEO mo ta -->
+						<li class="font-normal text-base mb-2">
+							<mat-label class="my-2 pb-2 ml-0">Mô tả</mat-label>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.description.findmainkey < 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Mô tả chưa có khoá chính</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.description.characters > 160">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Mô tả quá dài
+									({{seo.description.characters}}/160 ký tự)</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.description.characters < 100">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Mô tả quá ngắn
+									({{seo.description.characters}}/160 ký tự)</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.description.findmainkey >= 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Mô tả đã có khoá chính</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2"
+							*ngIf="seo.description.characters >= 100 && seo.description.characters <= 160">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Mô tả tuyệt vời
+									({{seo.description.characters}}/160 ký tự)</mat-label>
+							</div>
+						</li>
+
+						<!-- SEO H1 -->
+						<li class="font-normal text-base mb-2">
+							<mat-label class="my-2 pb-2 ml-0">H1</mat-label>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total < 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Content chưa có H1</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total > 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Content chứa quá nhiều H1</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total == 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Content đã có H1</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.characters > 75">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">H1 không vượt quá 75 ký tự</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2"
+							*ngIf="seo.heading.h1.total >= 1 && seo.heading.h1.findmainkey < 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">H1 không tìm thấy khoá chính</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.findmainkey >= 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Tìm thấy khoá chính trong H1</mat-label>
+							</div>
+						</li>
+
+						<!-- SEO body -->
+						<li class="font-normal text-base mb-2">
+							<mat-label class="my-2 pb-2 ml-0">Nội dung</mat-label>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.total < 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Content chưa xuất hiện</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.total < 300">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Content quá ngắn
+									({{seo.words.total}}/600)</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.total > 300">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Content đang phát triển
+									({{seo.words.total}}/1000 từ)</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.find_mainkey_in_first_paragraph < 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Khoá chính không có ở dòng đầu
+									tiên</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.find_mainkey_in_first_paragraph >= 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Khoá chính xuất hiện ở đầu
+									dòng</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.mainkey_percent_in_words < 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Khoá chính xuất hiện
+									{{seo.words.find_mainkey_in_words}} lần {{
+									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo.words.mainkey_percent_in_words > 8">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Khoá chính xuất hiện
+									{{seo.words.find_mainkey_in_words}} lần trên {{
+									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2"
+							*ngIf="seo.words.mainkey_percent_in_words <= 8 && seo.words.mainkey_percent_in_words > 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Khoá chính xuất hiện
+									{{seo.words.find_mainkey_in_words}} lần ({{
+									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%)</mat-label>
+							</div>
+						</li>
+
+						<!-- SEO image -->
+						<li class="font-normal text-base mb-2">
+							<mat-label class="my-2 pb-2 ml-0">Hình ảnh</mat-label>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo['images'].total < 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Chưa có hình ảnh</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo['images'].find_mainkey_in_alt < 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-yellow-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-yellow-500">Alt không có khoá chính</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo['images'].total > 0">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Có {{seo['images'].total}} hình
+									ảnh</mat-label>
+							</div>
+						</li>
+
+						<!-- SEO Link -->
+						<li class="font-normal text-base mb-2">
+							<mat-label class="my-2 pb-2 ml-0">Liên kết</mat-label>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo['links'] >= 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-green-600"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-green-600">Đã có {{ seo['links'] }} liên
+									kết</mat-label>
+							</div>
+						</li>
+						<li class="font-normal text-base mb-2" *ngIf="seo['links'] < 1">
+							<div class="flex items-center justify-self-stretch">
+								<mat-icon class="icon-size-4 text-red-500"
+									[svgIcon]="'feather:check-square'"></mat-icon>
+								<mat-label class="ml-2 text-red-500">Thêm liên kết để cải thiện trải
+									nghiệm</mat-label>
+							</div>
+						</li>
+					</ul>
+				</div>
+			</mat-tab>
+
+			<mat-tab label="Từ khoá">
+				<div class="w-full p-4">
+					<mat-form-field class="w-full custom-textarea col">
+						<mat-label>Chọn ít nhất 1 từ khoá</mat-label>
+						<mat-chip-grid #chipGrid aria-label="Enter keywords" [formControl]="formControl">
+							<mat-chip-option class="" *ngFor="let item of arr_keyword"
+								(click)="changeSelected(item)">{{item}}</mat-chip-option>
+							<input class="py-2 border rounded" placeholder="Tạo từ khoá mới"
+								[matChipInputFor]="chipGrid" (matChipInputTokenEnd)="add($event)" />
+						</mat-chip-grid>
+						<mat-hint>Từ khoá đã chọn: {{selectedChips.join(';')}}</mat-hint>
+					</mat-form-field>
+
+					<!-- <mat-chip-listbox aria-label="Fish selection">
+						<mat-chip-option class="" *ngFor="let item of arr_keyword">{{item}}</mat-chip-option>
+					</mat-chip-listbox> -->
+				</div>
+			</mat-tab>
+
+			<mat-tab label="Xem trước">
+				<div class="p-4">
+					<quill-view-html theme="snow" [content]="editor"></quill-view-html>
+				</div>
+			</mat-tab>
+		</mat-tab-group>
+	</div>
+
+	<!-- Footer -->
+	<div
+		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative">
+		<div class="flex-1 min-w-0">
+			<span class="font-normal text-base text-secondary">
+				<a href="https://type.vn" title="Phần mềm AI xây dựng bài viết chuyên nghiệp">type.vn</a> &copy;
+				{{currentYear}}
+			</span>
+		</div>
+
+		<!-- Actions -->
+		<div class="flex shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
+			<mat-form-field *ngIf="uuid && details"
+				class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+				<mat-select [value]="details.createdAt" (selectionChange)="history($event)">
+					<mat-option [value]="details.createdAt">bản gốc {{details.createdAt | timeago}}</mat-option>
+					<ng-container *ngIf="details.history && details.history.length > 0">
+						<mat-option *ngFor="let item of details.history; let i = index" [value]="item.createdAt">
+							phiên bản {{i + 1}} tạo ra {{item.createdAt | timeago}}
+						</mat-option>
+					</ng-container>
+				</mat-select>
+			</mat-form-field>
+		</div>
+	</div>
+</div>

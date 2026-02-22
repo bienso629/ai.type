@@ -1,0 +1,53 @@
+<div class="absolute inset-0 flex flex-col min-w-0 bg-white overflow-hidden">
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <div class="flex items-center justify-center h-full">
+            <div class="inline-block min-w-120">
+                <div id="waveform"></div>
+
+                <form [formGroup]="text2speechForm">
+                    <div class="mt-8">
+                        <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                            <mat-label>Giọng đọc</mat-label>
+                            <mat-select [formControlName]="'voice'" required (selectionChange)="onVoiceChange($event)">
+                                <mat-option [value]="'vi-VN-NamMinhNeural'">Nam Minh (Neural)</mat-option>
+                                <mat-option [value]="'vi-VN-HoaiMyNeural'">Hoài My (Neural)</mat-option>
+                                <!-- <mat-divider></mat-divider>
+                                <mat-option [value]="'nam-calm'">Nam điềm tĩnh</mat-option>
+                                <mat-option [value]="'nam-cham'">Nam chậm</mat-option>
+                                <mat-option [value]="'nam-nhanh'">Nam nhanh</mat-option>
+                                <mat-option [value]="'nam-truyen-cam'">Nam truyền cảm</mat-option>
+                                <mat-option [value]="'nu-calm'">Nữ điềm tĩnh</mat-option>
+                                <mat-option [value]="'nu-cham'">Nữ chậm</mat-option>
+                                <mat-option [value]="'nu-luu-loat'">Nữ lưu loát</mat-option>
+                                <mat-option [value]="'nu-nhan-nha'">Nữ nhẩn nha</mat-option>
+                                <mat-option [value]="'nu-nhe-nhang'">Nữ nhẹ nhàng</mat-option> -->
+                            </mat-select>
+                            <mat-hint>Chọn giọng đọc</mat-hint>
+                        </mat-form-field>
+
+                        <mat-form-field class="w-full mt-4 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>Văn bản</mat-label>
+                            <textarea #text class="max-h-20" [formControlName]="'text'"
+                                placeholder="Văn bản cần chuyển thành âm thanh." required matInput
+                                cdkTextareaAutosize></textarea>
+                            <mat-hint>Enter để xuống dòng đoạn văn của bạn sẽ cho tốc độ nhanh hơn.</mat-hint>
+                        </mat-form-field>
+
+                        <div class="mt-6 flex flex-row items-center justify-start">
+                            <button mat-flat-button type="button" color="primary" (click)="text2speech2025()">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:radio'"></mat-icon>
+                                <mat-label class="ml-2">Chuyển sang âm thanh</mat-label>
+                            </button>
+
+                            <a *ngIf="downloadMP3Href" [href]="downloadMP3Href" [download]="nameMP3Href"
+                                [color]="'primary'" class="ml-2 line-clamp-1 max-w-50 text-md" target="_blank">
+                                {{ nameMP3Href }}
+                            </a>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>

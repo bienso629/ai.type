@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "lively-math-455208-r4",
+  "private_key_id": "4466f6b82cd46ed61ed806a058e865daaa91c988",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQCwree5YINl6gnX\nU2Ke8jqdHmf9NBo1fx5YW9Cu4nOP52q+WkL2ZwBW0QOucmNLO2Ykyn7VPyRxgO3S\nf9+A07rC/lzas3H65OC3cWkEOHAGQxnuN+vFoZy1V0BYXhPQqU546r834RygUU8h\n0rkVx7z3kKH1SK7PvdFG26bPnvMqEUYvGfrf2NA5KBstb+ddS2SOxJ7IJ85Yjw3A\nRWea7fGWpUlc7ac/c8c9efIauf614/QWuyoMqbpbmKMWBnmoOkmdmL5tW/k8TkFy\nkVrTyIe9khQCvuut001i8OXMaolpgT7GP3iEBhwzA94eSkCDIhv/TtMJ4xm7PVhC\nmaU6IZGJAgMBAAECggEAFkFNrV7wJkQJCc/V3iYuhnCYUj+AJql0ydYE7yaUvnV8\nz24AvdeDJixtbYm4orcgenVsbRGnVknSiz+yyGBDSAEw8paEfsFaYhkdzJuMVumY\naFawcwRUwE31i7wL/G57NUWCoTgQukwLrvvDdzAiCEA2enZ1mLL1G9saw8/mmu99\nAL5af9KWhj7Q81ZvYUQLOmyzwx2TbsXO5vW0Qk9jaH9f2IKb20jyjyc5XBz8FBPq\n1fEGLEqlalaInNdB976v1faWqudElA3CAqw1rfjfngmliOhFOL1VmYFWclCvjBs/\nttd53fYLkXAhwKDBYy1VNN4SOHtyF9h+X+vBBSdD5QKBgQDbGCzVA2DuaG3azPiu\ndHA9gQg38O7GQ9+YkIO/P6XoafHn8Ka824G2SWkntzSQWSJ5aiUtbuailGAYWUz2\npWHrPsvz6nxiVjnQGmkXHh8uN7WYRw91vi8bfH2SAHHGWGraJL255d1Elgxuynxr\nQPQ3oS6JA7xTHN8QbEE0BQ7PBQKBgQDOcLLbIsJAC87ASme9xKVVejqEEuZfE/EA\nPMUV1MizHba+CCcuLsyuGKgzBAVv0WEAEBB7lElE6iHxzAZOwB8EFg0wLfvlGPE4\ncysdQjUghzms8/fF+VyI0+p2s8GRQzD9fqMk7m7g8qZ50vpnCpILV30vs8BQiW73\nGJ5rXVzXtQKBgQDYJwysB05NR4gCErDR5JyLgU6rai8YOgRRz1m7iD7VghigPKMz\ntdhOEDUHcs8QDnBdmuQc48n04i/ANfIhcF6fqW+sME4Q8oLNFhFSNmyKu3mUR58w\nCbcOBg8YyQl2puqcVx07V1WqgeK4N1rysb1/WKzBjobw9I359OOLP+YxRQKBgQCs\n3VYHhX2fX8PK5QMltuqzPtyNB758Uxh1mG14MGu3AOSrD+yvEWU3S1JdFbrvvSY6\nhTkoIi2QVXYDIVMO0nWmWEjG1VqeplonaNjrcStHh7RWDRynXH2N3dXxe+hUmS0G\nt+oo3LdgChA45t/jNMjCUopzTVN2nP6cTrMpOE6sGQKBgAov5gyql9AJzZpGZmQi\nahFGrCA1U9qZl3KWGZ6XaderpBLiJSUbd2Edk5jCxVCMLGelikFQ+01fi2JxvH3C\n7sTIQfkPoiBShODx7z8maBmLc8jhXpdgrI8iuUyS9wviIbCnMoKbaz3lByzO+JYL\nDLn5a/jRh3oZ0A63AhrizP+h\n-----END PRIVATE KEY-----\n",
+  "client_email": "ga4-reporting@lively-math-455208-r4.iam.gserviceaccount.com",
+  "client_id": "102439492673728892481",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/ga4-reporting%40lively-math-455208-r4.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

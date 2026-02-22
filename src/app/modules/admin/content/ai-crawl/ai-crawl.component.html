@@ -1,0 +1,329 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
+    <!-- Header -->
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
+        <div class="flex-1 min-w-0">
+            <!-- Breadcrumbs -->
+            <div class="hidden sm:flex flex-wrap items-center font-medium">
+                <div class="flex items-center whitespace-nowrap">
+                    <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                </div>
+                <!-- <div class="flex items-center ml-1 whitespace-nowrap">
+                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                    <a class="ml-1 text-base text-primary-500">nguồn</a>
+                </div> -->
+                <div class="flex items-center ml-1 whitespace-nowrap">
+                    <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                    <span class="ml-1 text-base text-secondary">tool thu thập số liệu, thông tin cá nhân</span>
+                </div>
+            </div>
+            <div class="flex sm:hidden">
+                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                    <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                    <span class="ml-1 text-base">quay lại</span>
+                </a>
+            </div>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <div *ngIf="links.length > 0" class="animated-box" [@shake]="animationStates.shake.shake">
+                <div class="animated-box-content">
+                    <button mat-icon-button color="primary" (click)="crawlCompany()">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:play'"></mat-icon>
+                        <!-- <mat-label class="ml-2">Tiếp tục thủ công</mat-label> -->
+                    </button>
+                </div>
+            </div>
+
+            <!-- <button (click)="crawlCompany('https://masothue.com/0110994964-cong-ty-tnhh-co-khi-manh-doan')" class="ml-2 bg-blue-600 text-white" mat-flat-button>
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                <mat-label class="ml-2">Test quét</mat-label>
+            </button> -->
+
+            <!-- <a mat-flat-button class="ml-2" color="primary" [href]="downloadJsonHref" download="links.json">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+                <mat-label class="ml-2">Export/Import Links</mat-label>
+            </a> -->
+
+            <div class="inline-block ml-0">
+                <button mat-icon-button color="primary" (click)="uploader.click()" matTooltipPosition="above"
+                    matTooltip="Up file từ dưới máy lên">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:paperclip'"></mat-icon>
+                </button>
+
+                <input hidden #uploader id="file" name="file" (change)="readFile($event)" type="file" />
+            </div>
+
+            <button (click)="reset()" class="ml-0" matTooltipPosition="above" matTooltip="Reset lại công việc"
+                mat-icon-button>
+                <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <!-- CONTENT GOES HERE -->
+        <mat-drawer-container class="flex-auto h-full">
+            <!-- Drawer -->
+            <mat-drawer class="w-100 bg-gray-100 border-r-0 dark:bg-transparent" [autoFocus]="false" [mode]="drawerMode"
+                [opened]="drawerOpened" #matDrawer>
+                <!-- Buy / Sell -->
+                <div class="flex flex-col flex-auto p-4">
+                    <!-- Action -->
+                    <!-- Advanced search form -->
+                    <form class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent"
+                        [formGroup]="sitemapForm">
+                        <div class="w-full mb-2">
+                            <!-- Divider -->
+                            <div class="text-secondary text-xl">Quét dữ liệu</div>
+                            <div class="mt-2 mb-2 border-t"></div>
+                        </div>
+
+                        <mat-accordion class="border rounded-xl w-full p-2 bg-white">
+                            <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
+                                <mat-expansion-panel-header>
+                                    <mat-panel-title class="font-semibold text-primary uppercase">
+                                        Cấu hình cơ bản cho chương trình
+                                    </mat-panel-title>
+                                </mat-expansion-panel-header>
+
+                                <div class="w-full p-3">
+                                    <!-- Địa chỉ mẹ -->
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>URL cần thu thập dữ liệu</mat-label>
+                                        <textarea class="px-2" [formControlName]="'domain'"
+                                            [placeholder]="'https://type.vn'" required matInput
+                                            cdkTextareaAutosize></textarea>
+                                        <!-- <mat-hint>Chương trình tự động quét link</mat-hint> -->
+                                        <!-- <mat-select [formControlName]="'type'" [value]="'website'" matPrefix>
+                                            <mat-option [value]="'website'">Website</mat-option>
+                                        </mat-select> -->
+                                    </mat-form-field>
+
+                                    <div class="w-full mt-2">
+                                        <mat-form-field
+                                            class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                                            [subscriptSizing]="'dynamic'">
+                                            <mat-label>Quy tắc thu thập dữ liệu</mat-label>
+                                            <textarea class="px-2 overflow-y-hidden" [formControlName]="'request'"
+                                                required matInput cdkTextareaAutosize></textarea>
+                                            <mat-hint>Lưu ý: Bạn không cần phải thay đổi cấu hình này nếu không cần
+                                                thiết.</mat-hint>
+                                        </mat-form-field>
+                                    </div>
+                                </div>
+                            </mat-expansion-panel>
+                        </mat-accordion>
+
+                        <div class="w-full mt-8 mb-2">
+                            <!-- Divider -->
+                            <div class="text-secondary text-xl">Cấu hình nâng cao</div>
+                            <div class="mt-2 mb-2 border-t"></div>
+                        </div>
+
+                        <mat-accordion class="border rounded-xl p-2 bg-white">
+                            <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
+                                <mat-expansion-panel-header>
+                                    <mat-panel-title class="font-semibold text-primary uppercase">
+                                        Chi tiết selector cho chương trình
+                                    </mat-panel-title>
+                                </mat-expansion-panel-header>
+
+                                <div class="p-3">
+                                    <!-- Lấy link trong nhóm này -->
+                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Khai báo Domain gốc:</mat-label>
+                                        <input [autocomplete]="'off'" [formControlName]="'root_domain'" matInput>
+                                        <mat-hint>Ví dụ: "https://masothue.com"</mat-hint>
+                                    </mat-form-field>
+
+                                    <!-- Lấy Link trong khu vực -->
+                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Selector bằng Class (hoặc ID):</mat-label>
+                                        <input [autocomplete]="'off'" [formControlName]="'main_class'" matInput>
+                                        <mat-hint>Ví dụ: [div id="main" class="container"][a]Công ty TNHH
+                                            ABC[/a][/div]</mat-hint>
+                                    </mat-form-field>
+
+                                    <!-- Lấy link trong nhóm này -->
+                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Selector bằng Class (hoặc ID) cho Phân trang:</mat-label>
+                                        <input [autocomplete]="'off'" [formControlName]="'next_navigation_class'"
+                                            matInput>
+                                        <mat-hint>Ví dụ: [div class="page-numbers"][a]1[/a][/div]</mat-hint>
+                                    </mat-form-field>
+
+                                    <!-- Lấy link trong nhóm này -->
+                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Nếu phân trang bị link rút gọn:</mat-label>
+                                        <input [autocomplete]="'off'" [formControlName]="'page_domain'" matInput>
+                                        <mat-hint>Ví dụ: [a href="?page=2"]Link bị rút gọn[/a] thì khai báo thêm link để
+                                            tường minh hơn. Ví dụ:
+                                            "https://masothue.com/tra-cuu-ma-so-thue-theo-tinh/ho-chi-minh-23"</mat-hint>
+                                    </mat-form-field>
+
+                                    <!-- Lấy Link có từ sau -->
+                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Chỉ lấy link nếu chứa ký tự:</mat-label>
+                                        <input [autocomplete]="'off'" [formControlName]="'href_contain_str'" matInput>
+                                        <mat-hint>Ví dụ: [a href="...cong-ty..."]Công ty TNHH ABC[/a]</mat-hint>
+                                    </mat-form-field>
+
+                                    <!-- Loại bỏ Link -->
+                                    <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Loại bỏ link nếu chứa ký tự:</mat-label>
+                                        <input [autocomplete]="'off'" [formControlName]="'href_except_contain_str'"
+                                            matInput>
+                                        <mat-hint>Ví dụ: [a href="...abc..."]Công ty TNHH ABC[/a]</mat-hint>
+                                    </mat-form-field>
+                                </div>
+                            </mat-expansion-panel>
+                        </mat-accordion>
+
+                        <mat-accordion class="border rounded-xl w-full mt-6 p-2 bg-white">
+                            <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
+                                <mat-expansion-panel-header>
+                                    <mat-panel-title class="font-semibold text-primary uppercase">
+                                        Tạo bộ selector bằng AI
+                                    </mat-panel-title>
+                                </mat-expansion-panel-header>
+
+                                <div formArrayName="ai_main_class" class="w-full p-3">
+                                    <div *ngFor="let control of mainClassArray.controls; let i = index"
+                                        [formGroupName]="i" class="flex flex-col mb-2 last:mb-0 border-b border-dashed">
+                                        <mat-form-field class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix">
+                                            <mat-label>Key</mat-label>
+                                            <input matInput formControlName="key" placeholder="Ví dụ: title" />
+                                            <!-- <mat-hint class="text-sm">key = `div.main`</mat-hint> -->
+                                        </mat-form-field>
+
+                                        <mat-form-field
+                                            class="flex-1 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix">
+                                            <mat-label>Prompt <mat-label class="text-base text-red-500 cursor-pointer"
+                                                    (click)="removeMainClassField(i)"
+                                                    *ngIf="mainClassArray.length > 1">/-</mat-label></mat-label>
+                                            <textarea class="px-2" [formControlName]="'value'"
+                                                [placeholder]="'Ví dụ: Bạn hãy lấy lấy title trong thẻ <title> cho tôi'"
+                                                matInput cdkTextareaAutosize></textarea>
+                                            <!-- <mat-hint class="text-sm">value = `Công ty TNHH ABC`</mat-hint> -->
+                                        </mat-form-field>
+                                    </div>
+
+                                    <div class="flex shrink-0 items-center">
+                                        <button type="button" matTooltipPosition="above" matTooltip="Thêm mới Selector"
+                                            mat-icon-button (click)="addMainClassField()">
+                                            <mat-icon class="icon-size-4 text-green-600"
+                                                [svgIcon]="'feather:plus'"></mat-icon>
+                                        </button>
+
+                                        <mat-label class="text-base text-green-600 cursor-pointer ml-2"
+                                            (click)="addMainClassField()">Thêm mới Selector</mat-label>
+                                    </div>
+                                </div>
+                            </mat-expansion-panel>
+                        </mat-accordion>
+
+                        <div class="w-full mt-8 mb-2">
+                            <!-- Divider -->
+                            <div class="text-secondary text-xl">Lưu ý</div>
+                            <div class="mt-2 mb-2 border-t"></div>
+                        </div>
+
+                        <div>
+                            <p class="text-base">Chương trình cần bạn nắm rõ cấu trúc HTML của website cần crawl dữ
+                                liệu.</p>
+                        </div>
+
+                        <!-- <div class="w-full mt-8 mb-2">
+                            <div class="text-secondary text-xl">Lưu trữ</div>
+                            <div class="mt-2 mb-2 border-t"></div>
+                        </div>
+
+                        <div class="flex flex-col items-start mt-0 mb-3">
+                            <mat-checkbox [color]="'primary'" [formControlName]="'is_auto_start'">
+                                Tự động tạo Sitemap sau khi quét xong
+                            </mat-checkbox>
+                        </div> -->
+
+                        <div class="w-full mt-8">
+                            <!-- Divider -->
+                            <button class="ml-0" (click)="createSitemap();" [color]="'primary'" type="button"
+                                mat-flat-button>
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
+                                <mat-label class="ml-2">Bắt đầu quét</mat-label>
+                            </button>
+
+                            <!-- <div class="mt-2 mb-2 border-t"></div> -->
+                        </div>
+                    </form>
+                </div>
+            </mat-drawer>
+
+            <!-- Content -->
+            <mat-drawer-content class="flex flex-col min-w-0 border-t border-l bg-white overflow-hidden rounded-tl-lg">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
+                    <div class="flex-1 min-w-0 h-full relative overflow-hidden">
+                        <!-- Kết quả -->
+                        <ngx-datatable [virtualization]="true" class="material fullscreen" [rows]="links"
+                            [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
+                            [scrollbarV]="true" [scrollbarH]="false">
+                            <ngx-datatable-column name="#" [width]="50" [sortable]="false" [canAutoResize]="false"
+                                [draggable]="false" [resizeable]="false">
+                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+                                    <mat-icon class="icon-size-4" svgIcon="feather:check-square"
+                                        [color]="(row.status && row.status === 'done') ? 'primary' : 'danger'"></mat-icon>
+                                </ng-template>
+                            </ngx-datatable-column>
+
+                            <ngx-datatable-column name="Links quét được" [sortable]="false" [canAutoResize]="true"
+                                [draggable]="false" [resizeable]="true">
+                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+                                    <p class="font-normal truncate hover:text-clip">{{row.url}}</p>
+                                </ng-template>
+                            </ngx-datatable-column>
+
+                            <ngx-datatable-footer>
+                                <ng-template ngx-datatable-footer-template let-rowCount="rowCount"
+                                    let-pageSize="pageSize" let-selectedCount="selectedCount" let-curPage="curPage"
+                                    let-offset="offset" let-isVisible="isVisible">
+                                    <div class="page-count" *ngIf="links.length > 0">
+                                        <a [href]="downloadJsonHref" download="links.json" [color]="'primary'"
+                                            class="ml-0">
+                                            Tải xuống
+                                        </a>
+                                    </div>
+                                </ng-template>
+                            </ngx-datatable-footer>
+                        </ngx-datatable>
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex shrink-0 w-120 relative border-l">
+                        <ngx-datatable [virtualization]="true" class="material fullscreen"
+                            [columnMode]="ColumnMode.flex" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
+                            [scrollbarV]="true" [scrollbarH]="false" [rows]="domains">
+                            <ngx-datatable-column name="Pages đã quét" [sortable]="false" [canAutoResize]="true"
+                                [draggable]="false" [resizeable]="true" [flexGrow]="5">
+                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+                                    <p class="font-normal truncate hover:text-clip">{{row.url}}</p>
+                                </ng-template>
+                            </ngx-datatable-column>
+                        </ngx-datatable>
+                    </div>
+                </div>
+            </mat-drawer-content>
+        </mat-drawer-container>
+    </div>
+</div>

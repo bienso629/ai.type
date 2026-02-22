@@ -1,0 +1,12 @@
+<!-- Button -->
+<button
+    mat-icon-button
+    [matTooltip]="tooltip || 'Mở rộng phần mềm'"
+    (click)="toggleFullscreen()">
+    <ng-container [ngTemplateOutlet]="iconTpl || defaultIconTpl"></ng-container>
+</button>
+
+<!-- Default icon -->
+<ng-template #defaultIconTpl>
+    <mat-icon class="icon-size-6" [svgIcon]="'feather:maximize'"></mat-icon>
+</ng-template>

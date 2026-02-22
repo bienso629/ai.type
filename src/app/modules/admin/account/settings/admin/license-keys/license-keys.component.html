@@ -1,0 +1,90 @@
+<!-- Header -->
+<div class="flex flex-row pb-2 border-b">
+    <a mat-flat-button (click)="addNewForm()" [color]="'primary'">
+        <mat-icon class="icon-size-4" [svgIcon]="'feather:plus-circle'"></mat-icon>
+        <mat-label class="ml-2 text-base">Thêm mới License Key</mat-label>
+    </a>
+</div>
+
+<!-- Main -->
+<div class="flex-auto overflow-y-auto min-h-100 relative">
+    <!-- CONTENT GOES HERE -->
+    <ngx-datatable [virtualization]="true" #mydatatable class="material fullscreen" [headerHeight]="50"
+        [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="true"
+        [scrollbarH]="false" [rows]="rows">
+        <ngx-datatable-column name="App ID" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="200">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                {{ row.appId }}
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Version" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="80">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                {{ row.appVersion }}
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Người mua" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="200">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                <ng-container *ngIf="row.activationInfo && row.activationInfo.length >= 1; else elseTemplate">
+                    <div class="flex items-center justify-self-stretch">
+                        <mat-label
+                            class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-green-600 hover:bg-green-500 text-white">
+                            {{ row.info.customerName }}
+                        </mat-label>
+                    </div>
+                </ng-container>
+                <ng-template #elseTemplate>
+                    {{ row.info.customerName }}
+                </ng-template>
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Liên hệ" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="250">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                {{ row.info.email }}
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="100">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                <button mat-icon-button color="primary" (click)="copy(row.licenseKey)" matTooltipPosition="above"
+                    matTooltip="{{ row.licenseKey }}">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
+                </button>
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Ngày hết hạn" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="150">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                {{ row.expirationDate | date: 'dd/MM/yyyy' }}
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Tính năng" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [width]="200">
+            <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
+                <div class="flex items-center justify-self-stretch">
+                    <mat-label *ngIf="row.activationInfo | checkExpirationDate : row.expirationDate"
+                        matTooltipPosition="above" matTooltip="Gia hạn sử dụng"
+                        class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white mr-2"
+                        (click)="extend(row)">
+                        Gia hạn
+                    </mat-label>
+
+                    <mat-label matTooltipPosition="above" matTooltip="Nhân bản License Key "
+                        class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
+                        (click)="clone(row)">
+                        Sao chép
+                    </mat-label>
+                </div>
+            </ng-template>
+        </ngx-datatable-column>
+    </ngx-datatable>
+</div>

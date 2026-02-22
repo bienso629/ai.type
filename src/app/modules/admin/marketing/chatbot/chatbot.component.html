@@ -1,0 +1,324 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        <div class="flex-1 min-w-0">
+            <div>
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <span class="ml-1 text-base text-secondary">quản lý trợ lý ảo simple chatbot của bạn</span>
+                    </div>
+                </div>
+                <div class="flex sm:hidden">
+                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                        <mat-icon class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <input type="file" id="pdfInput" (change)="onPdfSelected($event)" hidden>
+            <button id="uploadPdfBtn" mat-flat-button [color]="'primary'" (click)="triggerPdfUpload()">
+                <mat-icon class="icon-size-4" svgIcon="feather:upload-cloud"></mat-icon>
+                <mat-label class="ml-2">Tải PDF, DOCx</mat-label>
+            </button>
+        </div>
+    </div>
+
+    <div class="flex-auto">
+        <mat-drawer-container class="h-full bg-white" autosize>
+            <mat-drawer class="min-w-80 dark:bg-gray-900 overflow-hidden-custom" [autoFocus]="false" [mode]="drawerMode"
+                [opened]="drawerOpened" #drawer>
+                <div class="flex items-center justify-between mx-8 my-6">
+                    <div class="text-xl text-gray-400">Xin chào, {{user.name}}</div>
+                    <div class="lg:hidden">
+                        <button mat-icon-button (click)="drawer.close()">
+                            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="flex flex-col">
+                    <div class="flex mx-2 my-1 rounded-md px-6 py-2 cursor-pointer bg-gray-50 hover:bg-gray-100"
+                        (click)="createThread()">
+                        <div class="flex flex-row text-primary items-center justify-between">
+                            <mat-icon class="icon-size-4 text-primary" [svgIcon]="'feather:edit-3'"></mat-icon>
+                            <mat-label class="ml-2 text-base">Tạo trao đổi mới</mat-label>
+                        </div>
+                    </div>
+
+                    <div class="flex mx-2 my-1 rounded-md px-6 py-2">
+                        <div class="text-gray-500">
+                            <mat-label class="text-base">Lịch sử trao đổi</mat-label>
+                        </div>
+                    </div>
+
+                    <ngx-datatable class="material shadow-none" [rows]="threadRows" [columnMode]="ColumnMode.force"
+                        [headerHeight]="0" [footerHeight]="0" [rowHeight]="72" [scrollbarV]="true"
+                        [virtualization]="true" [externalPaging]="false" [selectionType]="SelectionType.single"
+                        [selected]="selectedThreadRows" [style.height.px]="threadTableHeight"
+                        (activate)="onThreadRowActivate($event)">
+
+                        <ngx-datatable-column [width]="52" [resizeable]="false" [sortable]="false"
+                            [canAutoResize]="false">
+                            <ng-template ngx-datatable-cell-template let-row="row">
+                                <button class="mr-2" mat-icon-button matTooltipPosition="above"
+                                    [matTooltip]="row.name ? ('Liên hệ với ' + row.name) : ('Liên hệ với ' + row.id)"
+                                    (click)="$event.stopPropagation(); call(row.email)" *ngIf="row.email">
+                                    <mat-icon class="icon-size-4 text-primary"
+                                        [svgIcon]="'feather:phone-outgoing'"></mat-icon>
+                                </button>
+                            </ng-template>
+                        </ngx-datatable-column>
+
+                        <ngx-datatable-column name="info" [sortable]="false">
+                            <ng-template ngx-datatable-cell-template let-row="row">
+                                <div class="flex flex-col w-full py-1">
+                                    <p class="font-medium text-base truncate hover:text-clip"
+                                        [ngClass]="{'text-primary dark:text-primary-500': selectedPanel && (+selectedPanel === row.id)}">
+                                        {{ row.name ? row.name : ('Trò chuyện ' + row.id) }}
+                                    </p>
+                                    <p class="text-gray-400 text-sm truncate hover:text-clip">
+                                        {{ row.email ? row.email : ('Khách ' + (row.title || '')) }}
+                                    </p>
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+                    </ngx-datatable>
+                </div>
+            </mat-drawer>
+
+            <mat-drawer-content>
+                <div class="flex flex-row h-full">
+                    <div class="flex-1 flex-col">
+                        <div class="h-[calc(100vh-266px)] relative overflow-y-auto">
+                            <div class="max-w-200 mx-auto">
+                                <div id="chat" class="flex flex-col pl-4 pr-3.5 py-4 space-y-2">
+                                    <div *ngFor="let m of messages" class="flex"
+                                        [ngClass]="m[2] === 'user' ? 'justify-end' : 'justify-start'">
+                                        <div class="flex items-start max-w-[80%] gap-2"
+                                            [ngClass]="m[2] === 'user' ? 'flex-row-reverse' : ''">
+                                            <div
+                                                class="min-w-8 min-h-8 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm">
+                                                {{ m[2] === 'user' ? 'U' : 'B' }}
+                                            </div>
+                                            <div class="px-4 py-2 rounded-lg text-sm"
+                                                [ngClass]="m[2] === 'user' ? 'bg-blue-500 text-white' : 'bg-gray-200 dark:bg-gray-700 dark:text-white'">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div *ngIf="isLoading" class="flex justify-start">
+                                        <div class="flex items-start gap-2">
+                                            <div
+                                                class="min-w-8 min-h-8 w-8 h-8 rounded-full bg-blue-500 text-white flex items-center justify-center text-sm">
+                                                B</div>
+                                            <div
+                                                class="bg-gray-200 dark:bg-gray-700 px-4 py-2 rounded-lg text-sm animate-pulse text-gray-500 dark:text-gray-400">
+                                                Đang trả lời...
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="p-4 border-t sticky bottom-0 w-full bg-white items-center">
+                            <form [formGroup]="chatbotMessage" class="w-full max-w-200 mx-auto flex items-center">
+                                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
+                                    [subscriptSizing]="'dynamic'">
+                                    <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="sendMessage()"
+                                        required matInput>
+
+                                    <button mat-icon-button type="button" (click)="sendMessage()" matSuffix>
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'"></mat-icon>
+                                    </button>
+                                </mat-form-field>
+                            </form>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col shrink-0 background-gray-100 border-l p-4 max-w-100 sticky bottom-0">
+                        <mat-label class="text-base font-medium mb-2">Hướng dẫn sử dụng</mat-label>
+                        <div class="text-sm text-gray-500 mb-2">
+                            <p>- Tải lên tài liệu tham khảo (PDF, DOCX)</p>
+                            <p>- Tạo trao đổi mới để bắt đầu cuộc trò chuyện</p>
+                            <p>- Câu trả lời dựa trên tài liệu đã tải lên</p>
+                            <p>- Quản lý các trao đổi trong thanh bên trái</p>
+                        </div>
+
+                        <!-- Divider -->
+                        <div class="my-2 border-t"></div>
+
+                        <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
+                            (click)="listFiles()">Quản lý tài liệu</mat-label>
+                        <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
+                            (click)="indexDomains()">Bot học
+                            Website <mat-label
+                                *ngIf="statusIndex.status === 'running' || statusIndex.status === 'done'">({{
+                                statusIndex.status }})</mat-label></mat-label>
+                        <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
+                            (click)="indexFiles()">Bot học
+                            Tài liệu</mat-label>
+                        <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
+                            (click)="settingChatbot()">Cài đặt chatbot</mat-label>
+                    </div>
+                </div>
+            </mat-drawer-content>
+        </mat-drawer-container>
+    </div>
+</div>
+
+<div *ngIf="showDocTypePopup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-xl shadow-xl w-[420px] p-6">
+        <h2 class="text-xl font-normal text-gray-500 flex items-center justify-self-stretch mb-4">
+            <mat-icon class="icon-size-4" svgIcon="feather:file"></mat-icon>
+            <mat-label class="ml-2">Chọn loại tài liệu</mat-label>
+        </h2>
+
+        <div class="grid grid-cols-2 gap-2 max-h-[260px] overflow-y-auto">
+            <label *ngFor="let type of docTypes"
+                class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
+                <input type="radio" name="docType" [value]="type.value" [(ngModel)]="selectedDocType" />
+                <span class="text-base">{{ type.label }}</span>
+            </label>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-5">
+            <button mat-flat-button color="medium" (click)="showDocTypePopup = false">
+                Đóng
+            </button>
+
+            <button mat-flat-button [color]="'primary'" (click)="confirmDocType()">
+                <mat-icon class="icon-size-4" svgIcon="feather:arrow-right"></mat-icon>
+                <mat-label class="ml-2">Tiếp tục</mat-label>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="showIndexDomainsPopup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-xl shadow-xl w-[560px] p-6">
+        <h2 class="text-xl font-normal text-gray-500 flex items-center justify-self-stretch mb-4">
+            <mat-icon class="icon-size-4" svgIcon="feather:globe"></mat-icon>
+            <mat-label class="ml-2">Index Domains</mat-label>
+        </h2>
+
+        <div class="mb-2">
+            <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+                <mat-label>Chọn domain</mat-label>
+                <mat-select class="w-full" (selectionChange)="getSitemap()" [(ngModel)]="selectedDomain">
+                    <ng-container *ngFor="let d of domainOptions; let i = index">
+                        <mat-option [value]="d.domain">{{d.domain}}</mat-option>
+                    </ng-container>
+                </mat-select>
+            </mat-form-field>
+        </div>
+
+        <div class="mb-2">
+            <mat-form-field class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'">
+                <mat-label>Nhập link sitemap (mỗi dòng 1 link)</mat-label>
+                <textarea class="px-2" [(ngModel)]="sitemapsText"
+                    placeholder="https://example.com/post-sitemap.xml&#10;https://example.com/page-sitemap.xml" required
+                    matInput cdkTextareaAutosize></textarea>
+            </mat-form-field>
+        </div>
+
+        <div class="flex justify-end gap-2">
+            <button mat-flat-button color="medium" (click)="showIndexDomainsPopup = false">
+                Đóng
+            </button>
+
+            <button mat-flat-button [color]="'primary'" (click)="confirmIndexDomains()">
+                <mat-icon class="icon-size-4" svgIcon="feather:arrow-right"></mat-icon>
+                <mat-label class="ml-2">Tiếp tục</mat-label>
+            </button>
+        </div>
+    </div>
+</div>
+
+<div *ngIf="showSettingPopup" class="fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]">
+    <div class="bg-white rounded-xl shadow-xl w-[680px] p-6">
+        <h2 class="text-xl font-normal text-gray-500 flex items-center justify-self-stretch mb-4">
+            <mat-icon class="icon-size-4" svgIcon="feather:settings"></mat-icon>
+            <mat-label class="ml-2">Cài đặt Chatbot</mat-label>
+        </h2>
+
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-2">Nguồn dữ liệu trả lời</label>
+            <div class="grid grid-cols-3 gap-2">
+                <label class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
+                    <input type="radio" name="dataSource" value="documents" [(ngModel)]="selectedDataSource" />
+                    <span class="text-base">Documents</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
+                    <input type="radio" name="dataSource" value="website" [(ngModel)]="selectedDataSource" />
+                    <span class="text-base">Website</span>
+                </label>
+                <label class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
+                    <input type="radio" name="dataSource" value="all" [(ngModel)]="selectedDataSource" />
+                    <span class="text-base">All</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="mb-4" *ngIf="selectedDataSource === 'documents' || selectedDataSource === 'all'">
+            <label class="block text-sm font-semibold mb-2">Chọn loại tài liệu (có thể chọn nhiều)</label>
+            <div class="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
+                <label *ngFor="let type of docTypes"
+                    class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
+                    <input type="checkbox" [checked]="selectedDocTypes.includes(type.value)"
+                        (change)="toggleDocType(type.value)" />
+                    <span class="text-base">{{ type.label }}</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="mb-4" *ngIf="selectedDataSource === 'website' || selectedDataSource === 'all'">
+            <label class="block text-sm font-semibold mb-2">Chọn Website (có thể chọn nhiều)</label>
+
+            <div *ngIf="!domainOptions || domainOptions.length === 0" class="text-sm text-red-500 italic">
+                Bạn chưa có domain nào. Hãy dùng chức năng "Học nội dung Website" trước.
+            </div>
+
+            <div class="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto"
+                *ngIf="domainOptions && domainOptions.length > 0">
+                <label *ngFor="let d of domainOptions"
+                    class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
+                    <input type="checkbox" [checked]="selectedSettingsDomains.includes(d.domain)"
+                        (change)="toggleSettingsDomain(d.domain)" />
+                    <span class="text-base truncate" [title]="d.domain">{{ d.domain }}</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="mb-4">
+            <label class="block text-sm font-semibold mb-2">Yêu cầu bổ sung cho AI (Prompt)</label>
+            <p class="text-xs text-gray-400 mb-2">Ví dụ: "Hãy trả lời ngắn gọn", "Luôn trích dẫn tên sách", "Dùng giọng
+                văn hài hước"...</p>
+            <textarea
+                class="w-full border rounded px-3 py-2 h-[80px] text-md focus:outline-none focus:ring-2 focus:ring-primary-500"
+                [(ngModel)]="customPrompt" placeholder="Nhập yêu cầu bổ sung của bạn vào đây...">
+            </textarea>
+        </div>
+
+        <div class="flex justify-end gap-2 mt-5">
+            <button mat-flat-button color="medium" (click)="showSettingPopup = false">
+                Đóng
+            </button>
+
+            <button mat-flat-button [color]="'primary'" (click)="confirmChatbotSettings()">
+                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:check"></mat-icon>
+                <mat-label class="ml-2">Lưu cấu hình</mat-label>
+            </button>
+        </div>
+    </div>
+</div>

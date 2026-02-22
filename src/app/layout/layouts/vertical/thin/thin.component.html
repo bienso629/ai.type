@@ -1,0 +1,105 @@
+<!-- Loading bar -->
+<fuse-loading-bar></fuse-loading-bar>
+
+<!-- Navigation -->
+<fuse-vertical-navigation class="bg-card dark:bg-gray-900 print:hidden" [appearance]="'thin'"
+    [mode]="isScreenSmall ? 'over' : 'side'" [name]="'mainNavigation'" [navigation]="navigation.compact"
+    [opened]="!isScreenSmall">
+    <!-- Navigation header hook -->
+    <ng-container fuseVerticalNavigationContentHeader>
+        <!-- Logo -->
+        <div class="flex items-center justify-center mt-2 cursor-pointer" [routerLink]="['/']">
+            <img class="w-10" src="assets/images/logo/favicon.svg" title="Về trang chủ">
+        </div>
+    </ng-container>
+</fuse-vertical-navigation>
+
+<!-- Wrapper -->
+<div class="flex flex-col flex-auto w-full min-w-0">
+    <!-- Header -->
+    <div
+        class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden">
+        <!-- Navigation toggle button -->
+        <div class="space-x-1 sm:space-x-1">
+            <button mat-icon-button (click)="toggleNavigation('mainNavigation')" title="Thu gọn/ Mở rộng menu">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:sidebar'"></mat-icon>
+            </button>
+
+            <button mat-icon-button (click)="catureScreen()" title="Chụp ảnh báo lỗi">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:aperture'"></mat-icon>
+            </button>
+
+            <!-- <button mat-icon-button (click)="openPopup()" title="Giải trí">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:smile'"></mat-icon>
+            </button> -->
+
+            <button mat-icon-button (click)="help()" title="Trợ giúp">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:help-circle'"></mat-icon>
+            </button>
+
+            <!-- <input hidden type="file" class="file-input" (change)="readFile($event)" #fileUpload>
+            <button mat-icon-button color="primary" (click)="fileUpload.click()">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:zap-off'"></mat-icon>
+            </button> -->
+
+            <!-- <search [appearance]="'bar'"></search> -->
+        </div>
+
+        <!-- Components -->
+        <div class="flex items-center pl-0 ml-auto space-x-1 sm:space-x-1">
+            <!-- <languages></languages> -->
+            <notifications></notifications>
+            <chatgpt2s></chatgpt2s>
+            <shortcuts></shortcuts>
+            <!-- <fuse-fullscreen class="hidden md:block"></fuse-fullscreen> -->
+            <!-- <messages></messages> -->
+
+            <!-- <button
+                class="lg:hidden"
+                mat-icon-button
+                (click)="quickChat.toggle()">
+                <mat-icon [svgIcon]="'heroicons_outline:chat-alt-2'"></mat-icon>
+            </button> -->
+            <user></user>
+        </div>
+    </div>
+
+    <!-- Content -->
+    <div class="flex flex-col flex-auto">
+        <!-- *ngIf="true" hack is required here for router-outlet to work correctly.
+             Otherwise, layout changes won't be registered and the view won't be updated! -->
+        <router-outlet *ngIf="true"></router-outlet>
+    </div>
+
+    <!-- Footer -->
+    <div
+        class="relative flex flex-0 items-center justify-start w-full h-14 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
+        <!-- <button class="mr-2" mat-icon-button (click)="help()">
+            <mat-icon [svgIcon]="'feather:info'"></mat-icon>
+        </button> -->
+
+        <span class="font-normal text-base text-secondary">Phần mềm Tự động viết bài <a href="https://ai.type.vn"
+                title="Phần mềm Tự động viết bài">AI.TYPE</a> &copy; {{currentYear}}</span>
+    </div>
+
+    <eco-fab-speed-dial #myFab [direction]="direction" [animationMode]="animationMode">
+        <eco-fab-speed-dial-trigger [spin]="spin">
+            <button mat-fab [color]="'primary'" (click)="doAction('trigger')">
+                <mat-icon class="spin360">edit</mat-icon>
+            </button>
+        </eco-fab-speed-dial-trigger>
+
+        <eco-fab-speed-dial-actions>
+            <button mat-mini-fab [color]="'primary'" [routerLink]="['/help']">
+                <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
+            </button>
+
+            <button mat-mini-fab [color]="'primary'" [routerLink]="['/ai-writer']">
+                <mat-icon class="icon-size-4" svgIcon="feather:edit-3"></mat-icon>
+            </button>
+        </eco-fab-speed-dial-actions>
+    </eco-fab-speed-dial>
+</div>
+
+<!-- Quick chat -->
+<quick-chat #quickChat="quickChat"></quick-chat>

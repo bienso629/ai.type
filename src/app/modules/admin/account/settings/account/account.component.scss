@@ -1,0 +1,26 @@
+.example-h2 {
+    margin: 10px;
+}
+
+.example-section {
+    display: flex;
+    align-content: center;
+    align-items: center;
+    height: 60px;
+}
+
+.example-margin {
+    margin: 10px;
+}
+
+.full-width-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.toggle-label {
+    flex: 1;
+    text-align: left;
+}

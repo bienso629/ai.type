@@ -1,0 +1,950 @@
+import { ChangeDetectorRef, Component, HostListener, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { Title } from '@angular/platform-browser';
+import { UserService } from 'app/core/user/user.service';
+import { User } from 'app/core/user/user.types';
+import { Subject, takeUntil } from 'rxjs';
+import { FuseConfigService } from '@fuse/services/config';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { Router } from '@angular/router';
+import { AppConfig } from 'app/core/config/app.config';
+import { MatDrawer } from '@angular/material/sidenav';
+import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
+import { ToastrService } from 'ngx-toastr';
+import { HelperService } from 'app/helper.service';
+import { marked } from 'marked';
+import { ChatbotService } from 'app/modules/_services/chatbot';
+
+import { MatDialog } from '@angular/material/dialog';
+import { FileListDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/file-list-dialog.component';
+
+import DOMPurify from 'dompurify';
+import { DomainService } from 'app/modules/_services/domain';
+import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
+import { LogService } from 'app/modules/_services/link';
+
+@Component({
+    selector: 'chatbot',
+    templateUrl: './chatbot.component.html',
+    providers: [ChatbotService, DomainService, LogService],
+    styleUrls: ['./chatbot.component.scss'],
+    encapsulation: ViewEncapsulation.None
+})
+export class ChatBotComponent implements OnInit, OnDestroy {
+    config: AppConfig;
+    user: User;
+    settings: any;
+
+    // Popup state
+    showDocTypePopup = false;
+
+    // Giá trị user chọn trong radio
+    selectedDocType: string | null = null;
+
+    // ✅ BIẾN NÀY (doc_type thực tế dùng để upload)
+    currentDocType: string | null = null;
+
+    // Tóm tắt / Pháp lý / Phân tích / Kỹ thuật / Hỏi đáp chi tiết / Sách giáo khoa / Luận văn / Hợp đồng / Bản trình chiếu / Bài báo học thuật
+    docTypes = [
+        { value: 'summary', label: 'Tóm tắt' },
+        { value: 'legal', label: 'Pháp lý' },
+        { value: 'analysis', label: 'Phân tích' },
+        { value: 'technical', label: 'Kỹ thuật' },
+        { value: 'qa_detailed', label: 'Hỏi đáp chi tiết' },
+        { value: 'textbook', label: 'Sách giáo khoa' },
+        { value: 'thesis', label: 'Luận văn' },
+        { value: 'contract', label: 'Hợp đồng' },
+        { value: 'slides', label: 'Bản trình chiếu' },
+        { value: 'academic_article', label: 'Bài báo học thuật' },
+    ];
+
+    // Popup state
+    showIndexDomainsPopup = false;
+
+    // Popup state: settings chatbot
+    showSettingPopup = false;
+    selectedDataSource: 'documents' | 'website' | 'all' = 'documents';
+
+    // Danh sách docTypes đã chọn trong Settings
+    selectedDocTypes: string[] = [];
+
+    // ✅ NEW: Danh sách domains đã chọn trong Settings
+    selectedSettingsDomains: string[] = [];
+
+    // ✅ NEW: Custom Prompt
+    customPrompt: string = '';
+
+    // Dữ liệu popup Index Domains
+    selectedDomain: string | null = null;
+
+    // Textarea: mỗi dòng 1 sitemap URL
+    sitemapsText = '';
+
+    // Danh sách domain lấy từ API (dạng object {id, domain, ...})
+    domainOptions: any[] = [];
+
+    @ViewChild('drawer') drawer: MatDrawer;
+    drawerMode: 'over' | 'side' = 'side';
+    drawerOpened: boolean = true;
+
+    selectedPanel: string = 'account';
+    chatbotMessage: UntypedFormGroup;
+
+    currentThread: number = null;
+    threadList: any[] = [];
+    messages: any[] = [];
+    currentMessages: any[] = [];
+    ColumnMode = ColumnMode;
+    SelectionType = SelectionType;
+
+    threadRows: any[] = []; // rows cho ngx-datatable
+    threadTableHeight = 520; // sẽ tính lại theo viewport (optional)
+
+    inputMessage: string = '';
+    isLoading: boolean = false;
+
+    statusIndex: any = {
+        domain: '',
+        status: '',
+        files: '',
+        urls: []
+    }
+
+    /* END TWO OBJECTS */
+    private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    /**
+     * Track by function for ngFor loops
+     *
+     * @param index
+     * @param item
+     */
+    trackByFn(index: number, item: any): any {
+        return item.id || index;
+    }
+
+    private rebuildThreadRows(): void {
+        // threadList: [id, title, name, email, phone]
+        this.threadRows = (this.threadList || []).map(t => ({
+            id: t?.[0],
+            title: t?.[1] || '',
+            name: t?.[2] || '',
+            email: t?.[3] || '',
+            phone: t?.[4] ?? null,
+            raw: t, // giữ raw để dùng nếu cần
+        }));
+
+        this.cd.markForCheck();
+    }
+
+    private calcThreadTableHeight(): void {
+        const h = Math.max(120, window.innerHeight - 356);
+        this.threadTableHeight = h;
+        this.cd.markForCheck();
+    }
+
+    get selectedThreadRows(): any[] {
+        const id = Number(this.selectedPanel);
+        if (!id) return [];
+        const found = (this.threadRows || []).find(r => Number(r?.id) === id);
+        return found ? [found] : [];
+    }
+
+    @HostListener('window:resize')
+    onResize() {
+        this.calcThreadTableHeight();
+    }
+
+    call(phone: number) {
+        window.location.href = `tel:+${phone}`;
+    }
+
+    onThreadRowActivate(ev: any) {
+        if (ev?.type === 'click' && ev?.row?.id) {
+            this.selectThread(ev.row.id);
+        }
+    }
+
+    initDB() {
+        this._chatbotService.initDB({
+            username: this.user.name
+        }).pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.username) {
+                        this.toastr.success('Kích hoạt Chatbot thành công!');
+                    }
+
+                    this.loadThreads();
+                },
+                error: () => {
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    renderMessages(messages: any[]) {
+        const chat = document.getElementById('chat');
+        if (!chat) return;
+
+        chat.innerHTML = '';
+
+        const currentThread = this.threadList.filter((item: any) => item[0] === this.currentThread);
+        const currentName = currentThread?.[0]?.[2] ?? this.user?.name ?? 'U';
+
+        messages.forEach(m => {
+            const wrapper = document.createElement('div');
+            wrapper.className = `message-row ${m[2] === 'user' ? 'user' : ''}`;
+
+            const message = document.createElement('div');
+            message.className = `message ${m[2] === 'user' ? 'user' : ''}`;
+
+            const avatar = document.createElement('div');
+            avatar.className = 'avatar';
+            if (m[2] === 'user') {
+                if (currentThread?.[0]?.[3]) {
+                    const image = document.createElement('img');
+                    image.src = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(currentName)}`;
+                    image.alt = this.user?.name ?? 'U';
+                    avatar.appendChild(image);
+                } else {
+                    avatar.textContent = 'U';
+                }
+            } else {
+                avatar.textContent = 'B';
+            }
+
+            const bubble = document.createElement('div');
+            bubble.className = `bubble px-6 py-4 leading-6 text-base ${m[2] === 'user' ? 'user' : 'bot'}`;
+
+            // ✅ Parse + sanitize rồi gán innerHTML (không dùng textContent)
+            const md = (m[3] ?? '').toString();
+            const html = marked.parse(md) as string;
+            const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+            bubble.innerHTML = clean;
+
+            // Tuỳ chọn: ép link mở tab mới & an toàn
+            bubble.querySelectorAll<HTMLAnchorElement>('a[href]').forEach(a => {
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+            });
+
+            const time = document.createElement('div');
+            time.className = 'text-xs text-gray-500 dark:text-gray-400 mt-1 px-2';
+            const date = new Date();
+            const baseTime = m[6] || date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            time.textContent = (m[7] && m[8]) ? `${baseTime}, IP: ${m[7]}, From: ${m[8]}` : baseTime;
+
+            const bubbleWrap = document.createElement('div');
+            bubbleWrap.appendChild(bubble);
+
+            // Render tags (an toàn)
+            if (m[4]) {
+                try {
+                    const tags = JSON.parse(m[4]);
+                    if (Array.isArray(tags) && tags.length) {
+                        const container = document.createElement('div');
+                        container.className = 'tags-container hidden mb-2 flex flex-col';
+
+                        const labelDiv = document.createElement('div');
+                        labelDiv.className = 'text-md my-2 cursor-pointer hover:text-gray-600';
+                        labelDiv.textContent = 'Nguồn [+]';
+                        bubble.appendChild(labelDiv);
+
+                        labelDiv.addEventListener('click', () => {
+                            container.classList.toggle('hidden');
+                        });
+
+                        tags.forEach((tag: any) => {
+                            const tagDiv = document.createElement('label');
+                            tagDiv.className = 'tag font-normal cursor-pointer hover:text-gray-800';
+                            tagDiv.textContent = String(tag);
+                            container.appendChild(tagDiv);
+                        });
+
+                        bubble.appendChild(container);
+                    }
+                } catch { /* ignore malformed JSON */ }
+            }
+
+            bubbleWrap.appendChild(time);
+            message.appendChild(avatar);
+            message.appendChild(bubbleWrap);
+            wrapper.appendChild(message);
+            chat.appendChild(wrapper);
+        });
+
+        this.currentMessages = messages;
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    appendTyping() {
+        const chat = document.getElementById('chat');
+        if (!chat) return;
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'message-row';
+
+        const message = document.createElement('div');
+        message.className = 'message';
+
+        const avatar = document.createElement('div');
+        avatar.className = 'avatar';
+        avatar.textContent = 'B';
+
+        const bubble = document.createElement('div');
+        bubble.className = 'bubble bot text-base animate-pulse';
+        bubble.textContent = 'Đang trả lời...';
+
+        message.appendChild(avatar);
+        message.appendChild(bubble);
+        wrapper.appendChild(message);
+        wrapper.id = 'typing';
+
+        chat.appendChild(wrapper);
+        chat.scrollTop = chat.scrollHeight;
+    }
+
+    removeTyping() {
+        const typing = document.getElementById('typing');
+        if (typing) typing.remove();
+    }
+
+    toggleDarkMode(): void {
+        document.documentElement.classList.toggle('dark');
+    }
+
+    loadThreads(): void {
+        this._chatbotService.loadThreads({
+            username: this.user.name
+        }).pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (data) => {
+                    if (data) {
+                        this.threadList = data;
+                        this.rebuildThreadRows();
+                        this.calcThreadTableHeight();
+
+                        if (data.length > 0 && !this.currentThread) {
+                            this.selectThread(data[0][0]);
+                        }
+
+                        this.cd.markForCheck();
+                    }
+                },
+                error: () => {
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    selectThread(threadId: number): void {
+        this.currentThread = threadId;
+        this.selectedPanel = `${threadId}`;
+
+        this._chatbotService.selectThread({
+            threadId: threadId,
+            username: this.user.name
+        }).pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (data) => {
+                    this.messages = data;
+
+                    this.removeTyping();
+                    this.renderMessages(data);
+                },
+                error: () => {
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    createThread(): void {
+        this._chatbotService.createThread({
+            username: this.user.name,
+            name: this.user.name,
+            email: this.user.email,
+            phone: this.help.textToNumber(this.user.name)
+        }).pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (threadId) => {
+                    this.currentThread = threadId;
+                    this.loadThreads();
+                },
+                error: () => {
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    getMessage(currentThread: any): void {
+        this._chatbotService.getMessage({
+            username: this.user.name,
+            currentThread: currentThread
+        }).pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (messages) => {
+                    this.removeTyping();
+                    this.currentMessages = messages;
+                    this.renderMessages(messages);
+                },
+                error: () => {
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    sendMessage() {
+        const msg = this.chatbotMessage.get('chatgpt').value;
+
+        if (!this.currentThread || !msg?.trim()) {
+            this.toastr.warning('Chưa có cuộc trò chuyện hoặc tin nhắn trống!');
+        } else {
+            this.chatbotMessage.controls['chatgpt'].reset();
+
+            // 👉 Hiển thị tin nhắn người dùng ngay lập tức
+            const userMessage = [this.currentMessages.length + 1, this.currentThread, 'user', msg, null];
+            this.renderMessages([...this.currentMessages, userMessage]);
+            this.appendTyping();
+
+            let secretKey = this.settings.secretKey;
+            if (secretKey) {
+                secretKey = secretKey.split(';');
+                let geminiKey = secretKey[0];
+
+                if (secretKey[3]) {
+                    geminiKey = secretKey[3];
+                }
+
+                // NOTE: logic gửi tin nhắn đã được backend tự động xử lý dựa vào settings
+                // nên tham số 'domain' hay 'simple_chatbot_data_source' ở đây chỉ là fallback
+                this._chatbotService.sendMessage({
+                    thread_id: this.currentThread,
+                    username: this.user.name,
+                    message: msg,
+                    ip_address: "192.168.1.1",
+                    sender_info: "Chrome on Windows",
+                    google_api_key: geminiKey,
+                    llm_model: "gemini-2.5-flash",
+                    simple_chatbot_data_source: this.selectedDataSource || 'documents',
+                    index_dir: `faiss_pdf_index`
+                }).pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: async () => {
+                            this.getMessage(this.currentThread);
+                        },
+                        error: () => {
+                        },
+                        complete: () => {
+                        }
+                    });
+            } else {
+                this.toastr.warning('Bạn chưa có mã Google Gemini Key');
+            }
+        }
+    }
+
+    /**
+     * Lấy tất cả domain của khách
+     */
+    alldomains() {
+        this._domainService.fetch({
+            username: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data.length > 0) {
+                        this.domainOptions = result.data;
+                        this.selectedDomain = this.domainOptions[0]['domain'];
+                        this.cd.markForCheck();
+                    }
+                },
+                error: () => {
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    triggerPdfUpload(): void {
+        this.showDocTypePopup = true;
+    }
+
+    confirmDocType() {
+        if (!this.selectedDocType) {
+            this.toastr.warning('Vui lòng chọn loại tài liệu');
+            return;
+        }
+
+        // Lưu doc_type để dùng khi upload
+        this.currentDocType = this.selectedDocType;
+        localStorage.setItem('last_doc_type', this.currentDocType!);
+
+        this.showDocTypePopup = false;
+
+        setTimeout(() => {
+            document.getElementById('pdfInput')?.click();
+        }, 0);
+    }
+
+    onPdfSelected(event: any): void {
+        const file = (event.target as HTMLInputElement)?.files?.[0];
+        if (!file) return;
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('doc_type', this.currentDocType); // 👈 NEW
+        formData.append('username', this.user.name);
+
+        this._chatbotService.onPdfSelected(formData)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (res) => {
+                    if (res.success) {
+                        this.toastr.success('Upload thành công: ' + res.filename + '!');
+                    } else {
+                        this.toastr.error('Upload thất bại.');
+                    }
+                },
+                error: () => {
+                    this.toastr.error('Upload thất bại.');
+                },
+                complete: () => {
+                }
+            });
+    }
+
+    listFiles() {
+        let secretKey = this.settings.secretKey;
+        if (secretKey) {
+            secretKey = secretKey.split(';');
+            let geminiKey = secretKey[0];
+
+            if (secretKey[3]) {
+                geminiKey = secretKey[3];
+            }
+
+            this._chatbotService.listFiles({
+                username: this.user.name,
+            }).pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: async (result) => {
+                        if (!result || result.length === 0) {
+                            this.toastr.warning('Bạn chưa có tài liệu nào.');
+                            return;
+                        }
+
+                        this.dialog.open(FileListDialogComponent, {
+                            width: '1200px',
+                            height: '600px',
+                            data: {
+                                rows: result,
+                                username: this.user.name,
+                                google_api_key: geminiKey,
+                                llm_model: "gemini-2.5-flash",
+                                index_dir: `faiss_pdf_index`,
+                            }
+                        });
+                    },
+                    error: () => {
+                        this.toastr.error('Không thể lấy tài liệu của bạn.');
+                    },
+                    complete: () => {
+                    }
+                });
+        }
+    }
+
+    indexFiles() {
+        let secretKey = this.settings.secretKey;
+        if (secretKey) {
+            secretKey = secretKey.split(';');
+            let geminiKey = secretKey[0];
+
+            if (secretKey[3]) {
+                geminiKey = secretKey[3];
+            }
+
+            this._chatbotService.indexFiles({
+                username: this.user.name,
+                google_api_key: geminiKey,
+                llm_model: "gemini-2.5-flash",
+                index_dir: `faiss_pdf_index`,
+                enable_ocr: false
+            }).pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: async (result) => {
+                        if (result && result.success) {
+                            localStorage.setItem('index_files', result.job_id);
+                            this.toastr.success('Đang cập nhật chatbot của bạn.');
+                        } else {
+                            this.toastr.error('Lỗi trong quá trình cập nhật.');
+                        }
+                    },
+                    error: () => {
+                        this.toastr.error('Lỗi trong quá trình cập nhật.');
+                    },
+                    complete: () => {
+                    }
+                });
+        }
+    }
+
+    indexDomains() {
+        if (this.statusIndex.status === 'running') {
+            this.toastr.warning('Quá trình cập nhật đang diễn ra.');
+            return;
+        }
+
+        // mở popup
+        this.showIndexDomainsPopup = true;
+
+        // set default cho tiện (optional)
+        if (!this.selectedDomain && this.domainOptions?.length) {
+            this.selectedDomain = this.domainOptions[0]['domain'];
+        }
+
+        // gợi ý sitemaps mẫu (optional) nếu textarea đang trống
+        this.getSitemap();
+    }
+
+    getSitemap() {
+        if (this.selectedDomain) {
+            this.sitemapsText =
+                `${this.selectedDomain.replace(/\/$/, '')}/post-sitemap.xml\n` +
+                `${this.selectedDomain.replace(/\/$/, '')}/page-sitemap.xml\n` +
+                `${this.selectedDomain.replace(/\/$/, '')}/category-sitemap.xml\n` +
+                `${this.selectedDomain.replace(/\/$/, '')}/author-sitemap.xml\n`;
+        }
+    }
+
+    confirmIndexDomains() {
+        const domain = (this.selectedDomain || '').trim();
+
+        if (!domain) {
+            this.toastr.warning('Vui lòng chọn domain.');
+            return;
+        }
+
+        this.statusIndex.domain = domain;
+
+        // parse textarea: mỗi dòng 1 link, bỏ dòng trống
+        const sitemaps = (this.sitemapsText || '')
+            .split('\n')
+            .map(s => s.trim())
+            .filter(Boolean);
+
+        if (sitemaps.length === 0) {
+            this.toastr.warning('Vui lòng nhập ít nhất 1 link sitemap (mỗi dòng 1 link).');
+            return;
+        }
+
+        const payload = {
+            username: this.user?.name,
+            domains: [domain],
+            sitemaps,
+        };
+
+        this.showIndexDomainsPopup = false;
+
+        this._chatbotService.indexDomains(payload)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    if (result && result.success) {
+                        Object.entries(result.data).forEach(([key, urls]) => {
+                            if (domain.indexOf(key) >= 0) {
+                                this.statusIndex.urls = urls;
+                            }
+                        });
+
+                        this.turnOnCrawlWebsite(domain);
+
+                        this.toastr.success('Đang cập nhật chatbot của bạn.');
+                    } else {
+                        this.toastr.error('Lỗi trong quá trình cập nhật.');
+                    }
+                },
+                error: (err: any) => {
+                    this.toastr.error('Lỗi trong quá trình cập nhật.');
+                }
+            });
+    }
+
+    turnOnCrawlWebsite(domain: string) {
+        if (this.statusIndex.urls.length > 0) {
+            this.statusIndex.status = 'running';
+            let url = this.statusIndex.urls[0];
+
+            if (url !== domain && url !== `${domain}/`) {
+                this.getContentUrl(url, domain);
+            } else {
+                this.statusIndex.urls.splice(0, 1);
+                this.turnOnCrawlWebsite(domain);
+            }
+        } else {
+            this.triggerIndexDomain(domain);
+        }
+    }
+
+    getContentUrl(url: string, domain: string) {
+        this._logService.read({
+            url: url,
+            username: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result: any) => {
+                    if (result && result.success && result.data && result.data.title && result.data.textContent) {
+                        this.saveContentUrl(url, domain, result.data);
+                    } else {
+                        this.statusIndex.urls.splice(0, 1);
+                        this.toastr.error('Không thể phân tích tài nguyên.');
+                        this.turnOnCrawlWebsite(domain);
+                    }
+                },
+                error: () => {
+                    this.statusIndex.urls.splice(0, 1);
+                    this.statusIndex.status = 'error';
+                    this.toastr.error('Không thể phân tích tài nguyên.');
+
+                    this.turnOnCrawlWebsite(domain);
+                },
+                complete: () => { }
+            });
+    }
+
+    saveContentUrl(url: string, domain: string, data: any) {
+        this._chatbotService.saveContentUrl({
+            "username": this.user.name,
+            "domain": domain,
+            "url": url,
+            "data": data
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result) => {
+                    if (result) {
+                        this.toastr.success(`Lưu thành công "${data.title}"`);
+                        this.statusIndex.urls.splice(0, 1);
+
+                        this.turnOnCrawlWebsite(domain);
+                    }
+                },
+                error: (err: any) => {
+                    this.statusIndex.status = 'error';
+                    this.toastr.error('Lưu không thành công.');
+
+                    this.turnOnCrawlWebsite(domain);
+                }
+            });
+    }
+
+    triggerIndexDomain(domain: string) {
+        this._chatbotService.triggerIndexDomain({
+            username: this.user.name,
+            domain: domain
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (_) => {
+                    this.statusIndex.status = 'done';
+                    this.toastr.success(`Kết thúc cập nhật!`);
+                },
+                error: (err: any) => {
+                    this.statusIndex.status = 'error';
+                    this.toastr.error('Kết thúc cập nhật.');
+                }
+            });
+    }
+
+    private loadChatbotSettings(): void {
+        this._chatbotService.loadChatbotSettings({
+            username: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (cfg: any) => {
+                    if (cfg?.data_source) this.selectedDataSource = cfg.data_source;
+                    this.selectedDocTypes = Array.isArray(cfg?.doc_types) ? cfg.doc_types : [];
+                    this.selectedSettingsDomains = Array.isArray(cfg?.domains) ? cfg.domains : [];
+
+                    // ✅ NEW: Load custom prompt từ settings
+                    this.customPrompt = cfg?.custom_prompt || '';
+
+                    this.cd.markForCheck();
+                },
+                error: (err: any) => {
+                    // fallback mặc định
+                    this.selectedDataSource = 'documents';
+                    this.selectedDocTypes = [];
+                    this.selectedSettingsDomains = [];
+                    this.customPrompt = '';
+                    this.cd.markForCheck();
+                }
+            });
+    }
+
+    confirmChatbotSettings(): void {
+        if (!this.selectedDataSource) {
+            this.toastr.warning('Vui lòng chọn nguồn dữ liệu');
+            return;
+        }
+
+        // Validate: nếu chọn Documents/All thì phải có ít nhất 1 loại doc
+        if ((this.selectedDataSource === 'documents' || this.selectedDataSource === 'all') && (!this.selectedDocTypes || this.selectedDocTypes.length === 0)) {
+            this.toastr.warning('Vui lòng chọn ít nhất 1 loại tài liệu (docTypes)');
+            return;
+        }
+
+        // Validate: nếu chọn Website/All thì phải có ít nhất 1 domain
+        if ((this.selectedDataSource === 'website' || this.selectedDataSource === 'all') && (!this.selectedSettingsDomains || this.selectedSettingsDomains.length === 0)) {
+            this.toastr.warning('Vui lòng chọn ít nhất 1 Website');
+            return;
+        }
+
+        this._chatbotService.confirmChatbotSettings({
+            username: this.user.name,
+            data_source: this.selectedDataSource,
+            doc_types: this.selectedDocTypes,
+            domains: this.selectedSettingsDomains,
+            custom_prompt: this.customPrompt // ✅ Gửi prompt lên backend
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (cfg: any) => {
+                    if (cfg?.data_source) this.selectedDataSource = cfg.data_source;
+                    this.selectedDocTypes = Array.isArray(cfg?.doc_types) ? cfg.doc_types : [];
+                    this.selectedSettingsDomains = Array.isArray(cfg?.domains) ? cfg.domains : [];
+                    this.customPrompt = cfg?.custom_prompt || ''; // update lại biến
+
+                    this.toastr.success('Lưu cấu hình thành công!');
+                    this.showSettingPopup = false;
+                    this.cd.markForCheck();
+                },
+                error: (err: any) => {
+                    this.toastr.error('Lưu cấu hình thất bại');
+                    // fallback mặc định nếu lỗi
+                    this.selectedDataSource = 'documents';
+                    this.selectedDocTypes = [];
+                    this.cd.markForCheck();
+                }
+            });
+    }
+
+    toggleDocType(dt: string): void {
+        const idx = this.selectedDocTypes.indexOf(dt);
+        if (idx >= 0) this.selectedDocTypes.splice(idx, 1);
+        else this.selectedDocTypes.push(dt);
+        this.selectedDocTypes = [...this.selectedDocTypes];
+        this.cd.markForCheck();
+    }
+
+    // ✅ NEW: Hàm toggle cho Domain checkbox trong settings
+    toggleSettingsDomain(domain: string): void {
+        const idx = this.selectedSettingsDomains.indexOf(domain);
+        if (idx >= 0) this.selectedSettingsDomains.splice(idx, 1);
+        else this.selectedSettingsDomains.push(domain);
+        this.selectedSettingsDomains = [...this.selectedSettingsDomains];
+        this.cd.markForCheck();
+    }
+
+    settingChatbot() {
+        // Load lại settings mới nhất mỗi khi mở popup
+        this.loadChatbotSettings();
+        this.showSettingPopup = true;
+    }
+
+    /**
+     * Constructor
+     */
+    constructor(
+        private titleService: Title,
+        private _userService: UserService,
+        private _chatbotService: ChatbotService,
+        private _domainService: DomainService,
+        private _logService: LogService,
+        private _fuseConfigService: FuseConfigService,
+        private _fuseConfirmationService: FuseConfirmationService,
+        private _formBuilder: UntypedFormBuilder,
+        public dialog: MatDialog,
+        private help: HelperService,
+        private toastr: ToastrService,
+        private cd: ChangeDetectorRef,
+        private router: Router,
+    ) {
+        this.titleService.setTitle(`hỏi chatgpt | ai.type - công cụ tạo content`);
+    }
+
+    ngOnInit(): void {
+        const settings = localStorage.getItem('settings');
+        this.settings = JSON.parse(settings);
+
+        this.currentDocType = localStorage.getItem('last_doc_type');
+
+        this.chatbotMessage = this._formBuilder.group({
+            chatgpt: ['']
+        });
+
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+
+                if (user.reputation < 1000000) {
+                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
+                    return;
+                }
+
+                this.initDB();
+                this.alldomains();
+                this.loadChatbotSettings();
+            });
+
+        // Subscribe to config changes
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: AppConfig) => {
+                this.config = config;
+            });
+    }
+
+    ngOnDestroy(): void {
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
+    }
+
+    error(message?: string) {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Thông báo!',
+            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            icon: {
+                show: true,
+                name: 'feather:alert-triangle',
+                color: 'error'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Đóng',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: false,
+                    label: 'Đóng lại'
+                }
+            },
+            dismissible: false
+        });
+
+        dialogRef.afterClosed().subscribe((_) => {
+            this.router.navigate(['/tools']);
+        });
+    }
+}
