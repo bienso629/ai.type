@@ -1,0 +1,39 @@
+ng-select {
+  &.custom-select-archives {
+    .ng-select-container {
+      min-width: 2000px;
+
+      .ng-input, .ng-clear-wrapper, .ng-arrow-wrapper {
+        display: none;
+      }
+
+      .ng-value-container {
+        padding-left: 0 !important;
+
+        .ng-placeholder {
+          padding-left: 0 !important;
+        }
+      }
+    }
+  }
+
+  &.ng-select-disabled {
+    .ng-select-container {
+      min-width: 2000px;
+
+      .ng-input, .ng-clear-wrapper, .ng-arrow-wrapper {
+        display: none;
+      }
+      
+      .ng-value-container {
+        .ng-value {
+          border-radius: 2px;
+
+          .ng-value-label {
+            padding: 1px 5px;
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,31 @@
+<form [formGroup]="loginForm" (ngSubmit)="signIn()">
+  <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
+    <mat-icon class="self-center mr-2 icon-size-4" [svgIcon]="'feather:user-check'"></mat-icon>
+    <mat-label class="self-center">Kết nối tới {{data.domain}}</mat-label>
+  </div>
+
+  <div mat-dialog-content class="mt-4 p-0">
+    <div class="mb-1 text-md text-hint">Hệ thống đang hỗ trợ những site bằng Wordpress FW</div>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-4"
+      [subscriptSizing]="'dynamic'">
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
+      <input [formControlName]="'username'" [placeholder]="'Tên đăng nhập'" type="text" required
+        matInput />
+    </mat-form-field>
+
+    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2"
+      [subscriptSizing]="'dynamic'">
+      <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:key'"></mat-icon>
+      <input [formControlName]="'apppass'" [placeholder]="'Mật khẩu ứng dụng'" type="password" required
+        matInput />
+    </mat-form-field>
+  </div>
+
+  <div mat-dialog-actions class="p-0 mt-4">
+    <button mat-flat-button color="primary" type="submit" class="float-right">
+      <mat-label>Kết nối</mat-label>
+    </button>
+    <button mat-flat-button color="medium" [mat-dialog-close] class="float-right">Đóng cửa sổ</button>
+  </div>
+</form>

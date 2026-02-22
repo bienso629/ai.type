@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="73px" height="53px" viewBox="0 0 73 53" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>icon_download_windows</title>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="icon_download_windows" transform="translate(-4, -13)">
+            <g transform="translate(5, 14)">
+                <rect id="Rectangle" fill="#0D9488" fill-rule="nonzero" x="25.5" y="50.5" width="21" height="1"></rect>
+                <path d="M3.5,0 L67.5,0 C69.433,0 71,1.567 71,3.5 L71,42.5 C71,44.433 69.433,46 67.5,46 L3.5,46 C1.567,46 0,44.433 0,42.5 L0,3.5 C0,1.567 1.567,0 3.5,0 Z" id="Path" stroke="#0D9488" fill="#FFFFFF" fill-rule="nonzero"></path>
+                <polygon id="Path" fill="#0D9488" points="33.5 30.5 26.5 29.4399 26.5 23.5 33.5 23.5"></polygon>
+                <polygon id="Path" fill="#0D9488" points="33.5 23.5 26.5 23.5 26.5 17.56 33.5 16.5"></polygon>
+                <polygon id="Path" fill="#0D9488" points="44.5 31.5 35.5 30.1726 35.5 23.5 44.5 23.5"></polygon>
+                <polygon id="Path" fill="#0D9488" points="44.5 22.5 35.5 22.5 35.5 15.8267 44.5 14.5"></polygon>
+                <rect id="Rectangle" stroke="#0D9488" fill="#FFFFFF" fill-rule="nonzero" x="33" y="46" width="6" height="5"></rect>
+            </g>
+        </g>
+    </g>
+</svg>

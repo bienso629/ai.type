@@ -1,0 +1,216 @@
+:host {
+    display: block;
+    height: 100vh;
+    background-color: white;
+}
+
+.dark :host {
+    background-color: #1f2937;
+    /* gray-800 */
+    color: white;
+}
+
+#app {
+    display: flex;
+    height: 100vh;
+    overflow: hidden;
+}
+
+.sidebar {
+    width: 250px;
+    border-right: 1px solid #e5e7eb;
+    background-color: #f9fafb;
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.dark .sidebar {
+    background-color: #111827;
+    border-right-color: #374151;
+}
+
+.sidebar h2 {
+    font-size: 1.25rem;
+    font-weight: bold;
+    margin-bottom: 1rem;
+}
+
+.thread-list li {
+    cursor: pointer;
+    padding: 0.5rem;
+    border-radius: 0.375rem;
+    transition: background-color 0.2s ease;
+}
+
+.thread-list li:hover {
+    background-color: #e5e7eb;
+}
+
+.dark .thread-list li:hover {
+    background-color: #374151;
+}
+
+.chat-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 1rem;
+    overflow: hidden;
+}
+
+#chat {
+    flex: 1;
+    overflow-y: auto;
+    padding-right: 0.5rem;
+}
+
+#chat::-webkit-scrollbar {
+    width: 6px;
+}
+
+#chat::-webkit-scrollbar-thumb {
+    background: #cbd5e0;
+    border-radius: 3px;
+}
+
+.dark #chat::-webkit-scrollbar-thumb {
+    background: #4b5563;
+}
+
+.message-row {
+    display: flex;
+    align-items: start;
+    margin-bottom: 0.75rem;
+}
+
+.message-row.user {
+    justify-content: flex-end;
+}
+
+.message {
+    max-width: 80%;
+    display: flex;
+    gap: 0.5rem;
+}
+
+.message.user {
+    flex-direction: row-reverse;
+}
+
+.bubble {
+    padding: 0.5rem 1rem;
+    border-radius: 0.75rem;
+    // font-size: 0.875rem;
+    p, ul, ol, li {
+        margin-top: 12px;
+        
+        &:first-child {
+            margin-top: 0;
+        }
+    }
+}
+
+.bubble.user {
+    background-color: #3b82f6;
+    color: white;
+}
+
+.bubble.bot {
+    background-color: #fbfbfb;
+    color: #111827;
+}
+
+.dark .bubble.bot {
+    background-color: #374151;
+    color: white;
+}
+
+.avatar {
+    min-width: 2rem;
+    min-height: 2rem;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 9999px;
+    overflow: hidden;
+    background-color: #3b82f6;
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+}
+
+.input-row {
+    display: flex;
+    gap: 0.5rem;
+    padding-top: 1rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.dark .input-row {
+    border-top-color: #374151;
+}
+
+input[type="text"] {
+    flex: 1;
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+    border: 1px solid #d1d5db;
+    outline: none;
+}
+
+.dark input[type="text"] {
+    background-color: #1f2937;
+    border-color: #4b5563;
+    color: white;
+}
+
+.overflow-hidden-custom {
+    .mat-drawer-inner-container {
+        overflow: hidden;
+    }
+}
+
+.animate-pulse {
+    animation: pulse 1.5s infinite;
+}
+
+/* Hiệu ứng con trỏ nháy */
+.animate-blink {
+    animation: blink 1s steps(2, start) infinite;
+}
+
+@keyframes blink {
+    to {
+        visibility: hidden;
+    }
+}
+
+/* Bubble bot hỗ trợ code */
+.bubble.bot pre {
+    background-color: #1e1e1e;
+    color: #f8f8f2;
+    padding: 0.5rem;
+    margin-top: 12px;
+    border-radius: 4px;
+    overflow-x: auto;
+    // font-size: 0.85rem;
+}
+
+.tag {
+    color: #666666;
+    padding: 4px 10px;
+    font-size: 12px;
+    border-top: 1px dashed #e1e1e1;
+}
+
+@keyframes pulse {
+    0%,
+    100% {
+        opacity: 0.4;
+    }
+
+    50% {
+        opacity: 1;
+    }
+}

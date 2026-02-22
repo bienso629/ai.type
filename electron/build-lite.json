@@ -1,0 +1,39 @@
+{
+    "productName": "AI.Type Lite",
+    "appId": "ai.type.vn",
+    "asar": true,
+    "files": [
+        "dist/main.js",
+        "preload.js",
+        "fallback/**/*",
+        "icons/**/*",
+        "node_modules/**/*",
+        "package.json",
+        "!downloader-*",
+        "!type-lite-*"
+    ],
+    "win": {
+        "icon": "icons/icon.ico",
+        "target": "nsis"
+    },
+    "nsis": {
+        "oneClick": false,
+        "perMachine": false,
+        "allowToChangeInstallationDirectory": true
+    },
+    "mac": {
+        "icon": "icons/icon.icns",
+        "hardenedRuntime": false,
+        "gatekeeperAssess": false,
+        "entitlements": "build/entitlements.mac.plist",
+        "entitlementsInherit": "build/entitlements.mac.plist",
+        "target": [
+            "dmg",
+            "zip"
+        ],
+        "identity": "Apple Development: Nguyen Yen (3693P2463B)"
+    },
+    "dmg": {
+        "sign": false
+    }
+}

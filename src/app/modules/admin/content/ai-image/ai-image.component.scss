@@ -1,0 +1,38 @@
+.row-grid {
+	display: flex;
+	flex-wrap: wrap;
+	width: 100%;
+}
+
+.thumb-wrap {
+	position: relative;
+	padding: 4px;
+	box-sizing: border-box;
+}
+
+.thumb {
+	width: 100%;
+	aspect-ratio: 1 / 1; // thumbnail luôn vuông
+	object-fit: cover; // crop giữa cho đẹp
+	display: block;
+	border-radius: 16px;
+}
+
+.thumb-actions {
+	position: absolute;
+	bottom: 16px;
+	right: 16px;
+	display: flex;
+	justify-content: flex-end;
+	gap: 2px;
+}
+
+.image-thumbnails datatable-body-cell {
+	padding: 0 8px !important;
+}
+
+.custom-dialog .mat-mdc-dialog-surface {
+	padding: 0 !important;
+	border-radius: 8px !important;
+	box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1) !important;
+}

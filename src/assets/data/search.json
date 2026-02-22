@@ -1,0 +1,653 @@
+{
+	"search_metadata": {
+		"id": "64901382116a55f03a08b103",
+		"status": "Success",
+		"json_endpoint": "https://serpapi.com/searches/5fb12910d97f48a2/64901382116a55f03a08b103.json",
+		"created_at": "2023-06-19 08:36:18 UTC",
+		"processed_at": "2023-06-19 08:36:18 UTC",
+		"google_url": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&oq=Vinh+Xuan+Quyen&uule=w+CAIQICIYSG8gQ2hpIE1pbmggQ2l0eSxWaWV0bmFt&hl=vi&gl=vn&sourceid=chrome&ie=UTF-8",
+		"raw_html_file": "https://serpapi.com/searches/5fb12910d97f48a2/64901382116a55f03a08b103.html",
+		"total_time_taken": 0.65
+	},
+	"search_parameters": {
+		"engine": "google",
+		"q": "Vinh Xuan Quyen",
+		"location_requested": "Ho Chi Minh City, Vietnam",
+		"location_used": "Ho Chi Minh City,Vietnam",
+		"google_domain": "google.com.vn",
+		"hl": "vi",
+		"gl": "vn",
+		"device": "desktop"
+	},
+	"search_information": {
+		"organic_results_state": "Results for exact spelling",
+		"query_displayed": "Vinh Xuan Quyen",
+		"total_results": 1200000,
+		"time_taken_displayed": 0.41,
+		"menu_items": [
+			{
+				"position": 1,
+				"title": "Video",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Vinh+Xuan+Quyen&tbm=vid&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ0pQJegQIChAB",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google_videos&gl=vn&google_domain=google.com&hl=vi&q=Vinh+Xuan+Quyen"
+			},
+			{
+				"position": 2,
+				"title": "Hình ảnh",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Vinh+Xuan+Quyen&tbm=isch&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ0pQJegQICRAB",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google_images&gl=vn&google_domain=google.com&hl=vi&q=Vinh+Xuan+Quyen"
+			},
+			{
+				"position": 3,
+				"title": "Tin tức",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Vinh+Xuan+Quyen&tbm=nws&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ0pQJegQICBAB",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com&hl=vi&q=Vinh+Xuan+Quyen&tbm=nws"
+			},
+			{
+				"position": 4,
+				"title": "Mua sắm",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Vinh+Xuan+Quyen&tbm=shop&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ0pQJegQIBRAB",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google_shopping&gl=vn&google_domain=google.com&hl=vi&q=Vinh+Xuan+Quyen"
+			},
+			{
+				"position": 5,
+				"title": "Cơ bản",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n+c%C3%B3+b%E1%BA%A3n&uds=ix-ACj4KCUPGoSBi4bqjbhIPVmluaCBYdWFuIFF1eWVuMAJyHlbhu4tuaCBYdcOibiBxdXnhu4FuIGPDsyBi4bqjbgM&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxKsJegQIUhAB&ictx=0",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n+c%C3%B3+b%E1%BA%A3n"
+			},
+			{
+				"position": 6,
+				"title": "Phim",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Phim+V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n&uds=ixqACjQKBFBoaW0SD1ZpbmggWHVhbiBRdXllbjACchlQaGltIFbhu4tuaCBYdcOibiBRdXnhu4FuAw&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxKsJegQIVBAB&ictx=0",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com&hl=vi&q=Phim+V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n"
+			},
+			{
+				"position": 7,
+				"title": "Tap cuoi",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Vinh+xuan+quyen+tap+cuoi&uds=GzgA-B2pUx9D4lO38XYeTdYqiFiP6WWqONB6uGkQmDK0qUAlG5UIPHxrWn0ZnJG0wHU6FP4hOZln5wY&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxKsJegQIURAB&ictx=0",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com&hl=vi&q=Vinh+xuan+quyen+tap+cuoi"
+			},
+			{
+				"position": 8,
+				"title": "Mocnhan",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=M%E1%BB%99c+nh%C3%A2n+v%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n&uds=ix-ACj4KB01vY25oYW4SD1ZpbmggWHVhbiBRdXllbjABciBN4buZYyBuaMOibiB24buLbmggWHXDom4gcXV54buBbgM&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxKsJegQIUxAB&ictx=0",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com&hl=vi&q=M%E1%BB%99c+nh%C3%A2n+v%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n"
+			},
+			{
+				"position": 9,
+				"title": "Diepvan",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Diep+van+vinh+xuan+quyen&uds=ixuACjYKB0RpZXB2YW4SD1ZpbmggWHVhbiBRdXllbjABchhEaWVwIHZhbiB2aW5oIHh1YW4gcXV5ZW4D&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxKsJegQIUBAB&ictx=0",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com&hl=vi&q=Diep+van+vinh+xuan+quyen"
+			}
+		]
+	},
+	"knowledge_graph": {
+		"title": "Vịnh Xuân quyền",
+		"type": "Võ thuật",
+		"kgmid": "/m/084rw",
+		"knowledge_graph_search_link": "https://www.google.com.vn/search?kgmid=/m/084rw&hl=vi-VN&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n&kgs=450b00910f32917a&shndl=0&source=sh/x/kp/1",
+		"serpapi_knowledge_graph_search_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi-VN&kgmid=%2Fm%2F084rw&location=Ho+Chi+Minh+City%2C+Vietnam&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n",
+		"header_images": [
+			{
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe33864960dc1304c8be2ef22ca6eec1008399b454a15be3a0fa6f.jpeg",
+				"source": "https://kickfit-sports.com/vinh-xuan-quyen/"
+			},
+			{
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe33864960dc1304c8be2eb6d1eb95406270a36dd3f423ac8a1db5.jpeg",
+				"source": "https://upyarkilt.com/nguon-goc-vinh-xuan-quyen-do-ai-sang-lap/"
+			},
+			{
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe33864960dc1304c8be2ece673b69f8a0d0a57ce4426fadea0d95.jpeg",
+				"source": "https://vothuattayson.vn/dau-la-nhung-tu-huyet-cua-vinh-xuan-trong-thuc-chien/"
+			},
+			{
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe33864960dc1304c8be2ee077cf1a91ed7d268633c2d7c6c52b44.jpeg",
+				"source": "https://m.daikynguyen.tv/khoa-hoc-cong-nghe/5-nguyen-ly-khoa-hoc-giup-vinh-xuan-quyen-luon-la-khac-tinh-cua-cac-danh-phai.html"
+			},
+			{
+				"image": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTSlY6z2CZvkJn6_r4k3v3tGohC9cvbISIY7Yl_Q-SPcA&s",
+				"source": "https://upyarkilt.com/nguon-goc-vinh-xuan-quyen-do-ai-sang-lap/"
+			}
+		],
+		"description": "Vịnh Xuân quyền còn được biết đến dưới tên gọi Vĩnh Xuân quyền và những biến thể khác về tên như Vịnh Xuân công phu hay Vịnh Xuân phái, là một môn võ thuật có nguồn gốc từ Nam Thiếu Lâm tại tỉnh Phúc Kiến, Trung Quốc. Bên cạnh thiểu số cho rằng rất có thể môn phái đã có lịch sử không dưới 400 năm.",
+		"source": {
+			"name": "Wikipedia",
+			"link": "https://vi.wikipedia.org/wiki/V%E1%BB%8Bnh_Xu%C3%A2n_quy%E1%BB%81n"
+		},
+		"tác_giả": "Ngũ Mai",
+		"tác_giả_links": [
+			{
+				"text": "Tác giả",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+t%C3%A1c+gi%E1%BA%A3&stick=H4sIAAAAAAAAAOPgE-LQz9U3sDApKtdSzii30k_Oz8lJTS7JzM_Tz00sKslMzIkHUsVWyUWpiSX5RYtY5cse7u7Oy1CoKD28KE-hsLTy4e7GPIWSwwuTFdIzH-5aDACbc32GUwAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECDwQAg"
+			},
+			{
+				"text": "Ngũ Mai",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Ng%C5%A9+Mai&si=AMnBZoEofOODruSEFWFjdccePwMH96ZlZt3bOiKSR9t4pqlu2IEuiPjKjvYj2bo2sicusacQ9ibHyuiMvnnc8zBGbJEVkbHmPwxgukAOjM7kz1BPhoDzD64vRQ5wy2oUqPRs5TziOOjlKYhsjOnkoAA07kMl-aR7LFfzaTR-G2c56KuGdyqvdtUxMGPY1GMnTYnQLIZ_IQG7&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAXoECDwQAw"
+			}
+		],
+		"Ảnh_hưởng_từ": "Bạch Hạc quyền, Emei Snake",
+		"Ảnh_hưởng_từ_links": [
+			{
+				"text": "Ảnh hưởng từ",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+%E1%BA%A3nh+h%C6%B0%E1%BB%9Fng+t%E1%BB%AB&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECEMQAg"
+			},
+			{
+				"text": "Bạch Hạc quyền",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=B%E1%BA%A1ch+H%E1%BA%A1c+quy%E1%BB%81n&stick=H4sIAAAAAAAAAONgVuLUz9U3MDcuiC9axCri9HDXwuQMBQ8QpVBYWvlwd2MeAB4vagIkAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAXoECEMQAw"
+			},
+			{
+				"text": "Emei",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Emei&stick=H4sIAAAAAAAAAONgVuLUz9U3MCrPiE9ZxMrimpuaCQCOXjkSFAAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAnoECEMQBA"
+			}
+		],
+		"người_sáng_lập": "Ngũ Mai trong Thiếu Lâm Ngũ tổ",
+		"người_sáng_lập_links": [
+			{
+				"text": "Người sáng lập",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+ng%C6%B0%E1%BB%9Di+s%C3%A1ng+l%E1%BA%ADp&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECEUQAg"
+			},
+			{
+				"text": "Ngũ Mai trong Thiếu Lâm Ngũ tổ",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Ng%C5%A9+Mai+trong+Thi%E1%BA%BFu+L%C3%A2m+Ng%C5%A9+t%E1%BB%95&stick=H4sIAAAAAAAAAONgVuLUz9U3MMwqsqxYxKrql350pYJvYqZCSVF-XrpCSEbmw137SxV8Di_KVQDLlTzcPRUAwcO3jDUAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAXoECEUQAw"
+			}
+		],
+		"tên_khác": "Vĩnh Xuân",
+		"tên_khác_links": [
+			{
+				"text": "Tên khác",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+t%C3%AAn+kh%C3%A1c&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECD4QAg"
+			}
+		],
+		"trọng_tâm": "Self-Defense, Striking,Trapping",
+		"trọng_tâm_links": [
+			{
+				"text": "Trọng tâm",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+tr%E1%BB%8Dng+t%C3%A2m&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECEAQAg"
+			}
+		],
+		"võ_sinh_nổi_tiếng": "Chân Tử Đan, Lý Tiểu Long, Diệp Vấn, Ngũ Doãn Long, Sum Nung, Yuen Kay San, Maurice Novoa",
+		"võ_sinh_nổi_tiếng_links": [
+			{
+				"text": "Võ sinh nổi tiếng",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+v%C3%B5+sinh+n%E1%BB%95i+ti%E1%BA%BFng&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECDsQAg"
+			},
+			{
+				"text": "Chân Tử Đan",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Ch%C3%A2n+T%E1%BB%AD+%C4%90an&stick=H4sIAAAAAAAAAONgVuLUz9U3MDXJjrdYxMrvnHF4UZ5CyMPdaxWOTEjMAwDAPEzCHwAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAXoECDsQAw"
+			},
+			{
+				"text": "Lý Tiểu Long",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=L%C3%BD+Ti%E1%BB%83u+Long&stick=H4sIAAAAAAAAAONgVuLQz9U3sLRMMVnEyu9zeK9CSObD3c2lCj75eekAuNtaxB4AAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAnoECDsQBA"
+			},
+			{
+				"text": "Diệp Vấn",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Di%E1%BB%87p+V%E1%BA%A5n&stick=H4sIAAAAAAAAAONgVuLUz9U3MDSptDBfxMrjkvlwd3uBQtjDXUvzABTEtSUcAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoA3oECDsQBQ"
+			},
+			{
+				"text": "Ngũ Doãn Long",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Ng%C5%A9+Do%C3%A3n+Long&stick=H4sIAAAAAAAAAONgVuLSz9U3MEmuLCxPWsTK75d-dKWCS_7hxXkKPvl56QCK6WK6IAAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoBHoECDsQBg"
+			},
+			{
+				"text": "Sum Nung",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Sum+Nung&stick=H4sIAAAAAAAAAONgVuLVT9c3NEwuNs6qLDesWMTKEVyaq-BXmpcOAMBmcpwcAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoBXoECDsQBw"
+			},
+			{
+				"text": "Yuen Kay San",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Yuen+Kay+San&stick=H4sIAAAAAAAAAONgVuLUz9U3MDFMzzJYxMoTWZqap-CdWKkQnJgHAC9a4akcAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoBnoECDsQCA"
+			}
+		],
+		"xuất_xứ": "Trung Quốc",
+		"xuất_xứ_links": [
+			{
+				"text": "Xuất xứ",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=v%E1%BB%8Bnh+xu%C3%A2n+quy%E1%BB%81n+xu%E1%BA%A5t+x%E1%BB%A9&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ6BMoAHoECDoQAg"
+			},
+			{
+				"text": "Trung Quốc",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Trung+Qu%E1%BB%91c&stick=H4sIAAAAAAAAAONgVuLUz9U3SDEwLTdexMoTUlSal64QWPpw98RkAJshtO4cAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQmxMoAXoECDoQAw"
+			}
+		],
+		"mọi_người_cũng_tìm_kiếm": [
+			{
+				"name": "Tiệt quyền đạo",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Ti%E1%BB%87t+quy%E1%BB%81n+%C4%91%E1%BA%A1o&si=AMnBZoFk_ppfOKgdccwTD_PVhdkg37dbl-p8zEtOPijkCaIHMoYhJHacmGq1jWuje2TN4eNQBQ4qyfqkwXOEKjYe-la8elMy4oGW7GbGEWF3pn_bwN3qL6imE_4NusyVaYpJ_0gLYVnpI7CswKrz_FBeSChtTrl1HssjGSeIg8A5aqU8Jd6qykU9v0Ake-6SniMZQhzsxhbqvzlmjztA1w4WD2QVko6x3qjIhIdKr7GVcG41fNjkhFXyhMf9pqAbGNWyhwcYIBPhiLgAkMJ5597oFYIlaIFk7VuTEZH8nKWsS9dJVB4urLo%3D&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxA16BAg5EAU",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Ti%E1%BB%87t+quy%E1%BB%81n+%C4%91%E1%BA%A1o&si=AMnBZoFk_ppfOKgdccwTD_PVhdkg37dbl-p8zEtOPijkCaIHMoYhJHacmGq1jWuje2TN4eNQBQ4qyfqkwXOEKjYe-la8elMy4oGW7GbGEWF3pn_bwN3qL6imE_4NusyVaYpJ_0gLYVnpI7CswKrz_FBeSChtTrl1HssjGSeIg8A5aqU8Jd6qykU9v0Ake-6SniMZQhzsxhbqvzlmjztA1w4WD2QVko6x3qjIhIdKr7GVcG41fNjkhFXyhMf9pqAbGNWyhwcYIBPhiLgAkMJ5597oFYIlaIFk7VuTEZH8nKWsS9dJVB4urLo%3D",
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe3386fe8ba3d7288f61d723ebb349070026c349358b321438a99e52f010b3d6701c10be75824337653972bea89a90c9d97072.png"
+			},
+			{
+				"name": "Krav Maga",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Krav+Maga&si=AMnBZoFk_ppfOKgdccwTD_PVhdkg37dbl-p8zEtOPijkCaIHMqyvmiZwa5vateNOnDD_wNAkEp9UmBVOHnLt0J5YZxAL8lNLF-dcUf8w6cFGgoo_WJdpHRgDCiEqQJCKSMraGst_u3rHyi3jfO2dKFOv6MF_SmZgaoA-dVuIUd5A8W6hY6k-yyy0s89s68jEphVfWyTOutC1_5i0lJ3Csh_KsYqdBAG_sp6QdFdfpNgs31QBTojMgKyTFFTEWUMMrREdD9oJtjzqKJ-hR9m8PYhYc1gW4SkcbXvh-Y-5g2RjrG-_Xcyw_Fs%3D&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxA16BAg5EAc",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Krav+Maga&si=AMnBZoFk_ppfOKgdccwTD_PVhdkg37dbl-p8zEtOPijkCaIHMqyvmiZwa5vateNOnDD_wNAkEp9UmBVOHnLt0J5YZxAL8lNLF-dcUf8w6cFGgoo_WJdpHRgDCiEqQJCKSMraGst_u3rHyi3jfO2dKFOv6MF_SmZgaoA-dVuIUd5A8W6hY6k-yyy0s89s68jEphVfWyTOutC1_5i0lJ3Csh_KsYqdBAG_sp6QdFdfpNgs31QBTojMgKyTFFTEWUMMrREdD9oJtjzqKJ-hR9m8PYhYc1gW4SkcbXvh-Y-5g2RjrG-_Xcyw_Fs%3D",
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe3386fe8ba3d7288f61d723ebb349070026c349358b321438a99e52f010b3d6701c104ba93198f34e871713cafb1f7f6eb9d0.jpeg"
+			},
+			{
+				"name": "Wushu",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Wushu&si=AMnBZoEofOODruSEFWFjdccePwMH96ZlZt3bOiKSR9t4pqlu2Li9G7aS4QVZ7fSbDNFIhhNB9CH4wG2vsTDVvJ8nMggDIDAKAxmfIgDkT9tsism1b5xikGYK-JL26PY6kJG9_LFXYo2fvYhxb8e77Q59GnTaVcLeUM0OXnCn6Ryc7mYZwFbMsf8r2SwRRH6FJEY_nl1g3C41I_kSNyJAL9qxNB6n8e87Vd1x6hv22qPG2r3VnO8apVC3Vjhl4_i5cY14PsYh08TRT-y2lQagR-mwM76MXbrmQw%3D%3D&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxA16BAg5EAk",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Wushu&si=AMnBZoEofOODruSEFWFjdccePwMH96ZlZt3bOiKSR9t4pqlu2Li9G7aS4QVZ7fSbDNFIhhNB9CH4wG2vsTDVvJ8nMggDIDAKAxmfIgDkT9tsism1b5xikGYK-JL26PY6kJG9_LFXYo2fvYhxb8e77Q59GnTaVcLeUM0OXnCn6Ryc7mYZwFbMsf8r2SwRRH6FJEY_nl1g3C41I_kSNyJAL9qxNB6n8e87Vd1x6hv22qPG2r3VnO8apVC3Vjhl4_i5cY14PsYh08TRT-y2lQagR-mwM76MXbrmQw%3D%3D",
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe3386fe8ba3d7288f61d723ebb349070026c349358b321438a99e52f010b3d6701c103f381b69ba401ae6e7cda38b277ff9cc.jpeg"
+			},
+			{
+				"name": "Aikido",
+				"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Aikido&si=AMnBZoFklzgzW3tOmSOWjtBwUptOtV64-xNxhRLyI1XCvnldu4FXLQQV0c1ONLwhBtdo-VAmW6onwhqaOGq6KXMpXBmGSDGZEpleN7YLY7onj0tkOOCxEtGL4WsiT67RefYy0sQdnjv0IMAp0NCyzTerAxbfZ8oFY1mpEuOHYA5tIE8C1KrlMl-XF35kBdwNX6UnKG6e9j2JPs3WwB0f4lAiu_nL2iaWbHuEB1DOBZLdZ4LODd8JghfCrUhXRexzNWlAVb0VUkO8SJ0l5QKaATWZ_fwYX_-2ng%3D%3D&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQxA16BAg5EAs",
+				"serpapi_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Aikido&si=AMnBZoFklzgzW3tOmSOWjtBwUptOtV64-xNxhRLyI1XCvnldu4FXLQQV0c1ONLwhBtdo-VAmW6onwhqaOGq6KXMpXBmGSDGZEpleN7YLY7onj0tkOOCxEtGL4WsiT67RefYy0sQdnjv0IMAp0NCyzTerAxbfZ8oFY1mpEuOHYA5tIE8C1KrlMl-XF35kBdwNX6UnKG6e9j2JPs3WwB0f4lAiu_nL2iaWbHuEB1DOBZLdZ4LODd8JghfCrUhXRexzNWlAVb0VUkO8SJ0l5QKaATWZ_fwYX_-2ng%3D%3D",
+				"image": "https://serpapi.com/searches/64901382116a55f03a08b103/images/287a7f57ef087506e8fde0c897fe3386fe8ba3d7288f61d723ebb349070026c349358b321438a99e52f010b3d6701c10e9ab06b6f81d621f05ddcdd72f2fee58.jpeg"
+			}
+		],
+		"mọi_người_cũng_tìm_kiếm_link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n&stick=H4sIAAAAAAAAAONgFuLQz9U3sDApKleCs7QEgzNTUssTK4v9UitKgktSC4oXsYqEPdzdnZehEFF6eFGeQmFp5cPdjXk7WBkB1SCdc0MAAAA&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQMSgAegQIORAB",
+		"mọi_người_cũng_tìm_kiếm_stick": "H4sIAAAAAAAAAONgFuLQz9U3sDApKleCs7QEgzNTUssTK4v9UitKgktSC4oXsYqEPdzdnZehEFF6eFGeQmFp5cPdjXk7WBkB1SCdc0MAAAA"
+	},
+	"inline_images": [
+		{
+			"link": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&tbm=isch&source=iu&ictx=1&vet=1&fir=hmVx8BPkrUFIMM%252C3l_p3uscF9fKSM%252C%252Fm%252F084rw%253B7uFUcglZWtboHM%252CSur668HIOE1IhM%252C_%253BXsPcL30ywME-HM%252CwJkRFJKklYHXqM%252C_%253BeaL1cSQHCUignM%252CwCyX4zu9iUHkMM%252C_%253B-TwEqzZHfaO3cM%252CSur668HIOE1IhM%252C_&usg=AI4_-kRcWRrRnNN2QsZrUS5oPWGyir8cKg&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ_B16BAg4EAE#imgrc=hmVx8BPkrUFIMM",
+			"source": "https://kickfit-sports.com/vinh-xuan-quyen/",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/9c8cba528c1e0fac8086c233e921b6180954a848f039cef76c0351d91e43a0f7.jpeg",
+			"original": "https://kickfit-sports.com/wp-content/uploads/2020/11/mon-phai-vinh-xuan-quyen-1.jpg",
+			"title": "kickfit-sports.com/wp-content/uploads/2020/11/mon-...",
+			"source_name": "kickfit-sports.com"
+		},
+		{
+			"link": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&tbm=isch&source=iu&ictx=1&vet=1&fir=hmVx8BPkrUFIMM%252C3l_p3uscF9fKSM%252C_%253B7uFUcglZWtboHM%252CSur668HIOE1IhM%252C_%253BXsPcL30ywME-HM%252CwJkRFJKklYHXqM%252C_%253BeaL1cSQHCUignM%252CwCyX4zu9iUHkMM%252C_%253B-TwEqzZHfaO3cM%252CSur668HIOE1IhM%252C_&usg=AI4_-kTe7ZipO_2MOqMX8aPx3_r8bQdFdw&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ_h16BAhEEAE#imgrc=7uFUcglZWtboHM",
+			"source": "https://upyarkilt.com/nguon-goc-vinh-xuan-quyen-do-ai-sang-lap/",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/9c8cba528c1e0facd42a273672c399f0f729556199b314236d58bde6aa80d58d.jpeg",
+			"original": "https://upyarkilt.com/wp-content/uploads/2021/12/nguon-goc-vinh-xuan-quyen-do-ai-sang-lap-1.jpg",
+			"title": "Nguồn gốc Vịnh Xuân Quyền do ai sáng lập?",
+			"source_name": "Upyarkilt.Com"
+		},
+		{
+			"link": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&tbm=isch&source=iu&ictx=1&vet=1&fir=hmVx8BPkrUFIMM%252C3l_p3uscF9fKSM%252C_%253B7uFUcglZWtboHM%252CSur668HIOE1IhM%252C_%253BXsPcL30ywME-HM%252CwJkRFJKklYHXqM%252C_%253BeaL1cSQHCUignM%252CwCyX4zu9iUHkMM%252C_%253B-TwEqzZHfaO3cM%252CSur668HIOE1IhM%252C_&usg=AI4_-kTe7ZipO_2MOqMX8aPx3_r8bQdFdw&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ_h16BAhGEAE#imgrc=XsPcL30ywME-HM",
+			"source": "https://vothuattayson.vn/dau-la-nhung-tu-huyet-cua-vinh-xuan-trong-thuc-chien/",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/9c8cba528c1e0facf456a5c1c0f1f514299901db6e11a2a1c3cf76fce10c6bbd.jpeg",
+			"original": "https://vothuattayson.vn/wp-content/uploads/vinh-xuan-quyen-va-nhung-diem-yeu.jpg",
+			"title": "Đâu là những tử huyệt của Vịnh Xuân trong thực chiến",
+			"source_name": "Võ Thuật Tây Sơn"
+		},
+		{
+			"link": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&tbm=isch&source=iu&ictx=1&vet=1&fir=hmVx8BPkrUFIMM%252C3l_p3uscF9fKSM%252C_%253B7uFUcglZWtboHM%252CSur668HIOE1IhM%252C_%253BXsPcL30ywME-HM%252CwJkRFJKklYHXqM%252C_%253BeaL1cSQHCUignM%252CwCyX4zu9iUHkMM%252C_%253B-TwEqzZHfaO3cM%252CSur668HIOE1IhM%252C_&usg=AI4_-kTe7ZipO_2MOqMX8aPx3_r8bQdFdw&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ_h16BAhCEAE#imgrc=eaL1cSQHCUignM",
+			"source": "https://m.daikynguyen.tv/khoa-hoc-cong-nghe/5-nguyen-ly-khoa-hoc-giup-vinh-xuan-quyen-luon-la-khac-tinh-cua-cac-danh-phai.html",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/9c8cba528c1e0fac3063bcc803ec3aa763a3080f4977d091f91c96928a5bd925.jpeg",
+			"original": "https://m.daikynguyen.tv/wp-content/uploads/2017/11/ip-man2-590x333.jpg",
+			"title": "5 nguyên lý khoa học giúp Vịnh Xuân Quyền luôn là khắc tinh ...",
+			"source_name": "DKN.TV"
+		},
+		{
+			"link": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&tbm=isch&source=iu&ictx=1&vet=1&fir=hmVx8BPkrUFIMM%252C3l_p3uscF9fKSM%252C_%253B7uFUcglZWtboHM%252CSur668HIOE1IhM%252C_%253BXsPcL30ywME-HM%252CwJkRFJKklYHXqM%252C_%253BeaL1cSQHCUignM%252CwCyX4zu9iUHkMM%252C_%253B-TwEqzZHfaO3cM%252CSur668HIOE1IhM%252C_&usg=AI4_-kTe7ZipO_2MOqMX8aPx3_r8bQdFdw&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ_h16BAg_EAE#imgrc=-TwEqzZHfaO3cM",
+			"source": "https://upyarkilt.com/nguon-goc-vinh-xuan-quyen-do-ai-sang-lap/",
+			"thumbnail": "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTSlY6z2CZvkJn6_r4k3v3tGohC9cvbISIY7Yl_Q-SPcA&s",
+			"original": "https://upyarkilt.com/wp-content/uploads/2021/12/nguon-goc-vinh-xuan-quyen-do-ai-sang-lap.jpg",
+			"title": "Nguồn gốc Vịnh Xuân Quyền do ai sáng lập?",
+			"source_name": "Upyarkilt.Com"
+		}
+	],
+	"inline_videos": [
+		{
+			"position": 1,
+			"title": "VỊNH XUÂN QUYỀN - Phim Lẻ Võ Thuật Hồng Kông Kinh ...",
+			"link": "https://www.youtube.com/watch?v=2Sff7j1PV8U",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/5a9d9b5d73acc39b8c51adebc0a6f6d58d95121e48d97ae5e0bf344e7ac84c20.jpeg",
+			"channel": "Chợ Phim",
+			"duration": "2:45:20",
+			"platform": "YouTube",
+			"date": "15 thg 7, 2022"
+		},
+		{
+			"position": 2,
+			"title": "Bậc Thầy Vịnh Xuân Quyền Khiến Cao Thủ Miền Núi Phải Hối ...",
+			"link": "https://www.youtube.com/watch?v=6sgaJ-MZGCk",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/5a9d9b5d73acc39bad8b03eb1bd609070a92b527c1d976f29148c8f2a9cda980.jpeg",
+			"channel": "Kiếm Hiệp Hay",
+			"duration": "50:07",
+			"platform": "YouTube",
+			"date": "11 thg 7, 2022"
+		},
+		{
+			"position": 3,
+			"title": "Con Trai Võ Sư Vịnh Xuân Quyền Thay Mặt Cha Tiếp Chiêu ...",
+			"link": "https://www.youtube.com/watch?v=FkHpkZb-TV8",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/5a9d9b5d73acc39b0566668414f54b3426f2fcde438517b846606bd9106f2984.jpeg",
+			"channel": "ON FILM",
+			"duration": "29:26",
+			"platform": "YouTube",
+			"date": "25 thg 6, 2022"
+		}
+	],
+	"organic_results": [
+		{
+			"position": 1,
+			"title": "Vịnh Xuân quyền – Wikipedia tiếng Việt",
+			"link": "https://vi.wikipedia.org/wiki/V%E1%BB%8Bnh_Xu%C3%A2n_quy%E1%BB%81n",
+			"displayed_link": "https://vi.wikipedia.org › wiki › Vịnh_Xuân_quyền",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f211385243c2b983853a083c9cdab9c9ea60fb42.png",
+			"snippet": "Vịnh Xuân quyền (詠春拳, Wing Chun, ving tsun, Wing Tsun, Wing Chun kuen, Wingchun-kuen) còn được biết đến dưới tên gọi Vĩnh Xuân quyền (永春拳) và những ...",
+			"snippet_highlighted_words": [
+				"Vịnh Xuân quyền",
+				"Vĩnh Xuân quyền"
+			],
+			"sitelinks": {
+				"inline": [
+					{
+						"title": "Kỹ thuật Vịnh Xuân quyền",
+						"link": "https://vi.wikipedia.org/wiki/K%E1%BB%B9_thu%E1%BA%ADt_V%E1%BB%8Bnh_Xu%C3%A2n_quy%E1%BB%81n"
+					},
+					{
+						"title": "Ngũ Mai",
+						"link": "https://vi.wikipedia.org/wiki/Ng%C5%A9_Mai"
+					},
+					{
+						"title": "Phả hệ Vịnh Xuân quyền",
+						"link": "https://vi.wikipedia.org/wiki/Ph%E1%BA%A3_h%E1%BB%87_V%E1%BB%8Bnh_Xu%C3%A2n_quy%E1%BB%81n"
+					}
+				]
+			},
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vĩnh",
+					"vịnh",
+					"xuân",
+					"quyền"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"cached_page_link": "https://webcache.googleusercontent.com/search?q=cache:7cX91MbxQLsJ:https://vi.wikipedia.org/wiki/V%25E1%25BB%258Bnh_Xu%25C3%25A2n_quy%25E1%25BB%2581n&cd=14&hl=vi&ct=clnk&gl=vn",
+			"related_pages_link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=related:https://vi.wikipedia.org/wiki/V%25E1%25BB%258Bnh_Xu%25C3%25A2n_quy%25E1%25BB%2581n+Vinh+Xuan+Quyen",
+			"source": "wikipedia.org"
+		},
+		{
+			"position": 2,
+			"title": "Cao Thủ Vịnh Xuân Quyền Và Những Lầm Chạm Mặt Giang ...",
+			"link": "https://www.youtube.com/watch?v=57GZvpnRt7g",
+			"displayed_link": "https://www.youtube.com › watch",
+			"thumbnail": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f2113852584109f07dcbf2b9afdba5f4382102c5.jpeg",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f2113852a87e2330be1dcb2073d4068f203af13f.png",
+			"snippet": "Tên Phim: Võ Đường Máu - Phim Hành Động Võ Thuật Giang Hồ Hồng Kông Hay Nhất Tuyển Tập Những Clip Hay: ...",
+			"rich_snippet": {
+				"top": {
+					"extensions": [
+						"YouTube",
+						"ON FILM",
+						"30 thg 6, 2022"
+					],
+					"detected_extensions": {
+						"thg": 30
+					}
+				}
+			},
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vịnh",
+					"xuân",
+					"quyền"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"video_link": "https://encrypted-vtbn0.gstatic.com/video?q=tbn:ANd9GcQjKsJA0BUhaLTQ0UEx0y5uF76luMe4ByjuaQ",
+			"source": "youtube.com"
+		},
+		{
+			"position": 3,
+			"title": "Cách để Học Vịnh Xuân Quyền (kèm Ảnh) - wikiHow",
+			"link": "https://www.wikihow.vn/H%E1%BB%8Dc-V%E1%BB%8Bnh-Xu%C3%A2n-Quy%E1%BB%81n",
+			"displayed_link": "https://www.wikihow.vn › ... › Võ thuật",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f2113852e85fca1de0dee5f560d1ef10e0c62f19.png",
+			"snippet": "Vịnh Xuân Quyền là một môn võ thuật cổ truyền của Trung Quốc thiên về cận chiến, đánh nhanh và phòng thủ chặt để chiến thắng đối phương.",
+			"snippet_highlighted_words": [
+				"Vịnh Xuân Quyền"
+			],
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vịnh",
+					"xuân",
+					"quyền"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"cached_page_link": "https://webcache.googleusercontent.com/search?q=cache:61ua1TRWCbIJ:https://www.wikihow.vn/H%25E1%25BB%258Dc-V%25E1%25BB%258Bnh-Xu%25C3%25A2n-Quy%25E1%25BB%2581n&cd=19&hl=vi&ct=clnk&gl=vn",
+			"source": "wikihow.vn"
+		},
+		{
+			"position": 4,
+			"title": "Vịnh Xuân Quyền Hồng Kông Diệp Vấn - Tự học miễn phí",
+			"link": "https://vinhxuan.nao.vn/",
+			"displayed_link": "https://vinhxuan.nao.vn",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f2113852c47c2846c46b8845bad8f1d6b0ebc8a5.png",
+			"snippet": "Tự học Vịnh Xuân Quyền Hông Kông Diệp Vấn hoặc ở CLB miễn phí để sống lâu, khoẻ mạnh, minh mẫn để làm việc, học tập có hiệu quả, tự vệ và bảo vệ người thân.",
+			"snippet_highlighted_words": [
+				"Vịnh Xuân Quyền"
+			],
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vịnh",
+					"xuân",
+					"quyền"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"cached_page_link": "https://webcache.googleusercontent.com/search?q=cache:y-md6Ken4mYJ:https://vinhxuan.nao.vn/&cd=20&hl=vi&ct=clnk&gl=vn",
+			"source": "nao.vn",
+			"related_results": [
+				{
+					"position": 1,
+					"title": "Tự học võ Vịnh Xuân Quyền HK online",
+					"link": "https://vinhxuan.nao.vn/tu-hoc/",
+					"displayed_link": "https://vinhxuan.nao.vn › tu-hoc",
+					"snippet": "Tiến trình tập: · Đầu tiên bạn đọc cho kỹ 6 nguyên tắc chính của VXHK. · Học cho thành thạo Nhị Tự Kiềm Dương Mã và Than Thủ + ứng dụng · Tập từng kỹ thuật và ứng ...",
+					"about_this_result": {
+						"keywords": [
+							"vinh",
+							"xuan",
+							"quyen"
+						],
+						"related_keywords": [
+							"vịnh",
+							"xuân",
+							"quyền"
+						],
+						"languages": [
+							"Tiếng Việt"
+						],
+						"regions": [
+							"Việt Nam"
+						]
+					},
+					"cached_page_link": "https://webcache.googleusercontent.com/search?q=cache:YvM33jEqCzYJ:https://vinhxuan.nao.vn/tu-hoc/&cd=21&hl=vi&ct=clnk&gl=vn"
+				}
+			]
+		},
+		{
+			"position": 5,
+			"title": "Tin tức Vịnh Xuân Quyền mới nhất hôm nay trên VnExpress",
+			"link": "https://vnexpress.net/chu-de/vinh-xuan-quyen-610",
+			"displayed_link": "https://vnexpress.net › chu-de › vinh-xuan-quyen-610",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f2113852738a5d0f91a2a904bad7b422f61f8204.png",
+			"snippet": "MỚI NHẤT: Chưởng môn Vịnh Xuân Quyền phái qua đời; Mèo tiếp chiêu chủ nhân bằng 'Vịnh Xuân Quyền'; Võ sư Trung Quốc đánh nhau 'như trẻ con'",
+			"snippet_highlighted_words": [
+				"Vịnh Xuân Quyền",
+				"Vịnh Xuân Quyền"
+			],
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vịnh",
+					"xuân",
+					"quyền"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"cached_page_link": "https://webcache.googleusercontent.com/search?q=cache:xwWQtKAF8i8J:https://vnexpress.net/chu-de/vinh-xuan-quyen-610&cd=22&hl=vi&ct=clnk&gl=vn",
+			"source": "vnexpress.net"
+		},
+		{
+			"position": 6,
+			"title": "Tài Tử Vịnh Xuân Quyền lừng lẫy 1 thời bất ngờ từ bỏ sự ...", "link": "https: //www.24h.com.vn/giai-tri/tai-tu-vinh-xuan-quyen-lung-lay-1-thoi-bat-ngo-tu-bo-su-nghiep-vi-dau-nen-noi-c731a1297552.html",
+			"displayed_link": "https://www.24h.com.vn › Giải trí",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f211385204faa671d657df75f420aafdb8e62ca9.png",
+			"date": "14 thg 10, 2021",
+			"snippet": "Tài Tử “Vịnh Xuân Quyền” lừng lẫy 1 thời bất ngờ từ bỏ sự nghiệp: Vì đâu nên nỗi? Sự kiện: Những ngôi sao võ thuật thế hệ mới của màn ảnh ...",
+			"snippet_highlighted_words": [
+				"Vịnh Xuân Quyền"
+			],
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vịnh",
+					"xuân",
+					"quyền"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"source": "24h.com.vn"
+		},
+		{
+			"position": 7,
+			"title": "Vịnh Xuân - Báo Tuổi Trẻ",
+			"link": "https://tuoitre.vn/vinh-xuan.html",
+			"displayed_link": "https://tuoitre.vn › vinh-xuan",
+			"favicon": "https://serpapi.com/searches/64901382116a55f03a08b103/images/43903dca544fb9384985b166f21138526c898e18518c3ef480ffa788ea23de04.png",
+			"snippet": "Cập nhật tin tức, sự kiện nóng nhất xung quanh vấn đề vinh xuan được bạn đọc quan tâm nhất trên Tuổi Trẻ Online.",
+			"snippet_highlighted_words": [
+				"vinh xuan"
+			],
+			"about_this_result": {
+				"keywords": [
+					"vinh",
+					"xuan",
+					"quyen"
+				],
+				"related_keywords": [
+					"vịnh",
+					"xuân"
+				],
+				"languages": [
+					"Tiếng Việt"
+				],
+				"regions": [
+					"Việt Nam"
+				]
+			},
+			"cached_page_link": "https://webcache.googleusercontent.com/search?q=cache:xD1YS4sUyUEJ:https://tuoitre.vn/vinh-xuan.html&cd=24&hl=vi&ct=clnk&gl=vn",
+			"source": "tuoitre.vn"
+		}
+	],
+	"related_searches": [
+		{
+			"query": "Vịnh Xuân Quyền 2007 Thuyết Minh",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n+2007+Thuy%E1%BA%BFt+Minh&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAghEAE"
+		},
+		{
+			"query": "Vịnh Xuân Quyền Lương Bích",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n+L%C6%B0%C6%A1ng+B%C3%ADch&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAgnEAE"
+		},
+		{
+			"query": "Vịnh Xuân Quyền và Thái Cực Quyền",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n+v%C3%A0+Th%C3%A1i+C%E1%BB%B1c+Quy%E1%BB%81n&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAgoEAE"
+		},
+		{
+			"query": "Vịnh Xuân Quyền Tập 1",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n+T%E1%BA%ADp+1&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAglEAE"
+		},
+		{
+			"query": "Vịnh Xuân quyền của ai",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n+c%E1%BB%A7a+ai&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAgkEAE"
+		},
+		{
+			"query": "Sách dạy võ Vịnh Xuân Quyền",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=S%C3%A1ch+d%E1%BA%A1y+v%C3%B5+V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAgpEAE"
+		},
+		{
+			"query": "Xem phim Vịnh Xuân Quyền VTV2",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=Xem+phim+V%E1%BB%8Bnh+Xu%C3%A2n+Quy%E1%BB%81n+VTV2&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAgmEAE"
+		},
+		{
+			"query": "Vịnh Xuân quyền Diệp Vấn",
+			"link": "https://www.google.com.vn/search?gl=vn&hl=vi&q=V%E1%BB%8Bnh+Xu%C3%A2n+quy%E1%BB%81n+Di%E1%BB%87p+V%E1%BA%A5n&sa=X&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ1QJ6BAgqEAE"
+		}
+	],
+	"pagination": {
+		"current": 1,
+		"next": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=10&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8NMDegQIDRAW",
+		"other_pages": {
+			"2": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=10&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAE",
+			"3": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=20&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAG",
+			"4": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=30&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAI",
+			"5": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=40&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAK",
+			"6": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=50&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAM",
+			"7": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=60&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAO",
+			"8": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=70&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAQ",
+			"9": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=80&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAS",
+			"10": "https://www.google.com.vn/search?q=Vinh+Xuan+Quyen&gl=vn&hl=vi&ei=ghOQZK_rB8mg5NoPqraFkAs&start=90&sa=N&ved=2ahUKEwivtLHt9s7_AhVJEFkFHSpbAbIQ8tMDegQIDRAU"
+		}
+	},
+	"serpapi_pagination": {
+		"current": 1,
+		"next_link": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=10",
+		"next": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=10",
+		"other_pages": {
+			"2": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=10",
+			"3": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=20",
+			"4": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=30",
+			"5": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=40",
+			"6": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=50",
+			"7": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=60",
+			"8": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=70",
+			"9": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=80",
+			"10": "https://serpapi.com/search.json?device=desktop&engine=google&gl=vn&google_domain=google.com.vn&hl=vi&location=Ho+Chi+Minh+City%2C+Vietnam&q=Vinh+Xuan+Quyen&start=90"
+		}
+	}
+}

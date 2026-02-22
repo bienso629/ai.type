@@ -1,0 +1,450 @@
+<div class="flex flex-col h-full max-h-screen overflow-hidden bg-gray-100 select-none">
+    <div class="flex items-center justify-between px-6 bg-white shrink-0 z-20 shadow-sm border-b">
+        <h2 class="text-lg font-medium text-gray-800">Editor Pro</h2>
+
+        <div class="flex items-center gap-2 p-2 py-3" *ngIf="!isCropping">
+            <button mat-icon-button (click)="toggleGrid()" [color]="showGrid ? 'primary' : ''"
+                matTooltip="Bật/Tắt Lưới">
+                <mat-icon svgIcon="heroicons_outline:view-grid"></mat-icon>
+            </button>
+            <div class="w-px h-6 bg-gray-300 mx-1"></div>
+
+            <button mat-icon-button (click)="undo()" [disabled]="historyIndex <= 0" matTooltip="Hoàn tác (Ctrl+Z)">
+                <mat-icon svgIcon="heroicons_outline:reply"></mat-icon>
+            </button>
+            <button mat-icon-button (click)="redo()" [disabled]="historyIndex >= history.length - 1"
+                matTooltip="Làm lại (Ctrl+Y)">
+                <mat-icon svgIcon="heroicons_outline:reply" class="transform -scale-x-100"></mat-icon>
+            </button>
+            <button mat-icon-button (click)="hardReset()" matTooltip="Reset gốc" color="warn">
+                <mat-icon svgIcon="heroicons_outline:refresh"></mat-icon>
+            </button>
+
+            <div class="w-px h-6 bg-gray-300 mx-1"></div>
+            <button mat-icon-button (click)="startCrop()" matTooltip="Cắt ảnh" class="text-blue-600">
+                <mat-icon svgIcon="heroicons_outline:scissors"></mat-icon>
+            </button>
+            <div class="w-px h-6 bg-gray-300 mx-1"></div>
+
+            <button mat-icon-button (click)="changeZoom(-0.1)"><mat-icon
+                    svgIcon="heroicons_outline:minus"></mat-icon></button>
+            <span class="w-14 text-center text-sm font-bold text-gray-700">{{ (zoomLevel * 100) | number:'1.0-0'
+                }}%</span>
+            <button mat-icon-button (click)="changeZoom(0.1)"><mat-icon
+                    svgIcon="heroicons_outline:plus"></mat-icon></button>
+            <button mat-icon-button (click)="fitToScreen()" class="ml-2" matTooltip="Fit Screen"><mat-icon
+                    svgIcon="feather:maximize"></mat-icon></button>
+        </div>
+
+        <div class="flex items-center gap-3 p-2 py-3" *ngIf="isCropping">
+            <span class="flex items-center text-sm font-bold text-white bg-blue-600 px-3 py-1 rounded-full shadow-sm">
+                <mat-icon class="icon-size-4 text-white" svgIcon="heroicons_outline:scissors"></mat-icon>
+                <span class="ml-2">Chế độ cắt ảnh</span>
+            </span>
+
+            <button mat-flat-button color="primary" class="h-9 px-6" (click)="applyCrop()">
+                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:check"></mat-icon>
+                <span class="ml-2">Áp dụng</span>
+            </button>
+            <button mat-flat-button color="accent" (click)="cancelCrop()">Hủy</button>
+        </div>
+
+        <button mat-icon-button (click)="close()" [disabled]="isCropping">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
+    </div>
+
+    <div class="flex flex-row flex-auto overflow-hidden h-full relative">
+        <div class="flex-auto flex items-center justify-center bg-gray-200 p-8 relative transition-all"
+            [class.overflow-auto]="zoomLevel > fitZoomLevel" [class.overflow-hidden]="zoomLevel <= fitZoomLevel"
+            #canvasContainer id="canvas-container">
+
+            <canvas #canvas
+                class="shadow-xl border border-gray-300 cursor-crosshair transition-transform duration-100 ease-out bg-white pattern-checkered"
+                [style.transform]="'scale(' + zoomLevel + ')'" [style.cursor]="cursorStyle"
+                (mousedown)="onMouseDown($event)" (mousemove)="onMouseMove($event)" (mouseup)="onMouseUp()"
+                (mouseleave)="onMouseUp()"></canvas>
+        </div>
+
+        <div class="w-80 bg-white border-l overflow-y-auto shrink-0 flex flex-col z-10 shadow-xl relative">
+            <div *ngIf="isCropping" class="p-5 space-y-6 animate-fade-in">
+                <h3 class="font-bold text-gray-800 border-b pb-2">Kích thước vùng cắt</h3>
+
+                <div class="flex gap-2">
+                    <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Rộng (px)</mat-label>
+                        <input matInput type="number" [(ngModel)]="cropRect.w" (input)="draw()">
+                    </mat-form-field>
+                    <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>Cao (px)</mat-label>
+                        <input matInput type="number" [(ngModel)]="cropRect.h" (input)="draw()">
+                    </mat-form-field>
+                </div>
+
+                <h3 class="font-bold text-gray-800 border-b pb-2 pt-2">Tỉ lệ phổ biến</h3>
+                <div class="grid grid-cols-2 gap-3">
+                    <button mat-flat-button (click)="setCropRatio(1, 1)" class="justify-start">
+                        <mat-icon class="icon-size-4 mr-2 text-gray-500" svgIcon="feather:image"></mat-icon> 1:1 (Vuông)
+                    </button>
+                    <button mat-flat-button (click)="setCropRatio(16, 9)" class="justify-start">
+                        <mat-icon class="icon-size-4 mr-2 text-red-500" svgIcon="feather:youtube"></mat-icon> 16:9
+                        (YouTube)
+                    </button>
+                    <button mat-flat-button (click)="setCropRatio(9, 16)" class="justify-start">
+                        <mat-icon class="icon-size-4 mr-2 text-black" svgIcon="feather:smartphone"></mat-icon> 9:16
+                        (TikTok)
+                    </button>
+                    <button mat-flat-button (click)="setCropRatio(4, 5)" class="justify-start">
+                        <mat-icon class="icon-size-4 mr-2 text-blue-600" svgIcon="feather:facebook"></mat-icon> 4:5
+                        (Facebook)
+                    </button>
+                    <button mat-flat-button (click)="setCropSize(1200, 628)" class="justify-start col-span-2">
+                        <mat-icon class="icon-size-4 mr-2 text-blue-800" svgIcon="feather:facebook"></mat-icon> FB Link
+                        (1200x628)
+                    </button>
+                </div>
+
+                <div class="p-3 bg-blue-50 text-blue-800 text-sm rounded border border-blue-100">
+                    Kéo các góc vuông trắng trên hình để thay đổi vùng cắt tự do.
+                </div>
+            </div>
+
+            <div class="p-5 space-y-6" *ngIf="!isCropping">
+                <div class="rounded-lg p-4 bg-white border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <mat-icon class="icon-size-5 text-blue-600" svgIcon="feather:type"></mat-icon>
+                            <h3 class="font-bold text-sm text-blue-600">Văn Bản</h3>
+                        </div>
+
+                        <button mat-icon-button color="primary" class="icon-size-8 shadow-none" (click)="addTextLayer()"
+                            matTooltip="Thêm chữ">
+                            <mat-icon class="icon-size-5" svgIcon="heroicons_outline:plus"></mat-icon>
+                        </button>
+                    </div>
+
+                    <div *ngIf="getSelectedText() as txt" class="animate-fade-in space-y-4">
+                        <mat-form-field class="w-full fuse-mat-dense" appearance="outline">
+                            <mat-label>Nội dung</mat-label>
+                            <textarea matInput [(ngModel)]="txt.content" (input)="draw()" (change)="recordHistory()"
+                                rows="2"></textarea>
+                        </mat-form-field>
+
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                <div
+                                    class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                    <span
+                                        class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">SIZE</span>
+                                    <span
+                                        class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{txt.fontSize}}</span>
+                                </div>
+                                <mat-slider min="10" max="300" step="1"
+                                    class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                    <input matSliderThumb [(ngModel)]="txt.fontSize" (input)="draw()"
+                                        (change)="recordHistory()">
+                                </mat-slider>
+                            </div>
+
+                            <div class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                <div
+                                    class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                    <span class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">MỜ</span>
+                                    <span
+                                        class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{(txt.opacity*100).toFixed(0)}}%</span>
+                                </div>
+                                <mat-slider min="0.1" max="1.0" step="0.1"
+                                    class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                    <input matSliderThumb [(ngModel)]="txt.opacity" (input)="draw()"
+                                        (change)="recordHistory()">
+                                </mat-slider>
+                            </div>
+                        </div>
+
+                        <div class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                            <div
+                                class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                <span class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">XOAY</span>
+                                <span
+                                    class="text-[10px] font-bold text-purple-600 bg-white/80 px-1 rounded">{{txt.rotation}}°</span>
+                            </div>
+                            <mat-slider min="-180" max="180" step="1"
+                                class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                <input matSliderThumb [(ngModel)]="txt.rotation" (input)="draw()"
+                                    (change)="recordHistory()">
+                            </mat-slider>
+                        </div>
+
+                        <div class="border-t pt-3 border-gray-50">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-gray-600">Màu sắc</span>
+                                <mat-slide-toggle labelPosition="before" [(ngModel)]="txt.isGradient"
+                                    (change)="draw(); recordHistory()" color="primary" class="scale-75">
+                                    {{ txt.isGradient ? 'Gradient' : 'Màu đơn' }}
+                                </mat-slide-toggle>
+                            </div>
+
+                            <div class="flex gap-2 mb-3">
+                                <input type="color" [(ngModel)]="txt.color1" (input)="draw()" (change)="recordHistory()"
+                                    class="flex-1 cursor-pointer">
+                                <input *ngIf="txt.isGradient" type="color" [(ngModel)]="txt.color2" (input)="draw()"
+                                    (change)="recordHistory()" class="flex-1 cursor-pointer">
+                            </div>
+
+                            <div *ngIf="txt.isGradient"
+                                class="animate-fade-in relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                <div
+                                    class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                    <span class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">GÓC
+                                        MÀU</span>
+                                    <span
+                                        class="text-[10px] font-bold text-pink-600 bg-white/80 px-1 rounded">{{txt.gradientAngle}}°</span>
+                                </div>
+                                <mat-slider min="0" max="360" step="5"
+                                    class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                    <input matSliderThumb [(ngModel)]="txt.gradientAngle" (input)="draw()"
+                                        (change)="recordHistory()">
+                                </mat-slider>
+                            </div>
+                        </div>
+
+                        <div class="border-t pt-3 border-gray-50">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-gray-600">Viền (Border)</span>
+                                <mat-slide-toggle [(ngModel)]="txt.hasBorder" (change)="draw(); recordHistory()"
+                                    color="primary" class="scale-75"></mat-slide-toggle>
+                            </div>
+                            <div *ngIf="txt.hasBorder" class="animate-fade-in flex gap-2">
+                                <input type="color" [(ngModel)]="txt.borderColor" (input)="draw()"
+                                    (change)="recordHistory()" class="cursor-pointer">
+                                <div
+                                    class="relative ml-4 h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                    <div
+                                        class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                        <span
+                                            class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">SIZE</span>
+                                        <span
+                                            class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{txt.borderWidth}}</span>
+                                    </div>
+                                    <mat-slider min="0" max="20" step="0.5"
+                                        class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                        <input matSliderThumb [(ngModel)]="txt.borderWidth" (input)="draw()"
+                                            (change)="recordHistory()">
+                                    </mat-slider>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="border-t pt-3 border-gray-50">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-xs font-bold text-gray-600">Bóng (Shadow)</span>
+                                <mat-slide-toggle [(ngModel)]="txt.hasShadow" (change)="draw(); recordHistory()"
+                                    color="primary" class="scale-75"></mat-slide-toggle>
+                            </div>
+                            <div *ngIf="txt.hasShadow" class="animate-fade-in space-y-2">
+                                <div class="flex gap-2">
+                                    <input type="color" [(ngModel)]="txt.shadowColor" (input)="draw()"
+                                        (change)="recordHistory()" class="cursor-pointer">
+                                    <div
+                                        class="relative ml-4 h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                        <div
+                                            class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                            <span
+                                                class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">BLUR</span>
+                                            <span
+                                                class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{txt.shadowBlur}}</span>
+                                        </div>
+                                        <mat-slider min="0" max="50" step="1"
+                                            class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                            <input matSliderThumb [(ngModel)]="txt.shadowBlur" (input)="draw()"
+                                                (change)="recordHistory()">
+                                        </mat-slider>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-2 gap-2">
+                                    <div
+                                        class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                        <div
+                                            class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                            <span
+                                                class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">X</span>
+                                            <span
+                                                class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{txt.shadowX}}</span>
+                                        </div>
+                                        <mat-slider min="-50" max="50" step="1"
+                                            class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                            <input matSliderThumb [(ngModel)]="txt.shadowX" (input)="draw()"
+                                                (change)="recordHistory()">
+                                        </mat-slider>
+                                    </div>
+                                    <div
+                                        class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                        <div
+                                            class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                            <span
+                                                class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">Y</span>
+                                            <span
+                                                class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{txt.shadowY}}</span>
+                                        </div>
+                                        <mat-slider min="-50" max="50" step="1"
+                                            class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                            <input matSliderThumb [(ngModel)]="txt.shadowY" (input)="draw()"
+                                                (change)="recordHistory()">
+                                        </mat-slider>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                    <div *ngIf="!selectedId || !getSelectedText()" class="text-xs text-gray-200 text-center py-2">Chưa
+                        chọn văn bản
+                        nào</div>
+                </div>
+
+                <div class="rounded-lg p-4 bg-white border border-gray-100">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <mat-icon class="icon-size-5 text-purple-600"
+                                svgIcon="heroicons_outline:photograph"></mat-icon>
+                            <h3 class="font-bold text-sm text-purple-600">Logo</h3>
+                        </div>
+                        <button mat-icon-button color="primary" class="icon-size-8 shadow-none"
+                            (click)="fileInput.click()" matTooltip="Thêm Logo">
+                            <mat-icon class="icon-size-5" svgIcon="heroicons_outline:plus"></mat-icon>
+                        </button>
+                        <input #fileInput type="file" class="hidden" (click)="$event.target['value']=null"
+                            (change)="onLogoUpload($event)" accept="image/*" multiple>
+                    </div>
+
+                    <div *ngIf="getSelectedLogo() as logo" class="animate-fade-in space-y-3">
+                        <div class="grid grid-cols-2 gap-3">
+                            <div class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                <div
+                                    class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                    <span
+                                        class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">SCALE</span>
+                                    <span
+                                        class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{(logo.scale
+                                        * 100).toFixed(0)}}%</span>
+                                </div>
+                                <mat-slider min="0.01" max="3.0" step="0.01"
+                                    class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                    <input matSliderThumb [(ngModel)]="logo.scale" (input)="draw()"
+                                        (change)="recordHistory()">
+                                </mat-slider>
+                            </div>
+                            <div class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                                <div
+                                    class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                    <span class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">MỜ</span>
+                                    <span
+                                        class="text-[10px] font-bold text-blue-600 bg-white/80 px-1 rounded">{{(logo.opacity
+                                        * 100).toFixed(0)}}%</span>
+                                </div>
+                                <mat-slider min="0.1" max="1.0" step="0.1"
+                                    class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                    <input matSliderThumb [(ngModel)]="logo.opacity" (input)="draw()"
+                                        (change)="recordHistory()">
+                                </mat-slider>
+                            </div>
+                        </div>
+                        <div class="relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
+                            <div
+                                class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                                <span class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">XOAY</span>
+                                <span
+                                    class="text-[10px] font-bold text-purple-600 bg-white/80 px-1 rounded">{{logo.rotation.toFixed(0)}}°</span>
+                            </div>
+                            <mat-slider min="-180" max="180" step="1"
+                                class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                                <input matSliderThumb [(ngModel)]="logo.rotation" (input)="draw()"
+                                    (change)="recordHistory()">
+                            </mat-slider>
+                        </div>
+                    </div>
+                    <div *ngIf="!selectedId || !getSelectedLogo()" class="text-xs text-gray-200 text-center py-2">Chưa
+                        chọn logo
+                        nào</div>
+                </div>
+
+                <div class="rounded-lg p-4 bg-white border border-gray-100">
+                    <h3 class="font-bold text-sm text-gray-800 mb-3 flex items-center gap-2">
+                        <mat-icon class="icon-size-5 text-pink-600" svgIcon="heroicons_outline:collection"></mat-icon>
+                        <span class="text-pink-600">Danh sách Lớp</span>
+                    </h3>
+
+                    <div class="space-y-2">
+                        <div *ngFor="let layer of layers; let i = index"
+                            class="layer-item flex items-center gap-3 px-3 py-1 rounded-md cursor-move transition-colors select-none"
+                            [class.active]="selectedId === layer.id"
+                            [style.border-color]="selectedId === layer.id ? '#3b82f6' : ''"
+                            [style.background-color]="selectedId === layer.id ? '#fafafa' : ''"
+                            (click)="selectLayer(layer.id)" draggable="true" (dragstart)="onDragStart(i)"
+                            (dragover)="onDragOver($event)" (drop)="onDrop(i)">
+
+                            <div
+                                class="w-8 h-8 flex items-center justify-center bg-white rounded border border-gray-200 shrink-0 overflow-hidden">
+                                <span *ngIf="layer.type === 'text'" class="font-bold text-lg text-blue-600">T</span>
+                                <img *ngIf="layer.type === 'logo'" [src]="layer['src']"
+                                    class="w-full h-full object-cover">
+                            </div>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="text-xs font-bold truncate text-gray-700">
+                                    {{ layer.type === 'text' ? layer['content'] : 'Logo Image' }}
+                                </div>
+                                <div class="text-[10px] text-gray-400">Lớp {{i + 1}}</div>
+                            </div>
+
+                            <mat-icon class="icon-size-4 text-gray-400 hover:text-red-500 cursor-pointer mr-1"
+                                svgIcon="heroicons_outline:trash"
+                                (click)="deleteLayer(layer.id); $event.stopPropagation()" matTooltip="Xóa"></mat-icon>
+                            <mat-icon class="icon-size-4 text-gray-300" svgIcon="heroicons_outline:menu"></mat-icon>
+                        </div>
+                        <div *ngIf="layers.length === 0" class="text-xs text-center text-gray-100 py-4">Chưa có lớp nào
+                        </div>
+                    </div>
+                </div>
+
+                <div class="rounded-lg p-4 bg-white border border-gray-100">
+                    <div class="flex items-center gap-2 mb-6">
+                        <mat-icon class="icon-size-5 text-primary-700"
+                            svgIcon="heroicons_outline:photograph"></mat-icon>
+                        <h3 class="font-bold text-sm text-primary-700">Lưu Hình Ảnh</h3>
+                    </div>
+
+                    <div class="flex gap-2 mb-3">
+                        <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
+                            <mat-label>Width</mat-label>
+                            <input matInput type="number" [(ngModel)]="output.width" (input)="onDimensionChange('w')">
+                        </mat-form-field>
+                        <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
+                            <mat-label>Height</mat-label>
+                            <input matInput type="number" [(ngModel)]="output.height" (input)="onDimensionChange('h')">
+                        </mat-form-field>
+                    </div>
+
+                    <div class="relative h-10 w-full flex items-center mb-4 bg-white rounded border border-gray-50">
+                        <div class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
+                            <span class="text-[10px] font-bold text-gray-500 bg-white/80 px-1 rounded">CHẤT LƯỢNG</span>
+                            <span
+                                class="text-[10px] font-bold text-green-600 bg-white/80 px-1 rounded">{{(output.quality
+                                * 100).toFixed(0)}}%</span>
+                        </div>
+                        <mat-slider min="0.1" max="1.0" step="0.05"
+                            class="w-full -mx-1 opacity-70 hover:opacity-100 transition-opacity">
+                            <input matSliderThumb [(ngModel)]="output.quality">
+                        </mat-slider>
+                    </div>
+
+                    <button mat-flat-button color="primary" class="w-full" (click)="saveImage()"
+                        [disabled]="processing">
+                        <span *ngIf="!processing">Lưu Hình Ảnh</span>
+                        <mat-spinner *ngIf="processing" [diameter]="20" class="text-white"></mat-spinner>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>

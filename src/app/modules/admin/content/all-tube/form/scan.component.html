@@ -1,0 +1,148 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-white">
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <mat-vertical-stepper [linear]="isLinear" class="h-full" #stepper>
+            <mat-step label="Quét toàn bộ video của kênh Youtube">
+                <div class="flex items-start justify-start h-full">
+                    <div class="flex flex-col w-120">
+                        <p class="block">
+                            <mat-form-field class="w-full max-w-160 fuse-mat-dense">
+                                <mat-label>Địa chỉ kênh</mat-label>
+                                <input [(ngModel)]="channel" matInput />
+                                <mat-select [(ngModel)]="channel" matSuffix class="max-w-50">
+                                    <mat-option *ngFor="let item of links" [value]="item.link">
+                                        {{item.link}}
+                                    </mat-option>
+                                </mat-select>
+                                <mat-error>Không được để trống!</mat-error>
+                            </mat-form-field>
+                        </p>
+
+                        <p class="block mb-8">
+                            <mat-form-field class="w-full max-w-160 fuse-mat-dense">
+                                <mat-label>hoặc bạn có username của một Tiktoker</mat-label>
+                                <input [(ngModel)]="tiktoker" placeholder="aicontenttools" matInput />
+                                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:at-sign'"></mat-icon>
+                                <mat-hint class="block">Ví dụ chúng ta có 1 kênh Tiktoker là
+                                    https://www.tiktok.com/&#64;aicontenttools thì username bạn có thể nhập là
+                                    aicontenttools</mat-hint>
+                                <mat-error>Không được để trống!</mat-error>
+                            </mat-form-field>
+                        </p>
+
+                        <p class="block mb-2">
+                            <mat-form-field class="w-full max-w-50 fuse-mat-dense">
+                                <mat-label>Chất lượng</mat-label>
+                                <mat-select [(ngModel)]="quality">
+                                    <mat-option [value]="'low'">Thấp nhất</mat-option>
+                                    <mat-option [value]="'medium'">Bình thường</mat-option>
+                                    <mat-option [value]="'hd'">Cao nhất</mat-option>
+                                    <mat-option [value]="'audio'">Chỉ audio</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+
+                            <mat-form-field class="w-full max-w-50 ml-2 fuse-mat-dense">
+                                <mat-label>Phương thức tải</mat-label>
+                                <mat-select [(ngModel)]="mode">
+                                    <mat-option [value]="'parallel'">Song song</mat-option>
+                                    <mat-option [value]="'sequential'">Tuần tự</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </p>
+
+                        <p class="block">
+                            <button mat-flat-button class="mt-0" color="primary" (click)="start()">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
+                                <mat-label class="ml-2">Bắt đầu quét</mat-label>
+                            </button>
+                        </p>
+                    </div>
+                </div>
+            </mat-step>
+
+            <mat-step label="Video tìm thấy">
+                <!-- CONTENT GOES HERE -->
+                <div class="flex items-start justify-start h-full pt-8">
+                    <ngx-datatable [virtualization]="true" #mydatatable
+                        class="material shadow-none w-full h-100 border rounded-lg" [headerHeight]="50"
+                        [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" rowHeight="auto"
+                        [rows]="items" [selected]="selected" [selectionType]="SelectionType.checkbox"
+                        [selectAllRowsOnPage]="false" [displayCheck]="displayCheck" (select)="onSelect($event)"
+                        [reorderable]="true" [scrollbarV]="true" [scrollbarH]="false">
+
+                        <!-- Column Templates -->
+                        <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
+                            [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
+                            [checkboxable]="true"></ngx-datatable-column>
+
+                        <ngx-datatable-column name="Ảnh" [width]="100" [sortable]="false" [canAutoResize]="false"
+                            [draggable]="false" [resizeable]="false">
+                            <ng-template let-row="row" ngx-datatable-cell-template>
+                                <div class="h-10 w-10 rounded-md bg-cover bg-no-repeat bg-center"
+                                    [style.background-image]="'url(' + row.snippet.thumbnails.high.url + ')'">
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+
+                        <ngx-datatable-column name="Tiêu đề video" [width]="400" [sortable]="false"
+                            [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                            <ng-template let-row="row" ngx-datatable-cell-template>
+                                <p class="font-normal leading-tight line-clamp-1" [title]="row.snippet.title">
+                                    {{row.snippet.title}}
+                                </p>
+                            </ng-template>
+                        </ngx-datatable-column>
+
+                        <ngx-datatable-column name="Loại dữ liệu" [width]="200" [sortable]="false"
+                            [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                            <ng-template let-row="row" ngx-datatable-cell-template>
+                                {{row.id.kind || "video"}}
+                            </ng-template>
+                        </ngx-datatable-column> 
+
+                        <ngx-datatable-column name="Video ID" [width]="200" [sortable]="false" [canAutoResize]="false"
+                            [draggable]="false" [resizeable]="false">
+                            <ng-template let-row="row" ngx-datatable-cell-template>
+                                <p class="font-normal truncate hover:text-clip">
+                                    {{row.id.videoId || row.id.playlistId}}
+                                </p>
+                            </ng-template>
+                        </ngx-datatable-column>
+
+                        <ngx-datatable-column name="Chức năng" [width]="300" [sortable]="false" [canAutoResize]="false"
+                            [draggable]="false" [resizeable]="false">
+                            <ng-template let-row="row" ngx-datatable-cell-template>
+                                <div class="flex items-center justify-self-stretch">
+                                    <mat-label (click)="singleDownload(row)"
+                                        class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-blue-600 hover:bg-blue-400 text-white">Tải
+                                        video</mat-label>
+
+                                    <!-- <mat-label (click)="listing(row)"
+                                        class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-pink-600 hover:bg-pink-400 text-white">Nghe audio</mat-label> -->
+
+                                    <mat-label (click)="createPost(row)"
+                                        class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-green-600 hover:bg-green-700 text-white">Viết
+                                        bài</mat-label>
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-column>
+                    </ngx-datatable>
+                </div>
+
+                <div class="flex flex-row mt-4">
+                    <ng-container *ngIf="(selected.length > 0)">
+                        <button mat-flat-button color="primary" (click)="download()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+                            <mat-label class="ml-2">Tải toàn bộ</mat-label>
+                        </button>
+
+                        <button mat-flat-button class="ml-2 bg-yellow-600 text-white" (click)="share()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
+                            <mat-label class="ml-2 text-white">Chia sẻ</mat-label>
+                        </button>
+                    </ng-container>
+                </div>
+            </mat-step>
+        </mat-vertical-stepper>
+    </div>
+</div>

@@ -1,0 +1,234 @@
+<div class="w-full">
+    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start">
+        <mat-tab label="License Keys">
+            <license-keys></license-keys>
+        </mat-tab>
+
+        <mat-tab label="N8N Workflows">
+            <div class="w-full">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-secondary leading-8">
+                        <p class="font-semibold text-lg">Quản lý Automation Workflows</p>
+                        <div class="text-base flex gap-2">
+                            <span>Tổng số: <b>{{ n8nWorkflows.length }}</b></span>
+                            <span *ngIf="n8nSelected.length > 0" class="text-primary">• Đang chọn: <b>{{
+                                    n8nSelected.length }}</b></span>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button *ngIf="n8nSelected.length > 0" mat-flat-button color="warn"
+                            (click)="deleteSelectedWorkflows()" [disabled]="n8nLoading">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                            <span class="ml-2">Xóa đã chọn ({{ n8nSelected.length }})</span>
+                        </button>
+
+                        <button mat-flat-button [color]="'primary'" (click)="getN8nWorkflows()" [disabled]="n8nLoading">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                            <span class="ml-2">Làm mới danh sách</span>
+                        </button>
+
+                        <!-- <button mat-flat-button [color]="'warn'" (click)="clearApiWorkflows()" [disabled]="n8nLoading">
+                            Clean [API]
+                        </button> -->
+                    </div>
+                </div>
+
+                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="true" [rows]="n8nWorkflows"
+                    [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" rowHeight="50"
+                    [loadingIndicator]="n8nLoading" [limit]="10" [selected]="n8nSelected"
+                    [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+                    (select)="onN8nSelect($event)">
+
+                    <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                        [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true">
+                    </ngx-datatable-column>
+
+                    <ngx-datatable-column name="ID" prop="id">
+                        <ng-template ngx-datatable-cell-template let-value="value">
+                            <span class="text-base text-gray-500 truncate block w-full" [title]="value">{{ value
+                                }}</span>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <ngx-datatable-column name="Tên Workflow" prop="name">
+                        <ng-template ngx-datatable-cell-template let-value="value">
+                            <span class="font-medium text-primary cursor-pointer hover:underline">{{ value }}</span>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <ngx-datatable-column name="Trạng thái" prop="active">
+                        <ng-template ngx-datatable-cell-template let-value="value">
+                            <span class="px-2 py-1 rounded text-base font-bold"
+                                [ngClass]="{'bg-green-100 text-green-800': value, 'bg-gray-100 text-gray-800': !value}">
+                                {{ value ? 'Active' : 'Inactive' }}
+                            </span>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <ngx-datatable-column name="Cập nhật" prop="updatedAt">
+                        <ng-template ngx-datatable-cell-template let-value="value">
+                            <span class="text-base">{{ value | date:'dd/MM/yyyy HH:mm' }}</span>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="false">
+                        <ng-template ngx-datatable-cell-template let-row="row">
+                            <button mat-icon-button color="warn" (click)="deleteWorkflow(row)"
+                                matTooltip="Xóa workflow này">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                            </button>
+                        </ng-template>
+                    </ngx-datatable-column>
+                </ngx-datatable>
+            </div>
+        </mat-tab>
+
+        <mat-tab label="API">
+            <!-- Form -->
+            <form [formGroup]="chatgptForm">
+                <!-- Section -->
+                <div class="w-full">
+                    <div class="text-secondary leading-8 mt-2">
+                        <p class="font-semibold">Plugin dành cho admin</p>
+                    </div>
+                </div>
+
+                <!-- Divider -->
+                <!-- <div class="my-10 border-t"></div> -->
+
+                <div class="grid sm:grid-cols-4 gap-6 w-full mt-8">
+                    <!-- Secret key -->
+                    <div class="sm:col-span-4">
+                        <mat-form-field class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>Gologin Api</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:box'" matPrefix></mat-icon>
+                            <input [formControlName]="'gradio_gologin'" type="text" required matInput>
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <!-- Actions -->
+                <div class="flex items-center justify-start mt-4">
+                    <button mat-flat-button type="button" (click)="save()" [color]="'primary'">Lưu cấu hình</button>
+                </div>
+            </form>
+
+            <!-- Divider -->
+            <!-- <div class="mt-8 border-t"></div> -->
+
+            <!-- Section -->
+            <!-- <div class="w-full mt-8">
+                <div class="text-secondary leading-8">
+                    <p class="font-semibold">Tính năng Text2Speech</p>
+                </div>
+
+                <div class="flex items-center justify-start mt-4">
+                    <button mat-flat-button type="button" (click)="turnOnTTSModel()" [color]="'primary'">Bật
+                        model</button>
+                </div>
+            </div> -->
+        </mat-tab>
+
+        <mat-tab label="Báo cáo">
+            <!-- Section -->
+            <div class="w-full">
+                <div class="text-secondary leading-8 mt-2">
+                    <p class="">Báo cáo thứ 2, ngày 24 tháng 04 năm 2025</p>
+                </div>
+            </div>
+
+            <ngx-datatable [virtualization]="true" class="material fullscreen" [selected]="selected" [selectionType]="SelectionType.checkbox"
+                [selectAllRowsOnPage]="false" [displayCheck]="displayCheck" (select)="onSelect($event)"
+                class="material border rounded-lg mt-4 shadow-none" [headerHeight]="50" [columnMode]="ColumnMode.force"
+                [footerHeight]="70" [limit]="10" rowHeight="auto" [rows]="users">
+                <!-- Column Templates -->
+                <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                    [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+
+                <ngx-datatable-column name="Khách hàng" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ row.username }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Đang viết" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ (statistics[row.username]) ? statistics[row.username]['writing']['total'] : '0' }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Hoàn thành" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ (statistics[row.username]) ? statistics[row.username]['done'] : '0' }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Hỏi ChatGPT" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ (statistics[row.username]) ? statistics[row.username]['chatgpt'] : '0' }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Node Crawler" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ (statistics[row.username]) ? statistics[row.username]['archives']['total'] : '0' }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Importer" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ (statistics[row.username]) ? statistics[row.username]['wp2md'] : '0' }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Nhuận bút" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                        {{ (statistics[row.username]) ? (statistics[row.username]['money'] | currency: "VND":"") + "đ" :
+                        '0' }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-footer *ngIf="true">
+                    <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                        let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset">
+                        <button mat-flat-button class="ml-4" type="button" (click)="renderTable()"
+                            [color]="'primary'">Tạo báo cáo nhanh</button>
+                    </ng-template>
+                </ngx-datatable-footer>
+            </ngx-datatable>
+        </mat-tab>
+
+        <mat-tab label="Giúp đỡ">
+            <div class="text-secondary leading-10 mt-2">
+                <h2 class="headings">App cần tải về 1 số ứng dụng</h2>
+
+                <!-- Divider -->
+                <div class="mt-2 border-t"></div>
+
+                <p class="text-base mt-2">Tải ffmpeg cho macos <a href="https://evermeet.cx/ffmpeg"
+                        target="_blank">https://evermeet.cx/ffmpeg</a></p>
+                <p class="text-base">hoặc cho window, linux <a href="https://github.com/BtbN/FFmpeg-Builds/releases"
+                        target="_blank">https://github.com/BtbN/FFmpeg-Builds/releases</a></p>
+                <p class="text-base">Tải yt-dlp cho window, linux và macos <a
+                        href="https://github.com/yt-dlp/yt-dlp/releases"
+                        target="_blank">https://github.com/yt-dlp/yt-dlp/releases</a></p>
+                <p class="text-base">Tải chrome-win tại <a
+                        href="https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win"
+                        target="_blank">https://commondatastorage.googleapis.com/chromium-browser-snapshots/index.html?prefix=Win</a>
+                </p>
+            </div>
+        </mat-tab>
+
+        <!-- <mat-tab label="Hệ thống">
+            <mat-label class="text-base text-gray-300">Hệ thống ổn</mat-label>
+        </mat-tab> -->
+    </mat-tab-group>
+</div>

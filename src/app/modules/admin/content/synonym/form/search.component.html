@@ -1,0 +1,58 @@
+<div class="absolute inset-0 flex flex-col p-4 md:px-2 sm:px-10 overflow-hidden">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between">
+        <div class="flex-1 min-w-0">
+            <!-- Form -->
+            <form [formGroup]="chatgptForm">
+                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+                    Tìm kiếm từ:
+                </p>
+                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                    <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="find()" required matInput>
+
+                    <button mat-icon-button type="button" (click)="find()" matSuffix>
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:corner-down-left'"></mat-icon>
+                    </button>
+                </mat-form-field>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto mt-4 border rounded-md overflow-y-auto">
+        <!-- CONTENT GOES HERE -->
+        <div class="text-base leading-8 relative h-full" cdkScrollable>
+            <ngx-datatable [virtualization]="true" #table
+                class="material fullscreen" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
+                [rowHeight]="getRowHeight" [reorderable]="true" [scrollbarV]="true" [scrollbarH]="false" [rows]="items">
+                <!-- Column Templates -->
+                <ngx-datatable-column name="Từ" [width]="150" [sortable]="false" [canAutoResize]="false"
+                    [draggable]="false" [resizeable]="false">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        {{row.word}}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <!-- Column Templates -->
+                <ngx-datatable-column name="Từ đồng nghĩa" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="true">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <p class="truncate hover:text-clip">{{row.synonym}}</p>
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <!-- Column Templates -->
+                <ngx-datatable-column name="Tra cứu" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <div class="flex items-center justify-self-stretch">
+                            <mat-label (click)="search(row)"
+                                class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white">Tra
+                                cứu</mat-label>
+                        </div>
+                    </ng-template>
+                </ngx-datatable-column>
+            </ngx-datatable>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,90 @@
+<!-- Notifications toggle -->
+<button mat-icon-button (click)="openPanel()" #chatgptOrigin>
+    <mat-icon class="icon-size-5" [svgIcon]="'feather:message-square'"></mat-icon>
+</button>
+
+<!-- Notifications panel -->
+<ng-template #chatgptPanel>
+    <div
+        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-140 sm:w-140 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+        <!-- Header -->
+        <div class="flex shrink-0 items-center px-6 py-2 bg-white text-black resize-none border-b">
+            <div class="sm:hidden -ml-1 mr-3">
+                <button mat-icon-button (click)="closePanel()">
+                    <mat-icon class="icon-size-4 text-current" [svgIcon]="'heroicons_solid:x'"></mat-icon>
+                </button>
+            </div>
+
+            <div class="leading-10 w-full">
+                <input class="w-full text-base font-medium placeholder-white"
+                    [placeholder]="'Chúng tôi sử dụng Gemini để trả lời câu hỏi của bạn.'"
+                    (keyup.enter)="chatgpt(goiy)" [(ngModel)]="goiy" required matInput />
+            </div>
+
+            <div class="flex flex-row ml-auto">
+                <a mat-icon-button [matTooltip]="'Gửi câu hỏi tới Gemini'" (click)="chatgpt(goiy)">
+                    <mat-icon class="icon-size-4 text-current" [svgIcon]="'feather:send'"></mat-icon>
+                </a>
+
+                <!-- <input hidden type="file" class="file-input" (change)="upload($event)" #fileUpload>
+                <a mat-icon-button class="ml-0" [matTooltip]="'Upload file lên CDN'" (click)="fileUpload.click()">
+                    <mat-icon class="icon-size-5 text-current" [svgIcon]="'feather:file'"></mat-icon>
+                </a> -->
+            </div>
+        </div>
+
+        <!-- Content -->
+        <div
+            class="relative flex flex-col flex-auto sm:max-h-160 h-160 divide-y overflow-y-auto overflow-x-hidden bg-card">
+            <ngx-datatable [virtualization]="true" #myTable class="material expandable fullscreen"
+                [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
+                [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
+                [scrollbarV]="true" [rows]="chatgpt2s">
+
+                <!-- Row Detail Template -->
+                <ngx-datatable-row-detail (toggle)="onDetailToggle($event)" [rowHeight]="202">
+                    <ng-template let-row="row" let-rowIndex="rowIndex" let-expanded="expanded"
+                        ngx-datatable-row-detail-template>
+                        <div class="p-4 chatgpt-result text-base hover:overflow-y-auto hover:h-50" id="{{row._id}}"
+                            [innerHTML]="row.answer | renderTrustHTML"></div>
+                    </ng-template>
+                </ngx-datatable-row-detail>
+
+                <!-- Column Templates -->
+                <ngx-datatable-column name="#" [width]="50" [resizeable]="false" [sortable]="false" [draggable]="false"
+                    [canAutoResize]="false">
+                    <ng-template let-row="row" let-expanded="expanded" ngx-datatable-cell-template>
+                        <a href="javascript:void(0)" [class.datatable-icon-right]="!expanded"
+                            [class.datatable-icon-down]="expanded" class="rounded" title="Expand/Collapse Row"
+                            (click)="toggleExpandRow(row)">
+                        </a>
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Câu hỏi" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                    [resizeable]="false">
+                    <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
+                        {{ row.question }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-column name="Thời gian" [width]="150" [sortable]="false" [canAutoResize]="false"
+                    [draggable]="false" [resizeable]="false">
+                    <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
+                        {{ row.updatedAt | timeago }}
+                    </ng-template>
+                </ngx-datatable-column>
+
+                <ngx-datatable-footer>
+                    <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                        let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
+                        let-isVisible="isVisible">
+                        <div class="page-count">
+                            Bạn đã hỏi Gemini {{ (rowCount) ? rowCount.toLocaleString() : 0 }} lần
+                        </div>
+                    </ng-template>
+                </ngx-datatable-footer>
+            </ngx-datatable>
+        </div>
+    </div>
+</ng-template>

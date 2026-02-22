@@ -1,0 +1,60 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
+    <!-- Header -->
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        <div class="flex-1 min-w-0">
+            <!-- Breadcrumbs -->
+            <div>
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <span class="ml-1 text-base text-secondary">tìm từ đồng nghĩa</span>
+                    </div>
+                </div>
+                <div class="flex sm:hidden">
+                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                        <mat-icon class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
+                </div>
+            </div>
+            <!-- Title -->
+            <!-- <div class="mt-2">
+                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+                    tìm và tra cứu từ đồng nghĩa.
+                </p>
+            </div> -->
+        </div>
+
+        <!-- Actions -->
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <button mat-flat-button [color]="'primary'" (click)="synonymscan()" *ngIf="user.reputation >= 100000">
+                <mat-icon class="icon-size-5" [svgIcon]="'mat_outline:wrap_text'"></mat-icon>
+                <mat-label class="ml-2">Quét từ đồng nghĩa</mat-label>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <!-- CONTENT GOES HERE -->
+        <mat-drawer-container class="flex-auto h-full bg-white place-items-center">
+            <!-- Drawer -->
+            <!-- <mat-drawer class="w-160 bg-gray-50 border-0 dark:bg-transparent" [autoFocus]="false" [mode]="drawerMode"
+                [opened]="drawerOpened" #matDrawer>
+                <div class="flex flex-col flex-auto shrink-0 pt-4 px-8 pb-4">
+                </div>
+            </mat-drawer> -->
+
+            <!-- Content -->
+            <mat-drawer-content class="mx-auto md:w-1/2 sm:w-full bg-transparent">
+                <synonymform [items]="synonyms"></synonymform>
+            </mat-drawer-content>
+        </mat-drawer-container>
+    </div>
+</div>

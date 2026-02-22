@@ -1,0 +1,80 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
+    <!-- Header -->
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-50 dark:bg-transparent border-b">
+        <div class="flex-1 min-w-0">
+            <!-- Breadcrumbs -->
+            <div>
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
+                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <span class="ml-1 text-base text-secondary">nhân đôi sản phẩm</span>
+                    </div>
+                </div>
+                <div class="flex sm:hidden">
+                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                        <mat-icon class="icon-size-4 text-secondary"
+                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
+                </div>
+            </div>
+            <!-- Title -->
+            <!-- <div class="mt-2">
+                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
+                    tạo file products.xml cho woocommerce.
+                </p>
+            </div> -->
+        </div>
+
+        <!-- Actions -->
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <!-- <button mat-icon-button [color]="'primary'">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:cloud-snow'"></mat-icon>
+            </button> -->
+
+            <!-- <a mat-icon-button [href]="downloadJsonHref" download="chatgpt.json" [color]="'primary'" class="ml-2">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+            </a> -->
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <!-- CONTENT GOES HERE -->
+        <mat-drawer-container class="flex-auto h-full bg-white place-items-center">
+            <!-- Drawer -->
+            <!-- <mat-drawer class="w-160 bg-gray-50 border-0 dark:bg-transparent" [autoFocus]="false" [mode]="drawerMode"
+                [opened]="drawerOpened" #matDrawer>
+                <div class="flex flex-col flex-auto shrink-0 pt-4 px-8 pb-4">
+                    <mat-accordion>
+                    
+                </div>
+            </mat-drawer> -->
+
+            <!-- Content -->
+            <mat-drawer-content class="m-auto">
+                <linkform></linkform>
+
+                <!-- <mat-accordion>
+                    <mat-expansion-panel class="mb-2 last:mb-0" *ngFor="let item of chatgpt">
+                        <mat-expansion-panel-header>
+                            <mat-panel-title>
+                                {{item.question}}
+                            </mat-panel-title>
+                        </mat-expansion-panel-header>
+
+                        <p class="px-4">{{item.updatedAt | timeago}}</p>
+                        <p class="px-4 pb-4">
+                            {{item.answer}}
+                        </p>
+                    </mat-expansion-panel>
+                </mat-accordion> -->
+            </mat-drawer-content>
+        </mat-drawer-container>
+    </div>
+</div>

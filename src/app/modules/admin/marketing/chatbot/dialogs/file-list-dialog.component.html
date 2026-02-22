@@ -1,0 +1,49 @@
+<div class="w-full h-full p-0 m-0" style="height: 100%;">
+    <ngx-datatable class="material fullscreen w-full shadow-none" [virtualization]="true" [rows]="rows"
+        [columnMode]="'force'" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
+        [scrollbarH]="false" style="height: 100%;">
+        <ngx-datatable-column name="Filename" prop="filename" [width]="250" [sortable]="false" [canAutoResize]="false"
+            [draggable]="false" [resizeable]="false">
+            <ng-template let-row="row" ngx-datatable-cell-template>
+                <mat-label class="text-primary">{{ row.filename }}</mat-label>
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="URL" prop="url" [width]="300" [sortable]="false" [canAutoResize]="false"
+            [draggable]="false" [resizeable]="false">
+            <ng-template let-row="row" ngx-datatable-cell-template>
+                <mat-label class="text-gray-400">{{ row.url }}</mat-label>
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Doc Type" prop="doc_type" [width]="150" [sortable]="false" [canAutoResize]="false"
+            [draggable]="false" [resizeable]="false"></ngx-datatable-column>
+        <ngx-datatable-column name="Size (MB)" prop="size_kb">
+            <ng-template let-row="row" ngx-datatable-cell-template>
+                {{ (row.size_kb / 1024) | number:'1.2-2' }} MB
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="Uploaded" prop="uploaded_at" [width]="200" [sortable]="false"
+            [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+                <mat-label class="font-normal truncate hover:text-clip flex items-center justify-self-stretch"> {{
+                    row.uploaded_at }}</mat-label>
+            </ng-template>
+        </ngx-datatable-column>
+
+        <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+            <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+                <button mat-icon-button (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
+                    matTooltipPosition="right" [matTooltip]="'Học lại tài liệu này'">
+                    <mat-icon class="icon-size-4 text-green-600" svgIcon="feather:refresh-ccw"></mat-icon>
+                </button>
+
+                <button mat-icon-button (click)="deletePdf(row.doc_type, row.filename, rowIndex)"
+                    matTooltipPosition="right" [matTooltip]="'Xóa tài liệu này'">
+                    <mat-icon class="icon-size-4 text-red-600" svgIcon="feather:trash"></mat-icon>
+                </button>
+            </ng-template>
+        </ngx-datatable-column>
+    </ngx-datatable>
+</div>

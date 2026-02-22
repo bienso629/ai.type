@@ -1,0 +1,61 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-white">
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <mat-vertical-stepper [linear]="isLinear" class="h-full" #stepper>
+            <mat-step label="Link chứa thông tin sản phẩm">
+                <div class="flex items-start justify-start h-full">
+                    <div class="inline-block min-w-100">
+                        <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>Địa chỉ URL</mat-label>
+                            <textarea [(ngModel)]="link" required matInput cdkTextareaAutosize></textarea>
+                        </mat-form-field>
+
+                        <button mat-flat-button class="mt-4" color="primary" (click)="crawling()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:package'"></mat-icon>
+                            <mat-label class="ml-2">Quét sản phẩm</mat-label>
+                        </button>
+                    </div>
+                </div>
+            </mat-step>
+
+            <mat-step label="Danh sách sản phẩm">
+                <!-- CONTENT GOES HERE -->
+                <div class="flex items-start justify-start h-full pt-8">
+                    <ngx-datatable [virtualization]="true"  #mydatatable class="material shadow-none w-full border rounded-lg"
+                        [headerHeight]="50" [columnMode]="ColumnMode.force" [footerHeight]="50"
+                        [rowHeight]="getRowHeight" rowHeight="auto" [rows]="links" [selected]="selected"
+                        [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+                        [displayCheck]="displayCheck" (select)="onSelect($event)">
+
+                        <!-- Column Templates -->
+                        <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
+                            [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
+                            [checkboxable]="true"></ngx-datatable-column>
+
+                        <ngx-datatable-column name="Video tìm thấy">
+                            <ng-template let-row="row" ngx-datatable-cell-template>
+                                {{hostname.protocol}}//{{hostname.hostname}}{{row.href}}
+                            </ng-template>
+                        </ngx-datatable-column>
+                    </ngx-datatable>
+                </div>
+
+                <div class="flex items-start justify-start mt-4 h-full">
+                    <ng-container *ngIf="(selected.length > 0); else elseTemplate">
+                        <button mat-flat-button class="mt-4" color="primary" (click)="scan()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:file'"></mat-icon>
+                            <mat-label class="ml-2">Quét lần lượt</mat-label>
+                        </button>
+                    </ng-container>
+                    <ng-template #elseTemplate>
+                        <button mat-flat-button class="mt-4" color="primary" (click)="export()">
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:file'"></mat-icon>
+                            <mat-label class="ml-2">Tải CSV</mat-label>
+                        </button>
+                    </ng-template>
+                </div>
+            </mat-step>
+        </mat-vertical-stepper>
+    </div>
+</div>

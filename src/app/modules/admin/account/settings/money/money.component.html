@@ -1,0 +1,57 @@
+<div class="w-full max-w-3xl">
+    <!-- Form -->
+    <form [formGroup]="planBillingForm" (ngSubmit)="save()">
+        <!-- Section -->
+        <div class="w-full">
+            <div class="text-xl">Nạp tiền vào ví cho ứng dụng ai.type</div>
+            <div class="text-secondary mt-2">Công ty TNHH Typing</div>
+
+            <div class="text-secondary leading-8 mt-4">
+                <fuse-alert [appearance]="'outline'" [type]="'warning'">
+                    ai.type hiện chỉ hỗ trợ nạp tiền bằng ví điện tử MoMo
+                </fuse-alert>
+            </div>
+        </div>
+        <div class="grid sm:grid-cols-3 gap-6 w-full mt-4">
+            <!-- <mat-radio-group class="invisible absolute w-0 h-0 pointer-events-none" [formControlName]="'plan'"
+                #planRadioGroup="matRadioGroup">
+                <ng-container *ngFor="let plan of plans; trackBy: trackByFn">
+                    <mat-radio-button [value]="plan.value"></mat-radio-button>
+                </ng-container>
+            </mat-radio-group> -->
+
+            <!-- <ng-container *ngFor="let plan of plans; trackBy: trackByFn">
+                <div class="relative flex flex-col items-start justify-start p-6 rounded-md shadow cursor-pointer bg-card"
+                    [ngClass]="{'ring ring-inset ring-primary': planRadioGroup.value === plan.value}"
+                    (click)="planRadioGroup.value = plan.value">
+                    <ng-container *ngIf="planRadioGroup.value === plan.value">
+                        <mat-icon class="absolute top-0 right-0 mt-3 mr-3 icon-size-7 text-primary"
+                            [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
+                    </ng-container>
+
+                    <div class="font-semibold">{{plan.label}}</div>
+                    <div class="mt-1 whitespace-normal text-secondary">{{plan.details}}</div>
+                    <div class="flex-auto"></div>
+
+                    <div class="mt-8 text-lg">
+                        <span>{{plan.price | currency:'VND'}}</span>
+                        <span class="text-secondary"> / tháng</span>
+                    </div>
+                </div>
+            </ng-container> -->
+        </div>
+
+        <div class="w-full mt-8">
+            <!-- Card holder -->
+            <mat-form-field class="min-w-80 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                <mat-label>Số tiền cần nạp</mat-label>
+                <!-- <span matPrefix>MoMo</span> -->
+                <input [currencyMask]="options" [formControlName]="'amountCtrl'" [placeholder]="'25.000'" required matInput>
+                <mat-hint>Lưu ý: Số tiền muốn nạp phải ít nhất 25.000đ</mat-hint>
+                <span matSuffix>đ</span>
+            </mat-form-field>
+
+            <button class="ml-2" mat-flat-button type="submit" [color]="'primary'">Xác nhận</button>
+        </div>
+    </form>
+</div>

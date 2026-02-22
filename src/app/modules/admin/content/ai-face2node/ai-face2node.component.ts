@@ -1,0 +1,906 @@
+import {
+    AfterContentChecked,
+    ChangeDetectionStrategy,
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+} from '@angular/core';
+import {
+    UntypedFormBuilder,
+    UntypedFormGroup,
+    Validators,
+} from '@angular/forms';
+import { ActivatedRoute, Params, Router } from '@angular/router';
+import { Subject, takeUntil } from 'rxjs';
+import { CrawlService } from 'app/modules/_services/crawl';
+import { ColumnMode, DatatableComponent } from '@swimlane/ngx-datatable';
+import { ToastrService } from 'ngx-toastr';
+import { fuseAnimations } from '@fuse/animations';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { Title } from '@angular/platform-browser';
+import { UserService } from 'app/core/user/user.service';
+import { User } from 'app/core/user/user.types';
+import { AppConfig } from 'app/core/config/app.config';
+import { FuseConfigService } from '@fuse/services/config';
+import { HttpClient } from '@angular/common/http';
+import { YoutubeService } from 'app/modules/_services/youtube';
+import { DomainService } from 'app/modules/_services/domain';
+import { WordpressService } from 'app/modules/_services/wordpress';
+import { Page, PageInfo } from 'app/core/navigation/navigation.types';
+import { SharedService } from 'app/shared.service';
+import { BlogService } from 'app/modules/_services/blog';
+import { UserClientService } from 'app/modules/_services/user';
+
+import * as _ from 'lodash';
+import * as uuid from 'uuid';
+import moment from 'moment';
+import { HelperService } from 'app/helper.service';
+
+@Component({
+    selector: 'ai-face2node',
+    templateUrl: './ai-face2node.component.html',
+    styleUrls: ['./ai-face2node.component.scss'],
+    providers: [
+        CrawlService,
+        YoutubeService,
+        DomainService,
+        WordpressService,
+        BlogService,
+        UserClientService,
+    ],
+    animations: fuseAnimations,
+    encapsulation: ViewEncapsulation.None,
+    changeDetection: ChangeDetectionStrategy.OnPush,
+})
+export class AIFacePostComponent
+    implements OnInit, OnDestroy, AfterContentChecked
+{
+    animationStates: any;
+    user: User;
+    config: AppConfig;
+    uniqueID: String;
+    fbCookiePath: String =
+        'C:\\Users\\Wing386\\Documents\\ai.type\\cookie.json';
+
+    chatgptForm: UntypedFormGroup;
+    drawerMode: 'over' | 'side' = 'side';
+    drawerOpened: boolean = true;
+
+    autoCreatePost: boolean = false;
+
+    quanlity = 'medium';
+    loading: boolean = false;
+
+    domains: any[] = [];
+    categories: any[] = [];
+    ccategories: any = {};
+
+    sitemapForm: UntypedFormGroup;
+    queryParams: Params;
+
+    @ViewChild(DatatableComponent) table: DatatableComponent;
+
+    preview: any = {};
+    testCreateBlog: any;
+    links: any[] = [];
+
+    rows: any[] = [];
+    totalElements: number = 0;
+    pageNumber: number;
+    cache: Record<string, boolean> = {};
+    cachePageSize = 0;
+    keyword: String = '';
+    page: Page = {
+        pageNumber: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+    };
+    lastId: string;
+
+    activeRow: any = null;
+    public selected: any[] = [];
+    ColumnMode = ColumnMode;
+
+    allLinkCollections: any = [];
+
+    private unsubscribeLog: () => void;
+    private unsubscribeRes: () => void;
+
+    private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    onActivate(event: any) {
+        if (event.type === 'click') {
+            this.activeRow = event.row;
+        }
+    }
+
+    isActive(row: any): boolean {
+        return this.activeRow && this.activeRow.uuid === row.uuid;
+    }
+
+    displayFn(domain: any): string {
+        return domain && domain.domain ? domain.domain : '';
+    }
+
+    displayCollectionFn(collection: any): string {
+        return collection && collection.title
+            ? collection.title
+            : 'Chưa có bộ sưu tập nào';
+    }
+
+    linkCollections() {
+        this._crawlService
+            .linkCollections({
+                username: this.user.name,
+                page: { size: 100 },
+                includeUuid: false,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.length > 0
+                    ) {
+                        this.allLinkCollections = [...result.data];
+
+                        // set mặc định
+                        this.sitemapForm.controls['collection'].setValue(
+                            result.data[0],
+                        );
+
+                        // tự động lấy link
+                        this.getLinks(result.data[0]['_id'], 0);
+                    }
+                },
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    /**
+     * lấy tất cả link facebook
+     */
+    getLinks(id: string, counter?: number) {
+        // lấy link theo collection
+        this._crawlService
+            .linksInCollection({
+                username: this.user.name,
+                id: id,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (
+                        result &&
+                        result.success &&
+                        result.data &&
+                        result.data.length > 0
+                    ) {
+                        this.links = result.data;
+
+                        // set mặc định
+                        this.sitemapForm.controls['domain'].setValue(
+                            this.links[0].link,
+                        );
+                    }
+                },
+                error: () => {
+                    this.toastr.warning(`Không tải dữ liệu về.`);
+                },
+                complete: () => {},
+            });
+
+        // lấy bài theo collection
+        if (counter && counter > 0) {
+            this.resetTable();
+        }
+
+        // lấy bài theo collection
+        this.faceTotalPost();
+    }
+
+    // lấy tất cả domain làm việc của bạn
+    getDomains() {
+        this._domainService
+            .fetch({
+                username: this.user.name,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data) {
+                        this.domains = result.data;
+                        this.sitemapForm.controls['domain1'].setValue(
+                            this.domains[0],
+                        );
+                        this.getCategories(this.domains[0] ?? ['domain']);
+                    }
+                },
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    // chọn 1 category tương ứng với domain
+    getCategories(e: any): void {
+        const domain = this.sitemapForm.controls['domain1'].value;
+        if (!domain || domain['domain'] === '') return;
+
+        this._wordpressService
+            .categories({
+                domain: domain['domain'],
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result) {
+                        this.categories = result;
+
+                        this.categories.map((category) => {
+                            this.ccategories[`${category.name}`] = category.id;
+                        });
+                    }
+                },
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    resetTable() {
+        this.table.offset = 0;
+        this.keyword = this.keyword;
+        this.selected = [];
+        this.rows = [];
+        this.lastId = null;
+        this.cachePageSize = 0;
+        this.cache = {};
+    }
+
+    faceTotalPost() {
+        const collection = this.sitemapForm.controls['collection'].value;
+
+        // tính tổng trước
+        this._crawlService
+            .faceTotalSearchPost({
+                username: this.user.name,
+                keyword: this.keyword,
+                facegroup: collection._id,
+                page: this.page,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success) {
+                        this.totalElements = result.data.total || 0;
+
+                        // lấy bài
+                        this.setPage({
+                            offset: 0,
+                            pageSize: undefined,
+                            limit: undefined,
+                            count: this.totalElements,
+                        });
+                    }
+                },
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    // tìm kiếm theo từ khoá
+    find(event: any) {
+        this.keyword = event.target.value.toLowerCase();
+
+        if (this.keyword) {
+            // bắt đầu tính toán tìm kiếm
+            this.faceTotalPost();
+        } else {
+            // về lại mặc định khi không có từ khoá tìm kiếm
+            let temp = localStorage.getItem('statistics');
+            temp = JSON.parse(temp);
+            this.totalElements = temp['faceposts'];
+        }
+
+        // lấy bài
+        this.setPage({
+            offset: 0,
+            pageSize: undefined,
+            limit: undefined,
+            count: this.totalElements,
+        });
+    }
+
+    /**
+     * Populate the table with new data based on the page number
+     * @param page The page to select
+     */
+    setPage(pageInfo?: PageInfo) {
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
+
+        // Current page number is determined by last call to setPage
+        // This is the page the UI is currently displaying
+        // The current page is based on the UI pagesize and scroll position
+        // Pagesize can change depending on browser size
+        this.pageNumber = pageInfo.offset;
+
+        // Calculate row offset in the UI using pageInfo
+        // This is the scroll position in rows
+        const rowOffset = pageInfo.offset * pageInfo.pageSize;
+
+        this.page = {
+            pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
+            size: pageInfo.pageSize,
+            totalElements: 0,
+            totalPages: 0,
+        };
+
+        // We keep a index of server loaded pages so we don't load same data twice
+        // This is based on the server page not the UI
+        if (this.cachePageSize !== this.page.size) {
+            this.cachePageSize = this.page.size;
+            this.cache = {};
+        }
+
+        if (this.cache[this.page.pageNumber]) {
+            return;
+        }
+
+        this.cache[this.page.pageNumber] = true;
+
+        // bắt đầu lấy dữ liệu
+        const collection = this.sitemapForm.controls['collection'].value;
+
+        this._crawlService
+            .facePosts({
+                username: this.user.name,
+                keyword: this.keyword,
+                facegroup: collection._id,
+                page: this.page,
+                lastId: this.lastId,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data) {
+                        // Create array to store data if missing
+                        // The array should have the correct number of with "holes" for missing data
+                        if (!this.rows) {
+                            this.rows = new Array<any>(this.totalElements || 0);
+                        }
+
+                        if (result.data.length > 0) {
+                            // Calc starting row offset
+                            // This is the position to insert the new data
+                            const start = this.page.pageNumber * this.page.size;
+
+                            // Copy existing data
+                            const rows = [...this.rows];
+
+                            // Insert new rows into correct position
+                            rows.splice(start, this.page.size, ...result.data);
+
+                            // Set rows to our new rows for display
+                            this.rows = rows;
+                            this.lastId =
+                                this.rows.length > 0
+                                    ? this.rows[this.rows.length - 1]['_id']
+                                    : null;
+
+                            // làm mới lại giao diện
+                            this.cd.markForCheck();
+                        }
+                    }
+                },
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    // cập nhật lại số liệu câu hỏi
+    updateTable(key?: string, value?: number) {
+        this._userClientService
+            .updateTable({
+                username: this.user.name,
+                createdAt1: moment().startOf('day').toString(),
+                createdAt2: moment().endOf('day').toString(),
+                table: {
+                    key: key,
+                    value: value,
+                },
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: () => {},
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    // cập nhật số liệu
+    updateCount(n: number) {
+        // cập nhật lại tổng
+        this.totalElements += n;
+        this._h.updateStatistics('faceposts', n);
+
+        // cập nhật báo cáo
+        if (n > 0) {
+            this.updateTable('table.faceposts', n);
+        }
+    }
+
+    // tiếp tục quét
+    async createAllSitemap() {
+        // Tạo uniqueID mỗi lần chụp
+        await (window as any).electron.tools({
+            command: 'close-all-windows',
+        });
+
+        // nếu hết link
+        if (this.links[0]) {
+            // set lại
+            this.sitemapForm.controls['domain'].setValue(this.links[0].link);
+
+            // cào dữ liệu từ từ từng cái một
+            this.crawl(this.links[0].link);
+        } else {
+            this.toastr.info(
+                'Đã hoàn tất việc quét tất cả các link trong bộ sưu tập.',
+            );
+        }
+    }
+
+    async crawl(url: string) {
+        this.loading = !this.loading;
+        const collection = this.sitemapForm.controls['collection'].value;
+
+        // Tạo uniqueID mỗi lần chụp
+        const uniqueID = Math.random().toString(36).substr(2, 9);
+        await (window as any).electron.tools({
+            url: url,
+            command: 'facebook-crawl',
+            uniqueID,
+            facegroup: collection['_id'],
+            maxPosts: this.sitemapForm.controls['length'].value,
+            cookiePath: this.fbCookiePath, // Đường dẫn file cookie .json đã lưu
+        });
+    }
+
+    analyticsTrend() {
+        // dùng AI để phân tích trend
+    }
+
+    // lưu post
+    storePost(data?: any) {
+        if (data.length > 0) {
+            let item = data[0];
+            this._crawlService
+                .facePostStore({
+                    data: item,
+                    username: this.user.name,
+                })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (result) => {
+                        if (result && result.success) {
+                            // cập nhật lại số liệu
+                            this.updateCount(1);
+
+                            // lưu ảnh trên CDN
+                            if (item.images && item.images.length > 0) {
+                                this.storeImage(item.images);
+                            }
+
+                            this.toastr.success(`Lưu thành công!`);
+                        }
+
+                        // tiếp tục lưu
+                        data.splice(0, 1);
+                        this.storePost(data);
+                    },
+                    error: () => {
+                        // lỗi cũng cố gắng chạy lại
+                        data.splice(0, 1);
+                        this.storePost(data);
+                    },
+                    complete: () => {},
+                });
+        }
+    }
+
+    // lưu hình
+    storeImage(images: any) {
+        images.map((image: string) => {
+            if (image.indexOf('https://scontent.') >= 0) {
+                this._crawlService
+                    .storeImage({
+                        imageUrl: image,
+                        username: this.user.name,
+                    })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: () => {},
+                        error: () => {},
+                        complete: () => {},
+                    });
+            }
+        });
+    }
+
+    async stop() {
+        this.loading = !this.loading;
+
+        // Tạo uniqueID mỗi lần chụp
+        await (window as any).electron.tools({
+            command: 'close-all-windows',
+        });
+    }
+
+    // chuyển đổi facepost sang archive
+    facePost2Node() {
+        let p = this.preview.text.split('.').filter((i: string) => i);
+        this._crawlService
+            .facePost2Node({
+                username: this.user.name,
+                content: {
+                    p: p,
+                    img: this.preview.images,
+                    a: this.preview.href,
+                },
+                title: '',
+                url: '',
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result: any) => {
+                    if (result && result.success) {
+                        this.toastr.success('Chuyển sang lưu trữ.');
+                    } else {
+                        this.toastr.error('Lỗi trong quá trình chuyển.');
+                    }
+                },
+                error: (e: any) => {},
+                complete: () => {
+                    // lam moi lai giao dien
+                    this.cd.markForCheck();
+                },
+            });
+    }
+
+    previewNow(post: any) {
+        let images = [];
+        let href = [];
+        this.testCreateBlog = null;
+
+        if (post['images'] && post['images'].length > 0) {
+            images = post['images'].filter((i: string) => {
+                return i != null && i.indexOf('scontent') >= 0;
+            });
+        }
+
+        if (post['href'] && post['href'].length >= 1) {
+            href = post['href'].filter((i: string) => {
+                return (
+                    i != null &&
+                    (i.indexOf('/photo/') >= 0 || i.indexOf('/videos/') >= 0)
+                );
+            });
+        }
+
+        post['images'] = images;
+        post['href'] = href;
+
+        post['text'] = post['text'].split('.').join('. ');
+        post['text'] = post['text'].split(',').join(', ');
+
+        this.preview = post;
+    }
+
+    createBlogByImages() {
+        this._blogService
+            .imgs2blog({
+                index: 0,
+                name: this.domains[0]['domain'],
+                content: this.preview.text,
+                domain: this.domains[0]['domain'],
+                username: this.user.name,
+                categories: this.categories,
+                images: this.preview.images,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result: any) => {
+                    if (result && result.success && result.data) {
+                        this.testCreateBlog = result.data;
+
+                        // lam moi lai giao dien
+                        this.cd.markForCheck();
+                    }
+                },
+                error: () => {},
+                complete: () => {},
+            });
+    }
+
+    checkVideo() {
+        const video = this.preview.href.find((a: string) => {
+            return a.indexOf('video') >= 0;
+        });
+
+        if (video) {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    downloadVideo(url: string) {
+        this._youtubeService
+            .download({
+                URLS: url,
+                quanlity: this.quanlity,
+                username: this.user.name,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (results) => {
+                    if (results && results.success) {
+                        this.toastr.success('Tải video về thành công!');
+                    } else {
+                        this.toastr.warning('Tải video thất bại.');
+                    }
+                },
+                error: (e: any) => {
+                    this.toastr.warning('Tải video thất bại.');
+                },
+                complete: () => {},
+            });
+    }
+
+    downloadImage(url: string) {
+        this.http.get(url, { responseType: 'blob' }).subscribe(
+            (blob) => {
+                // Create a link element
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${uuid.v4()}`; // Set the download filename
+
+                // Append link to the body, click it, and then remove it
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+            (error) => {
+                console.error('Error downloading the image: ', error);
+            },
+        );
+    }
+
+    autoPost() {
+        this.alert({
+            title: 'Phần mềm tự động tạo bài viết',
+            message: `Hệ thống tìm thấy ${this.totalElements} post(s) có thể tạo bài viết trên website ${this.sitemapForm.controls['domain1'].value['domain']}.`,
+            confirm: 'Bắt đầu ngay',
+            cb: () => {
+                localStorage.removeItem('auto_create_content_the_last_id');
+                this.sharedService.trigger(
+                    this.sitemapForm.value,
+                    this.totalElements,
+                    this.categories,
+                ); // kích hoạt sự kiện
+            },
+        });
+    }
+
+    /**
+     * Constructor
+     */
+    constructor(
+        private http: HttpClient,
+        private _crawlService: CrawlService,
+        private _activatedRoute: ActivatedRoute,
+        private _formBuilder: UntypedFormBuilder,
+        private toastr: ToastrService,
+        private _userService: UserService,
+        private _userClientService: UserClientService,
+        private _youtubeService: YoutubeService,
+        private _wordpressService: WordpressService,
+        private sharedService: SharedService,
+        private _blogService: BlogService,
+        private _h: HelperService,
+        private cd: ChangeDetectorRef,
+        private _domainService: DomainService,
+        private _fuseConfigService: FuseConfigService,
+        private _fuseConfirmationService: FuseConfirmationService,
+        private _router: Router,
+        private titleService: Title,
+    ) {
+        this.titleService.setTitle(
+            `lấy post từ nhóm facebook | ai.type - công cụ tạo content`,
+        );
+
+        this.sitemapForm = this._formBuilder.group({
+            collection: [null, Validators.required], // chọn collection
+            domain: ['', Validators.required], // link chọn để quét bài
+            domain1: [null, Validators.required], // đối tượng domain để post bài lên
+            domain2: ['', Validators.required], // domain tham chiếu
+            titledomain2: ['', Validators.required], // title tham chiếu
+            autocreatenode: [true, Validators.required],
+            publish: [false, Validators.required],
+            createmore100nodes: [false, Validators.required],
+            createthumbnail: [false, Validators.required],
+            createvideo: [false, Validators.required],
+            autopost: [false, Validators.required],
+            length: [3, Validators.required],
+        });
+
+        // Subscribe to config changes
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: AppConfig) => {
+                // Store the config
+                this.config = config;
+            });
+
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+
+                // lấy domain
+                this.getDomains();
+
+                // lấy bộ sưu tập
+                this.linkCollections();
+
+                if (user.reputation < 10000) {
+                    this.error(
+                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
+                    );
+                    return;
+                }
+            });
+
+        // sau khi đã vào đây rồi thì ko còn thông báo nữa
+        localStorage.removeItem('auto_create_content_the_last_id');
+
+        // Nhận phản hồi, theo dõi hoạt động từ main process
+        this.unsubscribeRes = (window as any).electron.onToolsResponse(
+            (data: { action: string; success: any; posts: any }) => {
+                if (data.action === 'facebook-crawl' && data.success) {
+                    if (data && data.posts && data.posts.length > 0) {
+                        // cập nhật bảng
+                        this.rows = [...data.posts, ...this.rows];
+                        this.selected = [...data.posts, ...this.selected];
+
+                        // tự động lưu
+                        this.storePost(data.posts);
+
+                        // quét tiếp
+                        this.links.splice(0, 1);
+                        this.createAllSitemap();
+
+                        // lam moi lai giao dien
+                        this.loading = !this.loading;
+                        this.toastr.success(`Quét Facebook thành công!`);
+                    }
+                } else {
+                    this.toastr.info('Chương trình đang được khởi tạo.');
+                }
+            },
+        );
+
+        // Nhận phản hồi
+        this.unsubscribeLog = (window as any).electron.onToolsLog(
+            (msg: any) => {
+                console.log('Log từ main:', msg);
+            },
+        );
+    }
+
+    ngAfterContentChecked(): void {}
+
+    /**
+     * On init
+     */
+    ngOnInit(): void {
+        this.chatgptForm = this._formBuilder.group({
+            chatgpt: [''],
+        });
+
+        // Subscribe to query params change
+        this._activatedRoute.queryParams
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((queryParams) => {
+                // Store the query params
+                this.queryParams = queryParams;
+
+                // lam moi lai giao dien
+                this.cd.markForCheck();
+            });
+    }
+
+    /**
+     * On destroy
+     */
+    ngOnDestroy(): void {
+        if (this.unsubscribeLog) this.unsubscribeLog();
+        if (this.unsubscribeRes) this.unsubscribeRes();
+
+        // Unsubscribe from all subscriptions
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
+    }
+
+    error(message?: string) {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Thông báo!',
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            icon: {
+                show: true,
+                name: 'feather:alert-triangle',
+                color: 'error',
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Đóng',
+                    color: 'warn',
+                },
+                cancel: {
+                    show: false,
+                    label: 'Đóng lại',
+                },
+            },
+            dismissible: false,
+        });
+
+        // Subscribe to afterClosed from the dialog reference
+        dialogRef.afterClosed().subscribe((_) => {
+            this._router.navigate(['/sign-out']);
+        });
+    }
+
+    alert(alert?: any) {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: alert ? alert.title : 'Hoàn tất!',
+            message: alert
+                ? alert.message
+                : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
+            icon: {
+                show: true,
+                name: 'feather:check',
+                color: 'success',
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: alert ? alert.confirm : 'Khởi động lại',
+                    color: 'primary',
+                },
+                cancel: {
+                    show: true,
+                    label: 'Đóng cửa sổ',
+                },
+            },
+            dismissible: true,
+        });
+
+        // Subscribe to afterClosed from the dialog reference
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                if (alert.cb) {
+                    alert.cb();
+                }
+            }
+        });
+    }
+}

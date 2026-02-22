@@ -1,0 +1,87 @@
+<div class="w-full max-w-3xl">
+    <!-- Form -->
+    <form [formGroup]="activeForm" (ngSubmit)="save()">
+        <!-- Section -->
+        <div class="w-full">
+            <!-- <div class="text-xl">Gia hạn</div> -->
+            <!-- <div class="text-secondary mt-2">Thêm số ngày sử dụng phần mềm viết bài ai.type</div> -->
+
+            <div class="text-secondary leading-8 mt-4">
+                <ng-container *ngIf="(activeInfo && activeInfo.user); else elseTemplate">
+                    <fuse-alert [appearance]="'outline'" [type]="'success'">
+                        Hạn sử dụng tới {{activeInfo.user.expirationDate | date:'d/M/Y h:mma z'}}
+                    </fuse-alert>
+                </ng-container>
+                <ng-template #elseTemplate>
+                    <fuse-alert [appearance]="'outline'" [type]="'warning'">
+                        Hãy sử dụng License Key để kích hoạt phần mềm
+                    </fuse-alert>
+                </ng-template>
+            </div>
+
+            <div class="text-secondary leading-8 mt-4" *ngIf="activeInfo && activeInfo.user">
+                <fuse-alert [appearance]="'outline'" [type]="'warning'" (click)="copy(activeInfo.user.appToken)">
+                    <mat-icon class="icon-size-5" fuseAlertIcon [svgIcon]="'feather:copy'">
+                    </mat-icon>
+                    {{activeInfo.user.appToken}}
+                </fuse-alert>
+            </div>
+        </div>
+
+        <div class="w-full mt-12">
+            <mat-label class="text-base font-medium leading-8">Nhập License Key:</mat-label>
+
+            <mat-grid-list class="max-w-140" cols="6" gutterSize="10px" rowHeight="60px">
+                <mat-grid-tile class="">
+                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                        <input #digitOne [formControlName]="'licensekey1'" placeholder="XXXXX"
+                            (paste)="onDigitPaste($event)" (keyup)="onDigitInput($event, null, digitTwo)" type="text"
+                            maxlength="5" class="uppercase" required matInput>
+                    </mat-form-field>
+                </mat-grid-tile>
+                <mat-grid-tile class="">
+                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                        <input #digitTwo [formControlName]="'licensekey2'" placeholder="XXXXX"
+                            (keyup)="onDigitInput($event, digitOne, digitThree)" type="text" maxlength="5"
+                            class="uppercase" required matInput>
+                    </mat-form-field>
+                </mat-grid-tile>
+                <mat-grid-tile class="">
+                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                        <input #digitThree [formControlName]="'licensekey3'" placeholder="XXXXX"
+                            (keyup)="onDigitInput($event, digitTwo, digitFour)" type="text" maxlength="5"
+                            class="uppercase" required matInput>
+                    </mat-form-field>
+                </mat-grid-tile>
+                <mat-grid-tile class="">
+                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                        <input #digitFour [formControlName]="'licensekey4'" placeholder="XXXXX"
+                            (keyup)="onDigitInput($event, digitThree, digitFive)" type="text" maxlength="5"
+                            class="uppercase" required matInput>
+                    </mat-form-field>
+                </mat-grid-tile>
+                <mat-grid-tile class="">
+                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                        <input #digitFive [formControlName]="'licensekey5'" placeholder="XXXXX"
+                            (keyup)="onDigitInput($event, digitFour, digitSix)" type="text" maxlength="5"
+                            class="uppercase" required matInput>
+                    </mat-form-field>
+                </mat-grid-tile>
+                <mat-grid-tile class="">
+                    <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                        <input #digitSix [formControlName]="'licensekey6'" placeholder="XXXXX"
+                            (keyup)="onDigitInput($event, digitFive, null)" type="text" maxlength="5" class="uppercase"
+                            required matInput>
+                    </mat-form-field>
+                </mat-grid-tile>
+            </mat-grid-list>
+
+            <!-- Divider -->
+             <div class="mt-8 border-t"></div>
+
+            <p class="mt-4">
+                <button mat-flat-button type="submit" [color]="'primary'">Kích hoạt phần mềm</button>
+            </p>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,2707 @@
+const {
+    app,
+    BrowserWindow,
+    Menu,
+    globalShortcut,
+    screen,
+    session,
+    ipcMain,
+} = require("electron");
+const { GoogleGenerativeAI } = require("@google/generative-ai");
+const { exec, execFile, spawn } = require("child_process");
+const os = require("os");
+const path = require("path");
+const http = require("http");
+const fs = require("fs");
+const express = require("express");
+const cheerio = require("cheerio");
+const puppeteer = require("puppeteer-extra");
+const https = require("https");
+const crypto = require("crypto");
+const WebSocket = require("ws");
+const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const { google } = require("googleapis");
+const { OAuth2Client, GoogleAuth } = require("google-auth-library");
+
+let serviceProcess = null;
+
+function startGoService() {
+    const isPackaged = app.isPackaged;
+    const platform = process.platform; // 'darwin' cho macOS, 'win32' cho Windows
+
+    // Xác định tên file dựa trên OS
+    const binName =
+        platform === "win32" ? "gologin-core-win.exe" : "gologin-core-macos";
+
+    // Đường dẫn linh hoạt: dev lùi ra ngoài src/, packaged lấy từ Resources
+    const binPath = isPackaged
+        ? path.join(process.resourcesPath, binName)
+        : path.join(__dirname, "..", "services", binName);
+
+    sendToRenderer("tools-log", `[DEBUG]: Khởi chạy core tại ${binPath}`);
+
+    if (!fs.existsSync(binPath)) {
+        sendToRenderer(
+            "tools-log",
+            `[ERROR]: Không tìm thấy binary: ${binName}`,
+        );
+        return;
+    }
+
+    // Cấp quyền thực thi (chỉ cần thiết cho macOS)
+    if (platform !== "win32") {
+        try {
+            fs.chmodSync(binPath, "755");
+        } catch (e) {
+            console.error("Lỗi cấp quyền macOS:", e);
+        }
+    }
+
+    // Khởi chạy tiến trình
+    serviceProcess = spawn(binPath, [], {
+        cwd: path.dirname(binPath),
+        stdio: ["inherit", "pipe", "pipe"],
+    });
+
+    serviceProcess.stdout.on("data", (data) => {
+        const msg = data.toString();
+        sendToRenderer("tools-log", `[CORE]: ${msg}`);
+        if (msg.includes("GO-SERVICE-READY")) {
+            sendToRenderer("tools-log", `[SYSTEM]: Core Engine đã sẵn sàng.`);
+        }
+    });
+
+    serviceProcess.stderr.on("data", (data) => {
+        sendToRenderer("tools-log", `[CORE-ERROR]: ${data.toString()}`);
+    });
+}
+
+// Thêm vào trong phần app.whenReady() hoặc bất kỳ đâu trong main.js
+const { version } = require("./../package.json"); // Lấy version từ file package.json
+
+ipcMain.handle("get-app-version", async () => {
+    return version;
+});
+
+ipcMain.on("app:relaunch", () => {
+    // Thiết lập ứng dụng sẽ mở lại sau khi đóng
+    app.relaunch();
+    // Thoát ứng dụng hiện tại ngay lập tức
+    app.exit(0);
+});
+
+puppeteer.use(StealthPlugin());
+app.commandLine.appendSwitch("remote-debugging-port", "9999"); // BẮT BUỘC cho puppeteer.connect()
+
+// Thêm util này gần đầu file:
+const fileExists = (p) => {
+    try {
+        return fs.existsSync(p);
+    } catch {
+        return false;
+    }
+};
+
+// ==== PATH CONFIG ====
+const documentsDir = path.join(os.homedir(), "Documents");
+const fallbackPort = 5454;
+
+const downloader = path.resolve(
+    __dirname,
+    "..",
+    process.platform === "win32" ? "downloader-win.exe" : "downloader-macos",
+);
+const type = path.resolve(
+    __dirname,
+    "..",
+    process.platform === "win32" ? "type-lite-win.exe" : "type-lite-macos",
+);
+
+// [THÊM] Khai báo đường dẫn tool Edge TTS mới
+const edgeTtsExe = path.resolve(
+    __dirname,
+    "..",
+    process.platform === "win32" ? "edge-tts-win.exe" : "edge-tts-macos",
+);
+
+let mainWindow;
+let targetWindow = null;
+let downloaderProcess = null;
+let typeProcess = null;
+
+// ====== GOOGLE SEARCH CONSOLE OAUTH CONFIG ======
+const SCOPES_GSC = ["https://www.googleapis.com/auth/webmasters.readonly"];
+
+// TODO: thay bằng thông tin real của OAuth Desktop App (Google Cloud Console)
+const GSC_CLIENT_ID =
+    "90514980593-9tqqkt4eobhee5aqrft3f6s5mpkakbp0.apps.googleusercontent.com";
+const GSC_CLIENT_SECRET = "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";
+const GSC_REDIRECT_URI = "http://localhost/google"; // redirect mặc định cho Desktop App
+
+// Lưu token vào thư mục userData của Electron
+const TOKEN_GSC_PATH = path.join(app.getPath("userData"), "gsc-token.json");
+
+const gscOauth2Client = new google.auth.OAuth2(
+    GSC_CLIENT_ID,
+    GSC_CLIENT_SECRET,
+    GSC_REDIRECT_URI,
+);
+
+function gscLoadTokenIfExists() {
+    try {
+        if (fs.existsSync(TOKEN_GSC_PATH)) {
+            const raw = fs.readFileSync(TOKEN_GSC_PATH, "utf-8");
+            const tokens = JSON.parse(raw);
+            gscOauth2Client.setCredentials(tokens);
+        }
+    } catch (e) {
+        sendToRenderer("tools-log", `[GSC] Lỗi load token: ${e.message}`);
+    }
+}
+
+function gscSaveToken(tokens) {
+    try {
+        fs.writeFileSync(
+            TOKEN_GSC_PATH,
+            JSON.stringify(tokens, null, 2),
+            "utf-8",
+        );
+        sendToRenderer("tools-log", `[GSC] Đã lưu token vào ${TOKEN_GSC_PATH}`);
+    } catch (e) {
+        sendToRenderer("tools-log", `[GSC] Lỗi lưu token: ${e.message}`);
+    }
+}
+
+// Mở cửa sổ login Google, lấy "code" rồi đổi sang access_token + refresh_token
+async function gscDoLogin() {
+    // Tạo URL đăng nhập Google
+    const authUrl = gscOauth2Client.generateAuthUrl({
+        access_type: "offline",
+        scope: SCOPES_GSC, // ['https://www.googleapis.com/auth/webmasters.readonly']
+        prompt: "consent", // để lần đầu chắc chắn trả refresh_token
+    });
+
+    sendToRenderer("tools-log", `[GSC] Mở cửa sổ đăng nhập: ${authUrl}`);
+
+    return new Promise((resolve, reject) => {
+        const authWindow = new BrowserWindow({
+            width: 600,
+            height: 800,
+            show: true, // show sau khi ready-to-show
+            frame: false,
+            resizable: false,
+            movable: false,
+            focusable: true,
+            fullscreenable: false,
+            autoHideMenuBar: true,
+            hasShadow: true,
+            skipTaskbar: false,
+            alwaysOnTop: false,
+            backgroundColor: "#FFFFFF",
+            webPreferences: {
+                nodeIntegration: false,
+                contextIsolation: true,
+            },
+        });
+
+        authWindow.loadURL(authUrl);
+
+        // Bắt các lần redirect của Google
+        authWindow.webContents.on("will-redirect", async (_event, url) => {
+            try {
+                // Chỉ xử lý khi redirect đúng về GSC_REDIRECT_URI
+                if (!url.startsWith(GSC_REDIRECT_URI)) {
+                    return;
+                }
+
+                const urlObj = new URL(url);
+                const code = urlObj.searchParams.get("code");
+                const error = urlObj.searchParams.get("error");
+
+                if (error) {
+                    sendToRenderer("tools-log", `[GSC] Lỗi OAuth: ${error}`);
+                    reject(new Error(error));
+                    authWindow.close();
+                    return;
+                }
+
+                if (!code) {
+                    // Không có code cũng coi như thất bại
+                    sendToRenderer(
+                        "tools-log",
+                        "[GSC] Không tìm thấy mã code trong redirect URL",
+                    );
+                    reject(new Error("No code in redirect URL"));
+                    authWindow.close();
+                    return;
+                }
+
+                sendToRenderer(
+                    "tools-log",
+                    "[GSC] Nhận code, đang đổi sang token...",
+                );
+
+                // Đổi authorization code lấy access_token + refresh_token
+                const { tokens } = await gscOauth2Client.getToken(code);
+                gscOauth2Client.setCredentials(tokens);
+                gscSaveToken(tokens); // lưu ra file TOKEN_GSC_PATH
+
+                sendToRenderer(
+                    "tools-log",
+                    "[GSC] Đăng nhập thành công, đã lưu token.",
+                );
+
+                resolve();
+                authWindow.close();
+            } catch (err) {
+                sendToRenderer(
+                    "tools-log",
+                    `[GSC] Lỗi trong will-redirect: ${(err && err.message) || err}`,
+                );
+                reject(err);
+                authWindow.close();
+            }
+        });
+
+        // Nếu user tự tắt cửa sổ thì coi như hủy
+        authWindow.on("closed", () => {
+            sendToRenderer(
+                "tools-log",
+                "[GSC] Cửa sổ đăng nhập bị đóng trước khi hoàn tất.",
+            );
+            reject(new Error("Login window closed by user"));
+        });
+    });
+}
+
+async function gscEnsureAuthenticated() {
+    gscLoadTokenIfExists();
+    const creds = gscOauth2Client.credentials;
+
+    if (!creds.access_token && !creds.refresh_token) {
+        // Chưa từng login
+        await gscDoLogin();
+    } else if (creds.refresh_token && !creds.access_token) {
+        // Có refresh token nhưng hết access token
+        await gscOauth2Client.getAccessToken();
+    }
+}
+
+// ===== CHROME APP (STT) - CHỈ MỞ DUY NHẤT 1 CỬA SỔ =====
+let chromeAppProcess = null;
+
+// WS server cho Chrome app (Angular 17 STT)
+let sttWsServer = null;
+const sttWsClients = new Set();
+
+async function parseSelector({ instruction, html, model }) {
+    const prompt = `Bạn là AI chuyên trích xuất dữ liệu từ HTML theo hướng dẫn. Hãy đọc đoạn HTML sau và trích ra dữ liệu theo yêu cầu:
+
+    [INSTRUCTION]
+    ${instruction}
+
+    [HTML]
+    ${html}
+
+    Trả về JSON với 1 key duy nhất là "value", ví dụ: { "value": "Kết quả" }
+    Nếu không tìm thấy, trả về: { "value": "" }`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Loại bỏ ```json ... ```
+    text = text.trim();
+    if (text.startsWith("```json")) {
+        text = text
+            .replace(/^```json\s*/, "")
+            .replace(/```$/, "")
+            .trim();
+    }
+
+    // Loại bỏ nếu bị bọc markdown kiểu khác
+    text = text.replace(/^```/, "").replace(/```$/, "").trim();
+
+    // Parse JSON
+    try {
+        const json = JSON.parse(text);
+        return { value: json.value || "" };
+    } catch (e) {
+        // Nếu parse lỗi thì trả lại nguyên văn (fallback)
+        return { value: text };
+    }
+}
+
+// ==== UTILS ====
+function sendToRenderer(channel, data) {
+    if (mainWindow && mainWindow.webContents) {
+        mainWindow.webContents.send(channel, data);
+    }
+}
+
+function createUniqueID() {
+    return Math.random().toString(36).substr(2, 9);
+}
+
+function killPort(port) {
+    const cmd =
+        process.platform === "win32"
+            ? `for /f "tokens=5" %a in ('netstat -aon ^| find ":${port}" ^| find "LISTENING"') do taskkill /PID %a /F`
+            : `lsof -ti tcp:${port} | xargs kill -9`;
+    exec(cmd, (err) => {
+        if (err)
+            sendToRenderer(
+                "tools-log",
+                `Không thể huỷ tiến trình: ${err.message}`,
+            );
+        else
+            sendToRenderer("tools-log", `Đã huỷ tiến trình chiếm port ${port}`);
+    });
+}
+
+function startSttWebSocketServer(port = 7777) {
+    if (sttWsServer) {
+        return;
+    }
+
+    try {
+        sttWsServer = new WebSocket.Server(
+            {
+                port,
+                host: "127.0.0.1",
+            },
+            () => {
+                sendToRenderer(
+                    "tools-log",
+                    `[STT-WS] Server listening on ws://127.0.0.1:${port}`,
+                );
+            },
+        );
+
+        sttWsServer.on("connection", (ws, req) => {
+            const clientId = createUniqueID();
+            ws._clientId = clientId;
+            sttWsClients.add(ws);
+
+            sendToRenderer(
+                "tools-log",
+                `[STT-WS] Client connected: ${clientId} from ${req.socket.remoteAddress}:${req.socket.remotePort}`,
+            );
+
+            ws.on("message", (raw) => {
+                let text = raw.toString();
+                let payload = null;
+                try {
+                    payload = JSON.parse(text);
+                } catch (e) {
+                    sendToRenderer(
+                        "tools-log",
+                        `[STT-WS] Received non-JSON message from ${clientId}: ${text}`,
+                    );
+                    return;
+                }
+
+                // Handshake đơn giản
+                if (payload.type === "hello") {
+                    sendToRenderer(
+                        "tools-log",
+                        `[STT-WS] Handshake from ${clientId} role=${payload.role || ""}`,
+                    );
+                    return;
+                }
+
+                // Chrome app gửi caption
+                if (payload.type === "caption") {
+                    sendToRenderer(
+                        "tools-log",
+                        `[STT-WS] caption from ${clientId}: ${JSON.stringify(payload)}`,
+                    );
+                    sendToRenderer("stt-caption", payload);
+                }
+
+                // Kênh debug chung
+                sendToRenderer("stt-message", {
+                    clientId,
+                    payload,
+                });
+            });
+
+            ws.on("close", (code, reason) => {
+                sttWsClients.delete(ws);
+                sendToRenderer(
+                    "tools-log",
+                    `[STT-WS] Client disconnected: ${clientId} (code=${code}, reason=${reason})`,
+                );
+            });
+
+            ws.on("error", (err) => {
+                sendToRenderer(
+                    "tools-log",
+                    `[STT-WS] Error from ${clientId}: ${err.message}`,
+                );
+            });
+        });
+
+        sttWsServer.on("error", (err) => {
+            sendToRenderer(
+                "tools-log",
+                `[STT-WS] Server error: ${err.message}`,
+            );
+        });
+    } catch (err) {
+        sendToRenderer(
+            "tools-log",
+            `[STT-WS] Failed to start WebSocket server: ${err.message}`,
+        );
+    }
+}
+
+function getChromePath() {
+    const platform = process.platform;
+    let possiblePaths = [];
+
+    if (platform === "win32") {
+        possiblePaths = [
+            process.env.LOCALAPPDATA +
+                "\\Google\\Chrome\\Application\\chrome.exe",
+            process.env.PROGRAMFILES +
+                "\\Google\\Chrome\\Application\\chrome.exe",
+            process.env["PROGRAMFILES(X86)"] +
+                "\\Google\\Chrome\\Application\\chrome.exe",
+            "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+            "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
+        ];
+    } else if (platform === "darwin") {
+        // MacOS
+        possiblePaths = [
+            "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            path.join(
+                os.homedir(),
+                "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+            ),
+        ];
+    } else if (platform === "linux") {
+        // Linux
+        possiblePaths = [
+            "/usr/bin/google-chrome",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/chromium",
+            "/usr/bin/chromium-browser",
+            "/snap/bin/chromium",
+        ];
+    }
+
+    for (const p of possiblePaths) {
+        if (p && fs.existsSync(p)) {
+            return p;
+        }
+    }
+
+    return null;
+}
+
+// Trong file main.js
+// Thêm tham số width, height vào hàm
+function openChromeApp(url, width = 400, height = 800) {
+    const targetUrl = url || "http://localhost:7171/";
+
+    if (chromeAppProcess && chromeAppProcess.killed) chromeAppProcess = null;
+
+    if (sttWsClients.size > 0) {
+        sendToRenderer("tools-log", `[ChromeApp] Đang chạy rồi, không mở lại.`);
+        return;
+    }
+
+    const chromePath = getChromePath();
+    if (!chromePath) {
+        sendToRenderer(
+            "tools-log",
+            `[ChromeApp] ❌ Không tìm thấy Google Chrome!`,
+        );
+        return;
+    }
+
+    try {
+        const userDataDir = path.join(os.tmpdir(), "chrome-stt-" + Date.now());
+
+        const args = [
+            `--app=${targetUrl}`,
+            // --- THÊM DÒNG NÀY ĐỂ CHỈNH KÍCH THƯỚC ---
+            `--window-size=${width},${height}`,
+
+            // Nếu muốn chỉnh vị trí xuất hiện (tùy chọn):
+            // `--window-position=100,100`,
+
+            "--new-window",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--test-type",
+            "--ignore-certificate-errors",
+            "--disable-web-security",
+            "--disable-site-isolation-trials",
+
+            // Tắt dịch & popup thừa
+            "--disable-features=IsolateOrigins,site-per-process,Translate,OptimizationGuideModelDownloading,OptimizationHints",
+            "--disable-translate",
+
+            `--user-data-dir=${userDataDir}`,
+            "--autoplay-policy=no-user-gesture-required",
+            "--use-fake-ui-for-media-stream",
+            "--enable-speech-input",
+            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        ];
+
+        sendToRenderer(
+            "tools-log",
+            `[ChromeApp] Mở size ${width}x${height} tại: ${chromePath}`,
+        );
+
+        const child = spawn(chromePath, args, {
+            detached: true,
+            stdio: "ignore",
+            shell: false,
+        });
+
+        child.unref();
+        chromeAppProcess = child;
+    } catch (err) {
+        sendToRenderer("tools-log", `[ChromeApp] ❌ Exception: ${err.message}`);
+    }
+}
+
+// Trả về đường dẫn đúng cho preload ở cả dev (electron .) và app.asar
+function resolvePreload() {
+    // 1) Khi chạy từ dist/main.js: __dirname = .../app.asar/dist (build) hoặc <proj>/dist (dev)
+    const candidate1 = path.join(__dirname, "..", "preload.js"); // <-- CHUẨN
+    if (fs.existsSync(candidate1)) return candidate1;
+
+    // 2) Phòng khi ai đó vẫn để preload cạnh main.js (ít gặp)
+    const candidate2 = path.join(__dirname, "preload.js");
+    if (fs.existsSync(candidate2)) return candidate2;
+
+    // 3) Phòng thêm case hiếm trong khi dev chạy từ root
+    const candidate3 = path.join(process.cwd(), "preload.js");
+    if (fs.existsSync(candidate3)) return candidate3;
+
+    // 4) Báo lỗi để còn biết
+    return candidate1; // vẫn trả về candidate1 để log báo lỗi
+}
+
+// ==== MAIN WINDOW ====
+function createMainWindow() {
+    mainWindow = new BrowserWindow({
+        width: 1440,
+        height: 1080,
+        backgroundColor: "#212121",
+        fullscreenable: true,
+        alwaysOnTop: false,
+        resizable: true,
+        autoHideMenuBar: true,
+        show: true,
+        frame: true,
+        webPreferences: {
+            sandbox: false,
+            contextIsolation: true,
+            enableRemoteModule: false,
+            webSecurity: false,
+            webviewTag: false,
+            devTools: true,
+            nodeIntegration: true,
+            nodeIntegrationInSubFrames: true,
+            preload: resolvePreload(),
+        },
+    });
+
+    const targetURL = "http://localhost:4200";
+    const fallbackURL = `http://localhost:${fallbackPort}/index.html`;
+
+    const req = http.get(targetURL, (res) => {
+        if (res.statusCode === 200) {
+            sendToRenderer("tools-log", "[✓] Angular app đã chạy, loadURL");
+            mainWindow.loadURL(targetURL);
+        } else {
+            sendToRenderer("tools-log", "[!] Không mong muốn, dùng fallback");
+            loadFallback();
+        }
+    });
+
+    req.on("error", () => {
+        sendToRenderer(
+            "tools-log",
+            "[x] Không kết nối được Angular → fallback",
+        );
+        loadFallback();
+    });
+
+    function loadFallback() {
+        startFallbackServer();
+        mainWindow
+            .loadURL(fallbackURL)
+            .then(() =>
+                sendToRenderer(
+                    "tools-log",
+                    "[Fallback] Load fallback thành công",
+                ),
+            )
+            .catch((err) =>
+                sendToRenderer(
+                    "tools-log",
+                    `[Fallback] Lỗi khi load fallback: ${err.message}`,
+                ),
+            );
+    }
+
+    mainWindow.on("closed", () => {
+        mainWindow = null;
+
+        if (downloaderProcess) {
+            downloaderProcess.kill("SIGTERM");
+            killPort(1133);
+        }
+
+        if (typeProcess) {
+            typeProcess.kill("SIGTERM");
+            killPort(12345);
+        }
+    });
+
+    mainWindow.webContents.on(
+        "did-fail-load",
+        (event, errorCode, errorDescription) => {
+            sendToRenderer(
+                "tools-log",
+                `Main window failed to load: ${errorDescription} (${errorCode})`,
+            );
+        },
+    );
+
+    Menu.setApplicationMenu(
+        Menu.buildFromTemplate([
+            { label: "Ứng dụng", submenu: [{ label: "Thoát", role: "quit" }] },
+            {
+                label: "Văn bản",
+                submenu: [
+                    { role: "undo" },
+                    { role: "redo" },
+                    { type: "separator" },
+                    { role: "cut" },
+                    { role: "copy" },
+                    { role: "paste" },
+                    { role: "pasteandmatchstyle" },
+                    { role: "delete" },
+                    { role: "selectall" },
+                ],
+            },
+            { label: "Cửa sổ", role: "windowMenu" },
+        ]),
+    );
+}
+
+// ==== TARGET WINDOW ====
+function createTargetWindow(
+    url,
+    callback,
+    uniqueID,
+    winWidth = 600,
+    winHeight = 800,
+) {
+    const display = screen.getPrimaryDisplay();
+    const { width: screenW, height: screenH } = display.workArea;
+
+    const preloadPath = resolvePreload();
+    sendToRenderer(
+        "tools-log",
+        `[Target] preload dùng: ${preloadPath} (exists=${fs.existsSync(preloadPath)})`,
+    );
+
+    // Gắn uniqueID vào URL
+    let targetUrlWithUniqueID = url;
+    if (uniqueID) {
+        if (url.includes("?")) {
+            targetUrlWithUniqueID += `&uniqueID=${uniqueID}`;
+        } else {
+            targetUrlWithUniqueID += `?uniqueID=${uniqueID}`;
+        }
+    }
+
+    targetWindow = new BrowserWindow({
+        width: winWidth,
+        height: winHeight,
+        x: (screenW - winWidth) / 2,
+        y: (screenH - winHeight) / 2,
+        show: true, // show sau khi ready-to-show
+        frame: false,
+        resizable: false,
+        movable: false,
+        focusable: true,
+        fullscreenable: false,
+        autoHideMenuBar: true,
+        hasShadow: true,
+        skipTaskbar: false,
+        alwaysOnTop: false,
+        backgroundColor: "#FFFFFF",
+        webPreferences: {
+            contextIsolation: true,
+            nodeIntegration: false,
+            backgroundThrottling: false,
+            sandbox: false,
+            nativeWindowOpen: true,
+            enableRemoteModule: false,
+            webSecurity: false,
+            webviewTag: false,
+            devTools: false,
+            nodeIntegrationInSubFrames: true,
+            preload: resolvePreload(),
+        },
+    });
+
+    // Fake user-agent nếu cần
+    targetWindow.webContents.setUserAgent(
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+    );
+
+    targetWindow.loadURL(targetUrlWithUniqueID);
+
+    targetWindow.webContents.on("did-finish-load", () => {
+        sendToRenderer(
+            "tools-log",
+            `Target window loaded: ${targetUrlWithUniqueID}`,
+        );
+        if (typeof callback === "function")
+            callback(targetUrlWithUniqueID, uniqueID);
+    });
+
+    targetWindow.webContents.on(
+        "did-fail-load",
+        (event, errorCode, errorDescription) => {
+            sendToRenderer(
+                "tools-log",
+                `Target window load failed: ${errorDescription} (${errorCode})`,
+            );
+            // if (targetWindow && !targetWindow.isDestroyed()) {
+            //     targetWindow.close();
+            // }
+        },
+    );
+
+    targetWindow.on("closed", () => {
+        targetWindow = null;
+    });
+
+    return targetWindow;
+}
+
+// --- thêm forward debug từ preload về UI (đặt trong app.whenReady() sau createMainWindow()) ---
+ipcMain.on("dreamina:debug", (_evt, msg) => {
+    sendToRenderer("tools-log", String(msg));
+});
+
+// Nhận message từ renderer Angular và forward sang tất cả Chrome STT clients
+ipcMain.on("stt-send-to-chrome", (_event, payload) => {
+    const msg = JSON.stringify(payload || {});
+    if (!sttWsServer || sttWsClients.size === 0) {
+        sendToRenderer(
+            "tools-log",
+            "[STT-WS] Không có Chrome client nào để gửi message",
+        );
+        return;
+    }
+
+    for (const ws of sttWsClients) {
+        if (ws.readyState === WebSocket.OPEN) {
+            try {
+                ws.send(msg);
+            } catch (err) {
+                sendToRenderer(
+                    "tools-log",
+                    `[STT-WS] Lỗi khi send tới client: ${err.message}`,
+                );
+            }
+        }
+    }
+});
+
+// ... [GIỮ NGUYÊN CODE CŨ CỦA BẠN Ở TRÊN] ...
+
+// ============================================================
+// [MỚI] EDGE TTS ENGINE (PURE NODE.JS - NO PYTHON REQUIRED)
+// ============================================================
+
+/**
+ * Hàm sinh audio từ Edge TTS bằng WebSocket thuần.
+ * Không cần cài Python, không cần edge-tts cli.
+ */
+async function generateEdgeAudioByExe(text, voice, outputPath, rate, pitch) {
+    return new Promise((resolve, reject) => {
+        // Kiểm tra file exe có tồn tại không
+        if (!fs.existsSync(edgeTtsExe)) {
+            return reject(
+                new Error(
+                    `Không tìm thấy file Edge TTS Core tại: ${edgeTtsExe}`,
+                ),
+            );
+        }
+
+        const args = [
+            "--text",
+            text,
+            "--voice",
+            voice,
+            "--output",
+            outputPath,
+            "--rate",
+            rate || "+0%", // Có thể tùy chỉnh nếu muốn
+            "--pitch",
+            pitch || "+0Hz",
+        ];
+
+        sendToRenderer("tools-log", `[TTS-Exe] Executing: ${edgeTtsExe} ...`);
+
+        // Gọi process
+        execFile(edgeTtsExe, args, (error, stdout, stderr) => {
+            if (error) {
+                sendToRenderer(
+                    "tools-log",
+                    `[TTS-Exe] Error: ${stderr || error.message}`,
+                );
+                return reject(error);
+            }
+
+            // stdout sẽ in ra "SUCCESS|path/to/file" theo code Python ở trên
+            if (stdout.includes("SUCCESS|")) {
+                resolve(outputPath);
+            } else {
+                // Trường hợp chạy xong nhưng không báo success (hiếm gặp)
+                if (
+                    fs.existsSync(outputPath) &&
+                    fs.statSync(outputPath).size > 0
+                ) {
+                    resolve(outputPath);
+                } else {
+                    reject(new Error("Unknown error from Edge TTS executable"));
+                }
+            }
+        });
+    });
+}
+
+// 1. Hàm tạo Audio - Lưu vào Documents/ai.type/data/tts/...
+ipcMain.handle("tts-generate", async (event, payload) => {
+    try {
+        const { text, voice, filename, username } = payload;
+
+        // [THAY ĐỔI Ở ĐÂY] Lấy đường dẫn thư mục Documents của hệ điều hành
+        // Windows: C:\Users\Wing386\Documents
+        // Mac: /Users/Wing386/Documents
+        const documentsPath = app.getPath("documents");
+
+        // Tạo đường dẫn mong muốn: Documents/ai.type/data/tts/[username]
+        // username ở đây là "admin" hoặc "anonymous" tùy frontend gửi lên
+        const saveDir = path.join(
+            documentsPath,
+            "ai.type",
+            "data",
+            "tts",
+            username || "anonymous",
+        );
+
+        // Tạo thư mục nếu chưa có (recursive: true sẽ tự tạo cả chuỗi thư mục cha con)
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir, { recursive: true });
+        }
+
+        // Đường dẫn file MP3 đích
+        const filePath = path.join(
+            saveDir,
+            filename.endsWith(".mp3") ? filename : `${filename}.mp3`,
+        );
+
+        await generateEdgeAudioByExe(text, voice, filePath, "+0%", "+0Hz");
+
+        // Trả kết quả
+        if (fs.existsSync(filePath)) {
+            return {
+                success: true,
+                url: `file://${filePath}`,
+                filePath: filePath, // Trả về đường dẫn tuyệt đối mới
+            };
+        } else {
+            return { success: false, error: "File chưa được tạo ra." };
+        }
+    } catch (error) {
+        console.error("TTS Error:", error);
+        return { success: false, error: error.message };
+    }
+});
+
+// 2. Hàm đọc file - Cập nhật logic fallback (phòng hờ)
+ipcMain.handle("read-local-audio", async (event, payload) => {
+    try {
+        const { path: filePath, filename } = payload;
+        let targetPath = filePath;
+
+        // Nếu Frontend không gửi đường dẫn tuyệt đối (chỉ gửi tên file)
+        // Ta sẽ tìm trong thư mục Documents mặc định
+        if (!targetPath && filename) {
+            const documentsPath = app.getPath("documents");
+            // Lưu ý: Logic tìm kiếm này chỉ mang tính ước lượng nếu thiếu path
+            // Tốt nhất Frontend nên gửi path tuyệt đối (clip['localFilePath'])
+            targetPath = path.join(
+                documentsPath,
+                "ai.type",
+                "data",
+                "tts",
+                "admin",
+                filename,
+            );
+        }
+
+        if (targetPath && fs.existsSync(targetPath)) {
+            const fileBuffer = fs.readFileSync(targetPath);
+            return { success: true, base64: fileBuffer.toString("base64") };
+        } else {
+            return {
+                success: false,
+                error: `Không tìm thấy file: ${targetPath}`,
+            };
+        }
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
+
+// main.js (Phần xử lý ipcMain save-base64)
+ipcMain.handle("save-base64", async (event, args) => {
+    // Thêm username vào destructuring
+    const { base64, fileName, folder, username } = args;
+
+    const docPath = app.getPath("documents");
+
+    // SỬA ĐƯỜNG DẪN: Thêm username vào cuối đường dẫn
+    // Ví dụ: .../uploads/thumbnails/admin/
+    const saveDir = path.join(
+        docPath,
+        "ai.type",
+        "data",
+        "uploads",
+        folder || "thumbnails",
+        username || "default",
+    );
+
+    // Tạo thư mục (recursive: true sẽ tạo cả thư mục username nếu chưa có)
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const filePath = path.join(saveDir, fileName);
+    const buffer = Buffer.from(base64, "base64");
+
+    try {
+        fs.writeFileSync(filePath, buffer);
+        return { success: true, path: filePath };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: e.message };
+    }
+});
+
+/**
+ * 2. Hàm chụp màn hình App (Full window screenshot)
+ */
+ipcMain.handle("capture-app", async (event, args) => {
+    const { fileName, folder } = args;
+    const win = BrowserWindow.getFocusedWindow();
+
+    if (!win)
+        return { success: false, error: "Không tìm thấy cửa sổ ứng dụng" };
+
+    // 1. Chuẩn bị đường dẫn lưu file
+    const docPath = app.getPath("documents");
+    const saveDir = path.join(
+        docPath,
+        "ai.type",
+        "data",
+        "uploads",
+        folder || "screenshots",
+    );
+
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const finalFileName = fileName || `screenshot_${Date.now()}.png`;
+    const filePath = path.join(saveDir, finalFileName);
+
+    try {
+        // CÁCH 1: Dùng Puppeteer để chụp FULL PAGE (Chất lượng cao, lấy hết chiều dài)
+        // Kết nối vào chính trình duyệt Electron hiện tại qua port 9999
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+
+        // Kết nối Puppeteer
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null, // Để null để lấy đúng kích thước hiện tại
+        });
+
+        // Lấy danh sách các tab đang mở
+        const pages = await browser.pages();
+
+        // Tìm tab Main Window (Thường là tab không có uniqueID hoặc là tab đầu tiên)
+        // Logic: Lấy tab có URL chứa localhost hoặc file:// và KHÔNG phải là devtools
+        const page = pages.find((p) => {
+            const u = p.url();
+            return !u.startsWith("devtools://") && !u.includes("uniqueID=");
+        });
+
+        if (page) {
+            // Inject CSS để ẩn thanh cuộn (scrollbars) cho đẹp nếu cần
+            await page.addStyleTag({
+                content: "body { overflow-y: hidden !important; }",
+            });
+
+            // Chụp Full Page
+            await page.screenshot({
+                path: filePath,
+                fullPage: true, // <--- ĐÂY LÀ CHÌA KHOÁ ĐỂ CHỤP FULL HEIGHT
+            });
+
+            // Restore lại thanh cuộn (nếu cần)
+            await page.addStyleTag({
+                content: "body { overflow-y: auto !important; }",
+            });
+
+            await browser.disconnect();
+
+            sendToRenderer(
+                "tools-log",
+                `[Screenshot] ✅ Đã chụp Full Height: ${filePath}`,
+            );
+            return {
+                success: true,
+                path: filePath,
+                url: `file:///${filePath.replace(/\\/g, "/")}`,
+            };
+        } else {
+            // Nếu không tìm thấy page qua Puppeteer thì disconnect để fallback
+            await browser.disconnect();
+            throw new Error("Không tìm thấy Page qua Puppeteer");
+        }
+    } catch (e) {
+        // CÁCH 2: FALLBACK (Dự phòng)
+        // Nếu lỗi Puppeteer thì dùng cách cũ chụp Viewport
+        sendToRenderer(
+            "tools-log",
+            `[Screenshot] ⚠️ Lỗi Puppeteer (${e.message}), chuyển sang chụp Viewport.`,
+        );
+
+        try {
+            const image = await win.capturePage();
+            const buffer = image.toPNG();
+            fs.writeFileSync(filePath, buffer);
+            return {
+                success: true,
+                path: filePath,
+                url: `file:///${filePath.replace(/\\/g, "/")}`,
+            };
+        } catch (err2) {
+            console.error("Lỗi chụp màn hình:", err2);
+            return { success: false, error: err2.message };
+        }
+    }
+});
+
+// ================= DOWNLOAD CORE =================
+function inferExtFromUrl(url) {
+    try {
+        const u = new URL(url);
+        const fmt = u.searchParams.get("format"); // ví dụ ".webp"
+        if (fmt && /^\.\w{3,5}$/i.test(fmt)) return fmt.toLowerCase();
+        const base = path.basename(u.pathname);
+        const m = base.match(/\.(webp|jpg|jpeg|png|gif|bmp|avif)$/i);
+        if (m) return "." + m[1].toLowerCase();
+    } catch {}
+    return ".jpg";
+}
+
+function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
+    return new Promise(async (resolve, reject) => {
+        try {
+            await fs.promises.mkdir(outDir, { recursive: true });
+            const ext = inferExtFromUrl(url);
+            const hash = crypto
+                .createHash("md5")
+                .update(url)
+                .digest("hex")
+                .slice(0, 10);
+            const filename = `${filenamePrefix}${Date.now()}_${hash}${ext}`;
+            const outPath = path.join(outDir, filename);
+
+            const req = https.get(
+                url,
+                {
+                    headers: {
+                        "User-Agent":
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                        "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
+                        Referer: "https://www.tiktok.com/",
+                    },
+                },
+                (res) => {
+                    if (
+                        res.statusCode >= 300 &&
+                        res.statusCode < 400 &&
+                        res.headers.location
+                    ) {
+                        https
+                            .get(res.headers.location, (r2) => {
+                                const ws = fs.createWriteStream(outPath);
+                                r2.pipe(ws);
+                                ws.on("finish", () => resolve(outPath));
+                                ws.on("error", reject);
+                            })
+                            .on("error", reject);
+                        return;
+                    }
+                    if (res.statusCode !== 200) {
+                        reject(new Error(`HTTP ${res.statusCode}`));
+                        return;
+                    }
+                    const ws = fs.createWriteStream(outPath);
+                    res.pipe(ws);
+                    ws.on("finish", () => resolve(outPath));
+                    ws.on("error", reject);
+                },
+            );
+            req.on("error", reject);
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+// ================= DREAMINA ENTRY (AUTO DOWNLOAD) =================
+function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
+    const outDir =
+        options.outDir || path.join(app.getPath("pictures"), "Dreamina");
+    const maxImages = Number.isFinite(options.maxImages)
+        ? options.maxImages
+        : 100;
+    const filenamePrefix = options.filenamePrefix || "dreamina_";
+
+    if (!targetWindow || targetWindow.isDestroyed()) {
+        sendToRenderer("tools-log", "[Dreamina] ❌ Không có targetWindow.");
+        return;
+    }
+
+    // chống tải trùng/lặp quá nhiều
+    const seen = new Set();
+    let saved = 0;
+
+    const onFound = async (_evt, payload) => {
+        const src = payload?.src;
+        if (!src || seen.has(src) || saved >= maxImages) return;
+        seen.add(src);
+        try {
+            const p = await downloadImage(src, outDir, filenamePrefix);
+            saved += 1;
+            sendToRenderer("tools-log", `[Dreamina] ✅ Đã tải: ${p}`);
+        } catch (e) {
+            sendToRenderer(
+                "tools-log",
+                `[Dreamina] ❌ Lỗi tải ${src}: ${e.message}`,
+            );
+        }
+    };
+
+    const onDebug = (_evt, msg) => sendToRenderer("tools-log", String(msg));
+
+    ipcMain.on("dreamina:image-found", onFound);
+    ipcMain.on("dreamina:debug", onDebug);
+
+    // Báo preload (dù preload tự boot)
+    try {
+        targetWindow.webContents.send("dreamina:start");
+    } catch {}
+
+    // Dọn dẹp theo vòng đời cửa sổ
+    const wc = targetWindow.webContents;
+    const cleanup = () => {
+        ipcMain.removeListener("dreamina:image-found", onFound);
+        ipcMain.removeListener("dreamina:debug", onDebug);
+        try {
+            wc.send("dreamina:stop");
+        } catch {}
+    };
+    targetWindow.once("closed", cleanup);
+
+    sendToRenderer(
+        "tools-log",
+        `[Dreamina] 👀 Tự động tải khi ảnh chi tiết xuất hiện… (uniqueID=${uniqueID})`,
+    );
+}
+
+// Hàm dùng để set cookie vào session
+async function setFacebookCookiesFromFile(cookieFilePath) {
+    if (!fs.existsSync(cookieFilePath)) return false;
+    const cookies = JSON.parse(fs.readFileSync(cookieFilePath, "utf-8"));
+
+    for (const cookie of cookies) {
+        // Bắt buộc có url khi set cookie cho Electron
+        let url = "";
+
+        if (cookie.secure) {
+            url = `https://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
+        } else {
+            url = `http://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
+        }
+
+        try {
+            await session.defaultSession.cookies.set({
+                url,
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path,
+                secure: cookie.secure,
+                httpOnly: cookie.httpOnly,
+                expirationDate: cookie.expires > 0 ? cookie.expires : undefined,
+                sameSite: cookie.sameSite,
+            });
+        } catch (err) {
+            console.log(`Set cookie ${cookie.name} lỗi:`, err.message);
+        }
+    }
+    return true;
+}
+
+// ==== SCREENSHOT ====
+async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
+    try {
+        sendToRenderer("tools-log", "[Screenshot] Bắt đầu...");
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const screenshotPath = path.join(
+            documentsDir,
+            `screenshot-${timestamp}.png`,
+        );
+
+        sendToRenderer(
+            "tools-log",
+            "[Screenshot] Đang fetch Chrome remote debug...",
+        );
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        sendToRenderer("tools-log", "[Screenshot] Puppeteer đã connect.");
+
+        const pages = await browser.pages();
+        sendToRenderer("tools-log", `[Screenshot] Có ${pages.length} page.`);
+
+        let matchedPage = null;
+        for (const page of pages) {
+            const pageUrl = page.url();
+            sendToRenderer("tools-log", `[Screenshot] Page URL: ${pageUrl}`);
+            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
+                matchedPage = page;
+                break;
+            }
+        }
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[Screenshot] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
+            );
+            await browser.disconnect();
+            return;
+        }
+
+        await matchedPage.screenshot({
+            path: screenshotPath,
+            fullPage: true,
+        });
+
+        sendToRenderer(
+            "tools-log",
+            `[Screenshot] ✅ Đã chụp ảnh: ${screenshotPath}`,
+        );
+
+        await browser.disconnect();
+        if (targetWindow) targetWindow.close();
+    } catch (err) {
+        sendToRenderer(
+            "tools-log",
+            `[Screenshot] ❌ Lỗi khi chụp ảnh: ${err.message}`,
+        );
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function getFacebookCookies(uniqueID, event) {
+    try {
+        sendToRenderer(
+            "tools-log",
+            `[FB-GetCookie] Đang tìm page với uniqueID=${uniqueID}...`,
+        );
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        const pages = await browser.pages();
+        let matchedPage = null;
+
+        for (const page of pages) {
+            const pageUrl = page.url();
+            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
+                matchedPage = page;
+                break;
+            }
+        }
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[FB-GetCookie] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
+            );
+            event.reply("tools-response", {
+                error: `Không tìm thấy tab đăng nhập Facebook!`,
+            });
+            await browser.disconnect();
+            return;
+        }
+
+        const cookies = await matchedPage.cookies();
+        // Lưu file vào Documents
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const cookiePath = path.join(
+            documentsDir,
+            `fb-cookies-${timestamp}.json`,
+        );
+        fs.writeFileSync(cookiePath, JSON.stringify(cookies, null, 2), "utf-8");
+
+        sendToRenderer(
+            "tools-log",
+            `[FB-GetCookie] Đã lưu cookies vào: ${cookiePath}`,
+        );
+
+        // Trả cookie về UI
+        event.reply("tools-response", {
+            action: "get-facebook-cookies",
+            success: true,
+            cookies,
+            file: cookiePath,
+        });
+
+        await browser.disconnect();
+        if (targetWindow) targetWindow.close();
+    } catch (err) {
+        sendToRenderer("tools-log", `[FB-GetCookie] ❌ Lỗi: ${err.message}`);
+        event.reply("tools-response", { error: err.message });
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function connectApps(targetUrlWithUniqueID, uniqueID) {
+    try {
+        sendToRenderer("tools-log", "[FB-Login] Bắt đầu...");
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        sendToRenderer("tools-log", "[FB-Login] Puppeteer đã connect.");
+
+        const pages = await browser.pages();
+        sendToRenderer("tools-log", `[FB-Login] Có ${pages.length} page.`);
+
+        let matchedPage = null;
+        for (const page of pages) {
+            const pageUrl = page.url();
+
+            sendToRenderer("tools-log", `[FB-Login] Page URL: ${pageUrl}`);
+
+            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
+                matchedPage = page;
+                break;
+            }
+        }
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[FB-Login] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
+            );
+            await browser.disconnect();
+            return;
+        }
+
+        sendToRenderer(
+            "tools-log",
+            `[FB-Login] Đã tìm thấy tab Facebook cần đăng nhập!`,
+        );
+
+        // Tùy mục tiêu, ví dụ: lấy cookie sau khi user tự login
+        // Chờ user login, bạn có thể chờ đến khi url đổi sang https://www.facebook.com/?sk=welcome hoặc cookie đầy đủ
+        // Ở đây mình lấy cookies luôn sau 20s (hoặc bạn có thể trigger bằng nút trên giao diện, hoặc logic thông minh hơn)
+        setTimeout(async () => {
+            const cookies = await matchedPage.cookies();
+            sendToRenderer(
+                "tools-log",
+                `[FB-Login] Cookie sau login: ${JSON.stringify(cookies)}`,
+            );
+            // Bạn có thể lưu cookies vào file hoặc gửi trả về renderer nếu cần
+            await browser.disconnect();
+            if (targetWindow) targetWindow.close();
+        }, 200000); // chờ 200s, tuỳ ý
+    } catch (err) {
+        sendToRenderer("tools-log", `[FB-Login] ❌ Lỗi: ${err.message}`);
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function websiteCrawl(
+    targetUrlWithUniqueID,
+    uniqueID,
+    selector = [],
+    model,
+) {
+    try {
+        sendToRenderer("tools-log", "[Website-Crawl] Bắt đầu...");
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        const pages = await browser.pages();
+        const matchedPage = pages.find((page) =>
+            page.url().includes(`uniqueID=${uniqueID}`),
+        );
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[Website-Crawl] ❌ Không tìm thấy tab có uniqueID=${uniqueID}`,
+            );
+            await browser.disconnect();
+            return;
+        }
+
+        const html = await matchedPage.content();
+        const results = await Promise.all(
+            selector.map(async (item) => {
+                try {
+                    const res = await parseSelector({
+                        instruction: item.value,
+                        html,
+                        model,
+                    });
+                    return { key: item.key, value: res.value };
+                } catch (err) {
+                    sendToRenderer(
+                        "tools-log",
+                        `[Gemini] ❌ Lỗi xử lý "${item.key}": ${err.message}`,
+                    );
+                    return { key: item.key, value: "" };
+                }
+            }),
+        );
+
+        const data = {};
+        results.forEach(({ key, value }) => {
+            data[key] = value;
+        });
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const jsonPath = path.join(
+            documentsDir,
+            `website-crawled-${timestamp}.json`,
+        );
+
+        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
+        sendToRenderer("tools-log", `✅ Đã lưu dữ liệu JSON: ${jsonPath}`);
+
+        await browser.disconnect();
+        if (targetWindow) targetWindow.close();
+    } catch (err) {
+        sendToRenderer("tools-log", `[Website-Crawl] ❌ Lỗi: ${err.message}`);
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function facebookCrawl(
+    targetUrlWithUniqueID,
+    uniqueID,
+    facegroup = "",
+    maxPosts = 100,
+) {
+    let browser = null; // Khai báo ngoài để catch/finally đều dùng được
+    let timer = null;
+
+    try {
+        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Bắt đầu...");
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        const pages = await browser.pages();
+        let facebookPage = pages.find((p) =>
+            p.url().includes(`uniqueID=${uniqueID}`),
+        );
+
+        if (!facebookPage) {
+            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
+            // Nếu không tìm thấy cũng phải đóng browser
+            if (browser) await browser.disconnect();
+            return;
+        }
+
+        await facebookPage.bringToFront();
+
+        let count = 0;
+        let finished = false;
+
+        timer = setInterval(async () => {
+            if (finished) return;
+
+            try {
+                count++;
+                // Kiểm tra nếu window đã bị đóng bởi user
+                if (!targetWindow || targetWindow.isDestroyed()) {
+                    throw new Error("Target window was closed by user");
+                }
+
+                await facebookPage.keyboard.press("PageDown");
+                await facebookPage.mouse.wheel({ deltaY: 2000 });
+
+                const html = await facebookPage.content();
+                const matches =
+                    html.match(/data-ad-rendering-role="story_message"/g) || [];
+
+                // ĐIỀU KIỆN DỪNG
+                if (matches.length >= maxPosts || count >= 15) {
+                    finished = true;
+                    clearInterval(timer);
+
+                    // Xử lý click "Xem thêm"
+                    await clickAllSeeMoreButtons(facebookPage);
+
+                    const finalHtml = await facebookPage.content();
+                    const posts = extractFacebookPostsFromHTML(
+                        finalHtml,
+                        facegroup,
+                    );
+
+                    sendToRenderer("tools-response", {
+                        action: "facebook-crawl",
+                        success: true,
+                        posts,
+                    });
+
+                    // DỌN DẸP KHI THÀNH CÔNG
+                    if (browser) await browser.disconnect();
+                    if (targetWindow && !targetWindow.isDestroyed())
+                        targetWindow.close();
+                }
+            } catch (err) {
+                finished = true;
+                if (timer) clearInterval(timer);
+                sendToRenderer(
+                    "tools-log",
+                    `❌ Lỗi trong vòng lặp: ${err.message}`,
+                );
+
+                // DỌN DẸP KHI LỖI TRONG TIMER
+                if (browser) await browser.disconnect();
+                if (targetWindow && !targetWindow.isDestroyed())
+                    targetWindow.close();
+            }
+        }, 4000);
+    } catch (err) {
+        // DỌN DẸP KHI LỖI KHỞI TẠO (Puppeteer connect lỗi, fetch lỗi...)
+        if (timer) clearInterval(timer);
+        sendToRenderer("tools-log", `❌ Lỗi toàn cục: ${err.message}`);
+        if (browser) await browser.disconnect();
+        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
+    }
+}
+
+// Hàm click tất cả nút Xem thêm trong bài viết Facebook
+async function clickAllSeeMoreButtons(facebookPage) {
+    const btns = await facebookPage.$$(
+        'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]',
+    );
+
+    let count = 0;
+
+    for (const btn of btns) {
+        try {
+            const prop = await btn.getProperty("innerText");
+            const text = await prop.jsonValue();
+            sendToRenderer("tools-log", `[FB-Crawl] Button innerText: ${text}`);
+            if (
+                text &&
+                (text.includes("Xem thêm") || text.includes("See more"))
+            ) {
+                await btn.hover();
+                await btn.click();
+                count++;
+                await facebookPage.waitForTimeout(400);
+            }
+        } catch (err) {
+            // Có thể gặp detached node, bỏ qua
+        }
+    }
+
+    return count;
+}
+
+function extractFacebookPostsFromHTML(html, facegroup = "") {
+    const $ = cheerio.load(html);
+    const postDivs = $(
+        'div[role="feed"] div[data-ad-rendering-role="story_message"]',
+    );
+
+    const posts = [];
+
+    const stringToId = (str) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = (hash << 5) - hash + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    };
+
+    postDivs.each((_, div) => {
+        const $div = $(div);
+        const parent = $div.parent("div.html-div");
+        const parents = parent.parent("div.html-div");
+        const text = $div.text().trim();
+
+        const hrefs = [];
+        const images = [];
+
+        parents.find('a[role="link"]').each((_, a) => {
+            const $a = $(a);
+            const href = $a.attr("href");
+            if (href) {
+                hrefs.push(href);
+            }
+            $a.find("img[src]").each((_, img) => {
+                const src = $(img).attr("src");
+                if (src) {
+                    images.push(src);
+                }
+            });
+        });
+
+        if (text) {
+            posts.push({
+                uuid: stringToId(text),
+                used: 0,
+                facegroup,
+                text,
+                images,
+                href: hrefs,
+            });
+        }
+    });
+
+    return posts;
+}
+
+// ==== FALLBACK SERVER ====
+function startFallbackServer() {
+    const fallbackApp = express();
+    const fallbackPath = path.resolve(__dirname, "..", "fallback");
+    fallbackApp.use(express.static(fallbackPath));
+    fallbackApp.listen(fallbackPort, () => {
+        sendToRenderer(
+            "tools-log",
+            `[✓] Fallback server chạy tại http://localhost:${fallbackPort}`,
+        );
+    });
+}
+
+// ===== GLOBAL WINDOW.OPEN HANDLER =====
+app.on("web-contents-created", (_event, contents) => {
+    contents.setWindowOpenHandler(({ url }) => {
+        try {
+            if (url.startsWith("http://localhost:7171")) {
+                sendToRenderer(
+                    "tools-log",
+                    `[WindowOpenHandler] Mở Chrome app cho URL: ${url}`,
+                );
+                openChromeApp(url);
+                return { action: "deny" };
+            }
+        } catch (e) {
+            sendToRenderer(
+                "tools-log",
+                `[WindowOpenHandler] Lỗi khi xử lý window.open(${url}): ${e.message}`,
+            );
+        }
+        return { action: "allow" };
+    });
+});
+
+// ============================================================
+// [CẬP NHẬT] SERVER PHỤC VỤ CHROME APP STT (PORT 7171)
+// ============================================================
+function startSttServer() {
+    const sttApp = express();
+    const port = 7171;
+
+    const sttHtmlContent = `
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="referrer" content="no-referrer">
+    <title>AI.Type - STT Player</title>
+    
+    <link rel="icon" href="https://cdn-icons-png.flaticon.com/512/1082/1082453.png">
+
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <style>
+        /* Reset CSS */
+        body { margin: 0; background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* [2] CUSTOM SCROLLBAR CHO ĐẸP */
+        ::-webkit-scrollbar {
+            width: 8px; /* Độ rộng thanh cuộn */
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #111; /* Màu nền đường ray */
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #333; /* Màu thanh kéo */
+            border-radius: 4px; /* Bo tròn */
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555; /* Màu khi di chuột vào */
+        }
+
+        /* Container Video */
+        .video-wrapper { 
+            flex: 1; 
+            background: #000; 
+            position: relative; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        video { 
+            width: 100%; 
+            height: 100%; 
+            max-height: 100vh;
+            object-fit: contain;
+            z-index: 1;
+        }
+
+        /* Khu vực Logs */
+        #logs { 
+            height: 150px; 
+            padding: 10px; 
+            overflow-y: auto; /* Scrollbar sẽ hiện ở đây */
+            background: #111; 
+            border-top: 1px solid #333; 
+            font-size: 14px; 
+            line-height: 1.5; 
+            z-index: 2;
+        }
+
+        .log-line { margin-bottom: 4px; border-bottom: 1px dashed #222; padding-bottom: 2px; }
+        .final { color: #4ade80; font-weight: bold; }
+        .interim { color: #facc15; font-style: italic; opacity: 0.7; }
+        .err { color: #ef4444; }
+        .info { color: #60a5fa; }
+    </style>
+</head>
+<body>
+    <div class="video-wrapper">
+        <video id="video" controls playsinline autoplay muted></video>
+    </div>
+    <div id="logs"></div>
+
+    <script>
+        const video = document.getElementById('video');
+        const logs = document.getElementById('logs');
+        let ws, recognition, hls;
+
+        function processText(text) {
+            if (!text) return '';
+            let s = text.trim();
+            s = s.charAt(0).toUpperCase() + s.slice(1);
+            s = s.replace(/ phẩy/gi, ',');
+            s = s.replace(/ chấm/gi, '.');
+            const lastChar = s.slice(-1);
+            if (!['.', '?', '!', ';', ','].includes(lastChar)) s += '.';
+            return s;
+        }
+
+        function log(msg, type='') {
+            const d = document.createElement('div');
+            d.className = 'log-line ' + type;
+            d.textContent = msg;
+            logs.appendChild(d);
+            logs.scrollTop = logs.scrollHeight;
+        }
+
+        function connectWs() {
+            ws = new WebSocket('ws://127.0.0.1:7777');
+            ws.onopen = () => { log('✅ Kết nối WS thành công', 'info'); ws.send(JSON.stringify({type:'hello', role:'chrome'})); };
+            ws.onclose = () => setTimeout(connectWs, 2000);
+            ws.onmessage = (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.type === 'set-source') loadVideo(d.source);
+                } catch{}
+            };
+        }
+
+        function loadVideo(url) {
+            log('▶️ Đang tải nguồn: ' + url, 'info');
+            if(hls) { hls.destroy(); hls = null; }
+
+            if (Hls.isSupported()) {
+                hls = new Hls({ debug: false, enableWorker: true, lowLatencyMode: true, backBufferLength: 90 });
+                hls.loadSource(url);
+                hls.attachMedia(video);
+                hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                    log('✅ Đã nhận tín hiệu Video', 'info');
+                    video.muted = false; 
+                    video.play().catch(() => {
+                        video.muted = true; 
+                        video.play();
+                    });
+                });
+                hls.on(Hls.Events.ERROR, (event, data) => {
+                    if (data.fatal) {
+                        switch (data.type) {
+                            case Hls.ErrorTypes.NETWORK_ERROR: hls.startLoad(); break;
+                            case Hls.ErrorTypes.MEDIA_ERROR: hls.recoverMediaError(); break;
+                            default: hls.destroy(); break;
+                        }
+                    }
+                });
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = url;
+                video.addEventListener('loadedmetadata', () => video.play());
+            }
+        }
+
+        function startStt() {
+            if (!window.webkitSpeechRecognition) return log('❌ Trình duyệt không hỗ trợ STT', 'err');
+            
+            recognition = new webkitSpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = true;
+            recognition.lang = 'vi-VN';
+
+            recognition.onstart = () => log('🎙️ STT đang lắng nghe...', 'info');
+            recognition.onerror = (e) => { if (e.error !== 'no-speech') log('⚠️ Lỗi Mic: ' + e.error, 'err'); };
+            recognition.onend = () => setTimeout(() => { try{recognition.start()}catch{} }, 1000);
+            
+            recognition.onresult = (e) => {
+                let finalRaw = '';
+                let interimRaw = '';
+                for (let i = e.resultIndex; i < e.results.length; ++i) {
+                    if (e.results[i].isFinal) finalRaw += e.results[i][0].transcript;
+                    else interimRaw += e.results[i][0].transcript;
+                }
+                if (ws && ws.readyState === WebSocket.OPEN) {
+                    if (finalRaw) {
+                        const processedFinal = processText(finalRaw);
+                        ws.send(JSON.stringify({ type:'caption', text: processedFinal, isFinal: true, source: video.src }));
+                        log('📝 ' + processedFinal, 'final');
+                    }
+                    if (interimRaw) {
+                        ws.send(JSON.stringify({ type:'caption', text: interimRaw, isFinal: false, source: video.src }));
+                    }
+                }
+            };
+            try { recognition.start(); } catch{}
+        }
+
+        window.onload = () => {
+            connectWs();
+            startStt();
+            const p = new URLSearchParams(location.search);
+            if(p.get('source')) loadVideo(p.get('source'));
+        };
+    </script>
+</body>
+</html>
+    `;
+
+    sttApp.get("/", (req, res) => {
+        res.send(sttHtmlContent);
+    });
+
+    sttApp.listen(port, () => {
+        sendToRenderer(
+            "tools-log",
+            `[STT-Server] Server running at http://localhost:${port}`,
+        );
+    });
+}
+
+// ==== APP EVENT ==== //
+app.whenReady().then(() => {
+    const filter = {
+        urls: [
+            "*://*.facebook.com/*",
+            "*://facebook.com/*",
+            "*://chatgpt.com/*",
+            "*://google.com/*",
+            "*://*.messenger.com/*",
+        ],
+    };
+
+    session.defaultSession.webRequest.onBeforeSendHeaders(
+        filter,
+        (details, callback) => {
+            details.requestHeaders["User-Agent"] =
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+            callback({ requestHeaders: details.requestHeaders });
+        },
+    );
+
+    startGoService();
+    startSttWebSocketServer();
+    startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
+    createMainWindow();
+
+    if (downloader && fs.existsSync(downloader)) {
+        downloaderProcess = execFile(downloader, [], (err, stdout, stderr) => {
+            if (err) sendToRenderer("tools-log", `❌ Downloader lỗi: ${err}`);
+            if (stdout) sendToRenderer("tools-log", `📥 Downloader: ${stdout}`);
+            if (stderr)
+                sendToRenderer("tools-log", `⚠️ Downloader stderr: ${stderr}`);
+        });
+    }
+
+    if (type && fs.existsSync(type)) {
+        typeProcess = execFile(type, [], (err, stdout, stderr) => {
+            if (err) sendToRenderer("tools-log", `❌ Type lỗi: ${err}`);
+            if (stdout) sendToRenderer("tools-log", `📥 Type: ${stdout}`);
+            if (stderr)
+                sendToRenderer("tools-log", `⚠️ Type stderr: ${stderr}`);
+        });
+    }
+
+    // ===== GOOGLE SEARCH CONSOLE IPC =====
+    ipcMain.handle("gsc:query", async (_event, args) => {
+        const {
+            startDate,
+            endDate,
+            siteUrl,
+            mode,
+            dimensions,
+            rowLimit,
+            searchType,
+        } = args || {};
+
+        try {
+            if (!startDate || !endDate) {
+                throw new Error("Thiếu startDate hoặc endDate");
+            }
+
+            const site = siteUrl || "https://huyenthuyen.vn/";
+
+            await gscEnsureAuthenticated();
+
+            const webmasters = google.webmasters({
+                version: "v3",
+                auth: gscOauth2Client,
+            });
+
+            const requestBody = {
+                startDate,
+                endDate,
+                searchType: searchType || "WEB",
+            };
+
+            if (mode !== "totals") {
+                requestBody.dimensions =
+                    dimensions && dimensions.length
+                        ? dimensions
+                        : ["query", "date"];
+                requestBody.rowLimit = rowLimit || 25000;
+            }
+
+            const res = await webmasters.searchanalytics.query({
+                siteUrl: site,
+                requestBody,
+            });
+
+            const rows = res.data.rows || [];
+
+            sendToRenderer(
+                "tools-log",
+                `[GSC] Query OK (mode=${mode || "detail"}), rows=${rows.length}`,
+            );
+
+            return {
+                success: true,
+                rows,
+            };
+        } catch (e) {
+            sendToRenderer("tools-log", `[GSC] Lỗi: ${e.message}`);
+            return {
+                success: false,
+                error: e.message || "Unknown GSC error",
+            };
+        }
+    });
+
+    ipcMain.on("tools-command", (event, data) => {
+        if (!data || !data.command) {
+            event.reply("tools-response", {
+                error: "Không có lệnh nào được gửi",
+            });
+            return;
+        }
+
+        if (!data.url) data.url = "https://google.com.vn";
+
+        if (targetWindow) targetWindow.close();
+
+        sendToRenderer(
+            "tools-log",
+            `Received tools command: ${data.command} (URL: ${data.url})`,
+        );
+
+        switch (data.command) {
+            case "chupchupchup": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                createTargetWindow(data.url, captureOnlyTargetWindow, uniqueID);
+                break;
+            }
+            case "dreamina.capcut": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                const defaultOutDir = path.join(
+                    documentsDir,
+                    "ai.type",
+                    "data",
+                    "uploads",
+                    "thumbnails",
+                    data.username,
+                );
+
+                createTargetWindow(
+                    data.url,
+                    () => {
+                        createImageByDreamina(data.url, uniqueID, {
+                            outDir: data.outDir || defaultOutDir,
+                            maxImages: data.maxImages || 100,
+                            filenamePrefix: data.filenamePrefix || "dream_",
+                        });
+                    },
+                    uniqueID,
+                    data.width || 1000,
+                    data.height || 1100,
+                );
+                break;
+            }
+            case "facebook-login": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                if (data.cookiePath && fs.existsSync(data.cookiePath)) {
+                    setFacebookCookiesFromFile(data.cookiePath).then(() => {
+                        sendToRenderer(
+                            "tools-log",
+                            `[FB-Login] Đã set cookies từ file: ${data.cookiePath}`,
+                        );
+                        createTargetWindow(data.url, connectApps, uniqueID);
+                        event.reply("tools-response", {
+                            success: true,
+                            action: "facebook-login",
+                            uniqueID,
+                        });
+                    });
+                } else {
+                    createTargetWindow(data.url, connectApps, uniqueID);
+                    event.reply("tools-response", {
+                        success: true,
+                        action: "facebook-login",
+                        uniqueID,
+                    });
+                }
+                break;
+            }
+            case "website-crawl": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
+                const genAI = new GoogleGenerativeAI(apiKey);
+                const model = genAI.getGenerativeModel({
+                    model: "gemini-2.0-flash",
+                });
+
+                createTargetWindow(
+                    data.url,
+                    (url, id) =>
+                        websiteCrawl(url, id, data.selector || [], model),
+                    uniqueID,
+                );
+                break;
+            }
+            case "get-facebook-cookies": {
+                if (!data.uniqueID) {
+                    event.reply("tools-response", { error: "Thiếu uniqueID!" });
+                    return;
+                }
+                getFacebookCookies(data.uniqueID, event);
+                break;
+            }
+            case "facebook-crawl": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                const maxPosts = data.maxPosts || 3;
+                const facegroup = data.facegroup || "";
+
+                if (data.cookiePath && fs.existsSync(data.cookiePath)) {
+                    setFacebookCookiesFromFile(data.cookiePath).then(() => {
+                        sendToRenderer(
+                            "tools-log",
+                            `[FB-Crawl] Đã set cookies từ file: ${data.cookiePath}`,
+                        );
+                        createTargetWindow(
+                            data.url,
+                            (url, id) =>
+                                facebookCrawl(url, id, facegroup, maxPosts),
+                            uniqueID,
+                        );
+                    });
+                } else {
+                    createTargetWindow(
+                        data.url,
+                        (url, id) =>
+                            facebookCrawl(url, id, facegroup, maxPosts),
+                        uniqueID,
+                    );
+                }
+                break;
+            }
+            case "tiktok-crawl": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                const username = data.tiktoker;
+                const url = `https://www.tiktok.com/@${username}`;
+
+                createTargetWindow(
+                    url,
+                    async (targetUrl, id) => {
+                        let browser;
+                        try {
+                            sendToRenderer(
+                                "tools-log",
+                                `[TikTok] 🚀 Chế độ quét hình ảnh kích hoạt cho @${username}`,
+                            );
+                            const res = await fetch(
+                                "http://localhost:9999/json/version",
+                            );
+                            const json = await res.json();
+                            browser = await puppeteer.connect({
+                                browserWSEndpoint: json.webSocketDebuggerUrl,
+                                defaultViewport: null,
+                            });
+
+                            const pages = await browser.pages();
+                            const page = pages.find((p) =>
+                                p.url().includes(id),
+                            );
+                            if (!page) return;
+
+                            // LẮNG NGHE DỮ LIỆU TỪ PRELOAD
+                            const linkHandler = (_evt, payload) => {
+                                if (payload && payload.url) {
+                                    sendToRenderer("tools-response", {
+                                        action: "tiktok-crawl-stream",
+                                        success: true,
+                                        videos: [
+                                            {
+                                                url: payload.url,
+                                                thumbnail: payload.thumbnail,
+                                                title: payload.title,
+                                            },
+                                        ],
+                                    });
+                                }
+                            };
+                            ipcMain.on("tiktok:link-found", linkHandler);
+
+                            let noChangeCount = 0;
+                            let lastHeight = 0;
+
+                            while (noChangeCount < 15) {
+                                const currentHeight = await page
+                                    .evaluate(
+                                        () =>
+                                            document.documentElement
+                                                .scrollHeight,
+                                    )
+                                    .catch(() => 0);
+
+                                await page.keyboard.press("End");
+                                await new Promise((r) => setTimeout(r, 3500)); // Đợi lâu chút để ảnh kịp load
+
+                                if (currentHeight > lastHeight) {
+                                    lastHeight = currentHeight;
+                                    noChangeCount = 0;
+                                } else {
+                                    noChangeCount++;
+                                }
+
+                                if (page.isClosed()) break;
+                            }
+
+                            ipcMain.removeListener(
+                                "tiktok:link-found",
+                                linkHandler,
+                            );
+                            sendToRenderer(
+                                "tools-log",
+                                `[TikTok] ✅ Hoàn tất quét kênh.`,
+                            );
+                            sendToRenderer("tools-response", {
+                                action: "tiktok-crawl-finished",
+                            });
+
+                            if (browser) await browser.disconnect();
+                            if (targetWindow && !targetWindow.isDestroyed())
+                                targetWindow.close();
+                        } catch (err) {
+                            sendToRenderer(
+                                "tools-log",
+                                `[TikTok] ❌ Lỗi: ${err.message}`,
+                            );
+                        }
+                    },
+                    uniqueID,
+                    1280,
+                    800,
+                );
+                break;
+            }
+            case "open-chrome-app": {
+                // Lấy width, height từ data (nếu UI không gửi thì dùng mặc định của hàm)
+                const w = data.width || 1200;
+                const h = data.height || 800;
+
+                // Gọi hàm với tham số mới
+                openChromeApp(data.url, w, h);
+
+                event.reply("tools-response", {
+                    success: true,
+                    action: "open-chrome-app",
+                    url: data.url,
+                    size: `${w}x${h}`,
+                });
+                break;
+            }
+            default:
+                event.reply("tools-response", {
+                    error: "Command không hỗ trợ!",
+                });
+        }
+    });
+
+    app.on("activate", () => {
+        if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
+    });
+
+    globalShortcut.register("CommandOrControl+Shift+I", () => {
+        if (mainWindow) mainWindow.webContents.toggleDevTools();
+    });
+
+    globalShortcut.register("CommandOrControl+C+G", () => {
+        if (targetWindow) targetWindow.close();
+    });
+
+    globalShortcut.register("CommandOrControl+Shift+N", () => {
+        createMainWindow();
+    });
+});
+
+app.on("will-quit", () => {
+    if (serviceProcess) serviceProcess.kill("SIGTERM");
+});
+
+app.on("window-all-closed", () => {
+    if (process.platform !== "darwin") app.quit();
+});
+
+// =====================================================================
+// Google Ads Keyword Planner IPC (ads:keywordIdeas)
+// =====================================================================
+
+const ADS_CLIENT_ID =
+    process.env.ADS_CLIENT_ID ||
+    "90514980593-9tqqkt4eobhee5aqrft3f6s5mpkakbp0.apps.googleusercontent.com";
+const ADS_CLIENT_SECRET =
+    process.env.ADS_CLIENT_SECRET || "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";
+const ADS_DEVELOPER_TOKEN =
+    process.env.ADS_DEVELOPER_TOKEN || "OsRSnxr4OiG6bfuG0RqVtw";
+const ADS_REFRESH_TOKEN =
+    process.env.ADS_REFRESH_TOKEN ||
+    "1//0g2m3ngcIRj1zCgYIARAAGBASNwF-L9Irbur0YDEMdc0wcZ65b0gxav-3MUFMhqRKkAux2N0yIoGt60mNzTGqAJJrjSNYJIYPX4k";
+const ADS_CUSTOMER_ID = process.env.ADS_CUSTOMER_ID || "6453144045";
+
+let adsOauthClient = null;
+if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
+    adsOauthClient = new OAuth2Client(
+        ADS_CLIENT_ID,
+        ADS_CLIENT_SECRET,
+        "urn:ietf:wg:oauth:2.0:oob",
+    );
+    adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
+}
+
+async function googleAdsGenerateKeywordIdeas({
+    keywordText,
+    customerId,
+    language,
+    geoTargetConstants,
+}) {
+    if (!adsOauthClient) {
+        throw new Error(
+            "Chưa cấu hình ADS_CLIENT_ID / ADS_CLIENT_SECRET / ADS_REFRESH_TOKEN",
+        );
+    }
+    if (!ADS_DEVELOPER_TOKEN) {
+        throw new Error("Chưa cấu hình ADS_DEVELOPER_TOKEN");
+    }
+    if (!customerId) {
+        throw new Error("Thiếu ADS_CUSTOMER_ID");
+    }
+    if (!keywordText) {
+        throw new Error("Thiếu keywordText");
+    }
+
+    const { token } = await adsOauthClient.getAccessToken();
+    if (!token) {
+        throw new Error("Không lấy được access token cho Google Ads");
+    }
+
+    const postData = JSON.stringify({
+        customerId,
+        language: language || "languageConstants/1004",
+        geoTargetConstants:
+            geoTargetConstants && geoTargetConstants.length
+                ? geoTargetConstants
+                : ["geoTargetConstants/2392"],
+        keywordPlanNetwork: "GOOGLE_SEARCH",
+        keywordSeed: {
+            keywords: [keywordText],
+        },
+    });
+
+    return await new Promise((resolve, reject) => {
+        const req = https.request(
+            {
+                method: "POST",
+                hostname: "googleads.googleapis.com",
+                path: `/v16/customers/${customerId}:generateKeywordIdeas`,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(postData),
+                    Authorization: `Bearer ${token}`,
+                    "developer-token": ADS_DEVELOPER_TOKEN,
+                },
+            },
+            (res) => {
+                let raw = "";
+                res.on("data", (chunk) => (raw += chunk.toString()));
+                res.on("end", () => {
+                    if (!raw) {
+                        return reject(
+                            new Error(
+                                `Google Ads API trả về body rỗng (status ${res.statusCode})`,
+                            ),
+                        );
+                    }
+
+                    const contentType = (
+                        res.headers["content-type"] || ""
+                    ).toLowerCase();
+
+                    if (!contentType.includes("application/json")) {
+                        return reject(
+                            new Error(
+                                `Google Ads API trả về nội dung không phải JSON (status ${res.statusCode}). ` +
+                                    `Có thể Developer Token / tài khoản chưa được bật API. Preview: ${raw.slice(0, 200)}`,
+                            ),
+                        );
+                    }
+
+                    try {
+                        const json = JSON.parse(raw);
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(json);
+                        } else {
+                            reject(
+                                new Error(
+                                    json.error?.message ||
+                                        `Google Ads API Error ${res.statusCode}`,
+                                ),
+                            );
+                        }
+                    } catch (e) {
+                        reject(
+                            new Error(
+                                `Không parse được JSON từ Google Ads API (status ${res.statusCode}). Body: ${raw.slice(0, 200)}`,
+                            ),
+                        );
+                    }
+                });
+            },
+        );
+
+        req.on("error", (err) => reject(err));
+        req.write(postData);
+        req.end();
+    });
+}
+
+ipcMain.handle("ads:keywordIdeas", async (_event, args) => {
+    try {
+        const keywordText = args && args.keywordText;
+        const languageConstant = args && args.languageConstant;
+        const geoTargetConstants = args && args.geoTargetConstants;
+        const customerId = ADS_CUSTOMER_ID || (args && args.customerId);
+
+        const result = await googleAdsGenerateKeywordIdeas({
+            keywordText,
+            customerId,
+            language: languageConstant,
+            geoTargetConstants,
+        });
+
+        return {
+            success: true,
+            results: result.results || result.keywordIdeas || [],
+        };
+    } catch (err) {
+        return {
+            success: false,
+            error: err.message || String(err),
+        };
+    }
+});
+
+// =====================================================================
+// Google Analytics 4 (GA4) – Data API (IPC: ga:report)
+// =====================================================================
+
+// Nếu bạn muốn set mặc định property ID qua biến môi trường:
+const GA_DEFAULT_PROPERTY_ID = process.env.GA_PROPERTY_ID || "293654701";
+
+// ✅ ĐƯỜNG DẪN MẶC ĐỊNH: C:\Users\<User>\Documents\ai.type\ga4-service.json
+const GA_KEY_FILE_DEFAULT = path.join(
+    documentsDir,
+    "ai.type",
+    "ga4-service.json",
+);
+
+function resolveGaKeyFile() {
+    // 1) Ưu tiên: GA_KEY_FILE trong biến môi trường
+    if (process.env.GA_KEY_FILE && fileExists(process.env.GA_KEY_FILE)) {
+        return process.env.GA_KEY_FILE;
+    }
+
+    // 2) Mặc định: Documents\ai.type\ga4-service.json (trường hợp của bạn)
+    if (fileExists(GA_KEY_FILE_DEFAULT)) {
+        return GA_KEY_FILE_DEFAULT;
+    }
+
+    // 3) Khi đóng gói: resources/ga4-service.json
+    if (process.resourcesPath) {
+        const candidateRes = path.join(
+            process.resourcesPath,
+            "ga4-service.json",
+        );
+        if (fileExists(candidateRes)) return candidateRes;
+    }
+
+    // 4) Khi chạy dev: đặt ga4-service.json cạnh main.js (../ga4-service.json)
+    const candidateDev = path.join(__dirname, "..", "ga4-service.json");
+    if (fileExists(candidateDev)) return candidateDev;
+
+    return null;
+}
+
+let gaAuth = null;
+
+async function getGaAccessToken() {
+    const keyFile = resolveGaKeyFile();
+    if (!keyFile) {
+        throw new Error(
+            "Không tìm thấy file ga4-service.json. " +
+                "Hãy lưu file service account JSON vào C:\\Users\\<User>\\Documents\\ai.type\\ga4-service.json, " +
+                "hoặc set env GA_KEY_FILE, hoặc copy vào resources/ga4-service.json.",
+        );
+    }
+
+    if (!gaAuth) {
+        gaAuth = new GoogleAuth({
+            keyFile,
+            scopes: ["https://www.googleapis.com/auth/analytics.readonly"],
+        });
+    }
+
+    const client = await gaAuth.getClient();
+    const tokenResponse = await client.getAccessToken();
+    const token =
+        typeof tokenResponse === "string"
+            ? tokenResponse
+            : tokenResponse && tokenResponse.token;
+
+    if (!token) {
+        throw new Error("Không lấy được access token cho Google Analytics 4");
+    }
+
+    return token;
+}
+
+ipcMain.handle("ga:report", async (_event, args) => {
+    try {
+        const {
+            propertyId,
+            startDate,
+            endDate,
+            metrics,
+            dimensions,
+            dimensionFilter,
+            limit,
+        } = args || {};
+
+        if (!startDate || !endDate) {
+            throw new Error("Thiếu startDate hoặc endDate cho GA4");
+        }
+
+        const propId = propertyId || GA_DEFAULT_PROPERTY_ID;
+        if (!propId) {
+            throw new Error(
+                "Thiếu GA4 property ID. " +
+                    "Hãy nhập trong UI hoặc set biến môi trường GA_PROPERTY_ID.",
+            );
+        }
+
+        const token = await getGaAccessToken();
+
+        const body = {
+            dateRanges: [
+                {
+                    startDate,
+                    endDate,
+                },
+            ],
+            metrics: (metrics && metrics.length
+                ? metrics
+                : [
+                      "activeUsers",
+                      "sessions",
+                      "screenPageViews",
+                      "engagementRate",
+                  ]
+            ).map((name) => ({ name })),
+            dimensions: (dimensions && dimensions.length ? dimensions : []).map(
+                (name) => ({ name }),
+            ),
+            limit: limit || 100,
+        };
+
+        if (dimensionFilter) {
+            body.dimensionFilter = dimensionFilter;
+        }
+
+        const postData = JSON.stringify(body);
+
+        const result = await new Promise((resolve, reject) => {
+            const req = https.request(
+                {
+                    method: "POST",
+                    hostname: "analyticsdata.googleapis.com",
+                    path: `/v1beta/properties/${propId}:runReport`,
+                    headers: {
+                        "Content-Type": "application/json",
+                        "Content-Length": Buffer.byteLength(postData),
+                        Authorization: `Bearer ${token}`,
+                    },
+                },
+                (res) => {
+                    let raw = "";
+                    res.on("data", (chunk) => (raw += chunk.toString()));
+                    res.on("end", () => {
+                        try {
+                            const json = raw ? JSON.parse(raw) : {};
+                            if (res.statusCode >= 200 && res.statusCode < 300) {
+                                resolve(json);
+                            } else {
+                                reject(
+                                    new Error(
+                                        json.error?.message ||
+                                            `Google Analytics API Error ${res.statusCode}`,
+                                    ),
+                                );
+                            }
+                        } catch (e) {
+                            reject(
+                                new Error(
+                                    `Không parse được JSON từ GA4 API (status ${res.statusCode})`,
+                                ),
+                            );
+                        }
+                    });
+                },
+            );
+
+            req.on("error", (err) => reject(err));
+            req.write(postData);
+            req.end();
+        });
+
+        sendToRenderer(
+            "tools-log",
+            `[GA4] runReport OK (metrics=${(metrics || []).join(
+                ",",
+            )}, dimensions=${(dimensions || []).join(",")})`,
+        );
+
+        return {
+            success: true,
+            result,
+        };
+    } catch (err) {
+        sendToRenderer(
+            "tools-log",
+            `[GA4] Lỗi: ${(err && err.message) || String(err)}`,
+        );
+        return {
+            success: false,
+            error: err.message || String(err),
+        };
+    }
+});

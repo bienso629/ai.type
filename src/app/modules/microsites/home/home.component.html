@@ -1,0 +1,232 @@
+<div class="absolute top-0 left-0 bottom-0 right-0 h-screen w-screen overflow-hidden">
+    <swiper-container fmSwiper [config]="config" init="false" class="w-full" (slidechange)="onSlideChange()">
+        <!-- TRANG 1: Trang chủ điều hướng khách hàng vào công cụ -->
+        <swiper-slide class="h-screen min-w-0 w-full">
+            <fm-stream-item>
+                <div class="absolute inset-0 flex flex-col min-w-0">
+                    <!-- Main -->
+                    <div class="flex-auto bg-gray-100">
+                        <!-- CONTENT GOES HERE -->
+                        <div class="flex items-center justify-center h-full">
+                            <div class="inline-block relative">
+                                <!-- Background - @formatter:off -->
+                                <div class="flex items-center justify-center">
+                                    <img class="w-80" src="assets/images/logo/typing-logo.svg" alt="Logo image">
+                                </div>
+                                <!-- @formatter:on -->
+                                <!-- Header -->
+                                <div class="flex flex-col mt-8 items-center">
+                                    <!-- <h2 class="text-xl font-semibold">type.vn</h2> -->
+                                    <div class="text-3xl sm:text-5xl font-semibold leading-8 sm:leading-10 text-center max-w-200 tw"
+                                        #tw></div>
+                                </div>
+
+                                <div class="flex flex-col mt-8 items-center">
+                                    <button mat-flat-button class="fuse-mat-button-large" [color]="'primary'"
+                                        [routerLink]="['/dashboard']">
+                                        <mat-icon class="icon-size-5" [svgIcon]="'feather:corner-down-left'"></mat-icon>
+                                        <span class="ml-2">{{ 'microsites.home.start' | transloco }}</span>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="absolute right-10 bottom-10 z-99 w-20 h-20 bg-gray-30 grayscale-0 opacity-10 hover:opacity-100 transition-opacity duration-1000 ease-drawer"
+                        matTooltipPosition="above" matTooltip="Sử dụng 3 ngón tay vuốt lên hoặc xuống để chuyển trang">
+                        <img src="./assets/icons/80636_aggressive_finger_gestureworks_three_tilt_icon.png" />
+                    </div>
+                </div>
+            </fm-stream-item>
+        </swiper-slide>
+
+        <!-- TRANG 2: Giới thiệu về chức năng của công cụ AI.TYPE -->
+        <swiper-slide class="h-screen min-w-0 w-full">
+            <fm-stream-item>
+                <div class="absolute inset-0 flex flex-col min-w-0">
+                    <!-- Main -->
+                    <div class="flex-auto bg-gray-100">
+                        <!-- CONTENT GOES HERE -->
+                        <div class="flex items-center justify-center h-full">
+                            <div class="inline-block">
+                                <div
+                                    class="flex flex-col items-center px-6 py-10 sm:px-16 sm:pt-18 sm:pb-20 dark:bg-gray-800">
+                                    <div class="w-full max-w-6xl">
+                                        <div class="text-left">
+                                            <div class="text-4xl font-normal tracking-tight leading-tight">
+                                                {{ 'microsites.home.about.title' | transloco }}
+                                            </div>
+                                            <div class="mt-2 text-xl text-secondary leading-8">
+                                                {{ 'microsites.home.about.subtitle' | transloco }}
+                                            </div>
+                                        </div>
+                                        <!-- Features grid -->
+                                        <div
+                                            class="grid grid-cols-1 gap-x-6 gap-y-12 sm:grid-cols-2 lg:grid-cols-3 lg:gap-16 w-full mt-12 sm:mt-16">
+                                            <div>
+                                                <span class="flex items-center justify-center w-12 h-12">
+                                                    <mat-icon class="text-primary"
+                                                        [svgIcon]="'feather:edit-2'"></mat-icon>
+                                                </span>
+                                                <div class="mt-4 text-xl font-medium">{{
+                                                    'microsites.home.about.function.title1' | transloco }}</div>
+                                                <div class="mt-2 leading-8 text-secondary">
+                                                    {{ 'microsites.home.about.function.description1' | transloco }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="flex items-center justify-center w-12 h-12">
+                                                    <mat-icon class="text-primary"
+                                                        [svgIcon]="'feather:book'"></mat-icon>
+                                                </span>
+                                                <div class="mt-4 text-xl font-medium">{{
+                                                    'microsites.home.about.function.title2' | transloco }}</div>
+                                                <div class="mt-2 leading-8 text-secondary">
+                                                    {{ 'microsites.home.about.function.description2' | transloco }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="flex items-center justify-center w-12 h-12">
+                                                    <mat-icon class="text-primary"
+                                                        [svgIcon]="'feather:users'"></mat-icon>
+                                                </span>
+                                                <div class="mt-4 text-xl font-medium">{{
+                                                    'microsites.home.about.function.title3' | transloco }}</div>
+                                                <div class="mt-2 leading-8 text-secondary">
+                                                    {{ 'microsites.home.about.function.description3' | transloco }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="flex items-center justify-center w-12 h-12">
+                                                    <mat-icon class="text-primary" [svgIcon]="'feather:mic'"></mat-icon>
+                                                </span>
+                                                <div class="mt-4 text-xl font-medium">{{
+                                                    'microsites.home.about.function.title4' | transloco }}</div>
+                                                <div class="mt-2 leading-8 text-secondary">
+                                                    {{ 'microsites.home.about.function.description4' | transloco }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="flex items-center justify-center w-12 h-12">
+                                                    <mat-icon class="text-primary"
+                                                        [svgIcon]="'feather:image'"></mat-icon>
+                                                </span>
+                                                <div class="mt-4 text-xl font-medium">{{
+                                                    'microsites.home.about.function.title5' | transloco }}</div>
+                                                <div class="mt-2 leading-8 text-secondary">
+                                                    {{ 'microsites.home.about.function.description5' | transloco }}
+                                                </div>
+                                            </div>
+                                            <div>
+                                                <span class="flex items-center justify-center w-12 h-12">
+                                                    <mat-icon class="text-primary"
+                                                        [svgIcon]="'feather:music'"></mat-icon>
+                                                </span>
+                                                <div class="mt-4 text-xl font-medium">{{
+                                                    'microsites.home.about.function.title6' | transloco }}</div>
+                                                <div class="mt-2 leading-8 text-secondary">
+                                                    {{ 'microsites.home.about.function.description6' | transloco }}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </fm-stream-item>
+        </swiper-slide>
+
+        <!-- TRANG 3: Tải app -->
+        <swiper-slide class="h-screen min-w-0 w-full">
+            <fm-stream-item>
+                <div class="absolute inset-0 flex flex-col min-w-0">
+                    <!-- Main -->
+                    <div class="flex-auto bg-gray-100">
+                        <!-- CONTENT GOES HERE -->
+                        <div class="flex items-center justify-center h-full">
+                            <div class="w-full max-w-6xl">
+                                <div
+                                    class="flex flex-col items-left px-6 py-10 sm:px-16 sm:pt-18 sm:pb-20 dark:bg-gray-800">
+                                    <div class="text-left">
+                                        <div class="text-4xl font-normal tracking-tight leading-tight">
+                                            {{
+                                            'microsites.home.contact.title' | transloco
+                                            }}
+                                        </div>
+                                        <div class="mt-2 text-secondary leading-8">
+                                            {{
+                                            'microsites.home.contact.about' | transloco
+                                            }}
+                                        </div>
+                                    </div>
+
+                                    <!-- Features grid -->
+                                    <div class="w-full mt-6">
+                                        <div class="mt-2 leading-8 text-secondary">
+                                            <div class="mt-4 text-2xl font-semibold">{{
+                                                'microsites.home.contact.subtitle' | transloco
+                                                }}</div>
+                                            <div class="mt-2" [innerHTML]="'microsites.home.contact.info' | transloco">
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <!-- Features grid -->
+                                    <div class="w-1/2 mt-6">
+                                        <div
+                                            class="mt-2 grid grid-grap gap-4 grid-flow-row auto-rows-fr lg:grid-flow-col lg:auto-cols-fr">
+                                            <a href="http://ai.type.vn/v1.0.0/type-lite-macos" target="_self"
+                                                class="rounded-md border border-primary border-opacity-40 hover:border-opacity-50 bg-slate-50 flex flex-row items-center justify-start p-3">
+                                                <img src="assets/icons/download_mac.svg" class="h-10 w-auto" />
+                                                <mat-label class="ml-2">Tải xuống MacOS</mat-label>
+                                            </a>
+
+                                            <a href="http://ai.type.vn/v1.0.0/type-lite-win.exe" target="_self"
+                                                class="rounded-md border border-primary border-opacity-40 hover:border-opacity-50 bg-slate-50 flex flex-row items-center justify-start p-3">
+                                                <img src="assets/icons/download_windows.svg" class="h-10 w-auto" />
+                                                <mat-label class="ml-2">Tải xuống Windows</mat-label>
+                                            </a>
+
+                                            <!-- <a href="http://ai.type.vn/v1.0.0/type-lite-linux" target="_self"
+                                                class="rounded-md border border-primary border-opacity-40 hover:border-opacity-50 bg-slate-50 flex flex-row items-center justify-start p-3">
+                                                <img src="assets/icons/download_linux.svg" class="h-10 w-auto" />
+                                                <mat-label class="ml-2">Tải xuống Linux</mat-label>
+                                            </a> -->
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </fm-stream-item>
+        </swiper-slide>
+    </swiper-container>
+
+    <!-- FOOTER: Nội dung bản quyền -->
+    <div class="flex flex-col absolute z-99 bottom-0 items-center p-6 sm:px-8">
+        <div class="flex flex-row items-center justify-center">
+            <div class="flex-1 min-w-0 h-full font-normal text-base text-secondary"
+                [innerHTML]="'microsites.home.footer.info' | transloco: {currentYear: currentYear}">
+            </div>
+
+            <div class="flex shrink-0 ml-2 items-end">
+                <a class="ml-2" title="Mã nguồn mở" mat-icon-button href="https://www.facebook.com/manguonmo"
+                    target="_blank">
+                    <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'mat_solid:facebook'"></mat-icon>
+                </a>
+
+                <a mat-icon-button color="warn" title="Học lập trình" href="https://www.youtube.com/@manguonmo"
+                    target="_blank">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
+                </a>
+
+                <a title="Khoá học công nghệ" mat-icon-button href="https://buy.type.vn" target="_blank">
+                    <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:shopping-cart'"></mat-icon>
+                </a>
+            </div>
+        </div>
+    </div>
+</div>

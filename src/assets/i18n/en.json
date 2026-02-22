@@ -1,0 +1,100 @@
+{
+    "microsites": {
+        "home": {
+            "title": "AI Type - ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
+            "start": "Bắt đầu công việc",
+            "text1": "Quản lý khách hàng và công việc trực quan",
+            "text2": "Tạo nội dung mạnh mẽ cho website của bạn",
+            "text3": "Sử dụng sức mạnh ChatGPT, Gemini",
+            "text4": "Tương tác với MXH tự động hơn",
+            "trend": {
+                "title": "Hôm nay có gì hay?",
+                "from": "Nguồn: ",
+                "empty": "Chưa tìm thấy nội dung nào.",
+                "form": {
+                    "title": "AI Type là một công cụ viết tự động, hỗ trợ bạn xây dựng nội dung website",
+                    "placeholder": "Hãy cho chúng mình biết bạn muốn viết gì?",
+                    "button": "Để mình lên ý tưởng cho bạn nhé?"
+                }
+            },
+            "about": {
+                "title": "AI Type - Ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
+                "subtitle": "Sức mạnh của ChatGPT, Gemini xử lý ngôn ngữ tự nhiên.",
+                "function": {
+                    "title1": "Quản lý thông tin khách hàng",
+                    "description1": "Quản lý hành vi khách hàng và gửi tin nhắn ZNS, SMS, Email tới khách hàng của bạn.",
+                    "title2": "Quản lý tiến độ công việc",
+                    "description2": "Theo dõi tiến độ công việc của bạn, phân công công việc cho nhân viên, quản lý chất lượng công việc.",
+                    "title3": "Tạo nội dung tự động",
+                    "description3": "Công việc viết lách của bạn sẽ đơn giản, nhẹ nhàng hơn khi được hỗ trợ bởi AI.",
+                    "title4": "Tương tác với MXH",
+                    "description4": "Tự động đăng bài lên các mạng xã hội như Facebook, Tiktok, Instagram, Twitter, Linkedin.",
+                    "title5": "Tạo hình ảnh, video bằng AI",
+                    "description5": "Chỉ cần mô tả bằng văn bản, AI sẽ tạo ra hình ảnh, video cho bạn.",
+                    "title6": "Tài nguyên viết bài",
+                    "description6": "Tài nguyên viết bài phong phú, đa dạng, giúp bạn có thêm ý tưởng cho nội dung của mình."
+                }
+            },
+            "price": {
+                "title1": "Cơ bản",
+                "subtitle1": "trọn đời",
+                "howbuy1": "Mua nhiều",
+                "value1": "Miễn phí",
+                "yearlybilling1": "Miễn phí",
+                "currency1": "0đ",
+                "button1": "Đăng ký",
+                "title2": "Chuyên cần",
+                "subtitle2": "/tháng",
+                "howbuy2": "Mua nhiều",
+                "value2": "230.000",
+                "yearlybilling2": "230.000",
+                "currency2": "VND",
+                "button2": "Mua gói",
+                "title3": "Cao cấp",
+                "subtitle3": "/tháng",
+                "howbuy3": "Mua nhiều",
+                "value3": "490.000",
+                "yearlybilling3": "490.000",
+                "currency3": "VND",
+                "button3": "Mua gói",
+                "function1": "Tạo nội dung tự động",
+                "function2": "Tương tác với MXH",
+                "function3": "Tạo hình ảnh, video bằng AI",
+                "function4": "Quản lý khách hàng",
+                "function5": "Quản lý công việc"
+            },
+            "contact": {
+                "title": "Tải phần mềm AI Type",
+                "subtitle": "Miễn phí trọn đời.",
+                "about": "Ứng dụng AI Type hiện hoạt động tốt dưới máy tính cá nhân. Dữ liệu làm việc sẽ được lưu trữ dưới máy tính cá nhân và được đồng bộ lên server của chúng tôi.",
+                "info": "Đây là ứng dụng miễn phí, bạn có thể sử dụng trọn đời. Chúng tôi sẽ cập nhật thường xuyên các tính năng mới."
+            },
+            "demo": {
+                "button1": "Sử dụng kết quả",
+                "button2": "Xoá kết quả"
+            },
+            "footer": {
+                "info": "Công ty TNHH <a class=\"\" href=\"https://typing.vn\" title=\"Phần mềm AI xây dựng bài viết chuyên nghiệp\">Typing</a> &copy; 2019-{{currentYear}}"
+            },
+            "toastr": {
+                "googletrend": {
+                    "error": "Không lấy được trend.",
+                    "success": "Lấy trend thành công."
+                },
+                "chatgpt": {
+                    "stop": {
+                        "error": "Chưa thể dừng thao tác này.",
+                        "success": "Đã dừng thao tác này."
+                    },
+                    "error": "Tạo thử nội dung chưa hoàn thành.",
+                    "success": "Tạo thử nội dung thành công!",
+                    "empty": "Bạn chưa có câu hỏi."
+                },
+                "voice": {
+                    "error": "Tạo mp3 chưa hoàn thành.",
+                    "success": "Tạo mp3 từ đoạn văn xong!"
+                }
+            }
+        }
+    }
+}

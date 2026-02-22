@@ -1,0 +1,139 @@
+{
+    "name": "typing",
+    "version": "1.1.5",
+    "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
+    "main": "dist/main.js",
+    "scripts": {
+        "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json",
+        "build:win": "npm run obfuscate && electron-builder --win -p always",
+        "build:mac": "npm run obfuscate && electron-builder --mac",
+        "build:linux": "npm run obfuscate && electron-builder --linux",
+        "start": "npm run obfuscate && electron .",
+        "build:win:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --win -c build-lite.json",
+        "build:mac:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --mac -c build-lite.json",
+        "build:linux:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --linux -c build-lite.json"
+    },
+    "build": {
+        "productName": "AI.Type",
+        "appId": "ai.type.vn",
+        "asar": true,
+        "files": [
+            "dist/main.js",
+            "preload.js",
+            "fallback/**/*",
+            "edge-tts-*",
+            "type-lite-*",
+            "gologin-core-*",
+            "icons/**/*",
+            "node_modules/**/*",
+            "package.json"
+        ],
+        "win": {
+            "icon": "icons/icon.ico",
+            "target": "nsis"
+        },
+        "nsis": {
+            "oneClick": false,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": true
+        },
+        "mac": {
+            "icon": "icons/icon.icns",
+            "hardenedRuntime": true,
+            "gatekeeperAssess": false,
+            "entitlements": "build/entitlements.mac.plist",
+            "entitlementsInherit": "build/entitlements.mac.plist",
+            "target": [
+                "dmg"
+            ],
+            "identity": "3693P2463B",
+            "extendInfo": {
+                "NSAppleEventsUsageDescription": "Cho phép ứng dụng điều khiển trình duyệt."
+            }
+        },
+        "dmg": {
+            "sign": false
+        },
+        "extraResources": [
+            {
+                "from": "bin",
+                "to": "bin"
+            },
+            {
+                "from": "services",
+                "to": ".",
+                "filter": [
+                    "gologin-core-macos",
+                    "gologin-core-win.exe"
+                ]
+            }
+        ],
+        "publish": [
+            {
+                "provider": "generic",
+                "url": "https://ai.type.vn/phan-mem/"
+            }
+        ]
+    },
+    "author": "Yên Nguyễn",
+    "license": "ISC",
+    "dependencies": {
+        "@babel/node": "^7.23.9",
+        "@babel/runtime": "^7.24.5",
+        "@cloudflare/puppeteer": "^0.0.14",
+        "@google/generative-ai": "^0.24.1",
+        "babel-plugin-transform-runtime": "^6.23.0",
+        "babel-polyfill": "^6.26.0",
+        "babel-runtime": "^6.26.0",
+        "body-parser": "^1.20.2",
+        "cheerio": "^1.1.0",
+        "child_process": "^1.0.2",
+        "cors": "^2.8.5",
+        "crypto": "^1.0.1",
+        "crypto-js": "^4.2.0",
+        "ejs": "^3.1.10",
+        "electron-log": "^5.4.3",
+        "electron-notarize": "^1.2.2",
+        "electron-store": "^8.2.0",
+        "electron-updater": "^6.6.2",
+        "express": "^4.19.2",
+        "gologin": "^2.2.7",
+        "google-auth-library": "^10.5.0",
+        "googleapis": "^167.0.0",
+        "https": "^1.0.0",
+        "kill-port": "^2.0.1",
+        "lodash": "^4.17.23",
+        "minimist": "^1.2.8",
+        "msedge-tts": "^2.0.3",
+        "node-cache": "^5.1.2",
+        "os": "^0.1.2",
+        "puppeteer": "^22.15.0",
+        "puppeteer-autoscroll-down": "^2.0.1",
+        "puppeteer-cluster": "^0.24.0",
+        "puppeteer-extra": "^3.3.6",
+        "puppeteer-extra-plugin-recaptcha": "^3.6.8",
+        "puppeteer-extra-plugin-stealth": "^2.11.2",
+        "puppeteer-extra-plugin-user-data-dir": "^2.4.1",
+        "random-useragent": "^0.5.0",
+        "rcedit": "^4.0.1",
+        "stream": "^0.0.3",
+        "sync-request": "^6.1.0",
+        "url": "^0.11.4",
+        "util": "^0.12.5",
+        "ws": "^8.18.3"
+    },
+    "devDependencies": {
+        "@babel/cli": "^7.24.5",
+        "@babel/core": "^7.24.5",
+        "@babel/preset-env": "^7.24.5",
+        "@babel/register": "^7.23.7",
+        "@electron/rebuild": "^3.7.2",
+        "babel-cli": "^6.26.0",
+        "cross-env": "^7.0.3",
+        "electron": "^35.6.0",
+        "electron-builder": "^26.0.12",
+        "electron-installer-dmg": "^5.0.1",
+        "electron-packager": "^17.1.2",
+        "javascript-obfuscator": "^4.1.1"
+    }
+}
