@@ -596,7 +596,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.commentGroups.forEach(g => g.items.sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime()));
 
         if (this.commentGroups.length > 0) {
-            this._matDialog.open(this.commentDialog, { width: '90vw', height: '90vh', disableClose: false, panelClass: 'custom-dialog-n8n' });
+            this._matDialog.open(this.commentDialog, { width: '90vw', height: '80vh', disableClose: false, panelClass: 'custom-dialog-n8n' });
         } else {
             this.toastr.warning('Chưa có dữ liệu để tổng duyệt.');
         }

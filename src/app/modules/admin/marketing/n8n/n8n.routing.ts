@@ -1,5 +1,5 @@
 import { Route } from '@angular/router';
-import { AMXHComponent } from 'app/modules/admin/marketing/auto/auto.component';
+import { AMXHComponent } from 'app/modules/admin/marketing/n8n/n8n.component';
 
 export const settingsRoutes: Route[] = [
     {
