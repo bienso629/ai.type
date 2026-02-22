@@ -105,7 +105,7 @@ export const appRoutes: Route[] = [
             { path: 'gscr', loadChildren: () => import('app/modules/admin/marketing/report-seo/report-seo.module').then(m => m.GSCReportModule) },
             { path: 'profiles', loadChildren: () => import('app/modules/admin/marketing/gologin/gologin.module').then(m => m.ProfilesModule) },
             { path: 'chatbot', loadChildren: () => import('app/modules/admin/marketing/chatbot/chatbot.module').then(m => m.ChatBotModule) },
-            { path: 'amxh', loadChildren: () => import('app/modules/admin/marketing/auto/auto.module').then(m => m.AMXHModule) },
+            { path: 'amxh', loadChildren: () => import('app/modules/admin/marketing/n8n/n8n.module').then(m => m.AMXHModule) },
             { path: 'customers', loadChildren: () => import('app/modules/admin/marketing/customers/customers.module').then(m => m.CustomersModule) },
             { path: 'data', loadChildren: () => import('app/modules/admin/marketing/bigdata/bigdata.module').then(m => m.BigDataModule) },
         ]

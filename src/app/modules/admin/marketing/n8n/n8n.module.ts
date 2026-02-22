@@ -21,13 +21,13 @@ import { FormsModule } from '@angular/forms'; // <--- Và cái này
 
 import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
-import { AMXHComponent } from 'app/modules/admin/marketing/auto/auto.component';
-import { AMXHProfileAppComponent } from 'app/modules/admin/marketing/auto/profile/profile.component';
-import { AMXHScriptAppComponent } from 'app/modules/admin/marketing/auto/script/script.component';
-import { settingsRoutes } from 'app/modules/admin/marketing/auto/auto.routing';
+import { AMXHComponent } from 'app/modules/admin/marketing/n8n/n8n.component';
+import { AMXHProfileAppComponent } from 'app/modules/admin/marketing/n8n/profile/profile.component';
+import { AMXHScriptAppComponent } from 'app/modules/admin/marketing/n8n/script/script.component';
+import { settingsRoutes } from 'app/modules/admin/marketing/n8n/n8n.routing';
 
-import { AddAccountDialog } from 'app/modules/admin/marketing/auto/profile/dialogs/add-dialog';
-import { EditAccountDialog } from 'app/modules/admin/marketing/auto/profile/dialogs/edit-dialog';
+import { AddAccountDialog } from 'app/modules/admin/marketing/n8n/profile/dialogs/add-dialog';
+import { EditAccountDialog } from 'app/modules/admin/marketing/n8n/profile/dialogs/edit-dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 @NgModule({

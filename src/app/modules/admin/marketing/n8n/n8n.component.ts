@@ -12,9 +12,9 @@ import { RemoveHTMLPipe } from "app/app.pipe";
 import { CrawlService } from 'app/modules/_services/crawl';
 
 @Component({
-    selector: 'auto',
-    templateUrl: './auto.component.html',
-    styleUrls: ['./auto.component.scss'],
+    selector: 'n8n',
+    templateUrl: './n8n.component.html',
+    styleUrls: ['./n8n.component.scss'],
     providers: [CrawlService],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush

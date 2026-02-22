@@ -1,7 +1,6 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
-    <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
+    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-default border-b dark:bg-transparent">
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
@@ -15,16 +14,14 @@
                         <a class="ml-1 text-base text-primary-500">chicken mmo</a>
                     </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                         <span class="ml-1 text-base text-secondary">giả lập môi trường trình duyệt để tăng view cho
                             website</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
                     <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                         <span class="ml-1 text-base">quay lại</span>
                     </a>
                 </div>
@@ -39,25 +36,20 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <a mat-icon-button class="ml-0" [color]="'primary'" [matMenuTriggerFor]="token" matTooltipPosition="above"
-                [matTooltip]="'Thêm mới profile'">
+            <a mat-icon-button class="ml-0" [color]="'primary'" [matMenuTriggerFor]="token" matTooltipPosition="above" [matTooltip]="'Thêm mới profile'">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:plus'"></mat-icon>
             </a>
 
             <mat-menu #token="matMenu" class="min-w-100 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
                 <!-- Header -->
-                <div
-                    class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
+                <div class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
                     Token mới của bạn
                 </div>
 
                 <!-- Content -->
-                <div
-                    class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
-                    <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
-                        appearance="fill">
-                        <input matInput (keyup.enter)="addToken($event)" [placeholder]="'Nhập token và Enter'"
-                            (click)="$event.stopPropagation()">
+                <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
+                    <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                        <input matInput (keyup.enter)="addToken($event)" [placeholder]="'Nhập token và Enter'" (click)="$event.stopPropagation()">
                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:corner-down-left'"></mat-icon>
                     </mat-form-field>
                 </div>
@@ -82,25 +74,21 @@
                 </mat-form-field>
             </mat-menu> -->
 
-            <a mat-icon-button [color]="'primary'" class="ml-1" matTooltipPosition="above"
-                [matTooltip]="'Chạy profiles'" [disabled]="selected.length === 0" [matMenuTriggerFor]="searchMenu">
+            <a mat-icon-button [color]="'primary'" class="ml-1" matTooltipPosition="above" [matTooltip]="'Chạy profiles'" [disabled]="selected.length === 0"
+                [matMenuTriggerFor]="searchMenu">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:play'"></mat-icon>
             </a>
 
-            <mat-menu #searchMenu="matMenu"
-                class="min-w-80 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+            <mat-menu #searchMenu="matMenu" class="min-w-80 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
                 <!-- Header -->
-                <div
-                    class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
+                <div class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
                     Chọn 1 domain để chạy traffic
                 </div>
 
                 <!-- Content -->
-                <div
-                    class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
+                <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
                     <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input placeholder="Chọn 1 domain" (keyup.enter)="updateLink($event)" aria-label="Number"
-                            matInput [(ngModel)]="link" [matAutocomplete]="auto">
+                        <input placeholder="Chọn 1 domain" (keyup.enter)="updateLink($event)" aria-label="Number" matInput [(ngModel)]="link" [matAutocomplete]="auto">
                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
                         <mat-autocomplete #auto="matAutocomplete">
                             <mat-option *ngFor="let item of domains" [value]="item.domain">
@@ -121,8 +109,7 @@
                 <mat-icon class="icon-size-4 text-blue-800" [svgIcon]="'feather:thumbs-up'"></mat-icon>
             </a> -->
 
-            <a mat-icon-button [color]="'warn'" class="ml-1" matTooltipPosition="above" matTooltip="Tắt cứng"
-                [disabled]="selected.length === 0" (click)="stopAll()">
+            <a mat-icon-button [color]="'warn'" class="ml-1" matTooltipPosition="above" matTooltip="Tắt cứng" [disabled]="selected.length === 0" (click)="stopAll()">
                 <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:slash'"></mat-icon>
             </a>
         </div>
@@ -131,29 +118,25 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
-            [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [reorderable]="false" [scrollbarV]="true"
-            [scrollbarH]="false" [selected]="selected" [selectionType]="SelectionType.checkbox"
-            [selectAllRowsOnPage]="false" [displayCheck]="displayCheck" (select)="onSelect($event)" [rows]="data">
+        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
+            [reorderable]="false" [scrollbarV]="true" [scrollbarH]="false" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck" (select)="onSelect($event)" [rows]="data">
             <!-- Column Templates -->
-            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
+                [checkboxable]="true"></ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tên profile" [width]="300" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Tên profile" [width]="300" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
                     <p class="font-normal truncate hover:text-clip flex items-center justify-self-stretch">
                         <mat-label class="h-7 leading-7 items-center px-3 rounded-full text-base bg-green-500 text-white">{{row.name}}</mat-label>
-                        <mat-icon class="icon-size-4 ml-2" [svgIcon]="'feather:info'" matTooltipPosition="right"
-                            [matTooltip]="'Kiểm tra profile này cho tôi'"></mat-icon>
+                        <mat-icon class="icon-size-4 ml-2" [svgIcon]="'feather:info'" matTooltipPosition="right" [matTooltip]="'Kiểm tra profile này cho tôi'"></mat-icon>
                     </p>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
-                name="Token" [width]="250">
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Profile ID" [width]="250">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="text-base">
                         {{row.id}}
@@ -162,8 +145,7 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
-                name="Từ khoá" [width]="150">
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Từ khoá" [width]="150">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <!-- <a mat-icon-button matTooltipPosition="above" matTooltip="Share nhanh Facebook">
                         <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:share-2'"></mat-icon>
@@ -173,18 +155,14 @@
                         <mat-icon class="icon-size-4 text-blue-800" [svgIcon]="'feather:thumbs-up'"></mat-icon>
                     </a> -->
 
-                    <a mat-icon-button class="ml-0" [matMenuTriggerFor]="search" matTooltipPosition="above"
-                        [matTooltip]="'Tăng chất lượng từ khoá'">
+                    <a mat-icon-button class="ml-0" [matMenuTriggerFor]="search" matTooltipPosition="above" [matTooltip]="'Tăng chất lượng từ khoá'">
                         <mat-icon class="icon-size-5 text-blue-600" [svgIcon]="'mat_outline:moving'"></mat-icon>
                     </a>
 
                     <mat-menu #search="matMenu" class="min-w-100">
-                        <mat-form-field
-                            class="p-6 w-full fuse-mat-dense fuse-mat-emphasized-affix"
-                            appearance="fill">
+                        <mat-form-field class="p-6 w-full fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                             <mat-label>Nhập từ khoá bạn muốn tăng click</mat-label>
-                            <input matInput (keyup.enter)="googleClick(row, $event)" [placeholder]="'Ví dụ: mua laptop giá rẻ'"
-                                (click)="$event.stopPropagation()">
+                            <input matInput (keyup.enter)="googleClick(row, $event)" [placeholder]="'Ví dụ: mua laptop giá rẻ'" (click)="$event.stopPropagation()">
                             <mat-hint>Việc làm này có thể mang đến rủi ro cho từ khoá của bạn.</mat-hint>
                             <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:key'"></mat-icon>
                         </mat-form-field>
@@ -193,13 +171,11 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
-                name="Proxy" [width]="130">
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Proxy" [width]="130">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-self-stretch">
-                        <mat-label
-                            [ngClass]="(row.proxyEnabled) ? 'text-green-500 hover:text-green-600' : 'text-gray-300 hover:text-gray-700'"
-                            class="text-base" matTooltipPosition="above" [matTooltip]="row.proxyRegion">
+                        <mat-label [ngClass]="(row.proxyEnabled) ? 'text-green-500 hover:text-green-600' : 'text-gray-300 hover:text-gray-700'" class="text-base"
+                            matTooltipPosition="above" [matTooltip]="row.proxyRegion">
                             {{(row.proxyEnabled) ? 'Đang bật' : 'Đã tắt'}}
                         </mat-label>
                     </div>
@@ -207,17 +183,14 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"
-                name="Trạng thái" [width]="130">
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" name="Trạng thái" [width]="130">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-self-stretch">
-                        <mat-label *ngIf="row.status === 'running'" (click)="stopProfile(row)" [ngClass]="'text-green-600 hover:text-green-700'"
-                            class="text-base">
+                        <mat-label *ngIf="row.status === 'running'" (click)="stopProfile(row)" [ngClass]="'text-green-600 cursor-pointer hover:text-green-700'" class="text-base">
                             Đang chạy
                         </mat-label>
 
-                        <mat-label *ngIf="row.status === 'stoped'" [ngClass]="'text-gray-300 hover:text-gray-700'"
-                            class="text-base">
+                        <mat-label *ngIf="row.status === 'stoped'" [ngClass]="'text-gray-300 hover:text-gray-700'" class="text-base">
                             Đã tắt
                         </mat-label>
                     </div>
@@ -225,11 +198,9 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true"
-                name="Thẻ">
+            <ngx-datatable-column [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true" name="Thẻ">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-select [clearable]="false" [readonly]="true" [multiple]="true" bindLabel="title"
-                        [items]="row.tags" [(ngModel)]="row.tags" placeholder="Chưa có tag nào"
+                    <ng-select [clearable]="false" [readonly]="true" [multiple]="true" bindLabel="title" [items]="row.tags" [(ngModel)]="row.tags" placeholder="Chưa có tag nào"
                         class="w-full min-w-50 max-w-60 custom-select-archives">
                     </ng-select>
                 </ng-template>
