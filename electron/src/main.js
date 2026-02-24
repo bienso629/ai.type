@@ -23,9 +23,6 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
 
-// IMPORT THƯ VIỆN VỪA TẠO
-const { setupWebRequest, createUniqueID } = require("./lib");
-
 let serviceProcess = null;
 
 function startGoService() {
@@ -781,6 +778,7 @@ function createTargetWindow(
                 "tools-log",
                 `Target window load failed: ${errorDescription} (${errorCode})`,
             );
+            
             // if (targetWindow && !targetWindow.isDestroyed()) {
             //     targetWindow.close();
             // }
@@ -1976,8 +1974,28 @@ function startSttServer() {
 
 // ==== APP EVENT ==== //
 app.whenReady().then(() => {
-    // GỌI HÀM TỪ LIB - Sẽ không bị lỗi "Session not ready" vì nằm trong whenReady
-    setupWebRequest();
+    const filter = {
+        urls: [
+            "*://*.type.vn/*",
+            "*://*.facebook.com/*",
+            "*://facebook.com/*",
+            "*://chatgpt.com/*",
+            "*://google.com/*",
+            "*://*.messenger.com/*",
+        ]
+    };
+
+    session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
+        details.requestHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
+        if (details.url.includes('type.vn')) {
+            // Ép Origin để NodeBB cho phép hiển thị ảnh từ localhost:5454
+            details.requestHeaders['Origin'] = 'https://type.vn';
+            details.requestHeaders['Referer'] = 'https://type.vn/';
+            delete details.requestHeaders['Sec-Fetch-Site'];
+        }
+        callback({ requestHeaders: details.requestHeaders });
+    });
 
     startGoService();
     startSttWebSocketServer();
