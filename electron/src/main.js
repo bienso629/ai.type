@@ -6,7 +6,6 @@ const {
     screen,
     session,
     ipcMain,
-    protocol,
 } = require("electron");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
@@ -200,11 +199,8 @@ async function gscDoLogin() {
             alwaysOnTop: false,
             backgroundColor: "#FFFFFF",
             webPreferences: {
-                nodeIntegration: true,
+                nodeIntegration: false,
                 contextIsolation: true,
-                webSecurity: true,
-                devTools: true,
-                experimentalFeatures: true,
             },
         });
 
@@ -603,13 +599,12 @@ function createMainWindow() {
         show: true,
         frame: true,
         webPreferences: {
-            devTools: true,
-            experimentalFeatures: true,
             sandbox: false,
             contextIsolation: true,
             enableRemoteModule: false,
-            webSecurity: true,
+            webSecurity: false,
             webviewTag: false,
+            devTools: true,
             nodeIntegration: true,
             nodeIntegrationInSubFrames: true,
             preload: resolvePreload(),
@@ -745,16 +740,15 @@ function createTargetWindow(
         alwaysOnTop: false,
         backgroundColor: "#FFFFFF",
         webPreferences: {
-            experimentalFeatures: true,
             contextIsolation: true,
-            nodeIntegration: true,
+            nodeIntegration: false,
             backgroundThrottling: false,
             sandbox: false,
             nativeWindowOpen: true,
             enableRemoteModule: false,
-            webSecurity: true,
+            webSecurity: false,
             webviewTag: false,
-            devTools: true,
+            devTools: false,
             nodeIntegrationInSubFrames: true,
             preload: resolvePreload(),
         },
@@ -1978,34 +1972,21 @@ function startSttServer() {
 
 // ==== APP EVENT ==== //
 app.whenReady().then(() => {
-    // 1. Tạo một filter bao quát tất cả các domain bạn cần can thiệp
-    const combinedFilter = {
+    const filter = {
         urls: [
-            "*://*.type.vn/*", // Khớp cả apiv1.type.vn và assets.type.vn
             "*://*.facebook.com/*",
-            "*://*.google.com/*",
-            "*://*.chatgpt.com/*",
+            "*://facebook.com/*",
+            "*://chatgpt.com/*",
+            "*://google.com/*",
+            "*://*.messenger.com/*",
         ],
     };
 
-    // 2. CHỈ DÙNG MỘT LỆNH DUY NHẤT ĐỂ TRÁNH GHI ĐÈ
     session.defaultSession.webRequest.onBeforeSendHeaders(
-        combinedFilter,
+        filter,
         (details, callback) => {
-            // Gán User-Agent chung cho tất cả
             details.requestHeaders["User-Agent"] =
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-
-            // Kiểm tra nếu request đang gửi tới hệ thống type.vn
-            if (details.url.includes("type.vn")) {
-                // ÉP BUỘC Origin và Referer phải là domain forum để vượt qua 403
-                details.requestHeaders["Origin"] = "https://type.vn";
-                details.requestHeaders["Referer"] = "https://type.vn/";
-
-                // Xóa bỏ các header bảo mật của browser có thể tố cáo localhost
-                delete details.requestHeaders["Sec-Fetch-Site"];
-            }
-
             callback({ requestHeaders: details.requestHeaders });
         },
     );
