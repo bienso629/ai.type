@@ -23,6 +23,9 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
 
+// IMPORT THƯ VIỆN VỪA TẠO
+const { setupWebRequest, createUniqueID } = require("./lib");
+
 let serviceProcess = null;
 
 function startGoService() {
@@ -462,11 +465,11 @@ function getChromePath() {
     if (platform === "win32") {
         possiblePaths = [
             process.env.LOCALAPPDATA +
-                "\\Google\\Chrome\\Application\\chrome.exe",
+            "\\Google\\Chrome\\Application\\chrome.exe",
             process.env.PROGRAMFILES +
-                "\\Google\\Chrome\\Application\\chrome.exe",
+            "\\Google\\Chrome\\Application\\chrome.exe",
             process.env["PROGRAMFILES(X86)"] +
-                "\\Google\\Chrome\\Application\\chrome.exe",
+            "\\Google\\Chrome\\Application\\chrome.exe",
             "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
             "C:\\Program Files (x86)\\Google\\Chrome\\Application\\chrome.exe",
         ];
@@ -612,7 +615,7 @@ function createMainWindow() {
     });
 
     const targetURL = "http://localhost:4200";
-    const fallbackURL = `http://localhost:${fallbackPort}/index.html`;
+    const fallbackURL = `http://localhost:${fallbackPort}`;
 
     const req = http.get(targetURL, (res) => {
         if (res.statusCode === 200) {
@@ -620,6 +623,7 @@ function createMainWindow() {
             mainWindow.loadURL(targetURL);
         } else {
             sendToRenderer("tools-log", "[!] Không mong muốn, dùng fallback");
+            mainWindow.webPreferences.devTools = false; // Tắt devtools cho main window (vẫn mở được bằng shortcut nếu cần)
             loadFallback();
         }
     });
@@ -1119,7 +1123,7 @@ function inferExtFromUrl(url) {
         const base = path.basename(u.pathname);
         const m = base.match(/\.(webp|jpg|jpeg|png|gif|bmp|avif)$/i);
         if (m) return "." + m[1].toLowerCase();
-    } catch {}
+    } catch { }
     return ".jpg";
 }
 
@@ -1222,7 +1226,7 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
     // Báo preload (dù preload tự boot)
     try {
         targetWindow.webContents.send("dreamina:start");
-    } catch {}
+    } catch { }
 
     // Dọn dẹp theo vòng đời cửa sổ
     const wc = targetWindow.webContents;
@@ -1231,7 +1235,7 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
         ipcMain.removeListener("dreamina:debug", onDebug);
         try {
             wc.send("dreamina:stop");
-        } catch {}
+        } catch { }
     };
     targetWindow.once("closed", cleanup);
 
@@ -1972,24 +1976,8 @@ function startSttServer() {
 
 // ==== APP EVENT ==== //
 app.whenReady().then(() => {
-    const filter = {
-        urls: [
-            "*://*.facebook.com/*",
-            "*://facebook.com/*",
-            "*://chatgpt.com/*",
-            "*://google.com/*",
-            "*://*.messenger.com/*",
-        ],
-    };
-
-    session.defaultSession.webRequest.onBeforeSendHeaders(
-        filter,
-        (details, callback) => {
-            details.requestHeaders["User-Agent"] =
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-            callback({ requestHeaders: details.requestHeaders });
-        },
-    );
+    // GỌI HÀM TỪ LIB - Sẽ không bị lỗi "Session not ready" vì nằm trong whenReady
+    setupWebRequest();
 
     startGoService();
     startSttWebSocketServer();
@@ -2451,7 +2439,7 @@ async function googleAdsGenerateKeywordIdeas({
                         return reject(
                             new Error(
                                 `Google Ads API trả về nội dung không phải JSON (status ${res.statusCode}). ` +
-                                    `Có thể Developer Token / tài khoản chưa được bật API. Preview: ${raw.slice(0, 200)}`,
+                                `Có thể Developer Token / tài khoản chưa được bật API. Preview: ${raw.slice(0, 200)}`,
                             ),
                         );
                     }
@@ -2464,7 +2452,7 @@ async function googleAdsGenerateKeywordIdeas({
                             reject(
                                 new Error(
                                     json.error?.message ||
-                                        `Google Ads API Error ${res.statusCode}`,
+                                    `Google Ads API Error ${res.statusCode}`,
                                 ),
                             );
                         }
@@ -2559,8 +2547,8 @@ async function getGaAccessToken() {
     if (!keyFile) {
         throw new Error(
             "Không tìm thấy file ga4-service.json. " +
-                "Hãy lưu file service account JSON vào C:\\Users\\<User>\\Documents\\ai.type\\ga4-service.json, " +
-                "hoặc set env GA_KEY_FILE, hoặc copy vào resources/ga4-service.json.",
+            "Hãy lưu file service account JSON vào C:\\Users\\<User>\\Documents\\ai.type\\ga4-service.json, " +
+            "hoặc set env GA_KEY_FILE, hoặc copy vào resources/ga4-service.json.",
         );
     }
 
@@ -2605,7 +2593,7 @@ ipcMain.handle("ga:report", async (_event, args) => {
         if (!propId) {
             throw new Error(
                 "Thiếu GA4 property ID. " +
-                    "Hãy nhập trong UI hoặc set biến môi trường GA_PROPERTY_ID.",
+                "Hãy nhập trong UI hoặc set biến môi trường GA_PROPERTY_ID.",
             );
         }
 
@@ -2621,11 +2609,11 @@ ipcMain.handle("ga:report", async (_event, args) => {
             metrics: (metrics && metrics.length
                 ? metrics
                 : [
-                      "activeUsers",
-                      "sessions",
-                      "screenPageViews",
-                      "engagementRate",
-                  ]
+                    "activeUsers",
+                    "sessions",
+                    "screenPageViews",
+                    "engagementRate",
+                ]
             ).map((name) => ({ name })),
             dimensions: (dimensions && dimensions.length ? dimensions : []).map(
                 (name) => ({ name }),
@@ -2663,7 +2651,7 @@ ipcMain.handle("ga:report", async (_event, args) => {
                                 reject(
                                     new Error(
                                         json.error?.message ||
-                                            `Google Analytics API Error ${res.statusCode}`,
+                                        `Google Analytics API Error ${res.statusCode}`,
                                     ),
                                 );
                             }
