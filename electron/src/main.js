@@ -205,7 +205,7 @@ async function gscDoLogin() {
             alwaysOnTop: false,
             backgroundColor: "#FFFFFF",
             webPreferences: {
-                nodeIntegration: false,
+                nodeIntegration: true,
                 contextIsolation: true,
                 webSecurity: true,
                 devTools: false,
@@ -752,7 +752,7 @@ function createTargetWindow(
         webPreferences: {
             experimentalFeatures: true,
             contextIsolation: true,
-            nodeIntegration: false,
+            nodeIntegration: true,
             backgroundThrottling: false,
             sandbox: false,
             nativeWindowOpen: true,
@@ -1983,30 +1983,29 @@ function startSttServer() {
 
 // ==== APP EVENT ==== //
 app.whenReady().then(() => {
-    // --- CẤU HÌNH HEADER ĐỂ FIX LỖI 403 ẢNH NODEBB & CÁC TRANG KHÁC ---
+    // 1. CẤU HÌNH WEB REQUEST ĐỂ FIX 403 (NODEBB & SOCIAL)
     const filter = {
         urls: [
-            'https://type.vn/*',  // Forum của bạn
+            'https://type.vn/*', // Domain forum của bạn
             "*://*.facebook.com/*",
             "*://facebook.com/*",
             "*://chatgpt.com/*",
             "*://google.com/*",
-            "*://*.messenger.com/*"
-        ]
+            "*://*.messenger.com/*",
+        ],
     };
 
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-        const url = details.url;
+        // Tự động gán User-Agent chuẩn
+        details.requestHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
 
-        // Nếu là yêu cầu đến forum type.vn
-        if (url.includes('type.vn')) {
+        // ĐẶC BIỆT CHO TYPE.VN: Vượt qua CORP và 403 Forbidden
+        if (details.url.includes('type.vn')) {
+            // Khi chạy file://, Electron gửi Origin: null. Ta phải ép lại domain forum.
             details.requestHeaders['Origin'] = 'https://type.vn';
             details.requestHeaders['Referer'] = 'https://type.vn/';
         }
 
-        // Ép User-Agent chung cho các dịch vụ khác (giữ nguyên logic cũ của bạn)
-        details.requestHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-        
         callback({ requestHeaders: details.requestHeaders });
     });
 

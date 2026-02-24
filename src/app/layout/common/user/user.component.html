@@ -4,7 +4,7 @@
         <span class="relative">
             <div class="relative flex flex-0 items-center justify-center w-8 h-8">
                 <ng-container *ngIf="user.avatar && user.avatar != 'https://type.vnnull'">
-                    <img class="w-full h-full rounded-full object-cover" src="{{user.avatar}}" alt="{{user.name}}" />
+                    <img class="w-full h-full rounded-full object-cover" src="{{user.avatar}}" alt="{{user.name}}" crossorigin="anonymous" />
                     <!-- <img class="w-7 h-7 rounded-full" *ngIf="showAvatar && user.avatar" [src]="user.avatar"> -->
                 </ng-container>
 
