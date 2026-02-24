@@ -76,7 +76,7 @@ export class LogService {
     }
 
     public fetch(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -101,7 +101,7 @@ export class LogService {
     }
 
     public total(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -126,7 +126,7 @@ export class LogService {
     }
 
     public searchTotal(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -176,11 +176,9 @@ export class LogService {
     }
 
     public checkseo(url: string): Observable<any> {
-        return this.http.post<any>('https://ai.type.vn/wp-json/rm-analyzer/v1/analyze', {
-            url: url
-        }, {
+        return this.http.get<any>('https://rankmath.com/analyze/v2/json/?u=' + encodeURIComponent(url) + '&is_subpage=1', {
             headers: new HttpHeaders({
-                'content-type': 'application/json', 'x-app-token': '8lmeDZmt:BWXz%3McQM)CD0VIUz5UaB'
+                'Accept': 'application/json'
             })
         }).pipe(
             map(data => {
@@ -244,7 +242,7 @@ export class LogService {
     }
 
     public add(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -269,7 +267,7 @@ export class LogService {
     }
 
     public seo(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -294,13 +292,13 @@ export class LogService {
     }
 
     public update(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
-        
+
         const url = `${this.config.settings.api[this.user.server]}/crawl/link/update`;
 
         let data = {

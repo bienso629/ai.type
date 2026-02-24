@@ -351,7 +351,7 @@ export class LinksComponent implements OnInit, OnDestroy {
                     // turn on disable button
                     item['loadding'] = false;
 
-                    if (result && result.success && result.data) {
+                    if (result) {
                         this.seo(result, item);
                     } else {
                         this.toastr.error(`Không thể kiểm tra.`);
@@ -373,8 +373,7 @@ export class LinksComponent implements OnInit, OnDestroy {
     async seo(result: any, item: any) {
         try {
             let jsonText = null;
-
-            const prompt = `Dựa vào kết quả SEO của mình: "${JSON.stringify(result.data)}" hãy phân tích và đánh giá kết quả SEO này một cách chi tiết, cụ thể và dễ hiểu nhất. Sau đó, bạn hãy đưa ra giải pháp và các ví dụ tốt nhất, chính xác và đầy đủ nhất để giúp mình chỉnh sửa lại website sao cho kết quả SEO càng ngày càng tốt hơn. Lưu ý: hãy sử dụng icon để thể hiện hay chính xác hơn các đánh giá và giải pháp của bạn.`;
+            const prompt = `Dựa vào kết quả SEO của mình: "${JSON.stringify(result)}" hãy phân tích và đánh giá kết quả SEO này một cách chi tiết, cụ thể và dễ hiểu nhất. Sau đó, bạn hãy đưa ra giải pháp và các ví dụ tốt nhất, chính xác và đầy đủ nhất để giúp mình chỉnh sửa lại website sao cho kết quả SEO càng ngày càng tốt hơn. Lưu ý: hãy sử dụng icon để thể hiện hay chính xác hơn các đánh giá và giải pháp của bạn.`;
 
             const response = await this.ai.generateContent({
                 model: 'gemini-2.5-flash',
