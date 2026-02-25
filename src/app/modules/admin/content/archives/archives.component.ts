@@ -50,7 +50,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         totalElements: 0,
         totalPages: 0,
     };
-    lastId: string;
+    currentBookmark: string = null;
 
     authors = new FormControl([]);
     selectedToppings = [];
@@ -75,7 +75,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     }
 
     displayCheck(row: any) {
-        return row.title !== 'Ethel Price';
+        // Kiểm tra nếu row tồn tại và có title mới thực hiện so sánh
+        return row && row.title ? row.title !== 'Ethel Price' : false;
     }
 
     getRowHeight(row: any) {
@@ -113,7 +114,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                         this.toastr.success(`Mã ${uuid} đã mời xong.`);
                     }
                 },
-                error: () => {},
+                error: () => { },
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -121,30 +122,30 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             });
     }
 
+    /**
+     * Hàm Tìm kiếm Node - Reset toàn bộ dấu mốc bookmark
+     */
     searchNode() {
         this.table.offset = 0;
         this.selected = [];
-        this.lastId = null;
+        this.currentBookmark = null;
         this.cachePageSize = 0;
         this.cache = {};
 
         if (this.uuids.length > 0) {
+            // Nếu có keyword khi đang trong Collection thì filter local
             if (this.keyword) {
                 this.rows = this.rows.filter((item) =>
-                    item.title.toLowerCase().includes(this.keyword),
+                    item.title.toLowerCase().includes(this.keyword.toLowerCase()),
                 );
-
                 this.totalElements = this.rows.length;
-
                 this.table.recalculatePages();
-                // lam moi lai giao dien
                 this.cd.markForCheck();
             } else {
                 this.onChangeCollection();
             }
         } else {
             this.rows = [];
-
             const query = {
                 username: this.user.name,
                 keyword: this.keyword,
@@ -153,97 +154,38 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             };
 
             if (this.keyword) {
-                this._crawlService
-                    .searchTotalArchive(query)
+                this._crawlService.searchTotalArchive(query)
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
-                        next: async (result) => {
-                            if (result && result.success) {
-                                // Create array to store data if missing
-                                // The array should have the correct number of with "holes" for missing data
-                                if (!this.rows) {
-                                    this.rows = new Array<any>(
-                                        this.totalElements || 0,
-                                    );
-                                }
+                        next: (result: any) => {
+                            // Lấy total từ lớp bọc hệ thống
+                            const total = result.data?.total || result.data?.data?.total || 0;
+                            this.totalElements = total;
 
-                                if (result.data.length > 0) {
-                                    // Calc starting row offset
-                                    // This is the position to insert the new data
-                                    const start =
-                                        this.page.pageNumber * this.page.size;
-
-                                    // Copy existing data
-                                    const rows = [...this.rows];
-
-                                    // Insert new rows into correct position
-                                    rows.splice(
-                                        start,
-                                        this.page.size,
-                                        ...result.data,
-                                    );
-
-                                    // Set rows to our new rows for display
-                                    this.rows = rows;
-                                    this.lastId =
-                                        this.rows.length > 0
-                                            ? this.rows[this.rows.length - 1][
-                                                  '_id'
-                                              ]
-                                            : null;
-                                }
-
-                                this.totalElements = result.data.total;
-
-                                if (this.totalElements > 0) {
-                                    this.setPage({
-                                        offset: 0,
-                                        pageSize: undefined,
-                                        limit: undefined,
-                                        count: this.totalElements,
-                                    });
-                                }
+                            if (this.totalElements > 0) {
+                                this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
                             }
                         },
-                        error: () => {},
                         complete: () => {
                             this.table.recalculatePages();
-                            // lam moi lai giao dien
                             this.cd.markForCheck();
-                        },
+                        }
                     });
             } else {
-                let temp = localStorage.getItem('statistics');
-                temp = JSON.parse(temp);
-                this.totalElements = temp['writing'];
-
+                // Mặc định từ statistics (Sài Gòn)
                 if (this.totalElements > 0) {
-                    this.setPage({
-                        offset: 0,
-                        pageSize: undefined,
-                        limit: undefined,
-                        count: this.totalElements,
-                    });
+                    this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
                 }
             }
         }
     }
 
     /**
-     * Populate the table with new data based on the page number
-     * @param page The page to select
+     * setPage: Xử lý dữ liệu bọc trong result.data.docs và result.data.bookmark
      */
     setPage(pageInfo: PageInfo) {
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
-
-        // Current page number is determined by last call to setPage
-        // This is the page the UI is currently displaying
-        // The current page is based on the UI pagesize and scroll position
-        // Pagesize can change depending on browser size
         this.pageNumber = pageInfo.offset;
-
-        // Calculate row offset in the UI using pageInfo
-        // This is the scroll position in rows
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
 
         this.page = {
@@ -253,69 +195,92 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             totalPages: 0,
         };
 
-        // We keep a index of server loaded pages so we don't load same data twice
-        // This is based on the server page not the UI
         if (this.cachePageSize !== this.page.size) {
             this.cachePageSize = this.page.size;
             this.cache = {};
         }
-
-        if (this.cache[this.page.pageNumber]) {
-            return;
-        }
-
+        if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
 
-        this._crawlService
-            .archive({
-                username: this.user.name,
-                keyword: this.keyword,
-                uuids: this.uuids,
-                page: this.page,
-                lastId: this.lastId,
-            })
+        this._crawlService.archive({
+            username: this.user.name,
+            keyword: this.keyword,
+            uuids: this.uuids,
+            page: this.page,
+            bookmark: this.currentBookmark, // Sử dụng bookmark thay cho lastId
+        })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => {
-                    if (
-                        result &&
-                        result.success &&
-                        result.data &&
-                        result.data.length > 0
-                    ) {
-                        // Create array to store data if missing
-                        // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows) {
+                next: (result: any) => {
+                    // Bóc tách theo cấu trúc middleware trả về: result.data.docs
+                    const resData = result.data;
+                    if (resData && resData.docs) {
+                        if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        if (result.data.length > 0) {
-                            // Calc starting row offset
-                            // This is the position to insert the new data
-                            const start = this.page.pageNumber * this.page.size;
+                        const start = this.page.pageNumber * this.page.size;
+                        const rows = [...this.rows];
 
-                            // Copy existing data
-                            const rows = [...this.rows];
+                        // GIỮ NGUYÊN LOGIC GỐC CỦA BẠN: Splice vào vị trí start
+                        rows.splice(start, this.page.size, ...resData.docs);
+                        this.rows = rows;
 
-                            // Insert new rows into correct position
-                            rows.splice(start, this.page.size, ...result.data);
-
-                            // Set rows to our new rows for display
-                            this.rows = rows;
-                            this.lastId =
-                                this.rows.length > 0
-                                    ? this.rows[this.rows.length - 1]['_id']
-                                    : null;
-                        }
+                        // Lưu bookmark từ server để dùng cho request tiếp theo
+                        this.currentBookmark = resData.bookmark;
                     }
                 },
-                error: () => {},
                 complete: () => {
                     this.table.recalculatePages();
-                    // lam moi lai giao dien
                     this.cd.markForCheck();
-                },
+                }
             });
+    }
+
+    /**
+     * onChangeCollection: Trích xuất đúng UUID từ mảng selectedCollections
+     */
+    onChangeCollection() {
+        // 1. Trích xuất tất cả UUID bài viết từ các tập đã chọn
+        this.uuids = [
+            ...new Set(
+                this.selectedCollections.flatMap((item: any) => {
+                    // item.uuid bây giờ là 1 mảng các string ID bài viết
+                    return Array.isArray(item.uuid) ? item.uuid : (item.uuid ? [item.uuid] : []);
+                }),
+            ),
+        ];
+
+        // 2. Reset toàn bộ trạng thái UI và mốc phân trang
+        if (this.table) this.table.offset = 0;
+        this.selected = [];
+        this.rows = [];
+        this.currentBookmark = null; // BẮT BUỘC: Bookmark cũ không dùng được cho tập UUIDs mới
+        this.cachePageSize = 0;
+        this.cache = {};
+
+        // 3. Tính toán lại tổng số phần tử (totalElements)
+        if (this.uuids.length === 0) {
+            // Nếu không chọn collection nào, lấy tổng số từ statistics (Tất cả bài viết)
+            let temp = localStorage.getItem('statistics');
+            if (temp) {
+                const stats = JSON.parse(temp);
+                this.totalElements = stats['writing'] || 0;
+            }
+        } else {
+            // Nếu chọn collection, tổng số chính là số lượng UUIDs đã trích xuất
+            this.totalElements = this.uuids.length;
+        }
+
+        // 4. Kích hoạt lấy dữ liệu trang đầu tiên
+        if (this.totalElements > 0 || this.uuids.length === 0) {
+            this.setPage({
+                offset: 0,
+                pageSize: this.page.size,
+                limit: this.page.size,
+                count: this.totalElements,
+            });
+        }
     }
 
     following() {
@@ -335,7 +300,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                         this.following_users = result.users;
                     }
                 },
-                error: () => {},
+                error: () => { },
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -351,7 +316,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             .collections({
                 username: this.user.name,
                 page: { size: 100 },
-                includeUuid: false
+                includeUuid: true
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -360,57 +325,9 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                         this.collections = result.data;
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
-    }
-
-    onChangeCollection() {
-        this.uuids = [
-            ...new Set(
-                this.selectedCollections.flatMap((item: any) => item.uuid),
-            ),
-        ];
-
-        if (this.uuids.length === 0) {
-            let temp = localStorage.getItem('statistics');
-            temp = JSON.parse(temp);
-            this.totalElements = temp['writing'];
-
-            this.table.offset = 0;
-            this.selected = [];
-            this.rows = [];
-            this.lastId = null;
-            this.cachePageSize = 0;
-            this.cache = {};
-
-            if (this.totalElements > 0) {
-                this.setPage({
-                    offset: 0,
-                    pageSize: undefined,
-                    limit: undefined,
-                    count: this.totalElements,
-                });
-            }
-        } else {
-            this.totalElements = this.uuids.length;
-
-            this.table.offset = 0;
-            this.selected = [];
-            this.rows = [];
-            this.lastId = null;
-            this.cachePageSize = 0;
-            this.cache = {};
-
-            if (this.totalElements > 0) {
-                this.setPage({
-                    offset: 0,
-                    pageSize: undefined,
-                    limit: undefined,
-                    count: this.totalElements,
-                });
-            }
-        }
     }
 
     onCloseCollection(e: any) {
