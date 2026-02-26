@@ -64,7 +64,7 @@ export class LinksComponent implements OnInit, OnDestroy {
         totalElements: 0,
         totalPages: 0
     };
-    lastId: string;
+    currentBookmark: string;
 
     downloadJsonHref: any;
 
@@ -159,7 +159,7 @@ export class LinksComponent implements OnInit, OnDestroy {
         this.table.offset = 0;
         this.keyword = event.target.value.toLowerCase();
         this.rows = [];
-        this.lastId = null;
+        this.currentBookmark = null; // Reset bookmark khi search mới
         this.cachePageSize = 0;
         this.cache = {};
 
@@ -209,17 +209,8 @@ export class LinksComponent implements OnInit, OnDestroy {
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
-        if (!pageInfo.pageSize)
-            pageInfo.pageSize = this.page.size;
-
-        // Current page number is determined by last call to setPage
-        // This is the page the UI is currently displaying
-        // The current page is based on the UI pagesize and scroll position
-        // Pagesize can change depending on browser size
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
-
-        // Calculate row offset in the UI using pageInfo
-        // This is the scroll position in rows
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
 
         this.page = {
@@ -229,64 +220,52 @@ export class LinksComponent implements OnInit, OnDestroy {
             totalPages: 0
         };
 
-        // We keep a index of server loaded pages so we don't load same data twice
-        // This is based on the server page not the UI
         if (this.cachePageSize !== this.page.size) {
             this.cachePageSize = this.page.size;
             this.cache = {};
         }
 
-        if (this.cache[this.page.pageNumber]) {
-            return;
-        }
-
+        if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
 
         this._logService.fetch({
             username: this.user.name,
             keyword: this.keyword,
             page: this.page,
-            lastId: this.lastId
+            bookmark: this.currentBookmark // Gửi bookmark thay vì lastId
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data && result.data.length > 0) {
-                        // Create array to store data if missing
-                        // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows) {
+                next: async (result: any) => {
+                    // Lưu ý: result.data bây giờ chứa { docs: [], bookmark: "" }
+                    const resData = result.data;
+
+                    if (resData && resData.docs && resData.docs.length > 0) {
+                        if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        if (result.data.length > 0) {
-                            // Calc starting row offset
-                            // This is the position to insert the new data
-                            const start = this.page.pageNumber * this.page.size;
+                        const start = this.page.pageNumber * this.page.size;
+                        const rows = [...this.rows];
 
-                            // Copy existing data
-                            const rows = [...this.rows];
+                        // Map dữ liệu bổ sung như trạng thái loading
+                        const newDocs = resData.docs.map((post: any) => {
+                            post['status'] = true;
+                            post['loadding'] = false;
+                            return post;
+                        });
 
-                            // Insert new rows into correct position
-                            rows.splice(start, this.page.size, ...result.data);
+                        rows.splice(start, this.page.size, ...newDocs);
+                        this.rows = rows;
 
-                            // Set rows to our new rows for display
-                            this.rows = rows.map((post: any) => {
-                                post['status'] = true;
-                                post['loadding'] = false;
+                        // Cập nhật bookmark cho trang tiếp theo
+                        this.currentBookmark = resData.bookmark;
 
-                                return post;
-                            });
-
-                            this.lastId = (this.rows.length > 0) ? this.rows[this.rows.length - 1]['_id'] : null;
-
-                            this.statistic();
-                            this.generateDownloadJsonUri();
-                            this.cd.detectChanges();
-                        }
+                        this.statistic();
+                        this.generateDownloadJsonUri();
+                        this.cd.detectChanges();
                     }
-                },
-                error: () => { },
-                complete: () => { }
+                }
             });
     }
 
