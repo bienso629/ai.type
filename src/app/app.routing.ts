@@ -100,7 +100,7 @@ export const appRoutes: Route[] = [
             { path: 'payment', loadChildren: () => import('app/modules/microsites/payment/payment.module').then(m => m.PaymentModule) },
             { path: 'settings', loadChildren: () => import('app/modules/admin/account/settings/settings.module').then(m => m.SettingsModule) },
 
-            { path: 'links', loadChildren: () => import('app/modules/admin/marketing/link/link.module').then(m => m.LinksModule) },
+            { path: 'links', loadChildren: () => import('app/modules/admin/marketing/link-seo/link-seo.module').then(m => m.LinksModule) },
             { path: 'woocommerce', loadChildren: () => import('app/modules/admin/marketing/clone-product/export.module').then(m => m.WoocommerceExportModule) },
             { path: 'gscr', loadChildren: () => import('app/modules/admin/marketing/report-seo/report-seo.module').then(m => m.GSCReportModule) },
             { path: 'profiles', loadChildren: () => import('app/modules/admin/marketing/gologin/gologin.module').then(m => m.ProfilesModule) },

@@ -42,8 +42,8 @@ export const PERSONA_LIBRARY = [
                 <mat-label>Chọn Nhân cách (Persona)</mat-label>
                 <mat-select [formControlName]="'personaId'" (selectionChange)="onPersonaChange($event)">
                     <mat-option *ngFor="let p of personas" [value]="p.id">
-                        <span class="text-base">{{ p.role }}</span>
-                        <span class="text-base text-gray-500 ml-2">({{ p.gender }} - {{ p.style }})</span>
+                        <span class="text-base">{{ p.role }} - </span>
+                        <span class="text-base text-gray-300">({{ p.gender }} - {{ p.style }})</span>
                     </mat-option>
                 </mat-select>
             </mat-form-field>
@@ -56,7 +56,7 @@ export const PERSONA_LIBRARY = [
             </ng-container>
 
             <ng-template #personaDetail>
-                <div class="bg-gray-50 p-4 rounded-md border border-gray-100 text-sm text-gray-600 mb-3" *ngIf="selectedPersona">
+                <div class="bg-gray-50 p-4 rounded-md text-base text-gray-600 mb-3" *ngIf="selectedPersona">
                     <p><strong>Giới tính:</strong> {{ selectedPersona.gender }}</p>
                     <p><strong>Độ tuổi:</strong> {{ selectedPersona.age }}</p>
                     <p><strong>Phong cách:</strong> {{ selectedPersona.style }}</p>

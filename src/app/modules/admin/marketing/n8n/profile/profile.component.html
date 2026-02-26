@@ -18,7 +18,7 @@
     <ngx-datatable-column name="Profile" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false"
         [resizeable]="false">
         <ng-template let-row="row" ngx-datatable-cell-template>
-            <span class="font-normal text-sm">{{row.profile}}</span>
+            <span class="font-normal">{{row.profile}}</span>
         </ng-template>
     </ngx-datatable-column>
 
@@ -27,13 +27,13 @@
         <ng-template let-row="row" ngx-datatable-cell-template>
             <ng-container *ngIf="row.accounts && row.accounts.length > 0">
                 <div class="flex flex-col">
-                    <span class="text-sm font-medium truncate"
-                        title="{{row.accounts[0].email}}">{{row.accounts[0].email}}</span>
-                    <span class="text-xs text-gray-500 truncate">{{row.accounts[0].alias}}</span>
+                    <!-- <span class="text-sm font-medium truncate"
+                        title="{{row.accounts[0].email}}">{{row.accounts[0].email}}</span> -->
+                    <span class="text-green-500 truncate">{{row.accounts[0].alias}}</span>
                 </div>
             </ng-container>
             <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                <span class="text-gray-400 text-sm">Chưa gán</span>
+                <span class="text-gray-400">Chưa gán</span>
             </ng-container>
         </ng-template>
     </ngx-datatable-column>
@@ -53,13 +53,13 @@
             <ng-container *ngIf="row.running === true; else stopNow">
                 <div class="flex items-center">
                     <div class="w-2 h-2 rounded-full bg-green-500 mr-2"></div>
-                    <span class="text-green-600 font-medium text-sm">Running</span>
+                    <span class="text-green-600 font-medium">Running</span>
                 </div>
             </ng-container>
             <ng-template #stopNow>
                 <div class="flex items-center">
                     <div class="w-2 h-2 rounded-full bg-gray-300 mr-2"></div>
-                    <span class="text-gray-400 text-sm">Stopped</span>
+                    <span class="text-gray-400">Stopped</span>
                 </div>
             </ng-template>
         </ng-template>

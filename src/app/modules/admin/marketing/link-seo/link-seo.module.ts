@@ -16,9 +16,9 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { TimeagoModule } from 'ngx-timeago';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { SharedModule } from 'app/shared.module';
-// import { LinksResolver } from 'app/modules/admin/links/links.resolvers';
-import { LinksComponent } from 'app/modules/admin/marketing/link/link.component';
-import { EditDialog } from 'app/modules/admin/marketing/link/dialogs/edit-dialog';
+// import { LinksResolver } from 'app/modules/admin/link-seo/link-seo.resolvers';
+import { LinksComponent } from 'app/modules/admin/marketing/link-seo/link-seo.component';
+import { EditDialog } from 'app/modules/admin/marketing/link-seo/dialogs/edit-dialog';
 
 @Component({
     selector: 'app-dialog-content',
