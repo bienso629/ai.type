@@ -47,9 +47,9 @@ export class AMXHProfileAppComponent implements OnInit, OnDestroy {
             if (p && p.role) {
                 // Hiển thị dạng Badge đẹp mắt
                 const html = `
-                    <div class="flex flex-col">
-                        <span class="text-sm text-primary-600">${p.role}</span>
-                        <span class="text-sm text-gray-500 truncate" title="${p.style}">${p.style}</span>
+                    <div class="flex flex-row items-center space-x-2">
+                        <span class="text-primary-600">${p.role}</span>
+                        <span class="text-gray-500 truncate" title="${p.style}">"${p.style}"</span>
                     </div>
                 `;
                 return this.sanitizer.bypassSecurityTrustHtml(html);

@@ -20,7 +20,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { EditDialog } from './dialogs/edit-dialog';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
-import { DialogContentComponent } from 'app/modules/admin/marketing/link/link.module';
+import { DialogContentComponent } from 'app/modules/admin/marketing/link-seo/link-seo.module';
 
 import { AutoLayoutDialogService } from 'app/auto-layout-dialog.service';
 import { GenaiService } from 'app/genai.service';
@@ -30,8 +30,8 @@ import { HelperService } from 'app/helper.service';
 import * as _ from 'lodash';
 
 @Component({
-    selector: 'links',
-    templateUrl: './link.component.html',
+    selector: 'link-seo',
+    templateUrl: './link-seo.component.html',
     providers: [MatDrawerContainer, CrawlService],
     encapsulation: ViewEncapsulation.None,
     changeDetection: ChangeDetectionStrategy.OnPush
