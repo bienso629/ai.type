@@ -56,8 +56,7 @@ import { HelperService } from 'app/helper.service';
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AIFacePostComponent
-    implements OnInit, OnDestroy, AfterContentChecked
-{
+    implements OnInit, OnDestroy, AfterContentChecked {
     animationStates: any;
     user: User;
     config: AppConfig;
@@ -99,7 +98,7 @@ export class AIFacePostComponent
         totalElements: 0,
         totalPages: 0,
     };
-    lastId: string;
+    currentBookmark: string;
 
     activeRow: any = null;
     public selected: any[] = [];
@@ -111,6 +110,10 @@ export class AIFacePostComponent
     private unsubscribeRes: () => void;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    displayCheck(row: any) {
+        return row && row.text ? true : false;
+    }
 
     onActivate(event: any) {
         if (event.type === 'click') {
@@ -159,8 +162,8 @@ export class AIFacePostComponent
                         this.getLinks(result.data[0]['_id'], 0);
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -194,7 +197,7 @@ export class AIFacePostComponent
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
-                complete: () => {},
+                complete: () => { },
             });
 
         // lấy bài theo collection
@@ -223,8 +226,8 @@ export class AIFacePostComponent
                         this.getCategories(this.domains[0] ?? ['domain']);
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -248,17 +251,17 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
+    // Reset bảng khi đổi Collection hoặc Search
     resetTable() {
-        this.table.offset = 0;
-        this.keyword = this.keyword;
+        if (this.table) this.table.offset = 0;
         this.selected = [];
         this.rows = [];
-        this.lastId = null;
+        this.currentBookmark = null; // Quan trọng: Reset bookmark
         this.cachePageSize = 0;
         this.cache = {};
     }
@@ -289,8 +292,8 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -323,15 +326,7 @@ export class AIFacePostComponent
      */
     setPage(pageInfo?: PageInfo) {
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
-
-        // Current page number is determined by last call to setPage
-        // This is the page the UI is currently displaying
-        // The current page is based on the UI pagesize and scroll position
-        // Pagesize can change depending on browser size
         this.pageNumber = pageInfo.offset;
-
-        // Calculate row offset in the UI using pageInfo
-        // This is the scroll position in rows
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
 
         this.page = {
@@ -341,65 +336,48 @@ export class AIFacePostComponent
             totalPages: 0,
         };
 
-        // We keep a index of server loaded pages so we don't load same data twice
-        // This is based on the server page not the UI
         if (this.cachePageSize !== this.page.size) {
             this.cachePageSize = this.page.size;
             this.cache = {};
         }
 
-        if (this.cache[this.page.pageNumber]) {
-            return;
-        }
-
+        if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
 
-        // bắt đầu lấy dữ liệu
         const collection = this.sitemapForm.controls['collection'].value;
 
         this._crawlService
             .facePosts({
                 username: this.user.name,
                 keyword: this.keyword,
-                facegroup: collection._id,
+                facegroup: collection ? collection._id : null,
                 page: this.page,
-                lastId: this.lastId,
+                bookmark: this.currentBookmark, // Truyền bookmark
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data) {
-                        // Create array to store data if missing
-                        // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows) {
+                next: (result: any) => {
+                    // Bóc tách dữ liệu từ lớp middleware (result.data)
+                    const resData = result.data;
+
+                    if (resData && resData.docs) {
+                        if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        if (result.data.length > 0) {
-                            // Calc starting row offset
-                            // This is the position to insert the new data
-                            const start = this.page.pageNumber * this.page.size;
+                        const start = this.page.pageNumber * this.page.size;
+                        const rows = [...this.rows];
 
-                            // Copy existing data
-                            const rows = [...this.rows];
+                        // Chèn dữ liệu vào mảng rows
+                        rows.splice(start, this.page.size, ...resData.docs);
+                        this.rows = rows;
 
-                            // Insert new rows into correct position
-                            rows.splice(start, this.page.size, ...result.data);
+                        // Cập nhật bookmark cho lần gọi trang kế tiếp
+                        this.currentBookmark = resData.bookmark;
 
-                            // Set rows to our new rows for display
-                            this.rows = rows;
-                            this.lastId =
-                                this.rows.length > 0
-                                    ? this.rows[this.rows.length - 1]['_id']
-                                    : null;
-
-                            // làm mới lại giao diện
-                            this.cd.markForCheck();
-                        }
+                        this.cd.markForCheck();
                     }
-                },
-                error: () => {},
-                complete: () => {},
+                }
             });
     }
 
@@ -417,9 +395,9 @@ export class AIFacePostComponent
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => {},
-                error: () => {},
-                complete: () => {},
+                next: () => { },
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -509,7 +487,7 @@ export class AIFacePostComponent
                         data.splice(0, 1);
                         this.storePost(data);
                     },
-                    complete: () => {},
+                    complete: () => { },
                 });
         }
     }
@@ -525,9 +503,9 @@ export class AIFacePostComponent
                     })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
-                        next: () => {},
-                        error: () => {},
-                        complete: () => {},
+                        next: () => { },
+                        error: () => { },
+                        complete: () => { },
                     });
             }
         });
@@ -565,7 +543,7 @@ export class AIFacePostComponent
                         this.toastr.error('Lỗi trong quá trình chuyển.');
                     }
                 },
-                error: (e: any) => {},
+                error: (e: any) => { },
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -623,8 +601,8 @@ export class AIFacePostComponent
                         this.cd.markForCheck();
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -659,7 +637,7 @@ export class AIFacePostComponent
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -804,7 +782,7 @@ export class AIFacePostComponent
         );
     }
 
-    ngAfterContentChecked(): void {}
+    ngAfterContentChecked(): void { }
 
     /**
      * On init

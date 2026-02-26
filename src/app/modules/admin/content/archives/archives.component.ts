@@ -207,7 +207,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             keyword: this.keyword,
             uuids: this.uuids,
             page: this.page,
-            bookmark: this.currentBookmark, // Sử dụng bookmark thay cho lastId
+            bookmark: this.currentBookmark, // Sử dụng bookmark
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({

@@ -230,7 +230,7 @@
                             class="material expandable fullscreen" [columnMode]="ColumnMode.force"
                             [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
                             [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50"
-                            [rowHeight]="50" [scrollbarV]="true" [rows]="rows" (activate)="onActivate($event)">
+                            [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true" [rows]="rows" (activate)="onActivate($event)">
                             <ngx-datatable-column [name]="totalElements + ' post(s) chưa được sử dụng'"
                                 [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
