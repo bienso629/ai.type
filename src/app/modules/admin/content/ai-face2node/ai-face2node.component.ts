@@ -16,7 +16,7 @@ import {
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { CrawlService } from 'app/modules/_services/crawl';
-import { ColumnMode, DatatableComponent } from '@swimlane/ngx-datatable';
+import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
 import { ToastrService } from 'ngx-toastr';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -100,6 +100,11 @@ export class AIFacePostComponent
     };
     currentBookmark: string;
 
+    SelectionType = SelectionType;
+
+    // Thêm biến lưu ngày cuối cùng của trang trước (để so sánh khi sang trang mới)
+    lastDateHeader: string = '';
+
     activeRow: any = null;
     public selected: any[] = [];
     ColumnMode = ColumnMode;
@@ -110,6 +115,19 @@ export class AIFacePostComponent
     private unsubscribeRes: () => void;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    // Thêm 2 hàm này để xử lý sự kiện
+    onSelect({ selected }): void {
+        // Lọc bỏ những dòng là nhãn ngày tháng (isHeader === true)
+        // Chỉ giữ lại những dòng dữ liệu thật
+        const validSelection = selected.filter(row => !row.isHeader);
+
+        // Cập nhật lại mảng selected với những dòng hợp lệ
+        this.selected.splice(0, this.selected.length);
+        this.selected.push(...validSelection);
+
+        console.log('Số lượng thực tế được chọn:', this.selected.length);
+    }
 
     displayCheck(row: any) {
         return row && row.text ? true : false;
@@ -357,24 +375,36 @@ export class AIFacePostComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
-                    // Bóc tách dữ liệu từ lớp middleware (result.data)
                     const resData = result.data;
-
                     if (resData && resData.docs) {
-                        if (!this.rows || this.rows.length === 0) {
-                            this.rows = new Array<any>(this.totalElements || 0);
-                        }
+                        const newRowsWithHeaders = [];
 
-                        const start = this.page.pageNumber * this.page.size;
-                        const rows = [...this.rows];
+                        resData.docs.forEach((doc) => {
+                            const currentDate = moment(doc.createdAt).format('DD/MM/YYYY');
 
-                        // Chèn dữ liệu vào mảng rows
-                        rows.splice(start, this.page.size, ...resData.docs);
-                        this.rows = rows;
+                            // Nếu ngày của row này khác với ngày trước đó, chèn một row "Header"
+                            if (currentDate !== this.lastDateHeader) {
+                                newRowsWithHeaders.push({
+                                    isHeader: true,
+                                    dateLabel: currentDate,
+                                    selectable: false // Để logic checkbox biết đường mà tránh
+                                });
+                                this.lastDateHeader = currentDate;
+                            }
 
-                        // Cập nhật bookmark cho lần gọi trang kế tiếp
+                            // Chèn row dữ liệu thật
+                            newRowsWithHeaders.push({
+                                ...doc,
+                                isHeader: false,
+                                selectable: true
+                            });
+                        });
+
+                        // Đổ vào mảng rows chính (Vì mảng có thêm header nên page size sẽ lệch nhẹ, 
+                        // nhưng đây là cách đơn giản nhất để hiển thị)
+                        this.rows = [...(this.rows || []), ...newRowsWithHeaders];
+
                         this.currentBookmark = resData.bookmark;
-
                         this.cd.markForCheck();
                     }
                 }

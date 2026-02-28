@@ -230,11 +230,32 @@
                             class="material expandable fullscreen" [columnMode]="ColumnMode.force"
                             [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
                             [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50"
-                            [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true" [rows]="rows" (activate)="onActivate($event)">
+                            [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true" [rows]="rows"
+                            (activate)="onActivate($event)" [selected]="selected"
+                            [selectionType]="SelectionType.checkbox" (select)="onSelect($event)">
+
+                            <!-- Column Templates -->
+                            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
+                                [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
+                                [checkboxable]="true"></ngx-datatable-column>
+
+                            <!-- <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
+                                [checkboxable]="true" [headerCheckboxable]="true">
+                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
+                                    <mat-checkbox *ngIf="!row.isHeader" [checked]="value"
+                                        (change)="onCheckboxChange($event, row)">
+                                    </mat-checkbox>
+                                </ng-template>
+                            </ngx-datatable-column> -->
+
                             <ngx-datatable-column [name]="totalElements + ' post(s) chưa được sử dụng'"
                                 [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <div [class.active-row]="isActive(row)">
+                                    <div *ngIf="row.isHeader" class="font-bold">
+                                        📅 Ngày: {{ row.dateLabel }}
+                                    </div>
+
+                                    <div *ngIf="!row.isHeader" [class.active-row]="isActive(row)">
                                         <p class="font-normal truncate hover:text-clip cursor-pointer"
                                             (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
                                             {{row.text}}
@@ -269,7 +290,8 @@
                                         <!-- Actions -->
                                         <div class="flex shrink-0 items-center pr-4">
                                             <button mat-flat-button [color]="'primary'" (click)="analyticsTrend()">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:bar-chart-2'"></mat-icon>
+                                                <mat-icon class="icon-size-4"
+                                                    [svgIcon]="'feather:bar-chart-2'"></mat-icon>
                                                 <span class="ml-2">Phân tích trend</span>
                                             </button>
                                         </div>
@@ -315,8 +337,7 @@
                                                 </ng-container>
 
                                                 <ng-container *ngIf="!checkVideo()">
-                                                    <mat-grid-tile
-                                                        class="rounded-2xl"
+                                                    <mat-grid-tile class="rounded-2xl"
                                                         *ngFor="let img of preview.images"
                                                         [ngStyle]="{'background-image': 'url(' +img+ ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}">
                                                         <a mat-icon-button (click)="downloadImage(img)"

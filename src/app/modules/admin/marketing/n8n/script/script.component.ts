@@ -392,8 +392,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.items = [...this.items, {
             id: index, name: data.profile, persona: personaData,
             streamItems: [
-                { startDate: new Date(now), endDate: new Date(endOfDay), id: index, name: "Viết comment", canResizeLeft: false, canResizeRight: false, canDragX: false, canDragY: false, meta: [] },
-                { startDate: new Date(now), endDate: new Date(endOfDay), id: index, name: "Thả tim", canResizeLeft: false, canResizeRight: false, canDragX: false, canDragY: false, meta: [] },
+                { startDate: new Date(now), endDate: new Date(endOfDay), id: index, name: "Viết comment trong Live", canResizeLeft: false, canResizeRight: false, canDragX: false, canDragY: false, meta: [] },
+                { startDate: new Date(now), endDate: new Date(endOfDay), id: index, name: "Thả tim trong Live", canResizeLeft: false, canResizeRight: false, canDragX: false, canDragY: false, meta: [] },
                 // { startDate: new Date(now), endDate: new Date(endOfDay), id: index, name: "Chia sẻ", canResizeLeft: false, canResizeRight: false, canDragX: false, canDragY: false, meta: [] }
             ],
         }];
@@ -478,7 +478,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         newComments.forEach((commentData: any) => {
             const targetProfile = this.items.find(item => item.id == commentData.id);
             if (targetProfile) {
-                const commentStream = targetProfile.streamItems.find(s => s.name === "Viết comment");
+                const commentStream = targetProfile.streamItems.find(s => s.name === "Viết comment trong Live");
                 if (commentStream) {
                     let startTime: Date;
                     if (commentData.target_time) {
@@ -572,7 +572,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.items.forEach(profileItem => {
             // Lấy dữ liệu từ cả 2 luồng
             profileItem.streamItems.forEach(stream => {
-                if ((stream.name === 'Viết comment' || stream.name === 'Thả tim') && stream.meta.length > 0) {
+                if ((stream.name === 'Viết comment trong Live' || stream.name === 'Thả tim trong Live') && stream.meta.length > 0) {
                     const groupKey = `${profileItem.name} (${profileItem.persona?.role || 'User'})`;
                     if (!groupsMap[groupKey]) groupsMap[groupKey] = { key: groupKey, expanded: true, items: [] };
 
@@ -580,8 +580,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                         groupsMap[groupKey].items.push({
                             ...metaItem, // Copy toàn bộ data cũ
                             profileName: profileItem.name,
-                            type: stream.name === 'Thả tim' ? 'LIKE' : 'COMMENT',
-                            comment: stream.name === 'Thả tim' ? '❤️ [Thả tim video]' : metaItem.comment,
+                            type: stream.name === 'Thả tim trong Live' ? 'LIKE' : 'COMMENT',
+                            comment: stream.name === 'Thả tim trong Live' ? '❤️ [Thả tim video]' : metaItem.comment,
                             selected: false,
                             isEditing: false,
                             originalMeta: metaItem,
@@ -655,7 +655,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                 apiUrl = "https://tiktok.type.vn/v1/like/click";
                 payload = {
                     "site": "tiktok.com",
-                    "title": "Thả tim",
+                    "like_selector": "div[data-e2e=\"live-chat-input-container\"]",
+                    "title": "Thả tim trong Live",
                     "profiles": [item.profileName],
                     "profiles_root": profilesRoot,
                     "host": "127.0.0.1",
@@ -676,7 +677,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                 apiUrl = "https://tiktok.type.vn/v1/comment/click";
                 payload = {
                     "site": "tiktok.com",
-                    "title_comment_button": "Viết comment",
+                    "comment_selector": "div[data-e2e=\"live-chat-input-container\"] div[contenteditable=\"plaintext-only\"]",
+                    "title_comment_button": "Viết comment trong Live",
                     "profiles": [item.profileName],
                     "profiles_root": profilesRoot,
                     "coords_file": "mouse_coords.json",
@@ -685,9 +687,10 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                     "type_mode": "per_key",
                     "key_interval_ms": 60,
                     "clear_before_type": false,
-                    "press_enter_after": false,
+                    "press_enter_after": true,
                     "persist_history": true,
-                    "history_db_path": "data/search_click_history.db"
+                    "history_db_path": "data/search_click_history.db",
+                    "diagnose": false
                 };
             }
 
@@ -899,7 +902,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     saveScriptState() {
         try {
             const stateToSave = this.items.map(item => ({
-                id: item.id, name: item.name, comments: item.streamItems.find(s => s.name === 'Viết comment')?.meta || []
+                id: item.id, name: item.name, comments: item.streamItems.find(s => s.name === 'Viết comment trong Live')?.meta || []
             }));
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(stateToSave));
         } catch (e) { console.error(e); }
@@ -914,7 +917,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             savedState.forEach((savedItem: any) => {
                 const currentItem = this.items.find(i => i.id === savedItem.id);
                 if (currentItem && savedItem.comments.length > 0) {
-                    const stream = currentItem.streamItems.find(s => s.name === 'Viết comment');
+                    const stream = currentItem.streamItems.find(s => s.name === 'Viết comment trong Live');
                     if (stream) {
                         stream.meta = savedItem.comments.map((c: any) => ({ ...c, start: new Date(c.start) }));
                         hasData = true;
@@ -931,7 +934,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         this.captions.forEach(c => c.selected = false);
         localStorage.removeItem(this.STORAGE_KEY);
         this.items.forEach(item => {
-            const commentStream = item.streamItems.find(s => s.name === 'Viết comment');
+            const commentStream = item.streamItems.find(s => s.name === 'Viết comment trong Live');
             if (commentStream) commentStream.meta = [];
         });
         this.items = [...this.items];
