@@ -88,6 +88,7 @@ export class AIFacePostComponent
 
     rows: any[] = [];
     totalElements: number = 0;
+    totalDisplayCount: number = 0; // Biến mới để tính tổng số dòng hiển thị (bao gồm cả header)
     pageNumber: number;
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
@@ -131,6 +132,11 @@ export class AIFacePostComponent
 
     displayCheck(row: any) {
         return row && row.text ? true : false;
+    }
+
+    // Chặn không cho chọn dòng header
+    checkSelectable(row: any): boolean {
+        return !row.isHeader;
     }
 
     onActivate(event: any) {
@@ -379,7 +385,8 @@ export class AIFacePostComponent
                     if (resData && resData.docs) {
                         const newRowsWithHeaders = [];
 
-                        resData.docs.forEach((doc) => {
+                        resData.docs.forEach((doc: any) => {
+                            console.log('Doc createdAt:', doc.createdAt);
                             const currentDate = moment(doc.createdAt).format('DD/MM/YYYY');
 
                             // Nếu ngày của row này khác với ngày trước đó, chèn một row "Header"
@@ -403,6 +410,8 @@ export class AIFacePostComponent
                         // Đổ vào mảng rows chính (Vì mảng có thêm header nên page size sẽ lệch nhẹ, 
                         // nhưng đây là cách đơn giản nhất để hiển thị)
                         this.rows = [...(this.rows || []), ...newRowsWithHeaders];
+                        this.totalElements = this.rows.length;
+                        this.totalDisplayCount = this.rows.filter(row => !row.isHeader).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
 
                         this.currentBookmark = resData.bookmark;
                         this.cd.markForCheck();
