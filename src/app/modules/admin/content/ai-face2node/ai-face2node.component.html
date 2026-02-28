@@ -232,23 +232,14 @@
                             [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50"
                             [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true" [rows]="rows"
                             (activate)="onActivate($event)" [selected]="selected"
-                            [selectionType]="SelectionType.checkbox" (select)="onSelect($event)">
+                            [selectionType]="SelectionType.checkbox" (select)="onSelect($event)" [selectCheck]="checkSelectable">
 
                             <!-- Column Templates -->
                             <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
                                 [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
                                 [checkboxable]="true"></ngx-datatable-column>
 
-                            <!-- <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
-                                [checkboxable]="true" [headerCheckboxable]="true">
-                                <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <mat-checkbox *ngIf="!row.isHeader" [checked]="value"
-                                        (change)="onCheckboxChange($event, row)">
-                                    </mat-checkbox>
-                                </ng-template>
-                            </ngx-datatable-column> -->
-
-                            <ngx-datatable-column [name]="totalElements + ' post(s) chưa được sử dụng'"
+                            <ngx-datatable-column [name]="selected.length + ' post(s) được chọn'" [width]="300"
                                 [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
                                     <div *ngIf="row.isHeader" class="font-bold">
@@ -283,7 +274,7 @@
                                         <div class="flex-1 min-w-0">
                                             <!-- Breadcrumbs -->
                                             <div class="page-count">
-                                                Có {{ selected.length }} post(s) mới
+                                                Có {{ this.totalDisplayCount }} post(s) chưa được sử dụng
                                             </div>
                                         </div>
 
