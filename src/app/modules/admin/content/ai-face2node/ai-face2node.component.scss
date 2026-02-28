@@ -5,3 +5,13 @@
 .used {
     color: var(--text-primary);
 }
+
+// ai-face2node.component.scss
+::ng-deep {
+    .datatable-body-row {
+        &.is-header { // Bạn có thể dùng [rowClass] để thêm class này
+            background-color: #f3f4f6 !important;
+            cursor: default !important;
+        }
+    }
+}
