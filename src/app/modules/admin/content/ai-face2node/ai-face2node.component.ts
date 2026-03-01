@@ -489,7 +489,7 @@ export class AIFacePostComponent
         });
     }
 
-    analyticsTrend(dateLabel: string): void {
+    selectRowsByDate(dateLabel: string): void {
         // 1. Tìm tất cả các dòng "thật" có ngày trùng với dateLabel
         const rowsInDate = this.rows.filter(row => {
             if (row.isHeader) return false; // Bỏ qua các dòng header khác
@@ -518,6 +518,21 @@ export class AIFacePostComponent
             this.toastr.success(`Đã chọn ${rowsInDate.length} bài viết của ngày ${dateLabel}`);
             this.cd.markForCheck();
         }
+    }
+
+    analyticsTrend(): void {
+        // Ưu tiên lấy những gì người dùng đã Click chọn (theo ngày hoặc chọn lẻ)
+        const dataToAnalyze = this.selected.length > 0
+            ? this.selected
+            : this.rows.filter(r => !r.isHeader);
+
+        if (dataToAnalyze.length === 0) {
+            this.toastr.warning('Không có dữ liệu!');
+            return;
+        }
+
+        console.log('Dữ liệu mang đi phân tích:', dataToAnalyze);
+        // Thực hiện logic gọi API analytics ở đây...
     }
 
     // lưu post
