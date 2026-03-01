@@ -244,7 +244,7 @@
                                 [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
                                     <div *ngIf="row.isHeader" class="flex items-center justify-between">
-                                        <a class="h-8 flex items-center justify-between leading-8 cursor-pointer items-center p-3 rounded-full bg-green-600 hover:bg-green-700 text-white" (click)="analyticsTrend(row.dateLabel)">
+                                        <a class="h-8 flex items-center justify-between leading-8 cursor-pointer items-center p-3 rounded-full bg-green-600 hover:bg-green-700 text-white" (click)="selectRowsByDate(row.dateLabel)">
                                             <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:calendar'"></mat-icon>
                                             <mat-label class="ml-2">{{ row.dateLabel }}</mat-label>
                                         </a>
