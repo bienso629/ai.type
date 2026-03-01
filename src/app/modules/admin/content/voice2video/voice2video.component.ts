@@ -568,6 +568,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    createVideo() {
+        this.toastr.info('Tính năng đang phát triển...', 'Coming Soon');
+    }
+
     async exportMerge() {
         if (this.audioList.length === 0) { this.toastr.warning('Danh sách trống!'); return; }
         this.toastr.info('Chuẩn bị file...', 'System');
