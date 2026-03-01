@@ -489,8 +489,35 @@ export class AIFacePostComponent
         });
     }
 
-    analyticsTrend() {
-        // dùng AI để phân tích trend
+    analyticsTrend(dateLabel: string): void {
+        // 1. Tìm tất cả các dòng "thật" có ngày trùng với dateLabel
+        const rowsInDate = this.rows.filter(row => {
+            if (row.isHeader) return false; // Bỏ qua các dòng header khác
+
+            // Format lại createdAt của row để so sánh với dateLabel (DD/MM/YYYY)
+            const rowDate = moment(row.createdAt).format('DD/MM/YYYY');
+            return rowDate === dateLabel;
+        });
+
+        if (rowsInDate.length > 0) {
+            // 2. Cập nhật mảng selected
+            // Ở đây mình dùng cơ chế "Add thêm" vào danh sách đã chọn trước đó
+            // Nếu bạn muốn "Chỉ chọn ngày này và bỏ chọn các ngày khác" thì dùng: this.selected = [...rowsInDate];
+
+            const newSelected = [...this.selected];
+
+            rowsInDate.forEach(row => {
+                // Kiểm tra xem row này đã có trong danh sách chọn chưa để tránh trùng
+                if (!newSelected.some(s => s._id === row._id)) {
+                    newSelected.push(row);
+                }
+            });
+
+            this.selected = [...newSelected];
+
+            this.toastr.success(`Đã chọn ${rowsInDate.length} bài viết của ngày ${dateLabel}`);
+            this.cd.markForCheck();
+        }
     }
 
     // lưu post
