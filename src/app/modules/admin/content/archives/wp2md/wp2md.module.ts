@@ -16,7 +16,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TimeagoModule } from 'ngx-timeago';
 import { SharedModule } from 'app/shared.module';
-import { WP2MDComponent, NodeDetailsDialog } from 'app/modules/admin/content/wp2md/wp2md.component';
+import { WP2MDComponent, NodeDetailsDialog } from 'app/modules/admin/content/archives/wp2md/wp2md.component';
 
 const Routes: Route[] = [
     {

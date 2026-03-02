@@ -85,7 +85,7 @@ export const appRoutes: Route[] = [
             { path: 'voice2video', loadChildren: () => import('app/modules/admin/content/ai-tts/ai-tts.module').then(m => m.Voice2videoModule) },
             { path: 'ai-crawl', loadChildren: () => import('app/modules/admin/content/ai-crawl/ai-crawl.module').then(m => m.AIWordModule) },
             { path: 'nodes', loadChildren: () => import('app/modules/admin/content/ai-nodes/ai-nodes.module').then(m => m.AINodesModule) },
-            { path: 'wp2md', loadChildren: () => import('app/modules/admin/content/wp2md/wp2md.module').then(m => m.WP2MDModule) },
+            { path: 'wp2md', loadChildren: () => import('app/modules/admin/content/archives/wp2md/wp2md.module').then(m => m.WP2MDModule) },
             { path: 'ai-text2speech', loadChildren: () => import('app/modules/admin/content/ai-text2speech/ai-text2speech.module').then(m => m.AIText2SpeechModule) },
             { path: 'ai-image', loadChildren: () => import('app/modules/admin/content/ai-image/ai-image.module').then(m => m.AIImageModule) },
 
