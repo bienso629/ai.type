@@ -40,9 +40,9 @@ import moment from 'moment';
 import { HelperService } from 'app/helper.service';
 
 @Component({
-    selector: 'ai-face2node',
-    templateUrl: './ai-face2node.component.html',
-    styleUrls: ['./ai-face2node.component.scss'],
+    selector: 'trend',
+    templateUrl: './trend.component.html',
+    styleUrls: ['./trend.component.scss'],
     providers: [
         CrawlService,
         YoutubeService,
@@ -386,7 +386,6 @@ export class AIFacePostComponent
                         const newRowsWithHeaders = [];
 
                         resData.docs.forEach((doc: any) => {
-                            console.log('Doc createdAt:', doc.createdAt);
                             const currentDate = moment(doc.createdAt).format('DD/MM/YYYY');
 
                             // Nếu ngày của row này khác với ngày trước đó, chèn một row "Header"
@@ -490,49 +489,52 @@ export class AIFacePostComponent
     }
 
     selectRowsByDate(dateLabel: string): void {
-        // 1. Tìm tất cả các dòng "thật" có ngày trùng với dateLabel
-        const rowsInDate = this.rows.filter(row => {
-            if (row.isHeader) return false; // Bỏ qua các dòng header khác
+        // 1. Lấy tất cả các dòng dữ liệu thật thuộc về ngày này
+        const rowsInDate = this.rows.filter(row =>
+            !row.isHeader && moment(row.createdAt).format('DD/MM/YYYY') === dateLabel
+        );
 
-            // Format lại createdAt của row để so sánh với dateLabel (DD/MM/YYYY)
-            const rowDate = moment(row.createdAt).format('DD/MM/YYYY');
-            return rowDate === dateLabel;
-        });
+        if (rowsInDate.length === 0) return;
 
-        if (rowsInDate.length > 0) {
-            // 2. Cập nhật mảng selected
-            // Ở đây mình dùng cơ chế "Add thêm" vào danh sách đã chọn trước đó
-            // Nếu bạn muốn "Chỉ chọn ngày này và bỏ chọn các ngày khác" thì dùng: this.selected = [...rowsInDate];
+        // 2. Kiểm tra xem TOÀN BỘ các dòng của ngày này đã nằm trong danh sách 'selected' chưa
+        const isAllSelected = rowsInDate.every(row =>
+            this.selected.some(s => s._id === row._id)
+        );
 
-            const newSelected = [...this.selected];
+        let newSelected = [...this.selected];
 
+        if (isAllSelected) {
+            // TRƯỜNG HỢP REMOVE: Nếu đã chọn hết rồi -> Bỏ chọn tất cả các dòng của ngày này
+            newSelected = newSelected.filter(s =>
+                moment(s.createdAt).format('DD/MM/YYYY') !== dateLabel
+            );
+            this.toastr.info(`Đã bỏ chọn các bài viết ngày ${dateLabel}`);
+        } else {
+            // TRƯỜNG HỢP SELECT: Thêm những dòng của ngày này còn thiếu vào danh sách chọn
             rowsInDate.forEach(row => {
-                // Kiểm tra xem row này đã có trong danh sách chọn chưa để tránh trùng
                 if (!newSelected.some(s => s._id === row._id)) {
                     newSelected.push(row);
                 }
             });
-
-            this.selected = [...newSelected];
-
-            this.toastr.success(`Đã chọn ${rowsInDate.length} bài viết của ngày ${dateLabel}`);
-            this.cd.markForCheck();
+            this.toastr.success(`Đã chọn ${rowsInDate.length} bài viết ngày ${dateLabel}`);
         }
+
+        // 3. Cập nhật lại mảng selected để Table hiển thị đúng checkbox
+        this.selected = [...newSelected];
+        this.cd.markForCheck();
     }
 
     analyticsTrend(): void {
-        // Ưu tiên lấy những gì người dùng đã Click chọn (theo ngày hoặc chọn lẻ)
-        const dataToAnalyze = this.selected.length > 0
-            ? this.selected
-            : this.rows.filter(r => !r.isHeader);
+        // Chỉ lấy từ danh sách đã chọn
+        const dataToAnalyze = this.selected;
 
         if (dataToAnalyze.length === 0) {
-            this.toastr.warning('Không có dữ liệu!');
+            this.toastr.warning('Vui lòng chọn ít nhất một bài viết hoặc một ngày để phân tích!');
             return;
         }
 
-        console.log('Dữ liệu mang đi phân tích:', dataToAnalyze);
-        // Thực hiện logic gọi API analytics ở đây...
+        console.log('Dữ liệu được chọn để phân tích:', dataToAnalyze);
+        // Thực hiện logic tiếp theo...
     }
 
     // lưu post

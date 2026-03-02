@@ -23,7 +23,141 @@ const StealthPlugin = require("puppeteer-extra-plugin-stealth");
 const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
 
+// Thêm vào trong phần app.whenReady() hoặc bất kỳ đâu trong main.js
+const { version } = require("./../package.json"); // Lấy version từ file package.json
+
 let serviceProcess = null;
+
+// =====================================================================
+// Google Ads Keyword Planner IPC (ads:keywordIdeas)
+// =====================================================================
+const ADS_CLIENT_ID =
+    process.env.ADS_CLIENT_ID ||
+    "90514980593-9tqqkt4eobhee5aqrft3f6s5mpkakbp0.apps.googleusercontent.com";
+const ADS_CLIENT_SECRET =
+    process.env.ADS_CLIENT_SECRET || "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";
+const ADS_DEVELOPER_TOKEN =
+    process.env.ADS_DEVELOPER_TOKEN || "OsRSnxr4OiG6bfuG0RqVtw";
+const ADS_REFRESH_TOKEN =
+    process.env.ADS_REFRESH_TOKEN ||
+    "1//0g2m3ngcIRj1zCgYIARAAGBASNwF-L9Irbur0YDEMdc0wcZ65b0gxav-3MUFMhqRKkAux2N0yIoGt60mNzTGqAJJrjSNYJIYPX4k";
+const ADS_CUSTOMER_ID = process.env.ADS_CUSTOMER_ID || "6453144045";
+
+let adsOauthClient = null;
+if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
+    adsOauthClient = new OAuth2Client(
+        ADS_CLIENT_ID,
+        ADS_CLIENT_SECRET,
+        "urn:ietf:wg:oauth:2.0:oob",
+    );
+    adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
+}
+
+async function googleAdsGenerateKeywordIdeas({
+    keywordText,
+    customerId,
+    language,
+    geoTargetConstants,
+}) {
+    if (!adsOauthClient) {
+        throw new Error(
+            "Chưa cấu hình ADS_CLIENT_ID / ADS_CLIENT_SECRET / ADS_REFRESH_TOKEN",
+        );
+    }
+    if (!ADS_DEVELOPER_TOKEN) {
+        throw new Error("Chưa cấu hình ADS_DEVELOPER_TOKEN");
+    }
+    if (!customerId) {
+        throw new Error("Thiếu ADS_CUSTOMER_ID");
+    }
+    if (!keywordText) {
+        throw new Error("Thiếu keywordText");
+    }
+
+    const { token } = await adsOauthClient.getAccessToken();
+    if (!token) {
+        throw new Error("Không lấy được access token cho Google Ads");
+    }
+
+    const postData = JSON.stringify({
+        customerId,
+        language: language || "languageConstants/1004",
+        geoTargetConstants:
+            geoTargetConstants && geoTargetConstants.length
+                ? geoTargetConstants
+                : ["geoTargetConstants/2392"],
+        keywordPlanNetwork: "GOOGLE_SEARCH",
+        keywordSeed: {
+            keywords: [keywordText],
+        },
+    });
+
+    return await new Promise((resolve, reject) => {
+        const req = https.request(
+            {
+                method: "POST",
+                hostname: "googleads.googleapis.com",
+                path: `/v16/customers/${customerId}:generateKeywordIdeas`,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Content-Length": Buffer.byteLength(postData),
+                    Authorization: `Bearer ${token}`,
+                    "developer-token": ADS_DEVELOPER_TOKEN,
+                },
+            },
+            (res) => {
+                let raw = "";
+                res.on("data", (chunk) => (raw += chunk.toString()));
+                res.on("end", () => {
+                    if (!raw) {
+                        return reject(
+                            new Error(
+                                `Google Ads API trả về body rỗng (status ${res.statusCode})`,
+                            ),
+                        );
+                    }
+
+                    const contentType = (
+                        res.headers["content-type"] || ""
+                    ).toLowerCase();
+
+                    if (!contentType.includes("application/json")) {
+                        return reject(
+                            new Error(
+                                `Google Ads API trả về nội dung không phải JSON (status ${res.statusCode}). ` +
+                                `Có thể Developer Token / tài khoản chưa được bật API. Preview: ${raw.slice(0, 200)}`,
+                            ),
+                        );
+                    }
+
+                    try {
+                        const json = JSON.parse(raw);
+                        if (res.statusCode >= 200 && res.statusCode < 300) {
+                            resolve(json);
+                        } else {
+                            reject(
+                                new Error(
+                                    json.error?.message ||
+                                    `Google Ads API Error ${res.statusCode}`,
+                                ),
+                            );
+                        }
+                    } catch (e) {
+                        reject(
+                            new Error(
+                                `Không parse được JSON từ Google Ads API (status ${res.statusCode}). Body: ${raw.slice(0, 200)}`,
+                            ),
+                        );
+                    }
+                });
+            },
+        );
+
+        req.on("error", (err) => reject(err));
+        req.write(postData);
+        req.end();
+    });
+}
 
 function startGoService() {
     const isPackaged = app.isPackaged;
@@ -76,19 +210,638 @@ function startGoService() {
     });
 }
 
-// Thêm vào trong phần app.whenReady() hoặc bất kỳ đâu trong main.js
-const { version } = require("./../package.json"); // Lấy version từ file package.json
+// ================= DOWNLOAD CORE =================
+function inferExtFromUrl(url) {
+    try {
+        const u = new URL(url);
+        const fmt = u.searchParams.get("format"); // ví dụ ".webp"
+        if (fmt && /^\.\w{3,5}$/i.test(fmt)) return fmt.toLowerCase();
+        const base = path.basename(u.pathname);
+        const m = base.match(/\.(webp|jpg|jpeg|png|gif|bmp|avif)$/i);
+        if (m) return "." + m[1].toLowerCase();
+    } catch { }
+    return ".jpg";
+}
 
-ipcMain.handle("get-app-version", async () => {
-    return version;
-});
+function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
+    return new Promise(async (resolve, reject) => {
+        try {
+            await fs.promises.mkdir(outDir, { recursive: true });
+            const ext = inferExtFromUrl(url);
+            const hash = crypto
+                .createHash("md5")
+                .update(url)
+                .digest("hex")
+                .slice(0, 10);
+            const filename = `${filenamePrefix}${Date.now()}_${hash}${ext}`;
+            const outPath = path.join(outDir, filename);
 
-ipcMain.on("app:relaunch", () => {
-    // Thiết lập ứng dụng sẽ mở lại sau khi đóng
-    app.relaunch();
-    // Thoát ứng dụng hiện tại ngay lập tức
-    app.exit(0);
-});
+            const req = https.get(
+                url,
+                {
+                    headers: {
+                        "User-Agent":
+                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+                        "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
+                        Referer: "https://www.tiktok.com/",
+                    },
+                },
+                (res) => {
+                    if (
+                        res.statusCode >= 300 &&
+                        res.statusCode < 400 &&
+                        res.headers.location
+                    ) {
+                        https
+                            .get(res.headers.location, (r2) => {
+                                const ws = fs.createWriteStream(outPath);
+                                r2.pipe(ws);
+                                ws.on("finish", () => resolve(outPath));
+                                ws.on("error", reject);
+                            })
+                            .on("error", reject);
+                        return;
+                    }
+                    if (res.statusCode !== 200) {
+                        reject(new Error(`HTTP ${res.statusCode}`));
+                        return;
+                    }
+                    const ws = fs.createWriteStream(outPath);
+                    res.pipe(ws);
+                    ws.on("finish", () => resolve(outPath));
+                    ws.on("error", reject);
+                },
+            );
+            req.on("error", reject);
+        } catch (e) {
+            reject(e);
+        }
+    });
+}
+
+// ================= DREAMINA ENTRY (AUTO DOWNLOAD) =================
+function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
+    const outDir =
+        options.outDir || path.join(app.getPath("pictures"), "Dreamina");
+    const maxImages = Number.isFinite(options.maxImages)
+        ? options.maxImages
+        : 100;
+    const filenamePrefix = options.filenamePrefix || "dreamina_";
+
+    if (!targetWindow || targetWindow.isDestroyed()) {
+        sendToRenderer("tools-log", "[Dreamina] ❌ Không có targetWindow.");
+        return;
+    }
+
+    // chống tải trùng/lặp quá nhiều
+    const seen = new Set();
+    let saved = 0;
+
+    const onFound = async (_evt, payload) => {
+        const src = payload?.src;
+        if (!src || seen.has(src) || saved >= maxImages) return;
+        seen.add(src);
+        try {
+            const p = await downloadImage(src, outDir, filenamePrefix);
+            saved += 1;
+            sendToRenderer("tools-log", `[Dreamina] ✅ Đã tải: ${p}`);
+        } catch (e) {
+            sendToRenderer(
+                "tools-log",
+                `[Dreamina] ❌ Lỗi tải ${src}: ${e.message}`,
+            );
+        }
+    };
+
+    const onDebug = (_evt, msg) => sendToRenderer("tools-log", String(msg));
+
+    ipcMain.on("dreamina:image-found", onFound);
+    ipcMain.on("dreamina:debug", onDebug);
+
+    // Báo preload (dù preload tự boot)
+    try {
+        targetWindow.webContents.send("dreamina:start");
+    } catch { }
+
+    // Dọn dẹp theo vòng đời cửa sổ
+    const wc = targetWindow.webContents;
+    const cleanup = () => {
+        ipcMain.removeListener("dreamina:image-found", onFound);
+        ipcMain.removeListener("dreamina:debug", onDebug);
+        try {
+            wc.send("dreamina:stop");
+        } catch { }
+    };
+    targetWindow.once("closed", cleanup);
+
+    sendToRenderer(
+        "tools-log",
+        `[Dreamina] 👀 Tự động tải khi ảnh chi tiết xuất hiện… (uniqueID=${uniqueID})`,
+    );
+}
+
+// Hàm dùng để set cookie vào session
+async function setFacebookCookiesFromFile(cookieFilePath) {
+    if (!fs.existsSync(cookieFilePath)) return false;
+    const cookies = JSON.parse(fs.readFileSync(cookieFilePath, "utf-8"));
+
+    for (const cookie of cookies) {
+        // Bắt buộc có url khi set cookie cho Electron
+        let url = "";
+
+        if (cookie.secure) {
+            url = `https://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
+        } else {
+            url = `http://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
+        }
+
+        try {
+            await session.defaultSession.cookies.set({
+                url,
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path,
+                secure: cookie.secure,
+                httpOnly: cookie.httpOnly,
+                expirationDate: cookie.expires > 0 ? cookie.expires : undefined,
+                sameSite: cookie.sameSite,
+            });
+        } catch (err) {
+            console.log(`Set cookie ${cookie.name} lỗi:`, err.message);
+        }
+    }
+    return true;
+}
+
+// ==== SCREENSHOT ====
+async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
+    try {
+        sendToRenderer("tools-log", "[Screenshot] Bắt đầu...");
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const screenshotPath = path.join(
+            documentsDir,
+            `screenshot-${timestamp}.png`,
+        );
+
+        sendToRenderer(
+            "tools-log",
+            "[Screenshot] Đang fetch Chrome remote debug...",
+        );
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        sendToRenderer("tools-log", "[Screenshot] Puppeteer đã connect.");
+
+        const pages = await browser.pages();
+        sendToRenderer("tools-log", `[Screenshot] Có ${pages.length} page.`);
+
+        let matchedPage = null;
+        for (const page of pages) {
+            const pageUrl = page.url();
+            sendToRenderer("tools-log", `[Screenshot] Page URL: ${pageUrl}`);
+            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
+                matchedPage = page;
+                break;
+            }
+        }
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[Screenshot] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
+            );
+            await browser.disconnect();
+            return;
+        }
+
+        await matchedPage.screenshot({
+            path: screenshotPath,
+            fullPage: true,
+        });
+
+        sendToRenderer(
+            "tools-log",
+            `[Screenshot] ✅ Đã chụp ảnh: ${screenshotPath}`,
+        );
+
+        await browser.disconnect();
+        if (targetWindow) targetWindow.close();
+    } catch (err) {
+        sendToRenderer(
+            "tools-log",
+            `[Screenshot] ❌ Lỗi khi chụp ảnh: ${err.message}`,
+        );
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function getFacebookCookies(uniqueID, event) {
+    try {
+        sendToRenderer(
+            "tools-log",
+            `[FB-GetCookie] Đang tìm page với uniqueID=${uniqueID}...`,
+        );
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        const pages = await browser.pages();
+        let matchedPage = null;
+
+        for (const page of pages) {
+            const pageUrl = page.url();
+            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
+                matchedPage = page;
+                break;
+            }
+        }
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[FB-GetCookie] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
+            );
+            event.reply("tools-response", {
+                error: `Không tìm thấy tab đăng nhập Facebook!`,
+            });
+            await browser.disconnect();
+            return;
+        }
+
+        const cookies = await matchedPage.cookies();
+        // Lưu file vào Documents
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const cookiePath = path.join(
+            documentsDir,
+            `fb-cookies-${timestamp}.json`,
+        );
+        fs.writeFileSync(cookiePath, JSON.stringify(cookies, null, 2), "utf-8");
+
+        sendToRenderer(
+            "tools-log",
+            `[FB-GetCookie] Đã lưu cookies vào: ${cookiePath}`,
+        );
+
+        // Trả cookie về UI
+        event.reply("tools-response", {
+            action: "get-facebook-cookies",
+            success: true,
+            cookies,
+            file: cookiePath,
+        });
+
+        await browser.disconnect();
+        if (targetWindow) targetWindow.close();
+    } catch (err) {
+        sendToRenderer("tools-log", `[FB-GetCookie] ❌ Lỗi: ${err.message}`);
+        event.reply("tools-response", { error: err.message });
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function connectApps(targetUrlWithUniqueID, uniqueID) {
+    try {
+        sendToRenderer("tools-log", "[FB-Login] Bắt đầu...");
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        sendToRenderer("tools-log", "[FB-Login] Puppeteer đã connect.");
+
+        const pages = await browser.pages();
+        sendToRenderer("tools-log", `[FB-Login] Có ${pages.length} page.`);
+
+        let matchedPage = null;
+        for (const page of pages) {
+            const pageUrl = page.url();
+
+            sendToRenderer("tools-log", `[FB-Login] Page URL: ${pageUrl}`);
+
+            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
+                matchedPage = page;
+                break;
+            }
+        }
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[FB-Login] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
+            );
+            await browser.disconnect();
+            return;
+        }
+
+        sendToRenderer(
+            "tools-log",
+            `[FB-Login] Đã tìm thấy tab Facebook cần đăng nhập!`,
+        );
+
+        // Tùy mục tiêu, ví dụ: lấy cookie sau khi user tự login
+        // Chờ user login, bạn có thể chờ đến khi url đổi sang https://www.facebook.com/?sk=welcome hoặc cookie đầy đủ
+        // Ở đây mình lấy cookies luôn sau 20s (hoặc bạn có thể trigger bằng nút trên giao diện, hoặc logic thông minh hơn)
+        setTimeout(async () => {
+            const cookies = await matchedPage.cookies();
+            sendToRenderer(
+                "tools-log",
+                `[FB-Login] Cookie sau login: ${JSON.stringify(cookies)}`,
+            );
+            // Bạn có thể lưu cookies vào file hoặc gửi trả về renderer nếu cần
+            await browser.disconnect();
+            if (targetWindow) targetWindow.close();
+        }, 200000); // chờ 200s, tuỳ ý
+    } catch (err) {
+        sendToRenderer("tools-log", `[FB-Login] ❌ Lỗi: ${err.message}`);
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function websiteCrawl(
+    targetUrlWithUniqueID,
+    uniqueID,
+    selector = [],
+    model,
+) {
+    try {
+        sendToRenderer("tools-log", "[Website-Crawl] Bắt đầu...");
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        const browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        const pages = await browser.pages();
+        const matchedPage = pages.find((page) =>
+            page.url().includes(`uniqueID=${uniqueID}`),
+        );
+
+        if (!matchedPage) {
+            sendToRenderer(
+                "tools-log",
+                `[Website-Crawl] ❌ Không tìm thấy tab có uniqueID=${uniqueID}`,
+            );
+            await browser.disconnect();
+            return;
+        }
+
+        const html = await matchedPage.content();
+        const results = await Promise.all(
+            selector.map(async (item) => {
+                try {
+                    const res = await parseSelector({
+                        instruction: item.value,
+                        html,
+                        model,
+                    });
+                    return { key: item.key, value: res.value };
+                } catch (err) {
+                    sendToRenderer(
+                        "tools-log",
+                        `[Gemini] ❌ Lỗi xử lý "${item.key}": ${err.message}`,
+                    );
+                    return { key: item.key, value: "" };
+                }
+            }),
+        );
+
+        const data = {};
+        results.forEach(({ key, value }) => {
+            data[key] = value;
+        });
+
+        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+        const jsonPath = path.join(
+            documentsDir,
+            `website-crawled-${timestamp}.json`,
+        );
+
+        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
+        sendToRenderer("tools-log", `✅ Đã lưu dữ liệu JSON: ${jsonPath}`);
+
+        await browser.disconnect();
+        if (targetWindow) targetWindow.close();
+    } catch (err) {
+        sendToRenderer("tools-log", `[Website-Crawl] ❌ Lỗi: ${err.message}`);
+        if (targetWindow) targetWindow.close();
+    }
+}
+
+async function facebookCrawl(
+    targetUrlWithUniqueID,
+    uniqueID,
+    facegroup = "",
+    maxPosts = 100,
+) {
+    let browser = null; // Khai báo ngoài để catch/finally đều dùng được
+    let timer = null;
+
+    try {
+        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Bắt đầu...");
+
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        browser = await puppeteer.connect({
+            browserWSEndpoint: json.webSocketDebuggerUrl,
+            defaultViewport: null,
+        });
+
+        const pages = await browser.pages();
+        let facebookPage = pages.find((p) =>
+            p.url().includes(`uniqueID=${uniqueID}`),
+        );
+
+        if (!facebookPage) {
+            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
+            // Nếu không tìm thấy cũng phải đóng browser
+            if (browser) await browser.disconnect();
+            return;
+        }
+
+        await facebookPage.bringToFront();
+
+        let count = 0;
+        let finished = false;
+
+        timer = setInterval(async () => {
+            if (finished) return;
+
+            try {
+                count++;
+                // Kiểm tra nếu window đã bị đóng bởi user
+                if (!targetWindow || targetWindow.isDestroyed()) {
+                    throw new Error("Target window was closed by user");
+                }
+
+                await facebookPage.keyboard.press("PageDown");
+                await facebookPage.mouse.wheel({ deltaY: 2000 });
+
+                const html = await facebookPage.content();
+                const matches =
+                    html.match(/data-ad-rendering-role="story_message"/g) || [];
+
+                // ĐIỀU KIỆN DỪNG
+                if (matches.length >= maxPosts || count >= 15) {
+                    finished = true;
+                    clearInterval(timer);
+
+                    // Xử lý click "Xem thêm"
+                    await clickAllSeeMoreButtons(facebookPage);
+
+                    const finalHtml = await facebookPage.content();
+                    const posts = extractFacebookPostsFromHTML(
+                        finalHtml,
+                        facegroup,
+                    );
+
+                    sendToRenderer("tools-response", {
+                        action: "facebook-crawl",
+                        success: true,
+                        posts,
+                    });
+
+                    // DỌN DẸP KHI THÀNH CÔNG
+                    if (browser) await browser.disconnect();
+                    if (targetWindow && !targetWindow.isDestroyed())
+                        targetWindow.close();
+                }
+            } catch (err) {
+                finished = true;
+                if (timer) clearInterval(timer);
+                sendToRenderer(
+                    "tools-log",
+                    `❌ Lỗi trong vòng lặp: ${err.message}`,
+                );
+
+                // DỌN DẸP KHI LỖI TRONG TIMER
+                if (browser) await browser.disconnect();
+                if (targetWindow && !targetWindow.isDestroyed())
+                    targetWindow.close();
+            }
+        }, 4000);
+    } catch (err) {
+        // DỌN DẸP KHI LỖI KHỞI TẠO (Puppeteer connect lỗi, fetch lỗi...)
+        if (timer) clearInterval(timer);
+        sendToRenderer("tools-log", `❌ Lỗi toàn cục: ${err.message}`);
+        if (browser) await browser.disconnect();
+        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
+    }
+}
+
+// Hàm click tất cả nút Xem thêm trong bài viết Facebook
+async function clickAllSeeMoreButtons(facebookPage) {
+    const btns = await facebookPage.$$(
+        'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]',
+    );
+
+    let count = 0;
+
+    for (const btn of btns) {
+        try {
+            const prop = await btn.getProperty("innerText");
+            const text = await prop.jsonValue();
+            sendToRenderer("tools-log", `[FB-Crawl] Button innerText: ${text}`);
+            if (
+                text &&
+                (text.includes("Xem thêm") || text.includes("See more"))
+            ) {
+                await btn.hover();
+                await btn.click();
+                count++;
+                await facebookPage.waitForTimeout(400);
+            }
+        } catch (err) {
+            // Có thể gặp detached node, bỏ qua
+        }
+    }
+
+    return count;
+}
+
+function extractFacebookPostsFromHTML(html, facegroup = "") {
+    const $ = cheerio.load(html);
+    const postDivs = $(
+        'div[role="feed"] div[data-ad-rendering-role="story_message"]',
+    );
+
+    const posts = [];
+
+    const stringToId = (str) => {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+            hash = (hash << 5) - hash + str.charCodeAt(i);
+            hash |= 0;
+        }
+        return Math.abs(hash);
+    };
+
+    postDivs.each((_, div) => {
+        const $div = $(div);
+        const parent = $div.parent("div.html-div");
+        const parents = parent.parent("div.html-div");
+        const text = $div.text().trim();
+
+        const hrefs = [];
+        const images = [];
+
+        parents.find('a[role="link"]').each((_, a) => {
+            const $a = $(a);
+            const href = $a.attr("href");
+            if (href) {
+                hrefs.push(href);
+            }
+            $a.find("img[src]").each((_, img) => {
+                const src = $(img).attr("src");
+                if (src) {
+                    images.push(src);
+                }
+            });
+        });
+
+        if (text) {
+            posts.push({
+                uuid: stringToId(text),
+                used: 0,
+                facegroup,
+                text,
+                images,
+                href: hrefs,
+            });
+        }
+    });
+
+    return posts;
+}
+
+// ==== FALLBACK SERVER ====
+function startFallbackServer() {
+    const fallbackApp = express();
+    const fallbackPath = path.resolve(__dirname, "..", "fallback");
+    fallbackApp.use(express.static(fallbackPath));
+    fallbackApp.listen(fallbackPort, () => {
+        sendToRenderer(
+            "tools-log",
+            `[✓] Fallback server chạy tại http://localhost:${fallbackPort}`,
+        );
+    });
+}
 
 puppeteer.use(StealthPlugin());
 app.commandLine.appendSwitch("remote-debugging-port", "9999"); // BẮT BUỘC cho puppeteer.connect()
@@ -778,7 +1531,7 @@ function createTargetWindow(
                 "tools-log",
                 `Target window load failed: ${errorDescription} (${errorCode})`,
             );
-            
+
             // if (targetWindow && !targetWindow.isDestroyed()) {
             //     targetWindow.close();
             // }
@@ -821,8 +1574,6 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
         }
     }
 });
-
-// ... [GIỮ NGUYÊN CODE CŨ CỦA BẠN Ở TRÊN] ...
 
 // ============================================================
 // [MỚI] EDGE TTS ENGINE (PURE NODE.JS - NO PYTHON REQUIRED)
@@ -971,6 +1722,17 @@ ipcMain.handle("read-local-audio", async (event, payload) => {
     }
 });
 
+ipcMain.handle("get-app-version", async () => {
+    return version;
+});
+
+ipcMain.on("app:relaunch", () => {
+    // Thiết lập ứng dụng sẽ mở lại sau khi đóng
+    app.relaunch();
+    // Thoát ứng dụng hiện tại ngay lập tức
+    app.exit(0);
+});
+
 // main.js (Phần xử lý ipcMain save-base64)
 ipcMain.handle("save-base64", async (event, args) => {
     // Thêm username vào destructuring
@@ -1111,639 +1873,6 @@ ipcMain.handle("capture-app", async (event, args) => {
         }
     }
 });
-
-// ================= DOWNLOAD CORE =================
-function inferExtFromUrl(url) {
-    try {
-        const u = new URL(url);
-        const fmt = u.searchParams.get("format"); // ví dụ ".webp"
-        if (fmt && /^\.\w{3,5}$/i.test(fmt)) return fmt.toLowerCase();
-        const base = path.basename(u.pathname);
-        const m = base.match(/\.(webp|jpg|jpeg|png|gif|bmp|avif)$/i);
-        if (m) return "." + m[1].toLowerCase();
-    } catch { }
-    return ".jpg";
-}
-
-function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
-    return new Promise(async (resolve, reject) => {
-        try {
-            await fs.promises.mkdir(outDir, { recursive: true });
-            const ext = inferExtFromUrl(url);
-            const hash = crypto
-                .createHash("md5")
-                .update(url)
-                .digest("hex")
-                .slice(0, 10);
-            const filename = `${filenamePrefix}${Date.now()}_${hash}${ext}`;
-            const outPath = path.join(outDir, filename);
-
-            const req = https.get(
-                url,
-                {
-                    headers: {
-                        "User-Agent":
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-                        "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
-                        Referer: "https://www.tiktok.com/",
-                    },
-                },
-                (res) => {
-                    if (
-                        res.statusCode >= 300 &&
-                        res.statusCode < 400 &&
-                        res.headers.location
-                    ) {
-                        https
-                            .get(res.headers.location, (r2) => {
-                                const ws = fs.createWriteStream(outPath);
-                                r2.pipe(ws);
-                                ws.on("finish", () => resolve(outPath));
-                                ws.on("error", reject);
-                            })
-                            .on("error", reject);
-                        return;
-                    }
-                    if (res.statusCode !== 200) {
-                        reject(new Error(`HTTP ${res.statusCode}`));
-                        return;
-                    }
-                    const ws = fs.createWriteStream(outPath);
-                    res.pipe(ws);
-                    ws.on("finish", () => resolve(outPath));
-                    ws.on("error", reject);
-                },
-            );
-            req.on("error", reject);
-        } catch (e) {
-            reject(e);
-        }
-    });
-}
-
-// ================= DREAMINA ENTRY (AUTO DOWNLOAD) =================
-function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
-    const outDir =
-        options.outDir || path.join(app.getPath("pictures"), "Dreamina");
-    const maxImages = Number.isFinite(options.maxImages)
-        ? options.maxImages
-        : 100;
-    const filenamePrefix = options.filenamePrefix || "dreamina_";
-
-    if (!targetWindow || targetWindow.isDestroyed()) {
-        sendToRenderer("tools-log", "[Dreamina] ❌ Không có targetWindow.");
-        return;
-    }
-
-    // chống tải trùng/lặp quá nhiều
-    const seen = new Set();
-    let saved = 0;
-
-    const onFound = async (_evt, payload) => {
-        const src = payload?.src;
-        if (!src || seen.has(src) || saved >= maxImages) return;
-        seen.add(src);
-        try {
-            const p = await downloadImage(src, outDir, filenamePrefix);
-            saved += 1;
-            sendToRenderer("tools-log", `[Dreamina] ✅ Đã tải: ${p}`);
-        } catch (e) {
-            sendToRenderer(
-                "tools-log",
-                `[Dreamina] ❌ Lỗi tải ${src}: ${e.message}`,
-            );
-        }
-    };
-
-    const onDebug = (_evt, msg) => sendToRenderer("tools-log", String(msg));
-
-    ipcMain.on("dreamina:image-found", onFound);
-    ipcMain.on("dreamina:debug", onDebug);
-
-    // Báo preload (dù preload tự boot)
-    try {
-        targetWindow.webContents.send("dreamina:start");
-    } catch { }
-
-    // Dọn dẹp theo vòng đời cửa sổ
-    const wc = targetWindow.webContents;
-    const cleanup = () => {
-        ipcMain.removeListener("dreamina:image-found", onFound);
-        ipcMain.removeListener("dreamina:debug", onDebug);
-        try {
-            wc.send("dreamina:stop");
-        } catch { }
-    };
-    targetWindow.once("closed", cleanup);
-
-    sendToRenderer(
-        "tools-log",
-        `[Dreamina] 👀 Tự động tải khi ảnh chi tiết xuất hiện… (uniqueID=${uniqueID})`,
-    );
-}
-
-// Hàm dùng để set cookie vào session
-async function setFacebookCookiesFromFile(cookieFilePath) {
-    if (!fs.existsSync(cookieFilePath)) return false;
-    const cookies = JSON.parse(fs.readFileSync(cookieFilePath, "utf-8"));
-
-    for (const cookie of cookies) {
-        // Bắt buộc có url khi set cookie cho Electron
-        let url = "";
-
-        if (cookie.secure) {
-            url = `https://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
-        } else {
-            url = `http://${cookie.domain.replace(/^\./, "")}${cookie.path}`;
-        }
-
-        try {
-            await session.defaultSession.cookies.set({
-                url,
-                name: cookie.name,
-                value: cookie.value,
-                domain: cookie.domain,
-                path: cookie.path,
-                secure: cookie.secure,
-                httpOnly: cookie.httpOnly,
-                expirationDate: cookie.expires > 0 ? cookie.expires : undefined,
-                sameSite: cookie.sameSite,
-            });
-        } catch (err) {
-            console.log(`Set cookie ${cookie.name} lỗi:`, err.message);
-        }
-    }
-    return true;
-}
-
-// ==== SCREENSHOT ====
-async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
-    try {
-        sendToRenderer("tools-log", "[Screenshot] Bắt đầu...");
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const screenshotPath = path.join(
-            documentsDir,
-            `screenshot-${timestamp}.png`,
-        );
-
-        sendToRenderer(
-            "tools-log",
-            "[Screenshot] Đang fetch Chrome remote debug...",
-        );
-
-        const res = await fetch("http://localhost:9999/json/version");
-        const json = await res.json();
-        const browser = await puppeteer.connect({
-            browserWSEndpoint: json.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-
-        sendToRenderer("tools-log", "[Screenshot] Puppeteer đã connect.");
-
-        const pages = await browser.pages();
-        sendToRenderer("tools-log", `[Screenshot] Có ${pages.length} page.`);
-
-        let matchedPage = null;
-        for (const page of pages) {
-            const pageUrl = page.url();
-            sendToRenderer("tools-log", `[Screenshot] Page URL: ${pageUrl}`);
-            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
-                matchedPage = page;
-                break;
-            }
-        }
-
-        if (!matchedPage) {
-            sendToRenderer(
-                "tools-log",
-                `[Screenshot] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
-            );
-            await browser.disconnect();
-            return;
-        }
-
-        await matchedPage.screenshot({
-            path: screenshotPath,
-            fullPage: true,
-        });
-
-        sendToRenderer(
-            "tools-log",
-            `[Screenshot] ✅ Đã chụp ảnh: ${screenshotPath}`,
-        );
-
-        await browser.disconnect();
-        if (targetWindow) targetWindow.close();
-    } catch (err) {
-        sendToRenderer(
-            "tools-log",
-            `[Screenshot] ❌ Lỗi khi chụp ảnh: ${err.message}`,
-        );
-        if (targetWindow) targetWindow.close();
-    }
-}
-
-async function getFacebookCookies(uniqueID, event) {
-    try {
-        sendToRenderer(
-            "tools-log",
-            `[FB-GetCookie] Đang tìm page với uniqueID=${uniqueID}...`,
-        );
-
-        const res = await fetch("http://localhost:9999/json/version");
-        const json = await res.json();
-        const browser = await puppeteer.connect({
-            browserWSEndpoint: json.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-
-        const pages = await browser.pages();
-        let matchedPage = null;
-
-        for (const page of pages) {
-            const pageUrl = page.url();
-            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
-                matchedPage = page;
-                break;
-            }
-        }
-
-        if (!matchedPage) {
-            sendToRenderer(
-                "tools-log",
-                `[FB-GetCookie] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
-            );
-            event.reply("tools-response", {
-                error: `Không tìm thấy tab đăng nhập Facebook!`,
-            });
-            await browser.disconnect();
-            return;
-        }
-
-        const cookies = await matchedPage.cookies();
-        // Lưu file vào Documents
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const cookiePath = path.join(
-            documentsDir,
-            `fb-cookies-${timestamp}.json`,
-        );
-        fs.writeFileSync(cookiePath, JSON.stringify(cookies, null, 2), "utf-8");
-
-        sendToRenderer(
-            "tools-log",
-            `[FB-GetCookie] Đã lưu cookies vào: ${cookiePath}`,
-        );
-
-        // Trả cookie về UI
-        event.reply("tools-response", {
-            action: "get-facebook-cookies",
-            success: true,
-            cookies,
-            file: cookiePath,
-        });
-
-        await browser.disconnect();
-        if (targetWindow) targetWindow.close();
-    } catch (err) {
-        sendToRenderer("tools-log", `[FB-GetCookie] ❌ Lỗi: ${err.message}`);
-        event.reply("tools-response", { error: err.message });
-        if (targetWindow) targetWindow.close();
-    }
-}
-
-async function connectApps(targetUrlWithUniqueID, uniqueID) {
-    try {
-        sendToRenderer("tools-log", "[FB-Login] Bắt đầu...");
-
-        const res = await fetch("http://localhost:9999/json/version");
-        const json = await res.json();
-        const browser = await puppeteer.connect({
-            browserWSEndpoint: json.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-
-        sendToRenderer("tools-log", "[FB-Login] Puppeteer đã connect.");
-
-        const pages = await browser.pages();
-        sendToRenderer("tools-log", `[FB-Login] Có ${pages.length} page.`);
-
-        let matchedPage = null;
-        for (const page of pages) {
-            const pageUrl = page.url();
-
-            sendToRenderer("tools-log", `[FB-Login] Page URL: ${pageUrl}`);
-
-            if (pageUrl.includes(`uniqueID=${uniqueID}`)) {
-                matchedPage = page;
-                break;
-            }
-        }
-
-        if (!matchedPage) {
-            sendToRenderer(
-                "tools-log",
-                `[FB-Login] ❌ Không tìm thấy page có uniqueID=${uniqueID}`,
-            );
-            await browser.disconnect();
-            return;
-        }
-
-        sendToRenderer(
-            "tools-log",
-            `[FB-Login] Đã tìm thấy tab Facebook cần đăng nhập!`,
-        );
-
-        // Tùy mục tiêu, ví dụ: lấy cookie sau khi user tự login
-        // Chờ user login, bạn có thể chờ đến khi url đổi sang https://www.facebook.com/?sk=welcome hoặc cookie đầy đủ
-        // Ở đây mình lấy cookies luôn sau 20s (hoặc bạn có thể trigger bằng nút trên giao diện, hoặc logic thông minh hơn)
-        setTimeout(async () => {
-            const cookies = await matchedPage.cookies();
-            sendToRenderer(
-                "tools-log",
-                `[FB-Login] Cookie sau login: ${JSON.stringify(cookies)}`,
-            );
-            // Bạn có thể lưu cookies vào file hoặc gửi trả về renderer nếu cần
-            await browser.disconnect();
-            if (targetWindow) targetWindow.close();
-        }, 200000); // chờ 200s, tuỳ ý
-    } catch (err) {
-        sendToRenderer("tools-log", `[FB-Login] ❌ Lỗi: ${err.message}`);
-        if (targetWindow) targetWindow.close();
-    }
-}
-
-async function websiteCrawl(
-    targetUrlWithUniqueID,
-    uniqueID,
-    selector = [],
-    model,
-) {
-    try {
-        sendToRenderer("tools-log", "[Website-Crawl] Bắt đầu...");
-
-        const res = await fetch("http://localhost:9999/json/version");
-        const json = await res.json();
-        const browser = await puppeteer.connect({
-            browserWSEndpoint: json.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-
-        const pages = await browser.pages();
-        const matchedPage = pages.find((page) =>
-            page.url().includes(`uniqueID=${uniqueID}`),
-        );
-
-        if (!matchedPage) {
-            sendToRenderer(
-                "tools-log",
-                `[Website-Crawl] ❌ Không tìm thấy tab có uniqueID=${uniqueID}`,
-            );
-            await browser.disconnect();
-            return;
-        }
-
-        const html = await matchedPage.content();
-        const results = await Promise.all(
-            selector.map(async (item) => {
-                try {
-                    const res = await parseSelector({
-                        instruction: item.value,
-                        html,
-                        model,
-                    });
-                    return { key: item.key, value: res.value };
-                } catch (err) {
-                    sendToRenderer(
-                        "tools-log",
-                        `[Gemini] ❌ Lỗi xử lý "${item.key}": ${err.message}`,
-                    );
-                    return { key: item.key, value: "" };
-                }
-            }),
-        );
-
-        const data = {};
-        results.forEach(({ key, value }) => {
-            data[key] = value;
-        });
-
-        const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-        const jsonPath = path.join(
-            documentsDir,
-            `website-crawled-${timestamp}.json`,
-        );
-
-        fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
-        sendToRenderer("tools-log", `✅ Đã lưu dữ liệu JSON: ${jsonPath}`);
-
-        await browser.disconnect();
-        if (targetWindow) targetWindow.close();
-    } catch (err) {
-        sendToRenderer("tools-log", `[Website-Crawl] ❌ Lỗi: ${err.message}`);
-        if (targetWindow) targetWindow.close();
-    }
-}
-
-async function facebookCrawl(
-    targetUrlWithUniqueID,
-    uniqueID,
-    facegroup = "",
-    maxPosts = 100,
-) {
-    let browser = null; // Khai báo ngoài để catch/finally đều dùng được
-    let timer = null;
-
-    try {
-        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Bắt đầu...");
-
-        const res = await fetch("http://localhost:9999/json/version");
-        const json = await res.json();
-        browser = await puppeteer.connect({
-            browserWSEndpoint: json.webSocketDebuggerUrl,
-            defaultViewport: null,
-        });
-
-        const pages = await browser.pages();
-        let facebookPage = pages.find((p) =>
-            p.url().includes(`uniqueID=${uniqueID}`),
-        );
-
-        if (!facebookPage) {
-            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
-            // Nếu không tìm thấy cũng phải đóng browser
-            if (browser) await browser.disconnect();
-            return;
-        }
-
-        await facebookPage.bringToFront();
-
-        let count = 0;
-        let finished = false;
-
-        timer = setInterval(async () => {
-            if (finished) return;
-
-            try {
-                count++;
-                // Kiểm tra nếu window đã bị đóng bởi user
-                if (!targetWindow || targetWindow.isDestroyed()) {
-                    throw new Error("Target window was closed by user");
-                }
-
-                await facebookPage.keyboard.press("PageDown");
-                await facebookPage.mouse.wheel({ deltaY: 2000 });
-
-                const html = await facebookPage.content();
-                const matches =
-                    html.match(/data-ad-rendering-role="story_message"/g) || [];
-
-                // ĐIỀU KIỆN DỪNG
-                if (matches.length >= maxPosts || count >= 15) {
-                    finished = true;
-                    clearInterval(timer);
-
-                    // Xử lý click "Xem thêm"
-                    await clickAllSeeMoreButtons(facebookPage);
-
-                    const finalHtml = await facebookPage.content();
-                    const posts = extractFacebookPostsFromHTML(
-                        finalHtml,
-                        facegroup,
-                    );
-
-                    sendToRenderer("tools-response", {
-                        action: "facebook-crawl",
-                        success: true,
-                        posts,
-                    });
-
-                    // DỌN DẸP KHI THÀNH CÔNG
-                    if (browser) await browser.disconnect();
-                    if (targetWindow && !targetWindow.isDestroyed())
-                        targetWindow.close();
-                }
-            } catch (err) {
-                finished = true;
-                if (timer) clearInterval(timer);
-                sendToRenderer(
-                    "tools-log",
-                    `❌ Lỗi trong vòng lặp: ${err.message}`,
-                );
-
-                // DỌN DẸP KHI LỖI TRONG TIMER
-                if (browser) await browser.disconnect();
-                if (targetWindow && !targetWindow.isDestroyed())
-                    targetWindow.close();
-            }
-        }, 4000);
-    } catch (err) {
-        // DỌN DẸP KHI LỖI KHỞI TẠO (Puppeteer connect lỗi, fetch lỗi...)
-        if (timer) clearInterval(timer);
-        sendToRenderer("tools-log", `❌ Lỗi toàn cục: ${err.message}`);
-        if (browser) await browser.disconnect();
-        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
-    }
-}
-
-// Hàm click tất cả nút Xem thêm trong bài viết Facebook
-async function clickAllSeeMoreButtons(facebookPage) {
-    const btns = await facebookPage.$$(
-        'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]',
-    );
-
-    let count = 0;
-
-    for (const btn of btns) {
-        try {
-            const prop = await btn.getProperty("innerText");
-            const text = await prop.jsonValue();
-            sendToRenderer("tools-log", `[FB-Crawl] Button innerText: ${text}`);
-            if (
-                text &&
-                (text.includes("Xem thêm") || text.includes("See more"))
-            ) {
-                await btn.hover();
-                await btn.click();
-                count++;
-                await facebookPage.waitForTimeout(400);
-            }
-        } catch (err) {
-            // Có thể gặp detached node, bỏ qua
-        }
-    }
-
-    return count;
-}
-
-function extractFacebookPostsFromHTML(html, facegroup = "") {
-    const $ = cheerio.load(html);
-    const postDivs = $(
-        'div[role="feed"] div[data-ad-rendering-role="story_message"]',
-    );
-
-    const posts = [];
-
-    const stringToId = (str) => {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = (hash << 5) - hash + str.charCodeAt(i);
-            hash |= 0;
-        }
-        return Math.abs(hash);
-    };
-
-    postDivs.each((_, div) => {
-        const $div = $(div);
-        const parent = $div.parent("div.html-div");
-        const parents = parent.parent("div.html-div");
-        const text = $div.text().trim();
-
-        const hrefs = [];
-        const images = [];
-
-        parents.find('a[role="link"]').each((_, a) => {
-            const $a = $(a);
-            const href = $a.attr("href");
-            if (href) {
-                hrefs.push(href);
-            }
-            $a.find("img[src]").each((_, img) => {
-                const src = $(img).attr("src");
-                if (src) {
-                    images.push(src);
-                }
-            });
-        });
-
-        if (text) {
-            posts.push({
-                uuid: stringToId(text),
-                used: 0,
-                facegroup,
-                text,
-                images,
-                href: hrefs,
-            });
-        }
-    });
-
-    return posts;
-}
-
-// ==== FALLBACK SERVER ====
-function startFallbackServer() {
-    const fallbackApp = express();
-    const fallbackPath = path.resolve(__dirname, "..", "fallback");
-    fallbackApp.use(express.static(fallbackPath));
-    fallbackApp.listen(fallbackPort, () => {
-        sendToRenderer(
-            "tools-log",
-            `[✓] Fallback server chạy tại http://localhost:${fallbackPort}`,
-        );
-    });
-}
 
 // ===== GLOBAL WINDOW.OPEN HANDLER =====
 app.on("web-contents-created", (_event, contents) => {
@@ -2346,150 +2475,29 @@ app.whenReady().then(() => {
         if (targetWindow) targetWindow.close();
     });
 
-    globalShortcut.register("CommandOrControl+Shift+N", () => {
+    globalShortcut.register("CommandOrControl+N", () => {
         createMainWindow();
     });
+
+    // Đăng ký phím tắt CTRL+R hoặc Command+R
+    globalShortcut.register('CommandOrControl+R', () => {
+        if (mainWindow) {
+            mainWindow.reload(); // Làm mới cửa sổ chính
+            console.log('Đã làm mới trình duyệt');
+        }
+    });
+
 });
 
+// Hủy đăng ký khi ứng dụng đóng để tránh rò rỉ bộ nhớ
 app.on("will-quit", () => {
+    globalShortcut.unregisterAll();
     if (serviceProcess) serviceProcess.kill("SIGTERM");
 });
 
 app.on("window-all-closed", () => {
     if (process.platform !== "darwin") app.quit();
 });
-
-// =====================================================================
-// Google Ads Keyword Planner IPC (ads:keywordIdeas)
-// =====================================================================
-
-const ADS_CLIENT_ID =
-    process.env.ADS_CLIENT_ID ||
-    "90514980593-9tqqkt4eobhee5aqrft3f6s5mpkakbp0.apps.googleusercontent.com";
-const ADS_CLIENT_SECRET =
-    process.env.ADS_CLIENT_SECRET || "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";
-const ADS_DEVELOPER_TOKEN =
-    process.env.ADS_DEVELOPER_TOKEN || "OsRSnxr4OiG6bfuG0RqVtw";
-const ADS_REFRESH_TOKEN =
-    process.env.ADS_REFRESH_TOKEN ||
-    "1//0g2m3ngcIRj1zCgYIARAAGBASNwF-L9Irbur0YDEMdc0wcZ65b0gxav-3MUFMhqRKkAux2N0yIoGt60mNzTGqAJJrjSNYJIYPX4k";
-const ADS_CUSTOMER_ID = process.env.ADS_CUSTOMER_ID || "6453144045";
-
-let adsOauthClient = null;
-if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
-    adsOauthClient = new OAuth2Client(
-        ADS_CLIENT_ID,
-        ADS_CLIENT_SECRET,
-        "urn:ietf:wg:oauth:2.0:oob",
-    );
-    adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
-}
-
-async function googleAdsGenerateKeywordIdeas({
-    keywordText,
-    customerId,
-    language,
-    geoTargetConstants,
-}) {
-    if (!adsOauthClient) {
-        throw new Error(
-            "Chưa cấu hình ADS_CLIENT_ID / ADS_CLIENT_SECRET / ADS_REFRESH_TOKEN",
-        );
-    }
-    if (!ADS_DEVELOPER_TOKEN) {
-        throw new Error("Chưa cấu hình ADS_DEVELOPER_TOKEN");
-    }
-    if (!customerId) {
-        throw new Error("Thiếu ADS_CUSTOMER_ID");
-    }
-    if (!keywordText) {
-        throw new Error("Thiếu keywordText");
-    }
-
-    const { token } = await adsOauthClient.getAccessToken();
-    if (!token) {
-        throw new Error("Không lấy được access token cho Google Ads");
-    }
-
-    const postData = JSON.stringify({
-        customerId,
-        language: language || "languageConstants/1004",
-        geoTargetConstants:
-            geoTargetConstants && geoTargetConstants.length
-                ? geoTargetConstants
-                : ["geoTargetConstants/2392"],
-        keywordPlanNetwork: "GOOGLE_SEARCH",
-        keywordSeed: {
-            keywords: [keywordText],
-        },
-    });
-
-    return await new Promise((resolve, reject) => {
-        const req = https.request(
-            {
-                method: "POST",
-                hostname: "googleads.googleapis.com",
-                path: `/v16/customers/${customerId}:generateKeywordIdeas`,
-                headers: {
-                    "Content-Type": "application/json",
-                    "Content-Length": Buffer.byteLength(postData),
-                    Authorization: `Bearer ${token}`,
-                    "developer-token": ADS_DEVELOPER_TOKEN,
-                },
-            },
-            (res) => {
-                let raw = "";
-                res.on("data", (chunk) => (raw += chunk.toString()));
-                res.on("end", () => {
-                    if (!raw) {
-                        return reject(
-                            new Error(
-                                `Google Ads API trả về body rỗng (status ${res.statusCode})`,
-                            ),
-                        );
-                    }
-
-                    const contentType = (
-                        res.headers["content-type"] || ""
-                    ).toLowerCase();
-
-                    if (!contentType.includes("application/json")) {
-                        return reject(
-                            new Error(
-                                `Google Ads API trả về nội dung không phải JSON (status ${res.statusCode}). ` +
-                                `Có thể Developer Token / tài khoản chưa được bật API. Preview: ${raw.slice(0, 200)}`,
-                            ),
-                        );
-                    }
-
-                    try {
-                        const json = JSON.parse(raw);
-                        if (res.statusCode >= 200 && res.statusCode < 300) {
-                            resolve(json);
-                        } else {
-                            reject(
-                                new Error(
-                                    json.error?.message ||
-                                    `Google Ads API Error ${res.statusCode}`,
-                                ),
-                            );
-                        }
-                    } catch (e) {
-                        reject(
-                            new Error(
-                                `Không parse được JSON từ Google Ads API (status ${res.statusCode}). Body: ${raw.slice(0, 200)}`,
-                            ),
-                        );
-                    }
-                });
-            },
-        );
-
-        req.on("error", (err) => reject(err));
-        req.write(postData);
-        req.end();
-    });
-}
 
 ipcMain.handle("ads:keywordIdeas", async (_event, args) => {
     try {

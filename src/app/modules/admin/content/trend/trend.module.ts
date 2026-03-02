@@ -20,7 +20,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { SharedModule } from 'app/shared.module';
-import { AIFacePostComponent } from 'app/modules/admin/content/ai-face2node/ai-face2node.component';
+import { AIFacePostComponent } from 'app/modules/admin/content/trend/trend.component';
 
 const Routes: Route[] = [
     {

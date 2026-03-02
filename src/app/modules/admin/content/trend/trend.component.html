@@ -284,7 +284,11 @@
 
                                         <!-- Actions -->
                                         <div class="flex shrink-0 items-center pr-4">
-                                            ?
+                                            <button color="primary" (click)="analyticsTrend()"
+                                            type="button" mat-flat-button>
+                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
+                                            <mat-label class="ml-2">Phân tích xu hướng</mat-label>
+                                        </button>
                                         </div>
                                     </div>
                                 </ng-template>

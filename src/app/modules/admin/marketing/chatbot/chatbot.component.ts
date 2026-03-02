@@ -507,7 +507,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (res) => {
                     if (res.success) {
-                        this.toastr.success('Upload thành công: ' + res.filename + '!');
+                        this.toastr.success('Upload thành công!');
                     } else {
                         this.toastr.error('Upload thất bại.');
                     }
