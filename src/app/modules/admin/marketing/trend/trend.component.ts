@@ -16,7 +16,11 @@ import {
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { CrawlService } from 'app/modules/_services/crawl';
-import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import {
+    ColumnMode,
+    DatatableComponent,
+    SelectionType,
+} from '@swimlane/ngx-datatable';
 import { ToastrService } from 'ngx-toastr';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -56,7 +60,8 @@ import { HelperService } from 'app/helper.service';
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AIFacePostComponent
-    implements OnInit, OnDestroy, AfterContentChecked {
+    implements OnInit, OnDestroy, AfterContentChecked
+{
     animationStates: any;
     user: User;
     config: AppConfig;
@@ -121,7 +126,7 @@ export class AIFacePostComponent
     onSelect({ selected }): void {
         // Lọc bỏ những dòng là nhãn ngày tháng (isHeader === true)
         // Chỉ giữ lại những dòng dữ liệu thật
-        const validSelection = selected.filter(row => !row.isHeader);
+        const validSelection = selected.filter((row) => !row.isHeader);
 
         // Cập nhật lại mảng selected với những dòng hợp lệ
         this.selected.splice(0, this.selected.length);
@@ -186,8 +191,8 @@ export class AIFacePostComponent
                         this.getLinks(result.data[0]['_id'], 0);
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -221,7 +226,7 @@ export class AIFacePostComponent
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
-                complete: () => { },
+                complete: () => {},
             });
 
         // lấy bài theo collection
@@ -250,8 +255,8 @@ export class AIFacePostComponent
                         this.getCategories(this.domains[0] ?? ['domain']);
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -275,8 +280,8 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -316,8 +321,8 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -386,14 +391,16 @@ export class AIFacePostComponent
                         const newRowsWithHeaders = [];
 
                         resData.docs.forEach((doc: any) => {
-                            const currentDate = moment(doc.createdAt).format('DD/MM/YYYY');
+                            const currentDate = moment(doc.createdAt).format(
+                                'DD/MM/YYYY',
+                            );
 
                             // Nếu ngày của row này khác với ngày trước đó, chèn một row "Header"
                             if (currentDate !== this.lastDateHeader) {
                                 newRowsWithHeaders.push({
                                     isHeader: true,
                                     dateLabel: currentDate,
-                                    selectable: false // Để logic checkbox biết đường mà tránh
+                                    selectable: false, // Để logic checkbox biết đường mà tránh
                                 });
                                 this.lastDateHeader = currentDate;
                             }
@@ -402,20 +409,25 @@ export class AIFacePostComponent
                             newRowsWithHeaders.push({
                                 ...doc,
                                 isHeader: false,
-                                selectable: true
+                                selectable: true,
                             });
                         });
 
-                        // Đổ vào mảng rows chính (Vì mảng có thêm header nên page size sẽ lệch nhẹ, 
+                        // Đổ vào mảng rows chính (Vì mảng có thêm header nên page size sẽ lệch nhẹ,
                         // nhưng đây là cách đơn giản nhất để hiển thị)
-                        this.rows = [...(this.rows || []), ...newRowsWithHeaders];
+                        this.rows = [
+                            ...(this.rows || []),
+                            ...newRowsWithHeaders,
+                        ];
                         this.totalElements = this.rows.length;
-                        this.totalDisplayCount = this.rows.filter(row => !row.isHeader).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
+                        this.totalDisplayCount = this.rows.filter(
+                            (row) => !row.isHeader,
+                        ).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
 
                         this.currentBookmark = resData.bookmark;
-                        this.cd.markForCheck();
+                        this.cd.detectChanges();
                     }
-                }
+                },
             });
     }
 
@@ -433,9 +445,9 @@ export class AIFacePostComponent
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => { },
-                error: () => { },
-                complete: () => { },
+                next: () => {},
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -473,7 +485,7 @@ export class AIFacePostComponent
     }
 
     async crawl(url: string) {
-        this.loading = !this.loading;
+        this.loading = true;
         const collection = this.sitemapForm.controls['collection'].value;
 
         // Tạo uniqueID mỗi lần chụp
@@ -481,7 +493,8 @@ export class AIFacePostComponent
 
         // Các tham số selector truyền vào backend
         const storySelector = 'data-ad-rendering-role="story_message"';
-        const seeMoreSelector = 'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
+        const seeMoreSelector =
+            'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
         const seeMoreText = 'Xem thêm'; // Có thể đổi thành 'See more' tùy tài khoản FB
 
         await (window as any).electron.tools({
@@ -495,39 +508,43 @@ export class AIFacePostComponent
             // Tham số động
             storySelector: storySelector,
             seeMoreSelector: seeMoreSelector,
-            seeMoreText: seeMoreText
+            seeMoreText: seeMoreText,
         });
     }
 
     selectRowsByDate(dateLabel: string): void {
         // 1. Lấy tất cả các dòng dữ liệu thật thuộc về ngày này
-        const rowsInDate = this.rows.filter(row =>
-            !row.isHeader && moment(row.createdAt).format('DD/MM/YYYY') === dateLabel
+        const rowsInDate = this.rows.filter(
+            (row) =>
+                !row.isHeader &&
+                moment(row.createdAt).format('DD/MM/YYYY') === dateLabel,
         );
 
         if (rowsInDate.length === 0) return;
 
         // 2. Kiểm tra xem TOÀN BỘ các dòng của ngày này đã nằm trong danh sách 'selected' chưa
-        const isAllSelected = rowsInDate.every(row =>
-            this.selected.some(s => s._id === row._id)
+        const isAllSelected = rowsInDate.every((row) =>
+            this.selected.some((s) => s._id === row._id),
         );
 
         let newSelected = [...this.selected];
 
         if (isAllSelected) {
             // TRƯỜNG HỢP REMOVE: Nếu đã chọn hết rồi -> Bỏ chọn tất cả các dòng của ngày này
-            newSelected = newSelected.filter(s =>
-                moment(s.createdAt).format('DD/MM/YYYY') !== dateLabel
+            newSelected = newSelected.filter(
+                (s) => moment(s.createdAt).format('DD/MM/YYYY') !== dateLabel,
             );
             this.toastr.info(`Đã bỏ chọn các bài viết ngày ${dateLabel}`);
         } else {
             // TRƯỜNG HỢP SELECT: Thêm những dòng của ngày này còn thiếu vào danh sách chọn
-            rowsInDate.forEach(row => {
-                if (!newSelected.some(s => s._id === row._id)) {
+            rowsInDate.forEach((row) => {
+                if (!newSelected.some((s) => s._id === row._id)) {
                     newSelected.push(row);
                 }
             });
-            this.toastr.success(`Đã chọn ${rowsInDate.length} bài viết ngày ${dateLabel}`);
+            this.toastr.success(
+                `Đã chọn ${rowsInDate.length} bài viết ngày ${dateLabel}`,
+            );
         }
 
         // 3. Cập nhật lại mảng selected để Table hiển thị đúng checkbox
@@ -540,7 +557,9 @@ export class AIFacePostComponent
         const dataToAnalyze = this.selected;
 
         if (dataToAnalyze.length === 0) {
-            this.toastr.warning('Vui lòng chọn ít nhất một bài viết hoặc một ngày để phân tích!');
+            this.toastr.warning(
+                'Vui lòng chọn ít nhất một bài viết hoặc một ngày để phân tích!',
+            );
             return;
         }
 
@@ -561,28 +580,34 @@ export class AIFacePostComponent
                 .subscribe({
                     next: (result) => {
                         if (result && result.success) {
-                            // cập nhật lại số liệu
-                            this.updateCount(1);
+                            this.toastr.success(`Lưu thành công!`);
 
                             // lưu ảnh trên CDN
                             if (item.images && item.images.length > 0) {
                                 this.storeImage(item.images);
                             }
 
-                            this.toastr.success(`Lưu thành công!`);
-                        }
+                            // cập nhật lại số liệu
+                            this.updateCount(1);
 
-                        // tiếp tục lưu
-                        data.splice(0, 1);
-                        this.storePost(data);
+                            // tiếp tục lưu
+                            data.splice(0, 1);
+                            this.storePost(data);
+                        }
                     },
                     error: () => {
                         // lỗi cũng cố gắng chạy lại
-                        data.splice(0, 1);
+                        // data.splice(0, 1);
                         this.storePost(data);
                     },
-                    complete: () => { },
+                    complete: () => {},
                 });
+        } else {
+            // quét tiếp
+            if (this.links.length > 0) {
+                this.links.splice(0, 1);
+                this.createAllSitemap();
+            }
         }
     }
 
@@ -597,16 +622,16 @@ export class AIFacePostComponent
                     })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
-                        next: () => { },
-                        error: () => { },
-                        complete: () => { },
+                        next: () => {},
+                        error: () => {},
+                        complete: () => {},
                     });
             }
         });
     }
 
     async stop() {
-        this.loading = !this.loading;
+        this.loading = false;
 
         // Tạo uniqueID mỗi lần chụp
         await (window as any).electron.tools({
@@ -637,7 +662,7 @@ export class AIFacePostComponent
                         this.toastr.error('Lỗi trong quá trình chuyển.');
                     }
                 },
-                error: (e: any) => { },
+                error: (e: any) => {},
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -695,8 +720,8 @@ export class AIFacePostComponent
                         this.cd.markForCheck();
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -731,7 +756,7 @@ export class AIFacePostComponent
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => { },
+                complete: () => {},
             });
     }
 
@@ -845,22 +870,18 @@ export class AIFacePostComponent
         // Nhận phản hồi, theo dõi hoạt động từ main process
         this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: { action: string; success: any; posts: any }) => {
+                // lam moi lai giao dien
+                this.loading = false;
+                this.toastr.success(`Quét Facebook thành công!`);
+
                 if (data.action === 'facebook-crawl' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
                         // cập nhật bảng
                         this.rows = [...data.posts, ...this.rows];
-                        this.selected = [...data.posts, ...this.selected];
+                        // this.selected = [...data.posts, ...this.selected];
 
                         // tự động lưu
                         this.storePost(data.posts);
-
-                        // quét tiếp
-                        this.links.splice(0, 1);
-                        this.createAllSitemap();
-
-                        // lam moi lai giao dien
-                        this.loading = !this.loading;
-                        this.toastr.success(`Quét Facebook thành công!`);
                     }
                 } else {
                     this.toastr.info('Chương trình đang được khởi tạo.');
@@ -871,12 +892,13 @@ export class AIFacePostComponent
         // Nhận phản hồi
         this.unsubscribeLog = (window as any).electron.onToolsLog(
             (msg: any) => {
+                this.loading = false;
                 console.log('Log từ main:', msg);
             },
         );
     }
 
-    ngAfterContentChecked(): void { }
+    ngAfterContentChecked(): void {}
 
     /**
      * On init
