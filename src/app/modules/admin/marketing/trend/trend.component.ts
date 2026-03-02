@@ -478,13 +478,24 @@ export class AIFacePostComponent
 
         // Tạo uniqueID mỗi lần chụp
         const uniqueID = Math.random().toString(36).substr(2, 9);
+
+        // Các tham số selector truyền vào backend
+        const storySelector = 'data-ad-rendering-role="story_message"';
+        const seeMoreSelector = 'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
+        const seeMoreText = 'Xem thêm'; // Có thể đổi thành 'See more' tùy tài khoản FB
+
         await (window as any).electron.tools({
             url: url,
             command: 'facebook-crawl',
             uniqueID,
             facegroup: collection['_id'],
+            type: 'post',
             maxPosts: this.sitemapForm.controls['length'].value,
-            cookiePath: this.fbCookiePath, // Đường dẫn file cookie .json đã lưu
+            cookiePath: this.fbCookiePath,
+            // Tham số động
+            storySelector: storySelector,
+            seeMoreSelector: seeMoreSelector,
+            seeMoreText: seeMoreText
         });
     }
 

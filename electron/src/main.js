@@ -644,18 +644,24 @@ async function websiteCrawl(
     }
 }
 
-async function facebookCrawl(
-    targetUrlWithUniqueID,
-    uniqueID,
-    facegroup = "",
-    maxPosts = 100,
-) {
-    let browser = null; // Khai báo ngoài để catch/finally đều dùng được
+async function facebookCrawl(args) {
+    // Bóc tách toàn bộ tham số được truyền từ Frontend
+    const {
+        uniqueID,
+        facegroup,
+        maxPosts,
+        storySelector,
+        seeMoreSelector,
+        seeMoreText
+    } = args;
+
+    let browser = null;
     let timer = null;
 
     try {
         sendToRenderer("tools-log", "[FB-Crawl] 🚀 Bắt đầu...");
 
+        // Kết nối tới browser đang mở (theo logic của bạn)
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
         browser = await puppeteer.connect({
@@ -664,13 +670,10 @@ async function facebookCrawl(
         });
 
         const pages = await browser.pages();
-        let facebookPage = pages.find((p) =>
-            p.url().includes(`uniqueID=${uniqueID}`),
-        );
+        let facebookPage = pages.find((p) => p.url().includes(`uniqueID=${uniqueID}`));
 
         if (!facebookPage) {
             sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
-            // Nếu không tìm thấy cũng phải đóng browser
             if (browser) await browser.disconnect();
             return;
         }
@@ -685,149 +688,104 @@ async function facebookCrawl(
 
             try {
                 count++;
-                // Kiểm tra nếu window đã bị đóng bởi user
+                // Kiểm tra window Electron (targetWindow phải được định nghĩa toàn cục hoặc trong scope này)
                 if (!targetWindow || targetWindow.isDestroyed()) {
                     throw new Error("Target window was closed by user");
                 }
 
+                // Scroll
                 await facebookPage.keyboard.press("PageDown");
                 await facebookPage.mouse.wheel({ deltaY: 2000 });
 
                 const html = await facebookPage.content();
-                const matches =
-                    html.match(/data-ad-rendering-role="story_message"/g) || [];
 
-                // ĐIỀU KIỆN DỪNG
-                if (matches.length >= maxPosts || count >= 15) {
+                // Đếm post dựa trên storySelector động
+                const regex = new RegExp(storySelector, 'g');
+                const matches = html.match(regex) || [];
+
+                sendToRenderer("tools-log", `[FB-Crawl] Đang quét: ${matches.length}/${maxPosts} bài viết...`);
+
+                // Điều kiện dừng
+                if (matches.length >= maxPosts || count >= 20) {
                     finished = true;
                     clearInterval(timer);
 
-                    // Xử lý click "Xem thêm"
-                    await clickAllSeeMoreButtons(facebookPage);
+                    sendToRenderer("tools-log", `[FB-Crawl] Đang mở rộng nội dung...`);
 
+                    // Gọi hàm click nút "Xem thêm"
+                    await clickAllSeeMoreButtons(facebookPage, seeMoreSelector, seeMoreText);
+
+                    // Lấy HTML cuối cùng sau khi đã update nội dung đầy đủ
                     const finalHtml = await facebookPage.content();
-                    const posts = extractFacebookPostsFromHTML(
-                        finalHtml,
-                        facegroup,
-                    );
+                    const posts = extractFacebookPostsFromHTML(finalHtml, facegroup, storySelector);
 
+                    // Trả kết quả về cho Frontend
                     sendToRenderer("tools-response", {
                         action: "facebook-crawl",
                         success: true,
-                        posts,
+                        posts: posts.slice(0, maxPosts),
                     });
 
-                    // DỌN DẸP KHI THÀNH CÔNG
                     if (browser) await browser.disconnect();
-                    if (targetWindow && !targetWindow.isDestroyed())
-                        targetWindow.close();
+                    if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
                 }
             } catch (err) {
                 finished = true;
                 if (timer) clearInterval(timer);
-                sendToRenderer(
-                    "tools-log",
-                    `❌ Lỗi trong vòng lặp: ${err.message}`,
-                );
-
-                // DỌN DẸP KHI LỖI TRONG TIMER
+                sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
                 if (browser) await browser.disconnect();
-                if (targetWindow && !targetWindow.isDestroyed())
-                    targetWindow.close();
             }
         }, 4000);
+
     } catch (err) {
-        // DỌN DẸP KHI LỖI KHỞI TẠO (Puppeteer connect lỗi, fetch lỗi...)
         if (timer) clearInterval(timer);
-        sendToRenderer("tools-log", `❌ Lỗi toàn cục: ${err.message}`);
         if (browser) await browser.disconnect();
-        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
+        sendToRenderer("tools-log", `❌ Lỗi khởi tạo: ${err.message}`);
     }
 }
 
 // Hàm click tất cả nút Xem thêm trong bài viết Facebook
-async function clickAllSeeMoreButtons(facebookPage) {
-    const btns = await facebookPage.$$(
-        'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]',
-    );
+async function clickAllSeeMoreButtons(facebookPage, selector, text) {
+    try {
+        await facebookPage.evaluate(async (sel, txt) => {
+            // Tìm các element theo selector (ví dụ: div[role="button"])
+            const buttons = Array.from(document.querySelectorAll(sel));
 
-    let count = 0;
-
-    for (const btn of btns) {
-        try {
-            const prop = await btn.getProperty("innerText");
-            const text = await prop.jsonValue();
-            sendToRenderer("tools-log", `[FB-Crawl] Button innerText: ${text}`);
-            if (
-                text &&
-                (text.includes("Xem thêm") || text.includes("See more"))
-            ) {
-                await btn.hover();
-                await btn.click();
-                count++;
-                await facebookPage.waitForTimeout(400);
+            for (const btn of buttons) {
+                // Kiểm tra text (ví dụ: "Xem thêm" hoặc "See more")
+                if (btn && btn.innerText && btn.innerText.includes(txt)) {
+                    btn.click();
+                    // Đợi 1 chút để UI kịp bung ra
+                    await new Promise(r => setTimeout(r, 500));
+                }
             }
-        } catch (err) {
-            // Có thể gặp detached node, bỏ qua
-        }
-    }
+        }, selector, text);
 
-    return count;
+        // Chờ 2 giây để chắc chắn HTML đã render xong nội dung mới
+        await new Promise(r => setTimeout(r, 2000));
+    } catch (e) {
+        console.error("Lỗi clickAllSeeMoreButtons:", e);
+    }
 }
 
-function extractFacebookPostsFromHTML(html, facegroup = "") {
+function extractFacebookPostsFromHTML(html, facegroup, storySelector) {
+    if (!html) return [];
     const $ = cheerio.load(html);
-    const postDivs = $(
-        'div[role="feed"] div[data-ad-rendering-role="story_message"]',
-    );
+    const results = [];
 
-    const posts = [];
-
-    const stringToId = (str) => {
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = (hash << 5) - hash + str.charCodeAt(i);
-            hash |= 0;
-        }
-        return Math.abs(hash);
-    };
-
-    postDivs.each((_, div) => {
-        const $div = $(div);
-        const parent = $div.parent("div.html-div");
-        const parents = parent.parent("div.html-div");
-        const text = $div.text().trim();
-
-        const hrefs = [];
-        const images = [];
-
-        parents.find('a[role="link"]').each((_, a) => {
-            const $a = $(a);
-            const href = $a.attr("href");
-            if (href) {
-                hrefs.push(href);
-            }
-            $a.find("img[src]").each((_, img) => {
-                const src = $(img).attr("src");
-                if (src) {
-                    images.push(src);
-                }
-            });
-        });
-
-        if (text) {
-            posts.push({
-                uuid: stringToId(text),
-                used: 0,
-                facegroup,
-                text,
-                images,
-                href: hrefs,
+    // Tìm theo selector động truyền từ frontend
+    $(`[${storySelector}]`).each((index, element) => {
+        const content = $(element).text().trim();
+        if (content) {
+            results.push({
+                facegroup: facegroup,
+                content: content,
+                collectedAt: new Date().getTime()
             });
         }
     });
 
-    return posts;
+    return results;
 }
 
 // ==== FALLBACK SERVER ====
@@ -2326,7 +2284,7 @@ app.whenReady().then(() => {
                         createTargetWindow(
                             data.url,
                             (url, id) =>
-                                facebookCrawl(url, id, facegroup, maxPosts),
+                                facebookCrawl(data),
                             uniqueID,
                         );
                     });
@@ -2334,7 +2292,7 @@ app.whenReady().then(() => {
                     createTargetWindow(
                         data.url,
                         (url, id) =>
-                            facebookCrawl(url, id, facegroup, maxPosts),
+                            facebookCrawl(data),
                         uniqueID,
                     );
                 }
