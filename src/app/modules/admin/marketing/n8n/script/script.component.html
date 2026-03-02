@@ -35,7 +35,7 @@
     </div>
 
     <div class="flex flex-col shrink-0 border-l min-w-100 h-full">
-        <div class="flex flex-row p-6">
+        <div class="flex flex-row p-6 py-4">
             <div class="flex flex-1 flex-col">
                 <p class="text-base"><b>Tắt/Mở</b> danh sách Livestream</p>
                 <p class="text-gray-400 text-sm">
@@ -126,8 +126,12 @@
                                     </div>
                                 </div>
 
-                                <div class="flex shrink-0 items-center">
-                                    <button mat-icon-button [color]="'warn'" class="ml-0" (click)="resetScriptContext()" matTooltip="Xóa kịch bản và ngữ cảnh AI">
+                                <div class="flex shrink-0 items-center gap-2">
+                                    <button mat-icon-button [color]="'primary'" (click)="openSseTranscribe('https://meet.google.com/een-yswp-fow')" matTooltip="Link kịch bản">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
+                                    </button>
+
+                                    <button mat-icon-button [color]="'warn'" (click)="resetScriptContext()" matTooltip="Xóa kịch bản và ngữ cảnh AI">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-ccw'"></mat-icon>
                                     </button>
                                 </div>
