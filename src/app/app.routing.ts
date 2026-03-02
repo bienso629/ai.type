@@ -96,7 +96,7 @@ export const appRoutes: Route[] = [
             { path: 'dollar', loadChildren: () => import('app/modules/admin/account/dollar/dollar.module').then(m => m.DollarModule) },
             { path: 'archives', loadChildren: () => import('app/modules/admin/content/archives/archives.module').then(m => m.AIArchiveModule) },
             { path: 'synonym', loadChildren: () => import('app/modules/admin/content/synonym/synonym.module').then(m => m.SynonymModule) },
-            { path: 'face2node', loadChildren: () => import('app/modules/admin/content/ai-face2node/ai-face2node.module').then(m => m.AIFacePostModule) },
+            { path: 'face2node', loadChildren: () => import('app/modules/admin/content/trend/trend.module').then(m => m.AIFacePostModule) },
             { path: 'payment', loadChildren: () => import('app/modules/microsites/payment/payment.module').then(m => m.PaymentModule) },
             { path: 'settings', loadChildren: () => import('app/modules/admin/account/settings/settings.module').then(m => m.SettingsModule) },
 
