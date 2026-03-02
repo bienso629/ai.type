@@ -14,7 +14,7 @@ import { MatButtonToggleModule } from '@angular/material/button-toggle';
 import { TimeagoModule } from 'ngx-timeago';
 import { NgApexchartsModule } from 'ng-apexcharts';
 import { SharedModule } from 'app/shared.module';
-import { GSCReportComponent } from 'app/modules/admin/marketing/report-seo/report-seo.component';
+import { GSCReportComponent } from 'app/modules/admin/marketing/seo-report/seo-report.component';
 import { MatSelectModule } from '@angular/material/select';
 
 const Routes: Route[] = [

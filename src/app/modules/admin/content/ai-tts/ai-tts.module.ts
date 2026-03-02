@@ -5,19 +5,23 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatSidenavModule } from '@angular/material/sidenav';
+// --- 1. IMPORT DÒNG NÀY ---
+import { MatSelectModule } from '@angular/material/select';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { SharedModule } from 'app/shared.module';
-import { ImportComponent } from 'app/modules/admin/content/import/import.component';
+import { Voice2videoComponent } from 'app/modules/admin/content/ai-tts/ai-tts.component';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 const Routes: Route[] = [
     {
-        path: '',
-        component: ImportComponent
+        path: ':name/:uuid',
+        component: Voice2videoComponent
     }
 ];
 
 @NgModule({
     declarations: [
-        ImportComponent
+        Voice2videoComponent
     ],
     imports: [
         RouterModule.forChild(Routes),
@@ -26,8 +30,12 @@ const Routes: Route[] = [
         MatIconModule,
         MatStepperModule,
         MatSidenavModule,
+        MatSelectModule,
+        MatTooltipModule,
+        // --- 2. THÊM VÀO MẢNG IMPORTS ---
+        DragDropModule,
         SharedModule,
     ]
 })
-export class ImportModule {
+export class Voice2videoModule {
 }

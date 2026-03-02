@@ -16,13 +16,13 @@ import { AppConfig } from 'app/core/config/app.config';
 const xml2js = require("xml2js");
 
 @Component({
-    selector: 'import',
-    styleUrls: ['./import.component.scss'],
-    templateUrl: './import.component.html',
+    selector: 'sitemap',
+    styleUrls: ['./sitemap.component.scss'],
+    templateUrl: './sitemap.component.html',
     encapsulation: ViewEncapsulation.None,
     providers: [WP2MDService]
 })
-export class ImportComponent implements OnInit, OnDestroy {
+export class SitemapComponent implements OnInit, OnDestroy {
     xml: any;
     config: AppConfig;
     user: User;

@@ -34,9 +34,9 @@ export interface AudioClip {
 }
 
 @Component({
-    selector: 'voice2video',
-    styleUrls: ['./voice2video.component.scss'],
-    templateUrl: './voice2video.component.html',
+    selector: 'ai-tts',
+    styleUrls: ['./ai-tts.component.scss'],
+    templateUrl: './ai-tts.component.html',
     encapsulation: ViewEncapsulation.None,
     providers: [CrawlService, BlogService]
 })

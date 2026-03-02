@@ -100,8 +100,8 @@ declare global {
 
 @Component({
     selector: 'google-search-console.component',
-    styleUrls: ['./report-seo.component.scss'],
-    templateUrl: './report-seo.component.html',
+    styleUrls: ['./seo-report.component.scss'],
+    templateUrl: './seo-report.component.html',
     encapsulation: ViewEncapsulation.None,
     providers: [WP2MDService, DomainService, WordpressService]
 })

@@ -17,8 +17,8 @@ import { TimeagoModule } from 'ngx-timeago';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { SharedModule } from 'app/shared.module';
 // import { LinksResolver } from 'app/modules/admin/link-seo/link-seo.resolvers';
-import { LinksComponent } from 'app/modules/admin/marketing/link-seo/link-seo.component';
-import { EditDialog } from 'app/modules/admin/marketing/link-seo/dialogs/edit-dialog';
+import { LinksComponent } from 'app/modules/admin/marketing/seo-links/seo-links.component';
+import { EditDialog } from 'app/modules/admin/marketing/seo-links/dialogs/edit-dialog';
 
 @Component({
     selector: 'app-dialog-content',
