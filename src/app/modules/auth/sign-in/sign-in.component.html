@@ -9,9 +9,9 @@
 
             <!-- Title -->
             <div class="mt-8 text-4xl font-extrabold tracking-tight leading-tight">AI Type</div>
-            <div class="flex flex-col items-baseline mt-2 font-medium text-base">
-                <div>Ứng dụng quản lý công việc và tạo nội dung mạnh mẽ.</div>
-                <a class="ml-1 text-primary-500 hover:underline" href="https://type.vn/register" target="_blank">Bạn chưa có tài khoản?</a>
+            <div class="flex flex-col mt-2 font-medium text-base">
+                <div>Ứng dụng tạo và phát triển nội dung Website mạnh mẽ.</div>
+                <a class="text-primary-500 hover:underline" href="https://type.vn/register" target="_blank">Bạn chưa có tài khoản?</a>
             </div>
 
             <!-- Alert -->
@@ -34,7 +34,7 @@
                     <mat-hint>Email được sử dụng tại diễn đàn <a href="https://type.vn"
                             target="_blank">type.vn</a></mat-hint>
                     <mat-error *ngIf="signInForm.get('username').hasError('required')">
-                        Chúng tôi yêu cầu Email để truy cập
+                        Cần E-mail để truy cập
                     </mat-error>
                     <mat-error *ngIf="signInForm.get('username').hasError('username')">
                         Địa chỉ Email của bạn chưa đúng
@@ -59,7 +59,7 @@
                 </mat-form-field>
 
                 <mat-form-field class="w-full mt-2 fuse-mat-dense fuse-mat-emphasized-affix">
-                    <mat-label>Cụm máy chủ</mat-label>
+                    <mat-label>Máy chủ</mat-label>
                     <mat-select [formControlName]="'server'">
                         <mat-option *ngFor="let food of foods" [value]="food.value">
                             {{food.viewValue}}
@@ -70,7 +70,7 @@
                 <!-- Actions -->
                 <div class="inline-flex items-center justify-between w-full">
                     <mat-checkbox class="-ml-2" [color]="'primary'" [formControlName]="'rememberMe'">
-                        Nhớ tôi dưới máy
+                        Nhớ tài khoản lần sau
                     </mat-checkbox>
                     <a class="text-md font-medium text-primary-500 hover:underline" href="https://type.vn/reset"
                         target="_blank">Quên tài khoản?
@@ -82,7 +82,7 @@
                 <!-- Submit button -->
                 <button class="w-full mt-6" mat-flat-button [color]="'primary'" [disabled]="signInForm.disabled">
                     <span *ngIf="!signInForm.disabled">
-                        Truy cập AI.TYPE
+                        Truy cập ứng dụng
                     </span>
                     <mat-progress-spinner *ngIf="signInForm.disabled" [diameter]="24"
                         [mode]="'indeterminate'" [strokeWidth]="4"></mat-progress-spinner>
