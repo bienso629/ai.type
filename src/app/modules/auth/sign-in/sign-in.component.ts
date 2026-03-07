@@ -1,5 +1,16 @@
-import { Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
-import { UntypedFormBuilder, UntypedFormGroup, NgForm, Validators } from '@angular/forms';
+import {
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+    ViewEncapsulation,
+} from '@angular/core';
+import {
+    UntypedFormBuilder,
+    UntypedFormGroup,
+    NgForm,
+    Validators,
+} from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertType } from '@fuse/components/alert';
@@ -7,7 +18,6 @@ import { AuthService } from 'app/core/auth/auth.service';
 import { Subject, takeUntil } from 'rxjs';
 import { NgxCaptchaService } from '@binssoft/ngx-captcha';
 import { ForumService } from 'app/modules/_services/forum';
-import * as _ from 'lodash';
 import { UserService } from 'app/core/user/user.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserClientService } from 'app/modules/_services/user';
@@ -19,7 +29,7 @@ import { User } from 'app/core/user/user.types';
     styleUrl: './sign-in.component.scss',
     providers: [UserClientService],
     encapsulation: ViewEncapsulation.None,
-    animations: fuseAnimations
+    animations: fuseAnimations,
 })
 export class AuthSignInComponent implements OnInit, OnDestroy {
     captchaStatus: boolean = false;
@@ -28,18 +38,18 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
         length: 6,
         cssClass: 'captcha-container-custom',
         back: {
-            stroke: "#2F9688",
-            solid: "#ffffff"
+            stroke: '#2F9688',
+            solid: '#ffffff',
         },
         font: {
-            color: "#222222",
-            size: "20px"
-        }
+            color: '#222222',
+            size: '20px',
+        },
     };
 
     foods = [
         // { value: 'local', viewValue: 'Máy tính cá nhân' },
-        { value: 'vn.hcm.s0', viewValue: 'Việt Nam - TP.HCM/S0 (còn xanh)' }
+        { value: 'vn.hcm.s0', viewValue: 'Việt Nam - TP.HCM/S0 (còn xanh)' },
     ];
 
     members = [];
@@ -48,7 +58,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
 
     alert: { type: FuseAlertType; message: string } = {
         type: 'success',
-        message: ''
+        message: '',
     };
     signInForm: UntypedFormGroup;
     showAlert: boolean = false;
@@ -72,107 +82,112 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
         if (this.signInForm.invalid) {
             this.alert = {
                 type: 'error',
-                message: 'Thiếu thông tin đăng nhập.'
+                message: 'Thiếu thông tin đăng nhập.',
             };
 
             this.showAlert = true;
             return;
-        }
+        } else {
+            // Disable the form
+            this.signInForm.disable();
+            this.showAlert = false;
 
-        if (this.captchaStatus === false) {
-            this.alert = {
-                type: 'error',
-                message: 'Captcha không đúng.'
-            };
+            this._authService.signIn(this.signInForm.value).subscribe(
+                (user) => {
+                    if (user) {
+                        this._forumService
+                            .getGroups(this.signInForm.get('server').value)
+                            .subscribe((result) => {
+                                if (result && result.success && result.data) {
+                                    result.data.groups.map((g: any) => {
+                                        if (g.slug === 'nhóm-đã-mua-ai-type') {
+                                            localStorage.setItem(
+                                                'members',
+                                                JSON.stringify(g.members),
+                                            );
+                                        }
 
-            this.showAlert = true;
-            return;
-        }
+                                        g.members.map((m: any) => {
+                                            if (m.uid === user.id) {
+                                                if (
+                                                    !user.groups?.includes(
+                                                        g.slug,
+                                                    )
+                                                ) {
+                                                    user.groups.push(g.slug);
+                                                }
+                                            }
+                                        });
+                                    });
 
-        // Disable the form
-        this.signInForm.disable();
-        this.showAlert = false;
-
-        this._authService.signIn(this.signInForm.value).subscribe((user) => {
-            if (user) {
-                this._forumService.getGroups(this.signInForm.get('server').value).subscribe(result => {
-                    if (result && result.success && result.data) {
-                        result.data.groups.map((g: any) => {
-                            if (g.slug === 'nhóm-đã-mua-ai-type') {
-                                localStorage.setItem('members', JSON.stringify(g.members));
-                            }
-
-                            g.members.map((m: any) => {
-                                if (m.uid === user.id) {
-                                    if (!user.groups?.includes(g.slug)) {
-                                        user.groups.push(g.slug);
+                                    if (this.signInForm.value.rememberMe) {
+                                        // Store the access token in the local storage
+                                        this._authService.accessToken = AuthUtils._generateJWTToken(user);
                                     }
+
+                                    // Store the user on the user service
+                                    this._userService.user = user;
+                                    this.save(user);
+
+                                    const redirectURL =
+                                        this._activatedRoute.snapshot.queryParamMap.get(
+                                            'redirectURL',
+                                        ) || '/signed-in-redirect';
+                                    this._router.navigateByUrl(redirectURL);
+                                } else {
+                                    localStorage.removeItem('accessToken');
+
+                                    // Re-enable the form
+                                    this.signInForm.enable();
+
+                                    this.alert = {
+                                        type: 'warning',
+                                        message: 'Tài khoản của bạn không đúng.',
+                                    };
                                 }
                             });
-                        });
-
-                        if (this.signInForm.value.rememberMe) {
-                            // Store the access token in the local storage
-                            this._authService.accessToken = AuthUtils._generateJWTToken(user);
-                        }
-
-                        // Store the user on the user service
-                        this._userService.user = user;
-                        this.save(user);
-
-                        const redirectURL = this._activatedRoute.snapshot.queryParamMap.get('redirectURL') || '/signed-in-redirect';
-                        this._router.navigateByUrl(redirectURL);
                     } else {
                         localStorage.removeItem('accessToken');
+
                         // Re-enable the form
                         this.signInForm.enable();
 
                         this.alert = {
-                            type: 'warning',
-                            message: 'Tài khoản của bạn không đúng.'
+                            type: 'error',
+                            message: 'Tài khoản của bạn không đúng.',
                         };
+
+                        this.showAlert = true;
                     }
-                });
-            } else {
-                localStorage.removeItem('accessToken');
+                },
+                (_) => {
+                    // Re-enable the form
+                    this.signInForm.enable();
+                    this.alert = {
+                        type: 'error',
+                        message: 'Tài khoản của bạn không được chấp nhận.',
+                    };
 
-                // Re-enable the form
-                this.signInForm.enable();
-
-                this.alert = {
-                    type: 'error',
-                    message: 'Bạn không nằm trong nhóm khách hàng.'
-                };
-
-                this.showAlert = true;
-            }
-        },
-            (_) => {
-                // Re-enable the form
-                this.signInForm.enable();
-                this.alert = {
-                    type: 'error',
-                    message: 'Tài khoản của bạn không được chấp nhận.'
-                };
-
-                this.showAlert = true;
-            }
-        );
+                    this.showAlert = true;
+                },
+            );
+        }
     }
 
     /**
      * Save
      */
     save(user: User): void {
-        this._userClientService.updateProfile({
-            profile: {},
-            username: user.name
-        })
+        this._userClientService
+            .updateProfile({
+                profile: {},
+                username: user.name,
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (_) => { },
-                error: () => { },
-                complete: () => { }
+                next: async (_) => {},
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -187,14 +202,14 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
         private _formBuilder: UntypedFormBuilder,
         private captchaService: NgxCaptchaService,
         private _forumService: ForumService,
-        private _router: Router
+        private _router: Router,
     ) {
         this.captchaService.captchStatus.subscribe((status) => {
             this.captchaStatus = status;
             if (status === false) {
                 this.alert = {
                     type: 'error',
-                    message: 'Captcha bạn nhập bị sai.'
+                    message: 'Vui lòng nhập đúng mã captcha.',
                 };
 
                 this.showAlert = true;
@@ -212,7 +227,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
             username: ['', [Validators.required, Validators.email]],
             password: ['', Validators.required],
             server: ['vn.hcm.s0', Validators.required],
-            rememberMe: [true]
+            rememberMe: [true],
         });
     }
 

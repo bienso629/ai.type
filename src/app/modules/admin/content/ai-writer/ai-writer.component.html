@@ -637,10 +637,10 @@
                                 label="Đoạn văn ({{source.chatgpt.length + source.word.length + source.text.length + source.img.length + source.source.length + source.a.length}})">
                                 <mat-accordion MatAccordionDisplayMode="flat" multi>
                                     <mat-expansion-panel [expanded]="expanded"
-                                        *ngIf="source.prompt && source.prompt.length >= 0">
+                                        *ngIf="source.prompt && source.prompt.length >= 0" class="border-primary">
                                         <mat-expansion-panel-header #panelPrompt>
                                             <mat-panel-title (click)="panelPrompt._toggle()" class="flex items-center">
-                                                <mat-label class="font-semibold text-primary">prompt ({{source.prompt.length}})</mat-label>
+                                                <mat-label class="font-semibold text-primary">prompt dành cho AI ({{source.prompt.length}})</mat-label>
 
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
@@ -699,7 +699,7 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH2>
                                             <mat-panel-title (click)="panelH2._toggle()" class="flex items-center">
-                                                <mat-label class="font-semibold">đoạn văn</mat-label>
+                                                <mat-label class="font-semibold">nội dung sáng tác</mat-label>
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above" matTooltip="Thêm nội dung mới"
@@ -797,7 +797,7 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH5>
                                             <mat-panel-title (click)="panelH5._toggle()" class="flex items-center">
-                                                <mat-label class="font-semibold">hình ảnh
+                                                <mat-label class="font-semibold">chuyển hình ảnh thành bài viết
                                                     ({{source.img.length}})</mat-label>
                                                 <input hidden type="file" multiple class="file-input"
                                                     (change)="createImg($event)" accept='image/*' #fileUpload>
@@ -858,7 +858,7 @@
                                         <mat-expansion-panel-header #panelPlaylistYoutube>
                                             <mat-panel-title (click)="panelPlaylistYoutube._toggle()"
                                                 class="flex flex-row items-center">
-                                                <mat-label class="font-semibold">video
+                                                <mat-label class="font-semibold">biến video thành bài viết
                                                     ({{source.playlist[0].youtube.length}})</mat-label>
 
                                                 <mat-label
@@ -940,7 +940,7 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH3>
                                             <mat-panel-title (click)="panelH3._toggle()" class="flex items-center">
-                                                <mat-label class="font-normal">gemini</mat-label>
+                                                <mat-label class="font-normal">câu trả lời của gemini</mat-label>
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
@@ -1039,6 +1039,145 @@
                                     </mat-expansion-panel>
 
                                     <mat-expansion-panel [expanded]="autohidden">
+                                        <mat-expansion-panel-header #panelH7>
+                                            <mat-panel-title (click)="panelH7._toggle()" class="flex items-center">
+                                                <mat-label class="font-normal">tạo backlink cho bài viết ({{source.a.length}})</mat-label>
+
+                                                <mat-label
+                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
+                                                    matTooltipPosition="above" matTooltip="Thêm link mới"
+                                                    (click)="createlink()">thêm</mat-label>
+                                            </mat-panel-title>
+                                        </mat-expansion-panel-header>
+
+                                        <div cdkDropList #aList="cdkDropList" [cdkDropListData]="source.a"
+                                            [cdkDropListConnectedTo]="[doneList]" class="example-list a"
+                                            (cdkDropListDropped)="drop($event)">
+                                            <ng-container>
+                                                <div class="flex items-center example-box p-1"
+                                                    *ngFor="let item of source.a; let i = index" cdkDrag>
+                                                    <div class="flex-1 font-normal truncate hover:text-clip"
+                                                        [innerHTML]="item | renderTrustHTML" (dblclick)="edit(source.a, i)">
+                                                    </div>
+
+                                                    <div class="flex flex-col shrink-0 ml-2 border p-1 rounded-full">
+                                                        <!-- <button mat-icon-button matTooltipPosition="above"
+                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        (click)="synonymsForSentence(item)"><mat-icon>switch_access_shortcut_add</mat-icon></button>
+                                                    <div class="border-t border-soild h-0 w-full my-1"></div> -->
+                                                        <button mat-icon-button [matMenuTriggerFor]="menu">
+                                                            <mat-icon>more_horiz</mat-icon>
+                                                        </button>
+                                                        <mat-menu #menu="matMenu">
+                                                            <button mat-menu-item [cdkCopyToClipboard]="item"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:copy'"></mat-icon>
+                                                                <span>Sao chép</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="edit(source.a, i)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:edit-3'"></mat-icon>
+                                                                <span>Chỉnh sửa liên kết</span>
+                                                            </button>
+                                                            <button mat-menu-item [color]="'primary'" type="button"
+                                                                (click)="clearitem(i, source.a)">
+                                                                <mat-icon class="icon-size-4"
+                                                                    svgIcon="feather:trash"></mat-icon>
+                                                                <span>Xoá liên kết</span>
+                                                            </button>
+                                                        </mat-menu>
+                                                    </div>
+                                                </div>
+                                            </ng-container>
+                                        </div>
+                                    </mat-expansion-panel>
+
+                                    <mat-expansion-panel [expanded]="autohidden">
+                                        <mat-expansion-panel-header #panelHTML>
+                                            <mat-panel-title (click)="panelHTML._toggle()" class="flex items-center">
+                                                <mat-label>gợi ý prompt của bạn ({{source.pre.length}})</mat-label>
+                                            </mat-panel-title>
+
+                                        </mat-expansion-panel-header>
+                                        <div cdkDropList #preList="cdkDropList" [cdkDropListData]="source.pre"
+                                            [cdkDropListConnectedTo]="[doneList]" class="example-list pre"
+                                            (cdkDropListDropped)="drop($event)">
+                                            <ng-container>
+                                                <div class="flex items-center example-box p-1"
+                                                    *ngFor="let item of source.pre" cdkDrag>
+                                                    <div class="flex-1" [innerHTML]="item"></div>
+
+                                                    <div class="flex flex-col shrink-0 ml-2 border p-1 rounded-full">
+                                                        <button mat-icon-button [matMenuTriggerFor]="menu">
+                                                            <mat-icon>more_horiz</mat-icon>
+                                                        </button>
+
+                                                        <mat-menu #menu="matMenu">
+                                                            <button mat-menu-item
+                                                                [cdkCopyToClipboard]="item | removeHTML"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:copy'"></mat-icon>
+                                                                <span>Sao chép</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="markdown2html(source.pre, i)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:code'"></mat-icon>
+                                                                <span>HTML code</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="tomp3(item)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:volume-2'"></mat-icon>
+                                                                <span>Chuyển sang mp3</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="copyto(item)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:chevrons-right'"></mat-icon>
+                                                                <span>Chép sang Dàn ý</span>
+                                                            </button>
+                                                            <!-- <button mat-menu-item (click)="split(source.pre, item, i)"
+                                                            [color]="'primary'">
+                                                            <mat-icon class="icon-size-4"
+                                                                [svgIcon]="'feather:minus'"></mat-icon>
+                                                            <span>Tự động tách đoạn</span>
+                                                        </button> -->
+                                                            <button mat-menu-item (click)="comment(source.pre, item, i)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:twitch'"></mat-icon>
+                                                                <span>Bình luận</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="keyword(source.pre, i)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:tag'"></mat-icon>
+                                                                <span>Từ khoá</span>
+                                                            </button>
+                                                            <!-- <button mat-menu-item (click)="edit(source.pre, i)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:edit-3'"></mat-icon>
+                                                                <span>Chỉnh sửa đoạn văn</span>
+                                                            </button> -->
+                                                            <button mat-menu-item [color]="'primary'" type="button"
+                                                                (click)="clearitem(i, source.pre)">
+                                                                <mat-icon class="icon-size-4"
+                                                                    svgIcon="feather:trash"></mat-icon>
+                                                                <span>Xoá code</span>
+                                                            </button>
+                                                        </mat-menu>
+                                                    </div>
+                                                </div>
+                                            </ng-container>
+                                        </div>
+                                    </mat-expansion-panel>
+
+                                    <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelH4>
                                             <mat-panel-title (click)="panelH4._toggle()" class="flex items-center">
                                                 <mat-label class="font-normal">từ điển</mat-label>
@@ -1128,148 +1267,9 @@
                                     </mat-expansion-panel>
 
                                     <mat-expansion-panel [expanded]="autohidden">
-                                        <mat-expansion-panel-header #panelH7>
-                                            <mat-panel-title (click)="panelH7._toggle()" class="flex items-center">
-                                                <mat-label class="font-normal">gắn link ({{source.a.length}})</mat-label>
-
-                                                <mat-label
-                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Thêm link mới"
-                                                    (click)="createlink()">thêm</mat-label>
-                                            </mat-panel-title>
-                                        </mat-expansion-panel-header>
-
-                                        <div cdkDropList #aList="cdkDropList" [cdkDropListData]="source.a"
-                                            [cdkDropListConnectedTo]="[doneList]" class="example-list a"
-                                            (cdkDropListDropped)="drop($event)">
-                                            <ng-container>
-                                                <div class="flex items-center example-box p-1"
-                                                    *ngFor="let item of source.a; let i = index" cdkDrag>
-                                                    <div class="flex-1 font-normal truncate hover:text-clip"
-                                                        [innerHTML]="item | renderTrustHTML" (dblclick)="edit(source.a, i)">
-                                                    </div>
-
-                                                    <div class="flex flex-col shrink-0 ml-2 border p-1 rounded-full">
-                                                        <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
-                                                        (click)="synonymsForSentence(item)"><mat-icon>switch_access_shortcut_add</mat-icon></button>
-                                                    <div class="border-t border-soild h-0 w-full my-1"></div> -->
-                                                        <button mat-icon-button [matMenuTriggerFor]="menu">
-                                                            <mat-icon>more_horiz</mat-icon>
-                                                        </button>
-                                                        <mat-menu #menu="matMenu">
-                                                            <button mat-menu-item [cdkCopyToClipboard]="item"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
-                                                            </button>
-                                                            <button mat-menu-item (click)="edit(source.a, i)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Chỉnh sửa liên kết</span>
-                                                            </button>
-                                                            <button mat-menu-item [color]="'primary'" type="button"
-                                                                (click)="clearitem(i, source.a)">
-                                                                <mat-icon class="icon-size-4"
-                                                                    svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá liên kết</span>
-                                                            </button>
-                                                        </mat-menu>
-                                                    </div>
-                                                </div>
-                                            </ng-container>
-                                        </div>
-                                    </mat-expansion-panel>
-
-                                    <mat-expansion-panel [expanded]="autohidden">
-                                        <mat-expansion-panel-header #panelHTML>
-                                            <mat-panel-title (click)="panelHTML._toggle()" class="flex items-center">
-                                                <mat-label>code ({{source.pre.length}})</mat-label>
-                                            </mat-panel-title>
-
-                                        </mat-expansion-panel-header>
-                                        <div cdkDropList #preList="cdkDropList" [cdkDropListData]="source.pre"
-                                            [cdkDropListConnectedTo]="[doneList]" class="example-list pre"
-                                            (cdkDropListDropped)="drop($event)">
-                                            <ng-container>
-                                                <div class="flex items-center example-box p-1"
-                                                    *ngFor="let item of source.pre" cdkDrag>
-                                                    <div class="flex-1" [innerHTML]="item"></div>
-
-                                                    <div class="flex flex-col shrink-0 ml-2 border p-1 rounded-full">
-                                                        <button mat-icon-button [matMenuTriggerFor]="menu">
-                                                            <mat-icon>more_horiz</mat-icon>
-                                                        </button>
-
-                                                        <mat-menu #menu="matMenu">
-                                                            <button mat-menu-item
-                                                                [cdkCopyToClipboard]="item | removeHTML"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
-                                                            </button>
-                                                            <button mat-menu-item (click)="markdown2html(source.pre, i)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:code'"></mat-icon>
-                                                                <span>HTML code</span>
-                                                            </button>
-                                                            <button mat-menu-item (click)="tomp3(item)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                                <span>Chuyển sang mp3</span>
-                                                            </button>
-                                                            <button mat-menu-item (click)="copyto(item)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                                <span>Chép sang Dàn ý</span>
-                                                            </button>
-                                                            <!-- <button mat-menu-item (click)="split(source.pre, item, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
-                                                        </button> -->
-                                                            <button mat-menu-item (click)="comment(source.pre, item, i)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:twitch'"></mat-icon>
-                                                                <span>Bình luận</span>
-                                                            </button>
-                                                            <button mat-menu-item (click)="keyword(source.pre, i)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:tag'"></mat-icon>
-                                                                <span>Từ khoá</span>
-                                                            </button>
-                                                            <!-- <button mat-menu-item (click)="edit(source.pre, i)"
-                                                                [color]="'primary'">
-                                                                <mat-icon class="icon-size-4"
-                                                                    [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Chỉnh sửa đoạn văn</span>
-                                                            </button> -->
-                                                            <button mat-menu-item [color]="'primary'" type="button"
-                                                                (click)="clearitem(i, source.pre)">
-                                                                <mat-icon class="icon-size-4"
-                                                                    svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá code</span>
-                                                            </button>
-                                                        </mat-menu>
-                                                    </div>
-                                                </div>
-                                            </ng-container>
-                                        </div>
-                                    </mat-expansion-panel>
-
-                                    <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelSource>
                                             <mat-panel-title (click)="panelSource._toggle()" class="flex items-center">
-                                                <mat-label>source
+                                                <mat-label>các nguồn khác
                                                     ({{source.source.length}})</mat-label>
                                             </mat-panel-title>
 
