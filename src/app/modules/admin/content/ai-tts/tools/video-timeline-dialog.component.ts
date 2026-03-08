@@ -1,17 +1,32 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
 
 @Component({
     selector: 'app-video-timeline-dialog',
     templateUrl: 'video-timeline-dialog.component.html',
     styles: [`
-    .scrollbar-thin::-webkit-scrollbar { height: 6px; }
-    .scrollbar-thin::-webkit-scrollbar-track { background: #f1f1f1; }
-    .scrollbar-thin::-webkit-scrollbar-thumb { background: #888; border-radius: 3px; }
-    .scrollbar-thin::-webkit-scrollbar-thumb:hover { background: #555; }
+    /* Ẩn thanh cuộn nhưng vẫn giữ tính năng scroll */
+    .timeline-container {
+        scrollbar-width: none; /* Firefox */
+        -ms-overflow-style: none;  /* IE and Edge */
+        scroll-behavior: auto; /* Tắt smooth scroll khi kéo để không bị delay */
+    }
+    .timeline-container::-webkit-scrollbar {
+        display: none; /* Chrome, Safari, Opera */
+    }
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
   `]
 })
 export class VideoTimelineDialogComponent implements OnInit {
+    @ViewChild('scrollContainer') scrollContainer!: ElementRef;
+
     projectData: any;
+
+    // Các biến phục vụ kéo thả
+    private isMouseDown = false;
+    private startX = 0;
+    private scrollLeftStart = 0;
 
     ngOnInit() {
         const raw = localStorage.getItem('ai_type_video_ready_data');
@@ -20,20 +35,36 @@ export class VideoTimelineDialogComponent implements OnInit {
         }
     }
 
+    // --- Logic Kéo thả ---
+    startDragging(e: MouseEvent) {
+        this.isMouseDown = true;
+        this.startX = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
+        this.scrollLeftStart = this.scrollContainer.nativeElement.scrollLeft;
+    }
+
+    stopDragging() {
+        this.isMouseDown = false;
+    }
+
+    moveEvent(e: MouseEvent) {
+        if (!this.isMouseDown) return;
+
+        e.preventDefault();
+        const x = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
+        // Nhân hệ số (ví dụ 1.5) để kéo nhạy hơn
+        const walk = (x - this.startX) * 1.5;
+        this.scrollContainer.nativeElement.scrollLeft = this.scrollLeftStart - walk;
+    }
+    // ---------------------
+
     async generateImage(scene: any, index: number) {
-        // Giả lập gọi API tạo ảnh
         console.log("Creating image for prompt:", scene.prompt);
-
-        // Ở đây bạn sẽ gọi Service tạo ảnh (Leonardo/DALL-E...)
-        // Sau khi có URL, cập nhật lại dữ liệu
-        scene.imageUrl = 'https://via.placeholder.com/400x225?text=Processing...';
-
-        // Cập nhật lại localStorage để lưu trạng thái
+        // Giả lập
+        scene.imageUrl = 'https://via.placeholder.com/400x225?text=Generating...';
         this.saveData();
     }
 
     generateAllImages() {
-        // Logic để chạy vòng lặp tạo toàn bộ ảnh chưa có
         alert("Hệ thống sẽ bắt đầu tạo " + this.projectData.scenes.length + " hình ảnh!");
     }
 
