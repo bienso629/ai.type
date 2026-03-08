@@ -518,8 +518,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) return true;
 
         try {
-            console.log(`Đang đọc file (Lần ${retryCount + 1}):`, filePath);
-
             const result = await (window as any).electron.invoke('read-local-audio', {
                 path: filePath,
                 filename: clip.audioFileName // Fallback nếu bên main cần
@@ -568,8 +566,92 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    createVideo() {
-        this.toastr.info('Tính năng đang phát triển...', 'Coming Soon');
+    async createVideo() {
+        // 1. Lấy thông tin cấu hình AI từ Settings
+        this.settings = localStorage.getItem('settings')
+            ? JSON.parse(localStorage.getItem('settings'))
+            : {};
+
+        this.secretKey = this.settings.secretKey
+            ? this.settings.secretKey.split(';')
+            : undefined;
+
+        if (!this.secretKey) {
+            this.toastr.error('Thiếu API Key cho AI. Vui lòng kiểm tra cài đặt.');
+            return;
+        }
+
+        let geminiKey = this.secretKey[6] || this.secretKey[0];
+        this.ai = new GoogleGenAI({ apiKey: geminiKey });
+
+        // 2. Lấy 138 items từ LocalStorage
+        const mergerDataRaw = localStorage.getItem('ai_type_audio_merger_data');
+        if (!mergerDataRaw) return;
+        const data = JSON.parse(mergerDataRaw);
+        const allClips = data.clips;
+
+        // 3. Tạo một dòng văn bản duy nhất kèm ID để AI biết đoạn nào thuộc ID nào
+        // Cấu trúc: [ID:abc] Nội dung văn bản... [ID:xyz] Nội dung...
+        const continuousText = allClips.map((c: any) => `[ID:${c.id}] ${c.description}`).join(' ');
+
+        // 4. Prompt ép buộc gom nhóm (Grouping Logic)
+        const promptText = `
+            BẠN LÀ BIÊN TẬP VIÊN VIDEO. 
+            Tôi có 138 đoạn văn bản (được đánh dấu bằng [ID:xxx]). 
+            Nhiệm vụ của bạn là gom nhóm chúng lại thành khoảng 100 phân cảnh (scenes).
+
+            YÊU CẦU:
+            1. Mỗi phân cảnh (scene) PHẢI có:
+            - "prompt": 1 mô tả hình ảnh tiếng Anh (Cinematic, 1904 Dublin).
+            - "subtitles": Mảng chứa các object { "id": "ID_GỐC", "text": "NỘI DUNG" }.
+            2. Logic gom nhóm: Những đoạn văn bản có nội dung liền mạch hoặc ngắn thì gom chung vào 1 "prompt" ảnh. 
+            3. Tổng số "prompt" ảnh trả về phải xấp xỉ 100 (ít hơn số 138 ban đầu).
+            4. KHÔNG ĐƯỢC bỏ sót bất kỳ ID nào. Phải đảm bảo đủ 138 text gốc.
+
+            DỮ LIỆU ĐẦU VÀO:
+            ${continuousText}
+
+            TRẢ VỀ DUY NHẤT JSON ARRAY trong tag \`\`\`json ... \`\`\`:
+            [
+            {
+                "prompt": "Mô tả hình ảnh cho nhóm này",
+                "subtitles": [
+                { "id": "3l8bm4hkp", "text": "Trân trọng giới thiệu..." },
+                { "id": "aanpwkn1d", "text": "CHƯƠNG I..." }
+                ]
+            }
+            ]
+        `;
+
+        try {
+            console.log("Đang tối ưu 138 clips thành ~100 scenes...");
+            const response = await this.ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: promptText,
+            });
+
+            // Lấy text từ cấu trúc candidates
+            const jsonMatch = response.text.match(/```json\n([\s\S]*?)```/);
+            if (jsonMatch) {
+                const finalScenes = JSON.parse(jsonMatch[1]);
+
+                // 5. Lưu cấu trúc mới (Cấu trúc này tối ưu cho Render)
+                // Thay vì lưu theo Clips, ta lưu theo danh sách SCENES
+                const videoProject = {
+                    uuid: data.uuid,
+                    title: data.title,
+                    totalOriginalClips: allClips.length,
+                    totalScenes: finalScenes.length, // Sẽ khoảng 100
+                    scenes: finalScenes
+                };
+
+                localStorage.setItem('ai_type_video_ready_data', JSON.stringify(videoProject));
+                this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`, 'Thành công');
+            }
+        } catch (error) {
+            console.error("Lỗi logic gom nhóm:", error);
+            this.toastr.error('Lỗi khi tối ưu nội dung bằng AI. Vui lòng thử lại.');
+        }
     }
 
     async exportMerge() {
