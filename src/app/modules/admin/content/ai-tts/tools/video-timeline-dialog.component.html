@@ -1,0 +1,56 @@
+<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
+    <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:alert-circle'"></mat-icon>
+    <mat-label class="self-center">Video Production Timeline</mat-label>
+</div>
+
+<div mat-dialog-content class="mt-4 p-0">
+    <div class="flex overflow-x-auto space-x-4 pb-6 scrollbar-thin scrollbar-thumb-gray-400">
+        @for (scene of projectData?.scenes; track $index) {
+        <div class="flex-none w-80 bg-white rounded-lg shadow-none overflow-hidden border border-gray-200">
+            <div class="h-44 bg-gray-200 relative flex items-center justify-center group">
+                @if (scene.imageUrl) {
+                <img [src]="scene.imageUrl" class="w-full h-full object-cover">
+                } @else {
+                <div class="text-center p-4">
+                    <mat-icon class="text-gray-400 text-4xl">image</mat-icon>
+                    <p class="text-xs text-gray-500 mt-2">No image generated yet</p>
+                </div>
+                }
+                <div
+                    class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                    <button mat-raised-button color="primary" (click)="generateImage(scene, $index)">
+                        {{ scene.imageUrl ? 'Regenerate' : 'Generate Image' }}
+                    </button>
+                </div>
+            </div>
+
+            <div class="p-4 flex flex-col h-64">
+                <div class="flex justify-between items-start mb-2">
+                    <span class="bg-blue-100 text-blue-800 text-xs font-medium px-2 py-0.5 rounded">Scene #{{ $index + 1
+                        }}</span>
+                </div>
+
+                <div
+                    class="flex-grow overflow-y-auto mb-2 text-sm text-gray-700 bg-gray-50 p-4 rounded">
+                    @for (sub of scene.subtitles; track sub.id) {
+                    <p class="mb-2 last:mb-0">
+                        <span class="font-mono text-[10px] text-gray-400">[{{sub.id}}]</span> {{ sub.text }}
+                    </p>
+                    }
+                </div>
+
+                <div class="mt-auto">
+                    <p class="text-[11px] text-gray-400 italic line-clamp-2" [title]="scene.prompt">
+                        Prompt: {{ scene.prompt }}
+                    </p>
+                </div>
+            </div>
+        </div>
+        }
+    </div>
+</div>
+
+<div mat-dialog-actions class="flex flex-row gap-2 p-0 mt-4">
+    <button mat-button mat-dialog-close>Close</button>
+    <button mat-raised-button color="primary" (click)="generateAllImages()">Generate All</button>
+</div>
