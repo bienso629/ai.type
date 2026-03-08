@@ -1,7 +1,7 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation, AfterViewInit } from '@angular/core';
 import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { filter, interval, Subject, switchMap, take, takeUntil, lastValueFrom } from 'rxjs';
+import { filter, interval, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { UserService } from 'app/core/user/user.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -16,6 +16,8 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { GoogleGenAI } from '@google/genai';
 import { HttpResponse, HttpClient } from '@angular/common/http';
 import WaveSurfer from 'wavesurfer.js';
+import { MatDialog } from '@angular/material/dialog';
+import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
 
 export interface AudioClip {
     id: string;
@@ -121,9 +123,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         private _userService: UserService, private toastr: ToastrService, private cd: ChangeDetectorRef,
         private sanitizer: DomSanitizer, private _fuseConfirmationService: FuseConfirmationService,
         private clipboard: Clipboard,
+        private dialog: MatDialog,
         private router: Router, private route: ActivatedRoute, private _fuseConfigService: FuseConfigService, private http: HttpClient
     ) {
-        this.titleService.setTitle(`Audio Manager | ai.type`);
+        this.titleService.setTitle(`chương trình làm video | ai.type`);
 
         this.settings = localStorage.getItem('settings');
         if (this.settings) {
@@ -160,7 +163,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    ngAfterViewInit(): void { this.initWaveSurfer(); }
+    ngAfterViewInit(): void {
+        this.initWaveSurfer();
+        // Tự động kiểm tra dữ liệu khi màn hình được load
+        this.checkAndOpenVideoTimeline();
+    }
 
     ngOnDestroy(): void {
         this._unsubscribeAll.next(null);
@@ -624,7 +631,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         `;
 
         try {
-            console.log("Đang tối ưu 138 clips thành ~100 scenes...");
             const response = await this.ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: promptText,
@@ -646,12 +652,52 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 };
 
                 localStorage.setItem('ai_type_video_ready_data', JSON.stringify(videoProject));
+                // 2. MỞ DIALOG NGAY LẬP TỨC
+                this.openTimelineDialog(videoProject);
+
                 this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`, 'Thành công');
             }
         } catch (error) {
             console.error("Lỗi logic gom nhóm:", error);
             this.toastr.error('Lỗi khi tối ưu nội dung bằng AI. Vui lòng thử lại.');
         }
+    }
+
+    checkAndOpenVideoTimeline() {
+        const rawData = localStorage.getItem('ai_type_video_ready_data');
+
+        if (rawData) {
+            try {
+                const videoProject = JSON.parse(rawData);
+
+                // Kiểm tra xem project có dữ liệu scenes thực tế không
+                if (videoProject && videoProject.scenes && videoProject.scenes.length > 0) {
+
+                    // Kiểm tra xem dialog đã mở chưa (tránh mở nhiều cái trùng nhau)
+                    const isDialogOpen = this.dialog.openDialogs.some(
+                        d => d.componentInstance instanceof VideoTimelineDialogComponent
+                    );
+
+                    if (!isDialogOpen) {
+                        this.openTimelineDialog(videoProject);
+                    }
+                }
+            } catch (e) {
+                console.error("Dữ liệu video cũ bị lỗi:", e);
+            }
+        }
+    }
+
+    // Hàm bổ trợ để mở Dialog
+    openTimelineDialog(data: any) {
+        this.dialog.open(VideoTimelineDialogComponent, {
+            width: '95vw',        // Chiều rộng chiếm 95% màn hình
+            maxHeight: '90vh',      // Chỉ giới hạn chiều cao tối đa
+            height: 'auto',         // Tự động co giãn theo nội dung
+            data: data,           // Truyền dữ liệu trực tiếp vào dialog
+            panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần
+            autoFocus: false       // Tránh việc tự động nhảy focus làm cuộn timeline lung tung
+        });
     }
 
     async exportMerge() {
