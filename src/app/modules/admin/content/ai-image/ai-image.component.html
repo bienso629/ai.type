@@ -42,15 +42,15 @@
                             <form [formGroup]="imageAIForm">
                                 <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
                                     Prompt tạo hình (Hình ảnh sẽ được lưu trong thư mục
-                                    <code>\Documents\ai.type\data\uploads\thumbnails</code>)
+                                    <code>\Documents\ai.type\data\uploads\thumbnails</code>) bằng Google Gemini Pro
                                 </p>
 
                                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
                                     <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="createImg()"
                                         required matInput>
-                                    <mat-hint class="mt-1 text-md">Sử dụng công cụ trả phí mạnh mẽ <a
-                                            (click)="createImgWithDreamina('https://dreamina.capcut.com')"
+                                    <mat-hint class="mt-1 text-md">hoặc nếu bạn muốn sử dụng công cụ MIỄN PHÍ mạnh mẽ,
+                                        hãy thử <a (click)="createImgWithDreamina('https://dreamina.capcut.com')"
                                             href="javascript:void(0)">Dreamina AI</a> tạo hình ảnh bằng Nano Banana
                                         Pro</mat-hint>
 
@@ -71,7 +71,7 @@
                                     <ngx-datatable-column [flexGrow]="1">
                                         <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
                                             <div class="row-grid w-full flex flex-wrap">
-                                                <div class="thumb-wrap px-1 py-0 box-border"
+                                                <div class="thumb-wrap px-3 py-2 box-border"
                                                     *ngFor="let img of row.images; let i = index" [ngStyle]="{
                                                     flex: '0 0 ' + (100 / gridSize) + '%',
                                                 }">
@@ -79,19 +79,22 @@
                                                         class="thumb w-full h-auto object-cover rounded-3xl" />
 
                                                     <div class="thumb-actions">
-                                                        <button mat-icon-button class="bg-white bg-opacity-10"
+                                                        <button mat-icon-button
+                                                            class="hover:bg-white hover:bg-opacity-10"
                                                             (click)="editImage(img)">
                                                             <mat-icon class="icon-size-4 text-green-500"
                                                                 svgIcon="heroicons_outline:sparkles"></mat-icon>
                                                         </button>
 
-                                                        <button mat-icon-button class="bg-white bg-opacity-10"
+                                                        <button mat-icon-button
+                                                            class="hover:bg-white hover:bg-opacity-10"
                                                             (click)="uploadImage(img)">
                                                             <mat-icon class="icon-size-4 text-blue-500"
                                                                 svgIcon="feather:cloud"></mat-icon>
                                                         </button>
 
-                                                        <button mat-icon-button class="bg-white bg-opacity-10"
+                                                        <button mat-icon-button
+                                                            class="hover:bg-white hover:bg-opacity-10"
                                                             (click)="deleteImage(img, rowIndex * gridSize + i)">
                                                             <mat-icon class="icon-size-4 text-red-500"
                                                                 svgIcon="feather:trash"></mat-icon>
