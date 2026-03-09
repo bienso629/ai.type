@@ -1,4 +1,6 @@
-import { Component, OnInit, ViewChild, ElementRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, Inject } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
     selector: 'app-video-timeline-dialog',
@@ -27,6 +29,13 @@ export class VideoTimelineDialogComponent implements OnInit {
     private isMouseDown = false;
     private startX = 0;
     private scrollLeftStart = 0;
+
+    constructor(
+        public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: { imageUrl: string, username: string },
+        private toastr: ToastrService
+    ) {
+    }
 
     ngOnInit() {
         const raw = localStorage.getItem('ai_type_video_ready_data');
@@ -71,4 +80,6 @@ export class VideoTimelineDialogComponent implements OnInit {
     saveData() {
         localStorage.setItem('ai_type_video_ready_data', JSON.stringify(this.projectData));
     }
+
+    close() { this.dialogRef.close(); }
 }
