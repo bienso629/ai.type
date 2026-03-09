@@ -644,165 +644,107 @@ async function websiteCrawl(
     }
 }
 
-async function facebookCrawl(args) {
-    const { uniqueID, facegroup, maxPosts, storySelector, seeMoreSelector, seeMoreText } = args;
-    let browser = null;
-    let allPosts = [];
-    let seenIds = new Set();
-    let count = 0;
-
-    try {
-        const res = await fetch("http://localhost:9999/json/version");
-        const json = await res.json();
-        browser = await puppeteer.connect({ browserWSEndpoint: json.webSocketDebuggerUrl, defaultViewport: null });
-
-        const pages = await browser.pages();
-        let facebookPage = pages.find((p) => p.url().includes(`uniqueID=${uniqueID}`));
-        if (!facebookPage) return;
-
-        while (allPosts.length < maxPosts && count < 500) {
-            count++;
-            
-            // 1. Scroll để tải bài mới
-            await facebookPage.mouse.wheel({ deltaY: 2000 });
-            await new Promise(r => setTimeout(r, 3000)); 
-
-            // 2. Click "Xem thêm" dựa trên selector chi tiết từ frontend
-            await facebookPage.evaluate(async (sel, txt) => {
-                const btns = Array.from(document.querySelectorAll(sel));
-                for (const btn of btns) {
-                    if (btn.innerText.includes(txt)) {
-                        btn.scrollIntoView();
-                        btn.click();
-                        await new Promise(r => setTimeout(r, 1000)); // Chờ AJAX bung text
-                    }
-                }
-            }, seeMoreSelector, seeMoreText).catch(() => {});
-
-            // 3. Lấy HTML đã bung và trích xuất
-            const html = await facebookPage.content();
-            const matches = extractFacebookPostsFromHTML(html, facegroup, storySelector);
-
-            // 4. Lọc trùng và kiểm tra chất lượng nội dung
-            for (const post of matches) {
-                // Chỉ lấy bài đã bung hết (không còn chữ Xem thêm)
-                if (post.content.includes(seeMoreText)) continue;
-
-                const postId = post.url || post.content.substring(0, 150);
-                if (postId && !seenIds.has(postId)) {
-                    seenIds.add(postId);
-                    allPosts.push(post);
-                    sendToRenderer("tools-log", `[FB-Crawl] 📥 Đã lấy: ${post.author} - ${post.images.length} ảnh/video`);
-                }
-                if (allPosts.length >= maxPosts) break;
-            }
-
-            if (allPosts.length >= maxPosts) break;
-        }
-
-        sendToRenderer("tools-response", { action: "facebook-crawl", success: true, posts: allPosts });
-        if (browser) await browser.disconnect();
-        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
-
-    } catch (err) {
-        sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
-        if (browser) await browser.disconnect();
-        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
-    }
-}
-
-function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContainerSelector) {
+function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContainerSelector, profileNameSelector, seeMoreText) {
     if (!html) return [];
     const $ = cheerio.load(html);
     const results = [];
 
-    // 1. Tìm tất cả các vùng chứa bài viết trước
+    // Duyệt qua từng "vùng chứa" bài viết (Container động truyền từ client)
     $(postContainerSelector).each((index, element) => {
         const post = $(element);
         
-        // --- A. LẤY THỜI GIAN & ĐIỀU KIỆN LỌC (CHỈ LẤY PHÚT) ---
-        // Tìm các thẻ chứa thời gian (thường là link timestamp)
+        // --- 1. LẤY MẢNG HREF & LỌC THỜI GIAN THEO PHÚT ---
+        let postUrls = [];
         let timeText = "";
-        let postUrl = "";
+        
         post.find('a[role="link"]').each((i, el) => {
             const txt = $(el).text().toLowerCase();
             const href = $(el).attr('href');
-            // Check nếu chứa chữ "phút" (ví dụ: "5 phút", "10 phút")
-            if (txt.includes('phút')) {
+            
+            if (href && href !== '#' && !href.startsWith('mailto:')) {
+                const fullHref = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
+                postUrls.push(fullHref);
+            }
+
+            // Chỉ chấp nhận bài đăng mới theo phút hoặc vừa xong
+            if (txt.includes('phút') || txt.includes('vừa xong') || txt.includes('min')) {
                 timeText = txt;
-                if (href) postUrl = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
             }
         });
 
-        // Nếu không tìm thấy chữ "phút", bỏ qua bài này
-        if (!timeText) return;
+        // Nếu không thỏa mãn điều kiện thời gian, bỏ qua bài này
+        if (!timeText) return; 
 
-        // --- B. LẤY NỘI DUNG (Story Message) ---
+        // Loại bỏ trùng lặp trong mảng link
+        postUrls = [...new Set(postUrls)];
+
+        // --- 2. LẤY TÁC GIẢ (AUTHOR) ---
+        let authorName = "N/A";
+        let authorLink = "";
+        const profileContainer = post.find(`[${profileNameSelector}]`);
+        
+        if (profileContainer.length) {
+            const aTag = profileContainer.find('a[role="link"]').first();
+            if (aTag.length) {
+                authorName = aTag.text().trim();
+                let href = aTag.attr('href');
+                if (href) {
+                    authorLink = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
+                }
+            }
+        }
+
+        // --- 3. LẤY NỘI DUNG VĂN BẢN (TEXT) ---
         const contentEl = post.find(`[${storySelector}]`);
         const content = contentEl.text().trim();
 
-        // --- C. LẤY AUTHOR (Theo link privacy_sandbox) ---
-        let authorName = "N/A";
-        let authorLink = "";
-        post.find('a[href*="privacy_sandbox/comet/register"]').each((i, el) => {
-            const name = $(el).text().trim();
-            const link = $(el).attr('href');
-            if (name && name !== "") {
-                authorName = name;
-                authorLink = link.startsWith('http') ? link : `https://www.facebook.com${link}`;
-            }
-        });
+        // Kiểm tra xem nội dung đã được click bung "Xem thêm" chưa
+        if (content.includes(seeMoreText)) return; 
 
-        // --- D. LẤY HÌNH ẢNH ---
+        // --- 4. HÌNH ẢNH (IMAGES) ---
         const images = [];
         post.find('img').each((i, img) => {
             const src = $(img).attr('src');
             const alt = $(img).attr('alt') || "";
-            // Lọc scontent và bỏ avatar/icon
-            if (src && src.includes('https://scontent') && !alt.includes('hồ sơ') && !alt.includes('Profile')) {
+            // Lọc scontent và bỏ avatar/icon (thường có alt chứa 'Profile' hoặc 'hồ sơ')
+            if (src && src.includes('https://scontent') && !alt.toLowerCase().includes('hồ sơ') && !alt.toLowerCase().includes('profile')) {
                 images.push(src);
             }
         });
 
-        // --- E. LẤY VIDEO LINK ---
-        let videoUrl = post.find('a').filter((i, el) => {
-            const href = $(el).attr('href');
-            return href && (href.includes('/videos/') || href.includes('/watch/'));
-        }).first().attr('href') || null;
+        // --- 5. VIDEO LINK ---
+        let videoUrl = post.find('a[href*="/videos/"], a[href*="/watch/"]').first().attr('href') || null;
         if (videoUrl && !videoUrl.startsWith('http')) videoUrl = `https://www.facebook.com${videoUrl}`;
 
-        // --- F. TƯƠNG TÁC ---
+        // --- 6. TƯƠNG TÁC ---
         const reactions = post.find('[aria-label*="cảm xúc"], [aria-label*="reactions"]').attr('aria-label') || "0";
-        let commentCount = "0";
-        let shareCount = "0";
+        let commentCount = "0", shareCount = "0";
         post.find('div[role="button"]').each((i, btn) => {
             const txt = $(btn).text().toLowerCase();
             if (txt.includes('bình luận')) commentCount = txt.replace(/[^0-9kK]/g, '');
             if (txt.includes('chia sẻ')) shareCount = txt.replace(/[^0-9kK]/g, '');
         });
 
+        // --- 7. PUSH KẾT QUẢ THEO CẤU TRÚC YÊU CẦU ---
         results.push({
-            facegroup: facegroup,
-            url: postUrl,
-            author: {
-                name: authorName,
-                link: authorLink
-            },
+            facegroup,
+            href: postUrls, 
+            author: { name: authorName, link: authorLink },
             time: timeText,
-            content: content,
+            text: content,
             images: [...new Set(images)],
             video: videoUrl,
             reactions: reactions,
-            commentCount: commentCount,
-            shareCount: shareCount,
-            collectedAt: new Date().getTime()
+            commentCount,
+            shareCount,
+            used: 0,
+            uuid: new Date().getTime()
         });
     });
 
     return results;
 }
 
-// Logic trong hàm facebookCrawl chính
 async function facebookCrawl(args) {
     const { 
         uniqueID, 
@@ -810,6 +752,7 @@ async function facebookCrawl(args) {
         maxPosts, 
         storySelector, 
         postContainerSelector, 
+        profileNameSelector,
         seeMoreSelector, 
         seeMoreText 
     } = args;
@@ -820,9 +763,8 @@ async function facebookCrawl(args) {
     let count = 0;
 
     try {
-        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Khởi động trình quét bài viết...");
+        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Khởi động trình quét...");
 
-        // Kết nối tới trình duyệt đang mở
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
         browser = await puppeteer.connect({
@@ -840,64 +782,56 @@ async function facebookCrawl(args) {
 
         await facebookPage.bringToFront();
 
-        // Vòng lặp quét bài viết
         while (allPosts.length < maxPosts && count < 1000) {
             count++;
             if (!targetWindow || targetWindow.isDestroyed()) break;
 
-            // --- BƯỚC 1: SCROLL XUỐNG ĐỂ TẢI DỮ LIỆU MỚI ---
+            // Scroll để tải bài mới
             await facebookPage.mouse.wheel({ deltaY: 2000 });
             await new Promise(r => setTimeout(r, 3000)); 
 
-            // --- BƯỚC 2: TÌM NÚT "XEM THÊM" VÀ CLICK ---
-            // Sử dụng evaluate để click trực tiếp trong môi trường trình duyệt
+            // Click "Xem thêm" để bung nội dung
             await facebookPage.evaluate(async (sel, txt) => {
                 const btns = Array.from(document.querySelectorAll(sel));
                 for (const btn of btns) {
                     if (btn.innerText.includes(txt)) {
                         btn.scrollIntoView();
                         btn.click();
-                        // Đợi ngắn để Facebook nạp text cho bài đó
-                        await new Promise(r => setTimeout(r, 800));
+                        await new Promise(r => setTimeout(r, 1000));
                     }
                 }
             }, seeMoreSelector, seeMoreText).catch(() => {});
 
-            // Đợi thêm một chút để tất cả các AJAX nạp xong
             await new Promise(r => setTimeout(r, 1500));
 
-            // --- BƯỚC 3: LẤY HTML VÀ TRÍCH XUẤT ---
             const html = await facebookPage.content();
             const matches = extractFacebookPostsFromHTML(
                 html, 
                 facegroup, 
                 storySelector, 
                 postContainerSelector, 
+                profileNameSelector, 
                 seeMoreText
             );
 
-            // --- BƯỚC 4: LỌC TRÙNG VÀ LƯU KẾT QUẢ ---
             let addedInTurn = 0;
             for (const post of matches) {
-                // Dùng URL làm ID duy nhất để chống trùng
-                const postId = post.url || post.content.substring(0, 100);
+                // Lấy link định danh để lọc trùng
+                const primaryUrl = post.href.find(u => u.includes('/posts/') || u.includes('/groups/')) || post.href[0];
+                const key = primaryUrl || post.text.substring(0, 100);
                 
-                if (postId && !seenIds.has(postId)) {
-                    seenIds.add(postId);
+                if (key && !seenIds.has(key)) {
+                    seenIds.add(key);
                     allPosts.push(post);
                     addedInTurn++;
-                    
-                    sendToRenderer("tools-log", `[FB-Crawl] ✅ Lấy bài: ${post.author.name} (${post.time})`);
+                    sendToRenderer("tools-log", `[FB-Crawl] ✅ Bài mới: ${post.author.name} (${post.time})`);
                 }
                 if (allPosts.length >= maxPosts) break;
             }
 
-            sendToRenderer("tools-log", `[FB-Crawl] ✨ Lần quét ${count}: +${addedInTurn} bài. Tổng: ${allPosts.length}/${maxPosts}`);
-
             if (allPosts.length >= maxPosts) break;
         }
 
-        // --- BƯỚC 5: TRẢ KẾT QUẢ VỀ RENDERER ---
         sendToRenderer("tools-response", {
             action: "facebook-crawl",
             success: true,
@@ -908,8 +842,9 @@ async function facebookCrawl(args) {
         if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
 
     } catch (err) {
-        sendToRenderer("tools-log", `❌ Lỗi thực thi: ${err.message}`);
+        sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
         if (browser) await browser.disconnect();
+        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
     }
 }
 

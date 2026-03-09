@@ -435,10 +435,10 @@ export class AIFacePostComponent
 
         // Các tham số selector truyền vào backend
         const storySelector = 'data-ad-rendering-role="story_message"';
-        const seeMoreSelector =
-            'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
+        const seeMoreSelector = 'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
         const seeMoreText = 'Xem thêm'; // Có thể đổi thành 'See more' tùy tài khoản FB
         const postContainerSelector = '.x1yztbdb'; // Mã này sẽ truyền vào closest()
+        const profileNameSelector = 'data-ad-rendering-role="profile_name"';
 
         await (window as any).electron.tools({
             url: url,
@@ -451,6 +451,7 @@ export class AIFacePostComponent
             // Tham số động
             storySelector: storySelector,
             postContainerSelector: postContainerSelector,
+            profileNameSelector: profileNameSelector,
             seeMoreSelector: seeMoreSelector,
             seeMoreText: seeMoreText,
         });
@@ -819,8 +820,8 @@ export class AIFacePostComponent
                         console.log('Dữ liệu bài viết nhận được từ main process:', data.posts);
 
                         // cập nhật bảng
-                        // this.rows = [...data.posts, ...this.rows];
-                        // this.selected = [...data.posts, ...this.selected];
+                        this.rows = [...data.posts, ...this.rows];
+                        this.selected = [...data.posts, ...this.selected];
 
                         // tự động lưu
                         // this.storePost(data.posts);
@@ -828,6 +829,9 @@ export class AIFacePostComponent
                         // lam moi lai giao dien
                         this.loading = false;
                         this.toastr.success(`Quét Facebook thành công!`);
+
+                        // lam moi lai giao dien
+                        this.cd.markForCheck();
                     }
                 }
             },
@@ -838,6 +842,9 @@ export class AIFacePostComponent
             (msg: any) => {
                 this.loading = false;
                 console.log('Log từ main:', msg);
+
+                // lam moi lai giao dien
+                this.cd.markForCheck();
             },
         );
     }
