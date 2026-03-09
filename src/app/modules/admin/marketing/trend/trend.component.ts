@@ -525,7 +525,7 @@ export class AIFacePostComponent
                 .subscribe({
                     next: (result) => {
                         if (result && result.success) {
-                            this.toastr.success(`Lưu thành công!`);
+                            this.toastr.success(`Lưu ${item.uuid} thành công!`);
 
                             // lưu ảnh trên CDN
                             if (item.images && item.images.length > 0) {
@@ -533,7 +533,7 @@ export class AIFacePostComponent
                             }
 
                             // cập nhật lại số liệu
-                            this.updateCount(1);
+                            // this.updateCount(1);
 
                             // tiếp tục lưu
                             data.splice(0, 1);
@@ -817,18 +817,22 @@ export class AIFacePostComponent
             (data: { action: string; success: any; posts: any }) => {
                 if (data.action === 'facebook-crawl' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
-                        console.log('Dữ liệu bài viết nhận được từ main process:', data.posts);
-
+                        console.log('Dữ liệu bài viết mới nhận được từ main:', data.posts);
                         // cập nhật bảng
                         this.rows = [...data.posts, ...this.rows];
                         this.selected = [...data.posts, ...this.selected];
 
-                        // tự động lưu
-                        // this.storePost(data.posts);
+                        this.totalElements = this.rows.length;
+                        this.totalDisplayCount = this.rows.filter(
+                            (row) => !row.isHeader,
+                        ).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
 
                         // lam moi lai giao dien
                         this.loading = false;
                         this.toastr.success(`Quét Facebook thành công!`);
+
+                        // tự động lưu
+                        this.storePost(data.posts);
 
                         // lam moi lai giao dien
                         this.cd.markForCheck();
