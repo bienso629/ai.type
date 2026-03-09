@@ -60,8 +60,7 @@ import { HelperService } from 'app/helper.service';
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AIFacePostComponent
-    implements OnInit, OnDestroy, AfterContentChecked
-{
+    implements OnInit, OnDestroy, AfterContentChecked {
     animationStates: any;
     user: User;
     config: AppConfig;
@@ -191,8 +190,8 @@ export class AIFacePostComponent
                         this.getLinks(result.data[0]['_id'], 0);
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -225,7 +224,7 @@ export class AIFacePostComponent
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
-                complete: () => {},
+                complete: () => { },
             });
 
         // lấy bài theo collection
@@ -251,8 +250,8 @@ export class AIFacePostComponent
                         this.getCategories(this.domains[0] ?? ['domain']);
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -276,8 +275,8 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -361,7 +360,7 @@ export class AIFacePostComponent
                             ...(this.rows || []),
                             ...newRowsWithHeaders,
                         ];
-                        
+
                         this.totalElements = this.rows.length;
                         this.totalDisplayCount = this.rows.filter(
                             (row) => !row.isHeader,
@@ -388,9 +387,9 @@ export class AIFacePostComponent
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => {},
-                error: () => {},
-                complete: () => {},
+                next: () => { },
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -439,6 +438,7 @@ export class AIFacePostComponent
         const seeMoreSelector =
             'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
         const seeMoreText = 'Xem thêm'; // Có thể đổi thành 'See more' tùy tài khoản FB
+        const postContainerSelector = '.x1yztbdb'; // Mã này sẽ truyền vào closest()
 
         await (window as any).electron.tools({
             url: url,
@@ -450,6 +450,7 @@ export class AIFacePostComponent
             cookiePath: this.fbCookiePath,
             // Tham số động
             storySelector: storySelector,
+            postContainerSelector: postContainerSelector,
             seeMoreSelector: seeMoreSelector,
             seeMoreText: seeMoreText,
         });
@@ -543,7 +544,7 @@ export class AIFacePostComponent
                         // data.splice(0, 1);
                         this.storePost(data);
                     },
-                    complete: () => {},
+                    complete: () => { },
                 });
         } else {
             // quét tiếp
@@ -565,9 +566,9 @@ export class AIFacePostComponent
                     })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
-                        next: () => {},
-                        error: () => {},
-                        complete: () => {},
+                        next: () => { },
+                        error: () => { },
+                        complete: () => { },
                     });
             }
         });
@@ -605,7 +606,7 @@ export class AIFacePostComponent
                         this.toastr.error('Lỗi trong quá trình chuyển.');
                     }
                 },
-                error: (e: any) => {},
+                error: (e: any) => { },
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -663,8 +664,8 @@ export class AIFacePostComponent
                         this.cd.markForCheck();
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -699,7 +700,7 @@ export class AIFacePostComponent
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -813,19 +814,20 @@ export class AIFacePostComponent
         // Nhận phản hồi, theo dõi hoạt động từ main process
         this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: { action: string; success: any; posts: any }) => {
-                // lam moi lai giao dien
-                this.loading = false;
-                this.toastr.success(`Quét Facebook thành công!`);
-
                 if (data.action === 'facebook-crawl' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
                         console.log('Dữ liệu bài viết nhận được từ main process:', data.posts);
+
                         // cập nhật bảng
                         // this.rows = [...data.posts, ...this.rows];
                         // this.selected = [...data.posts, ...this.selected];
 
                         // tự động lưu
                         // this.storePost(data.posts);
+
+                        // lam moi lai giao dien
+                        this.loading = false;
+                        this.toastr.success(`Quét Facebook thành công!`);
                     }
                 }
             },
@@ -840,7 +842,7 @@ export class AIFacePostComponent
         );
     }
 
-    ngAfterContentChecked(): void {}
+    ngAfterContentChecked(): void { }
 
     /**
      * On init

@@ -645,23 +645,184 @@ async function websiteCrawl(
 }
 
 async function facebookCrawl(args) {
-    // Bóc tách toàn bộ tham số được truyền từ Frontend
-    const {
-        uniqueID,
-        facegroup,
-        maxPosts,
-        storySelector,
-        seeMoreSelector,
-        seeMoreText
+    const { uniqueID, facegroup, maxPosts, storySelector, seeMoreSelector, seeMoreText } = args;
+    let browser = null;
+    let allPosts = [];
+    let seenIds = new Set();
+    let count = 0;
+
+    try {
+        const res = await fetch("http://localhost:9999/json/version");
+        const json = await res.json();
+        browser = await puppeteer.connect({ browserWSEndpoint: json.webSocketDebuggerUrl, defaultViewport: null });
+
+        const pages = await browser.pages();
+        let facebookPage = pages.find((p) => p.url().includes(`uniqueID=${uniqueID}`));
+        if (!facebookPage) return;
+
+        while (allPosts.length < maxPosts && count < 500) {
+            count++;
+            
+            // 1. Scroll để tải bài mới
+            await facebookPage.mouse.wheel({ deltaY: 2000 });
+            await new Promise(r => setTimeout(r, 3000)); 
+
+            // 2. Click "Xem thêm" dựa trên selector chi tiết từ frontend
+            await facebookPage.evaluate(async (sel, txt) => {
+                const btns = Array.from(document.querySelectorAll(sel));
+                for (const btn of btns) {
+                    if (btn.innerText.includes(txt)) {
+                        btn.scrollIntoView();
+                        btn.click();
+                        await new Promise(r => setTimeout(r, 1000)); // Chờ AJAX bung text
+                    }
+                }
+            }, seeMoreSelector, seeMoreText).catch(() => {});
+
+            // 3. Lấy HTML đã bung và trích xuất
+            const html = await facebookPage.content();
+            const matches = extractFacebookPostsFromHTML(html, facegroup, storySelector);
+
+            // 4. Lọc trùng và kiểm tra chất lượng nội dung
+            for (const post of matches) {
+                // Chỉ lấy bài đã bung hết (không còn chữ Xem thêm)
+                if (post.content.includes(seeMoreText)) continue;
+
+                const postId = post.url || post.content.substring(0, 150);
+                if (postId && !seenIds.has(postId)) {
+                    seenIds.add(postId);
+                    allPosts.push(post);
+                    sendToRenderer("tools-log", `[FB-Crawl] 📥 Đã lấy: ${post.author} - ${post.images.length} ảnh/video`);
+                }
+                if (allPosts.length >= maxPosts) break;
+            }
+
+            if (allPosts.length >= maxPosts) break;
+        }
+
+        sendToRenderer("tools-response", { action: "facebook-crawl", success: true, posts: allPosts });
+        if (browser) await browser.disconnect();
+        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
+
+    } catch (err) {
+        sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
+        if (browser) await browser.disconnect();
+        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
+    }
+}
+
+function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContainerSelector) {
+    if (!html) return [];
+    const $ = cheerio.load(html);
+    const results = [];
+
+    // 1. Tìm tất cả các vùng chứa bài viết trước
+    $(postContainerSelector).each((index, element) => {
+        const post = $(element);
+        
+        // --- A. LẤY THỜI GIAN & ĐIỀU KIỆN LỌC (CHỈ LẤY PHÚT) ---
+        // Tìm các thẻ chứa thời gian (thường là link timestamp)
+        let timeText = "";
+        let postUrl = "";
+        post.find('a[role="link"]').each((i, el) => {
+            const txt = $(el).text().toLowerCase();
+            const href = $(el).attr('href');
+            // Check nếu chứa chữ "phút" (ví dụ: "5 phút", "10 phút")
+            if (txt.includes('phút')) {
+                timeText = txt;
+                if (href) postUrl = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
+            }
+        });
+
+        // Nếu không tìm thấy chữ "phút", bỏ qua bài này
+        if (!timeText) return;
+
+        // --- B. LẤY NỘI DUNG (Story Message) ---
+        const contentEl = post.find(`[${storySelector}]`);
+        const content = contentEl.text().trim();
+
+        // --- C. LẤY AUTHOR (Theo link privacy_sandbox) ---
+        let authorName = "N/A";
+        let authorLink = "";
+        post.find('a[href*="privacy_sandbox/comet/register"]').each((i, el) => {
+            const name = $(el).text().trim();
+            const link = $(el).attr('href');
+            if (name && name !== "") {
+                authorName = name;
+                authorLink = link.startsWith('http') ? link : `https://www.facebook.com${link}`;
+            }
+        });
+
+        // --- D. LẤY HÌNH ẢNH ---
+        const images = [];
+        post.find('img').each((i, img) => {
+            const src = $(img).attr('src');
+            const alt = $(img).attr('alt') || "";
+            // Lọc scontent và bỏ avatar/icon
+            if (src && src.includes('https://scontent') && !alt.includes('hồ sơ') && !alt.includes('Profile')) {
+                images.push(src);
+            }
+        });
+
+        // --- E. LẤY VIDEO LINK ---
+        let videoUrl = post.find('a').filter((i, el) => {
+            const href = $(el).attr('href');
+            return href && (href.includes('/videos/') || href.includes('/watch/'));
+        }).first().attr('href') || null;
+        if (videoUrl && !videoUrl.startsWith('http')) videoUrl = `https://www.facebook.com${videoUrl}`;
+
+        // --- F. TƯƠNG TÁC ---
+        const reactions = post.find('[aria-label*="cảm xúc"], [aria-label*="reactions"]').attr('aria-label') || "0";
+        let commentCount = "0";
+        let shareCount = "0";
+        post.find('div[role="button"]').each((i, btn) => {
+            const txt = $(btn).text().toLowerCase();
+            if (txt.includes('bình luận')) commentCount = txt.replace(/[^0-9kK]/g, '');
+            if (txt.includes('chia sẻ')) shareCount = txt.replace(/[^0-9kK]/g, '');
+        });
+
+        results.push({
+            facegroup: facegroup,
+            url: postUrl,
+            author: {
+                name: authorName,
+                link: authorLink
+            },
+            time: timeText,
+            content: content,
+            images: [...new Set(images)],
+            video: videoUrl,
+            reactions: reactions,
+            commentCount: commentCount,
+            shareCount: shareCount,
+            collectedAt: new Date().getTime()
+        });
+    });
+
+    return results;
+}
+
+// Logic trong hàm facebookCrawl chính
+async function facebookCrawl(args) {
+    const { 
+        uniqueID, 
+        facegroup, 
+        maxPosts, 
+        storySelector, 
+        postContainerSelector, 
+        seeMoreSelector, 
+        seeMoreText 
     } = args;
 
     let browser = null;
-    let timer = null;
+    let allPosts = [];
+    let seenIds = new Set();
+    let count = 0;
 
     try {
-        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Bắt đầu...");
+        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Khởi động trình quét bài viết...");
 
-        // Kết nối tới browser đang mở (theo logic của bạn)
+        // Kết nối tới trình duyệt đang mở
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
         browser = await puppeteer.connect({
@@ -673,119 +834,83 @@ async function facebookCrawl(args) {
         let facebookPage = pages.find((p) => p.url().includes(`uniqueID=${uniqueID}`));
 
         if (!facebookPage) {
-            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
-            if (browser) await browser.disconnect();
+            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook ứng với uniqueID.");
             return;
         }
 
         await facebookPage.bringToFront();
 
-        let count = 0;
-        let finished = false;
+        // Vòng lặp quét bài viết
+        while (allPosts.length < maxPosts && count < 1000) {
+            count++;
+            if (!targetWindow || targetWindow.isDestroyed()) break;
 
-        timer = setInterval(async () => {
-            if (finished) return;
+            // --- BƯỚC 1: SCROLL XUỐNG ĐỂ TẢI DỮ LIỆU MỚI ---
+            await facebookPage.mouse.wheel({ deltaY: 2000 });
+            await new Promise(r => setTimeout(r, 3000)); 
 
-            try {
-                count++;
-                // Kiểm tra window Electron (targetWindow phải được định nghĩa toàn cục hoặc trong scope này)
-                if (!targetWindow || targetWindow.isDestroyed()) {
-                    throw new Error("Target window was closed by user");
+            // --- BƯỚC 2: TÌM NÚT "XEM THÊM" VÀ CLICK ---
+            // Sử dụng evaluate để click trực tiếp trong môi trường trình duyệt
+            await facebookPage.evaluate(async (sel, txt) => {
+                const btns = Array.from(document.querySelectorAll(sel));
+                for (const btn of btns) {
+                    if (btn.innerText.includes(txt)) {
+                        btn.scrollIntoView();
+                        btn.click();
+                        // Đợi ngắn để Facebook nạp text cho bài đó
+                        await new Promise(r => setTimeout(r, 800));
+                    }
                 }
+            }, seeMoreSelector, seeMoreText).catch(() => {});
 
-                // Scroll
-                await facebookPage.keyboard.press("PageDown");
-                await facebookPage.mouse.wheel({ deltaY: 2000 });
+            // Đợi thêm một chút để tất cả các AJAX nạp xong
+            await new Promise(r => setTimeout(r, 1500));
 
-                const html = await facebookPage.content();
+            // --- BƯỚC 3: LẤY HTML VÀ TRÍCH XUẤT ---
+            const html = await facebookPage.content();
+            const matches = extractFacebookPostsFromHTML(
+                html, 
+                facegroup, 
+                storySelector, 
+                postContainerSelector, 
+                seeMoreText
+            );
 
-                // Đếm post dựa trên storySelector động
-                const regex = new RegExp(storySelector, 'g');
-                const matches = html.match(regex) || [];
-
-                sendToRenderer("tools-log", `[FB-Crawl] Đang quét: ${matches.length}/${maxPosts} bài viết...`);
-
-                // Điều kiện dừng
-                if (matches.length >= maxPosts || count >= 20) {
-                    finished = true;
-                    clearInterval(timer);
-
-                    sendToRenderer("tools-log", `[FB-Crawl] Đang mở rộng nội dung...`);
-
-                    // Gọi hàm click nút "Xem thêm"
-                    await clickAllSeeMoreButtons(facebookPage, seeMoreSelector, seeMoreText);
-
-                    // Lấy HTML cuối cùng sau khi đã update nội dung đầy đủ
-                    const finalHtml = await facebookPage.content();
-                    const posts = extractFacebookPostsFromHTML(finalHtml, facegroup, storySelector);
-
-                    // Trả kết quả về cho Frontend
-                    sendToRenderer("tools-response", {
-                        action: "facebook-crawl",
-                        success: true,
-                        posts: posts.slice(0, maxPosts),
-                    });
-
-                    if (browser) await browser.disconnect();
-                    if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
+            // --- BƯỚC 4: LỌC TRÙNG VÀ LƯU KẾT QUẢ ---
+            let addedInTurn = 0;
+            for (const post of matches) {
+                // Dùng URL làm ID duy nhất để chống trùng
+                const postId = post.url || post.content.substring(0, 100);
+                
+                if (postId && !seenIds.has(postId)) {
+                    seenIds.add(postId);
+                    allPosts.push(post);
+                    addedInTurn++;
+                    
+                    sendToRenderer("tools-log", `[FB-Crawl] ✅ Lấy bài: ${post.author.name} (${post.time})`);
                 }
-            } catch (err) {
-                finished = true;
-                if (timer) clearInterval(timer);
-                sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
-                if (browser) await browser.disconnect();
+                if (allPosts.length >= maxPosts) break;
             }
-        }, 4000);
+
+            sendToRenderer("tools-log", `[FB-Crawl] ✨ Lần quét ${count}: +${addedInTurn} bài. Tổng: ${allPosts.length}/${maxPosts}`);
+
+            if (allPosts.length >= maxPosts) break;
+        }
+
+        // --- BƯỚC 5: TRẢ KẾT QUẢ VỀ RENDERER ---
+        sendToRenderer("tools-response", {
+            action: "facebook-crawl",
+            success: true,
+            posts: allPosts.slice(0, maxPosts),
+        });
+
+        if (browser) await browser.disconnect();
+        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
 
     } catch (err) {
-        if (timer) clearInterval(timer);
+        sendToRenderer("tools-log", `❌ Lỗi thực thi: ${err.message}`);
         if (browser) await browser.disconnect();
-        sendToRenderer("tools-log", `❌ Lỗi khởi tạo: ${err.message}`);
     }
-}
-
-// Hàm click tất cả nút Xem thêm trong bài viết Facebook
-async function clickAllSeeMoreButtons(facebookPage, selector, text) {
-    try {
-        await facebookPage.evaluate(async (sel, txt) => {
-            // Tìm các element theo selector (ví dụ: div[role="button"])
-            const buttons = Array.from(document.querySelectorAll(sel));
-
-            for (const btn of buttons) {
-                // Kiểm tra text (ví dụ: "Xem thêm" hoặc "See more")
-                if (btn && btn.innerText && btn.innerText.includes(txt)) {
-                    btn.click();
-                    // Đợi 1 chút để UI kịp bung ra
-                    await new Promise(r => setTimeout(r, 500));
-                }
-            }
-        }, selector, text);
-
-        // Chờ 2 giây để chắc chắn HTML đã render xong nội dung mới
-        await new Promise(r => setTimeout(r, 2000));
-    } catch (e) {
-        console.error("Lỗi clickAllSeeMoreButtons:", e);
-    }
-}
-
-function extractFacebookPostsFromHTML(html, facegroup, storySelector) {
-    if (!html) return [];
-    const $ = cheerio.load(html);
-    const results = [];
-
-    // Tìm theo selector động truyền từ frontend
-    $(`[${storySelector}]`).each((index, element) => {
-        const content = $(element).text().trim();
-        if (content) {
-            results.push({
-                facegroup: facegroup,
-                content: content,
-                collectedAt: new Date().getTime()
-            });
-        }
-    });
-
-    return results;
 }
 
 // ==== FALLBACK SERVER ====
