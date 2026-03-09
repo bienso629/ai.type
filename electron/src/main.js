@@ -649,40 +649,34 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
     const $ = cheerio.load(html);
     const results = [];
 
-    // Duyệt qua từng "vùng chứa" bài viết (Container động truyền từ client)
     $(postContainerSelector).each((index, element) => {
         const post = $(element);
-        
-        // --- 1. LẤY MẢNG HREF & LỌC THỜI GIAN THEO PHÚT ---
+
+        // --- 1. LẤY MẢNG HREF & LỌC THỜI GIAN ---
         let postUrls = [];
         let timeText = "";
-        
+
         post.find('a[role="link"]').each((i, el) => {
             const txt = $(el).text().toLowerCase();
             const href = $(el).attr('href');
-            
+
             if (href && href !== '#' && !href.startsWith('mailto:')) {
                 const fullHref = href.startsWith('http') ? href : `https://www.facebook.com${href}`;
                 postUrls.push(fullHref);
             }
 
-            // Chỉ chấp nhận bài đăng mới theo phút hoặc vừa xong
             if (txt.includes('phút') || txt.includes('vừa xong') || txt.includes('min')) {
                 timeText = txt;
             }
         });
 
-        // Nếu không thỏa mãn điều kiện thời gian, bỏ qua bài này
-        if (!timeText) return; 
-
-        // Loại bỏ trùng lặp trong mảng link
+        if (!timeText) return;
         postUrls = [...new Set(postUrls)];
 
-        // --- 2. LẤY TÁC GIẢ (AUTHOR) ---
+        // --- 2. LẤY TÁC GIẢ ---
         let authorName = "N/A";
         let authorLink = "";
         const profileContainer = post.find(`[${profileNameSelector}]`);
-        
         if (profileContainer.length) {
             const aTag = profileContainer.find('a[role="link"]').first();
             if (aTag.length) {
@@ -698,19 +692,25 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
         const contentEl = post.find(`[${storySelector}]`);
         const content = contentEl.text().trim();
 
-        // Kiểm tra xem nội dung đã được click bung "Xem thêm" chưa
-        if (content.includes(seeMoreText)) return; 
+        // Kiểm tra bung "Xem thêm"
+        if (content.includes(seeMoreText)) return;
 
         // --- 4. HÌNH ẢNH (IMAGES) ---
         const images = [];
         post.find('img').each((i, img) => {
             const src = $(img).attr('src');
             const alt = $(img).attr('alt') || "";
-            // Lọc scontent và bỏ avatar/icon (thường có alt chứa 'Profile' hoặc 'hồ sơ')
             if (src && src.includes('https://scontent') && !alt.toLowerCase().includes('hồ sơ') && !alt.toLowerCase().includes('profile')) {
                 images.push(src);
             }
         });
+
+        const finalImages = [...new Set(images)];
+
+        // --- ĐIỀU KIỆN MỚI: BỎ QUA NẾU KHÔNG CÓ TEXT VÀ KHÔNG CÓ ẢNH ---
+        if (!content && finalImages.length === 0) {
+            return; // Bỏ qua bài post "trống" (chỉ có video hoặc chỉ có sticker/link)
+        }
 
         // --- 5. VIDEO LINK ---
         let videoUrl = post.find('a[href*="/videos/"], a[href*="/watch/"]').first().attr('href') || null;
@@ -725,14 +725,13 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
             if (txt.includes('chia sẻ')) shareCount = txt.replace(/[^0-9kK]/g, '');
         });
 
-        // --- 7. PUSH KẾT QUẢ THEO CẤU TRÚC YÊU CẦU ---
         results.push({
             facegroup,
-            href: postUrls, 
+            href: postUrls,
             author: { name: authorName, link: authorLink },
             time: timeText,
             text: content,
-            images: [...new Set(images)],
+            images: finalImages,
             video: videoUrl,
             reactions: reactions,
             commentCount,
@@ -746,15 +745,10 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
 }
 
 async function facebookCrawl(args) {
-    const { 
-        uniqueID, 
-        facegroup, 
-        maxPosts, 
-        storySelector, 
-        postContainerSelector, 
-        profileNameSelector,
-        seeMoreSelector, 
-        seeMoreText 
+    const {
+        uniqueID, facegroup, maxPosts,
+        storySelector, postContainerSelector, profileNameSelector,
+        seeMoreSelector, seeMoreText
     } = args;
 
     let browser = null;
@@ -776,7 +770,7 @@ async function facebookCrawl(args) {
         let facebookPage = pages.find((p) => p.url().includes(`uniqueID=${uniqueID}`));
 
         if (!facebookPage) {
-            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook ứng với uniqueID.");
+            sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
             return;
         }
 
@@ -786,11 +780,10 @@ async function facebookCrawl(args) {
             count++;
             if (!targetWindow || targetWindow.isDestroyed()) break;
 
-            // Scroll để tải bài mới
             await facebookPage.mouse.wheel({ deltaY: 2000 });
-            await new Promise(r => setTimeout(r, 3000)); 
+            await new Promise(r => setTimeout(r, 3000));
 
-            // Click "Xem thêm" để bung nội dung
+            // Click Xem thêm
             await facebookPage.evaluate(async (sel, txt) => {
                 const btns = Array.from(document.querySelectorAll(sel));
                 for (const btn of btns) {
@@ -800,31 +793,28 @@ async function facebookCrawl(args) {
                         await new Promise(r => setTimeout(r, 1000));
                     }
                 }
-            }, seeMoreSelector, seeMoreText).catch(() => {});
+            }, seeMoreSelector, seeMoreText).catch(() => { });
 
             await new Promise(r => setTimeout(r, 1500));
 
             const html = await facebookPage.content();
             const matches = extractFacebookPostsFromHTML(
-                html, 
-                facegroup, 
-                storySelector, 
-                postContainerSelector, 
-                profileNameSelector, 
+                html,
+                facegroup,
+                storySelector,
+                postContainerSelector,
+                profileNameSelector,
                 seeMoreText
             );
 
-            let addedInTurn = 0;
             for (const post of matches) {
-                // Lấy link định danh để lọc trùng
                 const primaryUrl = post.href.find(u => u.includes('/posts/') || u.includes('/groups/')) || post.href[0];
                 const key = primaryUrl || post.text.substring(0, 100);
-                
+
                 if (key && !seenIds.has(key)) {
                     seenIds.add(key);
                     allPosts.push(post);
-                    addedInTurn++;
-                    sendToRenderer("tools-log", `[FB-Crawl] ✅ Bài mới: ${post.author.name} (${post.time})`);
+                    sendToRenderer("tools-log", `[FB-Crawl] ✅ Đã lấy: ${post.author.name} (${post.images.length} ảnh)`);
                 }
                 if (allPosts.length >= maxPosts) break;
             }
@@ -844,7 +834,6 @@ async function facebookCrawl(args) {
     } catch (err) {
         sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
         if (browser) await browser.disconnect();
-        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
     }
 }
 

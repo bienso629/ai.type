@@ -260,7 +260,7 @@
                                     <div *ngIf="!row.isHeader" [class.active-row]="isActive(row)">
                                         <p class="font-normal truncate hover:text-clip cursor-pointer"
                                             (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
-                                            {{row.text}}
+                                            {{row.text || '...'}}
                                         </p>
                                     </div>
                                 </ng-template>
@@ -272,7 +272,7 @@
                                     <div class="flex items-center justify-end">
                                         <a *ngIf="row.href && row.href.length > 0"
                                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
-                                            [href]="row.url" target="_blank"
+                                            [href]="row.href[0]" target="_blank"
                                             matTooltipPosition="above"
                                             matTooltip="Truy cập vào địa chỉ gốc {{row.author?.name}}">Link</a>
                                     </div>
