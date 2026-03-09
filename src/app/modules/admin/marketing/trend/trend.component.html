@@ -1,7 +1,6 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden">
     <!-- Header -->
-    <div
-        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
+    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
         <div class="flex-1 min-w-0">
             <!-- Breadcrumbs -->
             <div>
@@ -15,15 +14,13 @@
                         <a class="ml-1 text-base text-primary-500">grouppost</a>
                     </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
-                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
-                            [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                         <span class="ml-1 text-base text-secondary">luôn luôn bắt kịp xu hướng thế giới</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
                     <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
-                        <mat-icon class="icon-size-4 text-secondary"
-                            [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                         <span class="ml-1 text-base">quay lại</span>
                     </a>
                 </div>
@@ -37,13 +34,18 @@
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
             <!-- Form -->
-            <form [formGroup]="chatgptForm">
+            <!-- <form [formGroup]="chatgptForm">
                 <mat-form-field class="w-60 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                     <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="find($event)"
                         placeholder="Tìm kiếm post" matInput>
                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
                 </mat-form-field>
-            </form>
+            </form> -->
+
+            <button mat-flat-button [color]="'primary'">
+                <mat-icon class="icon-size-5" svgIcon="feather:calendar"></mat-icon>
+                <mat-label class="ml-2">Đặt lịch quét Trend</mat-label>
+            </button>
         </div>
     </div>
 
@@ -52,14 +54,12 @@
         <!-- CONTENT GOES HERE -->
         <mat-drawer-container class="flex-auto h-full">
             <!-- Drawer -->
-            <mat-drawer class="w-100 bg-gray-100 dark:bg-transparent border-r-0" [autoFocus]="false" [mode]="drawerMode"
-                [opened]="drawerOpened" #matDrawer>
+            <mat-drawer class="w-100 bg-gray-100 dark:bg-transparent border-r-0" [autoFocus]="false" [mode]="drawerMode" [opened]="drawerOpened" #matDrawer>
                 <!-- Buy / Sell -->
                 <div class="flex flex-col flex-auto p-4">
                     <!-- Action -->
                     <!-- Advanced search form -->
-                    <form class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent"
-                        [formGroup]="sitemapForm">
+                    <form class="flex flex-col items-start w-full overflow-hidden dark:bg-transparent" [formGroup]="sitemapForm">
                         <mat-accordion class="border rounded-xl p-2 bg-white">
                             <mat-expansion-panel showToggle class="mb-6" [expanded]="true">
                                 <mat-expansion-panel-header>
@@ -69,18 +69,13 @@
                                 </mat-expansion-panel-header>
                                 <div class="p-3">
                                     <!-- Danh sách collection của bạn -->
-                                    <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+                                    <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>Hãy chọn 1 bộ sưu tập</mat-label>
-                                        <input placeholder="Link quét bài sẽ được lấy sau"
-                                            [formControlName]="'collection'" matInput [matAutocomplete]="collection">
+                                        <input placeholder="Link quét bài sẽ được lấy sau" [formControlName]="'collection'" matInput [matAutocomplete]="collection">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:book'"></mat-icon>
 
-                                        <mat-autocomplete #collection="matAutocomplete"
-                                            (optionSelected)="getLinks($event.option.value._id, 1)"
-                                            [displayWith]="displayCollectionFn">
-                                            <mat-option *ngFor="let item of allLinkCollections" [value]="item"
-                                                class="py-2 mb-2">
+                                        <mat-autocomplete #collection="matAutocomplete" (optionSelected)="getLinks($event.option.value._id, 1)" [displayWith]="displayCollectionFn">
+                                            <mat-option *ngFor="let item of allLinkCollections" [value]="item" class="py-2 mb-2">
                                                 <label class="line-clamp-1">{{ item.title || 'Chưa có tiêu đề'}}</label>
                                                 <label class="line-clamp-1 text-gray-300">{{ item.ids.length }}
                                                     link(s)</label>
@@ -89,17 +84,13 @@
                                     </mat-form-field>
 
                                     <!-- Địa chỉ mẹ -->
-                                    <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+                                    <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>Link</mat-label>
-                                        <input placeholder="Chỉ sử dụng link Group từ Facebook"
-                                            [formControlName]="'domain'" aria-label="Number" matInput
-                                            [matAutocomplete]="auto">
+                                        <input placeholder="Chỉ sử dụng link Group từ Facebook" [formControlName]="'domain'" aria-label="Number" matInput [matAutocomplete]="auto">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
 
                                         <mat-autocomplete #auto="matAutocomplete">
-                                            <mat-option *ngFor="let item of links" [value]="item.link"
-                                                class="py-2 mb-2">
+                                            <mat-option *ngFor="let item of links" [value]="item.link" class="py-2 mb-2">
                                                 <label class="line-clamp-1">{{ item.title || 'Chưa có tiêu đề'}}</label>
                                                 <label class="line-clamp-1 text-gray-300">{{ item.link }}</label>
                                             </mat-option>
@@ -113,15 +104,13 @@
                                     </mat-form-field>
 
                                     <div class="mt-2">
-                                        <button mat-flat-button [color]="'primary'" *ngIf="!loading" type="button"
-                                            (click)="createAllSitemap()">
+                                        <button mat-flat-button [color]="'primary'" *ngIf="!loading" type="button" (click)="createAllSitemap()">
                                             <mat-icon class="icon-size-5" svgIcon="facebook"></mat-icon>
                                             <mat-label class="ml-2">Quét lấy Trend</mat-label>
                                         </button>
 
                                         <button mat-flat-button *ngIf="loading" [color]="'warn'" (click)="stop()">
-                                            <mat-progress-spinner [diameter]="16" [strokeWidth]="2"
-                                                [mode]="'indeterminate'"></mat-progress-spinner>
+                                            <mat-progress-spinner [diameter]="16" [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
                                         </button>
                                     </div>
                                 </div>
@@ -135,15 +124,12 @@
                                 </mat-expansion-panel-header>
                                 <div class="flex flex-col p-3">
                                     <!-- Địa chỉ mẹ -->
-                                    <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+                                    <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>AI sẽ tự động đăng bài vào tên miền nào?</mat-label>
-                                        <input placeholder="Danh sách domain" [formControlName]="'domain1'"
-                                            aria-label="Number" matInput [matAutocomplete]="auto1">
+                                        <input placeholder="Danh sách domain" [formControlName]="'domain1'" aria-label="Number" matInput [matAutocomplete]="auto1">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
 
-                                        <mat-autocomplete #auto1="matAutocomplete"
-                                            (optionSelected)="getCategories($event)" [displayWith]="displayFn">
+                                        <mat-autocomplete #auto1="matAutocomplete" (optionSelected)="getCategories($event)" [displayWith]="displayFn">
                                             <mat-option *ngFor="let item of domains" [value]="item" class="py-2 mb-2">
                                                 <label class="line-clamp-1 text-gray-300">{{ item.name || 'Tiêu đề
                                                     trống' }}</label>
@@ -153,27 +139,22 @@
                                     </mat-form-field>
 
                                     <!-- Địa chỉ tham chiếu -->
-                                    <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+                                    <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>Tạo backlink cho tên miền nào?</mat-label>
-                                        <input placeholder="Ví dụ: type.vn" [formControlName]="'domain2'"
-                                            aria-label="Number" matInput>
+                                        <input placeholder="Ví dụ: type.vn" [formControlName]="'domain2'" aria-label="Number" matInput>
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
                                         <mat-hint>Tốt hơn cho SEO</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Title tham chiếu -->
-                                    <mat-form-field
-                                        class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+                                    <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>Tiêu đề của backlink</mat-label>
-                                        <input placeholder="Title tham chiếu" [formControlName]="'titledomain2'"
-                                            aria-label="Number" matInput>
+                                        <input placeholder="Title tham chiếu" [formControlName]="'titledomain2'" aria-label="Number" matInput>
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:type'"></mat-icon>
                                         <mat-hint>Nhập vào sẽ tốt hơn cho SEO</mat-hint>
                                     </mat-form-field>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'autocreatenode'">
+                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after" [formControlName]="'autocreatenode'">
                                         <mat-label class="ml-2 text-sm">Tự động tạo bài viết</mat-label>
                                     </mat-slide-toggle>
 
@@ -182,23 +163,19 @@
                                         <mat-label class="ml-2 text-sm">Viết trên 100 bài</mat-label>
                                     </mat-slide-toggle> -->
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'createthumbnail'">
+                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after" [formControlName]="'createthumbnail'">
                                         <mat-label class="ml-2 text-sm">Tạo ảnh thumbnail</mat-label>
                                     </mat-slide-toggle>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'createvideo'">
+                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after" [formControlName]="'createvideo'">
                                         <mat-label class="ml-2 text-sm">Tạo video</mat-label>
                                     </mat-slide-toggle>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'autopost'">
+                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after" [formControlName]="'autopost'">
                                         <mat-label class="ml-2 text-sm">Tự động đăng bài FB</mat-label>
                                     </mat-slide-toggle>
 
-                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
-                                        [formControlName]="'publish'">
+                                    <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after" [formControlName]="'publish'">
                                         <mat-label class="ml-2 text-sm">Bật chế độ Publish</mat-label>
                                     </mat-slide-toggle>
 
@@ -207,8 +184,7 @@
 
                                     <!-- Actions -->
                                     <div class="flex items-center justify-start w-full my-4">
-                                        <button color="primary" [disabled]="totalElements <= 0" (click)="autoPost()"
-                                            type="button" mat-flat-button>
+                                        <button color="primary" [disabled]="totalElements <= 0" (click)="autoPost()" type="button" mat-flat-button>
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
                                             <mat-label class="ml-2">Bắt đầu đăng bài</mat-label>
                                         </button>
@@ -226,47 +202,40 @@
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex w-1/2 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable *ngIf="allLinkCollections.length > 0" [virtualization]="true" #table
-                            class="material expandable fullscreen" [columnMode]="ColumnMode.force"
-                            [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
-                            [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50"
-                            [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true" [rows]="rows"
-                            (activate)="onActivate($event)" [selected]="selected"
-                            [selectionType]="SelectionType.checkbox" (select)="onSelect($event)"
-                            [selectCheck]="checkSelectable">
+                        <ngx-datatable [virtualization]="true" #table class="material expandable fullscreen" [columnMode]="ColumnMode.force"
+                            [externalPaging]="true" [externalSorting]="true" [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
+                            [footerHeight]="50" [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true" [rows]="rows" (activate)="onActivate($event)"
+                            [selected]="selected" [selectionType]="SelectionType.checkbox" (select)="onSelect($event)" [selectCheck]="checkSelectable">
 
                             <!-- Column Templates -->
-                            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
-                                [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
+                            <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
                                 [checkboxable]="true"></ngx-datatable-column>
 
-                            <ngx-datatable-column [name]="selected.length + ' post(s) được chọn'" [width]="300"
-                                [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+                            <ngx-datatable-column [name]="totalDisplayCount + ' post(s) chưa được sử dụng'" [width]="300" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                                [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
                                     <div *ngIf="row.isHeader" class="flex items-center justify-between">
-                                        <a class="h-8 flex items-center justify-between leading-8 cursor-pointer items-center p-3 rounded-full bg-green-600 hover:bg-green-700 text-white" (click)="selectRowsByDate(row.dateLabel)">
-                                            <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:calendar'"></mat-icon>
+                                        <a class="h-8 flex items-center justify-between leading-8 cursor-pointer p-3 rounded-full border border-green-500 text-green-500 bg-green-50 hover:bg-green-100"
+                                            (click)="selectRowsByDate(row.dateLabel)">
+                                            <mat-icon class="icon-size-4 text-green-500" [svgIcon]="'feather:calendar'"></mat-icon>
                                             <mat-label class="ml-2">{{ row.dateLabel }}</mat-label>
                                         </a>
                                     </div>
 
                                     <div *ngIf="!row.isHeader" [class.active-row]="isActive(row)">
-                                        <p class="font-normal truncate hover:text-clip cursor-pointer"
-                                            (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
+                                        <p class="font-normal truncate hover:text-clip cursor-pointer" (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
                                             {{row.text}}
                                         </p>
                                     </div>
                                 </ng-template>
                             </ngx-datatable-column>
 
-                            <ngx-datatable-column name="" [width]="100" [sortable]="false" [canAutoResize]="false"
-                                [draggable]="false" [resizeable]="false">
+                            <ngx-datatable-column name="" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
                                     <div class="flex items-center justify-end">
                                         <a *ngIf="row.href && row.href.length > 0"
                                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
-                                            [href]="row.href[row.href.length - 1]" target="_blank"
-                                            matTooltipPosition="above"
+                                            [href]="row.href[row.href.length - 1]" target="_blank" matTooltipPosition="above"
                                             matTooltip="Truy cập vào địa chỉ gốc {{row.href[row.href.length - 1]}}">Link</a>
                                     </div>
                                 </ng-template>
@@ -278,17 +247,16 @@
                                         <div class="flex-1 min-w-0">
                                             <!-- Breadcrumbs -->
                                             <div class="page-count">
-                                                Có {{ this.totalDisplayCount }} post(s) chưa được sử dụng
+                                                {{ selected.length > 0 ? ' - ' + selected.length + ' post(s) được chọn' : 'Bạn chưa chọn post nào' }}
                                             </div>
                                         </div>
 
                                         <!-- Actions -->
                                         <div class="flex shrink-0 items-center pr-4">
-                                            <button color="primary" (click)="analyticsTrend()"
-                                            type="button" mat-flat-button>
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
-                                            <mat-label class="ml-2">Phân tích xu hướng</mat-label>
-                                        </button>
+                                            <button color="primary" (click)="analyticsTrend()" type="button" mat-flat-button>
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
+                                                <mat-label class="ml-2">Phân tích xu hướng</mat-label>
+                                            </button>
                                         </div>
                                     </div>
                                 </ng-template>
@@ -307,47 +275,36 @@
                             <div class="flex flex-col w-full h-full justify-between">
                                 <main class="w-full overflow-auto">
                                     <div class="flex flex-col pb-6">
-                                        <p class="relative flex-auto px-6 mt-6"
-                                            *ngIf="preview['images'] && preview['images'].length > 0">
+                                        <p class="relative flex-auto px-6 mt-6" *ngIf="preview['images'] && preview['images'].length > 0">
                                             <mat-grid-list cols="3" rowHeight="1:1" gutterSize="24px">
                                                 <ng-container *ngFor="let href of preview.href">
-                                                    <mat-grid-tile class="rounded-2xl"
-                                                        *ngIf="href.indexOf('video') >= 0"
+                                                    <mat-grid-tile class="rounded-2xl" *ngIf="href.indexOf('video') >= 0"
                                                         [ngStyle]="{'background-image': 'url(' + preview.images[0] + ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}">
-                                                        <ng-container
-                                                            *ngIf="preview['href'] && preview['href'].length > 0;">
-                                                            <a *ngFor="let href of preview.href"
-                                                                class="absolute top-0 left-0 bottom-0 right-0"
-                                                                [href]="href" target="_blank" matTooltipPosition="above"
-                                                                matTooltip="Truy cập vào địa chỉ này"></a>
+                                                        <ng-container *ngIf="preview['href'] && preview['href'].length > 0;">
+                                                            <a *ngFor="let href of preview.href" class="absolute top-0 left-0 bottom-0 right-0" [href]="href" target="_blank"
+                                                                matTooltipPosition="above" matTooltip="Truy cập vào địa chỉ này"></a>
                                                         </ng-container>
 
-                                                        <a mat-icon-button (click)="downloadVideo(href)"
-                                                            class="text-white bg-red-500 bg-opacity-30 absolute"
+                                                        <a mat-icon-button (click)="downloadVideo(href)" class="text-white bg-red-500 bg-opacity-30 absolute"
                                                             matTooltipPosition="above" matTooltip="Tải video về máy">
-                                                            <mat-icon class="icon-size-4 text-white"
-                                                                [svgIcon]="'feather:video'"></mat-icon>
+                                                            <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:video'"></mat-icon>
                                                         </a>
                                                     </mat-grid-tile>
                                                 </ng-container>
 
                                                 <ng-container *ngIf="!checkVideo()">
-                                                    <mat-grid-tile class="rounded-2xl"
-                                                        *ngFor="let img of preview.images"
+                                                    <mat-grid-tile class="rounded-2xl" *ngFor="let img of preview.images"
                                                         [ngStyle]="{'background-image': 'url(' +img+ ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}">
-                                                        <a mat-icon-button (click)="downloadImage(img)"
-                                                            class="text-white bg-green-500 bg-opacity-30 absolute"
+                                                        <a mat-icon-button (click)="downloadImage(img)" class="text-white bg-green-500 bg-opacity-30 absolute"
                                                             matTooltipPosition="above" matTooltip="Tải hình ảnh về máy">
-                                                            <mat-icon class="icon-size-4 text-white"
-                                                                [svgIcon]="'feather:download'"></mat-icon>
+                                                            <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:download'"></mat-icon>
                                                         </a>
                                                     </mat-grid-tile>
                                                 </ng-container>
                                             </mat-grid-list>
                                         </p>
 
-                                        <div class="text-base px-6 mt-4" *ngIf="preview.text"
-                                            [innerHTML]="preview.text"></div>
+                                        <div class="text-base px-6 mt-4" *ngIf="preview.text" [innerHTML]="preview.text"></div>
 
                                         <div class="text-base p-4 m-4 border rounded-2xl" *ngIf="testCreateBlog">
                                             <h2>Kết quả test</h2>
