@@ -1,12 +1,3 @@
-.example-margin {
-    margin: 10px;
-}
-
-.used {
-    color: var(--text-primary);
-}
-
-// ai-face2node.component.scss
 ::ng-deep {
     .datatable-body-row {
         &.is-header { // Bạn có thể dùng [rowClass] để thêm class này
@@ -14,4 +5,12 @@
             cursor: default !important;
         }
     }
+}
+
+.example-margin {
+    margin: 10px;
+}
+
+.used {
+    color: var(--text-primary);
 }

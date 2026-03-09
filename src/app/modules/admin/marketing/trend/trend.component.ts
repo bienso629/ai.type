@@ -187,7 +187,7 @@ export class AIFacePostComponent
                             result.data[0],
                         );
 
-                        // tự động lấy link
+                        // tự động lấy link đầu tiên để quét
                         this.getLinks(result.data[0]['_id'], 0);
                     }
                 },
@@ -197,10 +197,9 @@ export class AIFacePostComponent
     }
 
     /**
-     * lấy tất cả link facebook
+     * lấy tất cả link trong collection để chuẩn bị quét bài viết. Nếu có counter thì sẽ reset bảng và tính lại tổng số bài viết để chuẩn bị cho việc phân trang
      */
     getLinks(id: string, counter?: number) {
-        // lấy link theo collection
         this._crawlService
             .linksInCollection({
                 username: this.user.name,
@@ -233,9 +232,6 @@ export class AIFacePostComponent
         if (counter && counter > 0) {
             this.resetTable();
         }
-
-        // lấy bài theo collection
-        this.faceTotalPost();
     }
 
     // lấy tất cả domain làm việc của bạn
@@ -293,60 +289,6 @@ export class AIFacePostComponent
         this.currentBookmark = null; // Quan trọng: Reset bookmark
         this.cachePageSize = 0;
         this.cache = {};
-    }
-
-    faceTotalPost() {
-        const collection = this.sitemapForm.controls['collection'].value;
-
-        // tính tổng trước
-        this._crawlService
-            .faceTotalSearchPost({
-                username: this.user.name,
-                keyword: this.keyword,
-                facegroup: collection._id,
-                page: this.page,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success) {
-                        this.totalElements = result.data.total || 0;
-
-                        // lấy bài
-                        this.setPage({
-                            offset: 0,
-                            pageSize: undefined,
-                            limit: undefined,
-                            count: this.totalElements,
-                        });
-                    }
-                },
-                error: () => {},
-                complete: () => {},
-            });
-    }
-
-    // tìm kiếm theo từ khoá
-    find(event: any) {
-        this.keyword = event.target.value.toLowerCase();
-
-        if (this.keyword) {
-            // bắt đầu tính toán tìm kiếm
-            this.faceTotalPost();
-        } else {
-            // về lại mặc định khi không có từ khoá tìm kiếm
-            let temp = localStorage.getItem('statistics');
-            temp = JSON.parse(temp);
-            this.totalElements = temp['faceposts'];
-        }
-
-        // lấy bài
-        this.setPage({
-            offset: 0,
-            pageSize: undefined,
-            limit: undefined,
-            count: this.totalElements,
-        });
     }
 
     /**
@@ -419,6 +361,7 @@ export class AIFacePostComponent
                             ...(this.rows || []),
                             ...newRowsWithHeaders,
                         ];
+                        
                         this.totalElements = this.rows.length;
                         this.totalDisplayCount = this.rows.filter(
                             (row) => !row.isHeader,
@@ -876,15 +819,14 @@ export class AIFacePostComponent
 
                 if (data.action === 'facebook-crawl' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
+                        console.log('Dữ liệu bài viết nhận được từ main process:', data.posts);
                         // cập nhật bảng
-                        this.rows = [...data.posts, ...this.rows];
+                        // this.rows = [...data.posts, ...this.rows];
                         // this.selected = [...data.posts, ...this.selected];
 
                         // tự động lưu
-                        this.storePost(data.posts);
+                        // this.storePost(data.posts);
                     }
-                } else {
-                    this.toastr.info('Chương trình đang được khởi tạo.');
                 }
             },
         );
