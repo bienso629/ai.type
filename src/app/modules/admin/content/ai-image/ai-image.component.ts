@@ -328,13 +328,14 @@ export class AIImageComponent
         if (!promptValue || this.loading) return;
 
         this.loading = true;
-        const selectedSize = this.form.get('resolution')?.value || "2K";
+        const selectedSize = this.form.get('resolution')?.value || "512px";
         const selectedRatio = this.form.get('aspectRatio')?.value || "16:9";
+        const modelId = this.form.get('modelId')?.value;
 
         try {
             // 1. Cấu hình gửi đi chuẩn SDK v2 (@google/genai)
             const generateOptions = {
-                model: 'gemini-3.1-flash-image-preview',
+                model: modelId,
                 contents: [{ role: 'user', parts: [{ text: promptValue }] }],
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],
@@ -547,7 +548,7 @@ export class AIImageComponent
 
         if (this.secretKey) {
             let geminiKey = this.secretKey[0];
-            if (this.secretKey[7]) geminiKey = this.secretKey[7];
+            if (this.secretKey[1]) geminiKey = this.secretKey[1];
             this.ai = new GoogleGenAI({ apiKey: geminiKey });
         }
 
@@ -610,6 +611,7 @@ export class AIImageComponent
             prompt: [''],
             resolution: ['512px'], // Mặc định 512px cho rẻ
             aspectRatio: ['1:1'],
+            modelId: ['gemini-3.1-flash-image-preview'], // Mặc định Flash cho nhẹ
             // ... các field cũ của bạn ...
         });
     }
