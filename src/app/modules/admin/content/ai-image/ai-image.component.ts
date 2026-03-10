@@ -242,22 +242,6 @@ export class AIImageComponent
         }
     }
 
-    // downloadImage(url: string) {
-    //     this.http.get(url, { responseType: 'blob' }).subscribe(
-    //         (blob) => {
-    //             const link = document.createElement('a');
-    //             link.href = URL.createObjectURL(blob);
-    //             link.download = `${uuid.v4()}`;
-    //             document.body.appendChild(link);
-    //             link.click();
-    //             document.body.removeChild(link);
-    //         },
-    //         (error) => {
-    //             console.error('Error downloading:', error);
-    //         },
-    //     );
-    // }
-
     deleteImage(filePath: string, index: number) {
         this.alert({
             title: 'Thông báo',
@@ -426,6 +410,22 @@ export class AIImageComponent
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
+    }
+
+    downloadImageWithURL(url: string) {
+        this.http.get(url, { responseType: 'blob' }).subscribe(
+            (blob) => {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `${uuid.v4()}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+            (error) => {
+                console.error('Error downloading:', error);
+            },
+        );
     }
 
     // Hàm phụ để xử lý upload giúp code sạch hơn
