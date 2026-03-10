@@ -242,21 +242,21 @@ export class AIImageComponent
         }
     }
 
-    downloadImage(url: string) {
-        this.http.get(url, { responseType: 'blob' }).subscribe(
-            (blob) => {
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `${uuid.v4()}`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-            },
-            (error) => {
-                console.error('Error downloading:', error);
-            },
-        );
-    }
+    // downloadImage(url: string) {
+    //     this.http.get(url, { responseType: 'blob' }).subscribe(
+    //         (blob) => {
+    //             const link = document.createElement('a');
+    //             link.href = URL.createObjectURL(blob);
+    //             link.download = `${uuid.v4()}`;
+    //             document.body.appendChild(link);
+    //             link.click();
+    //             document.body.removeChild(link);
+    //         },
+    //         (error) => {
+    //             console.error('Error downloading:', error);
+    //         },
+    //     );
+    // }
 
     deleteImage(filePath: string, index: number) {
         this.alert({
@@ -348,93 +348,110 @@ export class AIImageComponent
         const selectedRatio = this.form.get('aspectRatio')?.value || "16:9";
 
         try {
-            // Cấu hình chuẩn cho Banana Pro (Gemini 3.1 Flash Image) theo SDK v2
-            const config = {
+            // 1. Cấu hình gửi đi chuẩn SDK v2 (@google/genai)
+            const generateOptions = {
                 model: 'gemini-3.1-flash-image-preview',
+                contents: [{ role: 'user', parts: [{ text: promptValue }] }],
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],
                     imageConfig: {
                         aspectRatio: selectedRatio,
                         imageSize: selectedSize
-                    },
-                    tools: [{ googleSearch: {} }] // Kích hoạt khả năng tra cứu thực tế
+                    }
                 }
             };
 
-            // Chuẩn bị nội dung gửi đi (Prompt + Ảnh tham chiếu local)
-            const contents = [promptValue];
-            if (this.referenceFiles && this.referenceFiles.length > 0) {
+            // Thêm ảnh tham chiếu nếu có
+            if (this.referenceFiles?.length > 0) {
                 this.referenceFiles.forEach(file => {
-                    contents.push({
-                        inlineData: {
-                            data: file.base64Data,
-                            mimeType: file.mimeType
-                        }
-                    });
+                    generateOptions.contents[0].parts.push({
+                        inlineData: { data: file.base64Data, mimeType: file.mimeType }
+                    } as any);
                 });
             }
 
-            // Gọi API bằng phương thức generateContent của SDK v2
-            const response = await this.ai.models.generateContent({
-                model: config.model,
-                contents: contents,
-                config: config.config
-            });
+            // 2. Gọi API Banana Pro
+            const response = await this.ai.models.generateContent(generateOptions);
 
-            // SDK v2 trả về cấu trúc response.generatedContent
-            const generatedParts = response.generatedContent?.parts;
+            // 3. Rà soát Logic phản hồi
+            const candidates = response.candidates;
             const usage = response.usageMetadata;
 
-            if (generatedParts) {
-                for (const part of generatedParts) {
-                    // Kiểm tra nếu part chứa dữ liệu hình ảnh (as_image tương đương trong TS)
+            if (candidates?.[0]?.content?.parts) {
+                for (const part of candidates[0].content.parts) {
+                    let rawBase64 = '';
+                    let mimeType = 'image/png'; // Mặc định PNG
+
                     if (part.inlineData) {
-                        const imageData = part.inlineData.data;
-                        const mimeType = part.inlineData.mimeType;
-
-                        const thumbnail = await Promise.all([
-                            this._blogService.uploadThumbnailPromise({
-                                imageData: `data:${mimeType};base64,${imageData}`,
-                                folder: 'thumbnails',
-                                username: this.user.name,
-                            }),
-                        ]);
-
-                        // Lưu vào danh sách hiển thị với URL đã upload thành công
-                        if (thumbnail && thumbnail[0]) {
-                            thumbnail.forEach((image) => {
-                                if (image && image['img']) {
-                                    this.imageUrls.unshift(image['img']);
-                                    this.rebuildRows();
-                                    this.form.get('prompt').enable();
-                                    this.loading = false;
-                                    this.toastr.success('Tạo hình ảnh thành công!');
-                                    this.cd.markForCheck();
-                                } else {
-                                    this.toastr.warning('Không thể tạo hình ảnh.');
-                                }
-                            });
-                        }
+                        rawBase64 = part.inlineData.data;
+                        mimeType = part.inlineData.mimeType;
+                    } else if ((part as any).image) {
+                        rawBase64 = (part as any).image.data;
+                        mimeType = (part as any).image.mimeType || 'image/png';
                     }
 
-                    if (part.text) {
-                        console.log('Banana Feedback:', part.text);
+                    if (rawBase64) {
+                        // 1. Tự động tải về máy tính để bạn kiểm tra (dùng full base64 có header)
+                        // const fullBase64ForPreview = `data:${mimeType};base64,${rawBase64}`;
+                        // this.downloadImage(fullBase64ForPreview, `banana-${Date.now()}.png`);
+
+                        // 2. LOGIC QUAN TRỌNG: Gửi lên Server
+                        await this.processAndUploadImage(rawBase64, mimeType);
                     }
                 }
 
-                this.toastr.success(`Đã tạo và lưu trữ ảnh thành công! (${usage?.totalTokenCount} tokens)`, '', { timeOut: 5000 });
                 this.referenceFiles = [];
                 this.form.get('prompt')?.setValue('');
+                this.toastr.success('Tạo hình ảnh thành công!')
             }
-
         } catch (err: any) {
-            console.error('Lỗi SDK v2:', err);
-            this.toastr.error('Không thể tạo hoặc lưu trữ hình ảnh.');
+            console.error('Lỗi Banana Logic:', err);
+            this.toastr.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
+
             this.loading = false;
             this.cd.markForCheck();
         } finally {
             this.loading = false;
             this.cd.markForCheck();
+        }
+    }
+
+    /**
+     * Hàm hỗ trợ tải ảnh trực tiếp về trình duyệt
+     */
+    private downloadImage(base64Data: string, fileName: string) {
+        const link = document.createElement('a');
+        link.href = base64Data;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    // Hàm phụ để xử lý upload giúp code sạch hơn
+    async processAndUploadImage(rawBase64: string, mimeType: string) {
+        const thumbnail = await Promise.all([
+            this._blogService.uploadThumbnailPromise({
+                imageData: rawBase64,
+                folder: 'thumbnails',
+                username: this.user.name,
+            }),
+        ]);
+
+        // Lưu vào danh sách hiển thị với URL đã upload thành công
+        if (thumbnail && thumbnail[0]) {
+            thumbnail.forEach((image) => {
+                if (image && image['img']) {
+                    this.imageUrls.unshift(image['img']);
+                    this.rebuildRows();
+                    this.form.get('prompt').enable();
+                    this.loading = false;
+                    this.toastr.success('Tạo hình ảnh thành công!');
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.warning('Không thể tạo hình ảnh.');
+                }
+            });
         }
     }
 
@@ -591,7 +608,7 @@ export class AIImageComponent
     ngOnInit(): void {
         this.form = this._formBuilder.group({
             prompt: [''],
-            resolution: ['1K'], // Mặc định 1K cho rẻ
+            resolution: ['512px'], // Mặc định 512px cho rẻ
             aspectRatio: ['1:1'],
             // ... các field cũ của bạn ...
         });
