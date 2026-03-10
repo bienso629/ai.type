@@ -360,7 +360,10 @@ export class AIImageComponent
 
             // 3. Rà soát Logic phản hồi
             const candidates = response.candidates;
+
+            // LẤY TOKEN TẠI ĐÂY
             const usage = response.usageMetadata;
+            console.log('Token Usage:', usage); // Debug xem có dữ liệu không
 
             if (candidates?.[0]?.content?.parts) {
                 for (const part of candidates[0].content.parts) {
@@ -379,6 +382,8 @@ export class AIImageComponent
                         // 1. Tự động tải về máy tính để bạn kiểm tra (dùng full base64 có header)
                         // const fullBase64ForPreview = `data:${mimeType};base64,${rawBase64}`;
                         // this.downloadImage(fullBase64ForPreview, `banana-${Date.now()}.png`);
+
+                        this.toastr.info(`Tiêu tốn: ${usage?.totalTokenCount || 0} tokens`);
 
                         // 2. LOGIC QUAN TRỌNG: Gửi lên Server
                         await this.processAndUploadImage(rawBase64, mimeType);
