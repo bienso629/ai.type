@@ -69,16 +69,16 @@ import { MatDialogRef } from '@angular/material/dialog';
                 <ngx-datatable-column [flexGrow]="1">
                     <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
                         <div class="row-grid w-full flex flex-wrap">
-                            <div class="thumb-wrap px-1 py-0 box-border"
+                            <div class="thumb-wrap p-2 box-border"
                                 *ngFor="let img of row.images; let i = index" [ngStyle]="{
                                 flex: '0 0 ' + (100 / gridSize) + '%',
                             }">
                                 <img [src]="'file:///' + img"
-                                    class="thumb w-full h-auto object-cover rounded-3xl" />
+                                    class="thumb w-full h-auto object-cover rounded-xl" />
 
                                 <div class="thumb-actions">
                                     <a mat-icon-button (click)="insert('file:///' + img)"
-                                    class="rounded-full hover:bg-white hover:bg-opacity-50">
+                                    class="rounded-full icon-size-6 hover:bg-white hover:bg-opacity-50">
                                     <mat-icon class="icon-size-4 text-blue-600"
                                         [svgIcon]="'feather:arrow-down'"></mat-icon>
                                 </a>

@@ -57,6 +57,14 @@
                                         placeholder="Mô tả hình ảnh bạn muốn tạo..." (keyup.enter)="createImg()">
 
                                     <div matSuffix class="flex items-center mr-1 gap-2">
+                                        <mat-select formControlName="modelId" class="w-28 text-sm border-l pl-2"
+                                            matTooltip="Chọn Model">
+                                            <mat-option value="gemini-3.1-flash-image-preview">Đa năng</mat-option>
+                                            <mat-option value="imagen-3.0-generate-001">Sáng tạo nghệ thuật</mat-option>
+                                            <mat-option value="gemini-3-pro-image-preview">Chuyên nghiệp, vẽ chữ chính
+                                                xác</mat-option>
+                                        </mat-select>
+
                                         <mat-select formControlName="aspectRatio" class="w-16 text-sm border-l pl-2"
                                             matTooltip="Tỷ lệ khung hình">
                                             <mat-option value="1:1">1:1</mat-option>
@@ -91,6 +99,10 @@
                                                 [mode]="'indeterminate'"></mat-progress-spinner>
                                         </button>
                                     </div>
+                                    <mat-hint align="start">Chúng tôi tạo hình ảnh bằng Nano Banana. Hoặc sử dụng công
+                                        cụ
+                                        <a href="#" (click)="createImgWithDreamina('https://dreamina.capcut.com')"
+                                            class="text-blue-500 hover:underline">Dreamina AI miễn phí</a></mat-hint>
                                 </mat-form-field>
 
                                 <div class="flex gap-2 mt-2 px-4" *ngIf="referenceFiles.length > 0">
