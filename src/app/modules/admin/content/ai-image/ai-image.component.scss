@@ -13,9 +13,8 @@
 .thumb {
 	width: 100%;
 	aspect-ratio: 1 / 1; // thumbnail luôn vuông
-	object-fit: cover; // crop giữa cho đẹp
 	display: block;
-	border-radius: 16px;
+	box-shadow: 0 0 0px 5px #f5f5f5;
 }
 
 .thumb-actions {

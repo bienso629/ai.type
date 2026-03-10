@@ -117,12 +117,12 @@
                                     <ngx-datatable-column [flexGrow]="1">
                                         <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
                                             <div class="row-grid w-full flex flex-wrap">
-                                                <div class="thumb-wrap px-3 py-2 box-border"
+                                                <div class="thumb-wrap p-3 box-border"
                                                     *ngFor="let img of row.images; let i = index" [ngStyle]="{
                                                     flex: '0 0 ' + (100 / gridSize) + '%',
                                                 }">
                                                     <img [src]="'file:///' + img"
-                                                        class="thumb w-full h-auto object-cover rounded-3xl" />
+                                                        class="thumb w-full h-auto object-cover rounded-2xl" />
 
                                                     <div class="thumb-actions">
                                                         <button mat-icon-button
