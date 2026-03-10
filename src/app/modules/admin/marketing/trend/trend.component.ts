@@ -42,6 +42,7 @@ import * as _ from 'lodash';
 import * as uuid from 'uuid';
 import moment from 'moment';
 import { HelperService } from 'app/helper.service';
+import { GoogleGenAI } from '@google/genai';
 
 @Component({
     selector: 'trend',
@@ -64,6 +65,12 @@ export class AIFacePostComponent
     animationStates: any;
     user: User;
     config: AppConfig;
+    settings: any;
+    secretKey: any;
+    searchAPIKey: any;
+
+    ai: any;
+
     uniqueID: String;
     fbCookiePath: String =
         'C:\\Users\\Wing386\\Documents\\ai.type\\cookie.json';
@@ -76,6 +83,7 @@ export class AIFacePostComponent
 
     quanlity = 'medium';
     loading: boolean = false;
+    isAnalyzing: boolean = false; // Biến trạng thái loading
 
     domains: any[] = [];
     categories: any[] = [];
@@ -115,6 +123,8 @@ export class AIFacePostComponent
     ColumnMode = ColumnMode;
 
     allLinkCollections: any = [];
+
+    trendResult: any[] = []; // Biến lưu kết quả trend
 
     private unsubscribeLog: () => void;
     private unsubscribeRes: () => void;
@@ -497,7 +507,7 @@ export class AIFacePostComponent
         this.cd.markForCheck();
     }
 
-    analyticsTrend(): void {
+    async analyticsTrend(): Promise<void> {
         // Chỉ lấy từ danh sách đã chọn
         const dataToAnalyze = this.selected;
 
@@ -505,11 +515,83 @@ export class AIFacePostComponent
             this.toastr.warning(
                 'Vui lòng chọn ít nhất một bài viết hoặc một ngày để phân tích!',
             );
+
             return;
         }
 
-        console.log('Dữ liệu được chọn để phân tích:', dataToAnalyze);
-        // Thực hiện logic tiếp theo...
+        if (this.secretKey && dataToAnalyze.length > 0) {
+            // 1. Lọc dữ liệu sạch: Bắt buộc có text, loại bỏ header, lấy thêm images nếu có
+            const cleanedData = dataToAnalyze
+                .filter(item => item.text && item.text.trim().length > 0 && !item.isHeader)
+                .map(item => ({
+                    id: item.id || item._id,
+                    text: item.text,
+                    images: item.images && item.images.length > 0 ? item.images : []
+                }));
+
+            if (cleanedData.length === 0) {
+                this.toastr.warning('Không có nội dung văn bản để phân tích xu hướng!');
+                return;
+            }
+
+            // 2. Bật trạng thái loading
+            this.isAnalyzing = true;
+            this.trendResult = []; // Xóa kết quả cũ để hiện loading ở khu vực preview
+            this.cd.markForCheck();
+
+            // 2. Xây dựng Prompt chi tiết
+            const prompt = `
+                Hãy phân tích danh sách bài đăng sau đây để tìm ra các xu hướng cụ thể (không nói chung chung).
+                Yêu cầu trích xuất chính xác tên sản phẩm, game, hoặc sự kiện đang được nhắc đến.
+                
+                Dữ liệu: ${JSON.stringify(cleanedData)}
+
+                Yêu cầu trả về JSON array, mỗi phần tử gồm:
+                - trend_name: Tên xu hướng cụ thể (VD: "Tranh cãi phí sinh hoạt 100 triệu và học phí IELTS").
+                - summary: Phân tích ngắn gọn.
+                - contents: Mảng các đối tượng { headline: "Tiêu đề bài viết", image_prompt: "Prompt tạo ảnh bằng tiếng Anh" }.
+                - keywords: Các từ khóa liên quan.
+
+                Lưu ý: image_prompt phải mô tả bối cảnh chuyên nghiệp, phong cách hiện đại phù hợp với tiêu đề.
+            `;
+
+            let geminiKey = this.secretKey[0];
+
+            if (this.secretKey[6]) {
+                geminiKey = this.secretKey[6];
+            }
+
+            this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
+
+            const response = await this.ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: prompt,
+            });
+
+            const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
+            if (jsonText) {
+                try {
+                    const data = JSON.parse(jsonText[1]);
+                    localStorage.setItem('trend_analysis_result', JSON.stringify(data));
+                } catch (e) {
+                    this.toastr.warning('Không thể phân tích được trend.');
+                }
+            } else {
+                this.toastr.warning('Không thể phân tích được trend.');
+            }
+
+            this.isAnalyzing = false; // Tắt loading
+            this.cd.markForCheck();
+        } else {
+            this.toastr.warning('Xin lỗi! Bạn chưa kết nối với Gemini.');
+        }
+    }
+
+    // Thêm hàm để xóa kết quả nếu cần
+    clearTrend(): void {
+        localStorage.removeItem('trend_analysis_result');
+        this.trendResult = [];
+        this.cd.markForCheck();
     }
 
     // lưu post
@@ -782,6 +864,14 @@ export class AIFacePostComponent
             length: [3, Validators.required],
         });
 
+        // lấy secretKey và searchAPIKey
+        this.settings = localStorage.getItem('settings');
+        if (this.settings) {
+            this.settings = JSON.parse(this.settings);
+            this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
+            this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
+        }
+
         // Subscribe to config changes
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -873,6 +963,16 @@ export class AIFacePostComponent
                 // lam moi lai giao dien
                 this.cd.markForCheck();
             });
+
+        // Đọc dữ liệu từ localStorage khi load trang
+        const savedTrend = localStorage.getItem('trend_analysis_result');
+        if (savedTrend) {
+            try {
+                this.trendResult = JSON.parse(savedTrend);
+            } catch (e) {
+                console.error("Lỗi parse dữ liệu trend", e);
+            }
+        }
     }
 
     /**

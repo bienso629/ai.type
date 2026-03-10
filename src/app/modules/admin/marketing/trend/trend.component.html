@@ -272,8 +272,7 @@
                                     <div class="flex items-center justify-end">
                                         <a *ngIf="row.href && row.href.length > 0"
                                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
-                                            [href]="row.href[0]" target="_blank"
-                                            matTooltipPosition="above"
+                                            [href]="row.href[0]" target="_blank" matTooltipPosition="above"
                                             matTooltip="Truy cập vào địa chỉ gốc {{row.author?.name}}">Link</a>
                                     </div>
                                 </ng-template>
@@ -293,9 +292,18 @@
                                         <!-- Actions -->
                                         <div class="flex shrink-0 items-center pr-4">
                                             <button color="primary" (click)="analyticsTrend()" type="button"
-                                                mat-flat-button>
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
-                                                <mat-label class="ml-2">Phân tích xu hướng</mat-label>
+                                                mat-flat-button [disabled]="isAnalyzing">
+                                                <span class="flex items-center justify-center">
+                                                    <mat-progress-spinner *ngIf="isAnalyzing" [diameter]="16"
+                                                        [mode]="'indeterminate'"></mat-progress-spinner>
+
+                                                    <mat-icon *ngIf="!isAnalyzing" class="icon-size-4"
+                                                        [svgIcon]="'feather:activity'"></mat-icon>
+
+                                                    <mat-label class="ml-2">
+                                                        {{ isAnalyzing ? 'Đang phân tích...' : 'Phân tích xu hướng' }}
+                                                    </mat-label>
+                                                </span>
                                             </button>
                                         </div>
                                     </div>
@@ -305,13 +313,107 @@
                     </div>
 
                     <div class="flex w-1/2 h-full relative overflow-hidden border-l">
-                        <ng-container *ngIf="!preview.text || !preview.images; else elseTemplate">
-                            <div class="flex w-full place-items-center">
-                                <p class="w-full p-4 text-center text-base">Nội dung</p>
+                        <ng-container *ngIf="isAnalyzing">
+                            <div class="flex flex-col w-full h-full p-4 bg-gray-50 dark:bg-gray-900 relative">
+                                <div class="animate-pulse space-y-6 opacity-50">
+                                    <div class="h-8 w-1/3 bg-gray-300 dark:bg-gray-700 rounded-lg mb-8"></div>
+                                    <div class="space-y-6">
+                                        <div *ngFor="let i of [1,2,3]"
+                                            class="p-4 bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                                            <div class="h-4 w-1/4 bg-blue-200 rounded mb-4"></div>
+                                            <div class="h-6 w-3/4 bg-gray-300 rounded mb-2"></div>
+                                            <div class="h-4 w-full bg-gray-200 rounded mb-4"></div>
+                                            <div class="space-y-2 border-l-4 border-gray-200 pl-4">
+                                                <div class="h-10 bg-gray-100 rounded"></div>
+                                                <div class="h-10 bg-gray-100 rounded"></div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div class="absolute inset-0 flex flex-col items-center justify-center z-10">
+                                    <div
+                                        class="bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm p-6 rounded-xl shadow-xl flex flex-col items-center">
+                                        <mat-progress-spinner class="mb-4" [diameter]="48"
+                                            [mode]="'indeterminate'"></mat-progress-spinner>
+
+                                        <p class="text-center text-base font-medium text-primary animate-bounce">
+                                            AI đang "đọc" dữ liệu của bạn...
+                                        </p>
+                                        <p class="text-sm text-secondary mt-2">Vui lòng đợi trong giây lát</p>
+                                    </div>
+                                </div>
                             </div>
                         </ng-container>
 
-                        <ng-template #elseTemplate>
+                        <ng-container *ngIf="!isAnalyzing && trendResult && trendResult.length > 0">
+                            <ng-container *ngTemplateOutlet="trendTemplate"></ng-container>
+                        </ng-container>
+
+                        <ng-container *ngIf="!isAnalyzing && trendResult.length === 0">
+                            <ng-container *ngTemplateOutlet="normalView"></ng-container>
+                        </ng-container>
+
+                        <ng-template #trendTemplate>
+                            <div class="flex flex-col w-full h-full justify-between bg-gray-50 dark:bg-gray-900">
+                                <header
+                                    class="px-6 min-h-[50px] border-b border-gray-200 dark:border-gray-600 flex justify-between items-center bg-white dark:bg-gray-800">
+                                    <h2 class="text-base font-bold text-primary">Kết quả phân tích Trend</h2>
+                                    <button mat-icon-button (click)="clearTrend()" matTooltip="Xóa kết quả">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                                    </button>
+                                </header>
+
+                                <main class="w-full overflow-auto p-4">
+                                    <div class="space-y-8">
+                                        <div *ngFor="let trend of trendResult"
+                                            class="bg-white border dark:bg-gray-800 rounded-lg shadow-none p-4">
+                                            <div class="mb-4">
+                                                <span
+                                                    class="px-3 py-1 bg-blue-100 text-blue-600 rounded-full text-xs font-semibold uppercase">Trend</span>
+                                                <h3 class="text-base font-bold mt-2 text-gray-800 dark:text-gray-100">{{
+                                                    trend.trend_name }}</h3>
+                                                <p class="text-sm text-secondary mt-1 italic">{{ trend.summary }}</p>
+                                            </div>
+
+                                            <div class="space-y-4">
+                                                <div *ngFor="let item of trend.contents"
+                                                    class="p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+                                                    <p
+                                                        class="font-medium text-base text-gray-900 dark:text-white leading-tight">
+                                                        {{ item.headline }}
+                                                    </p>
+                                                    <div class="mt-3 bg-black bg-opacity-5 p-4 rounded">
+                                                        <div class="flex items-center justify-between mb-1">
+                                                            <span
+                                                                class="text-[10px] font-bold uppercase text-gray-500">Image
+                                                                Prompt (AI)</span>
+                                                            <button mat-icon-button class="icon-size-8"
+                                                                [cdkCopyToClipboard]="item.image_prompt">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'heroicons_outline:clipboard-copy'"></mat-icon>
+                                                            </button>
+                                                        </div>
+                                                        <p class="text-xs text-gray-600 dark:text-gray-400 italic">
+                                                            {{ item.image_prompt }}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div class="mt-4 flex flex-wrap gap-2">
+                                                <span *ngFor="let kw of trend.keywords"
+                                                    class="text-[11px] bg-gray-200 dark:bg-gray-600 px-2 py-0.5 rounded text-secondary">
+                                                    #{{ kw }}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </main>
+                            </div>
+                        </ng-template>
+
+                        <ng-template #normalView>
                             <div class="flex flex-col w-full h-full justify-between">
                                 <main class="w-full overflow-auto">
                                     <div class="flex flex-col pb-6">
