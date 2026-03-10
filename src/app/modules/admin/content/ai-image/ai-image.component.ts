@@ -30,6 +30,12 @@ import * as uuid from 'uuid';
 import { BlogService } from 'app/modules/_services/blog';
 import { DomainService } from 'app/modules/_services/domain';
 
+interface ReferenceFile {
+    base64Data: string;
+    mimeType: string;
+    fileName: string;
+}
+
 @Component({
     selector: 'ai-image',
     templateUrl: './ai-image.component.html',
@@ -38,8 +44,7 @@ import { DomainService } from 'app/modules/_services/domain';
     encapsulation: ViewEncapsulation.None,
 })
 export class AIImageComponent
-    implements OnInit, OnDestroy, AfterContentChecked
-{
+    implements OnInit, OnDestroy, AfterContentChecked {
     config: AppConfig;
     user: User;
     settings: any;
@@ -58,9 +63,9 @@ export class AIImageComponent
     downloadJsonHref: any;
     fileName = '';
 
-    imageAIForm: UntypedFormGroup;
+    form: UntypedFormGroup;
     imageUrls: any = [];
-    processing: boolean = false;
+    loading: boolean = false;
 
     cols: number;
     // Cấu hình số cột theo độ rộng màn hình (Breakpoints)
@@ -76,6 +81,8 @@ export class AIImageComponent
     rowHeight = 110; // Mặc định
     containerWidth = 800; // Biến lưu độ rộng container
     rows = [];
+
+    referenceFiles: ReferenceFile[] = []; // Lưu trữ ảnh bạn upload lên
 
     @ViewChild('datatable', { static: false }) datatable: any;
 
@@ -298,12 +305,12 @@ export class AIImageComponent
     }
 
     stop() {
-        this.processing = false;
+        this.loading = false;
         this._chatGPTService
             .stop2025({})
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => {},
+                next: () => { },
                 error: () => {
                     this.toastr.warning('Không thể dừng tạo hình ảnh.');
                 },
@@ -313,52 +320,121 @@ export class AIImageComponent
             });
     }
 
-    async createImg() {
-        this.imageAIForm.get('chatgpt').disable();
-        this.processing = true;
-        try {
-            const image = this.ai.models.generateContent({
-                model: 'gemini-2.5-flash-image',
-                contents: this.imageAIForm.get('chatgpt').value,
-            });
-
-            if (!image || !image.candidates) {
-                this.imageAIForm.get('chatgpt').enable();
-                this.processing = false;
-                this.toastr.warning('Không thể tạo hình ảnh.');
-                return;
+    // Hàm xử lý khi bạn chọn file từ máy tính
+    onFileSelected(event: any) {
+        const files = event.target.files;
+        if (files) {
+            for (let file of files) {
+                const reader = new FileReader();
+                reader.onload = (e: any) => {
+                    this.referenceFiles.push({
+                        base64Data: e.target.result.split(',')[1],
+                        mimeType: file.type,
+                        fileName: file.name
+                    });
+                    this.cd.markForCheck();
+                };
+                reader.readAsDataURL(file);
             }
+        }
+    }
 
-            for (const part of image.candidates[0].content.parts) {
-                if (part.text) {
-                    console.log(part.text);
-                } else if (part.inlineData) {
-                    const imageData = part.inlineData.data;
-                    const thumbnail = await Promise.all([
-                        this._blogService.uploadThumbnailPromise({
-                            imageData: imageData,
-                            folder: 'thumbnails',
-                            username: this.user.name,
-                        }),
-                    ]);
-                    thumbnail.forEach((image) => {
-                        if (image && image['img']) {
-                            this.imageUrls.unshift(image['img']);
-                            this.rebuildRows();
-                            this.imageAIForm.get('chatgpt').enable();
-                            this.processing = false;
-                            this.toastr.success('Tạo hình ảnh thành công!');
-                            this.cd.markForCheck();
-                        } else {
-                            this.toastr.warning('Không thể tạo hình ảnh.');
+    async createImg() {
+        const promptValue = this.form.get('prompt')?.value;
+        if (!promptValue || this.loading) return;
+
+        this.loading = true;
+        const selectedSize = this.form.get('resolution')?.value || "2K";
+        const selectedRatio = this.form.get('aspectRatio')?.value || "16:9";
+
+        try {
+            // Cấu hình chuẩn cho Banana Pro (Gemini 3.1 Flash Image) theo SDK v2
+            const config = {
+                model: 'gemini-3.1-flash-image-preview',
+                config: {
+                    responseModalities: ['TEXT', 'IMAGE'],
+                    imageConfig: {
+                        aspectRatio: selectedRatio,
+                        imageSize: selectedSize
+                    },
+                    tools: [{ googleSearch: {} }] // Kích hoạt khả năng tra cứu thực tế
+                }
+            };
+
+            // Chuẩn bị nội dung gửi đi (Prompt + Ảnh tham chiếu local)
+            const contents = [promptValue];
+            if (this.referenceFiles && this.referenceFiles.length > 0) {
+                this.referenceFiles.forEach(file => {
+                    contents.push({
+                        inlineData: {
+                            data: file.base64Data,
+                            mimeType: file.mimeType
                         }
                     });
-                }
+                });
             }
-        } catch (error) {
-            this.imageAIForm.get('chatgpt').enable();
-            this.processing = false;
-            this.toastr.warning('Không thể tạo hình ảnh.');
+
+            // Gọi API bằng phương thức generateContent của SDK v2
+            const response = await this.ai.models.generateContent({
+                model: config.model,
+                contents: contents,
+                config: config.config
+            });
+
+            // SDK v2 trả về cấu trúc response.generatedContent
+            const generatedParts = response.generatedContent?.parts;
+            const usage = response.usageMetadata;
+
+            if (generatedParts) {
+                for (const part of generatedParts) {
+                    // Kiểm tra nếu part chứa dữ liệu hình ảnh (as_image tương đương trong TS)
+                    if (part.inlineData) {
+                        const imageData = part.inlineData.data;
+                        const mimeType = part.inlineData.mimeType;
+
+                        const thumbnail = await Promise.all([
+                            this._blogService.uploadThumbnailPromise({
+                                imageData: `data:${mimeType};base64,${imageData}`,
+                                folder: 'thumbnails',
+                                username: this.user.name,
+                            }),
+                        ]);
+
+                        // Lưu vào danh sách hiển thị với URL đã upload thành công
+                        if (thumbnail && thumbnail[0]) {
+                            thumbnail.forEach((image) => {
+                                if (image && image['img']) {
+                                    this.imageUrls.unshift(image['img']);
+                                    this.rebuildRows();
+                                    this.form.get('prompt').enable();
+                                    this.loading = false;
+                                    this.toastr.success('Tạo hình ảnh thành công!');
+                                    this.cd.markForCheck();
+                                } else {
+                                    this.toastr.warning('Không thể tạo hình ảnh.');
+                                }
+                            });
+                        }
+                    }
+
+                    if (part.text) {
+                        console.log('Banana Feedback:', part.text);
+                    }
+                }
+
+                this.toastr.success(`Đã tạo và lưu trữ ảnh thành công! (${usage?.totalTokenCount} tokens)`, '', { timeOut: 5000 });
+                this.referenceFiles = [];
+                this.form.get('prompt')?.setValue('');
+            }
+
+        } catch (err: any) {
+            console.error('Lỗi SDK v2:', err);
+            this.toastr.error('Không thể tạo hoặc lưu trữ hình ảnh.');
+            this.loading = false;
+            this.cd.markForCheck();
+        } finally {
+            this.loading = false;
+            this.cd.markForCheck();
         }
     }
 
@@ -454,7 +530,7 @@ export class AIImageComponent
 
         if (this.secretKey) {
             let geminiKey = this.secretKey[0];
-            if (this.secretKey[2]) geminiKey = this.secretKey[2];
+            if (this.secretKey[7]) geminiKey = this.secretKey[7];
             this.ai = new GoogleGenAI({ apiKey: geminiKey });
         }
 
@@ -510,10 +586,15 @@ export class AIImageComponent
             });
     }
 
-    ngAfterContentChecked(): void {}
+    ngAfterContentChecked(): void { }
 
     ngOnInit(): void {
-        this.imageAIForm = this._formBuilder.group({ chatgpt: [''] });
+        this.form = this._formBuilder.group({
+            prompt: [''],
+            resolution: ['1K'], // Mặc định 1K cho rẻ
+            aspectRatio: ['1:1'],
+            // ... các field cũ của bạn ...
+        });
     }
 
     ngOnDestroy(): void {

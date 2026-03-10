@@ -38,26 +38,60 @@
             <mat-drawer-content class="m-auto w-full bg-transparent">
                 <div class="absolute inset-0 flex flex-col overflow-hidden">
                     <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between">
-                        <div class="flex-1 min-w-100 max-w-1/2 mx-auto p-4 md:px-4 sm:px-10">
-                            <form [formGroup]="imageAIForm">
-                                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                                    Prompt tạo hình (Hình ảnh sẽ được lưu trong thư mục
-                                    <code>\Documents\ai.type\data\uploads\thumbnails</code>) bằng Google Gemini Pro
-                                </p>
+                        <div class="min-w-200 max-w-1/2 mx-auto p-4 md:px-4 sm:px-10">
+                            <form [formGroup]="form" class="w-full">
+                                <mat-form-field class="w-full fuse-mat-no-subscript" appearance="outline">
+                                    <div matPrefix class="flex items-center ml-2">
+                                        <input type="file" #fileInput (change)="onFileSelected($event)" hidden
+                                            accept="image/*" multiple>
+                                        <button type="button" mat-icon-button (click)="fileInput.click()"
+                                            matTooltip="Thêm ảnh tham chiếu">
+                                            <mat-icon [class.text-primary]="referenceFiles.length > 0"
+                                                [svgIcon]="referenceFiles.length > 0 ? 'heroicons_solid:paper-clip' : 'heroicons_outline:paper-clip'"></mat-icon>
+                                        </button>
+                                        <span *ngIf="referenceFiles.length > 0"
+                                            class="text-xs font-bold text-primary mr-2">{{referenceFiles.length}}</span>
+                                    </div>
 
-                                <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
-                                    [subscriptSizing]="'dynamic'">
-                                    <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="createImg()"
-                                        required matInput>
-                                    <mat-hint class="mt-1 text-md">hoặc nếu bạn muốn sử dụng công cụ MIỄN PHÍ mạnh mẽ,
-                                        hãy thử <a (click)="createImgWithDreamina('https://dreamina.capcut.com')"
-                                            href="javascript:void(0)">Dreamina AI</a> tạo hình ảnh bằng Nano Banana
-                                        Pro</mat-hint>
+                                    <input matInput formControlName="prompt"
+                                        placeholder="Mô tả hình ảnh bạn muốn tạo..." (keyup.enter)="createImg()">
 
-                                    <button mat-icon-button type="button" (click)="createImg()" matSuffix>
-                                        <mat-icon class="icon-size-5" [svgIcon]="'mat_outline:image_search'"></mat-icon>
-                                    </button>
+                                    <div matSuffix class="flex items-center mr-1 gap-2">
+                                        <mat-select formControlName="aspectRatio" class="w-16 text-sm border-l pl-2"
+                                            matTooltip="Tỷ lệ khung hình">
+                                            <mat-option value="1:1">1:1</mat-option>
+                                            <mat-option value="16:9">16:9</mat-option>
+                                            <mat-option value="9:16">9:16</mat-option>
+                                        </mat-select>
+
+                                        <mat-select formControlName="resolution" class="w-16 text-sm border-l pl-2"
+                                            matTooltip="Chất lượng">
+                                            <mat-option value="1K">1K</mat-option>
+                                            <mat-option value="2K">2K</mat-option>
+                                            <mat-option value="4K">4K</mat-option>
+                                        </mat-select>
+
+                                        <button type="button" mat-icon-button color="primary" (click)="createImg()"
+                                            [disabled]="loading || !form.get('prompt')?.value">
+                                            <mat-icon *ngIf="!loading"
+                                                svgIcon="heroicons_solid:paper-airplane"></mat-icon>
+                                            <mat-progress-spinner *ngIf="loading" [diameter]="20"
+                                                [mode]="'indeterminate'"></mat-progress-spinner>
+                                        </button>
+                                    </div>
                                 </mat-form-field>
+
+                                <div class="flex gap-2 mt-2 px-4" *ngIf="referenceFiles.length > 0">
+                                    <div *ngFor="let file of referenceFiles; let i = index" class="relative">
+                                        <img [src]="'data:' + file.mimeType + ';base64,' + file.base64Data"
+                                            class="w-8 h-8 object-cover rounded border">
+                                        <mat-icon (click)="referenceFiles.splice(i, 1)"
+                                            class="absolute -top-1 -right-1 icon-size-3 bg-red-500 text-white rounded-full cursor-pointer"
+                                            svgIcon="heroicons_solid:x-mark"></mat-icon>
+                                    </div>
+                                    <span class="text-xs text-secondary self-center cursor-pointer hover:underline"
+                                        (click)="referenceFiles = []">Xóa tất cả</span>
+                                </div>
                             </form>
                         </div>
                     </div>
