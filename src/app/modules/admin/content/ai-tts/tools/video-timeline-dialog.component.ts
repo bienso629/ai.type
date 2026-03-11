@@ -135,7 +135,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 // 4. Dùng hàm alert (FuseConfirmationService) của bạn để thông báo thành công
                 this.alert({
                     title: 'Khởi tạo Audio thành công!',
-                    message: `Hệ thống đã hoàn tất tạo âm thanh song song cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
+                    message: `Hệ thống đã hoàn tất tạo âm thanh cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
                     confirm: 'Tiếp tục Production',
                     cb: () => {
                         // Khi người dùng bấm "Tiếp tục Production"
@@ -145,7 +145,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 });
             } else {
                 // Trường hợp trả về null (người dùng bấm Hủy bỏ ở màn hình config)
-                this.toastr.info('Đã hủy tiến trình tạo Audio hàng loạt.');
+                this.toastr.info('Hủy tiến trình tạo Audio.');
             }
         });
     }
