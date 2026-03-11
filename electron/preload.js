@@ -1,5 +1,5 @@
 // preload.js
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 
 /** ====== API CŨ (GIỮ NGUYÊN) ====== */
 contextBridge.exposeInMainWorld('electron', {
@@ -46,7 +46,10 @@ contextBridge.exposeInMainWorld('electron', {
     startGoLoginTraffic: (payload) => ipcRenderer.invoke('gologin:start-traffic', payload),
     stopGoLoginProfile: (profileId) => ipcRenderer.invoke('gologin:stop-profile', profileId),
     stopAllGoLoginProfiles: () => ipcRenderer.invoke('gologin:stop-all'),
-    selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath })
+    getPathForFile: (file) => {
+        return webUtils.getPathForFile(file);
+    },
+    selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath }),
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
@@ -137,15 +140,15 @@ contextBridge.exposeInMainWorld('electron', {
 
 // theo dõi container video của TikTok và báo ngay cho Electron khi thấy link mới
 (() => {
-    const log = (m) => { try { ipcRenderer.send('dreamina:debug', `[Preload-TikTok] ${m}`); } catch(e){} };
-    
+    const log = (m) => { try { ipcRenderer.send('dreamina:debug', `[Preload-TikTok] ${m}`); } catch (e) { } };
+
     const startTikTokObserver = () => {
         log('Bắt đầu quét bypass Lazy Load (srcset + alt)...');
-        
+
         const observer = new MutationObserver(() => {
             const container = document.querySelector('[data-e2e="user-post-item-list"]') || document.body;
             const anchors = container.querySelectorAll('a[href*="/video/"]');
-            
+
             anchors.forEach(a => {
                 if (!a._sent) {
                     const img = a.querySelector('picture img');
@@ -153,10 +156,10 @@ contextBridge.exposeInMainWorld('electron', {
 
                     // 1. Lấy tiêu đề từ alt
                     const title = img.getAttribute('alt') || "TikTok Video";
-                    
+
                     // 2. Logic lấy Thumbnail bypass base64 placeholder
                     let thumbUrl = '';
-                    
+
                     // Ưu tiên 1: Lấy từ srcset (TikTok thường để link thật ở đây để responsive)
                     const srcset = img.getAttribute('srcset');
                     if (srcset && !srcset.startsWith('data:')) {
@@ -183,8 +186,8 @@ contextBridge.exposeInMainWorld('electron', {
 
                     // CHỈ GỬI KHI ĐÃ CÓ LINK THẬT (Bỏ qua base64)
                     if (thumbUrl && !thumbUrl.startsWith('data:')) {
-                        a._sent = true; 
-                        ipcRenderer.send('tiktok:link-found', { 
+                        a._sent = true;
+                        ipcRenderer.send('tiktok:link-found', {
                             url: a.href,
                             thumbnail: thumbUrl,
                             title: title
