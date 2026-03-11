@@ -132,8 +132,9 @@ export class VideoGenerationComponent implements OnInit {
         this.data.scenes.forEach((scene: any, sIdx: number) => {
             scene.subtitles.forEach((sub: any, subIdx: number) => {
                 // Lọc bỏ những câu đã có audioUrl (nếu có) để tránh tạo lại
-                // if (!sub.audioUrl) { }
-                pendingSubs.push({ sub, sIdx, subIdx, globalIndex: globalCounter });
+                if (!sub.audioUrl) {
+                    pendingSubs.push({ sub, sIdx, subIdx, globalIndex: globalCounter });
+                }
                 globalCounter++; // Tăng biến đếm liên tục cho mọi subtitle
             });
         });
