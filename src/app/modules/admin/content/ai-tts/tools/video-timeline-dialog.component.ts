@@ -11,6 +11,7 @@ import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-
 
 import { AddSceneComponent } from './add-scene.component';
 import { MatInputModule } from '@angular/material/input';
+import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 
 // Interface cho Electron API
 interface electron {
@@ -43,6 +44,7 @@ export class VideoTimelineDialogComponent implements OnInit {
     private scrollLeftStart = 0;
 
     constructor(
+        private _fuseConfirmationService: FuseConfirmationService,
         public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
@@ -103,6 +105,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     generateAllImages() {
         if (!this.projectData?.scenes?.length) return;
+        console.log('Generating images for all scenes...', this.projectData);
         this.toastr.warning(`Bắt đầu tạo ${this.projectData.scenes.length} hình ảnh tự động...`);
     }
 
@@ -199,6 +202,61 @@ export class VideoTimelineDialogComponent implements OnInit {
                 setTimeout(() => {
                     this.scrollContainer.nativeElement.scrollLeft = this.scrollContainer.nativeElement.scrollWidth;
                 }, 100);
+            }
+        });
+    }
+
+    removeScene(index: number) {
+        this.alert({
+            title: 'Nhắc nhở',
+            message: `Bạn có chắc chắn muốn xóa Scene #${index + 1} không?`,
+            confirm: 'Xóa liền',
+            cb: () => {
+                // 1. Xóa phần tử khỏi mảng
+                this.projectData.scenes.splice(index, 1);
+
+                // 2. Lưu lại vào localStorage
+                this.saveData();
+
+                // 3. Thông báo cho người dùng
+                this.toastr.warning(`Đã xóa Scene #${index + 1}`);
+
+                console.log('Scene removed at index:', index);
+            },
+        });
+    }
+
+    alert(alert?: any) {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: alert ? alert.title : 'Hoàn tất!',
+            message: alert
+                ? alert.message
+                : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
+            icon: {
+                show: true,
+                name: 'feather:check',
+                color: 'warning',
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: alert ? alert.confirm : 'Khởi động lại',
+                    color: 'primary',
+                },
+                cancel: {
+                    show: true,
+                    label: 'Đóng cửa sổ'
+                },
+            },
+            dismissible: true,
+        });
+
+        // Subscribe to afterClosed from the dialog reference
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                if (alert.cb) {
+                    alert.cb();
+                }
             }
         });
     }
