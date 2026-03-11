@@ -12,6 +12,7 @@ import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-
 import { AddSceneComponent } from './add-scene.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { VideoGenerationComponent } from './video-generation.component';
 
 // Interface cho Electron API
 interface electron {
@@ -103,10 +104,50 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.saveData();
     }
 
-    generateAllImages() {
-        if (!this.projectData?.scenes?.length) return;
-        console.log('Generating images for all scenes...', this.projectData);
-        this.toastr.warning(`Bắt đầu tạo ${this.projectData.scenes.length} hình ảnh tự động...`);
+    generateAllImages(): void {
+        // 1. Lưu lại trạng thái timeline hiện tại
+        this.saveData();
+
+        // Kiểm tra an toàn xem có dữ liệu không
+        if (!this.projectData || !this.projectData.scenes || this.projectData.scenes.length === 0) {
+            this.toastr.warning('Không có cảnh nào để tạo audio!');
+            return;
+        }
+
+        this.projectData['username'] = this.data.username || 'anonymous'; // Đảm bảo có username trong data
+
+        // 2. Mở cửa sổ Tiến trình Audio Song Song
+        const processDialogRef = this.dialog.open(VideoGenerationComponent, {
+            width: '550px',
+            disableClose: true, // Bắt buộc người dùng phải đợi hoặc bấm nút Hủy bên trong
+            data: this.projectData // Truyền nguyên bộ data sang cho nó chạy
+        });
+
+        // 3. Lắng nghe kết quả trả về khi cửa sổ Tiến trình đóng lại
+        processDialogRef.afterClosed().subscribe((updatedProjectData) => {
+            if (updatedProjectData) {
+                // Nhận lại data đã được nhồi đầy đủ "audioUrl" cho từng sub
+                this.projectData = updatedProjectData;
+
+                // Lưu lại một lần nữa để chắc chắn LocalStorage đã cập nhật
+                this.saveData();
+
+                // 4. Dùng hàm alert (FuseConfirmationService) của bạn để thông báo thành công
+                this.alert({
+                    title: 'Khởi tạo Audio thành công!',
+                    message: `Hệ thống đã hoàn tất tạo âm thanh song song cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
+                    confirm: 'Tiếp tục Production',
+                    cb: () => {
+                        // Khi người dùng bấm "Tiếp tục Production"
+                        // Đóng Timeline và ném bộ data HOÀN CHỈNH này ra ngoài cho ai-tts.component.ts xử lý tiếp
+                        this.dialogRef.close(this.projectData);
+                    }
+                });
+            } else {
+                // Trường hợp trả về null (người dùng bấm Hủy bỏ ở màn hình config)
+                this.toastr.info('Đã hủy tiến trình tạo Audio hàng loạt.');
+            }
+        });
     }
 
     saveData() {
