@@ -108,7 +108,7 @@
                                 <div class="flex gap-2 mt-2 px-4" *ngIf="referenceFiles.length > 0">
                                     <div *ngFor="let file of referenceFiles; let i = index" class="relative">
                                         <img [src]="'data:' + file.mimeType + ';base64,' + file.base64Data"
-                                            class="w-8 h-8 object-cover rounded border">
+                                            class="w-8 h-8 object-cover rounded">
                                         <mat-icon (click)="referenceFiles.splice(i, 1)"
                                             class="absolute -top-1 -right-1 icon-size-3 bg-red-500 text-white rounded-full cursor-pointer"
                                             svgIcon="heroicons_solid:x-mark"></mat-icon>

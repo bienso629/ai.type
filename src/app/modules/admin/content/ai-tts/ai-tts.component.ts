@@ -54,10 +54,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     useImageAI: boolean = false;
     uuid: string = '';
 
+    isAnalyzing: boolean = false; // Biến trạng thái loading cho việc tạo video
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
 
-    private readonly STORAGE_KEY = 'ai_type_audio_merger_data';
+    private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
+    private readonly STORAGE_AUDIO_KEY = 'ai_type_audio_merger_data';
     private SERVER_AUDIO_URL: string;
     private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
@@ -88,95 +90,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     isGlobalProcessing: boolean = false;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ UTILS
-    // -----------------------------------------------------------------------------------------------------
-
-    getDateStr(): string {
-        const d = new Date();
-        const day = ('0' + d.getDate()).slice(-2);
-        const month = ('0' + (d.getMonth() + 1)).slice(-2);
-        const year = d.getFullYear();
-        return `${day}${month}${year}`;
-    }
-
-    toSlug(str: string): string {
-        str = str || '';
-        str = str.toLowerCase();
-        str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        str = str.replace(/[đĐ]/g, 'd');
-        str = str.replace(/([^0-9a-z-\s])/g, '');
-        str = str.replace(/(\s+)/g, '-');
-        str = str.replace(/^-+|-+$/g, '');
-        return str;
-    }
-
-    generateId(): string { return Math.random().toString(36).substr(2, 9); }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ LIFECYCLE
-    // -----------------------------------------------------------------------------------------------------
-
-    constructor(
-        private titleService: Title, private _crawlService: CrawlService, private _blogService: BlogService,
-        private _userService: UserService, private toastr: ToastrService, private cd: ChangeDetectorRef,
-        private sanitizer: DomSanitizer, private _fuseConfirmationService: FuseConfirmationService,
-        private clipboard: Clipboard,
-        private dialog: MatDialog,
-        private router: Router, private route: ActivatedRoute, private _fuseConfigService: FuseConfigService, private http: HttpClient
-    ) {
-        this.titleService.setTitle(`chương trình làm video | ai.type`);
-
-        this.settings = localStorage.getItem('settings');
-        if (this.settings) {
-            try { this.settings = JSON.parse(this.settings); this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined; } catch { }
-        }
-
-        this._fuseConfigService.config$.pipe(takeUntil(this._unsubscribeAll)).subscribe((config: AppConfig) => { this.config = config; });
-        this._userService.user$.pipe(takeUntil(this._unsubscribeAll)).subscribe((user: User) => {
-            this.user = user;
-            if (user.reputation < 50000) {
-                this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                return;
-            }
-        });
-    }
-
-    ngOnInit(): void {
-        let settings = localStorage.getItem('settings');
-        if (settings) { try { settings = JSON.parse(settings); if (settings['tts']) this.SERVER_AUDIO_URL = settings['tts']; } catch (e) { } }
-
-        this.route.params.subscribe((params: Params) => {
-            this.uuid = params['uuid']; let name = params['name'];
-
-            // [CẬP NHẬT] Lưu params để dùng cho hàm Clear (Reload)
-            this.currentUuid = this.uuid;
-            this.currentName = name;
-
-            if (this.uuid) {
-                const hasMatchingLocalData = this.loadFromLocal(this.uuid);
-                if (!hasMatchingLocalData) this.detail(this.uuid, name);
-            } else {
-                this.router.navigate(['/tools']);
-            }
-        });
-    }
-
-    ngAfterViewInit(): void {
-        this.initWaveSurfer();
-        // Tự động kiểm tra dữ liệu khi màn hình được load
-        this.checkAndOpenVideoTimeline();
-    }
-
-    ngOnDestroy(): void {
-        this._unsubscribeAll.next(null);
-        this._unsubscribeAll.complete();
-        if (this.wavesurfer) this.wavesurfer.destroy();
-
-        // Hàm này sẽ dọn sạch cả các blob vừa được tạo ra từ playClip (Trường hợp 2)
-        this.cleanupBlobs();
-    }
 
     cleanupBlobs() {
         this.audioList.forEach(clip => {
@@ -414,7 +327,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     saveToLocal(currentUuid?: string) {
         let savedUuid = currentUuid;
         if (!savedUuid) {
-            const oldData = localStorage.getItem(this.STORAGE_KEY);
+            const oldData = localStorage.getItem(this.STORAGE_AUDIO_KEY);
             if (oldData) {
                 try { savedUuid = JSON.parse(oldData).uuid; } catch { }
             }
@@ -438,11 +351,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 localFilePath: clip['localFilePath'] || null
             }))
         };
-        localStorage.setItem(this.STORAGE_KEY, JSON.stringify(dataToSave));
+        localStorage.setItem(this.STORAGE_AUDIO_KEY, JSON.stringify(dataToSave));
     }
 
-    loadFromLocal(currentUuid?: string): boolean {
-        const data = localStorage.getItem(this.STORAGE_KEY);
+    loadAudiosFromLocal(currentUuid?: string): boolean {
+        const data = localStorage.getItem(this.STORAGE_AUDIO_KEY);
         if (data) {
             try {
                 const parsed = JSON.parse(data);
@@ -461,6 +374,25 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.restoreClips(clips);
                     return true;
                 }
+            } catch (e) {
+                return false;
+            }
+        }
+        return false;
+    }
+
+    loadClipsFromLocal(currentUuid?: string): boolean {
+        const data = localStorage.getItem(this.STORAGE_CLIPS_KEY);
+        if (data) {
+            try {
+                const parsed = JSON.parse(data);
+                if (currentUuid && parsed.uuid !== currentUuid) return false;
+
+                if (parsed.uuid) {
+                    this.uuid = parsed.uuid;
+                }
+
+                this.checkAndOpenVideoTimeline(data);
             } catch (e) {
                 return false;
             }
@@ -574,6 +506,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async createVideo() {
+        this.isAnalyzing = true;
+
         // 1. Lấy thông tin cấu hình AI từ Settings
         this.settings = localStorage.getItem('settings')
             ? JSON.parse(localStorage.getItem('settings'))
@@ -604,16 +538,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // 4. Prompt ép buộc gom nhóm (Grouping Logic)
         const promptText = `
             BẠN LÀ BIÊN TẬP VIÊN VIDEO. 
-            Tôi có 138 đoạn văn bản (được đánh dấu bằng [ID:xxx]). 
-            Nhiệm vụ của bạn là gom nhóm chúng lại thành khoảng 100 phân cảnh (scenes).
+            Ví dụ tôi có tổng 138 đoạn văn bản (được đánh dấu bằng [ID:xxx]). 
+            Nhiệm vụ của bạn là gom nhóm chúng lại thành các phân cảnh (scenes), càng ít càng tốt (có thể là dưới 20 phân cảnh thôi).
 
             YÊU CẦU:
             1. Mỗi phân cảnh (scene) PHẢI có:
-            - "prompt": 1 mô tả hình ảnh tiếng Anh (Cinematic, 1904 Dublin).
+            - "prompt": 1 mô tả hình ảnh tiếng Anh.
             - "subtitles": Mảng chứa các object { "id": "ID_GỐC", "text": "NỘI DUNG" }.
-            2. Logic gom nhóm: Những đoạn văn bản có nội dung liền mạch hoặc ngắn thì gom chung vào 1 "prompt" ảnh. 
-            3. Tổng số "prompt" ảnh trả về phải xấp xỉ 100 (ít hơn số 138 ban đầu).
-            4. KHÔNG ĐƯỢC bỏ sót bất kỳ ID nào. Phải đảm bảo đủ 138 text gốc.
+            2. Logic gom nhóm: Những đoạn văn bản có nội dung liền mạch hoặc ngắn thì gom chung vào 1 "prompt" ảnh.
+            3. KHÔNG ĐƯỢC bỏ sót bất kỳ ID nào. Phải đảm bảo đủ 138 text gốc.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
@@ -651,21 +584,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     scenes: finalScenes
                 };
 
-                localStorage.setItem('ai_type_video_ready_data', JSON.stringify(videoProject));
+                localStorage.setItem(this.STORAGE_CLIPS_KEY, JSON.stringify(videoProject));
                 // 2. MỞ DIALOG NGAY LẬP TỨC
                 this.openTimelineDialog(videoProject);
 
                 this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`, 'Thành công');
             }
+
+            this.isAnalyzing = false;
         } catch (error) {
             console.error("Lỗi logic gom nhóm:", error);
+
+            this.isAnalyzing = false;
             this.toastr.error('Lỗi khi tối ưu nội dung bằng AI. Vui lòng thử lại.');
         }
     }
 
-    checkAndOpenVideoTimeline() {
-        const rawData = localStorage.getItem('ai_type_video_ready_data');
-
+    checkAndOpenVideoTimeline(rawData?: string) {
         if (rawData) {
             try {
                 const videoProject = JSON.parse(rawData);
@@ -900,14 +835,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // Trường hợp 2: Nếu danh sách trống và đang ở trong project (có UUID) -> Reload lại từ đầu (Hard Reload)
         else if (this.currentUuid) {
             this.toastr.info('Đang tải lại dữ liệu gốc từ Server...', 'Làm mới');
-            localStorage.removeItem(this.STORAGE_KEY);
+            localStorage.removeItem(this.STORAGE_AUDIO_KEY);
             this.detail(this.currentUuid, this.currentName || '');
         }
         else {
             // Trường hợp 3: Không có gì cả -> Xóa sạch
             this.audioList = [];
             this.totalDuration = 0;
-            localStorage.removeItem(this.STORAGE_KEY);
+            localStorage.removeItem(this.STORAGE_AUDIO_KEY);
             this.toastr.info('Đã làm mới.');
         }
     }
@@ -1023,6 +958,95 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             };
             audio.src = objectUrl;
         });
+    }
+
+    // -----------------------------------------------------------------------------------------------------
+    // @ UTILS
+    // -----------------------------------------------------------------------------------------------------
+
+    getDateStr(): string {
+        const d = new Date();
+        const day = ('0' + d.getDate()).slice(-2);
+        const month = ('0' + (d.getMonth() + 1)).slice(-2);
+        const year = d.getFullYear();
+        return `${day}${month}${year}`;
+    }
+
+    toSlug(str: string): string {
+        str = str || '';
+        str = str.toLowerCase();
+        str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        str = str.replace(/[đĐ]/g, 'd');
+        str = str.replace(/([^0-9a-z-\s])/g, '');
+        str = str.replace(/(\s+)/g, '-');
+        str = str.replace(/^-+|-+$/g, '');
+        return str;
+    }
+
+    generateId(): string { return Math.random().toString(36).substr(2, 9); }
+
+    // -----------------------------------------------------------------------------------------------------
+    // @ LIFECYCLE
+    // -----------------------------------------------------------------------------------------------------
+
+    constructor(
+        private titleService: Title, private _crawlService: CrawlService, private _blogService: BlogService,
+        private _userService: UserService, private toastr: ToastrService, private cd: ChangeDetectorRef,
+        private sanitizer: DomSanitizer, private _fuseConfirmationService: FuseConfirmationService,
+        private clipboard: Clipboard,
+        private dialog: MatDialog,
+        private router: Router, private route: ActivatedRoute, private _fuseConfigService: FuseConfigService, private http: HttpClient
+    ) {
+        this.titleService.setTitle(`chương trình làm video | ai.type`);
+
+        this.settings = localStorage.getItem('settings');
+        if (this.settings) {
+            try { this.settings = JSON.parse(this.settings); this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined; } catch { }
+        }
+
+        this._fuseConfigService.config$.pipe(takeUntil(this._unsubscribeAll)).subscribe((config: AppConfig) => { this.config = config; });
+        this._userService.user$.pipe(takeUntil(this._unsubscribeAll)).subscribe((user: User) => {
+            this.user = user;
+            if (user.reputation < 50000) {
+                this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
+                return;
+            }
+        });
+    }
+
+    ngOnInit(): void {
+        let settings = localStorage.getItem('settings');
+        if (settings) { try { settings = JSON.parse(settings); if (settings['tts']) this.SERVER_AUDIO_URL = settings['tts']; } catch (e) { } }
+
+        this.route.params.subscribe((params: Params) => {
+            this.uuid = params['uuid']; let name = params['name'];
+
+            // [CẬP NHẬT] Lưu params để dùng cho hàm Clear (Reload)
+            this.currentUuid = this.uuid;
+            this.currentName = name;
+
+            if (this.uuid) {
+                // const hasAudioLocalData = this.loadAudioFromLocal(this.uuid);
+                // if (!hasAudioLocalData) 
+                this.detail(this.uuid, name);
+                this.loadClipsFromLocal(this.uuid);
+            } else {
+                this.router.navigate(['/tools']);
+            }
+        });
+    }
+
+    ngAfterViewInit(): void {
+        this.initWaveSurfer();
+    }
+
+    ngOnDestroy(): void {
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
+        if (this.wavesurfer) this.wavesurfer.destroy();
+
+        // Hàm này sẽ dọn sạch cả các blob vừa được tạo ra từ playClip (Trường hợp 2)
+        this.cleanupBlobs();
     }
 
     error(message?: string) {
