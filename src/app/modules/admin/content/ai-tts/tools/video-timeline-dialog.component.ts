@@ -13,7 +13,7 @@ import { AddSceneComponent } from './add-scene.component';
 import { MatInputModule } from '@angular/material/input';
 
 // Interface cho Electron API
-interface ElectronAPI {
+interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
 }
 
@@ -30,55 +30,7 @@ interface ElectronAPI {
         MatIconModule,
         MatInputModule, // Cần MatLabelModule cho mat-label
         DragDropModule // Module Kéo thả
-    ],
-    styles: [`
-    /* Tối ưu scrollbar */
-    .timeline-container {
-        scrollbar-width: thin;
-        scrollbar-color: #cbd5e1 #f1f5f9;
-        scroll-behavior: auto;
-    }
-    .timeline-container::-webkit-scrollbar {
-        height: 6px;
-    }
-    .timeline-container::-webkit-scrollbar-track {
-        background: #f1f5f9;
-        border-radius: 3px;
-    }
-    .timeline-container::-webkit-scrollbar-thumb {
-        background-color: #cbd5e1;
-        border-radius: 3px;
-    }
-    .scrollbar-hide::-webkit-scrollbar {
-        display: none;
-    }
-
-    /* CSS cho Angular CDK Drag & Drop */
-    .cdk-drag-preview {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
-        opacity: 0.9;
-        cursor: grabbing;
-        border-radius: 8px;
-    }
-    .cdk-drag-placeholder {
-        opacity: 0.2;
-        background: #e2e8f0;
-        border: 2px dashed #cbd5e1;
-        border-radius: 8px;
-    }
-    .cdk-drag-animating {
-        transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
-    }
-    .timeline-container.cdk-drop-list-dragging .example-box:not(.cdk-drag-placeholder) {
-        transition: transform 250ms cubic-bezier(0, 0, 0.2, 1);
-    }
-    .prompt-text {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-  `]
+    ]
 })
 export class VideoTimelineDialogComponent implements OnInit {
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
@@ -162,29 +114,37 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     // Xử lý file cục bộ thông qua Electron File System
     async onFileSelected(event: any, scene: any) {
-        const file: File = event.target.files[0];
-        if (file) {
-            // Lấy path gốc (chỉ có trong Electron)
-            const originalPath: string = (file as any).path;
-
-            if (!originalPath) {
-                this.toastr.error('Lỗi: Không lấy được đường dẫn file gốc. App phải chạy trong Electron.');
-                return;
-            }
+        const fileInput = event.target as HTMLInputElement;
+        if (fileInput.files && fileInput.files.length > 0) {
+            const file = fileInput.files[0];
 
             try {
-                // Gọi IPC qua bridge
-                const electronApi = (window as any).electronAPI as ElectronAPI;
-                const localFilePath = await electronApi.selectLocalFile(originalPath);
+                const electron = (window as any).electron;
 
-                // Lưu đường dẫn file:// mới
+                // 1. Kiểm tra xem bridge có tồn tại không
+                if (!electron || !electron.getPathForFile) {
+                    this.toastr.error('Lỗi cấu hình.');
+                    return;
+                }
+
+                // 2. Lấy đường dẫn thật qua webUtils (đã được expose qua bridge)
+                const originalPath = electron.getPathForFile(file);
+
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác định đường dẫn file trên ổ đĩa.');
+                    return;
+                }
+
+                // 3. Gọi hàm copy file vào thư mục app (IPC đã viết ở main.js)
+                const localFilePath = await electron.selectLocalFile(originalPath);
+
                 scene.imageUrl = localFilePath;
                 this.saveData();
-                this.toastr.success('Đã áp dụng file cục bộ.');
+                this.toastr.success('Đã tải file thành công!');
 
             } catch (error) {
-                console.error('Electron IPC Error:', error);
-                this.toastr.error('Có lỗi xảy ra khi copy file.');
+                console.error('Process error:', error);
+                this.toastr.error('Có lỗi xảy ra: ' + error);
             }
         }
     }

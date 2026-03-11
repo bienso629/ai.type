@@ -1668,7 +1668,6 @@ ipcMain.handle('select-local-file', async (event, { filePath }) => {
         // cần được định dạng dưới dạng một file:// protocol URL.
         // path.resolve() đảm bảo đường dẫn là tuyệt đối.
         return `file://${path.resolve(destinationPath)}`;
-
     } catch (error) {
         console.error('Error selecting file:', error);
         throw error; // Gửi lỗi về Renderer process
