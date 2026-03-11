@@ -1,6 +1,6 @@
-<div class="flex flex-row justify-between items-center pb-4 border-b border-gray-200 mb-4">
+<div class="flex flex-row justify-between items-center pb-4 mb-4">
     <div class="flex items-center text-xl font-normal text-gray-800 tracking-tight">
-        <mat-icon class="mr-2 icon-size-5 text-blue-600" [svgIcon]="'feather:alert-circle'"></mat-icon>
+        <mat-icon class="mr-2 icon-size-5 text-blue-600" [svgIcon]="'feather:edit-3'"></mat-icon>
         <span>Dựng kịch bản Video</span>
     </div>
 
@@ -67,8 +67,7 @@
                     </span>
                 </div>
 
-                <div class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 p-2 border border-gray-100 scrollbar-hide"
-                    cdkScrollable>
+                <div class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 scrollbar-hide">
                     @for (sub of scene.subtitles; track sub.id) {
                     <p class="mb-1.5 last:mb-0 text-gray-700 leading-relaxed">
                         <span class="font-mono text-[10px] text-gray-400 bg-gray-100 px-1 rounded">[{{sub.id}}]</span>
@@ -76,19 +75,13 @@
                     </p>
                     }
                 </div>
-
-                <div class="mt-auto pt-3 border-t border-gray-100">
-                    <p class="text-[11px] text-gray-500 italic line-clamp-2 prompt-text" [title]="scene.prompt">
-                        <strong class="text-gray-600 not-italic">Prompt:</strong> {{ scene.prompt }}
-                    </p>
-                </div>
             </div>
         </div>
         }
     </div>
 </div>
 
-<div mat-dialog-actions class="flex flex-row gap-3 p-0 mt-6 pt-4 border-t border-gray-200">
+<div mat-dialog-actions class="flex flex-row gap-3 p-0 mt-6 pt-4 border-t border-gray-100">
     <button mat-flat-button color="accent" (click)="close()">Đóng</button>
     <div class="flex-grow"></div>
     <button mat-flat-button color="primary" (click)="generateAllImages()">
