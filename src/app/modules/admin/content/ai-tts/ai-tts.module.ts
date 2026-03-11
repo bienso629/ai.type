@@ -13,6 +13,7 @@ import { Voice2videoComponent } from 'app/modules/admin/content/ai-tts/ai-tts.co
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
 import { AddSceneComponent } from 'app/modules/admin/content/ai-tts/tools/add-scene.component';
+import { VideoGenerationComponent } from 'app/modules/admin/content/ai-tts/tools/video-generation.component';
 
 const Routes: Route[] = [
     {
@@ -38,6 +39,7 @@ const Routes: Route[] = [
         DragDropModule,
         VideoTimelineDialogComponent,
         AddSceneComponent,
+        VideoGenerationComponent,
         SharedModule,
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],

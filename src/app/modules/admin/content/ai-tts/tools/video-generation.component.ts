@@ -1,0 +1,256 @@
+import { Component, Inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { CommonModule } from '@angular/common';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatSelectModule } from '@angular/material/select';
+import { FormsModule } from '@angular/forms';
+import { ToastrService } from 'ngx-toastr';
+
+@Component({
+    selector: 'app-video-generation',
+    standalone: true,
+    imports: [
+        CommonModule,
+        MatDialogModule,
+        MatProgressBarModule,
+        MatIconModule,
+        MatButtonModule,
+        MatSelectModule,
+        FormsModule
+    ],
+    template: `
+        <div class="p-0 min-w-[480px] bg-white rounded-lg">
+            <div class="flex items-center justify-between mb-6 border-b pb-4">
+                <div class="flex items-center text-indigo-700">
+                    <mat-icon class="mr-2 icon-size-6">bolt</mat-icon>
+                    <span class="text-xl font-semibold tracking-tight">Tạo Audio Song Song</span>
+                </div>
+                <button mat-icon-button (click)="cancel()" *ngIf="!isStarted">
+                    <mat-icon class="icon-size-5">close</mat-icon>
+                </button>
+            </div>
+
+            <div *ngIf="!isStarted" class="space-y-5">
+                <div class="bg-blue-50 p-4 rounded-md border border-blue-100 flex items-start">
+                    <mat-icon class="text-blue-500 mr-3 mt-0.5">info</mat-icon>
+                    <p class="text-sm text-blue-800 leading-relaxed">
+                        Hệ thống sẽ chuyển đổi <strong>{{totalTasks}}</strong> đoạn subtitle thành âm thanh song song bằng Edge TTS Local. 
+                    </p>
+                </div>
+
+                <mat-form-field appearance="outline" class="w-full mt-2">
+                    <mat-label>Giọng đọc (Voice)</mat-label>
+                    <mat-select [(ngModel)]="selectedVoice">
+                        <mat-option *ngFor="let v of voiceList" [value]="v.id">
+                            {{v.name}}
+                        </mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+
+            <div *ngIf="isStarted" class="space-y-6 py-4">
+                <div class="flex flex-col items-center justify-center space-y-2">
+                    <div class="text-4xl font-black text-indigo-600 tracking-tighter">
+                        {{progress}}%
+                    </div>
+                    <div class="text-sm font-medium text-gray-500">
+                        Đang xử lý {{completedTasks}} / {{totalTasks}} subtitles
+                    </div>
+                </div>
+
+                <mat-progress-bar mode="determinate" [value]="progress" class="h-3 rounded-full"></mat-progress-bar>
+
+                <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 shadow-inner">
+                    <div class="flex items-center mb-2">
+                        <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></div>
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Đang chạy ngầm</span>
+                    </div>
+
+                    <p class="text-sm text-gray-700 italic truncate" [title]="currentStatus">
+                        "{{currentStatus}}"
+                    </p>
+                </div>
+            </div>
+
+            <div mat-dialog-actions class="justify-end mt-6 pt-2 border-t" *ngIf="!isFinished">
+                <button mat-flat-button color="primary" (click)="startParallelProcess()">
+                    BẮT ĐẦU TẠO AUDIO
+                </button>
+
+                <button mat-flat-button color="accent" (click)="cancel()" [disabled]="isStarted">Hủy bỏ</button>
+            </div>
+        </div>
+    `,
+    styles: [`
+        :host { display: block; }
+        .mat-mdc-progress-bar { --mdc-linear-progress-active-indicator-color: #4f46e5; }
+    `]
+})
+export class VideoGenerationComponent implements OnInit {
+    voiceList = [
+        { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Neural - Offline)' },
+        { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Neural - Offline)' }
+    ];
+    selectedVoice = 'vi-VN-HoaiMyNeural';
+
+    isStarted = false;
+    isFinished = false;
+    totalTasks = 0;
+    completedTasks = 0;
+    progress = 0;
+    currentStatus = 'Đang chờ cấu hình...';
+
+    constructor(
+        public dialogRef: MatDialogRef<VideoGenerationComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private toastr: ToastrService,
+        private cd: ChangeDetectorRef
+    ) { }
+
+    ngOnInit(): void {
+        if (this.data && this.data.scenes) {
+            this.totalTasks = this.data.scenes.reduce((acc: number, scene: any) => acc + scene.subtitles.length, 0);
+        }
+    }
+
+    // -----------------------------------------------------------------------------------------------------
+    // @ CORE TTS LOGIC (CONCURRENT) - Bắt chước generateAll() với cấu trúc lưu file mới
+    // -----------------------------------------------------------------------------------------------------
+
+    async startParallelProcess(): Promise<void> {
+        this.isStarted = true;
+
+        // 1. Gom tất cả các subtitle cần xử lý thành một mảng pendingSubs
+        // Thêm biến globalIndex để đếm số thứ tự liên tục cho toàn bộ video (001, 002, 003...)
+        const pendingSubs: { sub: any, sIdx: number, subIdx: number, globalIndex: number }[] = [];
+        let globalCounter = 0;
+
+        console.log('Gom các subtitle cần xử lý...', this.data);
+
+        this.data.scenes.forEach((scene: any, sIdx: number) => {
+            scene.subtitles.forEach((sub: any, subIdx: number) => {
+                // Lọc bỏ những câu đã có audioUrl (nếu có) để tránh tạo lại
+                // if (!sub.audioUrl) { }
+                pendingSubs.push({ sub, sIdx, subIdx, globalIndex: globalCounter });
+                globalCounter++; // Tăng biến đếm liên tục cho mọi subtitle
+            });
+        });
+
+        if (pendingSubs.length === 0) {
+            this.toastr.info('Tất cả đã có audio.');
+            this.cancel();
+            return;
+        }
+
+        this.toastr.info(`Bắt đầu xử lý song song ${pendingSubs.length} mục...`, 'System');
+        this.currentStatus = 'Đang khởi tạo các luồng xử lý...';
+
+        // 2. Tạo mảng các Promises để chạy cùng lúc, truyền thêm globalIndex vào
+        const tasks = pendingSubs.map(item => this.generateAudioForSub(item.sub, item.sIdx, item.subIdx, item.globalIndex));
+
+        try {
+            // 3. Đợi tất cả chạy xong
+            await Promise.all(tasks);
+
+            this.isFinished = true;
+            this.currentStatus = 'Hoàn tất khởi tạo toàn bộ tài nguyên âm thanh!';
+            this.toastr.success(`Đã hoàn tất quá trình xử lý cho ${this.totalTasks} câu thoại!`);
+
+            // Đóng dialog và trả data (đã cập nhật audioUrl) ra ngoài
+            setTimeout(() => {
+                this.dialogRef.close(this.data);
+            }, 1000);
+
+        } catch (err) {
+            console.error('Batch error:', err);
+            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý song song.');
+        } finally {
+            this.cd.markForCheck();
+        }
+    }
+
+    // Hàm tạo audio cho 1 subtitle với cấu trúc Naming Convention chuẩn xác
+    async generateAudioForSub(sub: any, sceneIdx: number, subIdx: number, globalIndex: number): Promise<void> {
+        return new Promise(async (resolve) => {
+            if (!sub.text || !sub.text.trim()) {
+                resolve();
+                return;
+            }
+
+            if (!(window as any).electron || !(window as any).electron.invoke) {
+                this.toastr.error('Cần chạy trên App Desktop (Electron).');
+                resolve();
+                return;
+            }
+
+            // --- BẮT ĐẦU LOGIC TẠO TÊN FILE CỦA BẠN ---
+            const dateFolder = this.getDateStr();
+            // Lấy username từ data nếu có, không thì mặc định là 'anonymous'
+            const username = this.data.username || 'anonymous';
+            const subPath = `${username}/${dateFolder}/${this.data.uuid || 'default'}`;
+
+            // Dùng globalIndex thay cho indexOf
+            const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0).toString().padStart(3, '0');
+            const shortText = sub.text.substring(0, 50);
+            const slug = this.toSlug(shortText);
+            const niceFilename = `${prefix}_${slug}_${this.selectedVoice}`;
+
+            const payload = {
+                text: sub.text,
+                voice: this.selectedVoice, // Lấy từ giao diện người dùng chọn
+                filename: niceFilename,
+                username: subPath
+            };
+            // --- KẾT THÚC LOGIC TẠO TÊN FILE ---
+
+            try {
+                // Gọi xuống IPC
+                const res = await (window as any).electron.invoke('tts-generate', payload);
+
+                if (res && res.success) {
+                    const rawPath = res.filePath || res.url || res.result;
+                    sub.audioUrl = rawPath.startsWith('file://') ? rawPath : `file://${rawPath}`;
+                } else {
+                    console.error(`Error processing sub ${sub.id}:`, res?.error || 'Unknown error');
+                }
+            } catch (err: any) {
+                console.error(`Lỗi Electron cho sub ${sub.id}:`, err.message);
+            } finally {
+                this.completedTasks++;
+                this.progress = Math.round((this.completedTasks / this.totalTasks) * 100);
+                this.currentStatus = sub.text;
+                this.cd.markForCheck();
+                resolve();
+            }
+        });
+    }
+
+    // -----------------------------------------------------------------------------------------------------
+    // @ UTILS
+    // -----------------------------------------------------------------------------------------------------
+
+    getDateStr(): string {
+        const d = new Date();
+        const day = ('0' + d.getDate()).slice(-2);
+        const month = ('0' + (d.getMonth() + 1)).slice(-2);
+        const year = d.getFullYear();
+        return `${day}${month}${year}`;
+    }
+
+    toSlug(str: string): string {
+        str = str || '';
+        str = str.toLowerCase();
+        str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        str = str.replace(/[đĐ]/g, 'd');
+        str = str.replace(/([^0-9a-z-\s])/g, '');
+        str = str.replace(/(\s+)/g, '-');
+        str = str.replace(/^-+|-+$/g, '');
+        return str;
+    }
+
+    cancel(): void {
+        this.dialogRef.close(null);
+    }
+}
