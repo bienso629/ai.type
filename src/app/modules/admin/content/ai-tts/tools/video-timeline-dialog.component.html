@@ -17,13 +17,17 @@
         (cdkDropListDropped)="onSceneDropped($event)">
 
         @for (scene of projectData?.scenes; track scene.id || $index) {
-        <div class="flex-none w-80 bg-white rounded-lg overflow-hidden border border-gray-100 select-none example-box relative"
-            cdkDrag>
-
-            <div class="cdk-drag-handle absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-white/80 rounded-full cursor-move hover:bg-white"
+        <div class="flex-none w-80 bg-gray-50 rounded-lg overflow-hidden select-none example-box relative" cdkDrag>
+            <div class="cdk-drag-handle absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center bg-white/80 rounded-full cursor-move shadow-sm hover:bg-white"
                 cdkDragHandle>
                 <mat-icon class="text-gray-500 icon-size-5">drag_indicator</mat-icon>
             </div>
+
+            <button mat-icon-button color="warn"
+                class="absolute top-2 right-2 z-10 bg-white/80 hover:bg-red-50 icon-size-8 shadow-sm flex items-center justify-center rounded-full"
+                (click)="$event.stopPropagation(); removeScene($index)" size="small">
+                <mat-icon class="icon-size-4">delete</mat-icon>
+            </button>
 
             <div class="h-44 bg-gray-100 relative flex items-center justify-center group">
                 @if (scene.imageUrl) {
@@ -63,8 +67,8 @@
                     </span>
                 </div>
 
-                <div
-                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 p-2 border border-gray-100 scrollbar-hide" cdkScrollable>
+                <div class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 p-2 border border-gray-100 scrollbar-hide"
+                    cdkScrollable>
                     @for (sub of scene.subtitles; track sub.id) {
                     <p class="mb-1.5 last:mb-0 text-gray-700 leading-relaxed">
                         <span class="font-mono text-[10px] text-gray-400 bg-gray-100 px-1 rounded">[{{sub.id}}]</span>
@@ -85,10 +89,10 @@
 </div>
 
 <div mat-dialog-actions class="flex flex-row gap-3 p-0 mt-6 pt-4 border-t border-gray-200">
-    <button mat-stroked-button color="accent" (click)="close()">Close</button>
+    <button mat-flat-button color="accent" (click)="close()">Đóng</button>
     <div class="flex-grow"></div>
     <button mat-flat-button color="primary" (click)="generateAllImages()">
         <mat-icon class="mr-1 icon-size-4">auto_awesome</mat-icon>
-        <mat-label class="ml-2">Generate All</mat-label>
+        <mat-label class="ml-2">Bắt đầu phát sóng</mat-label>
     </button>
 </div>
