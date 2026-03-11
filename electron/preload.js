@@ -46,6 +46,7 @@ contextBridge.exposeInMainWorld('electron', {
     startGoLoginTraffic: (payload) => ipcRenderer.invoke('gologin:start-traffic', payload),
     stopGoLoginProfile: (profileId) => ipcRenderer.invoke('gologin:stop-profile', profileId),
     stopAllGoLoginProfiles: () => ipcRenderer.invoke('gologin:stop-all'),
+    selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath })
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
