@@ -4,23 +4,23 @@
         <span>Video Production Timeline</span>
     </div>
 
-    <button mat-raised-button color="accent" (click)="addNewScene()">
+    <button mat-raised-button class="bg-green-500 text-white" (click)="addNewScene()">
         <mat-icon class="icon-size-4 mr-1">add</mat-icon>
-        Thêm Scene mới
+        <mat-label class="ml-2">Thêm Scene mới</mat-label>
     </button>
 </div>
 
 <div mat-dialog-content class="p-0 overflow-hidden">
-    <div class="flex overflow-x-auto rounded-xl space-x-4 pb-6 timeline-container cursor-grab active:cursor-grabbing"
+    <div class="flex overflow-x-hidden scrollbar-hide rounded-xl space-x-4 pb-6 timeline-container cursor-grab active:cursor-grabbing"
         #scrollContainer (mousedown)="startDragging($event)" (mouseleave)="stopDragging()" (mouseup)="stopDragging()"
         (mousemove)="moveEvent($event)" cdkDropList cdkDropListOrientation="horizontal"
         (cdkDropListDropped)="onSceneDropped($event)">
 
         @for (scene of projectData?.scenes; track scene.id || $index) {
-        <div class="flex-none w-80 bg-white rounded-lg shadow-md overflow-hidden border border-gray-100 select-none example-box relative"
+        <div class="flex-none w-80 bg-white rounded-lg overflow-hidden border border-gray-100 select-none example-box relative"
             cdkDrag>
 
-            <div class="cdk-drag-handle absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-white/80 rounded-full cursor-move shadow-sm hover:bg-white"
+            <div class="cdk-drag-handle absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-white/80 rounded-full cursor-move hover:bg-white"
                 cdkDragHandle>
                 <mat-icon class="text-gray-500 icon-size-5">drag_indicator</mat-icon>
             </div>
@@ -64,7 +64,7 @@
                 </div>
 
                 <div
-                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md scrollbar-hide bg-gray-50 p-2 border border-gray-100">
+                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 p-2 border border-gray-100 scrollbar-hide" cdkScrollable>
                     @for (sub of scene.subtitles; track sub.id) {
                     <p class="mb-1.5 last:mb-0 text-gray-700 leading-relaxed">
                         <span class="font-mono text-[10px] text-gray-400 bg-gray-100 px-1 rounded">[{{sub.id}}]</span>
@@ -89,6 +89,6 @@
     <div class="flex-grow"></div>
     <button mat-flat-button color="primary" (click)="generateAllImages()">
         <mat-icon class="mr-1 icon-size-4">auto_awesome</mat-icon>
-        Generate All
+        <mat-label class="ml-2">Generate All</mat-label>
     </button>
 </div>

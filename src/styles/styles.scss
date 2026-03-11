@@ -32,6 +32,34 @@ hr {
     background: #f5f5f5;
 }
 
+/* Ẩn thanh cuộn nhưng vẫn giữ tính năng scroll */
+.timeline-container {
+    scrollbar-width: none;
+    /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scroll-behavior: auto;
+    /* Tắt smooth scroll khi kéo để không bị delay */
+}
+
+.timeline-container::-webkit-scrollbar {
+    display: none;
+    /* Chrome, Safari, Opera */
+}
+
+/* Ẩn thanh cuộn nhưng vẫn giữ khả năng scroll */
+.scrollbar-hide {
+    /* Cho Firefox */
+    scrollbar-width: none;
+
+    /* Cho IE và Edge cũ */
+    -ms-overflow-style: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+    display: none;
+}
+
 .mat-medium {
     background-color: var(--fuse-accent-700) !important;
     color: white !important;
