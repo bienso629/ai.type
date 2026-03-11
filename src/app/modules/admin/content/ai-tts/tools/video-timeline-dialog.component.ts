@@ -276,13 +276,13 @@ export class VideoTimelineDialogComponent implements OnInit {
             icon: {
                 show: true,
                 name: 'feather:check',
-                color: 'warning',
+                color: 'primary'
             },
             actions: {
                 confirm: {
                     show: true,
                     label: alert ? alert.confirm : 'Khởi động lại',
-                    color: 'primary',
+                    color: 'primary'
                 },
                 cancel: {
                     show: true,
