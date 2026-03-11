@@ -908,6 +908,7 @@ export class AIFacePostComponent
                 if (data.action === 'facebook-crawl' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
                         console.log('Dữ liệu bài viết mới nhận được từ main:', data.posts);
+                        
                         // cập nhật bảng
                         this.rows = [...data.posts, ...this.rows];
                         this.selected = [...data.posts, ...this.selected];

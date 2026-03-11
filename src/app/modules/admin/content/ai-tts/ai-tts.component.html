@@ -50,9 +50,17 @@
                 <span class="ml-2">Chuyển *.mp3</span>
             </button>
 
-            <button mat-flat-button color="accent" (click)="createVideo()">
-                <mat-icon [svgIcon]="'feather:layers'"></mat-icon>
-                <span class="ml-2">Tạo video</span>
+            <button class="bg-green-500" (click)="createVideo()" type="button" mat-flat-button [disabled]="isAnalyzing">
+                <span class="flex items-center justify-center text-white">
+                    <mat-progress-spinner *ngIf="isAnalyzing" [diameter]="16"
+                        [mode]="'indeterminate'" class="text-white"></mat-progress-spinner>
+
+                    <mat-icon *ngIf="!isAnalyzing" class="icon-size-4 text-white" [svgIcon]="'feather:video'"></mat-icon>
+
+                    <mat-label class="ml-2 text-white">
+                        {{ isAnalyzing ? 'Đang phân tích...' : 'Tạo video' }}
+                    </mat-label>
+                </span>
             </button>
         </div>
     </div>
@@ -86,7 +94,8 @@
                     <div class="sticky top-0 z-20 bg-white p-6">
                         <div class="w-full bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
                             <div class="flex items-center mb-2">
-                                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Trình chỉnh sửa</span>
+                                <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Trình chỉnh
+                                    sửa</span>
                             </div>
                             <div id="waveform" class="w-full"></div>
                         </div>
