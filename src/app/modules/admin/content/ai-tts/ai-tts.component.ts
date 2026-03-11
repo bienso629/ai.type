@@ -585,9 +585,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 };
 
                 localStorage.setItem(this.STORAGE_CLIPS_KEY, JSON.stringify(videoProject));
+
                 // 2. MỞ DIALOG NGAY LẬP TỨC
                 this.openTimelineDialog(videoProject);
-
+                
                 this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`, 'Thành công');
             }
 
@@ -626,7 +627,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // Hàm bổ trợ để mở Dialog
     openTimelineDialog(data: any) {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
-        
+
         this.dialog.open(VideoTimelineDialogComponent, {
             width: '95vw',        // Chiều rộng chiếm 95% màn hình
             maxHeight: '90vh',      // Chỉ giới hạn chiều cao tối đa

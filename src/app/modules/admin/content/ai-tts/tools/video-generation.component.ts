@@ -36,7 +36,7 @@ import { ToastrService } from 'ngx-toastr';
                 <div class="bg-blue-50 p-4 rounded-md border border-blue-100 flex items-start">
                     <mat-icon class="text-blue-500 mr-3 mt-0.5">info</mat-icon>
                     <p class="text-sm text-blue-800 leading-relaxed">
-                        Hệ thống sẽ chuyển đổi <strong>{{totalTasks}}</strong> đoạn subtitle thành âm thanh song song bằng Edge TTS Local. 
+                        Hệ thống sẽ chuyển đổi <strong>{{totalTasks}}</strong> đoạn subtitle thành âm thanh. 
                     </p>
                 </div>
 
@@ -140,7 +140,6 @@ export class VideoGenerationComponent implements OnInit {
         });
 
         if (pendingSubs.length === 0) {
-            this.toastr.info('Tất cả đã có audio.');
             this.cancel();
             return;
         }
@@ -163,7 +162,6 @@ export class VideoGenerationComponent implements OnInit {
             setTimeout(() => {
                 this.dialogRef.close(this.data);
             }, 1000);
-
         } catch (err) {
             console.error('Batch error:', err);
             this.toastr.error('Có lỗi xảy ra trong quá trình xử lý song song.');
