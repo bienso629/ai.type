@@ -12,6 +12,7 @@ import { SharedModule } from 'app/shared.module';
 import { Voice2videoComponent } from 'app/modules/admin/content/ai-tts/ai-tts.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
+import { AddSceneComponent } from 'app/modules/admin/content/ai-tts/tools/add-scene.component';
 
 const Routes: Route[] = [
     {
@@ -23,7 +24,6 @@ const Routes: Route[] = [
 @NgModule({
     declarations: [
         Voice2videoComponent,
-        VideoTimelineDialogComponent
     ],
     imports: [
         RouterModule.forChild(Routes),
@@ -36,6 +36,8 @@ const Routes: Route[] = [
         MatTooltipModule,
         // --- 2. THÊM VÀO MẢNG IMPORTS ---
         DragDropModule,
+        VideoTimelineDialogComponent,
+        AddSceneComponent,
         SharedModule,
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],

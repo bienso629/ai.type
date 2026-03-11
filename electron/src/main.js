@@ -20,13 +20,18 @@ const https = require("https");
 const crypto = require("crypto");
 const WebSocket = require("ws");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+
 const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
-
-// Thêm vào trong phần app.whenReady() hoặc bất kỳ đâu trong main.js
 const { version } = require("./../package.json"); // Lấy version từ file package.json
 
 let serviceProcess = null;
+const uploadsDir = path.join(app.getPath('userData'), 'uploads');
+
+// Tạo thư mục nếu nó chưa tồn tại
+if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir);
+}
 
 // =====================================================================
 // Google Ads Keyword Planner IPC (ads:keywordIdeas)
@@ -1643,6 +1648,32 @@ async function generateEdgeAudioByExe(text, voice, outputPath, rate, pitch) {
         });
     });
 }
+
+// --- IPC HANDLER: Xử lý việc copy file ---
+// Lắng nghe sự kiện 'select-local-file' từ Renderer process
+ipcMain.handle('select-local-file', async (event, { filePath }) => {
+    try {
+        const fileName = path.basename(filePath);
+        // Tạo một tên file duy nhất để tránh bị trùng (ví dụ: timestamp_filename)
+        const uniqueFileName = `${Date.now()}_${fileName}`;
+        const destinationPath = path.join(uploadsDir, uniqueFileName);
+
+        // Copy file từ đường dẫn gốc sang thư mục uploads của app
+        fs.copyFileSync(filePath, destinationPath);
+
+        console.log(`File copied from ${filePath} to ${destinationPath}`);
+
+        // Trả về đường dẫn mới về Renderer process.
+        // LƯU Ý: Để Angular có thể hiển thị ảnh/video này, đường dẫn
+        // cần được định dạng dưới dạng một file:// protocol URL.
+        // path.resolve() đảm bảo đường dẫn là tuyệt đối.
+        return `file://${path.resolve(destinationPath)}`;
+
+    } catch (error) {
+        console.error('Error selecting file:', error);
+        throw error; // Gửi lỗi về Renderer process
+    }
+});
 
 // 1. Hàm tạo Audio - Lưu vào Documents/ai.type/data/tts/...
 ipcMain.handle("tts-generate", async (event, payload) => {
