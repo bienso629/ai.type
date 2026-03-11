@@ -84,15 +84,15 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success) {
+                    if (result && result.success && result.data && result.data.length > 0) {
                         this.links = result.data;
+                        this.channel = this.links[0]?.link || 'https://youtube.com';
                     }
                 },
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
                 complete: () => {
-                    this.channel = this.links[0]?.link || 'https://youtube.com';
                 }
             });
     }
