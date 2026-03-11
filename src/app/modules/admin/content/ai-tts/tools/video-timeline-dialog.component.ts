@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 import { AddSceneComponent } from './add-scene.component';
+import { MatInputModule } from '@angular/material/input';
 
 // Interface cho Electron API
 interface ElectronAPI {
@@ -27,6 +28,7 @@ interface ElectronAPI {
         MatDialogModule,
         MatButtonModule,
         MatIconModule,
+        MatInputModule, // Cần MatLabelModule cho mat-label
         DragDropModule // Module Kéo thả
     ],
     styles: [`
