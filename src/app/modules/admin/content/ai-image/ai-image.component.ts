@@ -390,8 +390,10 @@ export class AIImageComponent
                     }
                 }
 
-                this.referenceFiles = [];
-                this.form.get('prompt')?.setValue('');
+                // reset lại nội dung form và ảnh tham chiếu sau khi tạo xong (nếu muốn)
+                // this.referenceFiles = [];
+                // this.form.get('prompt')?.setValue('');
+
                 this.toastr.success('Tạo hình ảnh thành công!')
             }
         } catch (err: any) {
@@ -553,7 +555,7 @@ export class AIImageComponent
 
         if (this.secretKey) {
             let geminiKey = this.secretKey[0];
-            if (this.secretKey[1]) geminiKey = this.secretKey[1];
+            if (this.secretKey[7]) geminiKey = this.secretKey[7];
             this.ai = new GoogleGenAI({ apiKey: geminiKey });
         }
 
@@ -615,7 +617,7 @@ export class AIImageComponent
         this.form = this._formBuilder.group({
             prompt: [''],
             resolution: ['512px'], // Mặc định 512px cho rẻ
-            aspectRatio: ['1:1'],
+            aspectRatio: ['9:16'], // Mặc định dọc cho đa dụng
             modelId: ['gemini-3.1-flash-image-preview'], // Mặc định Flash cho nhẹ
             // ... các field cũ của bạn ...
         });
