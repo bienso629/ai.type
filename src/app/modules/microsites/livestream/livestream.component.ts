@@ -17,10 +17,14 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     // Các biến trạng thái của Player
     currentSceneIndex: number = 0;
     currentSubtitleIndex: number = 0;
-    
+
+    currentDisplayedText: string = '';
+    textChunks: { text: string, weight: number }[] = [];
+    fallbackInterval: any;
+
     isPlaying: boolean = false;
-    hasStarted: boolean = false; 
-    
+    hasStarted: boolean = false;
+
     // Đối tượng Audio ẩn chạy ngầm
     audioPlayer: HTMLAudioElement;
 
@@ -37,7 +41,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         private titleService: Title,
         private router: Router,
         public dialog: MatDialog,
-        private cd: ChangeDetectorRef 
+        private cd: ChangeDetectorRef
     ) {
         this.audioPlayer = new Audio();
     }
@@ -117,29 +121,96 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         this.playCurrent();
     }
 
+    // --- HÀM MỚI: Cắt chữ ---
+    prepareSubtitleChunks(text: string) {
+        if (!text) return;
+        const words = text.split(' ');
+        this.textChunks = [];
+
+        // Tối đa khoảng 22 chữ cho 2 dòng hiển thị đẹp nhất
+        const wordsPerChunk = 22;
+
+        for (let i = 0; i < words.length; i += wordsPerChunk) {
+            const chunkText = words.slice(i, i + wordsPerChunk).join(' ');
+            this.textChunks.push({
+                text: chunkText,
+                weight: chunkText.length // Dùng độ dài ký tự làm trọng số chia thời gian
+            });
+        }
+    }
+
+    // --- CẬP NHẬT HÀM PLAY ---
     playCurrent() {
         if (!this.currentSubtitle) return;
 
+        // 1. Chuẩn bị cắt chữ và gán đoạn đầu tiên lên màn hình
+        this.prepareSubtitleChunks(this.currentSubtitle.text);
+        this.currentDisplayedText = this.textChunks.length > 0 ? this.textChunks[0].text : '';
+
         const audioUrl = this.currentSubtitle.audioUrl;
-        
+
+        // Xóa interval dự phòng cũ nếu có
+        if (this.fallbackInterval) clearInterval(this.fallbackInterval);
+
         if (audioUrl) {
             this.audioPlayer.src = audioUrl;
             this.audioPlayer.load();
+
+            // 2. Bắt sự kiện thời gian thực của Audio để đổi chữ
+            this.audioPlayer.ontimeupdate = () => {
+                if (this.audioPlayer.duration && this.textChunks.length > 1) {
+                    const currentTime = this.audioPlayer.currentTime;
+                    const totalDuration = this.audioPlayer.duration;
+
+                    // Tính tổng trọng số (tổng số ký tự)
+                    const totalWeight = this.textChunks.reduce((sum, c) => sum + c.weight, 0);
+
+                    let accumulatedWeight = 0;
+                    let targetIndex = 0;
+
+                    // Tìm xem với giây hiện tại thì đang đọc tới đoạn chunk nào
+                    for (let i = 0; i < this.textChunks.length; i++) {
+                        accumulatedWeight += this.textChunks[i].weight;
+                        const chunkEndTime = (accumulatedWeight / totalWeight) * totalDuration;
+
+                        if (currentTime <= chunkEndTime) {
+                            targetIndex = i;
+                            break;
+                        }
+                    }
+
+                    // Nếu nhảy sang đoạn mới thì cập nhật UI
+                    if (this.currentDisplayedText !== this.textChunks[targetIndex].text) {
+                        this.currentDisplayedText = this.textChunks[targetIndex].text;
+                        this.cd.markForCheck();
+                    }
+                }
+            };
+
             this.audioPlayer.play().then(() => {
                 this.isPlaying = true;
-                this.cd.markForCheck(); 
+                this.cd.markForCheck();
             }).catch(err => {
                 console.error("Autoplay bị chặn hoặc file lỗi:", err);
                 this.isPlaying = false;
                 this.cd.markForCheck();
             });
         } else {
-            // Đóng vai trò fallback nếu câu thoại bị thiếu audio
+            // Nếu không có Audio, giả lập đổi chữ mỗi 3 giây
             this.isPlaying = true;
             this.cd.markForCheck();
-            setTimeout(() => {
-                if (this.isPlaying) this.moveToNextSubtitle();
-            }, 3000);
+
+            let chunkIdx = 0;
+            this.fallbackInterval = setInterval(() => {
+                chunkIdx++;
+                if (chunkIdx < this.textChunks.length) {
+                    this.currentDisplayedText = this.textChunks[chunkIdx].text;
+                    this.cd.markForCheck();
+                } else {
+                    clearInterval(this.fallbackInterval);
+                    if (this.isPlaying) this.moveToNextSubtitle();
+                }
+            }, 3000); // 3 giây đổi 1 đoạn
         }
     }
 
