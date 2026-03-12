@@ -588,7 +588,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // 2. MỞ DIALOG NGAY LẬP TỨC
                 this.openTimelineDialog(videoProject);
-                
+
                 this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`, 'Thành công');
             }
 

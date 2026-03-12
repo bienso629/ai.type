@@ -13,6 +13,7 @@ import { AddSceneComponent } from './add-scene.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { VideoGenerationComponent } from './video-generation.component';
+import { Router } from '@angular/router';
 
 // Interface cho Electron API
 interface electron {
@@ -47,6 +48,7 @@ export class VideoTimelineDialogComponent implements OnInit {
     constructor(
         private _fuseConfirmationService: FuseConfirmationService,
         public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
+        private router: Router,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private dialog: MatDialog // Cần MatDialog để mở form thêm cảnh
@@ -141,6 +143,12 @@ export class VideoTimelineDialogComponent implements OnInit {
                         // Khi người dùng bấm "Tiếp tục Production"
                         // Đóng Timeline và ném bộ data HOÀN CHỈNH này ra ngoài cho ai-tts.component.ts xử lý tiếp
                         this.dialogRef.close(this.projectData);
+
+                        this.router.navigate(['/livestream'], {
+                            queryParams: {
+                                uuid: 'active'
+                            }
+                        });
                     }
                 });
             } else {
@@ -255,14 +263,10 @@ export class VideoTimelineDialogComponent implements OnInit {
             cb: () => {
                 // 1. Xóa phần tử khỏi mảng
                 this.projectData.scenes.splice(index, 1);
-
                 // 2. Lưu lại vào localStorage
                 this.saveData();
-
                 // 3. Thông báo cho người dùng
                 this.toastr.warning(`Đã xóa Scene #${index + 1}`);
-
-                console.log('Scene removed at index:', index);
             },
         });
     }

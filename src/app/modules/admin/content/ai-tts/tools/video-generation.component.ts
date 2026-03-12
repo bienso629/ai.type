@@ -159,7 +159,7 @@ export class VideoGenerationComponent implements OnInit {
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-    ) {}
+    ) { }
 
     ngOnInit(): void {
         if (this.data && this.data.scenes) {
@@ -205,7 +205,11 @@ export class VideoGenerationComponent implements OnInit {
         });
 
         if (pendingSubs.length === 0) {
-            this.cancel();
+            // Đóng dialog và trả data (đã cập nhật audioUrl) ra ngoài
+            setTimeout(() => {
+                this.dialogRef.close(this.data);
+            }, 1000);
+            
             return;
         }
 

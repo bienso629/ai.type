@@ -24,8 +24,8 @@ export class AppComponent implements OnInit, OnDestroy {
     // Biến để lưu ID của timer giúp dọn dẹp sau này
     private intervalId: any;
 
-    // 5 phút kiểm tra một lần
-    private readonly ONE_HOUR_MS = 1000 * 60 * 5;
+    // 1 phút kiểm tra một lần
+    private readonly ONE_HOUR_MS = 1000 * 60 * 1;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     updateTime(): void {
