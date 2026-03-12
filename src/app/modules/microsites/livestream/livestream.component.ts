@@ -97,6 +97,26 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
     }
 
+    // Chuyển nhanh đến một Scene bất kỳ
+    jumpToScene(index: number) {
+        // Nếu chọn đúng scene đang phát hoặc nằm ngoài mảng thì bỏ qua
+        if (index === this.currentSceneIndex || index < 0 || index >= this.projectData.scenes.length) {
+            return;
+        }
+
+        // 1. Dừng ngay âm thanh hiện tại để tránh bị đè tiếng
+        this.audioPlayer.pause();
+        this.audioPlayer.currentTime = 0;
+
+        // 2. Cập nhật vị trí mới
+        this.currentSceneIndex = index;
+        this.currentSubtitleIndex = 0; // Bắt đầu từ câu phụ đề đầu tiên của Scene đó
+
+        // 3. Ép trạng thái thành đang phát và chạy Audio mới
+        this.isPlaying = true;
+        this.playCurrent();
+    }
+
     playCurrent() {
         if (!this.currentSubtitle) return;
 

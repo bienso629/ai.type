@@ -1,78 +1,125 @@
 <div class="absolute inset-0 flex flex-col bg-gray-900 text-white min-w-0 overflow-hidden">
-    
-    <div class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-20 absolute top-0 left-0 right-0">
-        <div class="flex-1 flex-row shrink-0 items-center">
-            <label class="uppercase font-semibold tracking-wider text-white">
-                🔴 AI.Type Livestream Studio
-            </label>
-        </div>
-        <div class="flex flex-row shrink-0 items-center text-sm">
-            <span class="mr-4 truncate max-w-md opacity-70">{{ projectData?.title || 'Chưa có dự án' }}</span>
-            <mat-icon class="icon-size-5 text-gray-300 hover:text-white cursor-pointer" svgIcon="feather:x" routerLink=".."></mat-icon>
-        </div>
-    </div>
 
-    <div class="flex-auto relative flex items-center justify-center bg-black w-full h-full">
-        <ng-container *ngIf="projectData && projectData.scenes?.length > 0; else noData">
-            <div *ngIf="!hasStarted" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm">
-                <mat-icon class="icon-size-24 text-blue-500 mb-6" svgIcon="heroicons_solid:play"></mat-icon>
-                <h2 class="text-2xl font-bold mb-2">Hệ thống Livestream Sẵn Sàng</h2>
-                <p class="text-gray-400 mb-8">Video và âm thanh sẽ tự động lặp lại liên tục.</p>
-                <button mat-flat-button color="primary" class="px-8 py-6 text-lg rounded-full shadow-lg" (click)="startLivestream()">
-                    Bắt Đầu Phát Sóng
-                </button>
-            </div>
+	<div class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-20 absolute top-0 left-0 right-0">
+		<div class="flex-1 flex-row shrink-0 items-center">
+			<label class="uppercase font-semibold tracking-wider text-white">
+				🔴 AI.Type Livestream Studio
+			</label>
+		</div>
+		<div class="flex flex-row shrink-0 items-center text-sm">
+			<span class="mr-4 truncate max-w-md opacity-70">{{ projectData?.title || 'Chưa có dự án' }}</span>
+			<mat-icon class="icon-size-5 text-gray-300 hover:text-white cursor-pointer" svgIcon="feather:x"
+				routerLink=".."></mat-icon>
+		</div>
+	</div>
 
-            <ng-container *ngIf="hasStarted && currentScene">
-                <video *ngIf="isVideo(currentScene.imageUrl)" 
-                       [src]="currentScene.imageUrl" 
-                       autoplay loop muted playsinline
-                       class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500">
-                </video>
-                
-                <img *ngIf="isImage(currentScene.imageUrl)" 
-                     [src]="currentScene.imageUrl" 
-                     class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500" 
-                     alt="Scene Background">
-            </ng-container>
+	<div class="flex-auto relative flex items-center justify-center bg-black w-full h-full">
+		<ng-container *ngIf="projectData && projectData.scenes?.length > 0; else noData">
+			<div *ngIf="!hasStarted"
+				class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm">
+				<mat-icon class="icon-size-24 text-blue-500 mb-6" svgIcon="heroicons_solid:play"></mat-icon>
+				<h2 class="text-2xl font-bold mb-2">Hệ thống Livestream Sẵn Sàng</h2>
+				<p class="text-gray-400 mb-8">Video và âm thanh sẽ tự động lặp lại liên tục.</p>
+				<button mat-flat-button color="primary" class="px-8 py-6 text-lg rounded-full shadow-lg"
+					(click)="startLivestream()">
+					Bắt Đầu Phát Sóng
+				</button>
+			</div>
 
-            <div *ngIf="hasStarted && currentSubtitle" 
-                 class="absolute bottom-16 left-0 right-0 flex justify-center px-8 z-30 transition-all duration-300">
-                <div class="bg-black/70 backdrop-blur px-6 py-3 rounded-xl max-w-4xl text-center border border-white/10 shadow-2xl">
-                    <p class="text-2xl md:text-3xl font-medium leading-relaxed tracking-wide text-white drop-shadow-md">
-                        {{ currentSubtitle.text }}
-                    </p>
-                </div>
-            </div>
+			<ng-container *ngIf="hasStarted && currentScene">
+				<video *ngIf="isVideo(currentScene.imageUrl)" [src]="currentScene.imageUrl" autoplay loop muted
+					playsinline class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500">
+				</video>
 
-            <div *ngIf="hasStarted" class="absolute bottom-4 left-6 z-30 flex items-center space-x-3 opacity-60">
-                <div class="flex items-center space-x-2 bg-black/50 px-3 py-1.5 rounded-lg">
-                    <mat-icon class="icon-size-4" [ngClass]="{'animate-pulse text-red-500': isPlaying}">
-                        {{ isPlaying ? 'fiber_manual_record' : 'pause' }}
-                    </mat-icon>
-                    <span class="text-xs font-mono uppercase tracking-widest">
-                        {{ isPlaying ? 'Đang Live' : 'Tạm dừng' }}
-                    </span>
-                </div>
-                <div class="bg-black/50 px-3 py-1.5 rounded-lg text-xs font-mono">
-                    Scene {{ currentSceneIndex + 1 }}/{{ projectData.scenes.length }}
-                </div>
-            </div>
+				<img *ngIf="isImage(currentScene.imageUrl)" [src]="currentScene.imageUrl"
+					class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500"
+					alt="Scene Background">
+			</ng-container>
 
-            <div *ngIf="hasStarted" class="absolute inset-0 z-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/20 cursor-pointer" (click)="togglePlayPause()">
-                <div class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform">
-                    <mat-icon class="icon-size-10 text-white" [svgIcon]="isPlaying ? 'heroicons_solid:pause' : 'heroicons_solid:play'"></mat-icon>
-                </div>
-            </div>
-        </ng-container>
+			<div *ngIf="hasStarted && currentSubtitle"
+				class="absolute bottom-16 left-0 right-0 flex justify-center px-8 z-30 transition-all duration-300">
+				<div
+					class="bg-black/70 min-w-3/4 backdrop-blur px-6 py-3 rounded-xl max-w-4xl text-center border border-white/10 shadow-2xl">
+					<p class="text-2xl md:text-3xl font-medium leading-relaxed tracking-wide text-white drop-shadow-md">
+						{{ currentSubtitle.text }}
+					</p>
+				</div>
+			</div>
 
-        <ng-template #noData>
-            <div class="flex flex-col items-center justify-center text-center p-8">
-                <mat-icon class="icon-size-20 text-gray-600 mb-4" svgIcon="feather:alert-circle"></mat-icon>
-                <h2 class="text-2xl font-bold mb-2">Không tìm thấy dữ liệu Video</h2>
-                <p class="text-gray-400 max-w-md mb-6">Bạn cần hoàn tất các bước tạo kịch bản, chèn ảnh/video và tạo âm thanh ở công cụ Timeline trước khi Livestream.</p>
-                <button mat-flat-button color="primary" routerLink="..">Quay lại công cụ</button>
-            </div>
-        </ng-template>
-    </div>
+			<div *ngIf="hasStarted"
+				class="absolute bottom-4 left-6 z-50 flex items-center space-x-3 opacity-80 hover:opacity-100 transition-opacity">
+
+				<div class="flex items-center space-x-2 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg shadow-lg">
+					<mat-icon class="icon-size-4" [ngClass]="{'animate-pulse text-red-500': isPlaying}">
+						{{ isPlaying ? 'fiber_manual_record' : 'pause' }}
+					</mat-icon>
+					<span class="text-xs font-mono uppercase tracking-widest text-gray-200">
+						{{ isPlaying ? 'Đang Live' : 'Tạm dừng' }}
+					</span>
+				</div>
+
+				<div
+					class="relative group cursor-pointer bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-mono shadow-lg text-gray-200">
+					<div class="flex items-center gap-1.5">
+						<mat-icon class="icon-size-4 text-gray-400" svgIcon="feather:list"></mat-icon>
+						<span>Scene {{ currentSceneIndex + 1 }}/{{ projectData.scenes.length }}</span>
+					</div>
+
+					<div
+						class="absolute bottom-full left-0 mb-0.5 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
+
+						<div class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
+							<span class="font-semibold text-gray-200 font-sans tracking-wide">Danh sách phân cảnh</span>
+							<span class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]">{{
+								projectData.scenes.length }} Scenes</span>
+						</div>
+
+						<div class="overflow-y-auto flex-1 p-1.5 custom-scrollbar">
+							<ng-container *ngFor="let scene of projectData.scenes; let i = index">
+								<div class="px-3 py-3 my-0.5 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
+									[ngClass]="i === currentSceneIndex ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'"
+									(click)="jumpToScene(i); $event.stopPropagation()">
+
+									<span class="font-mono font-bold w-5 text-center"
+										[ngClass]="i === currentSceneIndex ? 'text-blue-500' : 'text-gray-600'">
+										{{ i + 1 }}
+									</span>
+
+									<div class="flex-1 overflow-hidden">
+										<p class="truncate font-sans text-xs leading-tight"
+											[title]="scene.subtitles?.[0]?.text || 'Phân cảnh ' + (i + 1)">
+											{{ scene.subtitles?.[0]?.text || 'Phân cảnh ' + (i + 1) }}
+										</p>
+									</div>
+
+									<mat-icon *ngIf="i === currentSceneIndex" class="icon-size-4 text-blue-500 shrink-0"
+										svgIcon="heroicons_solid:volume-up"></mat-icon>
+								</div>
+							</ng-container>
+						</div>
+					</div>
+				</div>
+			</div>
+
+			<div *ngIf="hasStarted"
+				class="absolute inset-0 z-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/20 cursor-pointer"
+				(click)="togglePlayPause()">
+				<div
+					class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform">
+					<mat-icon class="icon-size-10 text-white"
+						[svgIcon]="isPlaying ? 'heroicons_solid:pause' : 'heroicons_solid:play'"></mat-icon>
+				</div>
+			</div>
+		</ng-container>
+
+		<ng-template #noData>
+			<div class="flex flex-col items-center justify-center text-center p-8">
+				<mat-icon class="icon-size-20 text-gray-600 mb-4" svgIcon="feather:alert-circle"></mat-icon>
+				<h2 class="text-2xl font-bold mb-2">Không tìm thấy dữ liệu Video</h2>
+				<p class="text-gray-400 max-w-md mb-6">Bạn cần hoàn tất các bước tạo kịch bản, chèn ảnh/video và tạo âm
+					thanh ở công cụ Timeline trước khi Livestream.</p>
+				<button mat-flat-button color="primary" routerLink="..">Quay lại công cụ</button>
+			</div>
+		</ng-template>
+	</div>
 </div>
