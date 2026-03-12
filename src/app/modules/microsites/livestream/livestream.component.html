@@ -13,9 +13,7 @@
     </div>
 
     <div class="flex-auto relative flex items-center justify-center bg-black w-full h-full">
-        
         <ng-container *ngIf="projectData && projectData.scenes?.length > 0; else noData">
-            
             <div *ngIf="!hasStarted" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm">
                 <mat-icon class="icon-size-24 text-blue-500 mb-6" svgIcon="heroicons_solid:play"></mat-icon>
                 <h2 class="text-2xl font-bold mb-2">Hệ thống Livestream Sẵn Sàng</h2>
@@ -62,11 +60,10 @@
             </div>
 
             <div *ngIf="hasStarted" class="absolute inset-0 z-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/20 cursor-pointer" (click)="togglePlayPause()">
-                <div class="bg-black/60 rounded-full p-4 transform scale-150 hover:scale-125 transition-transform">
+                <div class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform">
                     <mat-icon class="icon-size-10 text-white" [svgIcon]="isPlaying ? 'heroicons_solid:pause' : 'heroicons_solid:play'"></mat-icon>
                 </div>
             </div>
-
         </ng-container>
 
         <ng-template #noData>
@@ -77,6 +74,5 @@
                 <button mat-flat-button color="primary" routerLink="..">Quay lại công cụ</button>
             </div>
         </ng-template>
-
     </div>
 </div>
