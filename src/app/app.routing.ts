@@ -47,6 +47,7 @@ export const appRoutes: Route[] = [
         children: [
             { path: 'app', loadChildren: () => import('app/modules/microsites/home/home.module').then(m => m.LandingAppModule) },
             { path: 'read', loadChildren: () => import('app/modules/microsites/read/read.module').then(m => m.ReadModule) },
+            { path: 'livestream', loadChildren: () => import('app/modules/microsites/livestream/livestream.module').then(m => m.LivestreamModule) },
             {
                 canActivate: [AuthGuard],
                 canActivateChild: [AuthGuard],
