@@ -262,6 +262,23 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
         this.playCurrent();
     }
+    // Dừng âm thanh và dọn dẹp tiến trình ngay lập tức khi bấm nút X
+    stopAudio() {
+        this.isPlaying = false;
+        this.hasStarted = false; // Ngừng trạng thái live
+        
+        // Dừng audio và xóa source
+        if (this.audioPlayer) {
+            this.audioPlayer.pause();
+            this.audioPlayer.currentTime = 0;
+            this.audioPlayer.src = ''; 
+        }
+
+        // Dọn dẹp luôn bộ đếm giờ (nếu đang chạy chế độ backup không có audio)
+        if (this.fallbackInterval) {
+            clearInterval(this.fallbackInterval);
+        }
+    }
 
     // --- TIỆN ÍCH KIỂM TRA ĐUÔI FILE ---
     isVideo(url: string): boolean {

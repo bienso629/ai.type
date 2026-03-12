@@ -1,6 +1,6 @@
-<div class="absolute inset-0 flex flex-col bg-gray-900 text-white min-w-0 overflow-hidden">
-	<div
-		class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-50 absolute top-0 left-0 right-0 hover:bg-black/80 transition-colors">
+<div class="absolute inset-0 flex flex-col bg-gray-900 text-white min-w-0 overflow-hidden group">
+	<div class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-50 absolute top-0 left-0 right-0 hover:bg-black/80 transition-all duration-500 ease-in-out"
+		[ngClass]="hasStarted ? 'opacity-0 -translate-y-full group-hover:opacity-100 group-hover:translate-y-0' : 'opacity-100'">
 		<div class="flex-1 flex-row shrink-0 items-center">
 			<label class="uppercase font-semibold tracking-wider text-white">
 				🔴 AI.Type Livestream Studio
@@ -17,7 +17,8 @@
 				</mat-icon>
 			</button>
 
-			<button mat-icon-button routerLink=".." class="text-gray-300 hover:text-white transition-colors">
+			<button mat-icon-button routerLink=".." (click)="stopAudio()"
+				class="text-gray-300 hover:text-white transition-colors">
 				<mat-icon class="icon-size-5" svgIcon="feather:x"></mat-icon>
 			</button>
 		</div>
@@ -47,22 +48,20 @@
 			</ng-container>
 
 			<div *ngIf="hasStarted && currentSubtitle"
-				class="absolute bottom-12 md:bottom-16 left-0 right-0 flex justify-center px-4 md:px-12 z-30 transition-all duration-300 pointer-events-none">
+				class="absolute left-0 right-0 flex justify-center z-30 transition-all duration-300 pointer-events-none"
+				[ngClass]="isMobileRatio ? 'bottom-8 px-2' : 'bottom-12 md:bottom-16 px-4 md:px-12'">
+				<div class="bg-black/75 backdrop-blur rounded-xl md:rounded-2xl max-w-4xl mx-auto text-center border border-white/10 shadow-2xl pointer-events-auto flex items-center justify-center transition-all duration-300"
+					[ngClass]="isMobileRatio ? 'px-3 py-2 min-h-[48px] w-[95%]' : 'px-5 py-3 md:px-6 md:py-3 w-full min-h-[60px]'">
 
-				<div
-					class="bg-black/75 backdrop-blur px-5 py-3 md:px-6 md:py-3 rounded-xl md:rounded-2xl max-w-4xl w-full mx-auto text-center border border-white/10 shadow-2xl pointer-events-auto min-h-[60px] flex items-center justify-center">
-
-					<p
-						class="text-lg md:text-xl lg:text-2xl font-medium leading-snug tracking-wide text-gray-100 drop-shadow-md transition-all duration-200">
+					<p class="font-medium tracking-wide text-gray-100 drop-shadow-md transition-all duration-200"
+						[ngClass]="isMobileRatio ? 'text-base leading-snug' : 'text-lg md:text-xl lg:text-2xl leading-snug'">
 						{{ currentDisplayedText }}
 					</p>
-
 				</div>
 			</div>
 
 			<div *ngIf="hasStarted"
-				class="absolute bottom-4 left-6 z-50 flex items-center space-x-3 opacity-80 hover:opacity-100 transition-opacity">
-
+				class="absolute bottom-4 left-6 z-50 flex items-center space-x-3 transition-all duration-500 ease-in-out opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0">
 				<div class="flex items-center space-x-2 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg shadow-lg">
 					<mat-icon class="icon-size-4" [ngClass]="{'animate-pulse text-red-500': isPlaying}">
 						{{ isPlaying ? 'fiber_manual_record' : 'pause' }}
@@ -73,15 +72,14 @@
 				</div>
 
 				<div
-					class="relative group cursor-pointer bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-mono shadow-lg text-gray-200">
+					class="relative group/menu cursor-pointer bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-mono shadow-lg text-gray-200">
 					<div class="flex items-center gap-1.5">
 						<mat-icon class="icon-size-4 text-gray-400" svgIcon="feather:list"></mat-icon>
 						<span>Scene {{ currentSceneIndex + 1 }}/{{ projectData.scenes.length }}</span>
 					</div>
 
 					<div
-						class="absolute bottom-full left-0 mb-0.5 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover:opacity-100 group-hover:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
-
+						class="absolute bottom-full left-0 mb-1 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
 						<div class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
 							<span class="font-semibold text-gray-200 font-sans tracking-wide">Danh sách phân cảnh</span>
 							<span class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]">{{
@@ -93,19 +91,16 @@
 								<div class="px-3 py-3 my-0.5 rounded-lg cursor-pointer transition-colors flex items-center gap-3"
 									[ngClass]="i === currentSceneIndex ? 'bg-blue-600/20 text-blue-400' : 'text-gray-400 hover:bg-gray-800 hover:text-gray-200'"
 									(click)="jumpToScene(i); $event.stopPropagation()">
-
 									<span class="font-mono font-bold w-5 text-center"
 										[ngClass]="i === currentSceneIndex ? 'text-blue-500' : 'text-gray-600'">
 										{{ i + 1 }}
 									</span>
-
 									<div class="flex-1 overflow-hidden">
 										<p class="truncate font-sans text-xs leading-tight"
 											[title]="scene.subtitles?.[0]?.text || 'Phân cảnh ' + (i + 1)">
 											{{ scene.subtitles?.[0]?.text || 'Phân cảnh ' + (i + 1) }}
 										</p>
 									</div>
-
 									<mat-icon *ngIf="i === currentSceneIndex" class="icon-size-4 text-blue-500 shrink-0"
 										svgIcon="heroicons_solid:volume-up"></mat-icon>
 								</div>
@@ -116,10 +111,10 @@
 			</div>
 
 			<div *ngIf="hasStarted"
-				class="absolute inset-0 z-40 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/20 cursor-pointer"
+				class="absolute inset-0 z-40 flex items-center justify-center bg-black/20 cursor-pointer transition-opacity duration-500 opacity-0 group-hover:opacity-100"
 				(click)="togglePlayPause()">
 				<div
-					class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform">
+					class="bg-black/60 rounded-full w-16 h-16 flex items-center justify-center transform scale-150 hover:scale-125 transition-transform shadow-lg">
 					<mat-icon class="icon-size-10 text-white"
 						[svgIcon]="isPlaying ? 'heroicons_solid:pause' : 'heroicons_solid:play'"></mat-icon>
 				</div>
