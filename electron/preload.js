@@ -50,6 +50,7 @@ contextBridge.exposeInMainWorld('electron', {
         return webUtils.getPathForFile(file);
     },
     selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath }),
+    resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
