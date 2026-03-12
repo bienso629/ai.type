@@ -146,7 +146,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
                         this.router.navigate(['/livestream'], {
                             queryParams: {
-                                uuid: 'active'
+                                uuid: this.projectData.uuid || 'unknown_project',
                             }
                         });
                     }
