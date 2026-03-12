@@ -28,6 +28,8 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     // Đối tượng Audio ẩn chạy ngầm
     audioPlayer: HTMLAudioElement;
 
+    isMobileRatio: boolean = false;
+
     // Các biến Getter
     get currentScene() {
         return this.projectData?.scenes?.[this.currentSceneIndex];
@@ -82,6 +84,33 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     }
 
     // --- LOGIC ĐIỀU KHIỂN ---
+
+    // [THÊM HÀM MỚI] Xử lý đổi tỉ lệ màn hình
+    toggleScreenRatio() {
+        this.isMobileRatio = !this.isMobileRatio;
+
+        let targetWidth = 1440;
+        let targetHeight = 900;
+
+        if (this.isMobileRatio) {
+            // Tỉ lệ Mobile (Dọc 9:16) - Kích thước mô phỏng điện thoại
+            targetWidth = 450;
+            targetHeight = 800;
+        } else {
+            // Tỉ lệ Desktop (Ngang 16:9) - Kích thước làm việc bình thường
+            targetWidth = 1440;
+            targetHeight = 900;
+        }
+
+        // Gọi lệnh xuống Electron thông qua preload bridge
+        if ((window as any).electron && (window as any).electron.resizeWindow) {
+            (window as any).electron.resizeWindow(targetWidth, targetHeight);
+        } else {
+            console.warn('Tính năng đổi kích thước chỉ hoạt động trên App Electron.');
+        }
+
+        this.cd.markForCheck();
+    }
 
     startLivestream() {
         if (!this.projectData) return;
