@@ -1,4 +1,5 @@
 <div class="absolute inset-0 flex flex-col bg-gray-900 text-white min-w-0 overflow-hidden group">
+
 	<div class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-50 absolute top-0 left-0 right-0 hover:bg-black/80 transition-all duration-500 ease-in-out"
 		[ngClass]="hasStarted ? 'opacity-0 -translate-y-full group-hover:opacity-100 group-hover:translate-y-0' : 'opacity-100'">
 		<div class="flex-1 flex-row shrink-0 items-center">
@@ -10,6 +11,11 @@
 		<div class="flex flex-row shrink-0 items-center text-sm gap-4">
 			<span class="truncate max-w-md opacity-70">{{ projectData?.title || 'Chưa có dự án' }}</span>
 
+			<button mat-icon-button (click)="toggleSubtitle()" class="transition-colors rounded-full"
+				[ngClass]="showSubtitle ? 'bg-blue-600/60 text-white hover:bg-blue-600/80' : 'bg-white/10 text-gray-400 hover:text-white'">
+				<mat-icon class="icon-size-5" svgIcon="feather:message-square"></mat-icon>
+			</button>
+
 			<button mat-icon-button (click)="toggleScreenRatio()"
 				class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full"
 				matTooltip="Đổi tỉ lệ Mobile/Desktop">
@@ -18,7 +24,7 @@
 			</button>
 
 			<button mat-icon-button routerLink=".." (click)="stopAudio()"
-				class="text-gray-300 hover:text-white transition-colors">
+				class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full">
 				<mat-icon class="icon-size-5" svgIcon="feather:x"></mat-icon>
 			</button>
 		</div>
@@ -48,8 +54,12 @@
 			</ng-container>
 
 			<div *ngIf="hasStarted && currentSubtitle"
-				class="absolute left-0 right-0 flex justify-center z-30 transition-all duration-300 pointer-events-none"
-				[ngClass]="isMobileRatio ? 'bottom-8 px-2' : 'bottom-12 md:bottom-16 px-4 md:px-12'">
+				class="absolute left-0 right-0 flex justify-center z-30 transition-all duration-500 ease-in-out pointer-events-none"
+				[ngClass]="[
+                    isMobileRatio ? 'bottom-8 px-2' : 'bottom-12 md:bottom-16 px-4 md:px-12',
+                    showSubtitle ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-6 scale-95'
+                ]">
+
 				<div class="bg-black/75 backdrop-blur rounded-xl md:rounded-2xl max-w-4xl mx-auto text-center border border-white/10 shadow-2xl pointer-events-auto flex items-center justify-center transition-all duration-300"
 					[ngClass]="isMobileRatio ? 'px-3 py-2 min-h-[48px] w-[95%]' : 'px-5 py-3 md:px-6 md:py-3 w-full min-h-[60px]'">
 
@@ -57,11 +67,13 @@
 						[ngClass]="isMobileRatio ? 'text-base leading-snug' : 'text-lg md:text-xl lg:text-2xl leading-snug'">
 						{{ currentDisplayedText }}
 					</p>
+
 				</div>
 			</div>
 
 			<div *ngIf="hasStarted"
 				class="absolute bottom-4 left-6 z-50 flex items-center space-x-3 transition-all duration-500 ease-in-out opacity-0 group-hover:opacity-100 translate-y-4 group-hover:translate-y-0">
+
 				<div class="flex items-center space-x-2 bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg shadow-lg">
 					<mat-icon class="icon-size-4" [ngClass]="{'animate-pulse text-red-500': isPlaying}">
 						{{ isPlaying ? 'fiber_manual_record' : 'pause' }}
@@ -79,7 +91,7 @@
 					</div>
 
 					<div
-						class="absolute bottom-full left-0 mb-1 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
+						class="absolute bottom-full left-0 mb-2 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
 						<div class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
 							<span class="font-semibold text-gray-200 font-sans tracking-wide">Danh sách phân cảnh</span>
 							<span class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]">{{
