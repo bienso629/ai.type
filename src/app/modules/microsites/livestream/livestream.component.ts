@@ -30,6 +30,9 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
     isMobileRatio: boolean = false;
 
+    // [THÊM BIẾN MỚI] Trạng thái bật/tắt phụ đề
+    showSubtitle: boolean = true;
+
     // Các biến Getter
     get currentScene() {
         return this.projectData?.scenes?.[this.currentSceneIndex];
@@ -84,6 +87,12 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     }
 
     // --- LOGIC ĐIỀU KHIỂN ---
+
+    // [THÊM HÀM MỚI] Bật/tắt phụ đề
+    toggleSubtitle() {
+        this.showSubtitle = !this.showSubtitle;
+        this.cd.markForCheck();
+    }
 
     // [THÊM HÀM MỚI] Xử lý đổi tỉ lệ màn hình
     toggleScreenRatio() {
