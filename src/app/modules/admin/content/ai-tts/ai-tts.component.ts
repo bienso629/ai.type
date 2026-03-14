@@ -18,6 +18,7 @@ import { HttpResponse, HttpClient } from '@angular/common/http';
 import WaveSurfer from 'wavesurfer.js';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 export interface AudioClip {
     id: string;
@@ -509,9 +510,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isAnalyzing = true;
 
         // 1. Lấy thông tin cấu hình AI từ Settings
-        this.settings = localStorage.getItem('settings')
-            ? JSON.parse(localStorage.getItem('settings'))
-            : {};
+        this.settings = this.multiAccountService.getItem('settings');
 
         this.secretKey = this.settings.secretKey
             ? this.settings.secretKey.split(';')
@@ -998,13 +997,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         private sanitizer: DomSanitizer, private _fuseConfirmationService: FuseConfirmationService,
         private clipboard: Clipboard,
         private dialog: MatDialog,
+        private multiAccountService: MultiAccountService,
         private router: Router, private route: ActivatedRoute, private _fuseConfigService: FuseConfigService, private http: HttpClient
     ) {
         this.titleService.setTitle(`chương trình làm video | ai.type`);
 
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            try { this.settings = JSON.parse(this.settings); this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined; } catch { }
+            try { this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined; } catch { }
         }
 
         this._fuseConfigService.config$.pipe(takeUntil(this._unsubscribeAll)).subscribe((config: AppConfig) => { this.config = config; });
@@ -1018,8 +1018,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnInit(): void {
-        let settings = localStorage.getItem('settings');
-        if (settings) { try { settings = JSON.parse(settings); if (settings['tts']) this.SERVER_AUDIO_URL = settings['tts']; } catch (e) { } }
+        let settings = this.multiAccountService.getItem('settings');
+        if (settings) {
+            try {
+                if (settings['tts']) {
+                    this.SERVER_AUDIO_URL = settings['tts'];
+                }
+            } catch (e) {
+                console.error('Error parsing settings:', e);
+            }
+        }
 
         this.route.params.subscribe((params: Params) => {
             this.uuid = params['uuid']; let name = params['name'];

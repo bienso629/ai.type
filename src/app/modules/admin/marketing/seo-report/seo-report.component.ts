@@ -32,6 +32,7 @@ import {
 } from 'ng-apexcharts';
 import { DomainService } from 'app/modules/_services/domain';
 import { WordpressService } from 'app/modules/_services/wordpress';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 export type ChartOptions = {
     series: ApexAxisChartSeries;
@@ -1039,7 +1040,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         private cd: ChangeDetectorRef,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+         private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`báo cáo seo | ai.type - công cụ tạo content`);
 
@@ -1060,9 +1062,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 }
             });
 
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = this.settings ? JSON.parse(this.settings) : {};
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
 

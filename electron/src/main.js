@@ -2512,12 +2512,12 @@ app.whenReady().then(() => {
         if (targetWindow) targetWindow.close();
     });
 
-    globalShortcut.register("CommandOrControl+N", () => {
+    globalShortcut.register("CommandOrControl+Shift+N", () => {
         createMainWindow();
     });
 
     // Đăng ký phím tắt CTRL+R hoặc Command+R
-    globalShortcut.register('CommandOrControl+R', () => {
+    globalShortcut.register('CommandOrControl+Shift+R', () => {
         if (mainWindow) {
             mainWindow.reload(); // Làm mới cửa sổ chính
             console.log('Đã làm mới trình duyệt');

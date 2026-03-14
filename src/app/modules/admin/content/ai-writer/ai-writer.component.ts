@@ -71,6 +71,7 @@ import { marked } from 'marked';
 import { YoutubeService } from 'app/modules/_services/youtube';
 import { LogService } from 'app/modules/_services/link';
 import { HelperService } from 'app/helper.service';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 declare var LeaderLine: any;
 declare var TurndownService: any;
@@ -3215,6 +3216,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         private route: ActivatedRoute,
         private router: Router,
         private _bottomSheet: MatBottomSheet,
+        private multiAccountService: MultiAccountService
     ) {
         this.route.params.subscribe((params: Params) => {
             if (params['uuid']) {
@@ -3231,9 +3233,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         });
 
         // lấy secretKey và searchAPIKey
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = JSON.parse(this.settings);
             this.secretKey = this.settings.secretKey
                 ? this.settings.secretKey.split(';')
                 : undefined;

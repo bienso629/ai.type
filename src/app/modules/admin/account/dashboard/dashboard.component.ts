@@ -14,6 +14,7 @@ import { LogService } from 'app/modules/_services/link';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { WP2MDService } from 'app/modules/_services/wp2md';
 import { AuthUtils } from 'app/core/auth/auth.utils';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'dashboard',
@@ -126,7 +127,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         if (result.data.styles && result.data.styles.length > 0) localStorage.setItem('styles', JSON.stringify(result.data.styles));
                         if (result.data.editor) localStorage.setItem('editor', JSON.stringify(result.data.editor));
                         if (result.data.following_users) localStorage.setItem('following_users', JSON.stringify(result.data.following_users));
-                        if (result.data.settings) localStorage.setItem('settings', JSON.stringify(result.data.settings));
+
+                        if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
 
                         // lập báo cáo theo ngày
                         this.createStatistic();
@@ -166,7 +168,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private _userClientService: UserClientService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`thống kê | ai.type - công cụ tạo content`);
 
