@@ -15,6 +15,7 @@ import * as $ from 'jquery';
 import { FuseConfirmationService } from "@fuse/services/confirmation/confirmation.service";
 import { Router } from "@angular/router";
 import { MatSelectionList } from "@angular/material/list";
+import { MultiAccountService } from "app/modules/_services/multi-account.service";
 
 @Component({
     selector: 'gemini-matrix-dialog',
@@ -314,11 +315,11 @@ export class GeminiMatrixDialog {
         private _fuseConfirmationService: FuseConfirmationService,
         private _fuseConfigService: FuseConfigService,
         @Inject(MAT_DIALOG_DATA) public data: GeminiMatrixDialog,
+        private multiAccountService: MultiAccountService
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = JSON.parse(this.settings);
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
         }

@@ -6,6 +6,7 @@ import { FuseConfigService } from '@fuse/services/config';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { UserClientService } from 'app/modules/_services/user';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
@@ -56,8 +57,7 @@ export class SettingsAccountComponent implements OnInit {
                     next: async (result) => {
                         if (result && result.success && result.data) {
                             // lưu cấu hình mới nhất về máy
-                            localStorage.setItem('settings', JSON.stringify(settings));
-
+                            this.multiAccountService.setItem('settings', settings);
                             this.toastr.success(`Lưu cấu hình!`);
                         } else {
                             this.toastr.error(`Không thể lưu cấu hình.`);
@@ -208,6 +208,7 @@ export class SettingsAccountComponent implements OnInit {
         private _userService: UserService,
         private _userClientService: UserClientService,
         private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`cấu hình tài khoản | ai.type - công cụ tạo content`);
 
@@ -260,11 +261,7 @@ export class SettingsAccountComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        let settings: any = localStorage.getItem('settings');
-
-        if (settings) {
-            settings = JSON.parse(settings);
-        }
+        let settings: any = this.multiAccountService.getItem('settings');
 
         // Create the form
         this.accountForm = this._formBuilder.group({

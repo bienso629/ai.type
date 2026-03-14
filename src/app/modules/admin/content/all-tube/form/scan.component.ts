@@ -11,6 +11,7 @@ import { ToastrService } from 'ngx-toastr';
 import { LogService } from 'app/modules/_services/link';
 
 import { GoogleGenAI } from '@google/genai';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'scanvideolinkform',
@@ -316,10 +317,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
     }
 
     async createPost(row: any) {
-        console.log('row', row);
-
-        let settings = localStorage.getItem('settings');
-        settings = JSON.parse(settings);
+        let settings = this.multiAccountService.getItem('settings');
 
         const ai = new GoogleGenAI({ apiKey: settings['secretKey'] });
         const response = await ai.models.generateContent({
@@ -383,6 +381,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         private _youtubeService: YoutubeService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService
     ) {
         // Subscribe to user changes
         this._userService.user$

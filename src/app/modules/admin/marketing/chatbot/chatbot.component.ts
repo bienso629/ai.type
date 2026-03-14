@@ -22,6 +22,7 @@ import DOMPurify from 'dompurify';
 import { DomainService } from 'app/modules/_services/domain';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { LogService } from 'app/modules/_services/link';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'chatbot',
@@ -103,11 +104,20 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     inputMessage: string = '';
     isLoading: boolean = false;
 
+    failedUrls: string[] = []; // Biến mới: Lưu URL lỗi
+    retryCount: number = 0;    // Biến mới: Đếm số lần thử lại
+    maxRetries: number = 3;    // Biến mới: Giới hạn thử lại
+
     statusIndex: any = {
         domain: '',
         status: '',
         files: '',
-        urls: []
+        urls: [],
+        total: 0,       // Thêm: Tổng số URL
+        completed: 0,   // Thêm: Số URL thành công
+        failed: 0,      // Thêm: Số URL lỗi
+        retrying: false,// Thêm: Trạng thái đang thử lại
+        retryTurn: 0
     }
 
     /* END TWO OBJECTS */
@@ -596,6 +606,59 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }
     }
 
+    // Lưu trạng thái hiện tại vào localStorage
+    saveProcessState() {
+        const state = {
+            statusIndex: this.statusIndex,
+            failedUrls: this.failedUrls,
+            retryCount: this.retryCount
+        };
+        localStorage.setItem('chatbot_crawl_state', JSON.stringify(state));
+    }
+
+    // Xóa trạng thái khi đã quét xong toàn bộ
+    clearProcessState() {
+        localStorage.removeItem('chatbot_crawl_state');
+    }
+
+    checkResumeState() {
+        const savedState = localStorage.getItem('chatbot_crawl_state');
+        if (savedState) {
+            const state = JSON.parse(savedState);
+
+            // Kiểm tra xem thực sự có URL nào đang chờ quét hoặc đang lỗi không
+            if (state.statusIndex && (state.statusIndex.urls.length > 0 || state.failedUrls?.length > 0)) {
+                const dialogRef = this._fuseConfirmationService.open({
+                    title: 'Phát hiện tiến trình dang dở!',
+                    message: `Bạn có một tiến trình quét domain ${state.statusIndex.domain} chưa hoàn thành (${state.statusIndex.completed}/${state.statusIndex.total} link). Bạn có muốn chạy tiếp không?`,
+                    icon: { show: true, name: 'heroicons_outline:clock', color: 'info' },
+                    actions: {
+                        confirm: { show: true, label: 'Tiếp tục quét', color: 'primary' },
+                        cancel: { show: true, label: 'Hủy bỏ' }
+                    },
+                    dismissible: false
+                });
+
+                dialogRef.afterClosed().subscribe((result) => {
+                    if (result === 'confirmed') {
+                        // Phục hồi dữ liệu từ localStorage
+                        this.statusIndex = state.statusIndex;
+                        this.failedUrls = state.failedUrls || [];
+                        this.retryCount = state.retryCount || 0;
+
+                        this.toastr.info('Đang tiếp tục tiến trình quét...');
+                        this.turnOnCrawlWebsite(this.statusIndex.domain);
+                    } else {
+                        // Người dùng chọn Hủy -> Xóa state rác
+                        this.clearProcessState();
+                    }
+                });
+            } else {
+                this.clearProcessState();
+            }
+        }
+    }
+
     indexDomains() {
         if (this.statusIndex.status === 'running') {
             this.toastr.warning('Quá trình cập nhật đang diễn ra.');
@@ -660,10 +723,21 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     if (result && result.success) {
                         Object.entries(result.data).forEach(([key, urls]) => {
                             if (domain.indexOf(key) >= 0) {
-                                this.statusIndex.urls = urls;
+                                this.statusIndex.urls = urls as string[]; // Ép kiểu để an toàn
                             }
                         });
 
+                        // --- THÊM PHẦN KHỞI TẠO TRẠNG THÁI Ở ĐÂY ---
+                        this.statusIndex.total = this.statusIndex.urls.length;
+                        this.statusIndex.completed = 0;
+                        this.statusIndex.failed = 0;
+                        this.statusIndex.retrying = false;
+                        this.statusIndex.retryTurn = 0;
+                        this.failedUrls = [];
+                        this.retryCount = 0;
+                        // ------------------------------------------
+
+                        this.saveProcessState();
                         this.turnOnCrawlWebsite(domain);
 
                         this.toastr.success('Đang cập nhật chatbot của bạn.');
@@ -688,7 +762,30 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 this.statusIndex.urls.splice(0, 1);
                 this.turnOnCrawlWebsite(domain);
             }
-        } else {
+        }
+        // --- THÊM LOGIC KIỂM TRA QUÉT LẠI (RETRY) ---
+        else if (this.failedUrls.length > 0 && this.retryCount < this.maxRetries) {
+            this.retryCount++;
+            this.statusIndex.retrying = true;
+            this.statusIndex.retryTurn = this.retryCount;
+            this.statusIndex.status = 'retrying';
+
+            this.toastr.info(`Đang thử lại lần ${this.retryCount} cho ${this.failedUrls.length} URL lỗi...`);
+
+            // Đổ các URL lỗi vào lại mảng chính để quét, sau đó làm rỗng mảng lỗi
+            this.statusIndex.urls = [...this.failedUrls];
+            this.failedUrls = [];
+            this.saveProcessState(); // <--- CHÈN VÀO ĐÂY
+
+            // Nghỉ 2 giây trước khi chạy lại
+            setTimeout(() => {
+                this.turnOnCrawlWebsite(domain);
+            }, 2000);
+        }
+        // -------------------------------------------
+        else {
+            // Khi đã hết hoàn toàn danh sách hoặc chạm trần số lần retry
+            this.statusIndex.failed = this.failedUrls.length;
             this.triggerIndexDomain(domain);
         }
     }
@@ -704,16 +801,22 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     if (result && result.success && result.data && result.data.title && result.data.textContent) {
                         this.saveContentUrl(url, domain, result.data);
                     } else {
+                        // NẾU LỖI LOGIC: Lưu URL vào danh sách failedUrls
+                        this.failedUrls.push(url);
+                        this.statusIndex.failed = this.failedUrls.length;
+
                         this.statusIndex.urls.splice(0, 1);
-                        this.toastr.error('Không thể phân tích tài nguyên.');
+                        this.saveProcessState(); // <--- CHÈN VÀO ĐÂY
                         this.turnOnCrawlWebsite(domain);
                     }
                 },
                 error: () => {
-                    this.statusIndex.urls.splice(0, 1);
-                    this.statusIndex.status = 'error';
-                    this.toastr.error('Không thể phân tích tài nguyên.');
+                    // NẾU LỖI SERVER (500, 404...): Lưu URL vào danh sách failedUrls
+                    this.failedUrls.push(url);
+                    this.statusIndex.failed = this.failedUrls.length;
 
+                    this.statusIndex.urls.splice(0, 1);
+                    this.saveProcessState(); // <--- CHÈN VÀO ĐÂY
                     this.turnOnCrawlWebsite(domain);
                 },
                 complete: () => { }
@@ -732,16 +835,24 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 next: (result) => {
                     if (result) {
                         this.toastr.success(`Lưu thành công "${data.title}"`);
-                        this.statusIndex.urls.splice(0, 1);
 
+                        this.statusIndex.completed++; // <--- THÊM DÒNG NÀY ĐỂ TĂNG SỐ LƯỢNG THÀNH CÔNG
+
+                        this.statusIndex.urls.splice(0, 1);
+                        this.saveProcessState(); // <--- CHÈN VÀO ĐÂY
                         this.turnOnCrawlWebsite(domain);
                     }
                 },
                 error: (err: any) => {
-                    this.statusIndex.status = 'error';
-                    this.toastr.error('Lưu không thành công.');
+                    // Nếu lỗi khi lưu DB, cũng đẩy ngược vào failedUrls
+                    this.failedUrls.push(url);
+                    this.statusIndex.failed = this.failedUrls.length;
 
+                    this.statusIndex.urls.splice(0, 1);
+                    this.saveProcessState(); // <--- CHÈN VÀO ĐÂY
                     this.turnOnCrawlWebsite(domain);
+
+                    this.toastr.error('Lưu không thành công.');
                 }
             });
     }
@@ -755,10 +866,12 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (_) => {
                     this.statusIndex.status = 'done';
+                    this.clearProcessState(); // <--- XÓA TRẠNG THÁI
                     this.toastr.success(`Kết thúc cập nhật!`);
                 },
                 error: (err: any) => {
                     this.statusIndex.status = 'error';
+                    this.clearProcessState(); // <--- XÓA TRẠNG THÁI
                     this.toastr.error('Kết thúc cập nhật.');
                 }
             });
@@ -878,14 +991,13 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
         private router: Router,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`hỏi chatgpt | ai.type - công cụ tạo content`);
     }
 
     ngOnInit(): void {
-        const settings = localStorage.getItem('settings');
-        this.settings = JSON.parse(settings);
-
+        this.settings = this.multiAccountService.getItem('settings');
         this.currentDocType = localStorage.getItem('last_doc_type');
 
         this.chatbotMessage = this._formBuilder.group({

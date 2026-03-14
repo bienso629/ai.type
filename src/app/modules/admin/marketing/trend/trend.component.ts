@@ -43,6 +43,7 @@ import * as uuid from 'uuid';
 import moment from 'moment';
 import { HelperService } from 'app/helper.service';
 import { GoogleGenAI } from '@google/genai';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'trend',
@@ -844,6 +845,7 @@ export class AIFacePostComponent
         private _fuseConfirmationService: FuseConfirmationService,
         private _router: Router,
         private titleService: Title,
+         private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(
             `lấy post từ nhóm facebook | ai.type - công cụ tạo content`,
@@ -865,9 +867,8 @@ export class AIFacePostComponent
         });
 
         // lấy secretKey và searchAPIKey
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = JSON.parse(this.settings);
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
         }

@@ -29,6 +29,7 @@ import { ImageEditorDialogComponent } from './tools/image-editor.component';
 import * as uuid from 'uuid';
 import { BlogService } from 'app/modules/_services/blog';
 import { DomainService } from 'app/modules/_services/domain';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 interface ReferenceFile {
     base64Data: string;
@@ -541,11 +542,12 @@ export class AIImageComponent
         private toastr: ToastrService,
         private http: HttpClient,
         private cd: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`tạo hình | ai.type - công cụ tạo content`);
-        this.settings = localStorage.getItem('settings')
-            ? JSON.parse(localStorage.getItem('settings'))
-            : {};
+
+        this.settings = this.multiAccountService.getItem('settings');
+
         this.secretKey = this.settings.secretKey
             ? this.settings.secretKey.split(';')
             : undefined;

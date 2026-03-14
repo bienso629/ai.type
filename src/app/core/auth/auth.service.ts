@@ -1,10 +1,11 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { catchError, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
+import { catchError, from, map, Observable, of, switchMap, tap, throwError } from 'rxjs';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserService } from 'app/core/user/user.service';
 
 import { ForumService } from 'app/modules/_services/forum';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Injectable()
 export class AuthService {
@@ -17,7 +18,8 @@ export class AuthService {
     constructor(
         private _httpClient: HttpClient,
         private _forumService: ForumService,
-        private _userService: UserService
+        private _userService: UserService,
+        private multiAccountService: MultiAccountService
     ) { }
 
     // -----------------------------------------------------------------------------------------------------
@@ -28,11 +30,13 @@ export class AuthService {
      * Setter & getter for access token
      */
     set accessToken(token: string) {
-        localStorage.setItem('accessToken', token);
+        // localStorage.setItem('accessToken', token);
+        this.multiAccountService.setItem('accessToken', token);
     }
 
     get accessToken(): string {
-        return localStorage.getItem('accessToken') ?? '';
+        // return localStorage.getItem('accessToken') ?? '';
+        return this.multiAccountService.getItem('accessToken') || '';
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -63,41 +67,40 @@ export class AuthService {
      * @param credentials
      */
     signIn(credentials: { username: string; password: string, server: string, rememberMe: boolean }): Observable<any> {
-        // Throw error, if the user is already logged in
         if (this._authenticated) {
             return throwError('User is already logged in.');
         }
 
-        return this._forumService.loginv3(credentials)
-            .pipe(
-                map(result => {
-                    if (result && result.data && result.data.status && result.data.status.code === 'ok') {
-                        result = result.data;
+        return this._forumService.loginv3(credentials).pipe(
+            switchMap(result => { // Đổi map thành switchMap để xử lý Promise bên trong
+                if (result && result.data && result.data.status && result.data.status.code === 'ok') {
+                    result = result.data;
 
-                        const user = {
-                            id: result.response.uid,
-                            name: result.response.username,
-                            email: credentials.username,
-                            server: credentials.server,
-                            postcount: result.response.postcount,
-                            reputation: result.response.reputation,
-                            avatar: `https://type.vn${result.response.picture}`,
-                            status: result.response.status,
-                            groups: []
-                        };
+                    const user = {
+                        id: result.response.uid,
+                        name: result.response.username,
+                        email: credentials.username,
+                        server: credentials.server,
+                        postcount: result.response.postcount,
+                        reputation: result.response.reputation,
+                        avatar: `https://type.vn${result.response.picture}`,
+                        status: result.response.status,
+                        groups: []
+                    };
 
-                        // Set the authenticated flag to true
-                        this._authenticated = true;
+                    this._authenticated = true;
 
-                        // Return a new observable with the result
-                        return user;
-                    } else {
-                        return null;
-                    }
-                }),
-                tap(_ => {}),
-                catchError(this.handleError('server', []))
-            );
+                    // KHỞI TẠO TÀI KHOẢN VÀO INDEXED DB
+                    // Bạn cần dùng switchMap ở trên để có thể trả về Observable từ Promise
+                    return from(this.multiAccountService.saveAccount(user.email, { user: user })).pipe(
+                        map(() => user)
+                    );
+                } else {
+                    return of(null);
+                }
+            }),
+            catchError(this.handleError('server', []))
+        );
     }
 
     /**
@@ -144,8 +147,8 @@ export class AuthService {
      * Sign out
      */
     signOut(): Observable<any> {
-        // Remove the access token from the local storage
-        localStorage.removeItem('accessToken');
+        // Xóa token trong service mới
+        this.multiAccountService.removeItem('accessToken');
 
         // Set the authenticated flag to false
         this._authenticated = false;
@@ -175,24 +178,30 @@ export class AuthService {
     /**
      * Check the authentication status
      */
+
     check(): Observable<boolean> {
-        // Check if the user is logged in
-        if (this._authenticated) {
-            return of(true);
-        }
+        // Ép Angular phải chờ MultiAccountService load xong dữ liệu từ IndexedDB
+        return from(this.multiAccountService.isReady).pipe(
+            switchMap(() => {
+                // Check if the user is logged in
+                if (this._authenticated) {
+                    return of(true);
+                }
 
-        // Check the access token availability
-        if (!this.accessToken) {
-            return of(false);
-        }
+                // Check the access token availability
+                if (!this.accessToken) {
+                    return of(false);
+                }
 
-        // Check the access token expire date
-        if (AuthUtils.isTokenExpired(this.accessToken)) {
-            return of(false);
-        }
+                // Check the access token expire date
+                if (AuthUtils.isTokenExpired(this.accessToken)) {
+                    return of(false);
+                }
 
-        // If the access token exists and it didn't expire, sign in using it
-        return this.signInUsingToken();
+                // If the access token exists and it didn't expire, sign in using it
+                return this.signInUsingToken();
+            })
+        );
     }
 
     // tslint:disable-next-line: typedef

@@ -7,6 +7,7 @@ import { UserService } from './core/user/user.service';
 import { Subject, takeUntil } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
+import { MultiAccountService } from './modules/_services/multi-account.service';
 
 @Component({
     selector: 'app-root',
@@ -24,8 +25,8 @@ export class AppComponent implements OnInit, OnDestroy {
     // Biến để lưu ID của timer giúp dọn dẹp sau này
     private intervalId: any;
 
-    // 1 phút kiểm tra một lần
-    private readonly ONE_HOUR_MS = 1000 * 60 * 1;
+    // 5 phút kiểm tra một lần
+    private readonly ONE_HOUR_MS = 1000 * 60 * 5;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     updateTime(): void {
@@ -62,6 +63,7 @@ export class AppComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         public dialog: MatDialog,
         private router: Router,
+        private multiAccountService: MultiAccountService
     ) {
         // kiểm tra settings và khởi tạo
         let settings: any = localStorage.getItem('settings');
@@ -90,7 +92,8 @@ export class AppComponent implements OnInit, OnDestroy {
                 n8n: '', // API key for n8n functionality
             };
 
-            localStorage.setItem('settings', JSON.stringify(settings));
+            // localStorage.setItem('settings', JSON.stringify(settings));
+            this.multiAccountService.setItem('settings', settings);
         }
     }
 

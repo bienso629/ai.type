@@ -6,6 +6,7 @@ import { UserService } from "app/core/user/user.service";
 import { User } from "app/core/user/user.types";
 import { BlogService } from "app/modules/_services/blog";
 import { CrawlService } from "app/modules/_services/crawl";
+import { MultiAccountService } from "app/modules/_services/multi-account.service";
 import { Subject, takeUntil } from "rxjs";
 
 import * as uuid from 'uuid';
@@ -187,12 +188,12 @@ export class KeywordGoogleDataDialog implements OnInit, OnDestroy {
         private _blogService: BlogService,
         private _formBuilder: UntypedFormBuilder,
         private _userService: UserService,
-        private _crawlService: CrawlService
+        private _crawlService: CrawlService,
+        private multiAccountService: MultiAccountService
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = JSON.parse(this.settings);
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
         }

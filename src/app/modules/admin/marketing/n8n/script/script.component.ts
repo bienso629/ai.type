@@ -42,6 +42,7 @@ import Hls from 'hls.js';
 
 // --- IMPORT SERVICE N8N ---
 import { N8nService } from 'app/modules/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 registerLocaleData(localeVi);
 
@@ -169,14 +170,13 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         private cd: ChangeDetectorRef,
         private zone: NgZone,
         private _matDialog: MatDialog,
-        private _http: HttpClient,
-        private _n8nService: N8nService // Inject N8nService
+        private _n8nService: N8nService, // Inject N8nService
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
-        this.settings = localStorage.getItem('settings');
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = JSON.parse(this.settings);
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
 
