@@ -9,7 +9,6 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 
 @Injectable()
 export class AuthService {
-    private readonly _secret: string = '0hPYnFVwEa5ydU9zWP9ET3BlbkFJeb81DqndysS0Zun3pOmK';
     private _authenticated: boolean = false;
 
     /**

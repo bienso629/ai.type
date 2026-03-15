@@ -26,7 +26,7 @@
     </button>
 
     <mat-menu [xPosition]="'before'" #userActions="matMenu" class="shadow-xl border-4 rounded-2xl">
-        <a href="https://type.vn/user/{{user.name}}/settings" target="_blank" mat-menu-item>
+        <a href="javascript:void(0)" (click)="onSelectAccount(user.email)" mat-menu-item>
             <span class="flex flex-col leading-none">
                 <span class="text-green-600">vị trí {{user.server}}</span>
                 <span class="mt-1.5 font-medium">{{user.email}}</span>
