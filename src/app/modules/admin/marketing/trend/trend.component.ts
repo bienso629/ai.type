@@ -62,7 +62,8 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AIFacePostComponent
-    implements OnInit, OnDestroy, AfterContentChecked {
+    implements OnInit, OnDestroy, AfterContentChecked
+{
     animationStates: any;
     user: User;
     config: AppConfig;
@@ -201,8 +202,8 @@ export class AIFacePostComponent
                         this.getLinks(result.data[0]['_id'], 0);
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -235,7 +236,7 @@ export class AIFacePostComponent
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
-                complete: () => { },
+                complete: () => {},
             });
 
         // lấy bài theo collection
@@ -261,8 +262,8 @@ export class AIFacePostComponent
                         this.getCategories(this.domains[0] ?? ['domain']);
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -286,8 +287,8 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -398,9 +399,9 @@ export class AIFacePostComponent
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => { },
-                error: () => { },
-                complete: () => { },
+                next: () => {},
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -446,7 +447,8 @@ export class AIFacePostComponent
 
         // Các tham số selector truyền vào backend
         const storySelector = 'data-ad-rendering-role="story_message"';
-        const seeMoreSelector = 'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
+        const seeMoreSelector =
+            'div[role="feed"] div[data-ad-rendering-role="story_message"] div[role="button"]';
         const seeMoreText = 'Xem thêm'; // Có thể đổi thành 'See more' tùy tài khoản FB
         const postContainerSelector = '.x1yztbdb'; // Mã này sẽ truyền vào closest()
         const profileNameSelector = 'data-ad-rendering-role="profile_name"';
@@ -523,15 +525,25 @@ export class AIFacePostComponent
         if (this.secretKey && dataToAnalyze.length > 0) {
             // 1. Lọc dữ liệu sạch: Bắt buộc có text, loại bỏ header, lấy thêm images nếu có
             const cleanedData = dataToAnalyze
-                .filter(item => item.text && item.text.trim().length > 0 && !item.isHeader)
-                .map(item => ({
+                .filter(
+                    (item) =>
+                        item.text &&
+                        item.text.trim().length > 0 &&
+                        !item.isHeader,
+                )
+                .map((item) => ({
                     id: item.id || item._id,
                     text: item.text,
-                    images: item.images && item.images.length > 0 ? item.images : []
+                    images:
+                        item.images && item.images.length > 0
+                            ? item.images
+                            : [],
                 }));
 
             if (cleanedData.length === 0) {
-                this.toastr.warning('Không có nội dung văn bản để phân tích xu hướng!');
+                this.toastr.warning(
+                    'Không có nội dung văn bản để phân tích xu hướng!',
+                );
                 return;
             }
 
@@ -573,7 +585,10 @@ export class AIFacePostComponent
             if (jsonText) {
                 try {
                     const data = JSON.parse(jsonText[1]);
-                    localStorage.setItem('trend_analysis_result', JSON.stringify(data));
+                    localStorage.setItem(
+                        'trend_analysis_result',
+                        JSON.stringify(data),
+                    );
                 } catch (e) {
                     this.toastr.warning('Không thể phân tích được trend.');
                 }
@@ -628,7 +643,7 @@ export class AIFacePostComponent
                         // data.splice(0, 1);
                         this.storePost(data);
                     },
-                    complete: () => { },
+                    complete: () => {},
                 });
         } else {
             // quét tiếp
@@ -650,9 +665,9 @@ export class AIFacePostComponent
                     })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
-                        next: () => { },
-                        error: () => { },
-                        complete: () => { },
+                        next: () => {},
+                        error: () => {},
+                        complete: () => {},
                     });
             }
         });
@@ -668,34 +683,14 @@ export class AIFacePostComponent
     }
 
     // chuyển đổi facepost sang archive
-    facePost2Node() {
-        let p = this.preview.text.split('.').filter((i: string) => i);
-        this._crawlService
-            .facePost2Node({
-                username: this.user.name,
-                content: {
-                    p: p,
-                    img: this.preview.images,
-                    a: this.preview.href,
-                },
-                title: '',
-                url: '',
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result: any) => {
-                    if (result && result.success) {
-                        this.toastr.success('Chuyển sang lưu trữ.');
-                    } else {
-                        this.toastr.error('Lỗi trong quá trình chuyển.');
-                    }
-                },
-                error: (e: any) => { },
-                complete: () => {
-                    // lam moi lai giao dien
-                    this.cd.markForCheck();
-                },
-            });
+    facePost2Node(item: any) {
+        console.log('item: ', item);
+
+        this._router.navigate(['/ai-writer'], {
+            queryParams: {
+                title: item.headline,
+            },
+        });
     }
 
     previewNow(post: any) {
@@ -748,8 +743,8 @@ export class AIFacePostComponent
                         this.cd.markForCheck();
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {},
+                complete: () => {},
             });
     }
 
@@ -784,7 +779,7 @@ export class AIFacePostComponent
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => { },
+                complete: () => {},
             });
     }
 
@@ -845,7 +840,7 @@ export class AIFacePostComponent
         private _fuseConfirmationService: FuseConfirmationService,
         private _router: Router,
         private titleService: Title,
-         private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
     ) {
         this.titleService.setTitle(
             `lấy post từ nhóm facebook | ai.type - công cụ tạo content`,
@@ -869,8 +864,12 @@ export class AIFacePostComponent
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
-            this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
+            this.secretKey = this.settings.secretKey
+                ? this.settings.secretKey.split(';')
+                : undefined;
+            this.searchAPIKey = this.settings.searchAPIKey
+                ? this.settings.searchAPIKey.split(';')
+                : undefined;
         }
 
         // Subscribe to config changes
@@ -908,8 +907,11 @@ export class AIFacePostComponent
             (data: { action: string; success: any; posts: any }) => {
                 if (data.action === 'facebook-crawl' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
-                        console.log('Dữ liệu bài viết mới nhận được từ main:', data.posts);
-                        
+                        console.log(
+                            'Dữ liệu bài viết mới nhận được từ main:',
+                            data.posts,
+                        );
+
                         // cập nhật bảng
                         this.rows = [...data.posts, ...this.rows];
                         this.selected = [...data.posts, ...this.selected];
@@ -945,7 +947,7 @@ export class AIFacePostComponent
         );
     }
 
-    ngAfterContentChecked(): void { }
+    ngAfterContentChecked(): void {}
 
     /**
      * On init
@@ -972,7 +974,7 @@ export class AIFacePostComponent
             try {
                 this.trendResult = JSON.parse(savedTrend);
             } catch (e) {
-                console.error("Lỗi parse dữ liệu trend", e);
+                console.error('Lỗi parse dữ liệu trend', e);
             }
         }
     }
