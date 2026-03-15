@@ -8,6 +8,7 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 import { Observable, Subject, of } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { MultiAccountService } from './multi-account.service';
 
 let options = {
     headers: new HttpHeaders({
@@ -26,7 +27,8 @@ export class CrawlService {
         private http: HttpClient,
         private _h: HelperService,
         private _userService: UserService,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -45,7 +47,7 @@ export class CrawlService {
     }
 
     public myShares(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -70,7 +72,7 @@ export class CrawlService {
     }
 
     public facePost(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.appToken = activeInfo['user']['appToken'];
@@ -99,7 +101,7 @@ export class CrawlService {
     }
 
     public facePost2025(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.appToken = activeInfo['user']['appToken'];
@@ -124,7 +126,7 @@ export class CrawlService {
     }
 
     public storeImage(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -149,7 +151,7 @@ export class CrawlService {
     }
 
     public facePostStore(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -174,7 +176,7 @@ export class CrawlService {
     }
 
     public facePosts(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -199,7 +201,7 @@ export class CrawlService {
     }
 
     public faceTotalSearchPost(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -224,7 +226,7 @@ export class CrawlService {
     }
 
     public faceTotalPost(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -249,7 +251,7 @@ export class CrawlService {
     }
 
     public stop(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -274,7 +276,7 @@ export class CrawlService {
     }
 
     public facePost2Node(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -299,7 +301,7 @@ export class CrawlService {
     }
 
     public facePostUpdate(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -324,7 +326,7 @@ export class CrawlService {
     }
 
     public statistics(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -349,7 +351,7 @@ export class CrawlService {
     }
 
     public googleResults(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.appToken = activeInfo['user']['appToken'];
@@ -374,7 +376,7 @@ export class CrawlService {
     }
 
     public links(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -399,7 +401,7 @@ export class CrawlService {
     }
 
     public addLink(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -424,7 +426,7 @@ export class CrawlService {
     }
 
     public updateLink(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -449,7 +451,7 @@ export class CrawlService {
     }
 
     public createSitemap(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -474,7 +476,7 @@ export class CrawlService {
     }
 
     public crawlCompany(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -499,7 +501,7 @@ export class CrawlService {
     }
 
     public storeCompany(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -524,7 +526,7 @@ export class CrawlService {
     }
 
     public nodes(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -549,7 +551,7 @@ export class CrawlService {
     }
 
     public totalSearchNode(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -574,7 +576,7 @@ export class CrawlService {
     }
 
     public nodeDetails(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -599,7 +601,7 @@ export class CrawlService {
     }
 
     public convert(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -624,7 +626,7 @@ export class CrawlService {
     }
 
     public storeNode(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -649,7 +651,7 @@ export class CrawlService {
     }
 
     public archive(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -674,7 +676,7 @@ export class CrawlService {
     }
 
     public getUUIDsInCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -699,7 +701,7 @@ export class CrawlService {
     }
 
     public getNodesInCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -724,7 +726,7 @@ export class CrawlService {
     }
 
     public searchTotalArchive(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -749,7 +751,7 @@ export class CrawlService {
     }
 
     public storeArchive(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -774,7 +776,7 @@ export class CrawlService {
     }
 
     public archiveUpdate(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -799,7 +801,7 @@ export class CrawlService {
     }
 
     public detail(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -824,7 +826,7 @@ export class CrawlService {
     }
 
     public read(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -849,7 +851,7 @@ export class CrawlService {
     }
 
     public archiveTogetherConfirm(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -874,7 +876,7 @@ export class CrawlService {
     }
 
     public archiveTogetherCheck(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -899,7 +901,7 @@ export class CrawlService {
     }
 
     public archivePayment(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -924,7 +926,7 @@ export class CrawlService {
     }
 
     public archiveBlockComment(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -949,7 +951,7 @@ export class CrawlService {
     }
 
     public archiveComments(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -974,7 +976,7 @@ export class CrawlService {
     }
 
     public money(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -999,7 +1001,7 @@ export class CrawlService {
     }
 
     public payment(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1024,7 +1026,7 @@ export class CrawlService {
     }
 
     public collections(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1049,7 +1051,7 @@ export class CrawlService {
     }
 
     public nodeInCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1073,7 +1075,7 @@ export class CrawlService {
     }
 
     public createCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1098,7 +1100,7 @@ export class CrawlService {
     }
 
     public storeCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1123,7 +1125,7 @@ export class CrawlService {
     }
 
     public removeCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1148,7 +1150,7 @@ export class CrawlService {
     }
 
     public linkCollections(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1173,7 +1175,7 @@ export class CrawlService {
     }
 
     public linksInCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1198,7 +1200,7 @@ export class CrawlService {
     }
 
     public createLinkCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1223,7 +1225,7 @@ export class CrawlService {
     }
 
     public storeLinkCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1248,7 +1250,7 @@ export class CrawlService {
     }
 
     public removeLinkCollection(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -1273,7 +1275,7 @@ export class CrawlService {
     }
 
     public logs(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;

@@ -9,6 +9,7 @@ import { HelperService } from 'app/helper.service';
 
 import { Observable, Subject, firstValueFrom, of } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { MultiAccountService } from './multi-account.service';
 
 let options = {
     headers: new HttpHeaders({
@@ -34,7 +35,8 @@ export class BlogService {
         private http: HttpClient,
         private _userService: UserService,
         private _h: HelperService,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -84,7 +86,7 @@ export class BlogService {
     }
 
     public keywords(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -109,7 +111,7 @@ export class BlogService {
     }
 
     public keywordGoogle(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -146,7 +148,7 @@ export class BlogService {
     }
 
     public googleSearch(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -171,7 +173,7 @@ export class BlogService {
     }
 
     public googleSearchPromise(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -184,7 +186,7 @@ export class BlogService {
     }
 
     public synonym(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -223,7 +225,7 @@ export class BlogService {
     }
 
     public text2speech(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -247,7 +249,7 @@ export class BlogService {
     }
 
     public text2speech2(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -271,7 +273,7 @@ export class BlogService {
     }
 
     public loadmodel(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -291,7 +293,7 @@ export class BlogService {
     }
 
     public text2speech3(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -331,7 +333,7 @@ export class BlogService {
     }
 
     public text2speech2024(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -389,7 +391,7 @@ export class BlogService {
     }
 
     public restart(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -413,7 +415,7 @@ export class BlogService {
     }
 
     public save(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -437,7 +439,7 @@ export class BlogService {
     }
 
     public upload(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -463,7 +465,7 @@ export class BlogService {
     }
 
     public img2text(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -489,7 +491,7 @@ export class BlogService {
     }
 
     public img2blog(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -513,7 +515,7 @@ export class BlogService {
     }
 
     public imgs2blog(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -537,7 +539,7 @@ export class BlogService {
     }
 
     public storeImages(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -550,7 +552,7 @@ export class BlogService {
     }
 
     public imgs2BlogPromise(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -567,7 +569,7 @@ export class BlogService {
     }
 
     public createImage(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -592,7 +594,7 @@ export class BlogService {
     }
 
     public uploadThumbnailPromise(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -605,7 +607,7 @@ export class BlogService {
     }
 
     public allFiles(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -625,7 +627,7 @@ export class BlogService {
     }
 
     public deleteImage(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -645,7 +647,7 @@ export class BlogService {
     }
 
     public uploadImage(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -665,7 +667,7 @@ export class BlogService {
     }
 
     public createPost(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -690,7 +692,7 @@ export class BlogService {
     }
 
     public createPostPromise(dataForm: any) {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -707,7 +709,7 @@ export class BlogService {
     }
 
     public sound(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -742,7 +744,7 @@ export class BlogService {
     }
 
     public synonymscan(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -767,7 +769,7 @@ export class BlogService {
     }
 
     public synonymdownload(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;

@@ -9,6 +9,7 @@ import { HelperService } from 'app/helper.service';
 
 import { Observable, Subject, of } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
+import { MultiAccountService } from './multi-account.service';
 
 let options = {
     headers: new HttpHeaders({
@@ -27,7 +28,8 @@ export class DomainService {
         private http: HttpClient,
         private _h: HelperService,
         private _userService: UserService,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -46,7 +48,7 @@ export class DomainService {
     }
 
     public fetch(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -71,7 +73,7 @@ export class DomainService {
     }
 
     public add(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -96,7 +98,7 @@ export class DomainService {
     }
 
     public edit(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;

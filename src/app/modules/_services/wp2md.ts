@@ -11,6 +11,7 @@ import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 
 import * as Markdown from 'marked';
 import { AuthUtils } from 'app/core/auth/auth.utils';
+import { MultiAccountService } from './multi-account.service';
 
 let options = {
     headers: new HttpHeaders({
@@ -29,7 +30,8 @@ export class WP2MDService {
         private http: HttpClient,
         private _h: HelperService,
         private _userService: UserService,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private multiAccountService: MultiAccountService
     ) {
         // Subscribe to user changes
         this._userService.user$
@@ -48,7 +50,7 @@ export class WP2MDService {
     }
 
     public all(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) { return of(null); }
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -73,7 +75,7 @@ export class WP2MDService {
     }
 
     public totalWp2mdArchive(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -98,7 +100,7 @@ export class WP2MDService {
     }
 
     public searchWp2mdArchive(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -123,7 +125,7 @@ export class WP2MDService {
     }
 
     public details(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -148,7 +150,7 @@ export class WP2MDService {
     }
 
     public convert(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -173,7 +175,7 @@ export class WP2MDService {
     }
 
     public store(dataForm: any): Observable<any> {
-        let activeInfo = localStorage.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;

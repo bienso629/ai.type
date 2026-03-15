@@ -14,6 +14,7 @@ import { LicenseKeyService } from 'app/modules/_services/licensekey';
 import { DeviceUUID } from "device-uuid";
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'settings-active',
@@ -98,7 +99,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             const activeInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
 
                             if (activeInfo) {
-                                localStorage.setItem('active_info', activeInfo);
+                                this.multiAccountService.setItem('active_info', activeInfo);
                             }
 
                             this.toastr.success(`Kích hoạt thành công!`);
@@ -131,11 +132,12 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         public dialog: MatDialog,
-        private _formBuilder: UntypedFormBuilder
+        private _formBuilder: UntypedFormBuilder,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`kích hoạt phần mềm | ai.type - công cụ tạo content`);
 
-        const activeInfo = localStorage.getItem('active_info');
+        const activeInfo = this.multiAccountService.getItem('active_info');
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
             this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
         }
