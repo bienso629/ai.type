@@ -46,7 +46,7 @@ export class SettingsAccountComponent implements OnInit {
             this._userClientService.updateProfile({
                 profile: {
                     settings: settings,
-                    active_info: localStorage.getItem('active_info'),
+                    active_info: this.multiAccountService.getItem('active_info'),
                     editor: (editor && editor != 'undefined') ? JSON.parse(editor) : {},
                     following_users: (following_users && following_users != 'undefined') ? JSON.parse(following_users) : [],
                 },

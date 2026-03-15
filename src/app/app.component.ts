@@ -92,7 +92,6 @@ export class AppComponent implements OnInit, OnDestroy {
                 n8n: '', // API key for n8n functionality
             };
 
-            // localStorage.setItem('settings', JSON.stringify(settings));
             this.multiAccountService.setItem('settings', settings);
         }
     }

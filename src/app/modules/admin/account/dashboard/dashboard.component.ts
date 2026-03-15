@@ -197,7 +197,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.statistics();
             });
 
-        const activeInfo = localStorage.getItem('active_info');
+        const activeInfo = this.multiAccountService.getItem('active_info');
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
             this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
         }
