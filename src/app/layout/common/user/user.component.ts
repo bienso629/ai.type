@@ -4,6 +4,7 @@ import { BooleanInput } from '@angular/cdk/coercion';
 import { Subject, takeUntil } from 'rxjs';
 import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'user',
@@ -26,13 +27,22 @@ export class UserComponent implements OnInit, OnDestroy {
         this._router.navigateByUrl('settings');
     }
 
+    async onSelectAccount(accountId: string) {
+        const success = await this.multiAccountService.switchAccount(accountId);
+        if (success) {
+            // Ép tải lại trang để mọi Service, Interceptor, Component đều reset với data mới
+            window.location.reload();
+        }
+    }
+
     /**
      * Constructor
      */
     constructor(
         private _changeDetectorRef: ChangeDetectorRef,
         private _router: Router,
-        private _userService: UserService
+        private _userService: UserService,
+        private multiAccountService: MultiAccountService
     ) {
     }
 
@@ -57,6 +67,10 @@ export class UserComponent implements OnInit, OnDestroy {
                     this._router.navigateByUrl('sign-out');
                 }
             });
+
+        this.multiAccountService.activeAccount$.subscribe(sessionData => {
+            console.log('UserComponent nhận sessionData mới:', sessionData);
+        });
     }
 
     /**
