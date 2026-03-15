@@ -45,9 +45,9 @@
                 </mat-form-field>
             </form> -->
 
-            <button mat-flat-button [color]="'primary'">
+            <button mat-flat-button [color]="'accent'">
                 <mat-icon class="icon-size-5" svgIcon="feather:calendar"></mat-icon>
-                <mat-label class="ml-2">Đặt lịch quét Trend</mat-label>
+                <mat-label class="ml-2">Đặt lịch tự quét</mat-label>
             </button>
         </div>
     </div>
@@ -387,8 +387,7 @@
                                                             <span
                                                                 class="text-[10px] font-bold uppercase text-gray-500">Image
                                                                 Prompt (AI)</span>
-                                                            <button mat-icon-button class="icon-size-8"
-                                                                [cdkCopyToClipboard]="item.image_prompt">
+                                                            <button mat-icon-button class="icon-size-8" (click)="facePost2Node(item)">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'heroicons_outline:clipboard-copy'"></mat-icon>
                                                             </button>
@@ -457,28 +456,17 @@
 
                                         <div class="text-base px-6 mt-4" *ngIf="preview.text"
                                             [innerHTML]="preview.text"></div>
-
-                                        <div class="text-base p-4 m-4 border rounded-2xl" *ngIf="testCreateBlog">
-                                            <h2>Kết quả test</h2>
-                                            <pre class="mt-4 overflow-auto">{{ testCreateBlog }}</pre>
-                                        </div>
                                     </div>
                                 </main>
 
-                                <footer class="px-4 py-2 min-h-[50px] shadow-md border-t">
+                                <!-- <footer class="px-4 py-2 min-h-[50px] shadow-md border-t">
                                     <div class="flex flex-row">
                                         <button mat-flat-button [color]="'primary'" (click)="facePost2Node()">
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
                                             <span class="ml-2">Tạo bài viết</span>
                                         </button>
-
-                                        <!-- <button mat-flat-button class="ml-2 bg-green-500 text-white"
-                                            (click)="createBlogByImages()">
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:zap'"></mat-icon>
-                                            <span class="ml-2">Test nhanh blog</span>
-                                        </button> -->
                                     </div>
-                                </footer>
+                                </footer> -->
                             </div>
                         </ng-template>
                     </div>
