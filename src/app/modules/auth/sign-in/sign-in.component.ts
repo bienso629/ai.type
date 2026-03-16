@@ -1,4 +1,5 @@
 import {
+    AfterViewInit,
     Component,
     OnDestroy,
     OnInit,
@@ -32,7 +33,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
     encapsulation: ViewEncapsulation.None,
     animations: fuseAnimations,
 })
-export class AuthSignInComponent implements OnInit, OnDestroy {
+export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     captchaStatus: boolean = false;
     captchaConfig: any = {
         type: 1, // 1 or 2 or 3 or 4
@@ -183,9 +184,9 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (_) => {},
-                error: () => {},
-                complete: () => {},
+                next: async (_) => { },
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -208,12 +209,19 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
             if (status === false) {
                 this.alert = {
                     type: 'error',
-                    message: 'Vui lòng nhập đúng mã captcha.',
+                    message: 'Vui lòng nhập đúng mã Captcha.',
                 };
 
                 this.showAlert = true;
-            } else {
-                this.showAlert = false;
+            } 
+            
+            if (status === true) {
+                this.alert = {
+                    type: 'success',
+                    message: 'Mã captcha đã nhập đúng.',
+                };
+
+                this.showAlert = true;
             }
         });
     }
@@ -228,6 +236,26 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
             server: ['vn.hcm.s0', Validators.required],
             rememberMe: [true],
         });
+    }
+
+    ngAfterViewInit() {
+        setTimeout(() => {
+            const text = document.querySelector(
+                'ngx-captcha .captcha-actions input[type=text]'
+            ) as HTMLInputElement;
+
+            if (text) {
+                text.placeholder = "Nhập các ký tự và bấm kiểm tra";
+            }
+
+            const btn = document.querySelector(
+                'ngx-captcha .captcha-actions input[type=button]'
+            ) as HTMLInputElement;
+
+            if (btn) {
+                btn.value = "Kiểm tra";
+            }
+        }, 100);
     }
 
     ngOnDestroy(): void {
