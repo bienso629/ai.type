@@ -1,8 +1,5 @@
 import { Layout } from 'app/layout/layout.types';
 
-let settings = localStorage.getItem('settings');
-settings = JSON.parse(settings);
-
 // Types
 export type Scheme = 'auto' | 'dark' | 'light';
 export type Screens = { [key: string]: string };
@@ -75,16 +72,16 @@ export const appConfig: AppConfig = {
     settings: {
         bcrypt: false,
         domain: 'https://ai.type.vn',
-        puppeteer: (settings && settings['typelite_plugin']) ? settings['typelite_plugin'] : 'http://localhost:12345',
-        chatbot: (settings && settings['chatbot']) ? settings['chatbot'] : 'http://localhost:404',
-        customer: (settings && settings['customer']) ? settings['customer'] : 'http://localhost:404',
-        bigdata: (settings && settings['bigdata']) ? settings['bigdata'] : 'http://localhost:404',
-        tts: (settings && settings['tts']) ? settings['tts'] : 'http://localhost:404',
-        sst: (settings && settings['sst']) ? settings['sst'] : 'http://localhost:404',
-        mxhauto: (settings && settings['mxhauto']) ? settings['mxhauto'] : 'http://localhost:404',
+        puppeteer: 'http://localhost:12345',
+        chatbot: 'http://localhost:404',
+        customer: 'http://localhost:404',
+        bigdata: 'http://localhost:404',
+        tts: 'http://localhost:404',
+        sst: 'http://localhost:404',
+        mxhauto: 'http://localhost:404',
         gologin_api: 'https://api.gologin.com',
         api: {
-            'local': (localStorage.getItem('server_local')) ? localStorage.getItem('server_local') : 'http://localhost:1122/v1',
+            'local': 'http://localhost:1122/v1',
             'vn.hcm.s0': 'https://apiv1.type.vn/v1',
             'vn.hcm.s1': 'https://api.vn.hcm.s1.type.vn/v1',
             'vn.hcm.s2': 'https://api.vn.hcm.s2.type.vn/v1',
