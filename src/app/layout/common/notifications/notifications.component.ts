@@ -19,6 +19,7 @@ import { GoogleGenAI, createUserContent, Modality } from '@google/genai';
 import * as _ from 'lodash';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'notifications',
@@ -649,7 +650,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private _router: Router,
         private _overlay: Overlay,
-        private _viewContainerRef: ViewContainerRef
+        private _viewContainerRef: ViewContainerRef,
+        private multiAccountService: MultiAccountService
     ) { }
 
     // -----------------------------------------------------------------------------------------------------
@@ -696,7 +698,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
             this.categories = categories;
 
             // lấy secretKey và searchAPIKey
-            this.settings = localStorage.getItem('settings');
+            this.settings = this.multiAccountService.getItem('settings');
             this.settings = JSON.parse(this.settings);
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
