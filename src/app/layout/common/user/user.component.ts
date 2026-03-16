@@ -68,9 +68,8 @@ export class UserComponent implements OnInit, OnDestroy {
                 }
             });
 
-        this.multiAccountService.activeAccount$.subscribe(sessionData => {
-            console.log('UserComponent nhận sessionData mới:', sessionData);
-        });
+        // this.multiAccountService.activeAccount$.subscribe(sessionData => {
+        // });
     }
 
     /**

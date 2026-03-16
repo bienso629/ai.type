@@ -125,9 +125,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         // localStorage.setItem('active_info', result.data.active_info);
 
                         if (result.data.styles && result.data.styles.length > 0) localStorage.setItem('styles', JSON.stringify(result.data.styles));
-                        if (result.data.editor) localStorage.setItem('editor', JSON.stringify(result.data.editor));
-                        if (result.data.following_users) localStorage.setItem('following_users', JSON.stringify(result.data.following_users));
-
+                        if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
+                        if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
                         if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
 
                         // lập báo cáo theo ngày

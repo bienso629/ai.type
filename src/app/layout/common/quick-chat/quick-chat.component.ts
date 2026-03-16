@@ -10,6 +10,7 @@ import { ForumService } from 'app/modules/_services/forum';
 import { CrawlService } from 'app/modules/_services/crawl';
 
 import * as _ from 'lodash';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'quick-chat',
@@ -62,7 +63,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success && result.data && result.data.counts.following > 0) {
                         this.following_users = result.data.users;
-                        localStorage.following_users = JSON.stringify(result.data.users);
+                        this.multiAccountService.setItem('following_users', result.data.users);
                     }
                 },
                 error: () => {
@@ -73,26 +74,24 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     setdata(data: any) {
-        if (localStorage.following_users) {
-            this.chats = [];
+        this.chats = [];
 
-            const following_users = JSON.parse(localStorage.following_users);
-            following_users.map((user: any) => {
-                const myshares = _.filter(data, { username: user.username });
+        const following_users = this.multiAccountService.getItem('following_users') || '[]';
+        following_users.map((user: any) => {
+            const myshares = _.filter(data, { username: user.username });
 
-                this.chats.push({
-                    contact: { id: user.uid, avatar: user.picture, name: user.username },
-                    contactId: user.uid,
-                    id: user.uid,
-                    lastMessage: "See you tomorrow!",
-                    lastMessageAt: "26/04/2021",
-                    messages: [],
-                    myshares: myshares,
-                    muted: false,
-                    unreadCount: 0
-                });
+            this.chats.push({
+                contact: { id: user.uid, avatar: user.picture, name: user.username },
+                contactId: user.uid,
+                id: user.uid,
+                lastMessage: "See you tomorrow!",
+                lastMessageAt: "26/04/2021",
+                messages: [],
+                myshares: myshares,
+                muted: false,
+                unreadCount: 0
             });
-        }
+        });
     }
 
     /**
@@ -107,7 +106,8 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         private _scrollStrategyOptions: ScrollStrategyOptions,
         private _userService: UserService,
         private _crawlService: CrawlService,
-        private _forumService: ForumService
+        private _forumService: ForumService,
+        private multiAccountService: MultiAccountService
     ) {
 
     }
