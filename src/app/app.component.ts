@@ -30,13 +30,13 @@ export class AppComponent implements OnInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     updateTime(): void {
-        let activeInfo = localStorage.getItem('active_info');
+        let activeInfo = this.multiAccountService.getItem('active_info');
 
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
             const isLicenseKeyExpired = AuthUtils.isLicenseKeyExpired(activeInfo);
-            this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
+            // this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
 
-            if (this.checkActiveInfo === false || isLicenseKeyExpired === true) {
+            if (isLicenseKeyExpired === true) {
                 this.error('Phần mềm của bạn đã hết hạn.');
 
                 this.router.navigate(['/settings'], {
@@ -66,7 +66,7 @@ export class AppComponent implements OnInit, OnDestroy {
         private multiAccountService: MultiAccountService
     ) {
         // kiểm tra settings và khởi tạo
-        let settings: any = localStorage.getItem('settings');
+        let settings: any = this.multiAccountService.getItem('settings');
         if (!settings || settings == 'undefined') {
             settings = {
                 saveimages: false,

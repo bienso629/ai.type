@@ -22,6 +22,7 @@ import { UserService } from 'app/core/user/user.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserClientService } from 'app/modules/_services/user';
 import { User } from 'app/core/user/user.types';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'auth-sign-in',
@@ -101,10 +102,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
                                 if (result && result.success && result.data) {
                                     result.data.groups.map((g: any) => {
                                         if (g.slug === 'nhóm-đã-mua-ai-type') {
-                                            localStorage.setItem(
-                                                'members',
-                                                JSON.stringify(g.members),
-                                            );
+                                            this.multiAccountService.setItem('members', g.members);
                                         }
 
                                         g.members.map((m: any) => {
@@ -203,6 +201,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy {
         private captchaService: NgxCaptchaService,
         private _forumService: ForumService,
         private _router: Router,
+        private multiAccountService: MultiAccountService
     ) {
         this.captchaService.captchStatus.subscribe((status) => {
             this.captchaStatus = status;
