@@ -16,14 +16,39 @@
 }
 
 .captcha-actions input[type=button] {
+    &:hover {
+        opacity: 0.7;
+    }
+    
     border-radius: 0 6px 0 0 !important;
     background: #f5f5f5 !important;
     color: rgb(114, 114, 114);
     font-size: 14px;
     padding: 8px 16px !important;
     cursor: pointer;
-    border-top: 1px solid #e2e8f0 !important;
-    border-right: 1px solid #e2e8f0 !important;
+    // border-top: 1px solid #e2e8f0 !important;
+    // border-right: 1px solid #e2e8f0 !important;
+}
+
+.captcha-actions input[type=button] {
+    animation: captchaBlink 1.2s infinite;
+}
+
+@keyframes captchaBlink {
+    0% {
+        opacity: 1;
+        box-shadow: 0 0 0px rgba(255, 0, 0, 0);
+    }
+
+    50% {
+        opacity: 0.6;
+        box-shadow: 0 0 10px rgba(133, 133, 133, 0.8);
+    }
+
+    100% {
+        opacity: 1;
+        box-shadow: 0 0 0px rgba(255, 0, 0, 0);
+    }
 }
 
 .captcha-actions a {

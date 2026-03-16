@@ -22,7 +22,6 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 export class ShortcutsComponent implements OnInit, OnDestroy {
     config: AppConfig;
     user: User;
-    settings: any;
 
     @ViewChild('shortcutsOrigin') private _shortcutsOrigin: MatButton;
     @ViewChild('shortcutsPanel') private _shortcutsPanel: TemplateRef<any>;
@@ -103,7 +102,6 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private _overlay: Overlay,
         private _viewContainerRef: ViewContainerRef,
-        private multiAccountService: MultiAccountService
     ) { }
 
     // -----------------------------------------------------------------------------------------------------
@@ -114,9 +112,6 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
      * On init
      */
     ngOnInit(): void {
-        const settings = this.multiAccountService.getItem('settings');
-        this.settings = JSON.parse(settings);
-
         // Initialize the form
         this.shortcutForm = this._formBuilder.group({
             id: [null],
