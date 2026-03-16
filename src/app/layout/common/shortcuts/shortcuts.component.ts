@@ -10,6 +10,7 @@ import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 import { FuseConfigService } from '@fuse/services/config';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'shortcuts',
@@ -101,7 +102,8 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
         private _userService: UserService,
         private _fuseConfigService: FuseConfigService,
         private _overlay: Overlay,
-        private _viewContainerRef: ViewContainerRef
+        private _viewContainerRef: ViewContainerRef,
+        private multiAccountService: MultiAccountService
     ) { }
 
     // -----------------------------------------------------------------------------------------------------
@@ -112,7 +114,7 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
      * On init
      */
     ngOnInit(): void {
-        const settings = localStorage.getItem('settings');
+        const settings = this.multiAccountService.getItem('settings');
         this.settings = JSON.parse(settings);
 
         // Initialize the form
