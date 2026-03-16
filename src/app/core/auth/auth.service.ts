@@ -29,12 +29,10 @@ export class AuthService {
      * Setter & getter for access token
      */
     set accessToken(token: string) {
-        // localStorage.setItem('accessToken', token);
         this.multiAccountService.setItem('accessToken', token);
     }
 
     get accessToken(): string {
-        // return localStorage.getItem('accessToken') ?? '';
         return this.multiAccountService.getItem('accessToken') || '';
     }
 

@@ -40,8 +40,8 @@ export class SettingsAccountComponent implements OnInit {
             this.toastr.error('Lưu cấu hình thất bại.');
         } else {
             let settings: any = this.accountForm.value;
-            const editor = localStorage.getItem('editor');
-            const following_users = localStorage.getItem('following_users');
+            const editor = this.multiAccountService.getItem('editor');
+            const following_users = this.multiAccountService.getItem('following_users');
 
             this._userClientService.updateProfile({
                 profile: {

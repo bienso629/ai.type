@@ -4,6 +4,7 @@ import {
     type GenerateContentParameters,
     type GenerateContentResponse,
 } from '@google/genai';
+import { MultiAccountService } from './modules/_services/multi-account.service';
 
 type Scope = string | number;
 
@@ -16,6 +17,10 @@ export class GenaiService {
 
     private _aiInstance?: GoogleGenAI;
     private _currentKey: string = '';
+
+    constructor(
+        private multiAccountService: MultiAccountService
+    ) { }
 
     /**
      * Getter xử lý việc khởi tạo instance một cách an toàn.
@@ -38,7 +43,7 @@ export class GenaiService {
      */
     private syncConfigFromStorage() {
         try {
-            const settingsRaw = localStorage.getItem('settings');
+            const settingsRaw = this.multiAccountService.getItem('settings');
             if (!settingsRaw) {
                 this._currentKey = '';
                 return;

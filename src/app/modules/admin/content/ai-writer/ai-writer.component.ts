@@ -2675,7 +2675,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Tự động gắn dữ liệu dưới local nếu ko tìm thấy details
      */
     setDefault() {
-        let editor: any = localStorage.getItem('editor');
+        let editor: any = this.multiAccountService.getItem('editor');
 
         if (editor) {
             editor = JSON.parse(editor);
