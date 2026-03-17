@@ -55,6 +55,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     ];
 
     members = [];
+    accounts = [];
 
     @ViewChild('signInNgForm') signInNgForm: NgForm;
 
@@ -134,7 +135,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                                         ) || '/signed-in-redirect';
                                     this._router.navigateByUrl(redirectURL);
                                 } else {
-                                    localStorage.removeItem('accessToken');
+                                    // this.multiAccountService.removeItem('accessToken');
 
                                     // Re-enable the form
                                     this.signInForm.enable();
@@ -146,7 +147,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                                 }
                             });
                     } else {
-                        localStorage.removeItem('accessToken');
+                        // this.multiAccountService.removeItem('accessToken');
 
                         // Re-enable the form
                         this.signInForm.enable();
@@ -190,6 +191,27 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             });
     }
 
+    async onSelectAccount(accountId: string, index: number) {
+        const success = await this.multiAccountService.switchAccount(accountId);
+        if (success) {
+            const user = this.accounts[index]['profile'];
+            if (user) {
+                // Store the access token in the local storage
+                this._authService.accessToken = AuthUtils._generateJWTToken(user);
+            }
+
+            // Store the user on the user service
+            this._userService.user = user;
+            this.save(user);
+
+            const redirectURL =
+                this._activatedRoute.snapshot.queryParamMap.get(
+                    'redirectURL',
+                ) || '/signed-in-redirect';
+            this._router.navigateByUrl(redirectURL);
+        }
+    }
+
     /**
      * Constructor
      */
@@ -213,8 +235,8 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
                 };
 
                 this.showAlert = true;
-            } 
-            
+            }
+
             if (status === true) {
                 this.alert = {
                     type: 'success',
@@ -235,6 +257,10 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             password: ['', Validators.required],
             server: ['vn.hcm.s0', Validators.required],
             rememberMe: [true],
+        });
+
+        this.multiAccountService.getAllAccounts().then(accounts => {
+            this.accounts = accounts;
         });
     }
 
