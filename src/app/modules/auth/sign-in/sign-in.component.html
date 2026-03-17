@@ -134,10 +134,7 @@
             </div> -->
             <div class="flex items-center mt-8">
                 <div class="flex flex-0 items-center -space-x-1.5">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/female-18.jpg">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/female-11.jpg">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/male-09.jpg">
-                    <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/male-16.jpg">
+                    <img class="flex-0 w-10 h-10 rounded-full object-cover cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200" (click)="onSelectAccount(account.id, i)" src="assets/images/avatars/female-18.jpg" *ngFor="let account of accounts; let i = index" [src]="account.profile.avatar">
                 </div>
                 <div class="ml-4 text-base tracking-tight leading-6 text-white">+50 thành viên tham gia
                     AI Type</div>
