@@ -1,8 +1,16 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation, AfterViewInit } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    OnDestroy,
+    OnInit,
+    ViewEncapsulation,
+    AfterViewInit,
+} from '@angular/core';
 import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { filter, interval, Subject, switchMap, take, takeUntil } from 'rxjs';
 import { UserService } from 'app/core/user/user.service';
+import { HelperService } from 'app/helper.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { ActivatedRoute, Params, Router } from '@angular/router';
@@ -11,7 +19,7 @@ import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { BlogService } from 'app/modules/_services/blog';
-import { RemoveHTMLPipe } from "app/app.pipe";
+import { RemoveHTMLPipe } from 'app/app.pipe';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { GoogleGenAI } from '@google/genai';
 import { HttpResponse, HttpClient } from '@angular/common/http';
@@ -41,7 +49,7 @@ export interface AudioClip {
     styleUrls: ['./ai-tts.component.scss'],
     templateUrl: './ai-tts.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [CrawlService, BlogService]
+    providers: [CrawlService, BlogService],
 })
 export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     config: AppConfig;
@@ -93,7 +101,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     cleanupBlobs() {
-        this.audioList.forEach(clip => {
+        this.audioList.forEach((clip) => {
             if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) {
                 URL.revokeObjectURL(clip.rawUrl);
             }
@@ -105,7 +113,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // -----------------------------------------------------------------------------------------------------
 
     async generateAll() {
-        const pendingClips = this.audioList.filter(c => !c.url && !c.file);
+        const pendingClips = this.audioList.filter((c) => !c.url && !c.file);
 
         if (pendingClips.length === 0) {
             this.toastr.info('Tất cả đã có audio.');
@@ -114,10 +122,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (this.isGlobalProcessing) return;
         this.isGlobalProcessing = true;
-        this.toastr.info(`Bắt đầu xử lý song song ${pendingClips.length} mục...`, 'System');
+        this.toastr.info(
+            `Bắt đầu xử lý song song ${pendingClips.length} mục...`,
+            'System',
+        );
 
         // [SONG SONG] Tạo mảng các Promises để chạy cùng lúc
-        const tasks = pendingClips.map(clip => this.generateAudio(clip));
+        const tasks = pendingClips.map((clip) => this.generateAudio(clip));
 
         try {
             // Đợi tất cả chạy xong
@@ -149,31 +160,42 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.cd.markForCheck();
 
             const payload = {
-                "tts_text": clip.description.split(/\r?\n|\r|\n/g),
-                "speaker_audio": `${clip.voice || 'nam-calm'}.wav`,
-                "language": "vi",
-                "normalize_text": true,
-                "use_filter": false,
-                "output_sr": 48000,
-                "crossfade_ms": 30,
-                "concurrency": 2,
-                "join_silence_ms": 800,
-                "flat": true,
-                "username": this.user.name || 'anonymous'
+                tts_text: clip.description.split(/\r?\n|\r|\n/g),
+                speaker_audio: `${clip.voice || 'nam-calm'}.wav`,
+                language: 'vi',
+                normalize_text: true,
+                use_filter: false,
+                output_sr: 48000,
+                crossfade_ms: 30,
+                concurrency: 2,
+                join_silence_ms: 800,
+                flat: true,
+                username: this.user.name || 'anonymous',
             };
 
-            this._blogService.text2speech3(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                next: (res: any) => {
-                    if (res?.job_id) {
-                        this.pollJobUntilDone(res.job_id, clip, resolve);
-                    } else {
-                        this.handleTTSError(clip, 'Không nhận được job từ server.', resolve);
-                    }
-                },
-                error: (err) => {
-                    this.handleTTSError(clip, 'Lỗi kết nối server API.', resolve);
-                }
-            });
+            this._blogService
+                .text2speech3(payload)
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res: any) => {
+                        if (res?.job_id) {
+                            this.pollJobUntilDone(res.job_id, clip, resolve);
+                        } else {
+                            this.handleTTSError(
+                                clip,
+                                'Không nhận được job từ server.',
+                                resolve,
+                            );
+                        }
+                    },
+                    error: (err) => {
+                        this.handleTTSError(
+                            clip,
+                            'Lỗi kết nối server API.',
+                            resolve,
+                        );
+                    },
+                });
         });
     }
 
@@ -200,14 +222,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             text: clip.description,
             voice: clip.voice,
             filename: niceFilename,
-            username: subPath
+            username: subPath,
         };
 
         try {
-            const res = await (window as any).electron.invoke('tts-generate', payload);
+            const res = await (window as any).electron.invoke(
+                'tts-generate',
+                payload,
+            );
 
             if (res && res.success) {
-                const filename = res.filePath ? res.filePath.split(/[\\/]/).pop() : `${payload.filename}.mp3`;
+                const filename = res.filePath
+                    ? res.filePath.split(/[\\/]/).pop()
+                    : `${payload.filename}.mp3`;
 
                 clip.audioFileName = filename;
                 clip.username = subPath;
@@ -228,7 +255,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.saveToLocal();
                 this.toastr.success(`Đã tạo: ${filename}`);
             } else {
-                this.handleTTSError(clip, res.error || 'Lỗi tạo giọng đọc (Unknown).');
+                this.handleTTSError(
+                    clip,
+                    res.error || 'Lỗi tạo giọng đọc (Unknown).',
+                );
             }
         } catch (err: any) {
             console.error(err);
@@ -239,7 +269,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // [RETRY] Hàm xử lý lỗi: Bật Dialog Confirm
-    private handleTTSError(clip: AudioClip, errorMessage: string, resolveCallback?: () => void) {
+    private handleTTSError(
+        clip: AudioClip,
+        errorMessage: string,
+        resolveCallback?: () => void,
+    ) {
         clip.isProcessing = false;
         this.cd.markForCheck();
 
@@ -249,12 +283,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Lỗi chuyển đổi',
             message: `Không thể tạo audio cho: "<b>${clip.name}</b>"<br>Lỗi: <span class="text-red-500">${errorMessage}</span><br>Bạn có muốn thử lại đoạn này không?`,
-            icon: { show: true, name: 'heroicons_outline:exclamation-circle', color: 'warn' },
-            actions: {
-                confirm: { show: true, label: 'Thử lại ngay', color: 'primary' },
-                cancel: { show: true, label: 'Bỏ qua' }
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation-circle',
+                color: 'warn',
             },
-            dismissible: false
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Thử lại ngay',
+                    color: 'primary',
+                },
+                cancel: { show: true, label: 'Bỏ qua' },
+            },
+            dismissible: false,
         });
 
         dialogRef.afterClosed().subscribe((result) => {
@@ -270,14 +312,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    private pollJobUntilDone(jobId: string, clip: AudioClip, resolveCallback?: () => void) {
+    private pollJobUntilDone(
+        jobId: string,
+        clip: AudioClip,
+        resolveCallback?: () => void,
+    ) {
         const polling$ = interval(3000).pipe(
             switchMap(() => this._blogService.getJobStatus(jobId)),
             switchMap(async (resp: any) => {
                 const httpResp = resp as HttpResponse<Blob>;
                 const headers = httpResp.headers;
                 const body = httpResp.body as Blob;
-                const contentType = headers.get('content-type') || body.type || '';
+                const contentType =
+                    headers.get('content-type') || body.type || '';
                 if (contentType.startsWith('audio/')) {
                     let filename = '';
                     const cd = headers.get('content-disposition') || '';
@@ -289,14 +336,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 const text = await body.text();
                 try {
                     const json = JSON.parse(text);
-                    if (json.status === 'failed') throw new Error(json.error || 'Server processing failed');
+                    if (json.status === 'failed')
+                        throw new Error(
+                            json.error || 'Server processing failed',
+                        );
                 } catch (e) {
-                    if (e instanceof Error && e.message.includes('failed')) throw e;
+                    if (e instanceof Error && e.message.includes('failed'))
+                        throw e;
                 }
                 return { done: false, blob: null, filename: '' };
             }),
-            filter(res => res.done),
-            take(1)
+            filter((res) => res.done),
+            take(1),
         );
 
         polling$.pipe(takeUntil(this._unsubscribeAll)).subscribe({
@@ -317,8 +368,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (resolveCallback) resolveCallback();
             },
             error: (err) => {
-                this.handleTTSError(clip, err.message || 'Lỗi khi chờ kết quả từ Server.', resolveCallback);
-            }
+                this.handleTTSError(
+                    clip,
+                    err.message || 'Lỗi khi chờ kết quả từ Server.',
+                    resolveCallback,
+                );
+            },
         });
     }
 
@@ -330,14 +385,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (!savedUuid) {
             const oldData = localStorage.getItem(this.STORAGE_AUDIO_KEY);
             if (oldData) {
-                try { savedUuid = JSON.parse(oldData).uuid; } catch { }
+                try {
+                    savedUuid = JSON.parse(oldData).uuid;
+                } catch {}
             }
         }
 
         const dataToSave = {
             uuid: savedUuid,
             title: this.projectTitle,
-            clips: this.audioList.map(clip => ({
+            clips: this.audioList.map((clip) => ({
                 // LƯU ĐẦY ĐỦ CÁC TRƯỜNG QUAN TRỌNG:
                 id: clip.id,
                 name: clip.name,
@@ -349,10 +406,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 prompt: clip.prompt,
 
                 // Trường mở rộng cho tính năng Offline:
-                localFilePath: clip['localFilePath'] || null
-            }))
+                localFilePath: clip['localFilePath'] || null,
+            })),
         };
-        localStorage.setItem(this.STORAGE_AUDIO_KEY, JSON.stringify(dataToSave));
+        localStorage.setItem(
+            this.STORAGE_AUDIO_KEY,
+            JSON.stringify(dataToSave),
+        );
     }
 
     loadAudiosFromLocal(currentUuid?: string): boolean {
@@ -410,8 +470,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let restoredRawUrl = null;
 
             // Logic nhận diện file Offline chuẩn xác hơn
-            const isOfflineVoice = (item.voice && offlineVoices.includes(item.voice)) ||
-                (item.audioFileName && offlineKeywords.some(k => item.audioFileName.includes(k)));
+            const isOfflineVoice =
+                (item.voice && offlineVoices.includes(item.voice)) ||
+                (item.audioFileName &&
+                    offlineKeywords.some((k) =>
+                        item.audioFileName.includes(k),
+                    ));
 
             if (item.audioFileName) {
                 if (isOfflineVoice) {
@@ -422,14 +486,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }, 100);
                 } else {
                     // FILE SERVER: Gắn link https bình thường
-                    let userFolder = item.username || (this.user?.name || 'anonymous');
+                    let userFolder =
+                        item.username || this.user?.name || 'anonymous';
                     let baseUrl = this.SERVER_AUDIO_URL || '';
                     if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
 
                     if (baseUrl) {
                         const fullUrl = `${baseUrl}${userFolder}/${item.audioFileName}`;
                         restoredRawUrl = fullUrl;
-                        restoredUrl = this.sanitizer.bypassSecurityTrustUrl(fullUrl);
+                        restoredUrl =
+                            this.sanitizer.bypassSecurityTrustUrl(fullUrl);
                     }
                 }
             }
@@ -448,7 +514,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Hàm trung gian: Gọi Electron lấy file -> Biến thành Blob -> Gán vào Clip
-    async loadLocalAudioContent(clip: AudioClip, retryCount = 0): Promise<boolean> {
+    async loadLocalAudioContent(
+        clip: AudioClip,
+        retryCount = 0,
+    ): Promise<boolean> {
         if (!(window as any).electron) return false;
 
         // Nếu path chưa có, thử dựng lại path (đề phòng F5 mất data)
@@ -458,10 +527,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) return true;
 
         try {
-            const result = await (window as any).electron.invoke('read-local-audio', {
-                path: filePath,
-                filename: clip.audioFileName // Fallback nếu bên main cần
-            });
+            const result = await (window as any).electron.invoke(
+                'read-local-audio',
+                {
+                    path: filePath,
+                    filename: clip.audioFileName, // Fallback nếu bên main cần
+                },
+            );
 
             if (result && result.base64) {
                 const byteCharacters = atob(result.base64);
@@ -480,12 +552,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // [CƠ CHẾ RETRY] Nếu không thấy file và mới thử dưới 3 lần
                 if (retryCount < 3) {
                     console.warn(`Chưa thấy file, thử lại sau 500ms...`);
-                    await new Promise(r => setTimeout(r, 500)); // Đợi 0.5s
+                    await new Promise((r) => setTimeout(r, 500)); // Đợi 0.5s
                     return this.loadLocalAudioContent(clip, retryCount + 1); // Gọi đệ quy
                 }
             }
         } catch (e) {
-            console.error("Lỗi load local file:", e);
+            console.error('Lỗi load local file:', e);
         }
         return false;
     }
@@ -493,15 +565,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     uploadLocalFile(clip: AudioClip): Promise<string | null> {
         return new Promise((resolve) => {
             if (!clip.file) return resolve(null);
-            if (clip.file.size > this.MAX_FILE_SIZE) { this.toastr.error(`File lớn >10MB`); return resolve(null); }
+            if (clip.file.size > this.MAX_FILE_SIZE) {
+                this.toastr.error(`File lớn >10MB`);
+                return resolve(null);
+            }
             const formData = new FormData();
             formData.append('file', clip.file);
             formData.append('username', this.user?.name || 'anonymous');
             let baseUrl = this.SERVER_AUDIO_URL || '';
             if (!baseUrl.endsWith('/')) baseUrl += '/';
             this.http.post(`${baseUrl}upload-audio`, formData).subscribe({
-                next: (res: any) => resolve(res && res.filename ? res.filename : null),
-                error: () => { this.toastr.error(`Lỗi upload`); resolve(null); }
+                next: (res: any) =>
+                    resolve(res && res.filename ? res.filename : null),
+                error: () => {
+                    this.toastr.error(`Lỗi upload`);
+                    resolve(null);
+                },
             });
         });
     }
@@ -517,7 +596,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             : undefined;
 
         if (!this.secretKey) {
-            this.toastr.error('Thiếu API Key cho AI. Vui lòng kiểm tra cài đặt.');
+            this.toastr.error(
+                'Thiếu API Key cho AI. Vui lòng kiểm tra cài đặt.',
+            );
             return;
         }
 
@@ -532,7 +613,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // 3. Tạo một dòng văn bản duy nhất kèm ID để AI biết đoạn nào thuộc ID nào
         // Cấu trúc: [ID:abc] Nội dung văn bản... [ID:xyz] Nội dung...
-        const continuousText = allClips.map((c: any) => `[ID:${c.id}] ${c.description}`).join(' ');
+        const continuousText = allClips
+            .map((c: any) => `[ID:${c.id}] ${c.description}`)
+            .join(' ');
 
         // 4. Prompt ép buộc gom nhóm (Grouping Logic)
         const promptText = `
@@ -569,34 +652,41 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             });
 
             // Lấy text từ cấu trúc candidates
-            const jsonMatch = response.text.match(/```json\n([\s\S]*?)```/);
-            if (jsonMatch) {
-                const finalScenes = JSON.parse(jsonMatch[1]);
+            const finalScenes = this.helperService.safeJsonParseFromAI(
+                response.text,
+            );
 
-                // 5. Lưu cấu trúc mới (Cấu trúc này tối ưu cho Render)
-                // Thay vì lưu theo Clips, ta lưu theo danh sách SCENES
-                const videoProject = {
-                    uuid: data.uuid,
-                    title: data.title,
-                    totalOriginalClips: allClips.length,
-                    totalScenes: finalScenes.length, // Sẽ khoảng 100
-                    scenes: finalScenes
-                };
+            // 5. Lưu cấu trúc mới (Cấu trúc này tối ưu cho Render)
+            // Thay vì lưu theo Clips, ta lưu theo danh sách SCENES
+            const videoProject = {
+                uuid: data.uuid,
+                title: data.title,
+                totalOriginalClips: allClips.length,
+                totalScenes: finalScenes.length, // Sẽ khoảng 100
+                scenes: finalScenes,
+            };
 
-                localStorage.setItem(this.STORAGE_CLIPS_KEY, JSON.stringify(videoProject));
+            localStorage.setItem(
+                this.STORAGE_CLIPS_KEY,
+                JSON.stringify(videoProject),
+            );
 
-                // 2. MỞ DIALOG NGAY LẬP TỨC
-                this.openTimelineDialog(videoProject);
+            // 2. MỞ DIALOG NGAY LẬP TỨC
+            this.openTimelineDialog(videoProject);
 
-                this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`, 'Thành công');
-            }
+            this.toastr.success(
+                `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
+                'Thành công',
+            );
 
             this.isAnalyzing = false;
         } catch (error) {
-            console.error("Lỗi logic gom nhóm:", error);
+            console.error('Lỗi logic gom nhóm:', error);
 
             this.isAnalyzing = false;
-            this.toastr.error('Lỗi khi tối ưu nội dung bằng AI. Vui lòng thử lại.');
+            this.toastr.error(
+                'Lỗi khi tối ưu nội dung bằng AI. Vui lòng thử lại.',
+            );
         }
     }
 
@@ -606,11 +696,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 const videoProject = JSON.parse(rawData);
 
                 // Kiểm tra xem project có dữ liệu scenes thực tế không
-                if (videoProject && videoProject.scenes && videoProject.scenes.length > 0) {
-
+                if (
+                    videoProject &&
+                    videoProject.scenes &&
+                    videoProject.scenes.length > 0
+                ) {
                     // Kiểm tra xem dialog đã mở chưa (tránh mở nhiều cái trùng nhau)
                     const isDialogOpen = this.dialog.openDialogs.some(
-                        d => d.componentInstance instanceof VideoTimelineDialogComponent
+                        (d) =>
+                            d.componentInstance instanceof
+                            VideoTimelineDialogComponent,
                     );
 
                     if (!isDialogOpen) {
@@ -618,7 +713,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                 }
             } catch (e) {
-                console.error("Dữ liệu video cũ bị lỗi:", e);
+                console.error('Dữ liệu video cũ bị lỗi:', e);
             }
         }
     }
@@ -628,34 +723,45 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
 
         this.dialog.open(VideoTimelineDialogComponent, {
-            width: '95vw',        // Chiều rộng chiếm 95% màn hình
-            maxHeight: '90vh',      // Chỉ giới hạn chiều cao tối đa
-            height: 'auto',         // Tự động co giãn theo nội dung
-            data: data,           // Truyền dữ liệu trực tiếp vào dialog
+            width: '95vw', // Chiều rộng chiếm 95% màn hình
+            maxHeight: '90vh', // Chỉ giới hạn chiều cao tối đa
+            height: 'auto', // Tự động co giãn theo nội dung
+            data: data, // Truyền dữ liệu trực tiếp vào dialog
             panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần
-            autoFocus: false       // Tránh việc tự động nhảy focus làm cuộn timeline lung tung
+            autoFocus: false, // Tránh việc tự động nhảy focus làm cuộn timeline lung tung
         });
     }
 
     async exportMerge() {
-        if (this.audioList.length === 0) { this.toastr.warning('Danh sách trống!'); return; }
+        if (this.audioList.length === 0) {
+            this.toastr.warning('Danh sách trống!');
+            return;
+        }
         this.toastr.info('Chuẩn bị file...', 'System');
 
         for (let clip of this.audioList) {
             if (clip.file && !clip.audioFileName) {
-                clip.isProcessing = true; this.cd.markForCheck();
+                clip.isProcessing = true;
+                this.cd.markForCheck();
                 try {
                     const serverFilename = await this.uploadLocalFile(clip);
-                    if (serverFilename) { clip.audioFileName = serverFilename; clip.username = this.user?.name || 'anonymous'; }
-                } catch (e) { }
-                clip.isProcessing = false; this.cd.markForCheck();
+                    if (serverFilename) {
+                        clip.audioFileName = serverFilename;
+                        clip.username = this.user?.name || 'anonymous';
+                    }
+                } catch (e) {}
+                clip.isProcessing = false;
+                this.cd.markForCheck();
             }
         }
 
-        const validClips = this.audioList.filter(c => c.audioFileName);
-        if (validClips.length === 0) { this.toastr.error('Chưa có file nào hợp lệ.'); return; }
+        const validClips = this.audioList.filter((c) => c.audioFileName);
+        if (validClips.length === 0) {
+            this.toastr.error('Chưa có file nào hợp lệ.');
+            return;
+        }
 
-        const filenames = validClips.map(c => c.audioFileName);
+        const filenames = validClips.map((c) => c.audioFileName);
         let baseUrl = this.SERVER_AUDIO_URL || '';
         if (!baseUrl.endsWith('/')) baseUrl += '/';
 
@@ -667,29 +773,39 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.pollMergeJob(res.job_id, baseUrl);
                 }
             },
-            error: () => this.toastr.error('Lỗi khi gửi yêu cầu ghép.')
+            error: () => this.toastr.error('Lỗi khi gửi yêu cầu ghép.'),
         });
     }
 
     pollMergeJob(jobId: string, baseUrl: string) {
         const polling$ = interval(3000).pipe(
-            switchMap(() => this.http.get(`${baseUrl}job-status/${jobId}`, { responseType: 'blob', observe: 'response' })),
+            switchMap(() =>
+                this.http.get(`${baseUrl}job-status/${jobId}`, {
+                    responseType: 'blob',
+                    observe: 'response',
+                }),
+            ),
             switchMap(async (resp: any) => {
                 const headers = resp.headers;
                 const body = resp.body;
-                const contentType = headers.get('content-type') || body.type || '';
-                if (contentType.startsWith('audio/')) return { done: true, blob: body };
+                const contentType =
+                    headers.get('content-type') || body.type || '';
+                if (contentType.startsWith('audio/'))
+                    return { done: true, blob: body };
                 return { done: false, blob: null };
             }),
-            filter(res => res.done),
-            take(1)
+            filter((res) => res.done),
+            take(1),
         );
         polling$.subscribe({
             next: (res: any) => {
                 const url = window.URL.createObjectURL(res.blob);
                 const a = document.createElement('a');
                 a.href = url;
-                const safeTitle = this.toSlug(this.projectTitle).replace(/-/g, '_');
+                const safeTitle = this.toSlug(this.projectTitle).replace(
+                    /-/g,
+                    '_',
+                );
                 a.download = `${safeTitle}_merged.wav`;
                 document.body.appendChild(a);
                 a.click();
@@ -697,7 +813,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 window.URL.revokeObjectURL(url);
                 this.toastr.success('Ghép file thành công!');
             },
-            error: () => this.toastr.error('Lỗi ghép file.')
+            error: () => this.toastr.error('Lỗi ghép file.'),
         });
     }
 
@@ -719,7 +835,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             barGap: 3,
             normalize: true,
         });
-        this.wavesurfer.on('finish', () => { this.wavesurfer.stop(); });
+        this.wavesurfer.on('finish', () => {
+            this.wavesurfer.stop();
+        });
     }
 
     async playClip(clip: AudioClip) {
@@ -728,7 +846,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // 1. Nếu là file Server (HTTP) -> Tải về
         if (clip.rawUrl && clip.rawUrl.startsWith('http')) {
             // Chặn lỗi Offline bị gán link Server
-            if (clip.audioFileName && (clip.audioFileName.includes('NamMinhNeural') || clip.audioFileName.includes('HoaiMyNeural'))) {
+            if (
+                clip.audioFileName &&
+                (clip.audioFileName.includes('NamMinhNeural') ||
+                    clip.audioFileName.includes('HoaiMyNeural'))
+            ) {
                 clip.rawUrl = null; // Reset để nhảy xuống bước 3
             } else {
                 this.handleServerAudio(clip);
@@ -739,7 +861,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // 2. Nếu đã có Blob (do loadLocalAudioContent tạo ra) -> Play luôn
         if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) {
             this.wavesurfer.load(clip.rawUrl);
-            this.wavesurfer.once('ready', () => { this.wavesurfer.play(); });
+            this.wavesurfer.once('ready', () => {
+                this.wavesurfer.play();
+            });
             return;
         }
 
@@ -750,7 +874,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             if (success && clip.rawUrl) {
                 this.wavesurfer.load(clip.rawUrl);
-                this.wavesurfer.once('ready', () => { this.wavesurfer.play(); });
+                this.wavesurfer.once('ready', () => {
+                    this.wavesurfer.play();
+                });
             } else {
                 this.toastr.error('Không tìm thấy file audio trên máy.');
             }
@@ -765,7 +891,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (this.wavesurfer) this.wavesurfer.stop();
 
         // Hiển thị thông báo nhỏ để người dùng biết đang tải (nếu mạng chậm)
-        // this.toastr.info('Đang tải audio...', 'System'); 
+        // this.toastr.info('Đang tải audio...', 'System');
 
         this.http.get(clip.rawUrl, { responseType: 'blob' }).subscribe({
             next: (blob) => {
@@ -788,31 +914,54 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             error: (err) => {
                 console.error('Lỗi tải file audio từ server:', err);
                 this.toastr.error('Không thể phát file này (Lỗi tải/CORS).');
-            }
+            },
         });
     }
 
-    drop(event: CdkDragDrop<AudioClip[]>) { moveItemInArray(this.audioList, event.previousIndex, event.currentIndex); this.saveToLocal(); }
+    drop(event: CdkDragDrop<AudioClip[]>) {
+        moveItemInArray(
+            this.audioList,
+            event.previousIndex,
+            event.currentIndex,
+        );
+        this.saveToLocal();
+    }
 
     removeClip(index: number) {
         const dialogRef = this._fuseConfirmationService.open({
-            title: 'Xóa clip', message: 'Bạn có chắc chắn muốn xóa?',
-            icon: { show: true, name: 'heroicons_outline:exclamation', color: 'warn' },
-            actions: { confirm: { show: true, label: 'Xóa', color: 'warn' }, cancel: { show: true, label: 'Hủy' } }
+            title: 'Xóa clip',
+            message: 'Bạn có chắc chắn muốn xóa?',
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation',
+                color: 'warn',
+            },
+            actions: {
+                confirm: { show: true, label: 'Xóa', color: 'warn' },
+                cancel: { show: true, label: 'Hủy' },
+            },
         });
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                if (this.audioList[index].rawUrl?.startsWith('blob:')) URL.revokeObjectURL(this.audioList[index].rawUrl);
-                this.audioList.splice(index, 1); this.calculateTotalDuration(); this.saveToLocal(); this.cd.markForCheck();
+                if (this.audioList[index].rawUrl?.startsWith('blob:'))
+                    URL.revokeObjectURL(this.audioList[index].rawUrl);
+                this.audioList.splice(index, 1);
+                this.calculateTotalDuration();
+                this.saveToLocal();
+                this.cd.markForCheck();
             }
         });
     }
 
     downloadClip(clip: AudioClip) {
         if (!clip.rawUrl) return;
-        const link = document.createElement('a'); link.href = clip.rawUrl;
+        const link = document.createElement('a');
+        link.href = clip.rawUrl;
         link.download = clip.audioFileName || `${this.toSlug(clip.name)}.mp3`;
-        link.target = '_blank'; document.body.appendChild(link); link.click(); document.body.removeChild(link);
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     }
 
     // [CẬP NHẬT] Hàm Clear - Làm mới thông minh
@@ -821,7 +970,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Trường hợp 1: Nếu đang có danh sách Text -> Chỉ xóa trạng thái Audio (Soft Reset)
         if (this.audioList.length > 0) {
-            this.audioList.forEach(clip => {
+            this.audioList.forEach((clip) => {
                 clip.url = undefined;
                 clip.rawUrl = undefined;
                 clip.file = undefined;
@@ -836,11 +985,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         // Trường hợp 2: Nếu danh sách trống và đang ở trong project (có UUID) -> Reload lại từ đầu (Hard Reload)
         else if (this.currentUuid) {
-            this.toastr.info('Đang tải lại dữ liệu gốc từ Server...', 'Làm mới');
+            this.toastr.info(
+                'Đang tải lại dữ liệu gốc từ Server...',
+                'Làm mới',
+            );
             localStorage.removeItem(this.STORAGE_AUDIO_KEY);
             this.detail(this.currentUuid, this.currentName || '');
-        }
-        else {
+        } else {
             // Trường hợp 3: Không có gì cả -> Xóa sạch
             this.audioList = [];
             this.totalDuration = 0;
@@ -849,45 +1000,68 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    calculateTotalDuration() { this.totalDuration = this.audioList.reduce((acc, curr) => acc + (curr.duration || 0), 0); }
+    calculateTotalDuration() {
+        this.totalDuration = this.audioList.reduce(
+            (acc, curr) => acc + (curr.duration || 0),
+            0,
+        );
+    }
 
     exportProject() {
         const exportData = {
             title: this.projectTitle,
             createdAt: new Date().toISOString(),
-            clips: this.audioList.map(clip => ({
+            clips: this.audioList.map((clip) => ({
                 id: clip.id,
                 name: clip.name,
                 description: clip.description,
                 voice: clip.voice,
                 duration: clip.duration,
                 audioFileName: clip.audioFileName,
-                username: clip.username
-            }))
+                username: clip.username,
+            })),
         };
         const jsonStr = JSON.stringify(exportData, null, 2);
         const blob = new Blob([jsonStr], { type: 'application/json' });
         const url = window.URL.createObjectURL(blob);
         const safeTitle = this.toSlug(this.projectTitle).replace(/-/g, '_');
         const fileName = `${safeTitle || 'project'}_${new Date().getTime()}.json`;
-        const a = document.createElement('a'); a.href = url; a.download = fileName;
-        document.body.appendChild(a); a.click(); document.body.removeChild(a); window.URL.revokeObjectURL(url);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
         this.toastr.success(`Đã xuất file: ${fileName}`);
     }
 
-    triggerImport() { const fileInput = document.getElementById('importInput') as HTMLInputElement; if (fileInput) fileInput.click(); }
+    triggerImport() {
+        const fileInput = document.getElementById(
+            'importInput',
+        ) as HTMLInputElement;
+        if (fileInput) fileInput.click();
+    }
     onImportFileSelected(event: any) {
-        const file = event.target.files[0]; if (!file) return;
+        const file = event.target.files[0];
+        if (!file) return;
         const reader = new FileReader();
         reader.onload = (e: any) => {
             try {
                 const importedData = JSON.parse(e.target.result);
-                let clipsToRestore = Array.isArray(importedData) ? importedData : importedData.clips;
+                let clipsToRestore = Array.isArray(importedData)
+                    ? importedData
+                    : importedData.clips;
                 if (importedData.title) this.projectTitle = importedData.title;
-                this.restoreClips(clipsToRestore); this.saveToLocal(); this.toastr.success(`Đã nhập dự án: ${this.projectTitle}`);
-            } catch (err) { this.toastr.error('Lỗi khi đọc file dự án.'); }
+                this.restoreClips(clipsToRestore);
+                this.saveToLocal();
+                this.toastr.success(`Đã nhập dự án: ${this.projectTitle}`);
+            } catch (err) {
+                this.toastr.error('Lỗi khi đọc file dự án.');
+            }
         };
-        reader.readAsText(file); event.target.value = '';
+        reader.readAsText(file);
+        event.target.value = '';
     }
 
     async createImgWithDreamina(url: string, prompt: string) {
@@ -895,67 +1069,117 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const uniqueID = Math.random().toString(36).substr(2, 9);
         await (window as any).electron.tools({
-            url: url, command: 'dreamina.capcut', uniqueID,
-            username: this.user.name, filenamePrefix: 'dream_', width: 1600, height: 900,
+            url: url,
+            command: 'dreamina.capcut',
+            uniqueID,
+            username: this.user.name,
+            filenamePrefix: 'dream_',
+            width: 1600,
+            height: 900,
         });
     }
 
-    copy(text: string) { this.clipboard.copy(text); this.toastr.success(`Copy prompt xong.`); }
+    copy(text: string) {
+        this.clipboard.copy(text);
+        this.toastr.success(`Copy prompt xong.`);
+    }
 
-    genaralImageFromPrompt(done: any): Promise<string | null> { return Promise.resolve(null); }
+    genaralImageFromPrompt(done: any): Promise<string | null> {
+        return Promise.resolve(null);
+    }
 
     detail(uuid: string, name: string) {
-        this._crawlService.detail({ uuid: uuid, username: name }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: async (result) => {
-                if (result && result.data && result.data.done) {
-                    if (result.data.title) {
-                        this.projectTitle = result.data.title;
-                        this.titleService.setTitle(`${this.projectTitle} | Audio Manager`);
+        this._crawlService
+            .detail({ uuid: uuid, username: name })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.data && result.data.done) {
+                        if (result.data.title) {
+                            this.projectTitle = result.data.title;
+                            this.titleService.setTitle(
+                                `${this.projectTitle} | Audio Manager`,
+                            );
+                        }
+                        this.audioList = result.data.done.map(
+                            (htmlItem: any, index: number) => {
+                                const cleanText =
+                                    this.removeHTML.transform(htmlItem);
+                                return {
+                                    id: this.generateId(),
+                                    name:
+                                        cleanText.length > 50
+                                            ? cleanText.substring(0, 50) + '...'
+                                            : cleanText,
+                                    duration: 0,
+                                    description: cleanText,
+                                    isProcessing: false,
+                                    voice: 'vi-VN-NamMinhNeural',
+                                    prompt: '',
+                                };
+                            },
+                        );
+                        this.calculateTotalDuration();
+                        this.saveToLocal(uuid);
+                        this.cd.markForCheck();
                     }
-                    this.audioList = result.data.done.map((htmlItem: any, index: number) => {
-                        const cleanText = this.removeHTML.transform(htmlItem);
-                        return {
-                            id: this.generateId(),
-                            name: cleanText.length > 50 ? cleanText.substring(0, 50) + '...' : cleanText,
-                            duration: 0,
-                            description: cleanText,
-                            isProcessing: false,
-                            voice: 'vi-VN-NamMinhNeural',
-                            prompt: ''
-                        };
-                    });
-                    this.calculateTotalDuration(); this.saveToLocal(uuid); this.cd.markForCheck();
-                }
-            }
-        });
+                },
+            });
     }
 
-    onFileSelected(event: any) { const files: FileList = event.target.files; if (files?.length > 0) this.processFiles(files); event.target.value = ''; }
-    onDragOver(event: DragEvent) { event.preventDefault(); event.stopPropagation(); this.isDraggingOver = true; }
-    onDragLeave(event: DragEvent) { event.preventDefault(); event.stopPropagation(); this.isDraggingOver = false; }
-    onDropFile(event: DragEvent) { event.preventDefault(); event.stopPropagation(); this.isDraggingOver = false; const files = event.dataTransfer?.files; if (files?.length > 0) this.processFiles(files); }
+    onFileSelected(event: any) {
+        const files: FileList = event.target.files;
+        if (files?.length > 0) this.processFiles(files);
+        event.target.value = '';
+    }
+    onDragOver(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDraggingOver = true;
+    }
+    onDragLeave(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDraggingOver = false;
+    }
+    onDropFile(event: DragEvent) {
+        event.preventDefault();
+        event.stopPropagation();
+        this.isDraggingOver = false;
+        const files = event.dataTransfer?.files;
+        if (files?.length > 0) this.processFiles(files);
+    }
 
     async processFiles(files: FileList) {
         const promises: Promise<AudioClip>[] = [];
         for (let i = 0; i < files.length; i++) {
-            if (files[i].type.startsWith('audio/')) promises.push(this.createAudioClipFromFile(files[i]));
+            if (files[i].type.startsWith('audio/'))
+                promises.push(this.createAudioClipFromFile(files[i]));
         }
         try {
             const newClips = await Promise.all(promises);
             this.audioList = [...this.audioList, ...newClips];
-            this.calculateTotalDuration(); this.saveToLocal(); this.cd.markForCheck();
+            this.calculateTotalDuration();
+            this.saveToLocal();
+            this.cd.markForCheck();
             this.toastr.success(`Đã thêm ${newClips.length} files.`);
-        } catch (err) { }
+        } catch (err) {}
     }
 
     private createAudioClipFromFile(file: File): Promise<AudioClip> {
         return new Promise((resolve) => {
-            const objectUrl = URL.createObjectURL(file); const audio = new Audio();
+            const objectUrl = URL.createObjectURL(file);
+            const audio = new Audio();
             audio.onloadedmetadata = () => {
                 resolve({
-                    id: this.generateId(), name: file.name, duration: Math.round(audio.duration),
-                    file: file, rawUrl: objectUrl, url: this.sanitizer.bypassSecurityTrustUrl(objectUrl),
-                    description: file.name.replace(/\.[^/.]+$/, ""), voice: 'nam-calm'
+                    id: this.generateId(),
+                    name: file.name,
+                    duration: Math.round(audio.duration),
+                    file: file,
+                    rawUrl: objectUrl,
+                    url: this.sanitizer.bypassSecurityTrustUrl(objectUrl),
+                    description: file.name.replace(/\.[^/.]+$/, ''),
+                    voice: 'nam-calm',
                 });
             };
             audio.src = objectUrl;
@@ -985,36 +1209,59 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         return str;
     }
 
-    generateId(): string { return Math.random().toString(36).substr(2, 9); }
+    generateId(): string {
+        return Math.random().toString(36).substr(2, 9);
+    }
 
     // -----------------------------------------------------------------------------------------------------
     // @ LIFECYCLE
     // -----------------------------------------------------------------------------------------------------
 
     constructor(
-        private titleService: Title, private _crawlService: CrawlService, private _blogService: BlogService,
-        private _userService: UserService, private toastr: ToastrService, private cd: ChangeDetectorRef,
-        private sanitizer: DomSanitizer, private _fuseConfirmationService: FuseConfirmationService,
+        private titleService: Title,
+        private _crawlService: CrawlService,
+        private _blogService: BlogService,
+        private _userService: UserService,
+        private helperService: HelperService,
+        private toastr: ToastrService,
+        private cd: ChangeDetectorRef,
+        private sanitizer: DomSanitizer,
+        private _fuseConfirmationService: FuseConfirmationService,
         private clipboard: Clipboard,
         private dialog: MatDialog,
         private multiAccountService: MultiAccountService,
-        private router: Router, private route: ActivatedRoute, private _fuseConfigService: FuseConfigService, private http: HttpClient
+        private router: Router,
+        private route: ActivatedRoute,
+        private _fuseConfigService: FuseConfigService,
+        private http: HttpClient,
     ) {
         this.titleService.setTitle(`chương trình làm video | ai.type`);
 
         this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            try { this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined; } catch { }
+            try {
+                this.secretKey = this.settings.secretKey
+                    ? this.settings.secretKey.split(';')
+                    : undefined;
+            } catch {}
         }
 
-        this._fuseConfigService.config$.pipe(takeUntil(this._unsubscribeAll)).subscribe((config: AppConfig) => { this.config = config; });
-        this._userService.user$.pipe(takeUntil(this._unsubscribeAll)).subscribe((user: User) => {
-            this.user = user;
-            if (user.reputation < 50000) {
-                this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                return;
-            }
-        });
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: AppConfig) => {
+                this.config = config;
+            });
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+                if (user.reputation < 50000) {
+                    this.error(
+                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
+                    );
+                    return;
+                }
+            });
     }
 
     ngOnInit(): void {
@@ -1030,7 +1277,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         this.route.params.subscribe((params: Params) => {
-            this.uuid = params['uuid']; let name = params['name'];
+            this.uuid = params['uuid'];
+            let name = params['name'];
 
             // [CẬP NHẬT] Lưu params để dùng cho hàm Clear (Reload)
             this.currentUuid = this.uuid;
@@ -1038,7 +1286,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             if (this.uuid) {
                 // const hasAudioLocalData = this.loadAudioFromLocal(this.uuid);
-                // if (!hasAudioLocalData) 
+                // if (!hasAudioLocalData)
                 this.detail(this.uuid, name);
                 this.loadClipsFromLocal(this.uuid);
             } else {
@@ -1063,14 +1311,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
-            icon: { show: true, name: 'feather:alert-triangle', color: 'error' },
+            message: message
+                ? message
+                : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            icon: {
+                show: true,
+                name: 'feather:alert-triangle',
+                color: 'error',
+            },
             actions: {
                 confirm: { show: true, label: 'Đóng', color: 'warn' },
-                cancel: { show: false, label: 'Đóng lại' }
+                cancel: { show: false, label: 'Đóng lại' },
             },
-            dismissible: false
+            dismissible: false,
         });
-        dialogRef.afterClosed().subscribe((_) => { this.router.navigate(['/tools']); });
+        dialogRef.afterClosed().subscribe((_) => {
+            this.router.navigate(['/tools']);
+        });
     }
 }
