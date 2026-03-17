@@ -119,6 +119,19 @@ export class VideoTimelineDialogComponent implements OnInit {
 
         this.projectData['username'] = this.data.username || 'anonymous'; // Đảm bảo có username trong data
 
+        // 4. Dùng hàm alert (FuseConfirmationService) của bạn để thông báo thành công
+        this.alert({
+            title: 'Khởi tạo Audio',
+            message: `Bạn có muốn khởi tạo lại audio cho toàn bộ Video Timeline không? <span class="font-medium text-red-600">Lưu ý: Hành động này sẽ ghi đè tất cả audio đã có trước đó!</span>`,
+            confirm: 'Tiếp tục Production',
+            cb: (t: any) => {
+                console.log('User confirmed to generate audio for all scenes.', t);
+                this.prepareForVideoGeneration();
+            }
+        });
+    }
+
+    prepareForVideoGeneration() {
         // 2. Mở cửa sổ Tiến trình Audio Song Song
         const processDialogRef = this.dialog.open(VideoGenerationComponent, {
             width: '550px',
@@ -292,7 +305,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 cancel: {
                     show: true,
                     label: 'Đóng cửa sổ'
-                },
+                }
             },
             dismissible: true,
         });
@@ -303,6 +316,8 @@ export class VideoTimelineDialogComponent implements OnInit {
                 if (alert.cb) {
                     alert.cb();
                 }
+            } else {
+
             }
         });
     }
