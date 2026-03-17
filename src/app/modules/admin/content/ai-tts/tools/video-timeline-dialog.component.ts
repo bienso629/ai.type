@@ -100,6 +100,7 @@ export class VideoTimelineDialogComponent implements OnInit {
     // ------------------------------------------------
 
     async generateImage(scene: any, index: number) {
+        console.log(`Generating image for Scene #${index + 1} with prompt:`, scene.prompt);
         this.toastr.info(`Generating image for Scene #${index + 1}...`);
         // Giả lập
         scene.imageUrl = 'https://via.placeholder.com/400x225?text=Generating...';
