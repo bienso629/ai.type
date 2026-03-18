@@ -10,7 +10,7 @@ import { Subject, takeUntil } from "rxjs";
 
 import * as uuid from 'uuid';
 import { ToastrService } from "ngx-toastr";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, createPartFromUri } from "@google/genai";
 import { MultiAccountService } from "app/modules/_services/multi-account.service";
 
 @Component({
@@ -21,15 +21,15 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
         </fuse-alert>
     </div>
     <!-- Form -->
-    <form [formGroup]="chatgptForm">
+    <form [formGroup]="chatgptForm" (submit)="$event.preventDefault()">
         <!-- Secret key -->
         <div class="mt-4">
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Bạn hỏi Gemini trả lời</mat-label>
                 <!-- <mat-icon class="icon-size-4" [svgIcon]="'feather:message-circle'" matPrefix></mat-icon> -->
-                <input [formControlName]="'chatgpt'" placeholder="Xin chào! Bạn muốn hỏi về vấn đề gì?" type="text" (keyup.enter)="ask()" required matInput>
+                <input [formControlName]="'chatgpt'" placeholder="Xin chào! Bạn muốn hỏi về vấn đề gì?" type="text" (keyup.enter)="chatgpt(chatgptForm.get('chatgpt').value, $event)" required matInput>
 
-                <input hidden type="file" class="file-input" (change)="upload($event)" #fileUpload>
+                <input hidden type="file" accept="application/pdf" class="file-input" (change)="upload($event)" #fileUpload>
                 <a mat-icon-button matSuffix class="ml-0" [matTooltip]="'Upload file lên CDN'" (click)="fileUpload.click()" [disabled]="loading">
                     <mat-icon *ngIf="!loading" class="icon-size-4 text-current" [svgIcon]="'feather:file'"></mat-icon>
                     <mat-icon *ngIf="loading" class="animate-spin icon-size-5 text-primary" [svgIcon]="'feather:loader'"></mat-icon>
@@ -38,7 +38,7 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
 
             <div *ngIf="selectedFileName" class="mt-1 flex items-center bg-blue-50 px-2 py-1 rounded border border-blue-200">
                 <span class="text-sm text-blue-600 font-medium">{{ selectedFileName }}</span>
-                <button mat-icon-button color="warn" (click)="removeFile()" class="ml-1" style="width: 24px; height: 24px; line-height: 24px;">
+                <button mat-icon-button color="warn" type="button" (click)="removeFile()" class="ml-1" style="width: 24px; height: 24px; line-height: 24px;">
                     <mat-icon style="font-size: 18px;">close</mat-icon>
                 </button>
             </div>
@@ -87,7 +87,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
 
     @ViewChild('fileUpload') fileUpload: ElementRef; // Khai báo ViewChild
     selectedFileName: string = '';
-    files: File;
+    files: File | null = null;
 
     chatgptKey: String;
     type: string = 'warning';
@@ -96,34 +96,17 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     upload = (e: any) => {
-        if (e.target.files && e.target.files.length > 0) {
-            this.files = e.target.files[0];
+        const fileList: FileList = e.target.files;
+        if (fileList && fileList.length > 0) {
+            this.files = fileList[0];
             this.selectedFileName = this.files.name;
-            this.toastr.success(`Đã chọn file: ${this.selectedFileName}`);
         }
     }
 
     removeFile(): void {
         this.files = null;
         this.selectedFileName = '';
-
-        // ĐÂY LÀ PHẦN QUAN TRỌNG: Reset giá trị của input file
-        if (this.fileUpload && this.fileUpload.nativeElement) {
-            this.fileUpload.nativeElement.value = '';
-        }
-    }
-
-    private convertToBase64(file: File): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => {
-                // Loại bỏ phần header "data:application/pdf;base64,"
-                const base64String = (reader.result as string).split(',')[1];
-                resolve(base64String);
-            };
-            reader.onerror = error => reject(error);
-        });
+        if (this.fileUpload) this.fileUpload.nativeElement.value = '';
     }
 
     setvalue(question: string) {
@@ -132,12 +115,13 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         });
     }
 
-    ask() {
-        this.chatgptForm.get('chatgpt').disable();
-        this.chatgpt(this.chatgptForm.get('chatgpt').value);
-    }
+    async chatgpt(question: string, event?: Event) {
+        // CHẶN SUBMIT MẶC ĐỊNH NGAY LẬP TỨC
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
 
-    async chatgpt(question: string, index?: number) {
         if (!question) {
             this.toastr.warning('Xin lỗi! Bạn chưa có prompt.');
             return;
@@ -146,30 +130,39 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         try {
             this.loading = true;
             this.chatgptForm.get('chatgpt').disable();
-            const contents: any[] = [{ text: question }];
+            let parts: any[] = [{ text: question }];
 
-            // Xử lý file nếu có
             if (this.files) {
-                const base64Data = await this.convertToBase64(this.files);
-                contents.push({
-                    inlineData: {
-                        mimeType: this.files.type,
-                        data: base64Data
-                    }
+                this.toastr.info('Đang tải file lên Gemini...');
+
+                // Upload lên Google File API
+                const uploadResponse = await this.ai.files.upload({
+                    file: this.files,
+                    config: { displayName: this.selectedFileName }
                 });
+
+                // Chờ xử lý (Polling)
+                let getFile = await this.ai.files.get({ name: uploadResponse.name });
+                while (getFile.state === 'PROCESSING') {
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    getFile = await this.ai.files.get({ name: uploadResponse.name });
+                }
+
+                if (getFile.state === 'FAILED') throw new Error('File lỗi');
+
+                // Tạo part từ URI
+                const filePart = createPartFromUri(getFile.uri, getFile.mimeType);
+                parts.push(filePart);
             }
 
-            // Gọi đúng theo ví dụ bạn thấy trong doc
-            const response = await this.ai.models.generateContent({
-                model: "gemini-2.5-flash", // Hoặc "gemini-1.5-flash"
-                contents: contents
+            // Gửi toàn bộ nội dung
+            const result = await this.ai.models.generateContent({
+                model: 'gemini-2.5-flash', // Dùng bản 2.0 ổn định
+                contents: [{ role: 'user', parts: parts }]
             });
 
-            const text = response.text; // Lưu ý: bản này thường response.text là property, không phải hàm
-
-            if (text) {
-                this.openchatgpt({ question, answer: text });
-                this.removeFile(); // Xóa file và reset input
+            if (result.text) {
+                this.openchatgpt({ question, answer: result.text });
             }
         } catch (error) {
             console.error("Lỗi Gemini:", error);
