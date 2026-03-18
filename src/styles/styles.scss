@@ -114,6 +114,7 @@ hr {
     height: 16px !important;
 
     &::after {
+        display: block;
         content: "";
         position: absolute;
         right: 0;
@@ -132,6 +133,10 @@ hr {
 .mat-mdc-raised-button>.animate-spin,
 .mat-mdc-outlined-button>.animate-spin {
     padding-right: 0px !important;
+
+    &::after {
+        display: none !important;
+    }
 }
 
 /* styles.css (global) */
