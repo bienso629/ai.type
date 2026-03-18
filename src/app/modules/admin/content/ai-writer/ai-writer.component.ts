@@ -73,6 +73,7 @@ import { LogService } from 'app/modules/_services/link';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
+declare var require: any;
 declare var LeaderLine: any;
 declare var TurndownService: any;
 declare var window: any; // Needed on Angular 8+
@@ -371,15 +372,15 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             option
                 ? option
                 : {
-                      endPlugOutline: false,
-                      positionByWindowResize: true,
-                      color: '#0c857a',
-                      path: 'grid',
-                      size: 3,
-                      startPlug: 'disc',
-                      endPlug: 'arrow',
-                      animOptions: { duration: 3000, timing: 'linear' },
-                  },
+                    endPlugOutline: false,
+                    positionByWindowResize: true,
+                    color: '#0c857a',
+                    path: 'grid',
+                    size: 3,
+                    startPlug: 'disc',
+                    endPlug: 'arrow',
+                    animOptions: { duration: 3000, timing: 'linear' },
+                },
         );
 
         this.line[i].position();
@@ -566,7 +567,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.loading = !this.loading;
                         this.toastr.error('Không thể phân tích tài nguyên.');
                     },
-                    complete: () => {},
+                    complete: () => { },
                 });
         } else {
             this.loading = !this.loading;
@@ -633,8 +634,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         .get('mainkey')
                         .setValue(
                             data.long_keywords[0] ||
-                                data.short_keywords[0] ||
-                                '',
+                            data.short_keywords[0] ||
+                            '',
                         );
                     this.arr_keyword = data.long_keywords.concat(
                         data.short_keywords,
@@ -665,8 +666,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             data.others && data.others.iframe
                 ? data.others.iframe
                 : data.iframe
-                  ? data.iframe
-                  : [];
+                    ? data.iframe
+                    : [];
 
         if (data.source && data.source.length > 0) {
             data.source.map((i: string, _index: number) => {
@@ -898,7 +899,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     /**
      * Thay đổi thuật toán & từ khoá bóc tách URL
      */
-    code() {}
+    code() { }
 
     markdown2html(source: any, index: number) {
         if (!source[index]) return;
@@ -1171,7 +1172,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         error: (e: any) => {
                             this.toastr.warning('Không tải được hình ảnh.');
                         },
-                        complete: () => {},
+                        complete: () => { },
                     });
 
                 // this.source.text = this.source.text.concat(result.data);
@@ -1441,7 +1442,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -1463,7 +1464,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -1531,8 +1532,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         .get('mainkey')
                         .setValue(
                             data.long_keywords[0] ||
-                                data.short_keywords[0] ||
-                                '',
+                            data.short_keywords[0] ||
+                            '',
                         );
                     this.arr_keyword = data.long_keywords.concat(
                         data.short_keywords,
@@ -1576,8 +1577,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.cd.markForCheck();
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -1782,7 +1783,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         }
                     }
                 },
-                error: () => {},
+                error: () => { },
                 complete: () => {
                     this.stepper.selectedIndex = 0;
 
@@ -1845,7 +1846,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                             });
                         }
                     },
-                    error: () => {},
+                    error: () => { },
                     complete: () => {
                         this.toastr.success(`Phân tích từ khoá xong.`);
 
@@ -1905,8 +1906,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.synonyms = synonyms;
                     }
                 },
-                error: (e: any) => {},
-                complete: () => {},
+                error: (e: any) => { },
+                complete: () => { },
             });
     }
 
@@ -1952,7 +1953,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         });
                     }
                 },
-                error: () => {},
+                error: () => { },
                 complete: () => {
                     this.toastr.success(`Tìm từ đồng nghĩa xong.`);
 
@@ -2127,7 +2128,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                             ]);
                         }
                     },
-                    error: () => {},
+                    error: () => { },
                     complete: () => {
                         // lam moi lai giao dien
                         this.cd.markForCheck();
@@ -2222,7 +2223,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             .archiveUpdate(data)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                error: () => {},
+                error: () => { },
                 complete: () => {
                     // this.storelocal();
                     if (this.new_version === -2) {
@@ -2378,8 +2379,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.alert('Nội dung tải về không chính xác.');
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -2397,7 +2398,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.forumCategories = result.data.response.categories;
                     }
                 },
-                error: () => {},
+                error: () => { },
                 complete: () => {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -2434,18 +2435,43 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             });
     }
 
-    share() {
-        // this.checkseo();
-        if (this.score <= 70) {
-            this.alert('Bài viết của bạn chưa đạt yêu cầu.');
-        } else {
+    async share() {
+        try {
+            // 2. Load thư viện (Chỉ dùng bản dành cho client, không dùng jsdom/fs)
+            const pdfMake = require('pdfmake/build/pdfmake');
+            const pdfFonts = require('pdfmake/build/vfs_fonts');
+            const htmlToPdfmake = require('html-to-pdfmake');
+
+            // 3. Khởi tạo font (Đây là dòng hay lỗi nhất, viết thế này là chắc chắn nhất)
+            pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
+
+            // Giả sử data của bạn là array các string HTML
+            const contentArray = this.done; // Hoặc biến chứa array của bạn
+            const fullHtml = contentArray.join('');
+            const htmlConverted = htmlToPdfmake(fullHtml);
+
+            const docDefinition = {
+                content: [
+                    htmlConverted
+                ],
+                defaultStyle: {
+                    font: 'Roboto' // Đảm bảo dùng Roboto để hỗ trợ tiếng Việt
+                }
+            };
+
+            pdfMake.createPdf(docDefinition).download(`${this.uuid}.pdf`);
+
             const link = btoa(
                 `${JSON.stringify([this.name, this.user.server, this.uuid])}`,
             );
+
             this.clipboard.copy(
                 `${this.config.settings.domain}/#/read/${link}`,
             );
+
             this.toastr.success(`Copy link thành công!`);
+        } catch (error) {
+            console.log(error);
         }
     }
 
@@ -2512,7 +2538,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 error: () => {
                     this.alert('Tập chưa được tải về.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -2537,7 +2563,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 error: () => {
                     this.alert('Tập của nội dung chưa được tải về.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -2587,7 +2613,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         error: () => {
                             this.alert('Tạo nhóm mới thất bại.');
                         },
-                        complete: () => {},
+                        complete: () => { },
                     });
             } else {
                 // cập nhật uuid vào collection
@@ -2611,7 +2637,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         error: () => {
                             this.alert('Thêm vào nhóm thất bại.');
                         },
-                        complete: () => {},
+                        complete: () => { },
                     });
             }
         } else {
@@ -2638,7 +2664,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 error: () => {
                     this.alert('Gỡ nhóm thất bại.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -2851,7 +2877,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    scrolled(_event: any): void {}
+    scrolled(_event: any): void { }
 
     isActive = false;
     openComments(_user: string) {
