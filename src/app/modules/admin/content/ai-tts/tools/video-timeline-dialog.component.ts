@@ -1,5 +1,18 @@
-import { Component, OnInit, ViewChild, ElementRef, Inject, Component as NgComponent, Inject as NgInject } from '@angular/core';
-import { MAT_DIALOG_DATA, MatDialogRef, MatDialog, MatDialogModule } from '@angular/material/dialog';
+import {
+    Component,
+    OnInit,
+    ViewChild,
+    ElementRef,
+    Inject,
+    Component as NgComponent,
+    Inject as NgInject,
+} from '@angular/core';
+import {
+    MAT_DIALOG_DATA,
+    MatDialogRef,
+    MatDialog,
+    MatDialogModule,
+} from '@angular/material/dialog';
 import { CommonModule } from '@angular/common'; // Cần cho *ngIf, *ngFor cũ (trong isImageType)
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
@@ -7,13 +20,18 @@ import { ToastrService } from 'ngx-toastr';
 // Angular Material & CDK Imports
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { DragDropModule, CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import {
+    DragDropModule,
+    CdkDragDrop,
+    moveItemInArray,
+} from '@angular/cdk/drag-drop';
 
 import { AddSceneComponent } from './add-scene.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { VideoGenerationComponent } from './video-generation.component';
 import { Router } from '@angular/router';
+import { Clipboard } from '@angular/cdk/clipboard';
 
 // Interface cho Electron API
 interface electron {
@@ -32,8 +50,8 @@ interface electron {
         MatButtonModule,
         MatIconModule,
         MatInputModule, // Cần MatLabelModule cho mat-label
-        DragDropModule // Module Kéo thả
-    ]
+        DragDropModule, // Module Kéo thả
+    ],
 })
 export class VideoTimelineDialogComponent implements OnInit {
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
@@ -48,12 +66,12 @@ export class VideoTimelineDialogComponent implements OnInit {
     constructor(
         private _fuseConfirmationService: FuseConfirmationService,
         public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
+        private clipboard: Clipboard,
         private router: Router,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
-        private dialog: MatDialog // Cần MatDialog để mở form thêm cảnh
-    ) {
-    }
+        private dialog: MatDialog, // Cần MatDialog để mở form thêm cảnh
+    ) {}
 
     ngOnInit() {
         // Load dữ liệu từ LocalStorage
@@ -82,7 +100,8 @@ export class VideoTimelineDialogComponent implements OnInit {
         e.preventDefault();
         const x = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
         const walk = (x - this.startX) * 1.5;
-        this.scrollContainer.nativeElement.scrollLeft = this.scrollLeftStart - walk;
+        this.scrollContainer.nativeElement.scrollLeft =
+            this.scrollLeftStart - walk;
     }
     // ---------------------
 
@@ -92,19 +111,24 @@ export class VideoTimelineDialogComponent implements OnInit {
             return;
         }
         // Di chuyển phần tử trong mảng dữ liệu (Hàm của CDK)
-        moveItemInArray(this.projectData.scenes, event.previousIndex, event.currentIndex);
+        moveItemInArray(
+            this.projectData.scenes,
+            event.previousIndex,
+            event.currentIndex,
+        );
         // Lưu lại dữ liệu mới
         this.saveData();
-        console.log("New scene order saved.");
+        console.log('New scene order saved.');
     }
     // ------------------------------------------------
 
     async generateImage(scene: any, index: number) {
-        console.log(`Generating image for Scene #${index + 1} with prompt:`, scene.prompt);
+        this.clipboard.copy(scene.prompt);
         this.toastr.info(`Generating image for Scene #${index + 1}...`);
         // Giả lập
-        scene.imageUrl = 'https://via.placeholder.com/400x225?text=Generating...';
-        this.saveData();
+        // scene.imageUrl =
+        //     'https://via.placeholder.com/400x225?text=Generating...';
+        // this.saveData();
     }
 
     generateAllImages(): void {
@@ -112,7 +136,11 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.saveData();
 
         // Kiểm tra an toàn xem có dữ liệu không
-        if (!this.projectData || !this.projectData.scenes || this.projectData.scenes.length === 0) {
+        if (
+            !this.projectData ||
+            !this.projectData.scenes ||
+            this.projectData.scenes.length === 0
+        ) {
             this.toastr.warning('Không có cảnh nào để tạo audio!');
             return;
         }
@@ -121,13 +149,23 @@ export class VideoTimelineDialogComponent implements OnInit {
 
         // 4. Dùng hàm alert (FuseConfirmationService) của bạn để thông báo thành công
         this.alert({
-            title: 'Khởi tạo Audio',
-            message: `Bạn có muốn khởi tạo lại audio cho toàn bộ Video Timeline không? <span class="font-medium text-red-600">Lưu ý: Hành động này sẽ ghi đè tất cả audio đã có trước đó!</span>`,
+            title: 'Khởi tạo Audio thành công!',
+            message: `Hệ thống đã hoàn tất tạo âm thanh cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
             confirm: 'Tiếp tục Production',
-            cb: (t: any) => {
-                console.log('User confirmed to generate audio for all scenes.', t);
-                this.prepareForVideoGeneration();
-            }
+            cb: () => {
+                // Khi người dùng bấm "Tiếp tục Production"
+                // Đóng Timeline và ném bộ data HOÀN CHỈNH này ra ngoài cho ai-tts.component.ts xử lý tiếp
+                this.dialogRef.close(this.projectData);
+
+                this.router.navigate(['/livestream'], {
+                    queryParams: {
+                        uuid: this.projectData.uuid || 'unknown_project',
+                    },
+                });
+            },
+            cc: () => {
+                this.toastr.info('Hủy tiến trình tạo Audio.');
+            },
         });
     }
 
@@ -136,7 +174,7 @@ export class VideoTimelineDialogComponent implements OnInit {
         const processDialogRef = this.dialog.open(VideoGenerationComponent, {
             width: '550px',
             disableClose: true, // Bắt buộc người dùng phải đợi hoặc bấm nút Hủy bên trong
-            data: this.projectData // Truyền nguyên bộ data sang cho nó chạy
+            data: this.projectData, // Truyền nguyên bộ data sang cho nó chạy
         });
 
         // 3. Lắng nghe kết quả trả về khi cửa sổ Tiến trình đóng lại
@@ -147,24 +185,6 @@ export class VideoTimelineDialogComponent implements OnInit {
 
                 // Lưu lại một lần nữa để chắc chắn LocalStorage đã cập nhật
                 this.saveData();
-
-                // 4. Dùng hàm alert (FuseConfirmationService) của bạn để thông báo thành công
-                this.alert({
-                    title: 'Khởi tạo Audio thành công!',
-                    message: `Hệ thống đã hoàn tất tạo âm thanh cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
-                    confirm: 'Tiếp tục Production',
-                    cb: () => {
-                        // Khi người dùng bấm "Tiếp tục Production"
-                        // Đóng Timeline và ném bộ data HOÀN CHỈNH này ra ngoài cho ai-tts.component.ts xử lý tiếp
-                        this.dialogRef.close(this.projectData);
-
-                        this.router.navigate(['/livestream'], {
-                            queryParams: {
-                                uuid: this.projectData.uuid || 'unknown_project',
-                            }
-                        });
-                    }
-                });
             } else {
                 // Trường hợp trả về null (người dùng bấm Hủy bỏ ở màn hình config)
                 this.toastr.info('Hủy tiến trình tạo Audio.');
@@ -173,10 +193,15 @@ export class VideoTimelineDialogComponent implements OnInit {
     }
 
     saveData() {
-        localStorage.setItem('ai_type_video_ready_data', JSON.stringify(this.projectData));
+        localStorage.setItem(
+            'ai_type_video_ready_data',
+            JSON.stringify(this.projectData),
+        );
     }
 
-    close() { this.dialogRef.close(); }
+    close() {
+        this.dialogRef.close();
+    }
 
     // Xử lý file cục bộ thông qua Electron File System
     async onFileSelected(event: any, scene: any) {
@@ -197,17 +222,19 @@ export class VideoTimelineDialogComponent implements OnInit {
                 const originalPath = electron.getPathForFile(file);
 
                 if (!originalPath) {
-                    this.toastr.error('Không thể xác định đường dẫn file trên ổ đĩa.');
+                    this.toastr.error(
+                        'Không thể xác định đường dẫn file trên ổ đĩa.',
+                    );
                     return;
                 }
 
                 // 3. Gọi hàm copy file vào thư mục app (IPC đã viết ở main.js)
-                const localFilePath = await electron.selectLocalFile(originalPath);
+                const localFilePath =
+                    await electron.selectLocalFile(originalPath);
 
                 scene.imageUrl = localFilePath;
                 this.saveData();
                 this.toastr.success('Đã tải file thành công!');
-
             } catch (error) {
                 console.error('Process error:', error);
                 this.toastr.error('Có lỗi xảy ra: ' + error);
@@ -217,7 +244,15 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     // Kiểm tra loại file để hiển thị img hoặc video
     isImageType(url: string): boolean {
-        const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'];
+        const imageExtensions = [
+            'jpg',
+            'jpeg',
+            'png',
+            'gif',
+            'bmp',
+            'webp',
+            'svg',
+        ];
         const cleanUrl = url.replace('file://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
         return fileExtension ? imageExtensions.includes(fileExtension) : true;
@@ -229,26 +264,30 @@ export class VideoTimelineDialogComponent implements OnInit {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '550px',
             disableClose: true, // Buộc dùng nút Hủy/Thêm
-            data: { subtitles: '', prompt: '' } // Khởi tạo data trống
+            data: { subtitles: '', prompt: '' }, // Khởi tạo data trống
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe((result) => {
             if (result && result.subtitles && result.prompt) {
                 // 'result' chứa data người dùng nhập
 
                 // 1. Chuyển đổi subtitles (chuỗi xuống dòng) thành mảng {id, text}
-                const subtitleTexts = result.subtitles.split('\n').filter((s: string) => s.trim() !== '');
-                const formattedSubtitles = subtitleTexts.map((text: string, index: number) => ({
-                    id: index + 1, // Tạm thời dùng index làm ID
-                    text: text.trim()
-                }));
+                const subtitleTexts = result.subtitles
+                    .split('\n')
+                    .filter((s: string) => s.trim() !== '');
+                const formattedSubtitles = subtitleTexts.map(
+                    (text: string, index: number) => ({
+                        id: index + 1, // Tạm thời dùng index làm ID
+                        text: text.trim(),
+                    }),
+                );
 
                 // 2. Tạo đối tượng Scene mới
                 const newScene = {
                     id: `manual_${Date.now()}`, // Tạo ID duy nhất
                     subtitles: formattedSubtitles,
                     prompt: result.prompt.trim(),
-                    imageUrl: null // Cảnh mới chưa có ảnh/video
+                    imageUrl: null, // Cảnh mới chưa có ảnh/video
                 };
 
                 // 3. Thêm cảnh mới vào cuối mảng scenes
@@ -263,7 +302,8 @@ export class VideoTimelineDialogComponent implements OnInit {
 
                 // Tùy chọn: Tự động scroll về cuối timeline
                 setTimeout(() => {
-                    this.scrollContainer.nativeElement.scrollLeft = this.scrollContainer.nativeElement.scrollWidth;
+                    this.scrollContainer.nativeElement.scrollLeft =
+                        this.scrollContainer.nativeElement.scrollWidth;
                 }, 100);
             }
         });
@@ -277,8 +317,10 @@ export class VideoTimelineDialogComponent implements OnInit {
             cb: () => {
                 // 1. Xóa phần tử khỏi mảng
                 this.projectData.scenes.splice(index, 1);
+
                 // 2. Lưu lại vào localStorage
                 this.saveData();
+
                 // 3. Thông báo cho người dùng
                 this.toastr.warning(`Đã xóa Scene #${index + 1}`);
             },
@@ -294,18 +336,18 @@ export class VideoTimelineDialogComponent implements OnInit {
             icon: {
                 show: true,
                 name: 'feather:check',
-                color: 'primary'
+                color: 'primary',
             },
             actions: {
                 confirm: {
                     show: true,
                     label: alert ? alert.confirm : 'Khởi động lại',
-                    color: 'primary'
+                    color: 'primary',
                 },
                 cancel: {
                     show: true,
-                    label: 'Đóng cửa sổ'
-                }
+                    label: alert ? alert.cancel : 'Đóng cửa sổ',
+                },
             },
             dismissible: true,
         });
@@ -317,7 +359,9 @@ export class VideoTimelineDialogComponent implements OnInit {
                     alert.cb();
                 }
             } else {
-
+                if (alert.cc) {
+                    alert.cc();
+                }
             }
         });
     }
