@@ -2460,19 +2460,21 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             };
 
             pdfMake.createPdf(docDefinition).download(`${this.uuid}.pdf`);
-
-            const link = btoa(
-                `${JSON.stringify([this.name, this.user.server, this.uuid])}`,
-            );
-
-            this.clipboard.copy(
-                `${this.config.settings.domain}/#/read/${link}`,
-            );
-
-            this.toastr.success(`Copy link thành công!`);
         } catch (error) {
             console.log(error);
         }
+    }
+
+    vialink() {
+        const link = btoa(
+            `${JSON.stringify([this.name, this.user.server, this.uuid])}`,
+        );
+
+        this.clipboard.copy(
+            `${this.config.settings.domain}/#/read/${link}`,
+        );
+
+        this.toastr.success(`Copy link thành công!`);
     }
 
     /**
