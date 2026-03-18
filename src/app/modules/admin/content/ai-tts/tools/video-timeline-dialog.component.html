@@ -1,7 +1,7 @@
 <div class="flex flex-row justify-between items-center pb-4 mb-4">
     <div class="flex items-center text-xl font-normal text-primary tracking-tight">
         <mat-icon class="mr-2 icon-size-5 text-primary" [svgIcon]="'feather:edit-3'"></mat-icon>
-        <span>Dựng kịch bản Video</span>
+        <span>Dựng kịch bản phát Livestream</span>
     </div>
 
     <button mat-icon-button (click)="close()">
@@ -75,17 +75,17 @@
 
 <div mat-dialog-actions class="flex flex-row justify-end gap-1 p-0 mt-6 pt-4 border-t border-gray-100">
     <button mat-raised-button class="bg-green-500 text-white" (click)="addNewScene()">
-        <mat-icon class="icon-size-4 mr-1">add</mat-icon>
-        <mat-label class="ml-2">Thêm mới</mat-label>
+        <mat-icon class="icon-size-4" [svgIcon]="'feather:dollar-sign'"></mat-icon>
+        <mat-label class="ml-2">Chèn quảng cáo 5s</mat-label>
     </button>
 
     <button mat-raised-button class="bg-blue-500 text-white" (click)="prepareForVideoGeneration()">
-        <mat-icon class="icon-size-4 mr-1">auto_awesome</mat-icon>
+        <mat-icon class="icon-size-4">auto_awesome</mat-icon>
         <mat-label class="ml-2">Tạo giọng đọc</mat-label>
     </button>
     <div class="flex-grow"></div>
     <button mat-flat-button color="primary" (click)="generateAllImages()">
-        <mat-icon class="mr-1 icon-size-4">voice_chat</mat-icon>
+        <mat-icon class="icon-size-4">voice_chat</mat-icon>
         <mat-label class="ml-2">Phát sóng</mat-label>
     </button>
 </div>
