@@ -44,14 +44,12 @@
                 <span class="ml-2">Chuyển *.mp3</span>
             </button>
 
-            <button class="bg-green-500" (click)="createVideo()" type="button" mat-flat-button [disabled]="isAnalyzing">
-                <span class="flex items-center justify-center text-white">
-                    <mat-progress-spinner *ngIf="isAnalyzing" class="text-white" [diameter]="16" [mode]="'indeterminate'"></mat-progress-spinner>
-                    <mat-icon *ngIf="!isAnalyzing" class="icon-size-4 text-white" [svgIcon]="'feather:video'"></mat-icon>
-                    <mat-label class="ml-2 text-white">
-                        {{ isAnalyzing ? 'Đang phân tích...' : 'Tạo video' }}
-                    </mat-label>
-                </span>
+            <button class="bg-green-500 flex items-center justify-center text-white" (click)="createVideo()" type="button" mat-flat-button [disabled]="isAnalyzing">
+                <mat-progress-spinner *ngIf="isAnalyzing" class="text-white" [diameter]="16" [mode]="'indeterminate'"></mat-progress-spinner>
+                <mat-icon *ngIf="!isAnalyzing" class="icon-size-4 text-white">voice_chat</mat-icon>
+                <mat-label class="ml-2 text-white">
+                    {{ isAnalyzing ? 'Đang phân tích...' : 'Phát sóng' }}
+                </mat-label>
             </button>
         </div>
     </div>
