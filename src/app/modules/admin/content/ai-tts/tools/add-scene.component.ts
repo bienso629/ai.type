@@ -20,13 +20,15 @@ import { MatIconModule } from '@angular/material/icon';
         MatIconModule
     ],
     template: `
-    <div class="p-2">
-        <h2 mat-dialog-title class="text-xl font-semibold text-gray-800 flex items-center">
-            <mat-icon class="mr-2 text-blue-600">add_to_photos</mat-icon>
-            Thêm Scene mới thủ công
-        </h2>
+    <div class="min-w-[480px] bg-white rounded-lg">
+        <div class="flex items-center justify-between mb-6">
+            <div class="flex items-center text-xl font-semibold text-primary">
+                <mat-icon class="mr-2 text-primary">add_to_photos</mat-icon>
+                Thêm Scene mới thủ công
+            </div>
+        </div>
         
-        <div mat-dialog-content class="flex flex-col gap-5 pt-4">
+        <div class="flex flex-col gap-5 pt-4">
             <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Subtitles (Mỗi câu thoại một dòng)</mat-label>
                 <textarea matInput [(ngModel)]="data.subtitles" rows="6" required 
@@ -47,8 +49,8 @@ import { MatIconModule } from '@angular/material/icon';
             <button mat-flat-button color="primary" 
                     [mat-dialog-close]="data" 
                     [disabled]="!data.subtitles?.trim() || !data.prompt?.trim()">
-                <mat-icon class="mr-1 icon-size-4">add_task</mat-icon>
-                Thêm vào Timeline
+                <mat-icon class="icon-size-5">add_task</mat-icon>
+                <mat-label class="ml-2">Thêm vào Timeline</mat-label>
             </button>
         </div>
     </div>
