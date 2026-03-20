@@ -216,6 +216,7 @@ function startGoService() {
 }
 
 // ================= DOWNLOAD CORE =================
+
 function inferExtFromUrl(url) {
     try {
         const u = new URL(url);
@@ -2539,11 +2540,11 @@ app.on("window-all-closed", () => {
 ipcMain.on('resize-window', (event, { width, height }) => {
     // Lấy cửa sổ hiện tại đang được focus (hoặc mainWindow)
     const win = BrowserWindow.getFocusedWindow() || mainWindow;
-    
+
     if (win) {
         // Đổi kích thước cửa sổ (true = có hiệu ứng animation resize mượt mà trên macOS/Windows)
         win.setSize(width, height, true);
-        
+
         // Căn giữa cửa sổ lại ra giữa màn hình để không bị lẹm ra ngoài
         win.center();
     }
