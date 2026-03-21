@@ -1353,7 +1353,13 @@ function resolvePreload() {
 }
 
 // ==== MAIN WINDOW ====
+let sideWindow = null;
+let isSplitMode = false;
+
 function createMainWindow() {
+    // 1. Lấy kích thước màn hình làm chuẩn
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+
     mainWindow = new BrowserWindow({
         width: 1440,
         height: 1080,
@@ -1362,7 +1368,7 @@ function createMainWindow() {
         alwaysOnTop: false,
         resizable: true,
         autoHideMenuBar: true,
-        show: true,
+        show: false,
         frame: true,
         webPreferences: {
             sandbox: false,
@@ -1462,6 +1468,43 @@ function createMainWindow() {
         ]),
     );
 }
+
+// 3. Logic điều khiển chia/ẩn màn hình 1/4
+ipcMain.on("toggle-split-layout", (event, shouldShow) => {
+    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
+    const mainWidth = Math.floor(width * 0.75);
+    const sideWidth = width - mainWidth;
+    isSplitMode = shouldShow;
+
+    if (isSplitMode) {
+        // Co cửa sổ chính về 3/4 bên trái
+        mainWindow.setBounds({ x: 0, y: 0, width: mainWidth, height: height }, true);
+
+        if (!sideWindow) {
+            sideWindow = new BrowserWindow({
+                width: sideWidth,
+                height: height,
+                x: mainWidth,
+                y: 0,
+                frame: false,
+                parent: mainWindow, // Gắn chặt vào mainWindow
+                webPreferences: {
+                    nodeIntegration: true,
+                    contextIsolation: false
+                }
+            });
+            // Load cùng URL nhưng có thể điều hướng bằng Hash hoặc Query param
+            sideWindow.loadURL(`${mainWindow.getURL()}#/side-panel`);
+        } else {
+            sideWindow.setBounds({ x: mainWidth, y: 0, width: sideWidth, height: height });
+            sideWindow.show();
+        }
+    } else {
+        // Ẩn cửa sổ phụ và trả main về toàn màn hình
+        if (sideWindow) sideWindow.hide();
+        mainWindow.setBounds({ x: 0, y: 0, width: width, height: height }, true);
+    }
+});
 
 // ==== TARGET WINDOW ====
 function createTargetWindow(

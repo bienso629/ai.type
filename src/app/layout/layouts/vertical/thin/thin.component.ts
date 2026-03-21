@@ -25,6 +25,8 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
     isScreenSmall: boolean;
     navigation: Navigation;
 
+    isSplitMode: boolean = false;
+
     public spin = true;
     public direction: Direction = 'up';
     public animationMode: AnimationMode = 'fling';
@@ -40,6 +42,14 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
      */
     get currentYear(): number {
         return new Date().getFullYear();
+    }
+
+    toggleSplit(): void {
+        this.isSplitMode = !this.isSplitMode;
+        if (window && (window as any).require) {
+            const ipc = (window as any).require('electron').ipcRenderer;
+            ipc.send('toggle-split-layout', this.isSplitMode);
+        }
     }
 
     // -----------------------------------------------------------------------------------------------------
