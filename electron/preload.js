@@ -51,8 +51,6 @@ contextBridge.exposeInMainWorld('electron', {
     },
     selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath }),
     resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
-    updateDivider: (x) => ipcRenderer.send('drag-divider', x),
-    toggleSideView: (visible) => ipcRenderer.send('toggle-side-view', visible),
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
