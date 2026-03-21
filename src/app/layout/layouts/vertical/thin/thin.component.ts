@@ -1,6 +1,6 @@
 import { AfterContentInit, AfterViewInit, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Router } from '@angular/router';
-import { forkJoin, Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil } from 'rxjs';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { FuseNavigationService, FuseVerticalNavigationComponent } from '@fuse/components/navigation';
 import { Navigation } from 'app/core/navigation/navigation.types';
@@ -25,8 +25,6 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
     isScreenSmall: boolean;
     navigation: Navigation;
 
-    isSplitMode: boolean = false;
-
     public spin = true;
     public direction: Direction = 'up';
     public animationMode: AnimationMode = 'fling';
@@ -42,14 +40,6 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
      */
     get currentYear(): number {
         return new Date().getFullYear();
-    }
-
-    toggleSplit(): void {
-        this.isSplitMode = !this.isSplitMode;
-        if (window && (window as any).require) {
-            const ipc = (window as any).require('electron').ipcRenderer;
-            ipc.send('toggle-split-layout', this.isSplitMode);
-        }
     }
 
     // -----------------------------------------------------------------------------------------------------
