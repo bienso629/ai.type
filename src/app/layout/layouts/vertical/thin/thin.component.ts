@@ -1,4 +1,4 @@
-import { AfterContentInit, AfterViewInit, Component, HostListener, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { AfterContentInit, AfterViewInit, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
@@ -29,39 +29,11 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
     public direction: Direction = 'up';
     public animationMode: AnimationMode = 'fling';
 
-    isSideViewVisible = false; // Mặc định ẩn
-    dividerX = window.innerWidth; // Khi ẩn, vùng main chiếm 100%
-
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     // -----------------------------------------------------------------------------------------------------
     // @ Accessors
     // -----------------------------------------------------------------------------------------------------
-
-    toggleSideView(): void {
-        this.isSideViewVisible = !this.isSideViewVisible;
-        
-        if (this.isSideViewVisible) {
-            this.dividerX = window.innerWidth * 0.75; // Hiện thì chia 3/4
-        } else {
-            this.dividerX = window.innerWidth; // Ẩn thì trả về full
-        }
-
-        if (window.electron) {
-            (window as any).electron.toggleSideView(this.isSideViewVisible);
-            if (this.isSideViewVisible) {
-                (window as any).electron.updateDivider(this.dividerX);
-            }
-        }
-    }
-    
-    // Thêm listener để update width khi resize cửa sổ app
-    @HostListener('window:resize')
-    onResize() {
-        if (!this.isSideViewVisible) {
-            this.dividerX = window.innerWidth;
-        }
-    }
 
     /**
      * Getter for current year

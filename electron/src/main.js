@@ -1,7 +1,6 @@
 const {
     app,
     BrowserWindow,
-    BrowserView,
     Menu,
     globalShortcut,
     screen,
@@ -895,8 +894,6 @@ let mainWindow;
 let targetWindow = null;
 let downloaderProcess = null;
 let typeProcess = null;
-let sideView; // View 1/4
-let isSideViewActive = false; // Trạng thái ẩn/hiện
 
 // ====== GOOGLE SEARCH CONSOLE OAUTH CONFIG ======
 const SCOPES_GSC = ["https://www.googleapis.com/auth/webmasters.readonly"];
@@ -1357,11 +1354,9 @@ function resolvePreload() {
 
 // ==== MAIN WINDOW ====
 function createMainWindow() {
-    const { width, height } = screen.getPrimaryDisplay().workAreaSize;
-
     mainWindow = new BrowserWindow({
-        width: width,
-        height: height,
+        width: 1440,
+        height: 1080,
         backgroundColor: "#212121",
         fullscreenable: true,
         alwaysOnTop: false,
@@ -1382,15 +1377,6 @@ function createMainWindow() {
         },
     });
 
-    // Khởi tạo cửa sổ phụ 1/4
-    sideView = new BrowserView({
-        webPreferences: {
-            nodeIntegration: false,
-            contextIsolation: true,
-            preload: resolvePreload(),
-        }
-    });
-
     const targetURL = "http://localhost:4200";
     const fallbackURL = `http://localhost:${fallbackPort}`;
 
@@ -1398,18 +1384,11 @@ function createMainWindow() {
         if (res.statusCode === 200) {
             sendToRenderer("tools-log", "[✓] Angular app đã chạy, loadURL");
             mainWindow.loadURL(targetURL);
-            sideView.webContents.loadURL(`https://zalo.me/zalo-chat`);
         } else {
             sendToRenderer("tools-log", "[!] Không mong muốn, dùng fallback");
             mainWindow.webPreferences.devTools = false; // Tắt devtools cho main window (vẫn mở được bằng shortcut nếu cần)
             loadFallback();
-            sideView.webContents.loadURL(`https://zalo.me/zalo-chat`);
         }
-    });
-
-    // Tắt scrollbar cho sideView bằng cách can thiệp vào CSS của nó
-    sideView.webContents.on('did-finish-load', () => {
-        sideView.webContents.insertCSS('html, body { overflow: hidden !important; }');
     });
 
     req.on("error", () => {
@@ -1418,12 +1397,7 @@ function createMainWindow() {
             "[x] Không kết nối được Angular → fallback",
         );
         loadFallback();
-        sideView.webContents.loadURL(`https://zalo.me/zalo-chat`);
     });
-
-    // Thiết lập vị trí 3/4 - 1/4 ban đầu
-    const initialDividerX = Math.floor(width * 0.75);
-    updateSplitLayout(initialDividerX);
 
     function loadFallback() {
         startFallbackServer();
@@ -1488,44 +1462,6 @@ function createMainWindow() {
         ]),
     );
 }
-
-// Hàm cập nhật kích thước SideView (Gọi khi kéo thả)
-function updateSplitLayout(dividerX) {
-    if (!mainWindow || !sideView) return;
-    const contentBounds = mainWindow.getContentBounds();
-
-    // SideView chiếm phần từ dividerX đến hết bên phải
-    sideView.setBounds({
-        x: dividerX,
-        y: 64, // Bắt đầu dưới Header
-        width: contentBounds.width - dividerX,
-        height: contentBounds.height - 64 - 56 // Trừ Header & Footer
-    });
-
-    if (!mainWindow.getBrowserView()) {
-        mainWindow.setBrowserView(sideView);
-    }
-}
-
-// Lắng nghe lệnh từ Angular gửi lên
-ipcMain.on('drag-divider', (event, x) => updateSplitLayout(x));
-ipcMain.on('toggle-side-view', (event, show) => {
-    mainWindow.setBrowserView(show ? sideView : null);
-});
-
-// Logic ẩn hiện dựa trên lệnh từ Frontend
-ipcMain.on('toggle-side-view', (event, shouldShow) => {
-    isSideViewActive = shouldShow;
-    if (isSideViewActive) {
-        mainWindow.setBrowserView(sideView);
-        // Cập nhật vị trí hiện tại
-        const bounds = mainWindow.getBounds();
-        const dividerX = Math.floor(bounds.width * 0.75); // Hoặc lấy dividerX từ frontend gửi lên
-        updateSplitLayout(dividerX);
-    } else {
-        mainWindow.setBrowserView(null);
-    }
-});
 
 // ==== TARGET WINDOW ====
 function createTargetWindow(
