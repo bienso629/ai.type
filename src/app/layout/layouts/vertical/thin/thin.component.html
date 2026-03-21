@@ -37,6 +37,11 @@
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:help-circle'"></mat-icon>
             </button>
 
+            <button mat-icon-button (click)="toggleSideView()" title="Ẩn/Hiện cửa sổ phụ">
+                <mat-icon
+                    [svgIcon]="isSideViewVisible ? 'heroicons_outline:chevron-right' : 'heroicons_outline:chevron-left'"></mat-icon>
+            </button>
+
             <!-- <input hidden type="file" class="file-input" (change)="readFile($event)" #fileUpload>
             <button mat-icon-button color="primary" (click)="fileUpload.click()">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:zap-off'"></mat-icon>
@@ -93,3 +98,19 @@
 
 <!-- Quick chat -->
 <quick-chat #quickChat="quickChat"></quick-chat>
+
+<div class="flex flex-row flex-auto w-full overflow-hidden relative">
+    <div [style.width.px]="dividerX" class="flex-none overflow-auto">
+        <router-outlet *ngIf="true"></router-outlet>
+    </div>
+
+    <div *ngIf="isSideViewVisible"
+         class="divider" 
+         (mousedown)="onMouseDown($event)"
+         [style.left.px]="dividerX - 3">
+    </div>
+
+    <div *ngIf="isSideViewVisible" class="flex-auto bg-gray-100 overflow-hidden">
+        <div *ngIf="isResizing" class="absolute inset-0 z-9999"></div>
+    </div>
+</div>
