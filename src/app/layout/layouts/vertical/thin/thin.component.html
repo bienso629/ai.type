@@ -88,17 +88,6 @@
                 <mat-icon class="spin360">edit</mat-icon>
             </button>
         </eco-fab-speed-dial-trigger>
-
-        <eco-fab-speed-dial-actions>
-            <button mat-mini-fab (click)="toggleSplit()" title="Chia màn hình 3/4">
-                <mat-icon
-                    [svgIcon]="isSplitMode ? 'heroicons_outline:view-columns' : 'heroicons_outline:stop'"></mat-icon>
-            </button>
-
-            <button mat-mini-fab [color]="'primary'" [routerLink]="['/ai-writer']">
-                <mat-icon class="icon-size-4" svgIcon="feather:edit-3"></mat-icon>
-            </button>
-        </eco-fab-speed-dial-actions>
     </eco-fab-speed-dial>
 </div>
 
