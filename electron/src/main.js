@@ -2794,3 +2794,40 @@ ipcMain.handle("ga:report", async (_event, args) => {
         };
     }
 });
+
+// Hàm gửi tin nhắn qua stdout cho Chrome Extension
+function sendToExtension(message) {
+    const buffer = Buffer.from(JSON.stringify(message));
+    const header = Buffer.alloc(4);
+    header.writeUInt32LE(buffer.length, 0);
+    process.stdout.write(header);
+    process.stdout.write(buffer);
+}
+
+// Lắng nghe dữ liệu từ Chrome Extension (stdin)
+process.stdin.on('readable', () => {
+    let input = process.stdin.read();
+    if (input) {
+        try {
+            // Bỏ qua 4 byte đầu (header độ dài của Chrome)
+            const message = JSON.parse(input.slice(4).toString());
+
+            // Chuyển tiếp vào màn hình Angular
+            if (mainWindow) {
+                mainWindow.webContents.send('new-zalo-message', message);
+            }
+        } catch (e) {
+            console.error("Lỗi nhận dữ liệu Native:", e);
+        }
+    }
+});
+
+// Lắng nghe Angular gửi tin nhắn trả lời
+ipcMain.on('reply-to-zalo', (event, replyData) => {
+    // Gửi lệnh ngược lại cho Extension để nó tự động điền và gửi
+    sendToExtension({
+        task: "SEND_REPLY",
+        phone: replyData.phone,
+        message: replyData.text
+    });
+});

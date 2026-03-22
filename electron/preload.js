@@ -51,6 +51,19 @@ contextBridge.exposeInMainWorld('electron', {
     },
     selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath }),
     resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
+    // Gửi tin nhắn từ Angular xuống Main
+    send: (channel, data) => {
+        let validChannels = ['command-to-zalo', 'reply-to-zalo'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.send(channel, data);
+        }
+    },
+    receive: (channel, func) => {
+        let validChannels = ['display-new-message', 'new-zalo-message'];
+        if (validChannels.includes(channel)) {
+            ipcRenderer.on(channel, (event, ...args) => func(...args));
+        }
+    }
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
