@@ -1,4 +1,4 @@
-import { AfterContentInit, AfterViewInit, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { AfterContentInit, AfterViewInit, Component, Inject, NgZone, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
@@ -28,6 +28,8 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
     public spin = true;
     public direction: Direction = 'up';
     public animationMode: AnimationMode = 'fling';
+
+    messages: any[] = [];
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -140,11 +142,21 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
         }
     }
 
+    // Gửi tin nhắn từ màn hình Angular về lại Zalo
+    sendReply(phone: string, text: string) {
+        (window as any).electron.ipcRenderer.send('reply-to-zalo', { phone, text });
+    }
+
+    autoReply(phone: string, text: string) {
+        this.sendReply(phone, text);
+    }
+
     /**
      * Constructor
      */
     constructor(
         private _fuseConfirmationService: FuseConfirmationService,
+        private ngZone: NgZone,
         private router: Router,
         public dialog: MatDialog,
         private _navigationService: NavigationService,
@@ -177,6 +189,27 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
                 // Check if the screen is small
                 this.isScreenSmall = !matchingAliases.includes('md');
             });
+
+        if ((window as any).electron && (window as any).electron.receive) {
+            // Lắng nghe tin nhắn mới từ Electron
+            (window as any).electron.receive('new-zalo-message', (data: any) => {
+                console.log('data', data);
+                alert(123123)
+
+                this.ngZone.run(() => {
+                    this.messages.push(data);
+
+                    console.log('this.messages', this.messages);
+
+                    // Nếu muốn Bot tự trả lời ngay lập tức
+                    if (data.isBotEnabled) {
+                        // this.autoReply(data.phone, "Chào bạn, đây là tin nhắn tự động!");
+                    }
+                });
+            });
+        } else {
+            console.error("Bridge Electron chưa được thiết lập!");
+        }
     }
 
     /**
