@@ -2140,7 +2140,7 @@ function startSttServer() {
 }
 
 // ==== APP EVENT ==== //
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
     const filter = {
         urls: [
             "*://*.type.vn/*",
@@ -2163,6 +2163,30 @@ app.whenReady().then(() => {
         }
         callback({ requestHeaders: details.requestHeaders });
     });
+
+    // Load extension vào session mặc định
+    try {
+        const zmp = path.join(
+            documentsDir,
+            "ai.type",
+            "data",
+            "zmp"
+        );
+
+        await session.defaultSession.loadExtension(zmp, {
+            allowFileAccess: true
+        });
+
+        sendToRenderer(
+            "tools-log",
+            `Extension đã được load thành công!`,
+        );
+    } catch (e) {
+        sendToRenderer(
+            "tools-log",
+            `Lỗi khi load extension: ${e}`,
+        );
+    }
 
     startGoService();
     startSttWebSocketServer();
