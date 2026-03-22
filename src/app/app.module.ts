@@ -1,4 +1,4 @@
-import { importProvidersFrom, NgModule } from '@angular/core';
+import { APP_INITIALIZER, importProvidersFrom, NgModule } from '@angular/core';
 import { BrowserModule, DomSanitizer } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ExtraOptions, PreloadAllModules, RouterModule } from '@angular/router';
@@ -17,6 +17,7 @@ import { appRoutes } from 'app/app.routing';
 // import function to register Swiper custom elements
 import { register } from 'swiper/element/bundle';
 import { MatIconRegistry } from '@angular/material/icon';
+import { MultiAccountService } from './modules/_services/multi-account.service';
 
 // register Swiper custom elements
 register();
@@ -60,6 +61,12 @@ const routerConfig: ExtraOptions = {
         AppComponent
     ],
     providers: [
+        {
+            provide: APP_INITIALIZER,
+            useFactory: initializeApp,
+            deps: [MultiAccountService],
+            multi: true
+        },
         importProvidersFrom(TranslocoCoreModule)
     ]
 })
@@ -74,5 +81,16 @@ export class AppModule {
         // iconRegistry.addSvgIconInNamespace('brand', 'zalo',
         //   sanitizer.bypassSecurityTrustResourceUrl('assets/icons/zalo.svg'));
     }
+}
+
+export function initializeApp(multiAccountService: MultiAccountService): () => Promise<any> {
+    return () =>
+        multiAccountService.isReady.then(() => {
+            const settings = multiAccountService.getItem('settings');
+            if (settings) {
+                // Ghi đè cấu hình settings vào appConfig trước khi các service khác sử dụng
+                Object.assign(appConfig.settings, settings);
+            }
+        });
 }
 

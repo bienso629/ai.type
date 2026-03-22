@@ -31,7 +31,7 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
 
                 <input hidden type="file" accept="application/pdf" class="file-input" (change)="upload($event)" #fileUpload>
                 <a mat-icon-button matSuffix class="ml-0" [matTooltip]="'Upload file lên CDN'" (click)="fileUpload.click()" [disabled]="loading">
-                    <mat-icon *ngIf="!loading" class="icon-size-4 text-current" [svgIcon]="'feather:file'"></mat-icon>
+                    <mat-icon *ngIf="!loading" class="icon-size-4 text-current" [svgIcon]="'feather:paperclip'"></mat-icon>
                     <mat-icon *ngIf="loading" class="animate-spin icon-size-5 text-primary" [svgIcon]="'feather:loader'"></mat-icon>
                 </a>
             </mat-form-field>
