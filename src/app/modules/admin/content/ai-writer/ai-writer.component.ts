@@ -557,20 +557,23 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         ) {
                             this.cloneing(result.data);
                         } else {
-                            this.loading = !this.loading;
+                            this.loading = false;
+                            this.cd.detectChanges();
                             this.toastr.error(
                                 'Không thể phân tích tài nguyên.',
                             );
                         }
                     },
                     error: () => {
-                        this.loading = !this.loading;
+                        this.loading = false;
+                        this.cd.detectChanges();
                         this.toastr.error('Không thể phân tích tài nguyên.');
                     },
                     complete: () => { },
                 });
         } else {
-            this.loading = !this.loading;
+            this.loading = false;
+            this.cd.detectChanges();
             this.toastr.warning('Bạn cần phải có Link tài nguyên.');
         }
     }
@@ -648,10 +651,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
 
-            this.loading = !this.loading;
+            this.loading = false;
+            this.cd.detectChanges();
         } catch (error) {
             this.toastr.error('Không thể tạo thành bài.');
-            this.loading = !this.loading;
+            this.loading = false;
+            this.cd.detectChanges();
         }
     }
 
@@ -3325,6 +3330,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.permissionText2Voice =
                     this._userService.permissionText2Voice(this.user);
 
+                this.alldomains();
+                this.synonymlocal();
+                this.openS();
+                this.forumCategory();
+                this.collection();
+
                 if (user.reputation < 0) {
                     this.error(
                         'Tài khoản của bạn không đủ điều kiện để truy cập!',
@@ -3366,12 +3377,6 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     ngAfterViewInit(): void {
         if (this.uuid) {
-            this.synonymlocal();
-            this.openS();
-            this.forumCategory();
-            this.alldomains();
-            this.collection();
-
             if (this.name === this.user.name) {
                 // chính chủ
                 this.author(this.name);
