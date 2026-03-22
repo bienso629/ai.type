@@ -130,7 +130,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         try {
             this.loading = true;
             this.chatgptForm.get('chatgpt').disable();
-            let parts: any[] = [{ text: question }];
+            let parts: any[] = [question];
 
             if (this.files) {
                 this.toastr.info('Đang tải file lên Gemini...');
@@ -158,7 +158,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
             // Gửi toàn bộ nội dung
             const result = await this.ai.models.generateContent({
                 model: 'gemini-2.5-flash', // Dùng bản 2.0 ổn định
-                contents: [{ role: 'user', parts: parts }]
+                contents: parts
             });
 
             if (result.text) {

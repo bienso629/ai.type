@@ -1,13 +1,30 @@
 .divider {
-    position: fixed;
+    position: absolute; // Dùng absolute để nó chạy theo container
     top: 0;
     bottom: 0;
-    width: 6px;
+    width: 8px; // Tăng độ rộng để dễ chạm
     cursor: col-resize;
-    background: rgba(255, 255, 255, 0.15);
-    z-index: 9999;
-}
+    z-index: 999999; // Cực cao
+    background: #3b82f6; // Màu xanh blue để dễ nhìn thấy trước
+    box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
 
-.divider:hover {
-    background: rgba(255, 255, 255, 0.4);
+    &:hover {
+        background: #2563eb;
+    }
+
+    &::after {
+        content: "";
+        position: absolute;
+        left: 50%;
+        width: 1px;
+        height: 100%;
+        background: var(--fuse-border); // Màu mờ mờ theo theme
+    }
+
+    &:hover::after,
+    &.active::after {
+        width: 2px;
+        background: #3b82f6; // Xanh blue khi hover/kéo
+        box-shadow: 0 0 10px rgba(59, 130, 246, 0.5);
+    }
 }
