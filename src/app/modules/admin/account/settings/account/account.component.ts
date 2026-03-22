@@ -47,8 +47,8 @@ export class SettingsAccountComponent implements OnInit {
                 profile: {
                     settings: settings,
                     active_info: this.multiAccountService.getItem('active_info'),
-                    editor: (editor && editor != 'undefined') ? JSON.parse(editor) : {},
-                    following_users: (following_users && following_users != 'undefined') ? JSON.parse(following_users) : [],
+                    editor: (editor && editor != 'undefined') ? editor : {},
+                    following_users: (following_users && following_users != 'undefined') ? following_users : [],
                 },
                 username: this.user.name
             })

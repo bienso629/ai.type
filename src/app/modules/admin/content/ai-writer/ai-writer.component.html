@@ -98,7 +98,7 @@
                     <div matTooltipPosition="above"
                         matTooltip="Tại sao dân content lại thích Spin Content? Click xem lý do."
                         class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-400 text-white">
-                        Bước 1
+                        Clone bài viết
                     </div>
                 </a>
 
@@ -607,7 +607,7 @@
                         <div class="flex flex-col gt-sm:flex-row px-3 pt-6 pb-3 sticky top-0 bg-white z-10">
                             <div
                                 class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-200 text-primary-700">
-                                Bước 2
+                                Sáng tạo nội dung
                             </div>
 
                             <div class="flex flex-row gt-sm:flex-row px-3">
@@ -797,7 +797,7 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH5>
                                             <mat-panel-title (click)="panelH5._toggle()" class="flex items-center">
-                                                <mat-label class="font-semibold">chuyển hình ảnh thành bài viết
+                                                <mat-label class="font-semibold">hình ảnh thành bài viết
                                                     ({{source.img.length}})</mat-label>
                                                 <input hidden type="file" multiple class="file-input"
                                                     (change)="createImg($event)" accept='image/*' #fileUpload>
@@ -858,7 +858,7 @@
                                         <mat-expansion-panel-header #panelPlaylistYoutube>
                                             <mat-panel-title (click)="panelPlaylistYoutube._toggle()"
                                                 class="flex flex-row items-center">
-                                                <mat-label class="font-semibold">biến video thành bài viết
+                                                <mat-label class="font-semibold">video thành bài viết
                                                     ({{source.playlist[0].youtube.length}})</mat-label>
 
                                                 <mat-label
@@ -2285,7 +2285,7 @@
                         <div class="flex flex-row w-full gt-sm:flex-row pt-6 px-6 pb-3 sticky top-0 bg-white z-10">
                             <div
                                 class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white">
-                                Bước 3
+                                Kết quả công việc
                             </div>
 
                             <mat-form-field *ngIf="uuid && details"
