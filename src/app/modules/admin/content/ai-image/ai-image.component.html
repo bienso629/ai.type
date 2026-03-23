@@ -101,7 +101,8 @@
                                     </div>
                                     <mat-hint align="start">Chúng tôi tạo hình ảnh bằng Nano Banana. Hoặc sử dụng công
                                         cụ
-                                        <a href="javascript:void(0)" (click)="createImgWithDreamina('https://dreamina.capcut.com')"
+                                        <a href="javascript:void(0)"
+                                            (click)="createImgWithDreamina('https://dreamina.capcut.com')"
                                             class="text-blue-500 hover:underline">Dreamina AI miễn phí</a></mat-hint>
                                 </mat-form-field>
 
@@ -133,31 +134,42 @@
                                                     *ngFor="let img of row.images; let i = index" [ngStyle]="{
                                                     flex: '0 0 ' + (100 / gridSize) + '%',
                                                 }">
-                                                    <img [src]="'file:///' + img"
-                                                        class="thumb w-full h-auto object-cover rounded-2xl" />
 
-                                                    <div class="thumb-actions">
-                                                        <button mat-icon-button
-                                                            class="hover:bg-white hover:bg-opacity-10"
-                                                            (click)="editImage(img)">
-                                                            <mat-icon class="icon-size-4 text-green-500"
-                                                                svgIcon="heroicons_outline:sparkles"></mat-icon>
-                                                        </button>
+                                                    <ng-container
+                                                        *ngIf="img.toLowerCase().endsWith('.mp4'); else imageTemplate">
+                                                        <video [src]="'file:///' + img"
+                                                            class="thumb w-full h-auto object-cover rounded-2xl"
+                                                            controls muted loop>
+                                                        </video>
+                                                    </ng-container>
 
-                                                        <button mat-icon-button
-                                                            class="hover:bg-white hover:bg-opacity-10"
-                                                            (click)="uploadImage(img)">
-                                                            <mat-icon class="icon-size-4 text-blue-500"
-                                                                svgIcon="feather:cloud"></mat-icon>
-                                                        </button>
+                                                    <ng-template #imageTemplate>
+                                                        <img [src]="'file:///' + img"
+                                                            class="thumb w-full h-auto object-cover rounded-2xl" />
 
-                                                        <button mat-icon-button
-                                                            class="hover:bg-white hover:bg-opacity-10"
-                                                            (click)="deleteImage(img, rowIndex * gridSize + i)">
-                                                            <mat-icon class="icon-size-4 text-red-500"
-                                                                svgIcon="feather:trash"></mat-icon>
-                                                        </button>
-                                                    </div>
+                                                        <div class="thumb-actions">
+                                                            <button mat-icon-button
+                                                                class="hover:bg-white hover:bg-opacity-10"
+                                                                (click)="editImage(img)">
+                                                                <mat-icon class="icon-size-4 text-green-500"
+                                                                    svgIcon="heroicons_outline:sparkles"></mat-icon>
+                                                            </button>
+
+                                                            <button mat-icon-button
+                                                                class="hover:bg-white hover:bg-opacity-10"
+                                                                (click)="uploadImage(img)">
+                                                                <mat-icon class="icon-size-4 text-blue-500"
+                                                                    svgIcon="feather:cloud"></mat-icon>
+                                                            </button>
+
+                                                            <button mat-icon-button
+                                                                class="hover:bg-white hover:bg-opacity-10"
+                                                                (click)="deleteImage(img, rowIndex * gridSize + i)">
+                                                                <mat-icon class="icon-size-4 text-red-500"
+                                                                    svgIcon="feather:trash"></mat-icon>
+                                                            </button>
+                                                        </div>
+                                                    </ng-template>
                                                 </div>
                                             </div>
                                         </ng-template>
