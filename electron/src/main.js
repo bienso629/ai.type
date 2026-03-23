@@ -2164,30 +2164,6 @@ app.whenReady().then(async () => {
         callback({ requestHeaders: details.requestHeaders });
     });
 
-    // Load extension vào session mặc định
-    try {
-        const zmp = path.join(
-            documentsDir,
-            "ai.type",
-            "data",
-            "zmp"
-        );
-
-        await session.defaultSession.loadExtension(zmp, {
-            allowFileAccess: true
-        });
-
-        sendToRenderer(
-            "tools-log",
-            `Extension đã được load thành công!`,
-        );
-    } catch (e) {
-        sendToRenderer(
-            "tools-log",
-            `Lỗi khi load extension: ${e}`,
-        );
-    }
-
     startGoService();
     startSttWebSocketServer();
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
@@ -2518,6 +2494,16 @@ app.whenReady().then(async () => {
                 });
                 break;
             }
+            case "zalo-crawl": {
+                const uniqueID = data.uniqueID || createUniqueID();
+                // createTargetWindow của bạn đã có cơ chế callback(url, id) khi 'did-finish-load'
+                // Chúng ta sẽ gọi zaloCrawlDirect ngay tại đó.
+                createTargetWindow(data.url, () => {
+                    // targetWindow lúc này đã được khởi tạo trong scope của main.js
+                    zaloCrawlDirect(targetWindow, uniqueID);
+                }, uniqueID);
+                break;
+            }
             default:
                 event.reply("tools-response", {
                     error: "Command không hỗ trợ!",
@@ -2795,39 +2781,74 @@ ipcMain.handle("ga:report", async (_event, args) => {
     }
 });
 
-// Hàm gửi tin nhắn qua stdout cho Chrome Extension
-function sendToExtension(message) {
-    const buffer = Buffer.from(JSON.stringify(message));
-    const header = Buffer.alloc(4);
-    header.writeUInt32LE(buffer.length, 0);
-    process.stdout.write(header);
-    process.stdout.write(buffer);
-}
+async function zaloCrawlDirect(tWindow, uniqueID) {
+    if (!tWindow) return;
 
-// Lắng nghe dữ liệu từ Chrome Extension (stdin)
-process.stdin.on('readable', () => {
-    let input = process.stdin.read();
-    if (input) {
-        try {
-            // Bỏ qua 4 byte đầu (header độ dài của Chrome)
-            const message = JSON.parse(input.slice(4).toString());
+    sendToRenderer("tools-log", "[Zalo-Direct] 🚀 Đang trích xuất dữ liệu từ 44 bảng...");
 
-            // Chuyển tiếp vào màn hình Angular
-            if (mainWindow) {
-                mainWindow.webContents.send('new-zalo-message', message);
+    try {
+        // Thực thi script lấy toàn bộ dữ liệu từ IndexedDB
+        const result = await tWindow.webContents.executeJavaScript(`
+            (async () => {
+                try {
+                    const uid = localStorage.getItem('sh_zlast_uid');
+                    if (!uid) return { error: "Không thấy UID" };
+                    const dbName = "zdb_" + uid;
+
+                    return new Promise((resolve) => {
+                        const req = indexedDB.open(dbName);
+                        req.onsuccess = async (e) => {
+                            const db = e.target.result;
+                            const storeNames = Array.from(db.objectStoreNames);
+                            const allData = {};
+
+                            for (const name of storeNames) {
+                                try {
+                                    allData[name] = await new Promise((resStore) => {
+                                        const transaction = db.transaction(name, "readonly");
+                                        const store = transaction.objectStore(name);
+                                        const getReq = store.getAll();
+                                        getReq.onsuccess = () => resStore(getReq.result);
+                                        getReq.onerror = () => resStore([]);
+                                    });
+                                } catch (err) { allData[name] = []; }
+                            }
+                            db.close();
+                            resolve({ success: true, uid, data: allData });
+                        };
+                        req.onerror = () => resolve({ error: "Open DB fail" });
+                    });
+                } catch (err) { return { error: err.message }; }
+            })()
+        `);
+
+        if (result.error) {
+            sendToRenderer("tools-log", "[Zalo-Direct] ⚠️ " + result.error);
+        } else {
+            // --- PHẦN GHI FILE ---
+            const timestamp = new Date().getTime();
+            const fileName = `zalo_dump_${result.uid}_${timestamp}.json`;
+            // Lưu vào Documents/ai.type/data/ (giống các project khác của bạn)
+            const saveDir = path.join(os.homedir(), "Documents", "ai.type", "data", "zalo");
+
+            if (!fs.existsSync(saveDir)) {
+                fs.mkdirSync(saveDir, { recursive: true });
             }
-        } catch (e) {
-            console.error("Lỗi nhận dữ liệu Native:", e);
-        }
-    }
-});
 
-// Lắng nghe Angular gửi tin nhắn trả lời
-ipcMain.on('reply-to-zalo', (event, replyData) => {
-    // Gửi lệnh ngược lại cho Extension để nó tự động điền và gửi
-    sendToExtension({
-        task: "SEND_REPLY",
-        phone: replyData.phone,
-        message: replyData.text
-    });
-});
+            const filePath = path.join(saveDir, fileName);
+            fs.writeFileSync(filePath, JSON.stringify(result.data, null, 2), "utf-8");
+
+            sendToRenderer("tools-log", `[Zalo-Direct] ✅ Đã lưu file: ${filePath}`);
+
+            // Trả về response có chứa 'path' để Angular không bị undefined
+            sendToRenderer("tools-response", {
+                action: "zalo-crawl",
+                success: true,
+                path: filePath, // Đường dẫn file thực tế
+                uid: result.uid
+            });
+        }
+    } catch (e) {
+        sendToRenderer("tools-log", "[Zalo-Direct] ❌ Lỗi: " + e.message);
+    }
+}

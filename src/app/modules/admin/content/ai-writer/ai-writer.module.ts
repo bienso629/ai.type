@@ -16,6 +16,7 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatBottomSheetModule } from '@angular/material/bottom-sheet';
 import { MatListModule } from '@angular/material/list';
 import { MatGridListModule } from '@angular/material/grid-list';
+import { MatBadgeModule } from '@angular/material/badge';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { MatMenuModule } from '@angular/material/menu';
 import { FuseAlertModule } from '@fuse/components/alert';
@@ -81,6 +82,7 @@ const Routes: Route[] = [{
         MatListModule,
         MatGridListModule,
         MatBottomSheetModule,
+        MatBadgeModule,
         ClipboardModule,
         MatExpansionModule,
         MatMenuModule,

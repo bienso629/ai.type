@@ -165,16 +165,27 @@ export class SettingsAccountComponent implements OnInit {
         this.save();
     }
 
+    // Trong SettingsAccountComponent
+
     async connectApps(url: string) {
-        // Tạo uniqueID mỗi lần chụp
-        // Khi bấm "Đăng nhập Facebook"
         this.uniqueID = Math.random().toString(36).substr(2, 9);
-        (window as any).electron.tools({
-            command: 'facebook-login',
-            url: url,
-            uniqueID: this.uniqueID,
-            cookiePath: this.fbCookiePath // Đường dẫn file cookie .json đã lưu
-        });
+
+        // Nếu là Zalo thì gọi lệnh crawl đặc biệt
+        if (url.includes('zalo')) {
+            (window as any).electron.tools({
+                command: 'zalo-crawl',
+                url: 'https://chat.zalo.me', // URL chính xác của bản web
+                uniqueID: this.uniqueID
+            });
+        } else {
+            // Các logic cũ cho Facebook...
+            (window as any).electron.tools({
+                command: 'facebook-login',
+                url: url,
+                uniqueID: this.uniqueID,
+                cookiePath: this.fbCookiePath
+            });
+        }
     }
 
     async downloadCookie() {
@@ -227,7 +238,7 @@ export class SettingsAccountComponent implements OnInit {
             });
 
         // Nhận phản hồi
-        this.unsubscribeRes = (window as any).electron.onToolsResponse((data: { action: string; success: any; cookies: any; file: any; }) => {
+        this.unsubscribeRes = (window as any).electron.onToolsResponse((data: any) => {
             if (data.action === 'get-facebook-cookies' && data.success) {
                 console.log('Cookies:', data.cookies); // Array cookie
                 console.log('Đã lưu file:', data.file); // Đường dẫn file .json trong Documents
@@ -240,6 +251,9 @@ export class SettingsAccountComponent implements OnInit {
             else if (data.action === 'facebook-crawl' && data.success) {
                 console.log('Crawl Facebook thành công:', data);
                 // this.toastr.success('Crawl Facebook thành công!');
+            } else if (data.action === 'zalo-crawl' && data.success) {
+                this.toastr.success(`Đã trích xuất dữ liệu Zalo (UID: ${data.uid})`);
+                console.log('File saved at:', data.path);
             }
             else {
                 console.error('Lỗi:', data);
@@ -294,7 +308,7 @@ export class SettingsAccountComponent implements OnInit {
     ngOnDestroy(): void {
         if (this.unsubscribeLog) this.unsubscribeLog();
         if (this.unsubscribeRes) this.unsubscribeRes();
-        
+
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
