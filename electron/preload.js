@@ -54,88 +54,64 @@ contextBridge.exposeInMainWorld('electron', {
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
+// Tìm đoạn IIFE Dreamina trong preload.js và thay thế bằng logic này:
 (() => {
-    const SELECTOR = 'img[data-apm-action="ai-generated-image-detail-card"]';
-    // ... code dreamina cũ của bạn ...
-    let observer = null;
-    let started = false;
+    const dbg = (msg) => { try { ipcRenderer.send('dreamina:debug', `[Preload-Click] ${msg}`); } catch { } };
     const seenSrc = new Set();
-    const dbg = (msg) => { try { ipcRenderer.send('dreamina:debug', msg); } catch { } };
-    const pickImgSrc = (imgEl) => {
-        if (!imgEl) return null;
-        let src = imgEl.getAttribute('src') || imgEl.currentSrc || '';
-        if (!src) {
-            const srcset = imgEl.getAttribute('srcset');
-            if (srcset) {
-                const parts = srcset.split(',').map(s => s.trim()).filter(Boolean);
-                if (parts.length) src = parts[parts.length - 1].split(/\s+/)[0];
-            }
+
+    // Hàm trích xuất link từ element
+    const getMediaSrc = (el) => {
+        if (!el) return null;
+
+        // 1. Kiểm tra nếu là VIDEO
+        if (el.tagName === 'VIDEO') return el.src || el.getAttribute('src') || el.currentSrc;
+
+        // 2. Kiểm tra nếu là IMG
+        if (el.tagName === 'IMG') {
+            return el.currentSrc || el.src || el.getAttribute('data-src');
         }
-        if (!src) {
-            const dataSrc = imgEl.getAttribute('data-src');
-            if (dataSrc) src = dataSrc;
-        }
-        return src || null;
+
+        // 3. Nếu click trúng div bọc, tìm sâu bên trong 1 cấp
+        const childMedia = el.querySelector('video, img');
+        if (childMedia) return getMediaSrc(childMedia);
+
+        return null;
     };
-    const reportImg = (img) => {
-        const src = pickImgSrc(img);
-        if (!src) return;
-        if (seenSrc.has(src)) return;
-        seenSrc.add(src);
-        dbg(`[preload] found detail img: ${String(src).slice(0, 120)}…`);
-        ipcRenderer.send('dreamina:image-found', { src });
-    };
-    const scanExisting = () => {
-        try {
-            const imgs = document.querySelectorAll(SELECTOR);
-            dbg(`[preload] scanExisting: ${imgs.length}`);
-            if (!imgs || !imgs.length) return;
-            reportImg(imgs[imgs.length - 1]);
-        } catch (e) {
-            dbg(`[preload] scanExisting error: ${e.message}`);
-        }
-    };
-    const startObserver = () => {
-        if (observer) return;
-        dbg('[preload] startObserver');
-        observer = new MutationObserver((muts) => {
-            for (const m of muts) {
-                if (m.type !== 'childList') continue;
-                for (const node of (m.addedNodes || [])) {
-                    if (!node || node.nodeType !== 1) continue;
-                    if (node.tagName === 'IMG' && node.getAttribute('data-apm-action') === 'ai-generated-image-detail-card') {
-                        reportImg(node);
-                    }
-                    if (node.querySelectorAll) {
-                        const imgs = node.querySelectorAll(SELECTOR);
-                        if (imgs.length) reportImg(imgs[imgs.length - 1]);
-                    }
-                }
-            }
-        });
-        try {
-            observer.observe(document.documentElement || document.body, { childList: true, subtree: true });
-        } catch (e) {
-            dbg(`[preload] observer.observe error: ${e.message}`);
+
+    const handleGlobalClick = (e) => {
+        // Lấy element thực sự bị click
+        const target = e.target;
+        const src = getMediaSrc(target);
+
+        if (src && !src.startsWith('data:') && !src.startsWith('blob:')) {
+            if (seenSrc.has(src)) return;
+            seenSrc.add(src);
+
+            const isVid = target.tagName === 'VIDEO' || src.includes('video');
+            dbg(`Phát hiện click vào ${isVid ? 'VIDEO' : 'IMG'}: ${src.slice(0, 60)}...`);
+
+            // Gửi về main.js
+            ipcRenderer.send('dreamina:image-found', { src });
         }
     };
+
+    // Lắng nghe sự kiện click trên toàn bộ trang web
     const boot = () => {
-        if (started) return;
-        started = true;
-        dbg('[preload] boot()');
-        scanExisting();
-        startObserver();
+        dbg('Chế độ Click-to-Download đã kích hoạt.');
+        // Dùng capture phase để bắt sự kiện trước khi script của trang web chặn lại
+        document.addEventListener('click', handleGlobalClick, true);
     };
+
+    // Khởi chạy
     if (document.readyState === 'loading') {
         window.addEventListener('DOMContentLoaded', boot, { once: true });
     } else {
         boot();
     }
-    ipcRenderer.on('dreamina:start', () => { dbg('[preload] dreamina:start'); boot(); });
+
+    ipcRenderer.on('dreamina:start', boot);
     ipcRenderer.on('dreamina:stop', () => {
-        dbg('[preload] dreamina:stop');
-        if (observer) { try { observer.disconnect(); } catch { } observer = null; }
-        started = false;
+        document.removeEventListener('click', handleGlobalClick, true);
     });
 })();
 
@@ -145,7 +121,6 @@ contextBridge.exposeInMainWorld('electron', {
 
     const startTikTokObserver = () => {
         log('Bắt đầu quét bypass Lazy Load (srcset + alt)...');
-
         const observer = new MutationObserver(() => {
             const container = document.querySelector('[data-e2e="user-post-item-list"]') || document.body;
             const anchors = container.querySelectorAll('a[href*="/video/"]');
