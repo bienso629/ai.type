@@ -217,28 +217,45 @@ function startGoService() {
 
 // ================= DOWNLOAD CORE =================
 
+// Cập nhật hàm phụ này để đoán đuôi file chính xác
 function inferExtFromUrl(url) {
     try {
         const u = new URL(url);
-        const fmt = u.searchParams.get("format"); // ví dụ ".webp"
-        if (fmt && /^\.\w{3,5}$/i.test(fmt)) return fmt.toLowerCase();
+        // Kiểm tra link video Capcut/Dreamina
+        if (u.href.includes('video/tos') || u.href.includes('mime_type=video_mp4')) {
+            return '.mp4';
+        }
+        
+        // Logic cũ của bạn cho ảnh
         const base = path.basename(u.pathname);
-        const m = base.match(/\.(webp|jpg|jpeg|png|gif|bmp|avif)$/i);
+        const m = base.match(/\.(webp|jpg|jpeg|png|gif|avif|mp4)$/i);
         if (m) return "." + m[1].toLowerCase();
     } catch { }
     return ".jpg";
 }
 
+// 2. Hàm download giữ nguyên tên, nhưng xử lý được mọi loại file binary
 function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
     return new Promise(async (resolve, reject) => {
         try {
             await fs.promises.mkdir(outDir, { recursive: true });
-            const ext = inferExtFromUrl(url);
-            const hash = crypto
-                .createHash("md5")
-                .update(url)
-                .digest("hex")
-                .slice(0, 10);
+
+            // Logic nhận diện đuôi file mở rộng
+            let ext = ".jpg";
+            try {
+                const u = new URL(url);
+                // Kiểm tra nếu là link video từ Capcut/Dreamina
+                if (u.href.includes('mime_type=video_mp4') || u.pathname.endsWith('.mp4')) {
+                    ext = '.mp4';
+                } else {
+                    // Dùng hàm infer của bạn cho các trường hợp ảnh
+                    ext = inferExtFromUrl(url);
+                }
+            } catch (e) {
+                ext = ".jpg";
+            }
+
+            const hash = crypto.createHash("md5").update(url).digest("hex").slice(0, 10);
             const filename = `${filenamePrefix}${Date.now()}_${hash}${ext}`;
             const outPath = path.join(outDir, filename);
 
@@ -246,38 +263,30 @@ function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
                 url,
                 {
                     headers: {
-                        "User-Agent":
-                            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
-                        "Accept-Language": "en-US,en;q=0.9,vi;q=0.8",
-                        Referer: "https://www.tiktok.com/",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                        "Referer": "https://dreamina.capcut.com/",
                     },
                 },
                 (res) => {
-                    if (
-                        res.statusCode >= 300 &&
-                        res.statusCode < 400 &&
-                        res.headers.location
-                    ) {
-                        https
-                            .get(res.headers.location, (r2) => {
-                                const ws = fs.createWriteStream(outPath);
-                                r2.pipe(ws);
-                                ws.on("finish", () => resolve(outPath));
-                                ws.on("error", reject);
-                            })
-                            .on("error", reject);
+                    // Xử lý Redirect (nếu có)
+                    if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+                        https.get(res.headers.location, (r2) => {
+                            const ws = fs.createWriteStream(outPath);
+                            r2.pipe(ws);
+                            ws.on("finish", () => resolve(outPath));
+                        }).on("error", reject);
                         return;
                     }
+
                     if (res.statusCode !== 200) {
-                        reject(new Error(`HTTP ${res.statusCode}`));
-                        return;
+                        return reject(new Error(`HTTP ${res.statusCode}`));
                     }
+
                     const ws = fs.createWriteStream(outPath);
                     res.pipe(ws);
                     ws.on("finish", () => resolve(outPath));
                     ws.on("error", reject);
-                },
+                }
             );
             req.on("error", reject);
         } catch (e) {
@@ -287,20 +296,14 @@ function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
 }
 
 // ================= DREAMINA ENTRY (AUTO DOWNLOAD) =================
+// FULL CODE hàm createImageByDreamina (giữ nguyên tên)
 function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
-    const outDir =
-        options.outDir || path.join(app.getPath("pictures"), "Dreamina");
-    const maxImages = Number.isFinite(options.maxImages)
-        ? options.maxImages
-        : 100;
+    const outDir = options.outDir || path.join(app.getPath("pictures"), "Dreamina");
+    const maxImages = Number.isFinite(options.maxImages) ? options.maxImages : 100;
     const filenamePrefix = options.filenamePrefix || "dreamina_";
 
-    if (!targetWindow || targetWindow.isDestroyed()) {
-        sendToRenderer("tools-log", "[Dreamina] ❌ Không có targetWindow.");
-        return;
-    }
+    if (!targetWindow || targetWindow.isDestroyed()) return;
 
-    // chống tải trùng/lặp quá nhiều
     const seen = new Set();
     let saved = 0;
 
@@ -308,43 +311,25 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
         const src = payload?.src;
         if (!src || seen.has(src) || saved >= maxImages) return;
         seen.add(src);
+
         try {
+            // downloadImage sẽ tự dùng inferExtFromUrl để lưu .mp4 hoặc .jpg
             const p = await downloadImage(src, outDir, filenamePrefix);
             saved += 1;
-            sendToRenderer("tools-log", `[Dreamina] ✅ Đã tải: ${p}`);
+
+            const isVid = p.toLowerCase().endsWith('.mp4');
+            sendToRenderer("tools-log", `[Dreamina] ${isVid ? '🎬 Video' : '✅ Ảnh'} đã tải: ${path.basename(p)}`);
         } catch (e) {
-            sendToRenderer(
-                "tools-log",
-                `[Dreamina] ❌ Lỗi tải ${src}: ${e.message}`,
-            );
+            sendToRenderer("tools-log", `[Dreamina] ❌ Lỗi: ${e.message}`);
         }
     };
 
-    const onDebug = (_evt, msg) => sendToRenderer("tools-log", String(msg));
-
     ipcMain.on("dreamina:image-found", onFound);
-    ipcMain.on("dreamina:debug", onDebug);
+    ipcMain.on("dreamina:debug", (_evt, msg) => sendToRenderer("tools-log", String(msg)));
 
-    // Báo preload (dù preload tự boot)
-    try {
-        targetWindow.webContents.send("dreamina:start");
-    } catch { }
-
-    // Dọn dẹp theo vòng đời cửa sổ
-    const wc = targetWindow.webContents;
-    const cleanup = () => {
+    targetWindow.once("closed", () => {
         ipcMain.removeListener("dreamina:image-found", onFound);
-        ipcMain.removeListener("dreamina:debug", onDebug);
-        try {
-            wc.send("dreamina:stop");
-        } catch { }
-    };
-    targetWindow.once("closed", cleanup);
-
-    sendToRenderer(
-        "tools-log",
-        `[Dreamina] 👀 Tự động tải khi ảnh chi tiết xuất hiện… (uniqueID=${uniqueID})`,
-    );
+    });
 }
 
 // Hàm dùng để set cookie vào session
