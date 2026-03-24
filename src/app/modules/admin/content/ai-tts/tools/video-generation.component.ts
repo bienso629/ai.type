@@ -26,7 +26,7 @@ import { ToastrService } from 'ngx-toastr';
     ],
     template: `
         <div class="p-0 min-w-[480px] bg-white rounded-lg">
-            <div class="flex items-center justify-between mb-6 border-b pb-4">
+            <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center text-primary">
                     <mat-icon class="mr-2 icon-size-5 text-primary"
                         >bolt</mat-icon
@@ -52,7 +52,7 @@ import { ToastrService } from 'ngx-toastr';
                     </p>
                 </div>
 
-                <mat-form-field appearance="outline" class="w-full mt-2">
+                <mat-form-field appearance="outline" class="w-full fuse-mat-dense" subscriptSizing="dynamic">
                     <mat-label>Giọng đọc (Voice)</mat-label>
                     <mat-select [(ngModel)]="selectedVoice">
                         <mat-option *ngFor="let v of voiceList" [value]="v.id">
@@ -65,10 +65,17 @@ import { ToastrService } from 'ngx-toastr';
                     <mat-label>Tốc độ (Rate)</mat-label>
                     <mat-select [(ngModel)]="selectedRate">
                         <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
+                        <mat-option [value]="0.6">0.6x</mat-option>
+                        <mat-option [value]="0.7">0.7x</mat-option>
                         <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                        <mat-option [value]="0.9">0.9x</mat-option>
                         <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
-                        <mat-option [value]="1.2">1.2x (Nhanh)</mat-option>
+                        <mat-option [value]="1.1">1.1x</mat-option>
+                        <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
+                        <mat-option [value]="1.3">1.3x</mat-option>
+                        <mat-option [value]="1.4">1.4x</mat-option>
                         <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
+                        <mat-option [value]="1.7">1.7x</mat-option>
                         <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
                     </mat-select>
                     <mat-icon matSuffix class="icon-size-5">speed</mat-icon>
@@ -77,11 +84,17 @@ import { ToastrService } from 'ngx-toastr';
                 <mat-form-field appearance="outline" class="w-full fuse-mat-dense" subscriptSizing="dynamic">
                     <mat-label>Cao độ (Pitch)</mat-label>
                     <mat-select [(ngModel)]="selectedPitch">
+                        <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
+                        <mat-option [value]="-15">-15</mat-option>
                         <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
                         <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
+                        <mat-option [value]="-2">-2 (Hơi trầm)</mat-option>
                         <mat-option [value]="0">0 (Mặc định)</mat-option>
+                        <mat-option [value]="2">+2 (Hơi cao)</mat-option>
                         <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
                         <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                        <mat-option [value]="15">+15</mat-option>
+                        <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
                     </mat-select>
                     <mat-icon matSuffix class="icon-size-5">graphic_eq</mat-icon>
                 </mat-form-field>
