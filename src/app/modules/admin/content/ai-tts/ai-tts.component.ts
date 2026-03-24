@@ -124,24 +124,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (this.isGlobalProcessing) return;
         this.isGlobalProcessing = true;
-        this.toastr.info(
-            `Bắt đầu xử lý song song ${pendingClips.length} mục...`,
-            'System',
-        );
 
-        // [SONG SONG] Tạo mảng các Promises để chạy cùng lúc
-        const tasks = pendingClips.map((clip) => this.generateAudio(clip));
+        // Chia nhỏ danh sách để xử lý theo batch (tránh treo máy)
+        const batchSize = 5;
+        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Batch size: ${batchSize})...`);
 
-        try {
-            // Đợi tất cả chạy xong
-            await Promise.all(tasks);
-            this.toastr.success('Đã hoàn tất quá trình xử lý!');
-        } catch (err) {
-            console.error('Batch error:', err);
-        } finally {
-            this.isGlobalProcessing = false;
-            this.cd.markForCheck();
+        for (let i = 0; i < pendingClips.length; i += batchSize) {
+            const batch = pendingClips.slice(i, i + batchSize);
+            await Promise.all(batch.map(clip => this.generateAudio(clip)));
+
+            // Nghỉ một chút giữa các batch để máy "thở"
+            await new Promise(r => setTimeout(r, 500));
         }
+
+        this.isGlobalProcessing = false;
+        this.toastr.success('Đã hoàn tất toàn bộ danh sách!');
+        this.cd.markForCheck();
     }
 
     async generateAudio(clip: AudioClip): Promise<void> {
@@ -228,6 +226,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             filename: niceFilename,
             username: subPath,
         };
+
+        console.log('payload', payload);
 
         try {
             const res = await (window as any).electron.invoke(
@@ -1100,6 +1100,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     genaralImageFromPrompt(done: any): Promise<string | null> {
         return Promise.resolve(null);
+    }
+
+    /**
+ * Áp dụng cấu hình hàng loạt cho tất cả các clip chưa có file upload
+ */
+    applyBulkSettings(voice: string, rate: number, pitch: number): void {
+        if (!this.audioList || this.audioList.length === 0) return;
+
+        let count = 0;
+        this.audioList.forEach(clip => {
+            // Chỉ áp dụng cho các clip dạng text (không phải file audio người dùng tự upload lên)
+            if (!clip.file) {
+                if (voice) clip.voice = voice;
+                if (rate !== undefined) clip.rate = rate;
+                if (pitch !== undefined) clip.pitch = pitch;
+                count++;
+            }
+        });
+
+        if (count > 0) {
+            this.saveToLocal(); // Lưu vào IndexedDB ngay
+            this.toastr.success(`Đã cập nhật cấu hình cho ${count} clips thành công!`);
+            this.cd.markForCheck();
+        }
     }
 
     detail(uuid: string, name: string) {

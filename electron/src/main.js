@@ -225,7 +225,7 @@ function inferExtFromUrl(url) {
         if (u.href.includes('video/tos') || u.href.includes('mime_type=video_mp4')) {
             return '.mp4';
         }
-        
+
         // Logic cũ của bạn cho ảnh
         const base = path.basename(u.pathname);
         const m = base.match(/\.(webp|jpg|jpeg|png|gif|avif|mp4)$/i);
@@ -1583,53 +1583,31 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
  */
 async function generateEdgeAudioByExe(text, voice, outputPath, rate, pitch) {
     return new Promise((resolve, reject) => {
-        // Kiểm tra file exe có tồn tại không
         if (!fs.existsSync(edgeTtsExe)) {
-            return reject(
-                new Error(
-                    `Không tìm thấy file Edge TTS Core tại: ${edgeTtsExe}`,
-                ),
-            );
+            return reject(new Error(`Không tìm thấy file Edge TTS Core tại: ${edgeTtsExe}`));
         }
 
+        // [SỬA TẠI ĐÂY]: Sử dụng cú pháp --key=value để tránh lỗi tham số âm
         const args = [
-            "--text",
-            text,
-            "--voice",
-            voice,
-            "--output",
-            outputPath,
-            "--rate",
-            rate || "+0%", // Có thể tùy chỉnh nếu muốn
-            "--pitch",
-            pitch || "+0Hz",
+            `--text=${text}`,
+            `--voice=${voice}`,
+            `--output=${outputPath}`,
+            `--rate=${rate || "+0%"}`,
+            `--pitch=${pitch || "+0Hz"}`,
         ];
 
         sendToRenderer("tools-log", `[TTS-Exe] Executing: ${edgeTtsExe} ...`);
 
-        // Gọi process
         execFile(edgeTtsExe, args, (error, stdout, stderr) => {
             if (error) {
-                sendToRenderer(
-                    "tools-log",
-                    `[TTS-Exe] Error: ${stderr || error.message}`,
-                );
+                sendToRenderer("tools-log", `[TTS-Exe] Error: ${stderr || error.message}`);
                 return reject(error);
             }
 
-            // stdout sẽ in ra "SUCCESS|path/to/file" theo code Python ở trên
-            if (stdout.includes("SUCCESS|")) {
+            if (stdout.includes("SUCCESS|") || (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0)) {
                 resolve(outputPath);
             } else {
-                // Trường hợp chạy xong nhưng không báo success (hiếm gặp)
-                if (
-                    fs.existsSync(outputPath) &&
-                    fs.statSync(outputPath).size > 0
-                ) {
-                    resolve(outputPath);
-                } else {
-                    reject(new Error("Unknown error from Edge TTS executable"));
-                }
+                reject(new Error("Unknown error from Edge TTS executable"));
             }
         });
     });
@@ -1663,15 +1641,17 @@ ipcMain.handle('select-local-file', async (event, { filePath }) => {
 // 1. Hàm tạo Audio - Lưu vào Documents/ai.type/data/tts/...
 ipcMain.handle("tts-generate", async (event, payload) => {
     try {
-        const { text, voice, filename, username } = payload;
+        const { text, voice, rate, pitch, filename, username } = payload;
 
-        // [THAY ĐỔI Ở ĐÂY] Lấy đường dẫn thư mục Documents của hệ điều hành
-        // Windows: C:\Users\Wing386\Documents
-        // Mac: /Users/Wing386/Documents
+        // Format Rate: 1.2 -> "+20%", 0.8 -> "-20%"
+        const rateVal = Math.round(((rate || 1) - 1) * 100);
+        const formattedRate = rateVal >= 0 ? `+${rateVal}%` : `${rateVal}%`;
+
+        // Format Pitch: 5 -> "+5Hz", -10 -> "-10Hz"
+        // Quan trọng: Dấu trừ của số âm sẽ tự xuất hiện khi chuyển thành chuỗi
+        const formattedPitch = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
+
         const documentsPath = app.getPath("documents");
-
-        // Tạo đường dẫn mong muốn: Documents/ai.type/data/tts/[username]
-        // username ở đây là "admin" hoặc "anonymous" tùy frontend gửi lên
         const saveDir = path.join(
             documentsPath,
             "ai.type",
@@ -1680,25 +1660,23 @@ ipcMain.handle("tts-generate", async (event, payload) => {
             username || "anonymous",
         );
 
-        // Tạo thư mục nếu chưa có (recursive: true sẽ tự tạo cả chuỗi thư mục cha con)
         if (!fs.existsSync(saveDir)) {
             fs.mkdirSync(saveDir, { recursive: true });
         }
 
-        // Đường dẫn file MP3 đích
         const filePath = path.join(
             saveDir,
             filename.endsWith(".mp3") ? filename : `${filename}.mp3`,
         );
 
-        await generateEdgeAudioByExe(text, voice, filePath, "+0%", "+0Hz");
+        // [THAY ĐỔI]: Truyền biến đã format vào đây
+        await generateEdgeAudioByExe(text, voice, filePath, formattedRate, formattedPitch);
 
-        // Trả kết quả
         if (fs.existsSync(filePath)) {
             return {
                 success: true,
                 url: `file://${filePath}`,
-                filePath: filePath, // Trả về đường dẫn tuyệt đối mới
+                filePath: filePath,
             };
         } else {
             return { success: false, error: "File chưa được tạo ra." };
