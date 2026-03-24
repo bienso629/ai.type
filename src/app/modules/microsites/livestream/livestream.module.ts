@@ -7,7 +7,7 @@ import { LivestreamComponent } from 'app/modules/microsites/livestream/livestrea
 
 const Routes: Route[] = [
     {
-        path: '',
+        path: ':uuid',
         component: LivestreamComponent
     }
 ];

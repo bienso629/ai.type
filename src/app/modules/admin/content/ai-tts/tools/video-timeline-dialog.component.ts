@@ -160,12 +160,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 // Khi người dùng bấm "Tiếp tục Production"
                 // Đóng Timeline và ném bộ data HOÀN CHỈNH này ra ngoài cho ai-tts.component.ts xử lý tiếp
                 this.dialogRef.close(this.projectData);
-
-                this.router.navigate(['/livestream'], {
-                    queryParams: {
-                        uuid: this.projectData.uuid || 'unknown_project',
-                    },
-                });
+                this.router.navigate(['/livestream', this.projectData.uuid || 'unknown_project']);
             },
             cc: () => {
                 this.toastr.info('Hủy tiến trình tạo Audio.');

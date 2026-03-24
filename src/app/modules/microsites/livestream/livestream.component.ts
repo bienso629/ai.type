@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
-import { Router } from '@angular/router';
+import { ActivatedRoute, Params, Router } from '@angular/router';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'livestream',
@@ -11,6 +12,11 @@ import { Router } from '@angular/router';
     encapsulation: ViewEncapsulation.None
 })
 export class LivestreamComponent implements OnInit, OnDestroy {
+    private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
+    private readonly STORAGE_AUDIO_KEY = 'ai_type_audio_merger_data';
+
+    uuid: string = '';
+
     // Để trống ban đầu, sẽ load từ localStorage
     projectData: any = null;
 
@@ -45,37 +51,47 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     constructor(
         private titleService: Title,
         private router: Router,
+        private multiAccountService: MultiAccountService,
         public dialog: MatDialog,
+        private route: ActivatedRoute,
         private cd: ChangeDetectorRef
     ) {
         this.audioPlayer = new Audio();
     }
 
     ngOnInit() {
-        // 1. Load dữ liệu từ localStorage
-        const rawData = localStorage.getItem('ai_type_video_ready_data');
-        if (rawData) {
-            try {
-                this.projectData = JSON.parse(rawData);
-                if (this.projectData?.title) {
-                    this.titleService.setTitle(`Livestream AI | ${this.projectData.title}`);
+        this.route.params.subscribe(async (params: Params) => {
+            this.uuid = params['uuid'];
+
+            if (this.uuid) {
+                // 1. Load dữ liệu từ localStorage
+                const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.uuid}`;
+                this.projectData = this.multiAccountService.getItem(storageKey);
+                if (this.projectData) {
+                    try {
+                        if (this.projectData?.title) {
+                            this.titleService.setTitle(`Livestream AI | ${this.projectData.title}`);
+                        }
+                    } catch (error) {
+                        console.error('Lỗi khi parse dữ liệu Livestream:', error);
+                    }
                 }
-            } catch (error) {
-                console.error('Lỗi khi parse dữ liệu Livestream:', error);
+
+                // 2. Lắng nghe sự kiện Audio (Chỉ khi có dữ liệu)
+                if (this.projectData && this.projectData.scenes?.length > 0) {
+                    this.audioPlayer.onended = () => {
+                        this.moveToNextSubtitle();
+                    };
+
+                    this.audioPlayer.onerror = () => {
+                        console.warn("Lỗi phát audio, tự động bỏ qua và chuyển câu sau 2 giây...");
+                        setTimeout(() => this.moveToNextSubtitle(), 2000);
+                    };
+                }
+            } else {
+                this.router.navigate(['/tools']);
             }
-        }
-
-        // 2. Lắng nghe sự kiện Audio (Chỉ khi có dữ liệu)
-        if (this.projectData && this.projectData.scenes?.length > 0) {
-            this.audioPlayer.onended = () => {
-                this.moveToNextSubtitle();
-            };
-
-            this.audioPlayer.onerror = () => {
-                console.warn("Lỗi phát audio, tự động bỏ qua và chuyển câu sau 2 giây...");
-                setTimeout(() => this.moveToNextSubtitle(), 2000);
-            };
-        }
+        });
     }
 
     ngOnDestroy(): void {
@@ -275,12 +291,12 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     stopAudio() {
         this.isPlaying = false;
         this.hasStarted = false; // Ngừng trạng thái live
-        
+
         // Dừng audio và xóa source
         if (this.audioPlayer) {
             this.audioPlayer.pause();
             this.audioPlayer.currentTime = 0;
-            this.audioPlayer.src = ''; 
+            this.audioPlayer.src = '';
         }
 
         // Dọn dẹp luôn bộ đếm giờ (nếu đang chạy chế độ backup không có audio)
