@@ -60,6 +60,31 @@ import { ToastrService } from 'ngx-toastr';
                         </mat-option>
                     </mat-select>
                 </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-full fuse-mat-dense" subscriptSizing="dynamic">
+                    <mat-label>Tốc độ (Rate)</mat-label>
+                    <mat-select [(ngModel)]="selectedRate">
+                        <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
+                        <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                        <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
+                        <mat-option [value]="1.2">1.2x (Nhanh)</mat-option>
+                        <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
+                        <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
+                    </mat-select>
+                    <mat-icon matSuffix class="icon-size-5">speed</mat-icon>
+                </mat-form-field>
+
+                <mat-form-field appearance="outline" class="w-full fuse-mat-dense" subscriptSizing="dynamic">
+                    <mat-label>Cao độ (Pitch)</mat-label>
+                    <mat-select [(ngModel)]="selectedPitch">
+                        <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
+                        <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
+                        <mat-option [value]="0">0 (Mặc định)</mat-option>
+                        <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
+                        <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                    </mat-select>
+                    <mat-icon matSuffix class="icon-size-5">graphic_eq</mat-icon>
+                </mat-form-field>
             </div>
 
             <div *ngIf="isStarted" class="space-y-6 py-4">
@@ -142,10 +167,12 @@ import { ToastrService } from 'ngx-toastr';
 })
 export class VideoGenerationComponent implements OnInit {
     voiceList = [
-        { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Neural - Offline)' },
-        { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Neural - Offline)' },
+        { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Offline)' },
+        { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Offline)' },
     ];
     selectedVoice = 'vi-VN-HoaiMyNeural';
+    selectedRate: number = 1.0;
+    selectedPitch: number = 0;
 
     isStarted = false;
     isFinished = false;
@@ -186,8 +213,6 @@ export class VideoGenerationComponent implements OnInit {
             globalIndex: number;
         }[] = [];
         let globalCounter = 0;
-
-        console.log('Gom các subtitle cần xử lý...', this.data);
 
         this.data.scenes.forEach((scene: any, sIdx: number) => {
             scene.subtitles.forEach((sub: any, subIdx: number) => {
@@ -288,6 +313,8 @@ export class VideoGenerationComponent implements OnInit {
             const payload = {
                 text: sub.text,
                 voice: this.selectedVoice, // Lấy từ giao diện người dùng chọn
+                rate: this.selectedRate,   // Truyền Rate
+                pitch: this.selectedPitch, // Truyền Pitch
                 filename: niceFilename,
                 username: subPath,
             };
