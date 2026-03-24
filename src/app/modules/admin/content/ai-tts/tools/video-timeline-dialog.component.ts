@@ -32,6 +32,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation/confirmatio
 import { VideoGenerationComponent } from './video-generation.component';
 import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 // Interface cho Electron API
 interface electron {
@@ -54,6 +55,9 @@ interface electron {
     ],
 })
 export class VideoTimelineDialogComponent implements OnInit {
+    private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
+    private readonly STORAGE_AUDIO_KEY = 'ai_type_audio_merger_data';
+
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
 
     projectData: any;
@@ -68,17 +72,16 @@ export class VideoTimelineDialogComponent implements OnInit {
         public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
         private clipboard: Clipboard,
         private router: Router,
+        private multiAccountService: MultiAccountService,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private dialog: MatDialog, // Cần MatDialog để mở form thêm cảnh
-    ) {}
+    ) { }
 
     ngOnInit() {
         // Load dữ liệu từ LocalStorage
-        const raw = localStorage.getItem('ai_type_video_ready_data');
-        if (raw) {
-            this.projectData = JSON.parse(raw);
-        }
+        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+        this.projectData = this.multiAccountService.getItem(storageKey);
     }
 
     // --- Logic Kéo thả bằng chuột (Manual Scroll Ngang) ---
@@ -194,10 +197,8 @@ export class VideoTimelineDialogComponent implements OnInit {
     }
 
     saveData() {
-        localStorage.setItem(
-            'ai_type_video_ready_data',
-            JSON.stringify(this.projectData),
-        );
+        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+        this.multiAccountService.setItem(storageKey, this.projectData);
     }
 
     close() {
