@@ -45,13 +45,16 @@
 
             <button mat-flat-button color="primary" (click)="generateAll()" [disabled]="isGlobalProcessing"
                 *ngIf="audioList.length > 0">
-                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white" [svgIcon]="'feather:loader'"></mat-icon>
+                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
+                    [svgIcon]="'feather:loader'"></mat-icon>
                 <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'heroicons_outline:lightning-bolt'"></mat-icon>
                 <span class="ml-2">Chuyển *.mp3</span>
             </button>
 
-            <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button [disabled]="isAnalyzing">
-                <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white" [svgIcon]="'feather:loader'"></mat-icon>
+            <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button
+                [disabled]="isAnalyzing">
+                <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
+                    [svgIcon]="'feather:loader'"></mat-icon>
                 <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
                 <mat-label class="ml-2 text-white">
                     {{ isAnalyzing ? 'Đang phân tích...' : 'Phát sóng' }}
@@ -62,7 +65,7 @@
 
     <div class="flex-auto overflow-y-auto" cdkScrollable>
         <mat-drawer-container class="flex-auto h-full">
-            <mat-drawer class="w-100 bg-gray-100 dark:bg-transparent p-6 border-r-0" [autoFocus]="false"
+            <mat-drawer class="w-80 bg-gray-100 dark:bg-transparent p-6 border-r-0" [autoFocus]="false"
                 [mode]="drawerMode" [opened]="drawerOpened" #matDrawer>
                 <div class="relative transition-all duration-200 group flex flex-col justify-center items-center"
                     [ngClass]="{'border-primary-500 bg-primary-50 dark:bg-primary-900/20': isDraggingOver, 'border-gray-300 dark:border-gray-600': !isDraggingOver}"
@@ -135,11 +138,11 @@
                                 </div>
                             </div>
 
-                            <div class="flex-1 grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
-                                <div class="md:col-span-4">
+                            <div class="flex-1 flex-row gap-4 items-center">
+                                <div class="flex flex-row justify-start gap-1">
                                     <ng-container *ngIf="!clip.file; else localFileBadge">
                                         <mat-form-field
-                                            class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                            class="w-50 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                                             appearance="fill">
                                             <mat-select [(ngModel)]="clip.voice" (selectionChange)="saveToLocal()"
                                                 (mousedown)="$event.stopPropagation()">
@@ -148,34 +151,59 @@
                                                 </mat-option>
                                             </mat-select>
                                         </mat-form-field>
+
+                                        <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                            appearance="fill">
+                                            <mat-select [(ngModel)]="clip.rate" (selectionChange)="saveToLocal()"
+                                                (mousedown)="$event.stopPropagation()" [placeholder]="'Tốc độ'">
+                                                <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
+                                                <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                                                <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
+                                                <mat-option [value]="1.2">1.2x (Nhanh)</mat-option>
+                                                <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
+
+                                        <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                            appearance="fill">
+                                            <mat-select [(ngModel)]="clip.pitch" (selectionChange)="saveToLocal()"
+                                                (mousedown)="$event.stopPropagation()" [placeholder]="'Cao độ'">
+                                                <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
+                                                <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
+                                                <mat-option [value]="0">0 (Mặc định)</mat-option>
+                                                <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
+                                                <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                                            </mat-select>
+                                        </mat-form-field>
                                     </ng-container>
+
                                     <ng-template #localFileBadge>
                                         <div
-                                            class="flex items-center text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2 text-sm w-fit">
-                                            <mat-icon class="icon-size-4 mr-2"
+                                            class="text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded-md px-3 py-2 text-sm w-fit">
+                                            <mat-icon class="icon-size-4"
                                                 [svgIcon]="'heroicons_outline:microphone'"></mat-icon>
                                             <span>Audio Upload</span>
                                         </div>
                                     </ng-template>
-                                </div>
 
-                                <div class="md:col-span-4 flex justify-start">
-                                    <button *ngIf="!clip.file" mat-icon-button [disabled]="clip.isProcessing"
-                                        (click)="generateAudio(clip)" class="transition-colors">
-                                        <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
-                                            [svgIcon]="'feather:loader'"></mat-icon>
-                                        <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
-                                            [ngClass]="clip.url ? 'text-green-500' : 'text-blue-500'"
-                                            [svgIcon]="clip.url ? 'heroicons_outline:refresh' : 'heroicons_outline:microphone'">
-                                        </mat-icon>
-                                    </button>
+                                    <div class="flex justify-start">
+                                        <button *ngIf="!clip.file" mat-icon-button [disabled]="clip.isProcessing"
+                                            (click)="generateAudio(clip)" class="transition-colors">
+                                            <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
+                                                [svgIcon]="'feather:loader'"></mat-icon>
+                                            <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
+                                                [ngClass]="clip.url ? 'text-green-500' : 'text-blue-500'"
+                                                [svgIcon]="clip.url ? 'heroicons_outline:refresh' : 'heroicons_outline:microphone'">
+                                            </mat-icon>
+                                        </button>
 
-                                    <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
-                                        (click)="createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
-                                        matTooltip="Tạo ảnh từ Prompt">
-                                        <mat-icon class="icon-size-5 text-purple-500"
-                                            [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
-                                    </button>
+                                        <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
+                                            (click)="createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
+                                            matTooltip="Tạo ảnh từ Prompt">
+                                            <mat-icon class="icon-size-5 text-purple-500"
+                                                [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
 

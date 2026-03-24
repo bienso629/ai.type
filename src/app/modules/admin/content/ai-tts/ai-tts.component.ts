@@ -41,6 +41,8 @@ export interface AudioClip {
     originalHtml?: string;
     isProcessing?: boolean;
     voice?: string;
+    rate?: number;  // Thêm mới: Tốc độ (0.5 đến 2.0)
+    pitch?: number; // Thêm mới: Cao độ (-20 đến 20)
     prompt?: string;
 }
 
@@ -221,6 +223,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const payload = {
             text: clip.description,
             voice: clip.voice,
+            rate: clip.rate || 1.0,   // Truyền sang Electron
+            pitch: clip.pitch || 0,   // Truyền sang Electron
             filename: niceFilename,
             username: subPath,
         };
@@ -394,6 +398,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 name: clip.name,
                 description: clip.description,
                 voice: clip.voice,
+                rate: clip.rate || 1.0,   // Lưu rate
+                pitch: clip.pitch || 0,   // Lưu pitch
                 duration: clip.duration,
                 audioFileName: clip.audioFileName,
                 username: clip.username,
@@ -1123,6 +1129,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                     description: cleanText,
                                     isProcessing: false,
                                     voice: 'vi-VN-NamMinhNeural',
+                                    rate: 1.0, // Mặc định tốc độ chuẩn
+                                    pitch: 0,   // Mặc định cao độ chuẩn
                                     prompt: '',
                                 };
                             },
