@@ -321,7 +321,11 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             height: 100,
         });
 
-        this.wavesurfer.load(`assets/audios/nam-calm.wav`);
+        const url = encodeURI(
+            "https://dn720701.ca.archive.org/0/items/an-mang-rung-bach-duong-va-nghe-thuat-bien-thai/Án Mạng Rừng Bạch Dương Và Nghệ Thuật Biến Thái.mp3"
+        );
+
+        this.wavesurfer.load(url);
 
         this.wavesurfer.once('interaction', () => {
             this.wavesurfer.play();
