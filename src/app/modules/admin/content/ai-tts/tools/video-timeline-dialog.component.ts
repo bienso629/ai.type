@@ -127,7 +127,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     async generateImage(scene: any, index: number) {
         this.clipboard.copy(scene.prompt);
-        this.toastr.info(`Đang tạo hình ảnh cho Scene #${index + 1}...`);
+        this.toastr.info(`Đã copy prompt cho Scene #${index + 1}...`);
 
         // Giả lập
         // scene.imageUrl =

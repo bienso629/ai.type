@@ -43,10 +43,10 @@
 
                 <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity gap-2 z-0">
                     <button mat-raised-button color="primary" size="small" (click)="$event.stopPropagation(); generateImage(scene, $index)">
-                        Regenerate
+                        Prompt hay
                     </button>
                     <button mat-raised-button color="accent" size="small" (click)="$event.stopPropagation(); fileInput.click()">
-                        Select File
+                        Chọn media
                     </button>
                     <input #fileInput type="file" (change)="onFileSelected($event, scene)" accept="image/*,video/*" class="hidden">
                 </div>

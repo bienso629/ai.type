@@ -290,19 +290,28 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     // Dừng âm thanh và dọn dẹp tiến trình ngay lập tức khi bấm nút X
     stopAudio() {
         this.isPlaying = false;
-        this.hasStarted = false; // Ngừng trạng thái live
+        this.hasStarted = false;
 
-        // Dừng audio và xóa source
-        if (this.audioPlayer) {
-            this.audioPlayer.pause();
-            this.audioPlayer.currentTime = 0;
-            this.audioPlayer.src = '';
-        }
-
-        // Dọn dẹp luôn bộ đếm giờ (nếu đang chạy chế độ backup không có audio)
+        // 1. Hủy bỏ bộ đếm thời gian ngay lập tức
         if (this.fallbackInterval) {
             clearInterval(this.fallbackInterval);
+            this.fallbackInterval = null;
         }
+
+        // 2. Giải phóng bộ nhớ Audio
+        if (this.audioPlayer) {
+            this.audioPlayer.pause();
+            this.audioPlayer.src = ''; // Xóa nguồn để tránh tải ngầm
+            this.audioPlayer.onended = null;
+            this.audioPlayer.onerror = null;
+        }
+
+        this.currentDisplayedText = 'Đã dừng livestream.';
+
+        // 3. Ép Angular cập nhật lại UI (Cực kỳ quan trọng với OnPush)
+        this.cd.markForCheck();
+
+        this.router.navigate(['/archives']);
     }
 
     // --- TIỆN ÍCH KIỂM TRA ĐUÔI FILE ---
