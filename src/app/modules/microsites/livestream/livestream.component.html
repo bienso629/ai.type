@@ -2,15 +2,17 @@
 
 	<div class="flex flex-row flex-0 items-center justify-between p-4 bg-black/50 z-50 absolute top-0 left-0 right-0 hover:bg-black/80 transition-all duration-500 ease-in-out"
 		[ngClass]="hasStarted ? 'opacity-0 -translate-y-full group-hover:opacity-100 group-hover:translate-y-0' : 'opacity-100'">
-		<div class="flex-1 flex-row shrink-0 items-center">
+		<div class="flex-1 shrink-0 items-center">
 			<label class="uppercase font-semibold tracking-wider text-white">
-				🔴 AI.Type Livestream Studio
+				🔴 Livestream Studio
 			</label>
+
+			<br/>
+
+			<span class="truncate max-w-md opacity-70">{{ projectData?.title || 'Chưa có dự án' }}</span>
 		</div>
 
 		<div class="flex flex-row shrink-0 items-center text-sm gap-4">
-			<span class="truncate max-w-md opacity-70">{{ projectData?.title || 'Chưa có dự án' }}</span>
-
 			<button mat-icon-button (click)="toggleSubtitle()" class="transition-colors rounded-full"
 				[ngClass]="showSubtitle ? 'bg-blue-600/60 text-white hover:bg-blue-600/80' : 'bg-white/10 text-gray-400 hover:text-white'">
 				<mat-icon class="icon-size-5" svgIcon="feather:message-square"></mat-icon>
@@ -84,7 +86,7 @@
 
 				<div
 					class="relative group/menu cursor-pointer bg-black/60 backdrop-blur px-3 py-1.5 rounded-lg text-xs font-mono shadow-lg text-gray-200">
-					<div class="flex items-center gap-1.5">
+					<div class="flex items-center gap-0">
 						<mat-icon class="icon-size-4 text-gray-400" svgIcon="feather:list"></mat-icon>
 						<span>Scene {{ currentSceneIndex + 1 }}/{{ projectData.scenes.length }}</span>
 					</div>
@@ -116,6 +118,55 @@
 										svgIcon="heroicons_solid:volume-up"></mat-icon>
 								</div>
 							</ng-container>
+
+							<div class="px-3 py-2 rounded-md border-gray-700 flex items-center bg-black/40">
+								<span class="flex items-center justify-center text-white" [matMenuTriggerFor]="mainExportMenu">
+									<mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:download'"></mat-icon>
+									<mat-label class="ml-2 text-white">Xuất Video</mat-label>
+								</span>
+							</div>
+
+							<mat-menu #mainExportMenu="matMenu" class="mt-1">
+								<button mat-menu-item [matMenuTriggerFor]="tiktokMenu">
+									<mat-icon class="text-blue-500" svgIcon="feather:smartphone"></mat-icon>
+									<span>TikTok / Shorts (9:16)</span>
+								</button>
+								<button mat-menu-item [matMenuTriggerFor]="youtubeMenu">
+									<mat-icon class="text-red-500" svgIcon="feather:monitor"></mat-icon>
+									<span>YouTube / PC (16:9)</span>
+								</button>
+								<button mat-menu-item [matMenuTriggerFor]="squareMenu">
+									<mat-icon class="text-purple-500" svgIcon="feather:instagram"></mat-icon>
+									<span>Facebook / Insta (1:1)</span>
+								</button>
+							</mat-menu>
+
+							<mat-menu #tiktokMenu="matMenu">
+								<button mat-menu-item (click)="exportCustomVideo('9:16', '1080p')">Tiêu chuẩn
+									(1080x1920)</button>
+								<button mat-menu-item (click)="exportCustomVideo('9:16', '2k')">Sắc nét 2K
+									(1440x2560)</button>
+								<button mat-menu-item (click)="exportCustomVideo('9:16', '4k')">Siêu nét 4K
+									(2160x3840)</button>
+							</mat-menu>
+
+							<mat-menu #youtubeMenu="matMenu">
+								<button mat-menu-item (click)="exportCustomVideo('16:9', '1080p')">Tiêu chuẩn
+									(1920x1080)</button>
+								<button mat-menu-item (click)="exportCustomVideo('16:9', '2k')">Sắc nét 2K
+									(2560x1440)</button>
+								<button mat-menu-item (click)="exportCustomVideo('16:9', '4k')">Siêu nét 4K
+									(3840x2160)</button>
+							</mat-menu>
+
+							<mat-menu #squareMenu="matMenu">
+								<button mat-menu-item (click)="exportCustomVideo('1:1', '1080p')">Tiêu chuẩn
+									(1080x1080)</button>
+								<button mat-menu-item (click)="exportCustomVideo('1:1', '2k')">Sắc nét 2K
+									(1440x1440)</button>
+								<button mat-menu-item (click)="exportCustomVideo('1:1', '4k')">Siêu nét 4K
+									(2160x2160)</button>
+							</mat-menu>
 						</div>
 					</div>
 				</div>

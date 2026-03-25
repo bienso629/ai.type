@@ -20,6 +20,8 @@ const https = require("https");
 const crypto = require("crypto");
 const WebSocket = require("ws");
 const StealthPlugin = require("puppeteer-extra-plugin-stealth");
+const util = require('util');
+const execPromise = util.promisify(require('child_process').exec);
 
 const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
@@ -2815,3 +2817,115 @@ async function zaloCrawlDirect(tWindow, uniqueID) {
         sendToRenderer("tools-log", "[Zalo-Direct] ❌ Lỗi: " + e.message);
     }
 }
+
+// Hàm tiện ích: Làm sạch đường dẫn file:// để Node.js đọc được
+function cleanFilePath(fileUrl) {
+    if (!fileUrl) return '';
+    let p = fileUrl.replace('file://', '');
+    // Xử lý dấu gạch chéo dư thừa trên Windows (ví dụ: /C:/Users/...)
+    if (process.platform === 'win32' && p.startsWith('/')) {
+        p = p.substring(1);
+    }
+    return p;
+}
+
+// IPC Handler: Render Video Đa Tỉ Lệ & Đa Phân Giải
+ipcMain.handle('render-custom-video', async (event, projectData) => {
+    try {
+        sendToRenderer("tools-log", `[Render] Bắt đầu xử lý dự án: ${projectData.title}`);
+
+        // 1. Xác định Độ phân giải gốc (Base Resolution)
+        let baseW = 1920;
+        let baseH = 1080; // Mặc định 1080p
+        let qualityName = projectData.quality || '1080p';
+
+        if (qualityName === '2k') {
+            baseW = 2560; baseH = 1440;
+        } else if (qualityName === '4k') {
+            baseW = 3840; baseH = 2160;
+        }
+
+        // 2. Xoay chiều Độ phân giải theo Tỉ lệ (Ratio)
+        let w = 1080, h = 1920;
+        let ratioName = "tiktok";
+
+        if (projectData.exportRatio === '9:16') {
+            w = baseH; h = baseW; // Xoay dọc
+            ratioName = "tiktok";
+        } else if (projectData.exportRatio === '16:9') {
+            w = baseW; h = baseH; // Giữ ngang
+            ratioName = "youtube";
+        } else if (projectData.exportRatio === '1:1') {
+            w = baseH; h = baseH; // Vuông (lấy chiều cao làm chuẩn)
+            ratioName = "square";
+        }
+
+        const docPath = app.getPath('documents');
+        const workspaceDir = path.join(docPath, 'ai.type', 'data', 'exports', projectData.uuid);
+
+        if (fs.existsSync(workspaceDir)) {
+            fs.rmSync(workspaceDir, { recursive: true, force: true });
+        }
+        fs.mkdirSync(workspaceDir, { recursive: true });
+
+        const sceneVideos = [];
+
+        // --- BƯỚC 1: RENDER TỪNG SCENE ---
+        for (let i = 0; i < projectData.scenes.length; i++) {
+            const scene = projectData.scenes[i];
+            sendToRenderer("tools-log", `[Render] Xử lý Scene ${i + 1}/${projectData.scenes.length} - ${qualityName.toUpperCase()} (${w}x${h})...`);
+
+            const sceneImgPath = cleanFilePath(scene.imageUrl);
+            const sceneAudioFiles = scene.subtitles.map(s => cleanFilePath(s.audioUrl)).filter(p => fs.existsSync(p));
+
+            if (!fs.existsSync(sceneImgPath) || sceneAudioFiles.length === 0) continue;
+
+            const audioConcatTxtPath = path.join(workspaceDir, `scene_${i}_audio_list.txt`);
+            const audioListContent = sceneAudioFiles.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
+            fs.writeFileSync(audioConcatTxtPath, audioListContent);
+
+            const sceneAudioPath = path.join(workspaceDir, `scene_${i}_audio.mp3`);
+            await execPromise(`ffmpeg -y -f concat -safe 0 -i "${audioConcatTxtPath}" -c copy "${sceneAudioPath}"`);
+
+            const sceneVideoPath = path.join(workspaceDir, `scene_${i}_video.mp4`);
+            const isVideo = sceneImgPath.toLowerCase().endsWith('.mp4');
+
+            const inputArgs = isVideo
+                ? `-stream_loop -1 -i "${sceneImgPath}"`
+                : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
+
+            // FFmpeg sẽ tự động Upscale/Downscale ảnh gốc lên chuẩn 2K/4K mà không bị lỗi
+            // const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
+
+            // [CẬP NHẬT]: Thêm hiệu ứng Fade-in 0.5s cho cả Hình ảnh (fade) và Âm thanh (afade)
+            const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5" -af "afade=t=in:st=0:d=0.5" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
+
+            await execPromise(videoCmd);
+            sceneVideos.push(sceneVideoPath);
+        }
+
+        // --- BƯỚC 2: NỐI SCENE ---
+        sendToRenderer("tools-log", `[Render] Đang ghép ${sceneVideos.length} phân cảnh...`);
+
+        const videoConcatTxtPath = path.join(workspaceDir, `final_video_list.txt`);
+        const videoListContent = sceneVideos.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
+        fs.writeFileSync(videoConcatTxtPath, videoListContent);
+
+        const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+
+        // Cập nhật tên file chứa cả tỉ lệ và chất lượng (VD: video_tiktok_4k.mp4)
+        const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', `${safeTitle}_${ratioName}_${qualityName}.mp4`);
+
+        await execPromise(`ffmpeg -y -f concat -safe 0 -i "${videoConcatTxtPath}" -c copy "${finalExportPath}"`);
+
+        fs.rmSync(workspaceDir, { recursive: true, force: true });
+
+        sendToRenderer("tools-log", `[Render] ✅ HOÀN TẤT! Video lưu tại: ${finalExportPath}`);
+
+        return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
+
+    } catch (err) {
+        console.error("Lỗi Render Video:", err);
+        return { success: false, error: err.message };
+    }
+});

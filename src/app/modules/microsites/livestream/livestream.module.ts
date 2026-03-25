@@ -4,6 +4,7 @@ import { Route, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { LivestreamComponent } from 'app/modules/microsites/livestream/livestream.component';
+import { MatMenuModule } from '@angular/material/menu';
 
 const Routes: Route[] = [
     {
@@ -19,6 +20,7 @@ const Routes: Route[] = [
     imports: [
         CommonModule, // 2. THÊM VÀO MẢNG IMPORTS Ở ĐÂY
         RouterModule.forChild(Routes),
+        MatMenuModule,
         MatButtonModule,
         MatIconModule,
     ],

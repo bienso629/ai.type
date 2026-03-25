@@ -3,6 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
     selector: 'livestream',
@@ -48,10 +49,42 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         return this.currentScene?.subtitles?.[this.currentSubtitleIndex];
     }
 
+    // Cập nhật hàm nhận 2 tham số: Tỉ lệ và Chất lượng
+    async exportCustomVideo(ratio: '9:16' | '16:9' | '1:1', quality: '1080p' | '2k' | '4k') {
+        const projectData = this.projectData;
+        
+        if (!projectData.scenes || projectData.scenes.length === 0) {
+            this.toastr.error('Kịch bản chưa có phân cảnh nào!');
+            return;
+        }
+
+        // Đính kèm cấu hình vào data gửi xuống IPC
+        projectData.exportRatio = ratio;
+        projectData.quality = quality;
+
+        let ratioText = ratio === '9:16' ? 'TikTok (Dọc)' : (ratio === '16:9' ? 'YouTube (Ngang)' : 'Vuông (1:1)');
+        
+        this.toastr.info(`Đang Render Video ${ratioText} - Chất lượng ${quality.toUpperCase()}...`, 'Hệ thống');
+
+        try {
+            const res = await (window as any).electron.invoke('render-custom-video', projectData);
+
+            if (res && res.success) {
+                this.toastr.success(`Render thành công Video ${quality.toUpperCase()}!`, 'Hoàn tất', { timeOut: 8000 });
+            } else {
+                this.toastr.error(`Lỗi Render: ${res.error}`);
+            }
+        } catch (err: any) {
+            this.toastr.error(`Lỗi kết nối IPC: ${err.message}`);
+        } finally {
+        }
+    }
+
     constructor(
         private titleService: Title,
         private router: Router,
         private multiAccountService: MultiAccountService,
+        private toastr: ToastrService,
         public dialog: MatDialog,
         private route: ActivatedRoute,
         private cd: ChangeDetectorRef
