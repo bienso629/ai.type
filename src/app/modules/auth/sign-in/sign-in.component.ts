@@ -196,19 +196,55 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         if (success) {
             const user = this.accounts[index]['profile'];
             if (user) {
-                // Store the access token in the local storage
-                this._authService.accessToken = AuthUtils._generateJWTToken(user);
+                this._forumService
+                    .getGroups(this.signInForm.get('server').value)
+                    .subscribe((result) => {
+                        if (result && result.success && result.data) {
+                            result.data.groups.map((g: any) => {
+                                if (g.slug === 'nhóm-đã-mua-ai-type') {
+                                    this.multiAccountService.setItem('members', g.members);
+                                }
+
+                                g.members.map((m: any) => {
+                                    if (m.uid === user.id) {
+                                        if (
+                                            !user.groups?.includes(
+                                                g.slug,
+                                            )
+                                        ) {
+                                            user.groups.push(g.slug);
+                                        }
+                                    }
+                                });
+                            });
+
+                            if (this.signInForm.value.rememberMe) {
+                                // Store the access token in the local storage
+                                this._authService.accessToken = AuthUtils._generateJWTToken(user);
+                            }
+
+                            // Store the user on the user service
+                            this._userService.user = user;
+                            this.save(user);
+
+                            const redirectURL =
+                                this._activatedRoute.snapshot.queryParamMap.get(
+                                    'redirectURL',
+                                ) || '/signed-in-redirect';
+                            this._router.navigateByUrl(redirectURL);
+                        } else {
+                            // this.multiAccountService.removeItem('accessToken');
+
+                            // Re-enable the form
+                            this.signInForm.enable();
+
+                            this.alert = {
+                                type: 'warning',
+                                message: 'Tài khoản của bạn không đúng.',
+                            };
+                        }
+                    });
             }
-
-            // Store the user on the user service
-            this._userService.user = user;
-            this.save(user);
-
-            const redirectURL =
-                this._activatedRoute.snapshot.queryParamMap.get(
-                    'redirectURL',
-                ) || '/signed-in-redirect';
-            this._router.navigateByUrl(redirectURL);
         }
     }
 
