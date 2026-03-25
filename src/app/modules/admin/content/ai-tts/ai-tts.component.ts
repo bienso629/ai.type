@@ -83,6 +83,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Offline)' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Offline)' },
+        { id: 'yenai-clone', name: 'Yenai (AI Clone - Nữ Bắc)' } // <--- Thêm giọng clone
         // { id: 'nam-calm', name: 'Nam điềm tĩnh (Server)' },
         // { id: 'nam-cham', name: 'Nam chậm (Server)' },
         // { id: 'nam-nhanh', name: 'Nam nhanh (Server)' },
@@ -92,6 +93,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // { id: 'nu-luu-loat', name: 'Nữ lưu loát (Server)' },
         // { id: 'nu-nhe-nhang', name: 'Nữ nhẹ nhàng (Server)' }
     ];
+
+    isDownloadingModel: boolean = false; // Thêm biến này
 
     removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
     audioList: AudioClip[] = [];
@@ -108,6 +111,28 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 URL.revokeObjectURL(clip.rawUrl);
             }
         });
+    }
+
+    async downloadVoiceModel() {
+        if (!(window as any).electron) return;
+
+        this.isDownloadingModel = true;
+        this.cd.markForCheck();
+        this.toastr.info("Đang kiểm tra và tải Model Yenai. Vui lòng không tắt app...", "Hệ thống");
+
+        try {
+            const res = await (window as any).electron.invoke('download-rvc-models', {});
+            if (res.success) {
+                this.toastr.success("Đã tải/cập nhật xong Giọng Yenai!");
+            } else {
+                this.error("Lỗi tải Model: " + res.error);
+            }
+        } catch (e: any) {
+            this.error("Ngoại lệ: " + e.message);
+        } finally {
+            this.isDownloadingModel = false;
+            this.cd.markForCheck();
+        }
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -208,7 +233,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         clip.isProcessing = true;
         this.cd.markForCheck();
 
-        // ... (Giữ nguyên đoạn tạo payload date/username/filename cũ của bạn) ...
         const dateFolder = this.getDateStr();
         const username = this.user?.name || 'anonymous';
         const subPath = `${username}/${dateFolder}/${this.uuid || 'default'}`;
@@ -216,57 +240,82 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const prefix = (index >= 0 ? index + 1 : 0).toString().padStart(3, '0');
         const shortText = clip.description.substring(0, 50);
         const slug = this.toSlug(shortText);
-        const niceFilename = `${prefix}_${slug}_${clip.voice}`;
+
+        // KIỂM TRA: Có phải đang yêu cầu giọng Clone không?
+        const isCloneVoice = clip.voice === 'yenai-clone';
+
+        // Nếu là Yenai: MƯỢN GIỌNG NAM MINH ĐỂ ĐỌC NHÁP, NẾU KHÔNG THÌ DÙNG GIỌNG BÌNH THƯỜNG
+        const edgeVoiceToUse = isCloneVoice ? 'vi-VN-NamMinhNeural' : clip.voice;
+        const niceFilename = `${prefix}_${slug}_${edgeVoiceToUse}`;
 
         const payload = {
             text: clip.description,
-            voice: clip.voice,
-            rate: clip.rate || 1.0,   // Truyền sang Electron
-            pitch: clip.pitch || 0,   // Truyền sang Electron
+            voice: edgeVoiceToUse,
+            rate: clip.rate || 1.0,
+            pitch: clip.pitch || 0,   // Cao độ của Edge TTS (Giữ bằng 0 cho tự nhiên)
             filename: niceFilename,
             username: subPath,
         };
 
-        console.log('payload', payload);
-
         try {
-            const res = await (window as any).electron.invoke(
-                'tts-generate',
-                payload,
-            );
+            // BƯỚC 1: SINH AUDIO GỐC (EDGE TTS) + FILE .VTT
+            const ttsRes = await (window as any).electron.invoke('tts-generate', payload);
 
-            if (res && res.success) {
-                const filename = res.filePath
-                    ? res.filePath.split(/[\\/]/).pop()
-                    : `${payload.filename}.mp3`;
+            if (ttsRes && ttsRes.success) {
+                let finalAudioPath = ttsRes.filePath; // Mặc định là file MP3 từ Edge
+                let finalFilename = finalAudioPath.split(/[\\/]/).pop();
 
-                clip.audioFileName = filename;
+                // BƯỚC 2: NẾU LÀ GIỌNG YENAI -> ĐẨY QUA RVC ĐỔI GIỌNG!
+                if (isCloneVoice) {
+                    this.toastr.info(`Đang biến đổi sang giọng Yenai...`);
+
+                    const wavFilename = finalFilename.replace('.mp3', '_yenai.wav');
+                    const clonedWavPath = finalAudioPath.replace('.mp3', '_yenai.wav');
+
+                    // Lấy đường dẫn Model từ máy (do hàm downloadModel đã lưu)
+                    const docPath = await (window as any).electron.invoke('get-app-version'); // Mượn IPC tạm hoặc gọi thẳng
+                    // Thay vì gọi loằng ngoằng, ta hardcode đường dẫn như main.js
+                    const envPath = ttsRes.filePath.split('ai.type')[0]; // Cắt chuỗi để lấy gốc Documents
+                    const pthPath = `${envPath}ai.type/data/models/yenai/yenai_100e_3000s.pth`;
+                    const indexPath = `${envPath}ai.type/data/models/yenai/added_IVF733_Flat_nprobe_1_yenai_v2.index`;
+
+                    const rvcRes = await (window as any).electron.invoke('apply-rvc', {
+                        inputAudio: finalAudioPath,
+                        outputAudio: clonedWavPath,
+                        pitch: 12, // ÉP LÊN 12 QUÃNG ĐỂ NAM MINH THÀNH NỮ
+                        pthPath: pthPath,
+                        indexPath: indexPath
+                    });
+
+                    if (rvcRes.success) {
+                        finalAudioPath = clonedWavPath; // Cập nhật lại đường dẫn để UI đọc file WAV
+                        finalFilename = wavFilename;
+                    } else {
+                        throw new Error("Lỗi clone giọng: " + rvcRes.error);
+                    }
+                }
+
+                // CẬP NHẬT GIAO DIỆN
+                clip.audioFileName = finalFilename;
                 clip.username = subPath;
-                clip['localFilePath'] = res.filePath; // Lưu đường dẫn gốc
-
-                // [QUAN TRỌNG] Reset rawUrl về null để ép hàm load chạy
+                clip['localFilePath'] = finalAudioPath;
                 clip.rawUrl = null;
                 clip.isProcessing = false;
 
-                // Gọi hàm load ngay lập tức để chuyển file vừa tạo thành Blob
                 await this.loadLocalAudioContent(clip);
 
-                // Nếu không phải đang chạy hàng loạt thì Play luôn cho ngầu
                 if (!this.isGlobalProcessing) {
                     this.playClip(clip);
                 }
 
                 this.saveToLocal();
-                this.toastr.success(`Đã tạo: ${filename}`);
+                this.toastr.success(`Đã tạo: ${finalFilename}`);
             } else {
-                this.handleTTSError(
-                    clip,
-                    res.error || 'Lỗi tạo giọng đọc (Unknown).',
-                );
+                this.handleTTSError(clip, ttsRes.error || 'Lỗi tạo giọng đọc gốc.');
             }
         } catch (err: any) {
             console.error(err);
-            this.handleTTSError(clip, 'Lỗi Electron: ' + err.message);
+            this.handleTTSError(clip, 'Lỗi hệ thống: ' + err.message);
         } finally {
             this.cd.markForCheck();
         }

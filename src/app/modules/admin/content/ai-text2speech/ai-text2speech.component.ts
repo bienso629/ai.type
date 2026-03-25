@@ -77,8 +77,9 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
         // Create the form
         this.text2speechForm = this._formBuilder.group({
             text: [(this.data) ? this.removeHTML.transform(this.data) : ''],
-            // Mặc định chọn giọng Neural
             voice: ['vi-VN-NamMinhNeural'],
+            rate: [1.0], // <--- THÊM MỚI
+            pitch: [0],  // <--- THÊM MỚI
             speed: [0]
         });
     }
@@ -124,7 +125,6 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
     }
 
     async text2speech2025() {
-        // Phòng hờ form chưa khởi tạo
         if (!this.text2speechForm) {
             this.toastr.error('Form chưa được khởi tạo, vui lòng tải lại trang.');
             return;
@@ -132,6 +132,9 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
 
         const textControl = this.text2speechForm.get('text');
         const voiceControl = this.text2speechForm.get('voice');
+        // [MỚI] Lấy Rate và Pitch
+        const rate = this.text2speechForm.get('rate')?.value || 1.0;
+        const pitch = this.text2speechForm.get('pitch')?.value || 0;
 
         const text = (textControl?.value || '').toString();
         const voice = (voiceControl?.value || 'nam-calm').toString();
@@ -141,10 +144,10 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             return;
         }
 
-        // --- [NEW LOGIC] XỬ LÝ EDGE TTS BẰNG LOCAL EXE ---
         const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
         if (edgeVoices.includes(voice)) {
-            this.generateEdgeTTSLocal(text, voice);
+            // [MỚI] Truyền thêm rate và pitch
+            this.generateEdgeTTSLocal(text, voice, rate, pitch);
             return;
         }
         // -------------------------------------------------
@@ -185,9 +188,8 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             });
     }
 
-    // [CẬP NHẬT] Hàm gọi xuống Electron Main Process
-    async generateEdgeTTSLocal(text: string, voice: string) {
-        // Sử dụng (window as any).electron như yêu cầu
+    // [CẬP NHẬT] Thêm tham số rate và pitch
+    async generateEdgeTTSLocal(text: string, voice: string, rate: number, pitch: number) {
         if (!(window as any).electron || !(window as any).electron.invoke) {
             this.toastr.error('Tính năng này chỉ hoạt động trên ứng dụng Desktop.');
             return;
@@ -195,35 +197,29 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
 
         this.toastr.info('Đang xử lý giọng đọc', 'System');
 
-        // [CẬP NHẬT] Tạo tên file readable
-        // 1. Lấy 60 ký tự đầu tiên
         const shortText = text.substring(0, 60);
-        // 2. Chuyển thành slug (khong-dau-gach-ngang)
         const slug = this.toSlug(shortText);
-        // 3. Ghép với ID ngắn để tránh trùng lặp
         const niceFilename = `${slug}_${this.generateId()}`;
 
         const payload = {
             text: text,
             voice: voice,
-            filename: niceFilename, // Tên file: xin-chao-moi-nguoi_a1b2c
+            rate: rate,   // <--- Gửi Rate
+            pitch: pitch, // <--- Gửi Pitch
+            filename: niceFilename,
             username: this.user?.name || 'anonymous'
         };
 
         try {
-            // Gọi xuống main.js bằng cách ép kiểu (window as any)
             const res = await (window as any).electron.invoke('tts-generate', payload);
 
             if (res && res.success) {
-                // res.url: file:///C:/Users/.../Documents/ai.type/data/tts/...
                 const fullUrl = res.url;
                 const filename = res.filePath ? res.filePath.split(/[\\/]/).pop() : `${payload.filename}.mp3`;
 
-                // Cập nhật UI: Bypass security để Angular cho phép load file local
                 this.downloadMP3Href = this.domSanitizer.bypassSecurityTrustUrl(fullUrl);
                 this.nameMP3Href = filename;
 
-                // Load vào WaveSurfer và Play
                 this.wavesurfer.load(fullUrl);
                 this.wavesurfer.once('interaction', () => {
                     this.wavesurfer.play();
