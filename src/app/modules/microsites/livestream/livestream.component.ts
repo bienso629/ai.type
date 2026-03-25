@@ -39,6 +39,8 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
     // [THÊM BIẾN MỚI] Trạng thái bật/tắt phụ đề
     showSubtitle: boolean = true;
+    // [THÊM MỚI] Biến quản lý trạng thái bật/tắt phụ đề khi xuất video
+    exportWithSubtitle: boolean = true
 
     // Các biến Getter
     get currentScene() {
@@ -52,7 +54,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     // Cập nhật hàm nhận 2 tham số: Tỉ lệ và Chất lượng
     async exportCustomVideo(ratio: '9:16' | '16:9' | '1:1', quality: '1080p' | '2k' | '4k') {
         const projectData = this.projectData;
-        
+
         if (!projectData.scenes || projectData.scenes.length === 0) {
             this.toastr.error('Kịch bản chưa có phân cảnh nào!');
             return;
@@ -62,8 +64,11 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         projectData.exportRatio = ratio;
         projectData.quality = quality;
 
+        // [THÊM MỚI] Đính kèm cờ bật/tắt phụ đề
+        projectData.withSubtitle = this.exportWithSubtitle;
+
         let ratioText = ratio === '9:16' ? 'TikTok (Dọc)' : (ratio === '16:9' ? 'YouTube (Ngang)' : 'Vuông (1:1)');
-        
+
         this.toastr.info(`Đang Render Video ${ratioText} - Chất lượng ${quality.toUpperCase()}...`, 'Hệ thống');
 
         try {
