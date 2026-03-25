@@ -210,15 +210,9 @@ export class VideoGenerationComponent implements OnInit {
         }
     }
 
-    // -----------------------------------------------------------------------------------------------------
-    // @ CORE TTS LOGIC (CONCURRENT) - Bắt chước generateAll() với cấu trúc lưu file mới
-    // -----------------------------------------------------------------------------------------------------
-
     async startParallelProcess(): Promise<void> {
         this.isStarted = true;
 
-        // 1. Gom tất cả các subtitle cần xử lý thành một mảng pendingSubs
-        // Thêm biến globalIndex để đếm số thứ tự liên tục cho toàn bộ video (001, 002, 003...)
         const pendingSubs: {
             sub: any;
             sIdx: number;
@@ -227,70 +221,64 @@ export class VideoGenerationComponent implements OnInit {
         }[] = [];
         let globalCounter = 0;
 
+        // 1. Gom tất cả dữ liệu (BỎ LOGIC CHECK FILE CŨ ĐỂ ÉP TẠO LẠI VTT)
         this.data.scenes.forEach((scene: any, sIdx: number) => {
             scene.subtitles.forEach((sub: any, subIdx: number) => {
-                // Lọc bỏ những câu đã có audioUrl (nếu có) để tránh tạo lại
-                if (!sub.audioUrl) {
-                    pendingSubs.push({
-                        sub,
-                        sIdx,
-                        subIdx,
-                        globalIndex: globalCounter,
-                    });
-                }
-                globalCounter++; // Tăng biến đếm liên tục cho mọi subtitle
+                pendingSubs.push({
+                    sub,
+                    sIdx,
+                    subIdx,
+                    globalIndex: globalCounter,
+                });
+                globalCounter++;
             });
         });
 
         if (pendingSubs.length === 0) {
-            // Đóng dialog và trả data (đã cập nhật audioUrl) ra ngoài
+            setTimeout(() => { this.dialogRef.close(this.data); }, 1000);
+            return;
+        }
+
+        this.toastr.info(`Bắt đầu xử lý ${pendingSubs.length} mục...`, 'System');
+        this.currentStatus = 'Đang khởi tạo các luồng xử lý...';
+
+        // 2. CHẠY THEO CỤM (BATCHING) - Cứ 3 file chạy cùng lúc để máy không bị Crash
+        const batchSize = 3; 
+        
+        try {
+            for (let i = 0; i < pendingSubs.length; i += batchSize) {
+                const batch = pendingSubs.slice(i, i + batchSize);
+                
+                // Mở 3 tiến trình cùng lúc
+                const tasks = batch.map((item) =>
+                    this.generateAudioForSub(
+                        item.sub,
+                        item.sIdx,
+                        item.subIdx,
+                        item.globalIndex,
+                    )
+                );
+
+                // Bắt buộc phải đợi 3 file này đẻ ra xong xuôi mới chạy 3 file tiếp theo
+                await Promise.all(tasks);
+            }
+
+            this.isFinished = true;
+            this.currentStatus = 'Hoàn tất khởi tạo toàn bộ tài nguyên âm thanh & phụ đề!';
+            this.toastr.success(`Đã hoàn tất quá trình xử lý cho ${this.totalTasks} câu thoại!`);
+
             setTimeout(() => {
                 this.dialogRef.close(this.data);
             }, 1000);
             
-            return;
-        }
-
-        this.toastr.info(
-            `Bắt đầu xử lý song song ${pendingSubs.length} mục...`,
-            'System',
-        );
-        this.currentStatus = 'Đang khởi tạo các luồng xử lý...';
-
-        // 2. Tạo mảng các Promises để chạy cùng lúc, truyền thêm globalIndex vào
-        const tasks = pendingSubs.map((item) =>
-            this.generateAudioForSub(
-                item.sub,
-                item.sIdx,
-                item.subIdx,
-                item.globalIndex,
-            ),
-        );
-
-        try {
-            // 3. Đợi tất cả chạy xong
-            await Promise.all(tasks);
-
-            this.isFinished = true;
-            this.currentStatus =
-                'Hoàn tất khởi tạo toàn bộ tài nguyên âm thanh!';
-            this.toastr.success(
-                `Đã hoàn tất quá trình xử lý cho ${this.totalTasks} câu thoại!`,
-            );
-
-            // Đóng dialog và trả data (đã cập nhật audioUrl) ra ngoài
-            setTimeout(() => {
-                this.dialogRef.close(this.data);
-            }, 1000);
         } catch (err) {
             console.error('Batch error:', err);
-            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý song song.');
+            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý.');
         } finally {
             this.cd.markForCheck();
         }
     }
 
-    // Hàm tạo audio cho 1 subtitle với cấu trúc Naming Convention chuẩn xác
     async generateAudioForSub(
         sub: any,
         sceneIdx: number,
@@ -309,13 +297,10 @@ export class VideoGenerationComponent implements OnInit {
                 return;
             }
 
-            // --- BẮT ĐẦU LOGIC TẠO TÊN FILE CỦA BẠN ---
             const dateFolder = this.getDateStr();
-            // Lấy username từ data nếu có, không thì mặc định là 'anonymous'
             const username = this.data.username || 'anonymous';
             const subPath = `${username}/${dateFolder}/${this.data.uuid || 'default'}`;
 
-            // Dùng globalIndex thay cho indexOf
             const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0)
                 .toString()
                 .padStart(3, '0');
@@ -325,16 +310,15 @@ export class VideoGenerationComponent implements OnInit {
 
             const payload = {
                 text: sub.text,
-                voice: this.selectedVoice, // Lấy từ giao diện người dùng chọn
-                rate: this.selectedRate,   // Truyền Rate
-                pitch: this.selectedPitch, // Truyền Pitch
+                voice: this.selectedVoice,
+                rate: this.selectedRate,
+                pitch: this.selectedPitch,
                 filename: niceFilename,
                 username: subPath,
             };
-            // --- KẾT THÚC LOGIC TẠO TÊN FILE ---
 
             try {
-                // Gọi xuống IPC
+                // Gọi xuống IPC (main.js)
                 const res = await (window as any).electron.invoke(
                     'tts-generate',
                     payload,
@@ -346,28 +330,19 @@ export class VideoGenerationComponent implements OnInit {
                         ? rawPath
                         : `file://${rawPath}`;
                 } else {
-                    console.error(
-                        `Error processing sub ${sub.id}:`,
-                        res?.error || 'Unknown error',
-                    );
+                    console.error(`Error processing sub ${sub.id}:`, res?.error || 'Unknown error');
                 }
             } catch (err: any) {
                 console.error(`Lỗi Electron cho sub ${sub.id}:`, err.message);
             } finally {
                 this.completedTasks++;
-                this.progress = Math.round(
-                    (this.completedTasks / this.totalTasks) * 100,
-                );
+                this.progress = Math.round((this.completedTasks / this.totalTasks) * 100);
                 this.currentStatus = sub.text;
                 this.cd.markForCheck();
-                resolve();
+                resolve(); // Báo hiệu tiến trình con này đã xong
             }
         });
     }
-
-    // -----------------------------------------------------------------------------------------------------
-    // @ UTILS
-    // -----------------------------------------------------------------------------------------------------
 
     getDateStr(): string {
         const d = new Date();
