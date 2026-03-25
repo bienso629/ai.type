@@ -2821,24 +2821,38 @@ async function zaloCrawlDirect(tWindow, uniqueID) {
     }
 }
 
-// Hàm tiện ích: Làm sạch đường dẫn file:// để Node.js đọc được
+// =====================================================================
+// [RENDER VIDEO] CÁC HÀM TIỆN ÍCH DÀNH RIÊNG CHO RENDER FFmpeg
+// =====================================================================
+
+// Hàm làm sạch đường dẫn file cho Node.js và FFmpeg
 function cleanFilePath(fileUrl) {
     if (!fileUrl) return '';
     let p = fileUrl.replace('file://', '');
-    // Xử lý dấu gạch chéo dư thừa trên Windows (ví dụ: /C:/Users/...)
     if (process.platform === 'win32' && p.startsWith('/')) {
         p = p.substring(1);
     }
     return p;
 }
 
-// --- UTILS: Parse & Format thời gian VTT ---
-function parseVttTime(timeStr) {
-    const [h, m, s_ms] = timeStr.split(':');
-    const [s, ms] = s_ms.split('.');
-    return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
+// Hàm đo độ dài thực tế của file MP3 bằng FFmpeg
+async function getAudioDuration(filePath) {
+    try {
+        await execPromise(`ffmpeg -i "${filePath}"`);
+        return 2.0;
+    } catch (e) {
+        const match = e.message.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d+)/);
+        if (match) {
+            const hours = parseInt(match[1], 10);
+            const minutes = parseInt(match[2], 10);
+            const seconds = parseFloat(match[3]);
+            return hours * 3600 + minutes * 60 + seconds;
+        }
+        return 2.0; // Mặc định 2 giây nếu không đo được
+    }
 }
 
+// Hàm định dạng mili-giây sang chuẩn thời gian VTT (HH:MM:SS.ms)
 function formatVttTime(ms) {
     const h = Math.floor(ms / 3600000); ms %= 3600000;
     const m = Math.floor(ms / 60000); ms %= 60000;
@@ -2847,43 +2861,10 @@ function formatVttTime(ms) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(3, '0')}`;
 }
 
-// --- UTILS: Nối các file VTT và cộng dồn thời gian ---
-function mergeVTTFiles(vttFilePaths, outputVttPath) {
-    let mergedVtt = "WEBVTT\n\n";
-    let currentOffsetMs = 0;
+// =====================================================================
+// IPC HANDLER: RENDER CUSTOM VIDEO (ĐA TỈ LỆ, AUTO-VTT)
+// =====================================================================
 
-    for (let path of vttFilePaths) {
-        if (!fs.existsSync(path)) continue;
-        const content = fs.readFileSync(path, 'utf-8');
-        const lines = content.split('\n');
-
-        let lastEndTimeMs = 0;
-
-        for (let line of lines) {
-            line = line.trim();
-            if (!line || line === "WEBVTT") continue;
-
-            if (line.includes("-->")) {
-                // Dòng thời gian: "00:00:00.100 --> 00:00:01.500"
-                const parts = line.split("-->");
-                const startMs = parseVttTime(parts[0].trim()) + currentOffsetMs;
-                const endMs = parseVttTime(parts[1].trim()) + currentOffsetMs;
-
-                mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n`;
-                lastEndTimeMs = parseVttTime(parts[1].trim()); // Lưu lại mốc tg cuối của file này
-            } else {
-                // Dòng văn bản
-                mergedVtt += `${line}\n`;
-            }
-        }
-        mergedVtt += "\n";
-        // Cộng dồn độ dài của file vừa xong vào Offset cho file tiếp theo
-        currentOffsetMs += lastEndTimeMs;
-    }
-    fs.writeFileSync(outputVttPath, mergedVtt, 'utf-8');
-}
-
-// IPC Handler: Render Video Đa Tỉ Lệ & Đa Phân Giải
 ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
         sendToRenderer("tools-log", `[Render] Bắt đầu xử lý dự án: ${projectData.title}`);
@@ -2910,7 +2891,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             w = baseW; h = baseH; // Giữ ngang
             ratioName = "youtube";
         } else if (projectData.exportRatio === '1:1') {
-            w = baseH; h = baseH; // Vuông (lấy chiều cao làm chuẩn)
+            w = baseH; h = baseH; // Vuông
             ratioName = "square";
         }
 
@@ -2932,8 +2913,12 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const sceneImgPath = cleanFilePath(scene.imageUrl);
             const sceneAudioFiles = scene.subtitles.map(s => cleanFilePath(s.audioUrl)).filter(p => fs.existsSync(p));
 
-            if (!fs.existsSync(sceneImgPath) || sceneAudioFiles.length === 0) continue;
+            if (!fs.existsSync(sceneImgPath) || sceneAudioFiles.length === 0) {
+                sendToRenderer("tools-log", `[Render] ⚠️ Bỏ qua Scene ${i + 1} do thiếu ảnh hoặc audio.`);
+                continue;
+            }
 
+            // 1.1 Gộp Audio
             const audioConcatTxtPath = path.join(workspaceDir, `scene_${i}_audio_list.txt`);
             const audioListContent = sceneAudioFiles.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
             fs.writeFileSync(audioConcatTxtPath, audioListContent);
@@ -2941,6 +2926,37 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const sceneAudioPath = path.join(workspaceDir, `scene_${i}_audio.mp3`);
             await execPromise(`ffmpeg -y -f concat -safe 0 -i "${audioConcatTxtPath}" -c copy "${sceneAudioPath}"`);
 
+            // 1.2 TỰ ĐỘNG ĐO VÀ SINH PHỤ ĐỀ (VTT) TRỰC TIẾP
+            let mergedVtt = "WEBVTT\n\n";
+            let currentOffsetMs = 0;
+
+            for (const sub of scene.subtitles) {
+                const audioPath = cleanFilePath(sub.audioUrl);
+                if (!fs.existsSync(audioPath)) continue;
+
+                // Đo độ dài thực tế của file mp3
+                const durationSec = await getAudioDuration(audioPath);
+                const durationMs = Math.round(durationSec * 1000);
+
+                // Tính mốc Bắt đầu và Kết thúc (Mốc sau nối tiếp mốc trước)
+                const startMs = currentOffsetMs;
+                const endMs = currentOffsetMs + durationMs;
+
+                // Ghi vào VTT (Có khoảng trắng giữa các khối)
+                mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n`;
+                mergedVtt += `${sub.text.replace(/\n/g, ' ')}\n\n`;
+
+                // Cộng dồn độ dài cho câu tiếp theo
+                currentOffsetMs += durationMs;
+            }
+
+            // Lưu file VTT hoàn chỉnh của Scene này
+            const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
+            fs.writeFileSync(mergedVttPath, mergedVtt, 'utf-8');
+
+            const safeSubPathForFFmpeg = mergedVttPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+
+            // 1.3 Ép Ảnh/Video + Phụ đề vào Thành Scene Video chuẩn
             const sceneVideoPath = path.join(workspaceDir, `scene_${i}_video.mp4`);
             const isVideo = sceneImgPath.toLowerCase().endsWith('.mp4');
 
@@ -2948,35 +2964,14 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 ? `-stream_loop -1 -i "${sceneImgPath}"`
                 : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
 
-            // FFmpeg sẽ tự động Upscale/Downscale ảnh gốc lên chuẩn 2K/4K mà không bị lỗi
-            // const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
-
-            // [CẬP NHẬT]: Thêm hiệu ứng Fade-in 0.5s cho cả Hình ảnh (fade) và Âm thanh (afade)
-            // const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5" -af "afade=t=in:st=0:d=0.5" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
-
-            // -------------------------------------------------------------
-            // [CẬP NHẬT]: Gộp các file VTT và căn lại mốc thời gian
-            // -------------------------------------------------------------
-            // 1. Lấy danh sách toàn bộ file .vtt tương ứng với .mp3
-            const sceneVttFiles = sceneAudioFiles.map(f => f.replace('.mp3', '.vtt'));
-
-            // 2. Đường dẫn file VTT sau khi gộp
-            const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
-
-            // 3. Thực thi gộp file
-            mergeVTTFiles(sceneVttFiles, mergedVttPath);
-
-            // 4. Chuyển đường dẫn cho an toàn với FFmpeg
-            const safeSubPathForFFmpeg = mergedVttPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-
-            // Lệnh render FFmpeg (Giữ nguyên như cũ)
+            // Lệnh Render tích hợp Subtitle, Zoom/Crop và Fade mượt mà
             const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5,subtitles='${safeSubPathForFFmpeg}'" -af "afade=t=in:st=0:d=0.5" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
 
             await execPromise(videoCmd);
             sceneVideos.push(sceneVideoPath);
         }
 
-        // --- BƯỚC 2: NỐI SCENE ---
+        // --- BƯỚC 2: NỐI TẤT CẢ SCENES ---
         sendToRenderer("tools-log", `[Render] Đang ghép ${sceneVideos.length} phân cảnh...`);
 
         const videoConcatTxtPath = path.join(workspaceDir, `final_video_list.txt`);
@@ -2990,7 +2985,8 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
         await execPromise(`ffmpeg -y -f concat -safe 0 -i "${videoConcatTxtPath}" -c copy "${finalExportPath}"`);
 
-        fs.rmSync(workspaceDir, { recursive: true, force: true });
+        // Tùy chọn: Xóa thư mục làm việc tạm thời
+        // fs.rmSync(workspaceDir, { recursive: true, force: true });
 
         sendToRenderer("tools-log", `[Render] ✅ HOÀN TẤT! Video lưu tại: ${finalExportPath}`);
 

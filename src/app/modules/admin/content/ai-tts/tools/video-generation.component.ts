@@ -152,6 +152,7 @@ import { ToastrService } from 'ngx-toastr';
                     mat-flat-button
                     color="primary"
                     (click)="startParallelProcess()"
+                    [disabled]="isFinished"
                 >
                     BẮT ĐẦU TẠO AUDIO
                 </button>
@@ -160,7 +161,6 @@ import { ToastrService } from 'ngx-toastr';
                     mat-flat-button
                     color="accent"
                     (click)="cancel()"
-                    [disabled]="isStarted"
                 >
                     Hủy bỏ
                 </button>
@@ -270,7 +270,6 @@ export class VideoGenerationComponent implements OnInit {
             setTimeout(() => {
                 this.dialogRef.close(this.data);
             }, 1000);
-            
         } catch (err) {
             console.error('Batch error:', err);
             this.toastr.error('Có lỗi xảy ra trong quá trình xử lý.');
