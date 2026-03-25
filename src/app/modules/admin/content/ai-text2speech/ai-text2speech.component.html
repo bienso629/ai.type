@@ -1,17 +1,19 @@
 <div class="absolute inset-0 flex flex-col min-w-0 bg-white overflow-hidden">
     <div class="flex-auto overflow-y-auto" cdkScrollable>
         <div class="flex items-center justify-center h-full">
-            <div class="inline-block min-w-120">
+            <div class="inline-block min-w-160">
                 <div id="waveform"></div>
 
                 <form [formGroup]="text2speechForm">
                     <div class="mt-8">
-                        <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                            <mat-label>Giọng đọc</mat-label>
-                            <mat-select [formControlName]="'voice'" required (selectionChange)="onVoiceChange($event)">
-                                <mat-option [value]="'vi-VN-NamMinhNeural'">Nam Minh (Neural)</mat-option>
-                                <mat-option [value]="'vi-VN-HoaiMyNeural'">Hoài My (Neural)</mat-option>
-                                <!-- <mat-divider></mat-divider>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
+                                <mat-label>Giọng đọc</mat-label>
+                                <mat-select [formControlName]="'voice'" required
+                                    (selectionChange)="onVoiceChange($event)">
+                                    <mat-option [value]="'vi-VN-NamMinhNeural'">Nam Minh (Neural)</mat-option>
+                                    <mat-option [value]="'vi-VN-HoaiMyNeural'">Hoài My (Neural)</mat-option>
+                                    <!-- <mat-divider></mat-divider>
                                 <mat-option [value]="'nam-calm'">Nam điềm tĩnh</mat-option>
                                 <mat-option [value]="'nam-cham'">Nam chậm</mat-option>
                                 <mat-option [value]="'nam-nhanh'">Nam nhanh</mat-option>
@@ -21,36 +23,37 @@
                                 <mat-option [value]="'nu-luu-loat'">Nữ lưu loát</mat-option>
                                 <mat-option [value]="'nu-nhan-nha'">Nữ nhẩn nha</mat-option>
                                 <mat-option [value]="'nu-nhe-nhang'">Nữ nhẹ nhàng</mat-option> -->
-                            </mat-select>
-                            <!-- <mat-hint>Chọn giọng đọc</mat-hint> -->
-                        </mat-form-field>
+                                </mat-select>
+                                <!-- <mat-hint>Chọn giọng đọc</mat-hint> -->
+                            </mat-form-field>
 
-                        <mat-form-field class="w-full sm:w-1/4 fuse-mat-dense fuse-mat-emphasized-affix">
-                            <mat-label>Tốc độ</mat-label>
-                            <mat-select [formControlName]="'rate'">
-                                <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
-                                <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
-                                <mat-option [value]="0.9">0.9x</mat-option>
-                                <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
-                                <mat-option [value]="1.1">1.1x</mat-option>
-                                <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
-                                <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
-                                <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
-                            </mat-select>
-                        </mat-form-field>
+                            <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">
+                                <mat-label>Tốc độ</mat-label>
+                                <mat-select [formControlName]="'rate'">
+                                    <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
+                                    <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                                    <mat-option [value]="0.9">0.9x</mat-option>
+                                    <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
+                                    <mat-option [value]="1.1">1.1x</mat-option>
+                                    <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
+                                    <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
+                                    <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
+                                </mat-select>
+                            </mat-form-field>
 
-                        <mat-form-field class="w-full sm:w-1/4 sm:ml-2 fuse-mat-dense fuse-mat-emphasized-affix">
-                            <mat-label>Cao độ</mat-label>
-                            <mat-select [formControlName]="'pitch'">
-                                <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
-                                <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
-                                <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
-                                <mat-option [value]="0">0 (Mặc định)</mat-option>
-                                <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
-                                <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
-                                <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
-                            </mat-select>
-                        </mat-form-field>
+                            <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">
+                                <mat-label>Cao độ</mat-label>
+                                <mat-select [formControlName]="'pitch'">
+                                    <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
+                                    <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
+                                    <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
+                                    <mat-option [value]="0">0 (Mặc định)</mat-option>
+                                    <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
+                                    <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                                    <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
+                                </mat-select>
+                            </mat-form-field>
+                        </div>
 
                         <mat-form-field class="w-full mt-4 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'">
