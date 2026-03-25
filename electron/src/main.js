@@ -1583,7 +1583,7 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
  * Hàm sinh audio từ Edge TTS bằng WebSocket thuần.
  * Không cần cài Python, không cần edge-tts cli.
  */
-async function generateEdgeAudioByExe(text, voice, outputPath, rate, pitch) {
+async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pitch) {
     return new Promise((resolve, reject) => {
         if (!fs.existsSync(edgeTtsExe)) {
             return reject(new Error(`Không tìm thấy file Edge TTS Core tại: ${edgeTtsExe}`));
@@ -1596,6 +1596,7 @@ async function generateEdgeAudioByExe(text, voice, outputPath, rate, pitch) {
             `--output=${outputPath}`,
             `--rate=${rate || "+0%"}`,
             `--pitch=${pitch || "+0Hz"}`,
+            `--write-subtitles=${subPath}`
         ];
 
         sendToRenderer("tools-log", `[TTS-Exe] Executing: ${edgeTtsExe} ...`);
@@ -1605,12 +1606,7 @@ async function generateEdgeAudioByExe(text, voice, outputPath, rate, pitch) {
                 sendToRenderer("tools-log", `[TTS-Exe] Error: ${stderr || error.message}`);
                 return reject(error);
             }
-
-            if (stdout.includes("SUCCESS|") || (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 0)) {
-                resolve(outputPath);
-            } else {
-                reject(new Error("Unknown error from Edge TTS executable"));
-            }
+            resolve({ audio: outputPath, sub: subPath });
         });
     });
 }
@@ -1671,8 +1667,15 @@ ipcMain.handle("tts-generate", async (event, payload) => {
             filename.endsWith(".mp3") ? filename : `${filename}.mp3`,
         );
 
+        // Tạo thêm đường dẫn cho file phụ đề (cùng tên, khác đuôi)
+        const subPath = path.join(
+            saveDir,
+            filename.endsWith(".mp3") ? filename.replace('.mp3', '.vtt') : `${filename}.vtt`
+        );
+
         // [THAY ĐỔI]: Truyền biến đã format vào đây
-        await generateEdgeAudioByExe(text, voice, filePath, formattedRate, formattedPitch);
+        // await generateEdgeAudioByExe(text, voice, filePath, formattedRate, formattedPitch);
+        await generateEdgeAudioByExe(text, voice, filePath, subPath, formattedRate, formattedPitch);
 
         if (fs.existsSync(filePath)) {
             return {
@@ -2829,6 +2832,57 @@ function cleanFilePath(fileUrl) {
     return p;
 }
 
+// --- UTILS: Parse & Format thời gian VTT ---
+function parseVttTime(timeStr) {
+    const [h, m, s_ms] = timeStr.split(':');
+    const [s, ms] = s_ms.split('.');
+    return parseInt(h) * 3600000 + parseInt(m) * 60000 + parseInt(s) * 1000 + parseInt(ms);
+}
+
+function formatVttTime(ms) {
+    const h = Math.floor(ms / 3600000); ms %= 3600000;
+    const m = Math.floor(ms / 60000); ms %= 60000;
+    const s = Math.floor(ms / 1000);
+    const milli = Math.floor(ms % 1000);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}.${String(milli).padStart(3, '0')}`;
+}
+
+// --- UTILS: Nối các file VTT và cộng dồn thời gian ---
+function mergeVTTFiles(vttFilePaths, outputVttPath) {
+    let mergedVtt = "WEBVTT\n\n";
+    let currentOffsetMs = 0;
+
+    for (let path of vttFilePaths) {
+        if (!fs.existsSync(path)) continue;
+        const content = fs.readFileSync(path, 'utf-8');
+        const lines = content.split('\n');
+
+        let lastEndTimeMs = 0;
+
+        for (let line of lines) {
+            line = line.trim();
+            if (!line || line === "WEBVTT") continue;
+
+            if (line.includes("-->")) {
+                // Dòng thời gian: "00:00:00.100 --> 00:00:01.500"
+                const parts = line.split("-->");
+                const startMs = parseVttTime(parts[0].trim()) + currentOffsetMs;
+                const endMs = parseVttTime(parts[1].trim()) + currentOffsetMs;
+
+                mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n`;
+                lastEndTimeMs = parseVttTime(parts[1].trim()); // Lưu lại mốc tg cuối của file này
+            } else {
+                // Dòng văn bản
+                mergedVtt += `${line}\n`;
+            }
+        }
+        mergedVtt += "\n";
+        // Cộng dồn độ dài của file vừa xong vào Offset cho file tiếp theo
+        currentOffsetMs += lastEndTimeMs;
+    }
+    fs.writeFileSync(outputVttPath, mergedVtt, 'utf-8');
+}
+
 // IPC Handler: Render Video Đa Tỉ Lệ & Đa Phân Giải
 ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
@@ -2898,7 +2952,25 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             // const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
 
             // [CẬP NHẬT]: Thêm hiệu ứng Fade-in 0.5s cho cả Hình ảnh (fade) và Âm thanh (afade)
-            const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5" -af "afade=t=in:st=0:d=0.5" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
+            // const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5" -af "afade=t=in:st=0:d=0.5" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
+
+            // -------------------------------------------------------------
+            // [CẬP NHẬT]: Gộp các file VTT và căn lại mốc thời gian
+            // -------------------------------------------------------------
+            // 1. Lấy danh sách toàn bộ file .vtt tương ứng với .mp3
+            const sceneVttFiles = sceneAudioFiles.map(f => f.replace('.mp3', '.vtt'));
+
+            // 2. Đường dẫn file VTT sau khi gộp
+            const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
+
+            // 3. Thực thi gộp file
+            mergeVTTFiles(sceneVttFiles, mergedVttPath);
+
+            // 4. Chuyển đường dẫn cho an toàn với FFmpeg
+            const safeSubPathForFFmpeg = mergedVttPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+
+            // Lệnh render FFmpeg (Giữ nguyên như cũ)
+            const videoCmd = `ffmpeg -y ${inputArgs} -i "${sceneAudioPath}" -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5,subtitles='${safeSubPathForFFmpeg}'" -af "afade=t=in:st=0:d=0.5" -c:v libx264 -preset fast -crf 23 -c:a aac -b:a 192k -pix_fmt yuv420p -shortest "${sceneVideoPath}"`;
 
             await execPromise(videoCmd);
             sceneVideos.push(sceneVideoPath);
