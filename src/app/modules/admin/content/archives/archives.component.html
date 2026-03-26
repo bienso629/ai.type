@@ -146,13 +146,13 @@
                             [routerLink]="['/amxh']" [routerLink]="['/amxh']"
                             [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
                             class="transition-colors">
-                            <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:edit-3'"></mat-icon>
+                            <mat-icon class="icon-size-5 text-red-500" [svgIcon]="'feather:edit-3'"></mat-icon>
                         </button>
 
                         <button *ngIf="permissionText2Voice" mat-icon-button matTooltipPosition="above"
                             matTooltip="Tạo video bằng chữ và hình ảnh cho bài '{{ row.title }}'"
                             [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors">
-                            <mat-icon class="icon-size-4 text-blue-500"
+                            <mat-icon class="icon-size-5 text-blue-500"
                                 [svgIcon]="'heroicons_outline:video-camera'"></mat-icon>
                         </button>
                     </div>
