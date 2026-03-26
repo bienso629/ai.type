@@ -270,13 +270,20 @@
 
                                     <div class="flex justify-start">
                                         <button *ngIf="!clip.file" mat-icon-button [disabled]="clip.isProcessing"
-                                            (click)="generateAudio(clip)" class="transition-colors">
+                                            (click)="generateAudio(clip)" class="transition-colors" matTooltip="Tạo Audio gốc">
                                             <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
                                                 [svgIcon]="'feather:loader'"></mat-icon>
                                             <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
                                                 [ngClass]="clip.url ? 'text-green-500' : 'text-blue-500'"
                                                 [svgIcon]="clip.url ? 'heroicons_outline:refresh' : 'heroicons_outline:microphone'">
                                             </mat-icon>
+                                        </button>
+
+                                        <button *ngIf="!clip.file" mat-icon-button [disabled]="clip.isProcessing"
+                                            (click)="applyRvcToClip(clip)" class="ml-1 transition-colors text-purple-500 hover:text-purple-600"
+                                            matTooltip="Biến đổi giọng bằng AI (RVC)">
+                                            <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
+                                                [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                         </button>
 
                                         <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"

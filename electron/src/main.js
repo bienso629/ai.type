@@ -2136,6 +2136,7 @@ app.whenReady().then(async () => {
     startSttWebSocketServer();
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
     createMainWindow();
+    startRvcApiServer();
 
     if (downloader && fs.existsSync(downloader)) {
         downloaderProcess = execFile(downloader, [], (err, stdout, stderr) => {
@@ -2509,6 +2510,7 @@ app.whenReady().then(async () => {
 app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     if (serviceProcess) serviceProcess.kill("SIGTERM");
+    if (rvcApiProcess) rvcApiProcess.kill("SIGTERM");
 });
 
 app.on("window-all-closed", () => {
@@ -2995,114 +2997,56 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
     }
 });
 
-// =====================================================================
-// [RVC ENGINE] TẢI MODEL VÀ ĐỔI GIỌNG
-// =====================================================================
+let rvcApiProcess = null;
 
-// Hàm tiện ích tải file
-function downloadFileCustom(url, destPath) {
-    return new Promise((resolve, reject) => {
-        const file = fs.createWriteStream(destPath);
-        https.get(url, (response) => {
-            if (response.statusCode === 301 || response.statusCode === 302) {
-                return downloadFileCustom(response.headers.location, destPath).then(resolve).catch(reject);
-            }
-            if (response.statusCode !== 200) {
-                return reject(new Error(`Lỗi tải xuống: ${response.statusCode}`));
-            }
-            response.pipe(file);
-            file.on('finish', () => {
-                file.close();
-                resolve(destPath);
-            });
-        }).on('error', (err) => {
-            fs.unlinkSync(destPath);
-            reject(err);
-        });
+function startRvcApiServer() {
+    // Trỏ đến file rvc-api.py bạn vừa tạo
+    const scriptPath = path.resolve(__dirname, '..', 'rvc-api.py');
+
+    // Khởi chạy ngầm bằng Python
+    rvcApiProcess = spawn('python', [scriptPath], {
+        cwd: path.dirname(scriptPath)
+    });
+
+    rvcApiProcess.stdout.on('data', (data) => {
+        sendToRenderer("tools-log", `[RVC-Server]: ${data.toString().trim()}`);
+    });
+
+    rvcApiProcess.stderr.on('data', (data) => {
+        // Log lỗi đỏ từ python
+        console.error(`[RVC-Server-Error]:`, data.toString());
     });
 }
 
-// 1. IPC: Tải Model Yenai từ Internet
-ipcMain.handle('download-rvc-models', async (event) => {
-    try {
-        const docPath = app.getPath("documents");
-        const modelDir = path.join(docPath, "ai.type", "data", "models", "yenai");
-
-        if (!fs.existsSync(modelDir)) {
-            fs.mkdirSync(modelDir, { recursive: true });
-        }
-
-        const pthUrl = "https://ai.type.vn/myvoices/yenai/yenai_100e_3000s.pth";
-        const indexUrl = "https://ai.type.vn/myvoices/yenai/added_IVF733_Flat_nprobe_1_yenai_v2.index";
-
-        const pthPath = path.join(modelDir, "yenai_100e_3000s.pth");
-        const indexPath = path.join(modelDir, "added_IVF733_Flat_nprobe_1_yenai_v2.index");
-
-        // Chỉ tải nếu file chưa tồn tại (Cache)
-        if (!fs.existsSync(pthPath)) {
-            sendToRenderer("tools-log", "[RVC] Đang tải file .pth (có thể mất vài phút)...");
-            await downloadFileCustom(pthUrl, pthPath);
-        }
-
-        if (!fs.existsSync(indexPath)) {
-            sendToRenderer("tools-log", "[RVC] Đang tải file .index...");
-            await downloadFileCustom(indexUrl, indexPath);
-        }
-
-        sendToRenderer("tools-log", "[RVC] Đã chuẩn bị xong Model Yenai.");
-        return { success: true, pthPath, indexPath };
-    } catch (error) {
-        console.error("Lỗi tải model:", error);
-        return { success: false, error: error.message };
-    }
-});
-
-// 2. IPC: Gọi RVC để đổi giọng (DÙNG BẢN EXE ĐÃ BUILD)
 ipcMain.handle('apply-rvc', async (event, payload) => {
     try {
         const { inputAudio, outputAudio, pitch, pthPath, indexPath } = payload;
         
-        // Trỏ đường dẫn đến file rvc-engine.exe 
-        // Giả sử thư mục rvc-engine được đặt ngang hàng với thư mục chứa main.js
-        const rvcExePath = path.resolve(__dirname, '..', 'rvc-engine', process.platform === "win32" ? "rvc-engine.exe" : "rvc-engine-macos"); 
-        
-        // Kiểm tra xem file exe có tồn tại không để tránh lỗi ngầm
-        if (!fs.existsSync(rvcExePath)) {
-            sendToRenderer("tools-log", `[RVC] ❌ Không tìm thấy RVC Engine tại: ${rvcExePath}`);
-            return { success: false, error: `Thiếu file rvc-engine.exe` };
-        }
+        sendToRenderer("tools-log", `[RVC] Đang gọi API biến đổi giọng...`);
 
-        const args = [
-            '--input', inputAudio,
-            '--model', pthPath,
-            '--index', indexPath, 
-            '--output', outputAudio,
-            '--pitch', pitch || 0
-        ];
-
-        sendToRenderer("tools-log", `[RVC] Đang clone giọng bằng bản EXE...`);
-        
-        return new Promise((resolve) => {
-            // Thay vì dùng spawn python, ta dùng execFile gọi thẳng vào .exe
-            execFile(rvcExePath, args, (error, stdout, stderr) => {
-                if (error) {
-                    sendToRenderer("tools-log", `[RVC] ❌ Lỗi EXE: ${stderr || error.message}`);
-                    resolve({ success: false, error: stderr || error.message });
-                    return;
-                }
-                
-                // Cẩn thận kiểm tra xem file audio đã thực sự được sinh ra chưa
-                if (fs.existsSync(outputAudio)) {
-                    sendToRenderer("tools-log", `[RVC] ✅ Clone thành công (EXE)!`);
-                    resolve({ success: true, path: outputAudio });
-                } else {
-                    sendToRenderer("tools-log", `[RVC] ❌ Lỗi: Chạy xong nhưng không thấy file Output.`);
-                    resolve({ success: false, error: "Không sinh ra được file âm thanh." });
-                }
-            });
+        const response = await fetch('http://127.0.0.1:7890/api/rvc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                input: inputAudio,
+                model: pthPath,
+                index: indexPath || "", // <--- TRUYỀN THÊM INDEX VÀO ĐÂY
+                output: outputAudio,
+                pitch: pitch || 0
+            })
         });
+
+        const data = await response.json();
+
+        if (data.success) {
+            sendToRenderer("tools-log", `[RVC] ✅ Thành công qua API!`);
+            return { success: true, path: data.path };
+        } else {
+            sendToRenderer("tools-log", `[RVC] ❌ Lỗi từ API: ${data.error}`);
+            return { success: false, error: data.error };
+        }
     } catch (error) {
-        console.error("Lỗi IPC apply-rvc:", error);
+        sendToRenderer("tools-log", `[RVC] ❌ Mất kết nối tới Python API: ${error.message}`);
         return { success: false, error: error.message };
     }
 });
