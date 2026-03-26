@@ -321,6 +321,90 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
+    // =====================================================================
+    // [MỚI] HÀM KIỂM TRA VÀ GỌI RVC RIÊNG LẺ
+    // =====================================================================
+    async applyRvcToClip(clip: AudioClip) {
+        if (!(window as any).electron || !(window as any).electron.invoke) {
+            this.toastr.error('Tính năng này chỉ hoạt động trên ứng dụng Desktop.');
+            return;
+        }
+
+        clip.isProcessing = true;
+        this.cd.markForCheck();
+
+        try {
+            // 1. KIỂM TRA AUDIO GỐC: Nếu chưa có file gốc (chưa từng chạy TTS) -> Tạo audio trước
+            if (!clip['localFilePath'] || !clip.url) {
+                this.toastr.info(`Đang tạo audio gốc cho: ${clip.name}...`);
+                await this.generateAudio(clip);
+                
+                // Nếu gọi xong mà vẫn không sinh ra được file (do lỗi mạng hoặc API) thì dừng
+                if (!clip['localFilePath']) {
+                    throw new Error("Không thể tạo audio gốc để xử lý.");
+                }
+            }
+
+            this.toastr.info('Đang biến đổi qua RVC...', 'System');
+
+            const inputPath = clip['localFilePath'];
+            
+            // 2. Tạo tên file output mới (_rvc.wav)
+            let outputPath = inputPath;
+            if (outputPath.includes('.mp3')) {
+                outputPath = outputPath.replace('.mp3', '_rvc.wav');
+            } else if (!outputPath.includes('_rvc')) {
+                outputPath = outputPath.replace('.wav', '_rvc.wav');
+            }
+
+            // Lấy đường dẫn model (Tạm thời hardcode mặc định là Yenai như bạn đã setup)
+            const envPath = inputPath.split('ai.type')[0]; 
+            const pthPath = `${envPath}ai.type/data/models/muaphosaigon/muaphosaigon_3700e_18500s.pth`;
+            const indexPath = `${envPath}ai.type/data/models/muaphosaigon/added_IVF44_Flat_nprobe_1_muaphosaigon_v2.index`; // <--- ĐƯỜNG DẪN INDEX
+            
+            let finalPitch = clip.pitch || 0;
+            if (!clip.pitch && clip.voice === 'vi-VN-NamMinhNeural') {
+                finalPitch = 12;
+            }
+
+            // 3. GỌI API RVC (qua IPC)
+            const rvcRes = await (window as any).electron.invoke('apply-rvc', {
+                inputAudio: inputPath,
+                outputAudio: outputPath,
+                pitch: finalPitch,
+                pthPath: pthPath,
+                indexPath: indexPath // <--- ĐẨY INDEX XUỐNG MAIN.JS
+            });
+
+            if (rvcRes && rvcRes.success) {
+                // 4. GHI ĐÈ FILE MỚI VÀO GIAO DIỆN
+                clip['localFilePath'] = outputPath;
+                clip.audioFileName = outputPath.split(/[\\/]/).pop();
+                clip.rawUrl = null; // Bắt buộc set null để WaveSurfer xóa bộ nhớ đệm cũ
+
+                // Nạp lại file âm thanh mới
+                await this.loadLocalAudioContent(clip);
+                
+                this.saveToLocal();
+                this.toastr.success(`Đã đổi giọng thành công!`);
+                
+                // Tự động phát để người dùng nghe thử
+                if (!this.isGlobalProcessing) {
+                    this.playClip(clip);
+                }
+            } else {
+                throw new Error(rvcRes?.error || "Lỗi không xác định từ RVC Engine");
+            }
+
+        } catch (err: any) {
+            console.error(err);
+            this.toastr.error('Lỗi RVC: ' + err.message);
+        } finally {
+            clip.isProcessing = false;
+            this.cd.markForCheck();
+        }
+    }
+
     // [RETRY] Hàm xử lý lỗi: Bật Dialog Confirm
     private handleTTSError(
         clip: AudioClip,
