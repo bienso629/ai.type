@@ -86,20 +86,20 @@
                     </div>
                 </div>
 
-                <div class="mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
+                <!-- <div
+                    class="flex flex-col justify-center items-center mt-8 border-t border-gray-200 dark:border-gray-700 pt-6">
                     <h4 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Tính năng nâng cao
                     </h4>
-                    <button mat-stroked-button color="primary"
-                        class="w-full flex justify-center items-center bg-white dark:bg-gray-800"
-                        (click)="downloadVoiceModel()" [disabled]="isDownloadingModel">
-                        <mat-icon *ngIf="isDownloadingModel" class="animate-spin icon-size-5 mr-2"
+                    <button mat-flat-button color="primary" (click)="downloadVoiceModel()"
+                        [disabled]="isDownloadingModel">
+                        <mat-icon *ngIf="isDownloadingModel" class="animate-spin icon-size-5"
                             [svgIcon]="'feather:loader'"></mat-icon>
-                        <mat-icon *ngIf="!isDownloadingModel" class="icon-size-5 mr-2"
+                        <mat-icon *ngIf="!isDownloadingModel" class="icon-size-5"
                             [svgIcon]="'heroicons_outline:cloud-download'"></mat-icon>
-                        <span>{{ isDownloadingModel ? 'Đang tải Data...' : 'Tải Giọng Yenai (Nữ)' }}</span>
+                        <mat-label class="ml-2">{{ isDownloadingModel ? 'Đang tải Data...' : 'Tải giọng yenai (Nam)' }}</mat-label>
                     </button>
                     <p class="text-xs text-gray-400 mt-2 text-center">Tải file AI để sử dụng giọng clone độc quyền.</p>
-                </div>
+                </div> -->
             </mat-drawer>
 
             <mat-drawer-content class="flex flex-col min-w-0 border-t border-l overflow-hidden rounded-tl-xl">
