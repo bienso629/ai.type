@@ -48,7 +48,8 @@
 
             <mat-form-field class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-2"
                 appearance="fill">
-                <input matInput (keyup.enter)="searchNode()" [(ngModel)]="keyword" [placeholder]="'Tìm kiếm việc đang làm'">
+                <input matInput (keyup.enter)="searchNode()" [(ngModel)]="keyword"
+                    [placeholder]="'Tìm kiếm việc đang làm'">
                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
             </mat-form-field>
         </div>
@@ -84,11 +85,7 @@
             <ngx-datatable-column name="Tiêu đề" [width]="400" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row.seo" class="font-normal truncate hover:text-clip" matTooltipPosition="above"
-                        matTooltip="{{ row.seo['words'].total }} từ, {{ row.seo['links'] }} liên kết, {{
-                        row.seo['heading']['h1']['total'] }} H1, {{
-                        row.seo['images']['total'] }} hình ảnh">{{row.title}}</p>
-
+                    <p *ngIf="row.seo" class="font-normal truncate hover:text-clip">{{row.title}}</p>
                     <p class="font-normal truncate hover:text-clip" *ngIf="!row.seo">{{row.title}}</p>
                 </ng-template>
             </ngx-datatable-column>
@@ -140,26 +137,36 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="" [width]="250" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-self-stretch">
                         <button *ngIf="permissionText2Voice" mat-icon-button matTooltipPosition="above"
                             matTooltip="Lên kịch bản comment, like hoặc share cho bài '{{ row.title }}'"
-                            [routerLink]="['/amxh']" [routerLink]="['/amxh']" [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
+                            [routerLink]="['/amxh']" [routerLink]="['/amxh']"
+                            [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
                             class="transition-colors">
-                            <mat-icon class="icon-size-5 text-red-500" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
+                            <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:edit-3'"></mat-icon>
                         </button>
 
                         <button *ngIf="permissionText2Voice" mat-icon-button matTooltipPosition="above"
                             matTooltip="Tạo video bằng chữ và hình ảnh cho bài '{{ row.title }}'"
-                            [routerLink]="['/voice2video', user.name, row.uuid]"
-                            class="transition-colors">
-                            <mat-icon class="icon-size-5 text-blue-500" [svgIcon]="'heroicons_outline:microphone'"></mat-icon>
+                            [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors">
+                            <mat-icon class="icon-size-4 text-blue-500"
+                                [svgIcon]="'heroicons_outline:video-camera'"></mat-icon>
                         </button>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
+
+            <!-- <ngx-datatable-column name="SEO" [sortable]="false" [canAutoResize]="true"
+                [draggable]="false" [resizeable]="true">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    {{ row.seo['words'].total }} từ, {{ row.seo['links'] }} liên kết, {{
+                    row.seo['heading']['h1']['total'] }} H1, {{
+                    row.seo['images']['total'] }} hình ảnh
+                </ng-template>
+            </ngx-datatable-column> -->
 
             <!-- Column Templates -->
             <ngx-datatable-footer>
