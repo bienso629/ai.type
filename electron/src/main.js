@@ -2136,7 +2136,6 @@ app.whenReady().then(async () => {
     startSttWebSocketServer();
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
     createMainWindow();
-    startRvcApiServer();
 
     if (downloader && fs.existsSync(downloader)) {
         downloaderProcess = execFile(downloader, [], (err, stdout, stderr) => {
@@ -2510,7 +2509,6 @@ app.whenReady().then(async () => {
 app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     if (serviceProcess) serviceProcess.kill("SIGTERM");
-    if (rvcApiProcess) rvcApiProcess.kill("SIGTERM");
 });
 
 app.on("window-all-closed", () => {
@@ -2996,27 +2994,6 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         return { success: false, error: err.message };
     }
 });
-
-let rvcApiProcess = null;
-
-function startRvcApiServer() {
-    // Trỏ đến file rvc-api.py bạn vừa tạo
-    const scriptPath = path.resolve(__dirname, '..', 'rvc-api.py');
-
-    // Khởi chạy ngầm bằng Python
-    rvcApiProcess = spawn('python', [scriptPath], {
-        cwd: path.dirname(scriptPath)
-    });
-
-    rvcApiProcess.stdout.on('data', (data) => {
-        sendToRenderer("tools-log", `[RVC-Server]: ${data.toString().trim()}`);
-    });
-
-    rvcApiProcess.stderr.on('data', (data) => {
-        // Log lỗi đỏ từ python
-        console.error(`[RVC-Server-Error]:`, data.toString());
-    });
-}
 
 ipcMain.handle('apply-rvc', async (event, payload) => {
     try {
