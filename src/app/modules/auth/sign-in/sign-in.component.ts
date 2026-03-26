@@ -98,54 +98,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             this._authService.signIn(this.signInForm.value).subscribe(
                 (user) => {
                     if (user) {
-                        this._forumService
-                            .getGroups(this.signInForm.get('server').value)
-                            .subscribe((result) => {
-                                if (result && result.success && result.data) {
-                                    result.data.groups.map((g: any) => {
-                                        if (g.slug === 'nhóm-đã-mua-ai-type') {
-                                            this.multiAccountService.setItem('members', g.members);
-                                        }
-
-                                        g.members.map((m: any) => {
-                                            if (m.uid === user.id) {
-                                                if (
-                                                    !user.groups?.includes(
-                                                        g.slug,
-                                                    )
-                                                ) {
-                                                    user.groups.push(g.slug);
-                                                }
-                                            }
-                                        });
-                                    });
-
-                                    if (this.signInForm.value.rememberMe) {
-                                        // Store the access token in the local storage
-                                        this._authService.accessToken = AuthUtils._generateJWTToken(user);
-                                    }
-
-                                    // Store the user on the user service
-                                    this._userService.user = user;
-                                    this.save(user);
-
-                                    const redirectURL =
-                                        this._activatedRoute.snapshot.queryParamMap.get(
-                                            'redirectURL',
-                                        ) || '/signed-in-redirect';
-                                    this._router.navigateByUrl(redirectURL);
-                                } else {
-                                    // this.multiAccountService.removeItem('accessToken');
-
-                                    // Re-enable the form
-                                    this.signInForm.enable();
-
-                                    this.alert = {
-                                        type: 'warning',
-                                        message: 'Tài khoản của bạn không đúng.',
-                                    };
-                                }
-                            });
+                        this.checkAccount(user);
                     } else {
                         // this.multiAccountService.removeItem('accessToken');
 
@@ -174,6 +127,16 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
+    async onSelectAccount(accountId: string, index: number) {
+        const success = await this.multiAccountService.switchAccount(accountId);
+        if (success) {
+            const user = this.accounts[index]['profile'];
+            if (user) {
+                this.checkAccount(user);
+            }
+        }
+    }
+
     /**
      * Save
      */
@@ -191,61 +154,55 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
             });
     }
 
-    async onSelectAccount(accountId: string, index: number) {
-        const success = await this.multiAccountService.switchAccount(accountId);
-        if (success) {
-            const user = this.accounts[index]['profile'];
-            if (user) {
-                this._forumService
-                    .getGroups(this.signInForm.get('server').value)
-                    .subscribe((result) => {
-                        if (result && result.success && result.data) {
-                            result.data.groups.map((g: any) => {
-                                if (g.slug === 'nhóm-đã-mua-ai-type') {
-                                    this.multiAccountService.setItem('members', g.members);
-                                }
-
-                                g.members.map((m: any) => {
-                                    if (m.uid === user.id) {
-                                        if (
-                                            !user.groups?.includes(
-                                                g.slug,
-                                            )
-                                        ) {
-                                            user.groups.push(g.slug);
-                                        }
-                                    }
-                                });
-                            });
-
-                            if (this.signInForm.value.rememberMe) {
-                                // Store the access token in the local storage
-                                this._authService.accessToken = AuthUtils._generateJWTToken(user);
-                            }
-
-                            // Store the user on the user service
-                            this._userService.user = user;
-                            this.save(user);
-
-                            const redirectURL =
-                                this._activatedRoute.snapshot.queryParamMap.get(
-                                    'redirectURL',
-                                ) || '/signed-in-redirect';
-                            this._router.navigateByUrl(redirectURL);
-                        } else {
-                            // this.multiAccountService.removeItem('accessToken');
-
-                            // Re-enable the form
-                            this.signInForm.enable();
-
-                            this.alert = {
-                                type: 'warning',
-                                message: 'Tài khoản của bạn không đúng.',
-                            };
+    checkAccount(user: any) {
+        this._forumService
+            .getGroups(this.signInForm.get('server').value)
+            .subscribe((result) => {
+                if (result && result.success && result.data) {
+                    result.data.groups.map((g: any) => {
+                        if (g.slug === 'nhóm-đã-mua-ai-type') {
+                            this.multiAccountService.setItem('members', g.members);
                         }
+
+                        g.members.map((m: any) => {
+                            if (m.uid === user.id) {
+                                if (
+                                    !user.groups?.includes(
+                                        g.slug,
+                                    )
+                                ) {
+                                    user.groups.push(g.slug);
+                                }
+                            }
+                        });
                     });
-            }
-        }
+
+                    if (this.signInForm.value.rememberMe) {
+                        // Store the access token in the local storage
+                        this._authService.accessToken = AuthUtils._generateJWTToken(user);
+                    }
+
+                    // Store the user on the user service
+                    this._userService.user = user;
+                    this.save(user);
+
+                    const redirectURL =
+                        this._activatedRoute.snapshot.queryParamMap.get(
+                            'redirectURL',
+                        ) || '/signed-in-redirect';
+                    this._router.navigateByUrl(redirectURL);
+                } else {
+                    // this.multiAccountService.removeItem('accessToken');
+
+                    // Re-enable the form
+                    this.signInForm.enable();
+
+                    this.alert = {
+                        type: 'warning',
+                        message: 'Tài khoản của bạn không đúng.',
+                    };
+                }
+            });
     }
 
     /**

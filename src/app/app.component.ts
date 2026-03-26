@@ -66,6 +66,13 @@ export class AppComponent implements OnInit, OnDestroy {
         private multiAccountService: MultiAccountService
     ) {
         // kiểm tra settings và khởi tạo
+        this.multiAccountService.loadActiveAccount().then(data => {
+            const groups = data.user?.groups;
+            if (groups && groups.length === 0) {
+                this.multiAccountService.clearCurrentAccountData();
+            }
+        });
+
         let settings: any = this.multiAccountService.getItem('settings');
         if (!settings || settings == 'undefined') {
             settings = {
