@@ -2999,7 +2999,7 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
     try {
         const { inputAudio, outputAudio, pitch, pthPath, indexPath } = payload;
         const fs = require('fs'); // Đảm bảo có thư viện xử lý file
-        
+
         // CHỐNG LỖI CÂM (0 BYTES): Bắt Python xuất ra file tạm trước
         const tempOutput = inputAudio + ".tmp.wav";
 
@@ -3022,13 +3022,13 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
         if (data.success && fs.existsSync(tempOutput)) {
             // KHI PYTHON LÀM XONG -> LẤY FILE TẠM GHI ĐÈ THẲNG LÊN FILE OUTPUT
             if (fs.existsSync(outputAudio)) {
-                try { fs.unlinkSync(outputAudio); } catch(e){} // Xóa output cũ nếu có
+                try { fs.unlinkSync(outputAudio); } catch (e) { } // Xóa output cũ nếu có
             }
             fs.renameSync(tempOutput, outputAudio); // Di chuyển file tạm thành output chính
 
             // Nếu file đầu vào là .mp3, mà output là .wav, ta dọn sạch luôn file .mp3 gốc cho rỗng thùng rác
             if (inputAudio !== outputAudio && fs.existsSync(inputAudio)) {
-                try { fs.unlinkSync(inputAudio); } catch(e){}
+                try { fs.unlinkSync(inputAudio); } catch (e) { }
             }
 
             sendToRenderer("tools-log", `[RVC] ✅ Đã biến đổi và ghi đè file thành công!`);
@@ -3039,6 +3039,89 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
         }
     } catch (error) {
         sendToRenderer("tools-log", `[RVC] ❌ Mất kết nối tới Python API: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+});
+
+// Thêm vào trong app.whenReady() hoặc khu vực định nghĩa ipcMain
+ipcMain.handle("tts-ausync-generate", async (event, payload) => {
+    const { text, voice_id, speed, filename, username } = payload;
+    const apiKey = "ak_MjAzMzU2OmJ1Y3R1b25nMjAwMEBnbWFpbC5jb206MENpS1BGQjRIS00=.e349092aeb0d";
+
+    try {
+        // BƯỚC 1: POST yêu cầu tạo Audio với đầy đủ các trường bắt buộc
+        const postRes = await fetch("https://api.ausynclab.io/api/v1/speech/text-to-speech", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "x-api-key": apiKey
+            },
+            body: JSON.stringify({
+                "audio_name": filename, // Sử dụng tên file làm tên audio
+                "text": text,
+                "voice_id": parseInt(voice_id),
+                "speed": speed || 1.0,
+                "model_name": "myna-2", // Model bắt buộc theo yêu cầu
+                "language": "vi",       // Ngôn ngữ tiếng Việt
+                "callback_url": ""      // Để trống vì chúng ta dùng cơ chế Polling (hỏi liên tục)
+            })
+        });
+
+        const postData = await postRes.json();
+
+        // Kiểm tra mã trạng thái từ API
+        if (postData.status !== 200 || !postData.result || !postData.result.audio_id) {
+            throw new Error(postData.message || "Không thể khởi tạo audio trên AusyncLab. Kiểm tra lại API Key hoặc Voice ID.");
+        }
+
+        const audioId = postData.result.audio_id;
+        let audioUrl = "";
+        let attempts = 0;
+
+        // BƯỚC 2: Polling GET để chờ file hoàn thành (GET https://api.ausynclab.io/api/v1/speech/{audio_id})
+        sendToRenderer("tools-log", `[AusyncLab] Đang xử lý Audio ID: ${audioId}...`);
+
+        while (attempts < 20) { // Tăng lên 20 lần (khoảng 40 giây) cho an toàn
+            const getRes = await fetch(`https://api.ausynclab.io/api/v1/speech/${audioId}`, {
+                headers: { "x-api-key": apiKey }
+            });
+            const getData = await getRes.json();
+
+            if (getData.status === 200 && getData.result.state === "SUCCEED") {
+                audioUrl = getData.result.audio_url; // Lấy URL file .wav thành phẩm
+                break;
+            } else if (getData.result.state === "FAILED") {
+                throw new Error("AusyncLab báo lỗi khi đang xử lý chuyển đổi văn bản.");
+            }
+
+            // Đợi 2 giây trước khi hỏi lại
+            await new Promise(r => setTimeout(r, 2000));
+            attempts++;
+        }
+
+        if (!audioUrl) throw new Error("Quá thời gian chờ (Timeout) - API chưa trả về link download.");
+
+        // BƯỚC 3: Tải file về thư mục cục bộ giống generateEdgeTTSLocal
+        const documentsPath = app.getPath("documents");
+        const saveDir = path.join(documentsPath, "ai.type", "data", "tts", username);
+        if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
+
+        // Xác định đường dẫn file cuối cùng (thường Ausync trả về .wav)
+        const filePath = path.join(saveDir, `${filename}.wav`);
+
+        const fileRes = await fetch(audioUrl);
+        if (!fileRes.ok) throw new Error("Không thể kết nối tới máy chủ lưu trữ audio để tải file.");
+
+        const buffer = await fileRes.arrayBuffer();
+        fs.writeFileSync(filePath, Buffer.from(buffer));
+
+        return {
+            success: true,
+            filePath: filePath // Trả về đường dẫn để Angular load vào WaveSurfer
+        };
+
+    } catch (error) {
+        console.error("AusyncLab TTS Error:", error);
         return { success: false, error: error.message };
     }
 });

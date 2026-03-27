@@ -151,7 +151,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isGlobalProcessing = true;
 
         // Chia nhỏ danh sách để xử lý theo batch (tránh treo máy)
-        const batchSize = 5;
+        const batchSize = 1;
         this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Batch size: ${batchSize})...`);
 
         for (let i = 0; i < pendingClips.length; i += batchSize) {
@@ -167,61 +167,81 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cd.markForCheck();
     }
 
+    // Tìm đến hàm generateAudio và sửa lại như sau:
     async generateAudio(clip: AudioClip): Promise<void> {
         if (!clip.description || !clip.description.trim()) {
             this.toastr.warning(`"${clip.name}" không có nội dung text`);
             return Promise.resolve();
         }
 
-        // Ưu tiên Edge TTS Offline
         const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+
+        // Nếu là giọng Edge TTS Offline
         if (clip.voice && edgeVoices.includes(clip.voice)) {
             return this.generateEdgeTTSLocal(clip);
         }
 
-        // Fallback: XTTS Server
-        return new Promise((resolve) => {
-            clip.isProcessing = true;
+        // [MỚI] Nếu là giọng Huệ (ID: 1248295) hoặc các giọng từ AusyncLab
+        return this.generateAusyncTTS(clip);
+    }
+
+    // Thêm hàm generateAusyncTTS vào class Voice2videoComponent
+    async generateAusyncTTS(clip: AudioClip): Promise<void> {
+        if (!(window as any).electron || !(window as any).electron.invoke) {
+            this.toastr.error('Cần chạy trên App Desktop.');
+            return;
+        }
+
+        clip.isProcessing = true;
+        this.cd.markForCheck();
+
+        const dateFolder = this.getDateStr();
+        const username = this.user?.name || 'anonymous';
+        const subPath = `${username}/${dateFolder}/${this.uuid || 'default'}`;
+        const index = this.audioList.indexOf(clip);
+        const prefix = (index >= 0 ? index + 1 : 0).toString().padStart(3, '0');
+        const slug = this.toSlug(clip.description.substring(0, 50));
+        const niceFilename = `${prefix}_${slug}_ausync`;
+
+        console.log('clip.rate', clip.rate);
+
+        const payload = {
+            text: clip.description,
+            voice_id: clip.voice, // Ví dụ: 1248295
+            speed: 1.0,
+            filename: niceFilename,
+            username: subPath,
+        };
+
+        console.log('payload', payload);
+
+        try {
+            // Gọi Electron để xử lý chuỗi API phức tạp (POST -> GET -> DOWNLOAD)
+            const res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+
+            if (res && res.success) {
+                clip.audioFileName = res.filePath.split(/[\\/]/).pop();
+                clip.username = subPath;
+                clip['localFilePath'] = res.filePath;
+                clip.rawUrl = null;
+                clip.isProcessing = false;
+
+                await this.loadLocalAudioContent(clip);
+
+                if (!this.isGlobalProcessing) {
+                    this.playClip(clip);
+                }
+
+                this.saveToLocal();
+                this.toastr.success(`Đã tải xong: ${clip.audioFileName}`);
+            } else {
+                this.handleTTSError(clip, res.error || 'Lỗi từ AusyncLab API');
+            }
+        } catch (err: any) {
+            this.handleTTSError(clip, 'Lỗi hệ thống: ' + err.message);
+        } finally {
             this.cd.markForCheck();
-
-            const payload = {
-                tts_text: clip.description.split(/\r?\n|\r|\n/g),
-                speaker_audio: `${clip.voice || 'nam-calm'}.wav`,
-                language: 'vi',
-                normalize_text: true,
-                use_filter: false,
-                output_sr: 48000,
-                crossfade_ms: 30,
-                concurrency: 2,
-                join_silence_ms: 800,
-                flat: true,
-                username: this.user.name || 'anonymous',
-            };
-
-            this._blogService
-                .text2speech3(payload)
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: (res: any) => {
-                        if (res?.job_id) {
-                            this.pollJobUntilDone(res.job_id, clip, resolve);
-                        } else {
-                            this.handleTTSError(
-                                clip,
-                                'Không nhận được job từ server.',
-                                resolve,
-                            );
-                        }
-                    },
-                    error: (err) => {
-                        this.handleTTSError(
-                            clip,
-                            'Lỗi kết nối server API.',
-                            resolve,
-                        );
-                    },
-                });
-        });
+        }
     }
 
     async generateEdgeTTSLocal(clip: AudioClip): Promise<void> {
