@@ -83,7 +83,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Offline)' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Offline)' },
-        { id: 'yenai-clone', name: 'Yenai (AI Clone - Nữ Bắc)' } // <--- Thêm giọng clone
         // { id: 'nam-calm', name: 'Nam điềm tĩnh (Server)' },
         // { id: 'nam-cham', name: 'Nam chậm (Server)' },
         // { id: 'nam-nhanh', name: 'Nam nhanh (Server)' },
@@ -241,18 +240,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const shortText = clip.description.substring(0, 50);
         const slug = this.toSlug(shortText);
 
-        // KIỂM TRA: Có phải đang yêu cầu giọng Clone không?
-        const isCloneVoice = clip.voice === 'yenai-clone';
-
-        // Nếu là Yenai: MƯỢN GIỌNG NAM MINH ĐỂ ĐỌC NHÁP, NẾU KHÔNG THÌ DÙNG GIỌNG BÌNH THƯỜNG
-        const edgeVoiceToUse = isCloneVoice ? 'vi-VN-NamMinhNeural' : clip.voice;
-        const niceFilename = `${prefix}_${slug}_${edgeVoiceToUse}`;
+        const niceFilename = `${prefix}_${slug}_${clip.voice}`;
 
         const payload = {
             text: clip.description,
-            voice: edgeVoiceToUse,
+            voice: clip.voice, // Lấy đúng giọng trên giao diện (Nam Minh/Hoài My)
             rate: clip.rate || 1.0,
-            pitch: clip.pitch || 0,   // Cao độ của Edge TTS (Giữ bằng 0 cho tự nhiên)
+            pitch: clip.pitch || 0,
             filename: niceFilename,
             username: subPath,
         };
@@ -262,43 +256,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const ttsRes = await (window as any).electron.invoke('tts-generate', payload);
 
             if (ttsRes && ttsRes.success) {
-                let finalAudioPath = ttsRes.filePath; // Mặc định là file MP3 từ Edge
-                let finalFilename = finalAudioPath.split(/[\\/]/).pop();
-
-                // BƯỚC 2: NẾU LÀ GIỌNG YENAI -> ĐẨY QUA RVC ĐỔI GIỌNG!
-                if (isCloneVoice) {
-                    this.toastr.info(`Đang biến đổi sang giọng Yenai...`);
-
-                    const wavFilename = finalFilename.replace('.mp3', '_yenai.wav');
-                    const clonedWavPath = finalAudioPath.replace('.mp3', '_yenai.wav');
-
-                    // Lấy đường dẫn Model từ máy (do hàm downloadModel đã lưu)
-                    const docPath = await (window as any).electron.invoke('get-app-version'); // Mượn IPC tạm hoặc gọi thẳng
-                    // Thay vì gọi loằng ngoằng, ta hardcode đường dẫn như main.js
-                    const envPath = ttsRes.filePath.split('ai.type')[0]; // Cắt chuỗi để lấy gốc Documents
-                    const pthPath = `${envPath}ai.type/data/models/yenai/yenai_100e_3000s.pth`;
-                    const indexPath = `${envPath}ai.type/data/models/yenai/added_IVF733_Flat_nprobe_1_yenai_v2.index`;
-
-                    const rvcRes = await (window as any).electron.invoke('apply-rvc', {
-                        inputAudio: finalAudioPath,
-                        outputAudio: clonedWavPath,
-                        pitch: 12, // ÉP LÊN 12 QUÃNG ĐỂ NAM MINH THÀNH NỮ
-                        pthPath: pthPath,
-                        indexPath: indexPath
-                    });
-
-                    if (rvcRes.success) {
-                        finalAudioPath = clonedWavPath; // Cập nhật lại đường dẫn để UI đọc file WAV
-                        finalFilename = wavFilename;
-                    } else {
-                        throw new Error("Lỗi clone giọng: " + rvcRes.error);
-                    }
-                }
-
-                // CẬP NHẬT GIAO DIỆN
-                clip.audioFileName = finalFilename;
+                clip.audioFileName = ttsRes.filePath.split(/[\\/]/).pop();
                 clip.username = subPath;
-                clip['localFilePath'] = finalAudioPath;
+                clip['localFilePath'] = ttsRes.filePath;
                 clip.rawUrl = null;
                 clip.isProcessing = false;
 
@@ -309,7 +269,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 this.saveToLocal();
-                this.toastr.success(`Đã tạo: ${finalFilename}`);
+                this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
             } else {
                 this.handleTTSError(clip, ttsRes.error || 'Lỗi tạo giọng đọc gốc.');
             }
@@ -334,61 +294,53 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cd.markForCheck();
 
         try {
-            // 1. KIỂM TRA AUDIO GỐC: Nếu chưa có file gốc (chưa từng chạy TTS) -> Tạo audio trước
+            // 1. NẾU CHƯA CÓ FILE GỐC -> Gọi AI sinh Audio nháp trước
             if (!clip['localFilePath'] || !clip.url) {
-                this.toastr.info(`Đang tạo audio gốc cho: ${clip.name}...`);
+                this.toastr.info(`Đang tạo audio gốc (đọc nháp) cho: ${clip.name}...`);
                 await this.generateAudio(clip);
-                
-                // Nếu gọi xong mà vẫn không sinh ra được file (do lỗi mạng hoặc API) thì dừng
+
+                // Nếu gọi xong mà vẫn không sinh ra được file (do lỗi mạng/API) thì dừng
                 if (!clip['localFilePath']) {
-                    throw new Error("Không thể tạo audio gốc để xử lý.");
+                    throw new Error("Không thể tạo audio gốc để xử lý RVC.");
                 }
             }
 
-            this.toastr.info('Đang biến đổi qua RVC...', 'System');
+            // 2. BẮT ĐẦU QUÁ TRÌNH CLONE GIỌNG RVC
+            this.toastr.info('Đang biến đổi qua RVC AI...', 'Hệ thống');
 
             const inputPath = clip['localFilePath'];
-            
-            // 2. Tạo tên file output mới (_rvc.wav)
-            let outputPath = inputPath;
-            if (outputPath.includes('.mp3')) {
-                outputPath = outputPath.replace('.mp3', '_rvc.wav');
-            } else if (!outputPath.includes('_rvc')) {
-                outputPath = outputPath.replace('.wav', '_rvc.wav');
-            }
+            // GHI ĐÈ THẲNG TÊN GỐC (chỉ đổi đuôi thành .wav cho chuẩn RVC)
+            const outputPath = inputPath.replace(/\.(mp3|wav)$/i, `.wav`);
 
-            // Lấy đường dẫn model (Tạm thời hardcode mặc định là Yenai như bạn đã setup)
-            const envPath = inputPath.split('ai.type')[0]; 
-            const pthPath = `${envPath}ai.type/data/models/muaphosaigon/muaphosaigon_3700e_18500s.pth`;
-            const indexPath = `${envPath}ai.type/data/models/muaphosaigon/added_IVF44_Flat_nprobe_1_muaphosaigon_v2.index`; // <--- ĐƯỜNG DẪN INDEX
-            
-            let finalPitch = clip.pitch || 0;
-            if (!clip.pitch && clip.voice === 'vi-VN-NamMinhNeural') {
-                finalPitch = 12;
-            }
+            // ĐƯỜNG DẪN MODEL (Tùy chỉnh model của bạn tại đây)
+            const envPath = inputPath.split('ai.type')[0];
+            const pthPath = `${envPath}ai.type\\data\\models\\muaphosaigon\\muaphosaigon_3700e_18500s.pth`;
+            const indexPath = `${envPath}ai.type\\data\\models\\muaphosaigon\\added_IVF44_Flat_nprobe_1_muaphosaigon_v2.index`;
 
-            // 3. GỌI API RVC (qua IPC)
-            const rvcRes = await (window as any).electron.invoke('apply-rvc', {
+            // Giữ nguyên Tone mặc định
+            const finalPitch = clip.pitch || 0;
+
+            const data = {
                 inputAudio: inputPath,
                 outputAudio: outputPath,
                 pitch: finalPitch,
                 pthPath: pthPath,
-                indexPath: indexPath // <--- ĐẨY INDEX XUỐNG MAIN.JS
-            });
+                indexPath: indexPath
+            };
+
+            // 3. GỌI API PYTHON ĐỂ CLONE
+            const rvcRes = await (window as any).electron.invoke('apply-rvc', data);
 
             if (rvcRes && rvcRes.success) {
-                // 4. GHI ĐÈ FILE MỚI VÀO GIAO DIỆN
+                // 4. CẬP NHẬT FILE MỚI VÀO GIAO DIỆN
                 clip['localFilePath'] = outputPath;
                 clip.audioFileName = outputPath.split(/[\\/]/).pop();
-                clip.rawUrl = null; // Bắt buộc set null để WaveSurfer xóa bộ nhớ đệm cũ
+                clip.rawUrl = null; // Bắt buộc set null để WaveSurfer xóa đệm cũ
 
-                // Nạp lại file âm thanh mới
                 await this.loadLocalAudioContent(clip);
-                
                 this.saveToLocal();
                 this.toastr.success(`Đã đổi giọng thành công!`);
-                
-                // Tự động phát để người dùng nghe thử
+
                 if (!this.isGlobalProcessing) {
                     this.playClip(clip);
                 }

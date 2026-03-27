@@ -2998,7 +2998,11 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 ipcMain.handle('apply-rvc', async (event, payload) => {
     try {
         const { inputAudio, outputAudio, pitch, pthPath, indexPath } = payload;
+        const fs = require('fs'); // Đảm bảo có thư viện xử lý file
         
+        // CHỐNG LỖI CÂM (0 BYTES): Bắt Python xuất ra file tạm trước
+        const tempOutput = inputAudio + ".tmp.wav";
+
         sendToRenderer("tools-log", `[RVC] Đang gọi API biến đổi giọng...`);
 
         const response = await fetch('http://127.0.0.1:7890/api/rvc', {
@@ -3007,17 +3011,28 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
             body: JSON.stringify({
                 input: inputAudio,
                 model: pthPath,
-                index: indexPath || "", // <--- TRUYỀN THÊM INDEX VÀO ĐÂY
-                output: outputAudio,
+                index: indexPath || "",
+                output: tempOutput, // <--- ÉP PYTHON GHI VÀO FILE TẠM
                 pitch: pitch || 0
             })
         });
 
         const data = await response.json();
 
-        if (data.success) {
-            sendToRenderer("tools-log", `[RVC] ✅ Thành công qua API!`);
-            return { success: true, path: data.path };
+        if (data.success && fs.existsSync(tempOutput)) {
+            // KHI PYTHON LÀM XONG -> LẤY FILE TẠM GHI ĐÈ THẲNG LÊN FILE OUTPUT
+            if (fs.existsSync(outputAudio)) {
+                try { fs.unlinkSync(outputAudio); } catch(e){} // Xóa output cũ nếu có
+            }
+            fs.renameSync(tempOutput, outputAudio); // Di chuyển file tạm thành output chính
+
+            // Nếu file đầu vào là .mp3, mà output là .wav, ta dọn sạch luôn file .mp3 gốc cho rỗng thùng rác
+            if (inputAudio !== outputAudio && fs.existsSync(inputAudio)) {
+                try { fs.unlinkSync(inputAudio); } catch(e){}
+            }
+
+            sendToRenderer("tools-log", `[RVC] ✅ Đã biến đổi và ghi đè file thành công!`);
+            return { success: true, path: outputAudio };
         } else {
             sendToRenderer("tools-log", `[RVC] ❌ Lỗi từ API: ${data.error}`);
             return { success: false, error: data.error };
