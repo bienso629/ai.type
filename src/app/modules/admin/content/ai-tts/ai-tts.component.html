@@ -116,7 +116,7 @@
                                 <div class="flex items-center gap-2 flex-1 min-w-[300px]">
                                     <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
                                         appearance="fill">
-                                        <mat-select #bulkVoice [placeholder]="'Chọn giọng đọc...'">
+                                        <mat-select #bulkVoice [placeholder]="'Chọn giọng đọc...'" [(ngModel)]="selectedVoice">
                                             <mat-option *ngFor="let v of voiceList"
                                                 [value]="v.id">{{v.name}}</mat-option>
                                         </mat-select>
