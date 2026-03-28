@@ -94,6 +94,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // { id: 'nu-nhe-nhang', name: 'Nữ nhẹ nhàng (Server)' }
     ];
 
+    selectedVoice = 'vi-VN-HoaiMyNeural';
     isDownloadingModel: boolean = false; // Thêm biến này
 
     removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
@@ -151,7 +152,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isGlobalProcessing = true;
 
         // Chia nhỏ danh sách để xử lý theo batch (tránh treo máy)
-        const batchSize = 1;
+        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+        const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
+        const batchSize = (isEdgeVoice) ? 3 : 1;
         this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Batch size: ${batchSize})...`);
 
         for (let i = 0; i < pendingClips.length; i += batchSize) {

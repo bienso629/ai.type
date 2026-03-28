@@ -244,7 +244,9 @@ export class VideoGenerationComponent implements OnInit {
         this.currentStatus = 'Đang khởi tạo các luồng xử lý...';
 
         // 2. CHẠY THEO CỤM (BATCHING) - Cứ 3 file chạy cùng lúc để máy không bị Crash
-        const batchSize = 1;
+        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+        const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
+        const batchSize = (isEdgeVoice) ? 3 : 1;
 
         try {
             for (let i = 0; i < pendingSubs.length; i += batchSize) {
