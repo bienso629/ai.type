@@ -195,15 +195,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         clip.isProcessing = true;
         this.cd.markForCheck();
 
-        const dateFolder = this.getDateStr();
         const username = this.user?.name || 'anonymous';
-        const subPath = `${username}/${dateFolder}/${this.uuid || 'default'}`;
+        const subPath = `${username}/${this.uuid || 'default'}`;
         const index = this.audioList.indexOf(clip);
         const prefix = (index >= 0 ? index + 1 : 0).toString().padStart(3, '0');
         const slug = this.toSlug(clip.description.substring(0, 50));
         const niceFilename = `${prefix}_${slug}_ausync`;
-
-        console.log('clip.rate', clip.rate);
 
         const payload = {
             text: clip.description,
@@ -212,8 +209,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             filename: niceFilename,
             username: subPath,
         };
-
-        console.log('payload', payload);
 
         try {
             // Gọi Electron để xử lý chuỗi API phức tạp (POST -> GET -> DOWNLOAD)

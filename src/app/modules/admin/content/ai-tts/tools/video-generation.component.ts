@@ -296,9 +296,8 @@ export class VideoGenerationComponent implements OnInit {
                 return;
             }
 
-            const dateFolder = this.getDateStr();
             const username = this.data.username || 'anonymous';
-            const subPath = `${username}/${dateFolder}/${this.data.uuid || 'default'}`;
+            const subPath = `${username}/${this.data.uuid || 'default'}`;
 
             const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0)
                 .toString()
