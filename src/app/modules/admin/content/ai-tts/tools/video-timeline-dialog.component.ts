@@ -152,6 +152,20 @@ export class VideoTimelineDialogComponent implements OnInit {
         }
     }
 
+    // Thêm hàm này vào trong class VideoTimelineDialogComponent trong file .ts
+    removeAudio(sub: any) {
+        if (sub.audioUrl) {
+            // Gỡ bỏ thuộc tính audioUrl
+            delete sub.audioUrl;
+
+            // Cập nhật lại projectData và lưu vào local storage/indexedDB
+            this.saveData();
+
+            // Thông báo cho người dùng
+            this.toastr.info('Đã xóa liên kết âm thanh câu thoại.');
+        }
+    }
+
     async generateImage(scene: any, index: number) {
         this.clipboard.copy(scene.prompt);
         this.toastr.info(`Đã copy prompt cho Scene #${index + 1}...`);
