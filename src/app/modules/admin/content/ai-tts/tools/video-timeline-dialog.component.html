@@ -15,7 +15,7 @@
         (mousemove)="moveEvent($event)" cdkDropList cdkDropListOrientation="horizontal"
         (cdkDropListDropped)="onSceneDropped($event)">
 
-        @for (scene of projectData?.scenes; track scene.id || $index) {
+        @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
         <div class="flex-none w-80 bg-gray-50 rounded-md overflow-hidden select-none example-box relative" cdkDrag>
             <div class="cdk-drag-handle absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center bg-white/80 rounded-full cursor-move shadow-sm hover:bg-white"
                 cdkDragHandle>
@@ -66,12 +66,27 @@
                     </span>
                 </div>
 
-                <div class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 scrollbar-hide">
-                    @for (sub of scene.subtitles; track sub.id) {
-                    <p class="mb-1.5 last:mb-0 text-gray-700 leading-relaxed">
-                        <span class="font-mono text-[10px] text-gray-400 bg-gray-100 px-1 rounded">[{{sub.id}}]</span>
-                        {{ sub.text }}
-                    </p>
+                <div
+                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 p-2 scrollbar-hide border border-gray-100">
+                    @for (sub of scene.subtitles; track sub.id || subIdx; let subIdx = $index) {
+                    <div class="relative flex items-start mb-1.5 last:mb-0 group">
+                        <p class="text-gray-700 leading-relaxed pr-8">
+                            <span class="font-mono text-[10px] text-gray-400 bg-gray-200/50 px-1 rounded">[{{
+                                getGlobalIndex(sceneIdx, subIdx) }}. {{sub.id}}]</span>
+                            {{ sub.text }}
+                        </p>
+
+                        <div class="absolute right-0 top-0">
+                            <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*"
+                                class="hidden">
+                            <button mat-icon-button class="icon-size-6" (click)="audioInput.click()">
+                                <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl"
+                                    [class.text-gray-300]="!sub.audioUrl">
+                                    {{ sub.audioUrl ? 'volume_up' : 'add_circle_outline' }}
+                                </mat-icon>
+                            </button>
+                        </div>
+                    </div>
                     }
                 </div>
             </div>
