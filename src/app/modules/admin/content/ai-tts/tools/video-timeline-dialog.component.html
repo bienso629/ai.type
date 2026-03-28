@@ -28,7 +28,7 @@
                 <mat-icon class="icon-size-4">delete</mat-icon>
             </button>
 
-            <div class="h-44 bg-gray-100 relative flex items-center justify-center group">
+            <div class="h-2/4 bg-gray-100 relative flex items-center justify-center group">
                 @if (scene.imageUrl) {
                 <ng-container *ngIf="isImageType(scene.imageUrl); else videoPlayer">
                     <img [src]="scene.imageUrl" class="w-full h-full object-cover pointer-events-none">
@@ -62,16 +62,16 @@
             <div class="p-4 flex flex-col h-64">
                 <div class="flex justify-between items-start mb-3">
                     <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">
-                        Scene #{{ $index + 1 }}
+                        Scene #{{ sceneIdx + 1 }}
                     </span>
                 </div>
 
                 <div
-                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 p-2 scrollbar-hide border border-gray-100">
+                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 scrollbar-hide">
                     @for (sub of scene.subtitles; track sub.id || subIdx; let subIdx = $index) {
                     <div class="relative flex items-start mb-1.5 last:mb-0 group">
                         <p class="text-gray-700 leading-relaxed pr-8">
-                            <span class="font-mono text-[10px] text-gray-400 bg-gray-200/50 px-1 rounded">[{{
+                            <span class="font-mono text-[10px] text-gray-400 bg-gray-200/50 p-1 rounded">[{{
                                 getGlobalIndex(sceneIdx, subIdx) }}. {{sub.id}}]</span>
                             {{ sub.text }}
                         </p>
@@ -79,10 +79,17 @@
                         <div class="absolute right-0 top-0">
                             <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*"
                                 class="hidden">
+                            @if (sub.audioUrl) {
+                            <button mat-icon-button class="icon-size-6 text-red-500 hover:bg-red-50"
+                                (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
+                                <mat-icon class="icon-size-4">delete_outline</mat-icon>
+                            </button>
+                            }
+
                             <button mat-icon-button class="icon-size-6" (click)="audioInput.click()">
                                 <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl"
                                     [class.text-gray-300]="!sub.audioUrl">
-                                    {{ sub.audioUrl ? 'volume_up' : 'add_circle_outline' }}
+                                    {{ sub.audioUrl ? 'volume_up' : 'add_outline' }}
                                 </mat-icon>
                             </button>
                         </div>
