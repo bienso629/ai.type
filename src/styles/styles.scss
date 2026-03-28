@@ -866,6 +866,10 @@ ngx-datatable {
             width: 100%;
 
             .datatable-row-wrapper {
+                &:hover {
+                    background: #f4f4f5;
+                }
+
                 min-width: 100%;
                 max-width: 100%;
                 width: 100%;
