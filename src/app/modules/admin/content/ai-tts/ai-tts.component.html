@@ -38,17 +38,9 @@
 
             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
-            <button mat-flat-button class="bg-red-500 text-white" (click)="clear()" *ngIf="audioList.length > 0">
+            <button mat-flat-button class="bg-blue-500 text-white" (click)="clear()" *ngIf="audioList.length > 0">
                 <mat-icon [svgIcon]="'feather:repeat'"></mat-icon>
-                <span class="ml-2">Làm lại</span>
-            </button>
-
-            <button mat-flat-button color="primary" (click)="generateAll()" [disabled]="isGlobalProcessing"
-                *ngIf="audioList.length > 0">
-                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
-                    [svgIcon]="'feather:loader'"></mat-icon>
-                <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'heroicons_outline:lightning-bolt'"></mat-icon>
-                <span class="ml-2">Chuyển *.mp3</span>
+                <span class="ml-2">Làm mới</span>
             </button>
 
             <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button
@@ -57,7 +49,7 @@
                     [svgIcon]="'feather:loader'"></mat-icon>
                 <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
                 <mat-label class="ml-2 text-white">
-                    {{ isAnalyzing ? 'Đang phân tích...' : 'Phát sóng' }}
+                    {{ isAnalyzing ? 'Đang phân tích...' : 'Tạo Scene' }}
                 </mat-label>
             </button>
         </div>
@@ -122,7 +114,7 @@
                                 </div>
 
                                 <div class="flex items-center gap-2 flex-1 min-w-[300px]">
-                                    <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
                                         appearance="fill">
                                         <mat-select #bulkVoice [placeholder]="'Chọn giọng đọc...'">
                                             <mat-option *ngFor="let v of voiceList"
@@ -130,7 +122,7 @@
                                         </mat-select>
                                     </mat-form-field>
 
-                                    <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
                                         appearance="fill">
                                         <mat-select #bulkRate [placeholder]="'Tốc độ'">
                                             <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
@@ -149,7 +141,7 @@
                                         </mat-select>
                                     </mat-form-field>
 
-                                    <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
                                         appearance="fill">
                                         <mat-select #bulkPitch [placeholder]="'Cao độ'">
                                             <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
@@ -166,9 +158,19 @@
                                         </mat-select>
                                     </mat-form-field>
 
-                                    <button mat-flat-button color="primary"
+                                    <button mat-flat-button color="accent"
                                         (click)="applyBulkSettings(bulkVoice.value, bulkRate.value, bulkPitch.value)">
-                                        Áp dụng cho {{ audioList.length }} clip
+                                        <mat-icon [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                                        <span class="ml-2">Áp dụng</span>
+                                    </button>
+
+                                    <button mat-flat-button color="primary" (click)="generateAll()"
+                                        [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0">
+                                        <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
+                                            [svgIcon]="'feather:loader'"></mat-icon>
+                                        <mat-icon *ngIf="!isGlobalProcessing"
+                                            [svgIcon]="'heroicons_outline:lightning-bolt'"></mat-icon>
+                                        <span class="ml-2">Chuyển *.mp3</span>
                                     </button>
                                 </div>
                             </div>
@@ -210,7 +212,7 @@
                                 <div class="flex flex-row justify-start gap-1">
                                     <ng-container *ngIf="!clip.file; else localFileBadge">
                                         <mat-form-field
-                                            class="w-50 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                            class="w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                                             appearance="fill">
                                             <mat-select [(ngModel)]="clip.voice" (selectionChange)="saveToLocal()"
                                                 (mousedown)="$event.stopPropagation()">
@@ -220,7 +222,7 @@
                                             </mat-select>
                                         </mat-form-field>
 
-                                        <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                        <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
                                             appearance="fill">
                                             <mat-select [(ngModel)]="clip.rate" (selectionChange)="saveToLocal()"
                                                 (mousedown)="$event.stopPropagation()" [placeholder]="'Tốc độ'">
@@ -240,7 +242,7 @@
                                             </mat-select>
                                         </mat-form-field>
 
-                                        <mat-form-field class="w-50 field-hidden-subscript fuse-mat-dense"
+                                        <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
                                             appearance="fill">
                                             <mat-select [(ngModel)]="clip.pitch" (selectionChange)="saveToLocal()"
                                                 (mousedown)="$event.stopPropagation()" [placeholder]="'Cao độ'">
@@ -270,7 +272,8 @@
 
                                     <div class="flex justify-start">
                                         <button *ngIf="!clip.file" mat-icon-button [disabled]="clip.isProcessing"
-                                            (click)="generateAudio(clip)" class="transition-colors" matTooltip="Tạo Audio gốc">
+                                            (click)="generateAudio(clip)" class="transition-colors"
+                                            matTooltip="Tạo Audio gốc">
                                             <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
                                                 [svgIcon]="'feather:loader'"></mat-icon>
                                             <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"

@@ -1081,38 +1081,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // [CẬP NHẬT] Hàm Clear - Làm mới thông minh
     clear() {
-        this.cleanupBlobs(); // Xóa RAM
-
-        // Trường hợp 1: Nếu đang có danh sách Text -> Chỉ xóa trạng thái Audio (Soft Reset)
-        if (this.audioList.length > 0) {
-            this.audioList.forEach((clip) => {
-                clip.url = undefined;
-                clip.rawUrl = undefined;
-                clip.file = undefined;
-                clip.audioFileName = undefined;
-                clip.isProcessing = false;
-                clip.duration = 0;
-            });
-            this.calculateTotalDuration();
-            this.saveToLocal();
-            this.cd.markForCheck();
-            this.toastr.success('Đã xóa Audio, giữ lại danh sách văn bản.');
-        }
-        // Trường hợp 2: Nếu danh sách trống và đang ở trong project (có UUID) -> Reload lại từ đầu (Hard Reload)
-        else if (this.currentUuid) {
-            this.toastr.info(
-                'Đang tải lại dữ liệu gốc từ Server...',
-                'Làm mới',
-            );
-            localStorage.removeItem(this.STORAGE_AUDIO_KEY);
-            this.detail(this.currentUuid, this.currentName || '');
-        } else {
-            // Trường hợp 3: Không có gì cả -> Xóa sạch
-            this.audioList = [];
-            this.totalDuration = 0;
-            localStorage.removeItem(this.STORAGE_AUDIO_KEY);
-            this.toastr.info('Đã làm mới.');
-        }
+        this.toastr.info(
+            'Đang tải lại dữ liệu gốc từ Server...',
+            'Làm mới',
+        );
+        const storageKey = `${this.STORAGE_AUDIO_KEY}_${this.currentUuid}`;
+        localStorage.removeItem(storageKey);
+        this.detail(this.currentUuid, this.currentName || '');
     }
 
     calculateTotalDuration() {
