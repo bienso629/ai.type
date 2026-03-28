@@ -182,6 +182,7 @@ export class VideoGenerationComponent implements OnInit {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Offline)' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Offline)' },
+        { id: '1248295', name: 'Huệ Tiktoker' },
     ];
     selectedVoice = 'vi-VN-HoaiMyNeural';
     selectedRate: number = 1.0;
@@ -243,12 +244,12 @@ export class VideoGenerationComponent implements OnInit {
         this.currentStatus = 'Đang khởi tạo các luồng xử lý...';
 
         // 2. CHẠY THEO CỤM (BATCHING) - Cứ 3 file chạy cùng lúc để máy không bị Crash
-        const batchSize = 3; 
-        
+        const batchSize = 1;
+
         try {
             for (let i = 0; i < pendingSubs.length; i += batchSize) {
                 const batch = pendingSubs.slice(i, i + batchSize);
-                
+
                 // Mở 3 tiến trình cùng lúc
                 const tasks = batch.map((item) =>
                     this.generateAudioForSub(
@@ -298,35 +299,50 @@ export class VideoGenerationComponent implements OnInit {
 
             const username = this.data.username || 'anonymous';
             const subPath = `${username}/${this.data.uuid || 'default'}`;
+            const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0).toString().padStart(3, '0');
+            const slug = this.toSlug(sub.text.substring(0, 50));
 
-            const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0)
-                .toString()
-                .padStart(3, '0');
-            const shortText = sub.text.substring(0, 50);
-            const slug = this.toSlug(shortText);
-            const niceFilename = `${prefix}_${slug}_${this.selectedVoice}`;
+            const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+            const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
 
-            const payload = {
-                text: sub.text,
-                voice: this.selectedVoice,
-                rate: this.selectedRate,
-                pitch: this.selectedPitch,
-                filename: niceFilename,
-                username: subPath,
-            };
+            let res: any;
 
             try {
-                // Gọi xuống IPC (main.js)
-                const res = await (window as any).electron.invoke(
-                    'tts-generate',
-                    payload,
-                );
+                if (isEdgeVoice) {
+                    // --- LOGIC CŨ: EDGE TTS (OFFLINE) ---
+                    const niceFilename = `${prefix}_${slug}_${this.selectedVoice}`;
+                    const payload = {
+                        text: sub.text,
+                        voice: this.selectedVoice,
+                        rate: this.selectedRate,
+                        pitch: this.selectedPitch,
+                        filename: niceFilename,
+                        username: subPath,
+                    };
+                    res = await (window as any).electron.invoke('tts-generate', payload);
+                } else {
+                    // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
+                    // Tương tự hàm generateAusyncTTS ở ai-tts.component.ts
+                    const niceFilename = `${prefix}_${slug}_ausync`;
+                    const payload = {
+                        text: sub.text,
+                        voice_id: this.selectedVoice, // Ví dụ: '1248295'
+                        speed: this.selectedRate || 1.0,
+                        filename: niceFilename,
+                        username: subPath,
+                    };
+                    res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+                }
 
+                // Xử lý kết quả trả về chung
                 if (res && res.success) {
+                    // Ausync thường trả về filePath, Edge cũng vậy.
                     const rawPath = res.filePath || res.url || res.result;
-                    sub.audioUrl = rawPath.startsWith('file://')
-                        ? rawPath
-                        : `file://${rawPath}`;
+                    if (rawPath) {
+                        sub.audioUrl = rawPath.startsWith('file://')
+                            ? rawPath
+                            : `file://${rawPath}`;
+                    }
                 } else {
                     console.error(`Error processing sub ${sub.id}:`, res?.error || 'Unknown error');
                 }

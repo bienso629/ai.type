@@ -82,6 +82,7 @@ export class VideoTimelineDialogComponent implements OnInit {
         // Load dữ liệu từ LocalStorage
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
+        console.log("this.projectData", this.projectData);
     }
 
     // --- Logic Kéo thả bằng chuột (Manual Scroll Ngang) ---
@@ -124,6 +125,32 @@ export class VideoTimelineDialogComponent implements OnInit {
         console.log('New scene order saved.');
     }
     // ------------------------------------------------
+
+    // Thêm/Cập nhật hàm này trong class VideoTimelineDialogComponent
+    getGlobalIndex(sceneIdx: number, subIdx: number): number {
+        if (!this.projectData || !this.projectData.scenes) return 0;
+        let total = 0;
+        for (let i = 0; i < sceneIdx; i++) {
+            total += this.projectData.scenes[i].subtitles?.length || 0;
+        }
+        return total + subIdx + 1;
+    }
+
+    // Hàm xử lý chọn Audio local (đảm bảo lưu vào đúng sub)
+    async onAudioFileSelected(event: any, sub: any) {
+        const file = event.target.files[0];
+        if (!file) return;
+        try {
+            const electron = (window as any).electron;
+            const originalPath = electron.getPathForFile(file);
+            const localPath = await electron.selectLocalFile(originalPath);
+            sub.audioUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
+            this.saveData(); // Lưu lại vào MultiAccountService
+            this.toastr.success('Đã cập nhật Audio!');
+        } catch (e) {
+            this.toastr.error('Lỗi: ' + e);
+        }
+    }
 
     async generateImage(scene: any, index: number) {
         this.clipboard.copy(scene.prompt);
