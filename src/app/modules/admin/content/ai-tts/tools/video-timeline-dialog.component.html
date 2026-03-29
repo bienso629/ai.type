@@ -70,19 +70,19 @@
                     class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 scrollbar-hide">
                     @for (sub of scene.subtitles; track sub.id || subIdx; let subIdx = $index) {
                     <div class="relative flex items-start mb-1.5 last:mb-0 group">
-                        <p class="text-gray-700 leading-relaxed pr-8">
+                        <p class="text-gray-700 leading-relaxed">
                             <span class="font-mono text-[10px] text-gray-400 bg-gray-200/50 p-1 rounded">[{{
                                 getGlobalIndex(sceneIdx, subIdx) }}. {{sub.id}}]</span>
                             {{ sub.text }}
                         </p>
 
-                        <div class="absolute right-0 top-0">
+                        <p class="">
                             <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*"
                                 class="hidden">
                             @if (sub.audioUrl) {
-                            <button mat-icon-button class="icon-size-6 text-red-500 hover:bg-red-50"
+                            <button mat-icon-button class="icon-size-6"
                                 (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
-                                <mat-icon class="icon-size-4">delete_outline</mat-icon>
+                                <mat-icon class="icon-size-4 text-red-500 hover:bg-red-50">delete_outline</mat-icon>
                             </button>
                             }
 
@@ -92,7 +92,7 @@
                                     {{ sub.audioUrl ? 'volume_up' : 'add_circle_outline' }}
                                 </mat-icon>
                             </button>
-                        </div>
+                        </p>
                     </div>
                     }
                 </div>

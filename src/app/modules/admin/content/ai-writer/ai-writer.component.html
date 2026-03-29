@@ -27,8 +27,7 @@
                         <span class="text-base text-secondary">viết cùng {{name}}</span>
                     </ng-container>
                     <ng-template #noauthors>
-                        <span class="ml-1 text-base text-secondary">viết bài nhanh hơn với các bộ công cụ ai thân
-                            thiện</span>
+                        <span class="ml-1 text-base text-secondary">lên kịch bản, viết nội dung sản phẩm hay tóm tắt tài liệu</span>
                     </ng-template>
                 </div>
             </div>
@@ -117,12 +116,12 @@
                     <mat-vertical-stepper [linear]="false" #stepper>
                         <mat-step [formGroupName]="'step1'" disableRipple="true" [stepControl]="detectForm.get('step1')"
                             #step1>
-                            <ng-template matStepLabel>Tiêu đề và Từ khoá</ng-template>
+                            <ng-template matStepLabel>Thông tin công việc</ng-template>
 
                             <div class="flex flex-col gt-sm:flex-row">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Tiêu đề (ít hơn 60 ký tự)</mat-label>
+                                    <mat-label>Tên công việc (ít hơn 60 ký tự)</mat-label>
                                     <input matInput [formControlName]="'title'"
                                         [placeholder]="'Hôm nay bạn muốn viết gì?'" required>
                                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
