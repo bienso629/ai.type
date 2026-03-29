@@ -554,7 +554,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                             width: '1200px',
                             height: '600px',
                             data: {
-                                rows: result,
+                                rows: result.files,
                                 username: this.user.name,
                                 google_api_key: geminiKey,
                                 llm_model: "gemini-2.5-flash",

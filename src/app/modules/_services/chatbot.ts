@@ -17,6 +17,16 @@ let options = {
     })
 };
 
+// 1. Thêm Interface này ở đầu file, cùng chỗ với ChatThreadResponse, v.v.
+export interface IndexProgressResponse {
+    is_running: boolean;  // Có đang chạy index không?
+    current?: number;     // Số đoạn đã nhúng xong
+    total?: number;       // Tổng số đoạn cần nhúng
+    percent?: number;     // Phần trăm (0-100)
+    status?: string;      // Dòng trạng thái (ví dụ: "Đang nhúng Vector AI...")
+    doc_type?: string;    // Loại tài liệu đang xử lý
+}
+
 @Injectable()
 export class ChatbotService {
     year: number = 2023;
@@ -48,7 +58,7 @@ export class ChatbotService {
     }
 
     public initDB(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -77,8 +87,46 @@ export class ChatbotService {
         );
     }
 
+    public reindexSpecificFile(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.chatbot}/reindex-file`;
+
+        // Thêm các header chứng thực nếu cần
+        return this.http.post<any>(url, dataForm, {
+            headers: new HttpHeaders({
+                'content-type': 'application/json',
+                'x-api-key': activeInfo['user']['appToken'],
+            })
+        });
+    }
+
+    // 2. Thêm method này vào trong class ChatbotService
+    public getIndexProgress(dataForm: any): Observable<IndexProgressResponse> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        const timestamp = new Date().getTime();
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        return this.http.get<IndexProgressResponse>(`${this.config.settings.chatbot}/index-progress/${dataForm.username}?t=${timestamp}`, {
+            headers: new HttpHeaders({
+                'content-type': 'application/json',
+                'x-api-key': activeInfo['user']['appToken'],
+            })
+        });
+    }
+
     public createThread(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -104,7 +152,7 @@ export class ChatbotService {
     }
 
     public sendMessage(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -130,7 +178,7 @@ export class ChatbotService {
     }
 
     public getMessage(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -156,7 +204,7 @@ export class ChatbotService {
     }
 
     public loadThreads(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -186,7 +234,7 @@ export class ChatbotService {
     }
 
     public selectThread(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -212,7 +260,7 @@ export class ChatbotService {
     }
 
     public onPdfSelected(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -237,7 +285,7 @@ export class ChatbotService {
     }
 
     public listFiles(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -263,7 +311,7 @@ export class ChatbotService {
     }
 
     public deleteFile(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -289,7 +337,7 @@ export class ChatbotService {
     }
 
     public reIndexFile(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -316,7 +364,7 @@ export class ChatbotService {
 
 
     public indexFiles(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -342,7 +390,7 @@ export class ChatbotService {
     }
 
     public indexDomains(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -368,7 +416,7 @@ export class ChatbotService {
     }
 
     public saveContentUrl(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -394,7 +442,7 @@ export class ChatbotService {
     }
 
     public triggerIndexDomain(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -420,7 +468,7 @@ export class ChatbotService {
     }
 
     public loadChatbotSettings(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
@@ -446,7 +494,7 @@ export class ChatbotService {
     }
 
     public confirmChatbotSettings(dataForm: any): Observable<any> {
-        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;

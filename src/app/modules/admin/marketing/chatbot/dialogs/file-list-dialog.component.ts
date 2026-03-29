@@ -6,7 +6,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { ChatbotService } from 'app/modules/_services/chatbot';
 import { ToastrService } from 'ngx-toastr';
-import { Subject, takeUntil } from 'rxjs';
+import { catchError, interval, of, Subject, Subscription, switchMap, takeUntil, takeWhile } from 'rxjs';
 
 @Component({
     selector: 'app-file-list-dialog',
@@ -25,33 +25,94 @@ export class FileListDialogComponent implements AfterViewInit {
     llm_model: string = "gemini-2.5-flash";
     index_dir: string = `faiss_pdf_index`;
 
+    // THÊM: Các biến quản lý thanh tiến trình
+    indexingFilename: string | null = null;
+    indexingSubscription: Subscription | null = null;
+    isIndexing = false;
+    progressPercent = 0;
+    progressStatus = 'Đang khởi tạo...';
+
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    // CẬP NHẬT: Hàm reIndexPdf gọi API và kích hoạt Polling
     reIndexPdf(doc_type: string, filename: string, rowIndex: number): void {
-        this._chatbotService.reIndexFile({
-            username: this.user.name,
-            doc_type: doc_type,
+        if (!this.google_api_key) {
+            this.toastr.warning('Chưa có Google API Key');
+            return;
+        }
+
+        // Tạo object payload dựa trên các biến đã nhận
+        const payload = {
+            username: this.username,
+            doc_type: doc_type === 'None' ? null : doc_type, // Xử lý doc_type rỗng
             filename: filename,
+            index_dir: this.index_dir,
+            enable_ocr: false,
             google_api_key: this.google_api_key,
             llm_model: this.llm_model,
-            index_dir: this.index_dir,
-            enable_ocr: false
-        }).pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (res) => {
-                    if (res && res.success) {
-                        this.toastr.success('Index lại file thành công: ' + filename);
-                    } else {
-                        this.toastr.error('Index file thất bại.');
-                    }
-                },
-                error: () => {
-                    this.toastr.error('Index file thất bại.');
-                },
-                complete: () => {
+        };
+
+        this.indexingFilename = filename;
+
+        // Giả sử service của bạn có hàm này (Bạn cần định nghĩa POST /reindex-file trong chatbot.ts)
+        this._chatbotService.reindexSpecificFile(payload).subscribe({
+            next: (res: any) => {
+                if (res.success) {
+                    this.toastr.info(`Đang tiến hành re-index file: ${filename}`);
+                    this.startProgressPolling(); // Kích hoạt thanh tiến trình
+                } else {
+                    this.toastr.error(res.message || 'Lỗi gửi yêu cầu');
                 }
-            });
+            },
+            error: (err) => this.toastr.error('Lỗi kết nối đến máy chủ.')
+        });
+    }
+
+    // THÊM: Logic Polling hỏi thăm Server
+    startProgressPolling(): void {
+        if (this.indexingSubscription && !this.indexingSubscription.closed) return;
+
+        this.isIndexing = true;
+        this.progressPercent = 0;
+        this.progressStatus = 'Đang khởi tạo AI...';
+
+        this.indexingSubscription = interval(2000).pipe(
+            switchMap(() => this._chatbotService.getIndexProgress(this.username)),
+            // Thêm catchError để lỡ gọi API xịt thì không bị đứng form
+            catchError(() => of({ is_running: false, percent: 100, status: 'Lỗi lấy tiến độ' })),
+            takeWhile((resp: any) => resp.is_running, true)
+        ).subscribe({
+            next: (resp: any) => {
+                if (resp.is_running) {
+                    this.progressPercent = resp.percent || 0;
+                    this.progressStatus = `${resp.status} (${resp.current || 0}/${resp.total || 0})`;
+                } else if (this.isIndexing) {
+                    this.handleIndexingComplete();
+                }
+            },
+            error: () => this.stopProgressPolling()
+        });
+    }
+
+    handleIndexingComplete(): void {
+        this.progressPercent = 100;
+        this.progressStatus = '✅ Hoàn tất quá trình Index!';
+        this.toastr.success('Học tài liệu hoàn tất!');
+
+        // Cập nhật lại trạng thái file trên bảng ngx-datatable
+        // (Hoặc bạn có thể gọi lại API list-files ở đây để load lại this.rows)
+
+        setTimeout(() => this.stopProgressPolling(), 2000);
+    }
+
+    stopProgressPolling(): void {
+        this.isIndexing = false;
+        this.progressPercent = 0;
+        if (this.indexingSubscription) {
+            this.indexingSubscription.unsubscribe();
+            this.indexingSubscription = null;
+        }
     }
 
     deletePdf(doc_type: string, filename: string, rowIndex: number): void {
@@ -103,6 +164,8 @@ export class FileListDialogComponent implements AfterViewInit {
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
+
+        this.stopProgressPolling(); // Ngắt polling khi đóng dialog
     }
 
     ngAfterViewInit() {
