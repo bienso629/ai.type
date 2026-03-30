@@ -1413,7 +1413,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     convertVideo2Post(item: any, jobId: number) {
         if (!this._userService.permissionVideo(this.user)) {
-            this.toastr.error('Bạn không thể sử dụng chức năng này.');
+            this.toastr.error('Đây là chức năng trả phí.');
             return;
         }
 

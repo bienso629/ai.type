@@ -55,7 +55,7 @@
                 </div>
             </div> -->
 
-            <mat-form-field *ngIf="domains" stopPropagation (stop2click)="handler($event)"
+            <mat-form-field *ngIf="styles && styles.length > 0" stopPropagation (stop2click)="handler($event)"
                 class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                 <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:coffee'"></mat-icon>
                 <mat-select [compareWith]="compareStyleFn" (selectionChange)="chooseStyle($event)" [(ngModel)]="style">
@@ -65,7 +65,7 @@
                 </mat-select>
             </mat-form-field>
 
-            <mat-form-field *ngIf="domains" stopPropagation (stop2click)="handler($event)"
+            <mat-form-field *ngIf="domains && domains.length > 0" stopPropagation (stop2click)="handler($event)"
                 class="min-w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                 <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
                 <mat-select [compareWith]="compareDomainFn" (selectionChange)="connect($event)" [(ngModel)]="domain">
