@@ -215,7 +215,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
-                        console.log('data', result.data);
                         this.myvoices = result.data;
                         this.myvoices.map((voice: any) => {
                             this.voiceList.push({
@@ -246,13 +245,15 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         // 1. Gom tất cả dữ liệu (BỎ LOGIC CHECK FILE CŨ ĐỂ ÉP TẠO LẠI VTT)
         this.data.scenes.forEach((scene: any, sIdx: number) => {
             scene.subtitles.forEach((sub: any, subIdx: number) => {
-                pendingSubs.push({
-                    sub,
-                    sIdx,
-                    subIdx,
-                    globalIndex: globalCounter,
-                });
-                globalCounter++;
+                if (!sub.audioUrl) {
+                    pendingSubs.push({
+                        sub,
+                        sIdx,
+                        subIdx,
+                        globalIndex: globalCounter,
+                    });
+                }
+                globalCounter++; // Tăng biến đếm liên tục cho mọi subtitle
             });
         });
 

@@ -1235,6 +1235,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         const files: FileList = e.target.files;
 
         if (files && files.length > 0) {
+            this.loading = true;
+
             try {
                 let your_prompt = '';
 
@@ -1245,7 +1247,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 let images: any[] = [
-                    `${your_prompt}Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
+                    `${your_prompt}Nội dung mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
                     {
                         "contents": ["Chi tiết 1", "Chi tiết 2"]
                     }
@@ -1279,6 +1281,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
                 if (jsonText) {
                     const data = JSON.parse(jsonText[1]);
+                    console.log('data', data);
 
                     data.contents.map((text: string) => {
                         this.source.text.push(
@@ -1295,6 +1298,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     // lam moi lai giao dien
                     this.cd.markForCheck();
                 }
+
+                this.loading = false;
 
                 // this._blogService.img2text({
                 //     file: file,
@@ -1319,6 +1324,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 //         }
                 //     });
             } catch (error) {
+                this.loading = false;
                 this.toastr.error('Không tạo bài viết từ hình ảnh.');
             }
         }
