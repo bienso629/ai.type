@@ -251,9 +251,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         clip.isProcessing = true;
         this.cd.markForCheck();
 
-        const dateFolder = this.getDateStr();
         const username = this.user?.name || 'anonymous';
-        const subPath = `${username}/${dateFolder}/${this.uuid || 'default'}`;
+        const subPath = `${username}/${this.uuid || 'default'}`;
         const index = this.audioList.indexOf(clip);
         const prefix = (index >= 0 ? index + 1 : 0).toString().padStart(3, '0');
         const shortText = clip.description.substring(0, 50);
