@@ -130,7 +130,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     expanded: boolean = true;
     show_code: boolean = false;
-    autohidden: boolean = false;
+    autohidden: boolean = true;
 
     detectForm: UntypedFormGroup;
     selectedIndex = 0;
@@ -1634,7 +1634,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     // item[index] = `${$(result.content).prop('id', $(item[index]).attr('id'))}`;
                 } else {
                     // đồng tác giả chỉnh sửa
-                    this.alert('Bạn cần có Tiêu đề và lưu trữ bài viết trước.');
+                    this.alert('Bạn cần phải có Tên công việc và bấm Lưu trữ công việc trước.');
                 }
 
                 // tinh toan lai done
@@ -3366,9 +3366,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             step3: this._formBuilder.group({
                 keyword_auto: [''],
             }),
-            step4: this._formBuilder.group({
-                code: [''],
-            }),
+            // step4: this._formBuilder.group({
+            //     code: [''],
+            // }),
             step5: this._formBuilder.group({
                 mainkey: ['', Validators.required],
             }),
