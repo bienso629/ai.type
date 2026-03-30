@@ -6,6 +6,7 @@ import {
     Inject,
     Component as NgComponent,
     Inject as NgInject,
+    OnDestroy,
 } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -33,6 +34,8 @@ import { VideoGenerationComponent } from './video-generation.component';
 import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { UserService } from 'app/core/user/user.service';
+import { FuseConfigService } from '@fuse/services/config';
 
 // Interface cho Electron API
 interface electron {
@@ -52,7 +55,7 @@ interface electron {
         MatIconModule,
         MatInputModule, // Cần MatLabelModule cho mat-label
         DragDropModule, // Module Kéo thả
-    ],
+    ]
 })
 export class VideoTimelineDialogComponent implements OnInit {
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
@@ -66,24 +69,6 @@ export class VideoTimelineDialogComponent implements OnInit {
     private isMouseDown = false;
     private startX = 0;
     private scrollLeftStart = 0;
-
-    constructor(
-        private _fuseConfirmationService: FuseConfirmationService,
-        public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
-        private clipboard: Clipboard,
-        private router: Router,
-        private multiAccountService: MultiAccountService,
-        @Inject(MAT_DIALOG_DATA) public data: any,
-        private toastr: ToastrService,
-        private dialog: MatDialog, // Cần MatDialog để mở form thêm cảnh
-    ) { }
-
-    ngOnInit() {
-        // Load dữ liệu từ LocalStorage
-        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
-        this.projectData = this.multiAccountService.getItem(storageKey);
-        console.log("this.projectData", this.projectData);
-    }
 
     // --- Logic Kéo thả bằng chuột (Manual Scroll Ngang) ---
     startDragging(e: MouseEvent) {
@@ -363,6 +348,25 @@ export class VideoTimelineDialogComponent implements OnInit {
                 this.toastr.warning(`Đã xóa Scene #${index + 1}`);
             },
         });
+    }
+
+    constructor(
+        public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
+        private clipboard: Clipboard,
+        private multiAccountService: MultiAccountService,
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private toastr: ToastrService,
+        private _userService: UserService,
+        private _fuseConfigService: FuseConfigService,
+        private _fuseConfirmationService: FuseConfirmationService,
+        private router: Router,
+        private dialog: MatDialog, // Cần MatDialog để mở form thêm cảnh
+    ) { }
+
+    ngOnInit() {
+        // Load dữ liệu từ LocalStorage
+        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+        this.projectData = this.multiAccountService.getItem(storageKey);
     }
 
     alert(alert?: any) {

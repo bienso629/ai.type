@@ -47,8 +47,8 @@
                 *ngIf="audioList.length > 0">
                 <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
                     [svgIcon]="'feather:loader'"></mat-icon>
-                <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'heroicons_outline:lightning-bolt'"></mat-icon>
-                <span class="ml-2">Chuyển *.mp3</span>
+                <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
+                <span class="ml-2">Tạo podcast</span>
             </button>
 
             <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button
@@ -57,7 +57,7 @@
                     [svgIcon]="'feather:loader'"></mat-icon>
                 <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
                 <mat-label class="ml-2 text-white">
-                    {{ isAnalyzing ? 'Đang phân tích...' : 'Lên kịch bản' }}
+                    {{ isAnalyzing ? 'Đang phân tích...' : 'Kịch bản Live' }}
                 </mat-label>
             </button>
         </div>
