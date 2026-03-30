@@ -138,8 +138,20 @@
             <div class="flex items-center mt-8">
                 <div class="flex flex-0 items-center -space-x-1.5">
                     <ng-container *ngFor="let account of accounts; let i = index">
-                        <img *ngIf="account && account.profile" class="flex-0 w-10 h-10 rounded-full object-cover cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200"
-                            (click)="onSelectAccount(account.id, i)" src="assets/images/avatars/female-18.jpg" [src]="account.profile.avatar" />
+                        <ng-container
+                            *ngIf="account.profile.avatar && account.profile.avatar !== 'https://type.vnnull'">
+                            <img *ngIf="account && account.profile"
+                                class="flex-0 w-10 h-10 rounded-full object-cover cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200"
+                                (click)="onSelectAccount(account.id, i)" src="assets/images/avatars/female-18.jpg"
+                                [src]="account.profile.avatar" />
+                        </ng-container>
+
+                        <ng-container *ngIf="account.profile.avatar === 'https://type.vnnull'">
+                            <div
+                                class="flex flex-0 items-center justify-center w-10 h-10 rounded-full cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200 text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200">
+                                <span>{{account.id.charAt(0)}}</span>
+                            </div>
+                        </ng-container>
                     </ng-container>
                 </div>
                 <div class="ml-4 text-base tracking-tight leading-6 text-white">thành viên tham gia AI Type</div>
