@@ -17,7 +17,7 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
     selector: 'chatgpt-questions-sheet',
     template: `<div class="mt-4">
         <fuse-alert [appearance]="'outline'" [type]="'warning'">
-            Có thể bạn cần API key để <a href="#" [routerLink]="['/settings']">kết nối</a> với Gemini?.
+            Bạn cần phải có <a href="#" [routerLink]="['/settings']">API Key</a> để Gemini hoạt động.
         </fuse-alert>
     </div>
     <!-- Form -->
@@ -25,9 +25,9 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
         <!-- Secret key -->
         <div class="mt-4">
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Bạn hỏi Gemini trả lời</mat-label>
+                <mat-label>Nhờ Gemini lên ý tưởng, tóm tắt nội dung hoặc trả lời câu hỏi:</mat-label>
                 <!-- <mat-icon class="icon-size-4" [svgIcon]="'feather:message-circle'" matPrefix></mat-icon> -->
-                <input [formControlName]="'chatgpt'" placeholder="Xin chào! Bạn muốn hỏi về vấn đề gì?" type="text" (keyup.enter)="chatgpt(chatgptForm.get('chatgpt').value, $event)" required matInput>
+                <input [formControlName]="'chatgpt'" placeholder="Đặt vấn đề của bạn tại đây" type="text" (keyup.enter)="chatgpt(chatgptForm.get('chatgpt').value, $event)" required matInput>
 
                 <input hidden type="file" accept="application/pdf" class="file-input" (change)="upload($event)" #fileUpload>
                 <a mat-icon-button matSuffix class="ml-0" [matTooltip]="'Upload file lên CDN'" (click)="fileUpload.click()" [disabled]="loading">
@@ -43,7 +43,7 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
                 </button>
             </div>
 
-            <div *ngIf="!selectedFileName" class="mt-1 text-md text-hint">Đặt câu hỏi càng rõ ràng càng tốt cho Gemini trả lời</div>
+            <div *ngIf="!selectedFileName" class="mt-0 text-md text-hint">Đính kèm PDF để AI phân tích.</div>
         </div>
     </form>
 
@@ -55,19 +55,19 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
     </div>
 
     <mat-nav-list>
-        <a class="hover:bg-grey-50 my-2 border p-2 rounded" mat-list-item (click)="setvalue(data.content + ' là gì?')">
+        <a class="hover:bg-gray-50 my-2 border p-2 rounded-lg" mat-list-item (click)="setvalue(data.content + ' là gì?')">
         <span matListItemTitle>{{data.content}} là gì?</span>
         </a>
 
-        <a class="hover:bg-grey-50 my-2 border p-2 rounded" mat-list-item (click)="setvalue(data.content + ' là ai?')">
+        <a class="hover:bg-gray-50 my-2 border p-2 rounded-lg" mat-list-item (click)="setvalue(data.content + ' là ai?')">
         <span matListItemTitle>{{data.content}} là ai?</span>
         </a>
 
-        <a class="hover:bg-grey-50 my-2 border p-2 rounded" mat-list-item (click)="setvalue('Tại sao nên sử dụng ' + data.content + '?')">
+        <a class="hover:bg-gray-50 my-2 border p-2 rounded-lg" mat-list-item (click)="setvalue('Tại sao nên sử dụng ' + data.content + '?')">
         <span matListItemTitle>Tại sao lại sử dụng {{data.content}}?</span>
         </a>
 
-        <a class="hover:bg-grey-50 my-2 border p-2 rounded" mat-list-item (click)="setvalue('Hỏi về cách sử dụng ' + data.content + '?')">
+        <a class="hover:bg-gray-50 my-2 border p-2 rounded-lg" mat-list-item (click)="setvalue('Hỏi về cách sử dụng ' + data.content + '?')">
         <span matListItemTitle>Hỏi về cách sử dụng {{data.content}}?</span>
         </a>
     </mat-nav-list>`,
