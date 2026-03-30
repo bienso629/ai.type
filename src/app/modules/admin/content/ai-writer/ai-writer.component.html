@@ -838,8 +838,11 @@
 
                                                 <button mat-icon-button class="ml-1 icon-size-8"
                                                     (click)="fileUpload.click()" matTooltipPosition="above"
-                                                    matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn">
-                                                    <mat-icon class="icon-size-4 text-primary"
+                                                    matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn" [disabled]="loading">
+                                                    <mat-icon *ngIf="loading"
+                                                        class="animate-spin icon-size-4 text-white"
+                                                        [svgIcon]="'feather:loader'"></mat-icon>
+                                                    <mat-icon *ngIf="!loading" class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:upload'"></mat-icon>
                                                 </button>
 
@@ -2456,7 +2459,8 @@
                                         <span>Tải xuống (PDF)</span>
                                     </button>
 
-                                    <button *ngIf="score >= 70" mat-menu-item (click)="share()" [matMenuTriggerFor]="forumActions">
+                                    <button *ngIf="score >= 70" mat-menu-item (click)="share()"
+                                        [matMenuTriggerFor]="forumActions">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:type'"></mat-icon>
                                         <mat-label>Đăng lên Diễn đàn {{ score }}</mat-label>
                                     </button>
@@ -2468,7 +2472,8 @@
                                     </button>
 
                                     <button mat-menu-item (click)="clear()">
-                                        <mat-icon class="icon-size-4 color-gray-50" [svgIcon]="'feather:trash'"></mat-icon>
+                                        <mat-icon class="icon-size-4 color-gray-50"
+                                            [svgIcon]="'feather:trash'"></mat-icon>
                                         <mat-label class="color-gray-50">Xóa dàn ý</mat-label>
                                     </button>
                                 </mat-menu>

@@ -3082,7 +3082,7 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
 
         while (attempts < 200) { // Tăng lên 20 lần (khoảng 400 giây) cho an toàn
             const getRes = await fetch(`https://api.ausynclab.io/api/v1/speech/${audioId}`, {
-                headers: { "x-api-key": apiKey }
+                headers: { "x-api-key": key }
             });
             const getData = await getRes.json();
 
