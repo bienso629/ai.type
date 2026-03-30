@@ -43,13 +43,21 @@
                 <span class="ml-2">Làm mới</span>
             </button>
 
+            <button mat-flat-button color="primary" (click)="generateAll()" [disabled]="isGlobalProcessing"
+                *ngIf="audioList.length > 0">
+                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
+                    [svgIcon]="'feather:loader'"></mat-icon>
+                <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'heroicons_outline:lightning-bolt'"></mat-icon>
+                <span class="ml-2">Chuyển *.mp3</span>
+            </button>
+
             <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button
                 [disabled]="isAnalyzing">
                 <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
                     [svgIcon]="'feather:loader'"></mat-icon>
                 <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
                 <mat-label class="ml-2 text-white">
-                    {{ isAnalyzing ? 'Đang phân tích...' : 'Tạo Scene' }}
+                    {{ isAnalyzing ? 'Đang phân tích...' : 'Lên kịch bản' }}
                 </mat-label>
             </button>
         </div>
@@ -112,69 +120,56 @@
                                         [svgIcon]="'heroicons_outline:collection'"></mat-icon>
                                     Danh sách phát ({{ audioList.length }})
                                 </div>
-
-                                <div class="flex items-center gap-2 flex-1 min-w-[300px]">
-                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
-                                        appearance="fill">
-                                        <mat-select #bulkVoice [placeholder]="'Chọn giọng đọc...'" [(ngModel)]="selectedVoice">
-                                            <mat-option *ngFor="let v of voiceList"
-                                                [value]="v.id">{{v.name}}</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-
-                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
-                                        appearance="fill">
-                                        <mat-select #bulkRate [placeholder]="'Tốc độ'">
-                                            <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
-                                            <mat-option [value]="0.6">0.6x</mat-option>
-                                            <mat-option [value]="0.7">0.7x</mat-option>
-                                            <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
-                                            <mat-option [value]="0.9">0.9x</mat-option>
-                                            <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
-                                            <mat-option [value]="1.1">1.1x</mat-option>
-                                            <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
-                                            <mat-option [value]="1.3">1.3x</mat-option>
-                                            <mat-option [value]="1.4">1.4x</mat-option>
-                                            <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
-                                            <mat-option [value]="1.7">1.7x</mat-option>
-                                            <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-
-                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
-                                        appearance="fill">
-                                        <mat-select #bulkPitch [placeholder]="'Cao độ'">
-                                            <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
-                                            <mat-option [value]="-15">-15</mat-option>
-                                            <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
-                                            <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
-                                            <mat-option [value]="-2">-2 (Hơi trầm)</mat-option>
-                                            <mat-option [value]="0">0 (Mặc định)</mat-option>
-                                            <mat-option [value]="2">+2 (Hơi cao)</mat-option>
-                                            <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
-                                            <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
-                                            <mat-option [value]="15">+15</mat-option>
-                                            <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
-                                        </mat-select>
-                                    </mat-form-field>
-
-                                    <button mat-flat-button color="accent"
-                                        (click)="applyBulkSettings(bulkVoice.value, bulkRate.value, bulkPitch.value)">
-                                        <mat-icon [svgIcon]="'heroicons_outline:check'"></mat-icon>
-                                        <span class="ml-2">Áp dụng</span>
-                                    </button>
-
-                                    <button mat-flat-button color="primary" (click)="generateAll()"
-                                        [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0">
-                                        <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
-                                            [svgIcon]="'feather:loader'"></mat-icon>
-                                        <mat-icon *ngIf="!isGlobalProcessing"
-                                            [svgIcon]="'heroicons_outline:lightning-bolt'"></mat-icon>
-                                        <span class="ml-2">Chuyển *.mp3</span>
-                                    </button>
-                                </div>
                             </div>
-                            <span class="text-sm text-gray-400 mr-1">Kéo thả để sắp xếp</span>
+                            <!-- <span class="text-sm text-gray-400 mr-1">Kéo thả để sắp xếp</span> -->
+                            <div class="items-center min-w-[300px]">
+                                <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense" appearance="fill">
+                                    <mat-select #bulkVoice [placeholder]="'Chọn giọng đọc...'"
+                                        [(ngModel)]="selectedVoice">
+                                        <mat-option *ngFor="let v of voiceList" [value]="v.id">{{v.name}}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+                                <mat-form-field class="w-40 ml-2 field-hidden-subscript fuse-mat-dense" appearance="fill">
+                                    <mat-select #bulkRate [placeholder]="'Tốc độ'">
+                                        <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
+                                        <mat-option [value]="0.6">0.6x</mat-option>
+                                        <mat-option [value]="0.7">0.7x</mat-option>
+                                        <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                                        <mat-option [value]="0.9">0.9x</mat-option>
+                                        <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
+                                        <mat-option [value]="1.1">1.1x</mat-option>
+                                        <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
+                                        <mat-option [value]="1.3">1.3x</mat-option>
+                                        <mat-option [value]="1.4">1.4x</mat-option>
+                                        <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
+                                        <mat-option [value]="1.7">1.7x</mat-option>
+                                        <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+                                <mat-form-field class="w-40 ml-2 field-hidden-subscript fuse-mat-dense" appearance="fill">
+                                    <mat-select #bulkPitch [placeholder]="'Cao độ'">
+                                        <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
+                                        <mat-option [value]="-15">-15</mat-option>
+                                        <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
+                                        <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
+                                        <mat-option [value]="-2">-2 (Hơi trầm)</mat-option>
+                                        <mat-option [value]="0">0 (Mặc định)</mat-option>
+                                        <mat-option [value]="2">+2 (Hơi cao)</mat-option>
+                                        <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
+                                        <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                                        <mat-option [value]="15">+15</mat-option>
+                                        <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+
+                                <button mat-flat-button class="ml-2" color="accent"
+                                    (click)="applyBulkSettings(bulkVoice.value, bulkRate.value, bulkPitch.value)">
+                                    <mat-icon [svgIcon]="'heroicons_outline:cog'"></mat-icon>
+                                    <span class="ml-2">Cài đặt</span>
+                                </button>
+                            </div>
                         </div>
                     </div>
 

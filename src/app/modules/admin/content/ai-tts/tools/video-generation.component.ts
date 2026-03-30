@@ -180,8 +180,8 @@ import { ToastrService } from 'ngx-toastr';
 })
 export class VideoGenerationComponent implements OnInit {
     voiceList = [
-        { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh (Offline)' },
-        { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My (Offline)' },
+        { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
+        { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
         { id: '1248295', name: 'Huệ Tiktoker' },
     ];
     selectedVoice = 'vi-VN-HoaiMyNeural';
