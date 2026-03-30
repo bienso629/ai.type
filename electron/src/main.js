@@ -3045,8 +3045,7 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
 
 // Thêm vào trong app.whenReady() hoặc khu vực định nghĩa ipcMain
 ipcMain.handle("tts-ausync-generate", async (event, payload) => {
-    const { text, voice_id, speed, filename, username } = payload;
-    const apiKey = "ak_MjAzMzU2OmJ1Y3R1b25nMjAwMEBnbWFpbC5jb206MENpS1BGQjRIS00=.e349092aeb0d";
+    const { text, voice_id, speed, filename, username, key } = payload;
 
     try {
         // BƯỚC 1: POST yêu cầu tạo Audio với đầy đủ các trường bắt buộc
@@ -3054,7 +3053,7 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "x-api-key": apiKey
+                "x-api-key": key
             },
             body: JSON.stringify({
                 "audio_name": filename, // Sử dụng tên file làm tên audio
