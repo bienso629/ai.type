@@ -82,10 +82,8 @@ export const appConfig: AppConfig = {
         gologin_api: 'https://api.gologin.com',
         api: {
             'local': 'http://localhost:1122/v1',
-            'vn.hcm.s0': 'https://apiv1.type.vn/v1',
-            'vn.hcm.s1': 'https://api.vn.hcm.s1.type.vn/v1',
-            'vn.hcm.s2': 'https://api.vn.hcm.s2.type.vn/v1',
-            'vn.hn.s0': 'https://api.vn.hn.s0.type.vn/v1',
+            'vn.s1': 'https://apiv1.type.vn/v1',
+            'vn.s2': 'https://apiv2.type.vn/v1',
         },
         gen: 'ab:77:72:35:21:b8:3c:2e:25:b5:74:13:cb:91:fe:f4:7a:a7:dd:0a'
     }

@@ -27,7 +27,8 @@
                         <span class="text-base text-secondary">viết cùng {{name}}</span>
                     </ng-container>
                     <ng-template #noauthors>
-                        <span class="ml-1 text-base text-secondary">lên kịch bản, viết nội dung sản phẩm hay tóm tắt tài liệu</span>
+                        <span class="ml-1 text-base text-secondary">lên kịch bản, viết nội dung sản phẩm hay tóm tắt tài
+                            liệu</span>
                     </ng-template>
                 </div>
             </div>
@@ -121,7 +122,7 @@
                             <div class="flex flex-col gt-sm:flex-row">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Tên công việc (ít hơn 60 ký tự)</mat-label>
+                                    <mat-label>Nhập công việc của bạn</mat-label>
                                     <input matInput [formControlName]="'title'"
                                         [placeholder]="'Hôm nay bạn muốn viết gì?'" required>
                                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
@@ -130,14 +131,14 @@
                                 <mat-form-field
                                     class="flex-auto mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Mô tả (ít hơn 160 ký tự)</mat-label>
+                                    <mat-label>Mô tả về công việc</mat-label>
                                     <textarea class="px-2" [formControlName]="'description'"
                                         [placeholder]="'Trong mô tả chứa từ khoá chính'" matInput
                                         cdkTextareaAutosize></textarea>
                                 </mat-form-field>
                             </div>
 
-                            <mat-accordion MatAccordionDisplayMode="flat" multi>
+                            <mat-accordion MatAccordionDisplayMode="flat" multi *ngIf="arr_keyword.length > 0">
                                 <mat-expansion-panel [expanded]="false">
                                     <mat-expansion-panel-header #keywords>
                                         <mat-panel-title (click)="keywords._toggle()" class="flex items-center">
@@ -612,13 +613,13 @@
                             <div class="flex flex-row gt-sm:flex-row px-3">
                                 <button mat-flat-button [color]="'primary'" (click)="chatgpt('ai.type')" type="button"
                                     class="mr-2">
-                                    <mat-icon class="icon-size-4" svgIcon="feather:message-circle"></mat-icon>
+                                    <mat-icon class="icon-size-4" svgIcon="heroicons_outline:cursor-click"></mat-icon>
                                     <mat-label class="ml-2">Lên ý tưởng</mat-label>
                                 </button>
 
                                 <button mat-flat-button (click)="paste()" class="bg-red-400 text-white" type="button">
                                     <mat-icon class="icon-size-4" svgIcon="feather:copy"></mat-icon>
-                                    <mat-label class="ml-2">Dán nhanh</mat-label>
+                                    <mat-label class="ml-2">Sao chép</mat-label>
                                 </button>
 
                                 <!-- <button mat-flat-button (click)="findKeyword()" class="ml-2 bg-blue-500 text-white"
@@ -962,7 +963,7 @@
                                                             (click)="convertVideo2Post(item, i)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:file-text"></mat-icon>
-                                                            <span>Tạo bài</span>
+                                                            <span>Viết bài</span>
                                                         </button>
                                                         <button mat-menu-item [cdkCopyToClipboard]="item | removeHTML"
                                                             [color]="'primary'">
@@ -998,7 +999,7 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH3>
                                             <mat-panel-title (click)="panelH3._toggle()" class="flex items-center">
-                                                <mat-label class="font-normal">Gemini đã hồi đáp</mat-label>
+                                                <mat-label class="font-semibold">Gemini đã hồi đáp</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
@@ -1118,7 +1119,7 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelH7>
                                             <mat-panel-title (click)="panelH7._toggle()" class="flex items-center">
-                                                <mat-label class="font-normal">Gắn Backlink vào Bài
+                                                <mat-label class="font-semibold">Gắn Backlink vào Bài
                                                     ({{source.a.length}})</mat-label>
 
                                                 <!-- <mat-label
@@ -1183,7 +1184,8 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelHTML>
                                             <mat-panel-title (click)="panelHTML._toggle()" class="flex items-center">
-                                                <mat-label>Gợi ý Prompt cho bạn ({{source.pre.length}})</mat-label>
+                                                <mat-label class="font-semibold">Gợi ý Prompt
+                                                    ({{source.pre.length}})</mat-label>
                                             </mat-panel-title>
 
                                         </mat-expansion-panel-header>
@@ -1267,7 +1269,7 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelH4>
                                             <mat-panel-title (click)="panelH4._toggle()" class="flex items-center">
-                                                <mat-label class="font-normal">Từ điển kiến thức</mat-label>
+                                                <mat-label class="font-semibold">Từ điển kiến thức</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
@@ -1375,7 +1377,7 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelSource>
                                             <mat-panel-title (click)="panelSource._toggle()" class="flex items-center">
-                                                <mat-label>Từ các khác
+                                                <mat-label class="font-semibold">Nguồn khác
                                                     ({{source.source.length}})</mat-label>
                                             </mat-panel-title>
 
@@ -2446,7 +2448,7 @@
                             <ng-container *ngIf="uuid">
                                 <button mat-flat-button color="primary" (click)="export()" type="button">
                                     <mat-icon class="icon-size-4" svgIcon="feather:monitor"></mat-icon>
-                                    <mat-label class="ml-2">Xem & Đăng</mat-label>
+                                    <mat-label class="ml-2">Đăng bài</mat-label>
                                 </button>
 
                                 <button mat-flat-button [matMenuTriggerFor]="menu" class="bg-green-500 text-white ml-2">
@@ -2455,9 +2457,10 @@
                                 </button>
 
                                 <mat-menu #menu="matMenu">
-                                    <button mat-menu-item (click)="clear()" [color]="'danger'">
-                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trash'"></mat-icon>
-                                        <span>Xóa dàn ý</span>
+                                    <button *ngIf="details && details.uuid && permissionText2Voice" mat-menu-item
+                                        [routerLink]="['/voice2video', user.name, details.uuid]">
+                                        <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
+                                        <mat-label>Tạo audio</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="share()" [color]="'primary'">
@@ -2465,21 +2468,20 @@
                                         <span>Tải xuống (PDF)</span>
                                     </button>
 
-                                    <button mat-menu-item (click)="share()" [matMenuTriggerFor]="forumActions">
+                                    <button *ngIf="score >= 70" mat-menu-item (click)="share()" [matMenuTriggerFor]="forumActions">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:type'"></mat-icon>
-                                        <mat-label>Đăng lên Diễn đàn</mat-label>
+                                        <mat-label>Đăng lên Diễn đàn {{ score }}</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="autoCreatePost()">
                                         <mat-icon class="icon-size-4" svgIcon="feather:pocket"></mat-icon>
-                                        <mat-label>Tự động tạo {{ styles.length * selectedItems.size }}
-                                            bài từ Dàn ý</mat-label>
+                                        <mat-label>Tạo thành {{ styles.length * selectedItems.size }}
+                                            bài</mat-label>
                                     </button>
 
-                                    <button *ngIf="details && details.uuid && permissionText2Voice" mat-menu-item
-                                        [routerLink]="['/voice2video', user.name, details.uuid]">
-                                        <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
-                                        <mat-label>Tạo audio</mat-label>
+                                    <button mat-menu-item (click)="clear()">
+                                        <mat-icon class="icon-size-4 color-gray-50" [svgIcon]="'feather:trash'"></mat-icon>
+                                        <mat-label class="color-gray-50">Xóa dàn ý</mat-label>
                                     </button>
                                 </mat-menu>
 
