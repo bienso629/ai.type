@@ -122,7 +122,7 @@
                             <div class="flex flex-col gt-sm:flex-row">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Nhập công việc của bạn</mat-label>
+                                    <mat-label>Tên công việc</mat-label>
                                     <input matInput [formControlName]="'title'"
                                         [placeholder]="'Hôm nay bạn muốn viết gì?'" required>
                                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
@@ -259,12 +259,9 @@
                             </div>
                         </mat-step>
 
-                        <mat-step [formGroupName]="'step4'" disableRipple="true" [stepControl]="detectForm.get('step4')"
+                        <!-- <mat-step [formGroupName]="'step4'" disableRipple="true" [stepControl]="detectForm.get('step4')"
                             #step4>
                             <ng-template matStepLabel>JSON data</ng-template>
-                            <!-- <p class="my-6 font-normal">
-                                JSON data:
-                            </p> -->
                             <div class="flex flex-col gt-xs:flex-row">
                                 <pre *ngIf="source;else empty"
                                     class="text-sm rounded border overflow-auto max-h-100 p-2">{{done | json}}</pre>
@@ -272,16 +269,7 @@
                                     <mat-label class="text-base">Không có data</mat-label>
                                 </ng-template>
                             </div>
-                            <!-- <div class="flex justify-end mt-8">
-                                <button class="mr-2" mat-flat-button type="button" matStepperPrevious>
-                                    <mat-label>Quay lại</mat-label>
-                                </button>
-                                <button class="" mat-flat-button [color]="'primary'" type="button" matStepperNext>
-                                    <mat-icon class="icon-size-4" svgIcon="feather:arrow-right"></mat-icon>
-                                    <mat-label class="ml-2">Tiếp tục</mat-label>
-                                </button>
-                            </div> -->
-                        </mat-step>
+                        </mat-step> -->
 
                         <mat-step [formGroupName]="'step5'" disableRipple="true" [stepControl]="detectForm.get('step5')"
                             #step5>
@@ -2436,7 +2424,7 @@
                             <ng-container *ngIf="!uuid">
                                 <button mat-flat-button class="mr-2" (click)="archive()" color="primary">
                                     <mat-icon class="icon-size-4" svgIcon="feather:archive"></mat-icon>
-                                    <mat-label class="ml-2">Lưu bài viết</mat-label>
+                                    <mat-label class="ml-2">Lưu công việc</mat-label>
                                 </button>
 
                                 <!-- <button *ngIf="!uuid" mat-icon-button class="ml-2" matTooltipPosition="above"
