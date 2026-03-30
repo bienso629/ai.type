@@ -1,4 +1,4 @@
-<div class="flex flex-row justify-between items-center pb-4 mb-4">
+<div class="flex flex-row justify-between items-center pb-0 mb-4">
     <div class="flex items-center text-xl font-normal text-primary tracking-tight">
         <mat-icon class="mr-2 icon-size-5 text-primary" [svgIcon]="'feather:edit-3'"></mat-icon>
         <span>Dựng kịch bản phát Livestream</span>
@@ -61,7 +61,7 @@
 
             <div class="p-4 flex flex-col h-64">
                 <div class="flex justify-between items-start mb-3">
-                    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-1 rounded-full">
+                    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0 rounded-full">
                         Scene #{{ sceneIdx + 1 }}
                     </span>
                 </div>
@@ -110,13 +110,13 @@
 
     <button mat-raised-button class="bg-blue-500 text-white" (click)="prepareForVideoGeneration()">
         <mat-icon class="icon-size-4">auto_awesome</mat-icon>
-        <mat-label class="ml-2">Tạo giọng đọc</mat-label>
+        <mat-label class="ml-2">Sử dụng giọng nói của mình</mat-label>
     </button>
 
     <div class="flex-grow"></div>
 
     <button mat-flat-button color="primary" (click)="generateAllImages()">
         <mat-icon class="icon-size-4">voice_chat</mat-icon>
-        <mat-label class="ml-2">Phát sóng</mat-label>
+        <mat-label class="ml-2">Phát sóng ngay</mat-label>
     </button>
 </div>

@@ -1,4 +1,4 @@
-import { Component, Inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
     MatDialogRef,
@@ -11,6 +11,10 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import { AppConfig } from 'app/core/config/app.config';
+import { User } from 'app/core/user/user.types';
+import { Subject, takeUntil } from 'rxjs';
+import { VoiceAIService } from 'app/modules/_services/voice';
 
 @Component({
     selector: 'app-video-generation',
@@ -24,6 +28,7 @@ import { ToastrService } from 'ngx-toastr';
         MatSelectModule,
         FormsModule,
     ],
+    providers: [VoiceAIService],
     template: `
         <div class="p-0 min-w-[480px] bg-white rounded-lg">
             <div class="flex items-center justify-between mb-6">
@@ -178,11 +183,14 @@ import { ToastrService } from 'ngx-toastr';
         `,
     ],
 })
-export class VideoGenerationComponent implements OnInit {
+export class VideoGenerationComponent implements OnInit, OnDestroy {
+    config: AppConfig;
+    user: User;
+
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
-        { id: '1248295', name: 'Huệ Tiktoker' },
+        // { id: '1248295', name: 'Huệ Tiktoker' },
     ];
     selectedVoice = 'vi-VN-HoaiMyNeural';
     selectedRate: number = 1.0;
@@ -195,20 +203,33 @@ export class VideoGenerationComponent implements OnInit {
     progress = 0;
     currentStatus = 'Đang chờ cấu hình...';
 
-    constructor(
-        public dialogRef: MatDialogRef<VideoGenerationComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any,
-        private toastr: ToastrService,
-        private cd: ChangeDetectorRef,
-    ) { }
+    myvoices: any = [];
 
-    ngOnInit(): void {
-        if (this.data && this.data.scenes) {
-            this.totalTasks = this.data.scenes.reduce(
-                (acc: number, scene: any) => acc + scene.subtitles.length,
-                0,
-            );
-        }
+    private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    getMyVocie() {
+        this._voice.getMyVocie({
+            username: this.data.username
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data.length > 0) {
+                        console.log('data', result.data);
+                        this.myvoices = result.data;
+                        this.myvoices.map((voice: any) => {
+                            this.voiceList.push({
+                                id: voice.id,
+                                name: voice.name
+                            });
+                        });
+                    }
+                },
+                error: (e: any) => {
+                    this.toastr.warning('Tải video thất bại.');
+                },
+                complete: () => { }
+            });
     }
 
     async startParallelProcess(): Promise<void> {
@@ -381,5 +402,30 @@ export class VideoGenerationComponent implements OnInit {
 
     cancel(): void {
         this.dialogRef.close(null);
+    }
+
+    constructor(
+        private _voice: VoiceAIService,
+        public dialogRef: MatDialogRef<VideoGenerationComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private toastr: ToastrService,
+        private cd: ChangeDetectorRef,
+    ) {
+    }
+
+    ngOnInit(): void {
+        if (this.data && this.data.scenes) {
+            this.totalTasks = this.data.scenes.reduce(
+                (acc: number, scene: any) => acc + scene.subtitles.length,
+                0,
+            );
+        }
+
+        this.getMyVocie();
+    }
+
+    ngOnDestroy(): void {
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
     }
 }

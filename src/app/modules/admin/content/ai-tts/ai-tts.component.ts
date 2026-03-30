@@ -83,7 +83,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
-        { id: '1248295', name: 'Huệ Tiktoker' },
         // { id: 'nam-calm', name: 'Nam điềm tĩnh (Server)' },
         // { id: 'nam-cham', name: 'Nam chậm (Server)' },
         // { id: 'nam-nhanh', name: 'Nam nhanh (Server)' },
