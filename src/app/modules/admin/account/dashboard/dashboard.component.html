@@ -1,7 +1,7 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-white">
     <!-- Main -->
     <div class="flex-auto overflow-y-auto" cdkScrollable>
-        <fuse-alert class="absolute right-6 bottom-6 max-w-100 border-0 rounded-lg shadow-lg overflow-hidden"
+        <fuse-alert class="absolute left-6 top-6 max-w-100 border-0 rounded-lg shadow-lg overflow-hidden"
             [type]="(activeInfo && activeInfo.user) ? 'success' : 'warning' ">
             <span fuseAlertTitle>Phiên bản {{ appVersion }}</span>
             <ng-container *ngIf="activeInfo && activeInfo.user; else elseTemplate">
