@@ -347,13 +347,17 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
                     // Tương tự hàm generateAusyncTTS ở ai-tts.component.ts
                     const niceFilename = `${prefix}_${slug}_ausync`;
+                    const key = await this.myvoices.filter((voice: any) => (voice['id'] === this.selectedVoice));
+
                     const payload = {
                         text: sub.text,
                         voice_id: this.selectedVoice, // Ví dụ: '1248295'
+                        key: key[0]['api_key'],
                         speed: this.selectedRate || 1.0,
                         filename: niceFilename,
                         username: subPath,
                     };
+
                     res = await (window as any).electron.invoke('tts-ausync-generate', payload);
                 }
 
