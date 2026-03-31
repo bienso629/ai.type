@@ -405,7 +405,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         let temp = localStorage.getItem('statistics');
         if (temp && temp != 'undefined') {
             temp = JSON.parse(temp);
-            this.totalElements = temp['writing'];
+            this.totalElements = temp['archives'];
         }
     }
 

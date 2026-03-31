@@ -49,7 +49,7 @@ export class GenaiService {
                 return;
             }
 
-            const settings = JSON.parse(settingsRaw);
+            const settings = settingsRaw;
             const key = settings.secretKey ? settings.secretKey.split(';')[0] : '';
 
             if (key && (key !== this._currentKey || !this._aiInstance)) {
