@@ -52,6 +52,8 @@ export class AIImageComponent
     secretKey: any;
     searchAPIKey: any;
 
+    permissionDreamina: boolean = false;
+
     ai: any;
 
     drawerMode: 'over' | 'side' = 'side';
@@ -561,6 +563,32 @@ export class AIImageComponent
             this.ai = new GoogleGenAI({ apiKey: geminiKey });
         }
 
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: AppConfig) => {
+                this.config = config;
+            });
+
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+
+                if (this._userService.permissionDreamina(this.user)) {
+                    this.permissionDreamina = true;
+                }
+
+                if (user.reputation < 2000) {
+                    this.error(
+                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
+                    );
+                    return;
+                } else {
+                    this.fetch();
+                    this.alldomains();
+                }
+            });
+
         this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: {
                 action: string;
@@ -590,27 +618,6 @@ export class AIImageComponent
     ngAfterViewInit() {
         // TÍNH TOÁN NGAY KHI KHỞI TẠO (QUAN TRỌNG)
         this.detectGrid();
-
-        this._fuseConfigService.config$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((config: AppConfig) => {
-                this.config = config;
-            });
-
-        this._userService.user$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((user: User) => {
-                this.user = user;
-                if (user.reputation < 2000) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
-                    return;
-                } else {
-                    this.fetch();
-                    this.alldomains();
-                }
-            });
     }
 
     ngAfterContentChecked(): void { }
