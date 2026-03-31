@@ -140,8 +140,8 @@
             <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch">
-                        <button *ngIf="permissionText2Voice" mat-icon-button matTooltipPosition="above"
+                    <div class="flex items-center justify-self-stretch gap-1">
+                        <button *ngIf="permissionScriptCommentLike" mat-icon-button matTooltipPosition="above"
                             matTooltip="Lên kịch bản comment, like hoặc share cho bài '{{ row.title }}'"
                             [routerLink]="['/amxh']" [routerLink]="['/amxh']"
                             [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"

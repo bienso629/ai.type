@@ -24,7 +24,6 @@ import { ToastrService } from 'ngx-toastr';
 import { SEOScorePipe, RemoveHTMLPipe, SlugifyPipe } from 'app/app.pipe';
 import {
     interval,
-    Observable,
     Subject,
     Subscription,
     switchMap,
@@ -116,7 +115,14 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     config: AppConfig;
 
     domain = null;
-    domains = [];
+    domains = [{
+        "domain": "https://type.vn",
+        "username": "******",
+        "password": "******",
+        "name": "",
+        "updatedAt": "2026-02-03T07:32:19.276Z",
+        "id": "9658d755c35784e658d85564330099d3"
+    }];
     synonyms = [];
 
     technology: String = 'wordpress';
@@ -1087,7 +1093,6 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         // BƯỚC 4: LƯU KẾT QUẢ
         if (parts.length > 0) {
             data.splice(index, 1, ...parts);
-            console.log('data after split:', data);
             this.toastr.success(`Đã tách thành ${parts.length} đoạn.`);
         } else {
             this.toastr.warning(`Không có nội dung để tách.`);
@@ -1281,7 +1286,6 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
                 if (jsonText) {
                     const data = JSON.parse(jsonText[1]);
-                    console.log('data', data);
 
                     data.contents.map((text: string) => {
                         this.source.text.push(
@@ -1289,9 +1293,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         );
                     });
 
-                    this.source.pre.push(
-                        `<p id="source-pre-${uuid.v4()}">${data.image_prompt}</p>`,
-                    );
+                    if (data.image_prompt) {
+                        this.source.pre.push(
+                            `<p id="source-pre-${uuid.v4()}">${data.image_prompt}</p>`,
+                        );
+                    }
 
                     this.toastr.success('Đã tạo nội dung từ hình ảnh.');
 

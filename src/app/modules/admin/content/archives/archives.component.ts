@@ -65,6 +65,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     collections: any[] = [];
 
     permissionText2Voice: boolean = false;
+    permissionScriptCommentLike: boolean = false;
 
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -363,6 +364,9 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
                 this.permissionText2Voice =
                     this._userService.permissionText2Voice(this.user);
+
+                this.permissionScriptCommentLike =
+                    this._userService.permissionScriptCommentLike(this.user);
 
                 if (user.reputation < 0) {
                     this.error(

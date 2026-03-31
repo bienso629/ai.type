@@ -41,7 +41,7 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 0"
+                                <mat-grid-tile *ngIf="user.reputation >= 0 && user.groups?.includes('nhóm-quét-sitemap')"
                                     class="rounded-lg border-b hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/import']">
                                     <div class="flex flex-col items-center">
@@ -131,7 +131,7 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile> -->
 
-                                <mat-grid-tile *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')"
+                                <mat-grid-tile *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-download-video-từ-youtube-facebook')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/all-tube']">
                                     <div class="flex flex-col items-center">
@@ -281,7 +281,7 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-n8n-tự-động-hoá')"
+                                <mat-grid-tile *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-lên-kịch-bản-comment-like')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/amxh']">
                                     <div class="flex flex-col items-center">
