@@ -14,7 +14,7 @@ import { ToastrService } from 'ngx-toastr';
 import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
-import { VoiceAIService } from 'app/modules/_services/voice';
+import { MyKeysService } from 'app/modules/_services/mykey';
 
 @Component({
     selector: 'app-video-generation',
@@ -28,7 +28,7 @@ import { VoiceAIService } from 'app/modules/_services/voice';
         MatSelectModule,
         FormsModule,
     ],
-    providers: [VoiceAIService],
+    providers: [MyKeysService],
     template: `
         <div class="p-0 min-w-[480px] bg-white rounded-lg">
             <div class="flex items-center justify-between mb-6">
@@ -207,8 +207,8 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    getMyVocie() {
-        this._voice.getMyVocie({
+    getMyKeys() {
+        this._voice.getMyKeys({
             username: this.data.username
         })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -217,10 +217,12 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     if (result && result.success && result.data.length > 0) {
                         this.myvoices = result.data;
                         this.myvoices.map((voice: any) => {
-                            this.voiceList.push({
-                                id: voice.id,
-                                name: voice.name
-                            });
+                            if (voice.base === 'ausynclab.io') {
+                                this.voiceList.push({
+                                    id: voice.id,
+                                    name: voice.name
+                                });
+                            }
                         });
                     }
                 },
@@ -410,7 +412,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
     }
 
     constructor(
-        private _voice: VoiceAIService,
+        private _voice: MyKeysService,
         public dialogRef: MatDialogRef<VideoGenerationComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
@@ -426,7 +428,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
             );
         }
 
-        this.getMyVocie();
+        this.getMyKeys();
     }
 
     ngOnDestroy(): void {

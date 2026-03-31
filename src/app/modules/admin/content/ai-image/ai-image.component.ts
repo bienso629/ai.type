@@ -30,6 +30,7 @@ import * as uuid from 'uuid';
 import { BlogService } from 'app/modules/_services/blog';
 import { DomainService } from 'app/modules/_services/domain';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MyKeysService } from 'app/modules/_services/mykey';
 
 interface ReferenceFile {
     base64Data: string;
@@ -41,7 +42,7 @@ interface ReferenceFile {
     selector: 'ai-image',
     templateUrl: './ai-image.component.html',
     styleUrls: ['./ai-image.component.scss'],
-    providers: [ChatGPTService, BlogService, DomainService],
+    providers: [ChatGPTService, BlogService, DomainService, MyKeysService],
     encapsulation: ViewEncapsulation.None,
 })
 export class AIImageComponent
@@ -171,6 +172,33 @@ export class AIImageComponent
     }
 
     // --- CÁC LOGIC KHÁC GIỮ NGUYÊN ---
+    getMyKeys() {
+        this._voice.getMyKeys({
+            username: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data.length > 0) {
+                        result.data.map((voice: any) => {
+                            if (voice.base === 'aistudio.google.com') {
+                                if (this.secretKey) {
+                                    let geminiKey = this.secretKey[0];
+                                    if (voice.api_key) geminiKey = voice.api_key;
+                                    console.log('geminiKey', geminiKey);
+                                    this.ai = new GoogleGenAI({ apiKey: geminiKey });
+                                }
+                            }
+                        });
+                    }
+                },
+                error: (e: any) => {
+                    this.toastr.warning('Tải video thất bại.');
+                },
+                complete: () => { }
+            });
+    }
+
     alldomains() {
         this._domainService
             .fetch({ username: this.user.name })
@@ -543,6 +571,7 @@ export class AIImageComponent
         private _matDialog: MatDialog,
         private toastr: ToastrService,
         private http: HttpClient,
+        private _voice: MyKeysService,
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService
     ) {
@@ -556,12 +585,6 @@ export class AIImageComponent
         this.searchAPIKey = this.settings.searchAPIKey
             ? this.settings.searchAPIKey.split(';')
             : undefined;
-
-        if (this.secretKey) {
-            let geminiKey = this.secretKey[0];
-            if (this.secretKey[7]) geminiKey = this.secretKey[7];
-            this.ai = new GoogleGenAI({ apiKey: geminiKey });
-        }
 
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -577,6 +600,8 @@ export class AIImageComponent
                 if (this._userService.permissionDreamina(this.user)) {
                     this.permissionDreamina = true;
                 }
+
+                this.getMyKeys();
 
                 if (user.reputation < 2000) {
                     this.error(
