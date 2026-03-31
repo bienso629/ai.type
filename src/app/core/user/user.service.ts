@@ -83,6 +83,22 @@ export class UserService {
         return false;
     }
 
+    public permissionVideoDownloader(user: User): boolean {
+        if (user.groups?.includes('nhóm-download-video-từ-youtube-facebook')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public permissionDreamina(user: User): boolean {
+        if (user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')) {
+            return true;
+        }
+
+        return false;
+    }
+
     public permissionText2Voice(user: User): boolean {
         if (user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')) {
             return true;
