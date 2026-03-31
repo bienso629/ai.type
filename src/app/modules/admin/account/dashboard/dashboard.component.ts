@@ -32,6 +32,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
         done: 0,
         money: 0,
         archives: 0,
+        node: 0,
         wp2md: 0
     };
 
@@ -56,6 +57,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     done: nodes[0].length,
                     money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0),
                     archives: nodes[1]['total'],
+                    node: nodes[2]['total'],
                     wp2md: wp2md['total'],
                 }
 
@@ -129,6 +131,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this._statistics.done = temp['done'] ? temp['done'] : 0;
             this._statistics.money = temp['money'] ? temp['money'] : 0;
             this._statistics.archives = temp['archives'] ? temp['archives'] : 0;
+            this._statistics.node = temp['node'] ? temp['node'] : 0;
             this._statistics.wp2md = (temp['wp2md']) ? temp['wp2md'] : 0;
         }
     }
@@ -139,8 +142,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
     constructor(
         private titleService: Title,
         private _userService: UserService,
-        // private _chatGPTService: ChatGPTService,
-        private _logService: LogService,
         private _crawlService: CrawlService,
         private _wp2mdService: WP2MDService,
         private _userClientService: UserClientService,
