@@ -30,11 +30,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     _statistics = {
         done: 0,
-        writing: 0,
         money: 0,
         archives: 0,
-        wp2md: 0,
-        faceposts: 0
+        wp2md: 0
     };
 
     /* END TWO OBJECTS */
