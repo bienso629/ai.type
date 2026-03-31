@@ -68,7 +68,7 @@ export class UserService {
             cn2++;
         }
 
-        if (user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot') || user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo') || user.groups?.includes('nhóm-n8n-tự-động-hoá') || user.groups?.includes('nhóm-sử-dụng-zms') || user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')) {
+        if (user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot') || user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo') || user.groups?.includes('nhóm-lên-kịch-bản-comment-like') || user.groups?.includes('nhóm-sử-dụng-zms') || user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')) {
             cn3++;
         }
 
@@ -92,7 +92,7 @@ export class UserService {
     }
 
     public permissionDreamina(user: User): boolean {
-        if (user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')) {
+        if (user.groups?.includes('nhóm-sử-dụng-dreamina-ai')) {
             return true;
         }
 
@@ -101,6 +101,14 @@ export class UserService {
 
     public permissionText2Voice(user: User): boolean {
         if (user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public permissionScriptCommentLike(user: User): boolean {
+        if (user.groups?.includes('nhóm-lên-kịch-bản-comment-like')) {
             return true;
         }
 
