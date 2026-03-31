@@ -6,8 +6,6 @@ import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
-import { saveAs } from "file-saver";
-
 import { Observable, Subject, of } from 'rxjs';
 import { catchError, tap, map, takeUntil } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
@@ -19,10 +17,11 @@ let options = {
 };
 
 @Injectable()
-export class VoiceAIService {
+export class MyKeysService {
     year: number = 2023;
     config: AppConfig;
     user: User;
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -48,7 +47,7 @@ export class VoiceAIService {
             });
     }
 
-    public getMyVocie(dataForm: any): Observable<any> {
+    public getMyKeys(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
@@ -56,7 +55,7 @@ export class VoiceAIService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.api[this.user.server]}/voice/get`;
+        const url = `${this.config.settings.api[this.user.server]}/key/get`;
 
         let data = {
             params: this._h.encrypt(dataForm, this.config.settings.gen)
