@@ -9,7 +9,6 @@ import { User } from 'app/core/user/user.types';
 import { UserClientService } from 'app/modules/_services/user';
 import { forkJoin, Subject, takeUntil } from 'rxjs';
 import moment from 'moment';
-import { ChatGPTService } from 'app/modules/_services/chatgpt';
 import { LogService } from 'app/modules/_services/link';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { WP2MDService } from 'app/modules/_services/wp2md';
@@ -19,7 +18,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 @Component({
     selector: 'dashboard',
     templateUrl: './dashboard.component.html',
-    providers: [UserClientService, CrawlService, ChatGPTService, CrawlService, WP2MDService, LogService],
+    providers: [UserClientService, CrawlService, CrawlService, WP2MDService, LogService],
     encapsulation: ViewEncapsulation.None
 })
 export class DashboardComponent implements OnInit, OnDestroy {
@@ -47,35 +46,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this._crawlService.statistics({
                 username: this.user.name
             }),
-            this._chatGPTService.total({
-                username: this.user.name
-            }),
             this._wp2mdService.totalWp2mdArchive({
                 username: this.user.name
             }),
-            this._crawlService.faceTotalPost({
-                username: this.user.name
-            }),
-            this._logService.total({
-                username: this.user.name
-            }),
         ]).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: async (results) => {
+            next: async (results: any) => {
                 const nodes = (results && results[0] && results[0].data) ? results[0].data : [[], 0, 0];
-                const chatgpt = (results && results[1] && results[1].data) ? results[1].data : { total: 0 };
-                const wp2md = (results && results[2] && results[2].data) ? results[2].data : { total: 0 };
-                const faceposts = (results && results[3] && results[3].data) ? results[3].data : { total: 0 };
-                const links = (results && results[4] && results[4].data) ? results[4].data : { total: 0 };
+                const wp2md = (results && results[1] && results[1].data) ? results[1].data : { total: 0 };
 
                 this.statistics[`${this.user.name}`] = {
                     done: nodes[0].length,
                     money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0),
-                    archives: nodes[2]['total'],
-                    writing: nodes[1]['total'],
-                    chatgpt: chatgpt['total'],
+                    archives: nodes[1]['total'],
                     wp2md: wp2md['total'],
-                    faceposts: faceposts['total'],
-                    links: links['total'],
                 }
 
                 // tạo báo cáo
@@ -148,9 +131,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this._statistics.done = temp['done'] ? temp['done'] : 0;
             this._statistics.money = temp['money'] ? temp['money'] : 0;
             this._statistics.archives = temp['archives'] ? temp['archives'] : 0;
-            this._statistics.writing = temp['writing'] ? temp['writing'] : 0;
             this._statistics.wp2md = (temp['wp2md']) ? temp['wp2md'] : 0;
-            this._statistics.faceposts = (temp['faceposts']) ? temp['faceposts'] : 0;
         }
     }
 
@@ -160,7 +141,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     constructor(
         private titleService: Title,
         private _userService: UserService,
-        private _chatGPTService: ChatGPTService,
+        // private _chatGPTService: ChatGPTService,
         private _logService: LogService,
         private _crawlService: CrawlService,
         private _wp2mdService: WP2MDService,
