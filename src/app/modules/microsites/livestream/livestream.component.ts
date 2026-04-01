@@ -40,7 +40,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     // [THÊM BIẾN MỚI] Trạng thái bật/tắt phụ đề
     showSubtitle: boolean = true;
     // [THÊM MỚI] Biến quản lý trạng thái bật/tắt phụ đề khi xuất video
-    exportWithSubtitle: boolean = true
+    exportWithSubtitle: boolean = true;
 
     // Các biến Getter
     get currentScene() {
@@ -53,35 +53,33 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
     // Cập nhật hàm nhận 2 tham số: Tỉ lệ và Chất lượng
     async exportCustomVideo(ratio: '9:16' | '16:9' | '1:1', quality: '1080p' | '2k' | '4k') {
-        const projectData = this.projectData;
-
-        if (!projectData.scenes || projectData.scenes.length === 0) {
-            this.toastr.error('Kịch bản chưa có phân cảnh nào!');
+        if (!this.projectData.scenes?.length) {
+            this.toastr.error('Kịch bản trống!');
             return;
         }
 
-        // Đính kèm cấu hình vào data gửi xuống IPC
-        projectData.exportRatio = ratio;
-        projectData.quality = quality;
+        // Lấy giá trị thực tế của biến ngay lúc bấm nút
+        const hasSub = !!this.exportWithSubtitle;
 
-        // [THÊM MỚI] Đính kèm cờ bật/tắt phụ đề
-        projectData.withSubtitle = this.exportWithSubtitle;
+        // Tạo bản sao để tránh làm hỏng dữ liệu đang livestream
+        const payload = {
+            ...this.projectData,
+            exportRatio: ratio,
+            quality: quality,
+            withSubtitle: hasSub // Gửi giá trị boolean (true/false)
+        };
 
-        let ratioText = ratio === '9:16' ? 'TikTok (Dọc)' : (ratio === '16:9' ? 'YouTube (Ngang)' : 'Vuông (1:1)');
-
-        this.toastr.info(`Đang Render Video ${ratioText} - Chất lượng ${quality.toUpperCase()}...`, 'Hệ thống');
+        this.toastr.info(`Đang bắt đầu Render...`);
 
         try {
-            const res = await (window as any).electron.invoke('render-custom-video', projectData);
-
-            if (res && res.success) {
-                this.toastr.success(`Render thành công Video ${quality.toUpperCase()}!`, 'Hoàn tất', { timeOut: 8000 });
+            const res = await (window as any).electron.invoke('render-custom-video', payload);
+            if (res?.success) {
+                this.toastr.success(`Render thành công!`);
             } else {
-                this.toastr.error(`Lỗi Render: ${res.error}`);
+                this.toastr.error(`Lỗi: ${res.error}`);
             }
         } catch (err: any) {
-            this.toastr.error(`Lỗi kết nối IPC: ${err.message}`);
-        } finally {
+            this.toastr.error(`Lỗi kết nối: ${err.message}`);
         }
     }
 
@@ -102,6 +100,9 @@ export class LivestreamComponent implements OnInit, OnDestroy {
             this.uuid = params['uuid'];
 
             if (this.uuid) {
+                this.exportWithSubtitle = true;
+                this.cd.markForCheck(); // Thêm dòng này để cập nhật dấu check lên UI
+
                 // 1. Load dữ liệu từ localStorage
                 const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.uuid}`;
                 this.projectData = this.multiAccountService.getItem(storageKey);

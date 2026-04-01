@@ -18,11 +18,10 @@ import { FuseConfigService } from '@fuse/services/config';
 import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/modules/_services/crawl';
-import { BlogService } from 'app/modules/_services/blog';
 import { RemoveHTMLPipe } from 'app/app.pipe';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { GoogleGenAI } from '@google/genai';
-import { HttpResponse, HttpClient } from '@angular/common/http';
+import { HttpClient } from '@angular/common/http';
 import WaveSurfer from 'wavesurfer.js';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
@@ -51,7 +50,7 @@ export interface AudioClip {
     styleUrls: ['./ai-tts.component.scss'],
     templateUrl: './ai-tts.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [CrawlService, BlogService],
+    providers: [CrawlService],
 })
 export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     config: AppConfig;
@@ -685,7 +684,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
 
-            TRẢ VỀ DUY NHẤT JSON ARRAY trong tag \`\`\`json ... \`\`\`:
+            KẾT QUẢ TRẢ VỀ LÀ JSON ARRAY NHƯ VÍ DỤ SAU:
             [
             {
                 "prompt": "Mô tả hình ảnh cho nhóm này",
@@ -1272,7 +1271,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     constructor(
         private titleService: Title,
         private _crawlService: CrawlService,
-        private _blogService: BlogService,
         private _userService: UserService,
         private helperService: HelperService,
         private toastr: ToastrService,
