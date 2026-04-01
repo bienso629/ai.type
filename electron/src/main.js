@@ -2866,7 +2866,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
         sendToRenderer("tools-log", `[Render] Bắt đầu xử lý dự án: ${projectData.title}`);
 
-        // 1. Cấu hình độ phân giải
+        // 1. Cấu hình độ phân giải và tỉ lệ
         let baseW = 1920; let baseH = 1080;
         let qualityName = projectData.quality || '1080p';
         if (qualityName === '2k') { baseW = 2560; baseH = 1440; }
@@ -2878,7 +2878,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         else if (projectData.exportRatio === '16:9') { w = baseW; h = baseH; ratioName = "youtube"; }
         else if (projectData.exportRatio === '1:1') { w = baseH; h = baseH; ratioName = "square"; }
 
-        // FIX LỖI SUBTITLE: Kiểm tra gắt gao giá trị boolean
+        // KIỂM TRA PHỤ ĐỀ: Chỉ render nếu giá trị thực sự là true
         const includeSubtitle = projectData.withSubtitle === true;
         sendToRenderer("tools-log", `[Render] Chế độ phụ đề: ${includeSubtitle ? 'BẬT' : 'TẮT'}`);
 
@@ -2908,14 +2908,13 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
                 const wavPath = path.join(workspaceDir, `temp_${i}_${j}.wav`);
 
-                // Ép chuẩn audio để tránh mất tiếng khi concat
-                const audioFilter = (i === 0 && j === 0) ? "-af \"adelay=500|500\"" : "";
-                await execPromise(`ffmpeg -y -i "${audioPath}" ${audioFilter} -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
+                // Chuẩn hóa audio (44100Hz Stereo) để tránh lỗi mất tiếng
+                await execPromise(`ffmpeg -y -i "${audioPath}" -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
 
                 const durationSec = await getAudioDuration(wavPath);
                 const durationMs = Math.round(durationSec * 1000);
 
-                const startMs = (i === 0 && j === 0) ? sceneDurationMs + 500 : sceneDurationMs;
+                const startMs = sceneDurationMs;
                 const endMs = sceneDurationMs + durationMs;
 
                 mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n${sub.text.replace(/\n/g, ' ')}\n\n`;
@@ -2929,8 +2928,8 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
             const sceneVideoPath = path.join(workspaceDir, `scene_${i}_video.mp4`);
 
-            // FIX LỖI SUBTITLE: Xây dựng chuỗi Filter an toàn
-            let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5`;
+            // FILTER VIDEO: Đã loại bỏ hiệu ứng fade ở đây
+            let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
 
             if (includeSubtitle) {
                 const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
@@ -2939,7 +2938,9 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 videoFilter += `,subtitles='${safeSubPath}'`;
             }
 
-            const inputArgs = sceneImgPath.toLowerCase().endsWith('.mp4') ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
+            const isVideoInput = sceneImgPath.toLowerCase().endsWith('.mp4');
+            const inputArgs = isVideoInput ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
+
             await execPromise(`ffmpeg -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`);
             sceneVideos.push(sceneVideoPath);
         }
@@ -2949,7 +2950,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         const finalAudioWav = path.join(workspaceDir, 'final_audio.wav');
         await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalAudioListTxt}" -ar 44100 -ac 2 "${finalAudioWav}"`);
 
-        // --- BƯỚC 3: GỘP VIDEO TỔNG ---
+        // --- BƯỚC 3: GỘP CÁC ĐOẠN VIDEO ---
         const finalVideoListTxt = path.join(workspaceDir, 'final_video_list.txt');
         const finalVideoListContent = sceneVideos.map(f => `file '${f.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n');
         fs.writeFileSync(finalVideoListTxt, finalVideoListContent);
@@ -2957,18 +2958,17 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         const finalVideoMuted = path.join(workspaceDir, 'final_video_muted.mp4');
         await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalVideoListTxt}" -c copy "${finalVideoMuted}"`);
 
-        // --- BƯỚC 4: MUX (GHÉP) HÌNH VÀ TIẾNG ---
+        // --- BƯỚC 4: GHÉP HÌNH VÀ TIẾNG (MUXING) ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', `${safeTitle}_${Date.now()}.mp4`);
 
-        // FIX LỖI MẤT TIẾNG: Dùng -map để chỉ định rõ luồng Video từ file 0 và Audio từ file 1
-        // Bỏ -shortest để tránh việc video bị cắt nếu audio dài hơn một chút
+        // Sử dụng -map để đảm bảo lấy đúng luồng hình từ video và tiếng từ wav
         await execPromise(`ffmpeg -y -i "${finalVideoMuted}" -i "${finalAudioWav}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "${finalExportPath}"`);
 
         return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
 
     } catch (err) {
-        console.error("Lỗi Render:", err);
+        console.error("Lỗi Render Video:", err);
         return { success: false, error: err.message };
     }
 });
