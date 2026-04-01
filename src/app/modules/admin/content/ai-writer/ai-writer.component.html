@@ -2459,10 +2459,10 @@
                                         <span>Tải xuống (PDF)</span>
                                     </button>
 
-                                    <button *ngIf="score >= 70" mat-menu-item (click)="share()"
+                                    <button *ngIf="score >= 0" mat-menu-item (click)="share()"
                                         [matMenuTriggerFor]="forumActions">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:type'"></mat-icon>
-                                        <mat-label>Đăng lên Diễn đàn {{ score }}</mat-label>
+                                        <mat-label>Đăng lên Diễn đàn</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="autoCreatePost()">
