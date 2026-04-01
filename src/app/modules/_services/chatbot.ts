@@ -259,6 +259,29 @@ export class ChatbotService {
         );
     }
 
+    // THÊM VÀO: Hàm chuyên dụng để xử lý Streaming Data (Server-Sent Events)
+    public async streamMessage(dataForm: any): Promise<Response> {
+        let activeInfo = this.multiAccountService.getItem('active_info');
+        if (activeInfo) activeInfo = AuthUtils._getActiveInfo(activeInfo);
+        const appToken = activeInfo ? activeInfo['user']['appToken'] : '';
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = appToken;
+
+        const url = `${this.config.settings.chatbot}/messages`;
+
+        // Dùng Fetch API để có thể đọc ReadableStream
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-api-key': appToken
+            },
+            body: JSON.stringify(dataForm)
+        });
+    }
+
     public onPdfSelected(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
