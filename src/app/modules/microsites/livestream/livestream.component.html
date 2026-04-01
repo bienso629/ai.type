@@ -91,7 +91,7 @@
 					</div>
 
 					<div
-						class="absolute bottom-full left-0 mb-1 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
+						class="absolute bottom-full left-0 mb-0 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
 						<div class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
 							<span class="font-semibold text-gray-200 font-sans tracking-wide">Danh sách phân cảnh</span>
 							<span class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]">{{
@@ -127,8 +127,9 @@
 								</span>
 
 								<div class="flex items-center">
-									<input type="checkbox" id="toggleSub" [(ngModel)]="exportWithSubtitle"
-										class="w-4 h-4 text-blue-600 bg-gray-100 border-gray-300 rounded focus:ring-blue-500 accent-blue-600 cursor-pointer">
+									<input type="checkbox" id="toggleSub" [checked]="exportWithSubtitle"
+										(change)="exportWithSubtitle = !exportWithSubtitle; cd.markForCheck()"
+										class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer appearance-auto">
 									<label for="toggleSub"
 										class="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
 										Gắn phụ đề cứng

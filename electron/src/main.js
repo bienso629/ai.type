@@ -2866,21 +2866,24 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
         sendToRenderer("tools-log", `[Render] Bắt đầu xử lý dự án: ${projectData.title}`);
 
+        // 1. Cấu hình độ phân giải
         let baseW = 1920; let baseH = 1080;
         let qualityName = projectData.quality || '1080p';
-
         if (qualityName === '2k') { baseW = 2560; baseH = 1440; }
         else if (qualityName === '4k') { baseW = 3840; baseH = 2160; }
 
         let w = 1080, h = 1920;
         let ratioName = "tiktok";
-
         if (projectData.exportRatio === '9:16') { w = baseH; h = baseW; ratioName = "tiktok"; }
         else if (projectData.exportRatio === '16:9') { w = baseW; h = baseH; ratioName = "youtube"; }
         else if (projectData.exportRatio === '1:1') { w = baseH; h = baseH; ratioName = "square"; }
 
+        // FIX LỖI SUBTITLE: Kiểm tra gắt gao giá trị boolean
+        const includeSubtitle = projectData.withSubtitle === true;
+        sendToRenderer("tools-log", `[Render] Chế độ phụ đề: ${includeSubtitle ? 'BẬT' : 'TẮT'}`);
+
         const docPath = app.getPath('documents');
-        const workspaceDir = path.join(docPath, 'ai.type', 'data', 'exports', projectData.uuid);
+        const workspaceDir = path.join(docPath, 'ai.type', 'data', 'exports', projectData.uuid || Date.now().toString());
 
         if (fs.existsSync(workspaceDir)) fs.rmSync(workspaceDir, { recursive: true, force: true });
         fs.mkdirSync(workspaceDir, { recursive: true });
@@ -2892,83 +2895,61 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         // --- BƯỚC 1: XỬ LÝ TỪNG SCENE ---
         for (let i = 0; i < projectData.scenes.length; i++) {
             const scene = projectData.scenes[i];
-            sendToRenderer("tools-log", `[Render] Xử lý Scene ${i + 1}/${projectData.scenes.length}...`);
-
             const sceneImgPath = cleanFilePath(scene.imageUrl);
-            if (!fs.existsSync(sceneImgPath) || !scene.subtitles || scene.subtitles.length === 0) continue;
+            if (!fs.existsSync(sceneImgPath) || !scene.subtitles) continue;
 
             let sceneDurationMs = 0;
             let mergedVtt = "WEBVTT\n\n";
-            let isFirstSub = true;
 
             for (let j = 0; j < scene.subtitles.length; j++) {
                 const sub = scene.subtitles[j];
                 const audioPath = cleanFilePath(sub.audioUrl);
                 if (!fs.existsSync(audioPath)) continue;
 
-                // 1.1 Convert MP3 sang WAV (Xóa khoảng đệm MP3) + Thêm khoảng lặng 0.5s cho câu đầu tiên
                 const wavPath = path.join(workspaceDir, `temp_${i}_${j}.wav`);
-                if (isFirstSub) {
-                    await execPromise(`ffmpeg -y -i "${audioPath}" -af "adelay=500|500" -c:a pcm_s16le "${wavPath}"`);
-                } else {
-                    await execPromise(`ffmpeg -y -i "${audioPath}" -c:a pcm_s16le "${wavPath}"`);
-                }
 
-                // 1.2 Đo độ dài CHÍNH XÁC của file WAV
+                // Ép chuẩn audio để tránh mất tiếng khi concat
+                const audioFilter = (i === 0 && j === 0) ? "-af \"adelay=500|500\"" : "";
+                await execPromise(`ffmpeg -y -i "${audioPath}" ${audioFilter} -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
+
                 const durationSec = await getAudioDuration(wavPath);
                 const durationMs = Math.round(durationSec * 1000);
 
-                // 1.3 Dịch thời gian phụ đề: Lùi phụ đề lại 500ms nếu là câu đầu (chờ hiệu ứng Fade)
-                const startMs = isFirstSub ? sceneDurationMs + 500 : sceneDurationMs;
+                const startMs = (i === 0 && j === 0) ? sceneDurationMs + 500 : sceneDurationMs;
                 const endMs = sceneDurationMs + durationMs;
 
-                mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n`;
-                mergedVtt += `${sub.text.replace(/\n/g, ' ')}\n\n`;
-
+                mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n${sub.text.replace(/\n/g, ' ')}\n\n`;
                 sceneDurationMs += durationMs;
-                isFirstSub = false;
 
-                // 1.4 Ghi vào danh sách file audio tổng (An toàn với đường dẫn Windows)
                 finalAudioListContent += `file '${wavPath.replace(/\\/g, '/').replace(/'/g, "'\\''")}'\n`;
             }
 
             if (sceneDurationMs === 0) continue;
 
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
-            const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
-            fs.writeFileSync(mergedVttPath, mergedVtt, 'utf-8');
-
-            const safeSubPathForFFmpeg = mergedVttPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-
-            // 1.5 Render Video TĨNH (KHÔNG AUDIO) với độ dài cực chuẩn nhờ tham số (-t)
             const sceneVideoPath = path.join(workspaceDir, `scene_${i}_video.mp4`);
-            const isVideo = sceneImgPath.toLowerCase().endsWith('.mp4');
 
-            const inputArgs = isVideo ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
+            // FIX LỖI SUBTITLE: Xây dựng chuỗi Filter an toàn
+            let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5`;
 
-            // [CẬP NHẬT] Kiểm tra cờ withSubtitle từ giao diện gửi xuống
-            const includeSubtitle = projectData.withSubtitle !== false; // Mặc định là true nếu không truyền
+            if (includeSubtitle) {
+                const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
+                fs.writeFileSync(mergedVttPath, mergedVtt, 'utf-8');
+                const safeSubPath = mergedVttPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+                videoFilter += `,subtitles='${safeSubPath}'`;
+            }
 
-            // Nếu bật phụ đề thì nối thêm chuỗi filter subtitles, nếu tắt thì để chuỗi rỗng
-            const subtitleFilter = includeSubtitle
-                ? `,subtitles='${safeSubPathForFFmpeg}'`
-                : "";
-
-            // Ép biến subtitleFilter vào lệnh FFmpeg
-            const videoCmd = `ffmpeg -y ${inputArgs} -t ${sceneDurationSec} -vf "scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h},fade=t=in:st=0:d=0.5${subtitleFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`;
-
-            await execPromise(videoCmd);
+            const inputArgs = sceneImgPath.toLowerCase().endsWith('.mp4') ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
+            await execPromise(`ffmpeg -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`);
             sceneVideos.push(sceneVideoPath);
         }
 
-        // --- BƯỚC 2: GỘP AUDIO TỔNG THÀNH FILE WAV (CHỐNG LỆCH) ---
-        sendToRenderer("tools-log", `[Render] Đang tạo Audio tổng (Master Audio)...`);
+        // --- BƯỚC 2: GỘP AUDIO TỔNG ---
         fs.writeFileSync(finalAudioListTxt, finalAudioListContent);
         const finalAudioWav = path.join(workspaceDir, 'final_audio.wav');
-        await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalAudioListTxt}" -c copy "${finalAudioWav}"`);
+        await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalAudioListTxt}" -ar 44100 -ac 2 "${finalAudioWav}"`);
 
-        // --- BƯỚC 3: GỘP VIDEO TỔNG (KHÔNG TIẾNG) ---
-        sendToRenderer("tools-log", `[Render] Đang ghép hình ảnh ${sceneVideos.length} phân cảnh...`);
+        // --- BƯỚC 3: GỘP VIDEO TỔNG ---
         const finalVideoListTxt = path.join(workspaceDir, 'final_video_list.txt');
         const finalVideoListContent = sceneVideos.map(f => `file '${f.replace(/\\/g, '/').replace(/'/g, "'\\''")}'`).join('\n');
         fs.writeFileSync(finalVideoListTxt, finalVideoListContent);
@@ -2976,21 +2957,18 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         const finalVideoMuted = path.join(workspaceDir, 'final_video_muted.mp4');
         await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalVideoListTxt}" -c copy "${finalVideoMuted}"`);
 
-        // --- BƯỚC 4: MUX (GHÉP) HÌNH VÀ TIẾNG LẠI VỚI NHAU ---
-        sendToRenderer("tools-log", `[Render] Đang Mux Audio và Video thành phẩm...`);
+        // --- BƯỚC 4: MUX (GHÉP) HÌNH VÀ TIẾNG ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', `${safeTitle}_${ratioName}_${qualityName}.mp4`);
+        const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', `${safeTitle}_${Date.now()}.mp4`);
 
-        // Lệnh copy c:v giúp ghép siêu tốc mà không làm giảm chất lượng video thêm lần nào nữa
-        await execPromise(`ffmpeg -y -i "${finalVideoMuted}" -i "${finalAudioWav}" -c:v copy -c:a aac -b:a 192k -shortest "${finalExportPath}"`);
-
-        // fs.rmSync(workspaceDir, { recursive: true, force: true });
-        sendToRenderer("tools-log", `[Render] ✅ HOÀN TẤT! Video lưu tại: ${finalExportPath}`);
+        // FIX LỖI MẤT TIẾNG: Dùng -map để chỉ định rõ luồng Video từ file 0 và Audio từ file 1
+        // Bỏ -shortest để tránh việc video bị cắt nếu audio dài hơn một chút
+        await execPromise(`ffmpeg -y -i "${finalVideoMuted}" -i "${finalAudioWav}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "${finalExportPath}"`);
 
         return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
 
     } catch (err) {
-        console.error("Lỗi Render Video:", err);
+        console.error("Lỗi Render:", err);
         return { success: false, error: err.message };
     }
 });

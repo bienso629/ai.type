@@ -215,7 +215,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         word: [],
         chatgpt: [],
         text: [
-            `<p id="source-p-${uuid.v4()}">Bạn có thể chỉnh sửa đoạn văn này hoặc xoá nó đi.</p>`,
+            `<p id="source-p-${uuid.v4()}">Click 2 lần vào đoạn văn này để chỉnh sửa.</p>`,
         ],
         empty: [],
         backup: {},
