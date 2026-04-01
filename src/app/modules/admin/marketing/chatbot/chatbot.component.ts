@@ -414,49 +414,116 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         if (!this.currentThread || !msg?.trim()) {
             this.toastr.warning('Chưa có cuộc trò chuyện hoặc tin nhắn trống!');
-        } else {
-            this.chatbotMessage.controls['chatgpt'].reset();
-
-            // 👉 Hiển thị tin nhắn người dùng ngay lập tức
-            const userMessage = [this.currentMessages.length + 1, this.currentThread, 'user', msg, null];
-            this.renderMessages([...this.currentMessages, userMessage]);
-            this.appendTyping();
-
-            let secretKey = this.settings.secretKey;
-            if (secretKey) {
-                secretKey = secretKey.split(';');
-                let geminiKey = secretKey[0];
-
-                if (secretKey[3]) {
-                    geminiKey = secretKey[3];
-                }
-
-                // NOTE: logic gửi tin nhắn đã được backend tự động xử lý dựa vào settings
-                // nên tham số 'domain' hay 'simple_chatbot_data_source' ở đây chỉ là fallback
-                this._chatbotService.sendMessage({
-                    thread_id: this.currentThread,
-                    username: this.user.name,
-                    message: msg,
-                    ip_address: "192.168.1.1",
-                    sender_info: "Chrome on Windows",
-                    google_api_key: geminiKey,
-                    llm_model: "gemini-2.5-flash",
-                    simple_chatbot_data_source: this.selectedDataSource || 'documents',
-                    index_dir: `faiss_pdf_index`
-                }).pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe({
-                        next: async () => {
-                            this.getMessage(this.currentThread);
-                        },
-                        error: () => {
-                        },
-                        complete: () => {
-                        }
-                    });
-            } else {
-                this.toastr.warning('Bạn chưa có mã Google Gemini Key');
-            }
+            return;
         }
+
+        this.chatbotMessage.controls['chatgpt'].reset();
+
+        const date = new Date();
+        const timeStr = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        // 1. Tạo tin nhắn người dùng
+        const userMessage = [this.currentMessages.length + 1, this.currentThread, 'user', msg, null, null, timeStr];
+
+        // 2. Tạo KHUNG TRỐNG cho tin nhắn của Bot (chuẩn bị hứng chữ)
+        const botIndex = this.currentMessages.length + 2;
+        const botMessage = [botIndex, this.currentThread, 'bot', 'Đang phân tích...', null, null, timeStr];
+
+        this.currentMessages = [...this.currentMessages, userMessage, botMessage];
+        this.renderMessages(this.currentMessages);
+
+        // Chuẩn bị DOM element để bắn text vào liên tục
+        const chat = document.getElementById('chat');
+        if (!chat) return;
+        const lastRow = chat.lastElementChild;
+        const bubble = lastRow.querySelector('.bubble');
+
+        let fullText = '';
+        let isFirstChunk = true; // Cờ để xóa chữ "Đang phân tích..."
+
+        let secretKey = this.settings.secretKey?.split(';');
+        let geminiKey = secretKey?.[0] || '';
+        if (secretKey?.[3]) geminiKey = secretKey[3];
+
+        if (!geminiKey) {
+            this.toastr.warning('Bạn chưa có mã Google Gemini Key');
+            return;
+        }
+
+        const payload = {
+            thread_id: this.currentThread,
+            username: this.user.name,
+            message: msg,
+            ip_address: "192.168.1.1",
+            sender_info: "Chrome on Windows",
+            google_api_key: geminiKey,
+            llm_model: "gemini-2.5-flash",
+            simple_chatbot_data_source: this.selectedDataSource || 'documents',
+            index_dir: `faiss_pdf_index`
+        };
+
+        // 3. Gọi API Streaming
+        this._chatbotService.streamMessage(payload).then(async response => {
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder('utf-8');
+            let buffer = '';
+
+            // Vòng lặp đọc dữ liệu liên tục từ Server
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                // Ghép nối các mảnh data bị đứt đoạn do đường truyền
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split('\n\n');
+                buffer = lines.pop(); // Giữ lại mảnh cuối (chưa hoàn chỉnh) để vòng lặp sau xử lý
+
+                for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                        try {
+                            const data = JSON.parse(line.substring(6));
+
+                            // Nếu Server văng lỗi
+                            if (data.error) {
+                                fullText = `<span class="text-red-500 font-medium">Lỗi hệ thống AI: ${data.error}</span>`;
+                            }
+                            // Nếu là luồng chữ trả về
+                            else if (data.chunk) {
+                                if (isFirstChunk) {
+                                    fullText = ''; // Phá bỏ chữ "Đang phân tích..." ban đầu
+                                    isFirstChunk = false;
+                                }
+                                fullText += data.chunk;
+                            }
+
+                            // Dịch Markdown sang HTML và Update thẳng vào Bubble ngay lập tức
+                            const html = marked.parse(fullText) as string;
+                            bubble.innerHTML = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+                            chat.scrollTop = chat.scrollHeight; // Cuộn chat xuống
+
+                            // Khi kết thúc toàn bộ luồng
+                            if (data.done) {
+                                botMessage[3] = fullText;
+                                botMessage[4] = data.sources ? JSON.stringify(data.sources) : null;
+
+                                // Gọi render 1 lần cuối cùng để kích hoạt các UI vệ tinh (vd: Thẻ Nguồn gốc, Nút Copy...)
+                                this.renderMessages(this.currentMessages);
+
+                                // Có thể xem Profiler ở Console
+                                if (data.profiler_seconds) {
+                                    console.log('⏱️ Tốc độ xử lý (giây):', data.profiler_seconds);
+                                }
+                            }
+                        } catch (e) {
+                            // Bỏ qua các JSON lỗi do mạng chập chờn chia cắt
+                        }
+                    }
+                }
+            }
+        }).catch(err => {
+            console.error('Lỗi streaming:', err);
+            this.toastr.error('Mất kết nối với máy chủ AI.');
+        });
     }
 
     /**
