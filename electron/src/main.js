@@ -3102,3 +3102,68 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
         return { success: false, error: error.message };
     }
 });
+
+ipcMain.handle("tts-type-generate", async (event, payload) => {
+    const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username } = payload;
+
+    try {
+        // BƯỚC 1: POST yêu cầu tạo Audio lên API
+        sendToRenderer("tools-log", `[Type TTS] Đang gửi yêu cầu tạo audio cho: ${filename}...`);
+
+        const response = await fetch("https://tts.type.vn/generate_audio", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                "text": text,
+                "ref_audio_name": ref_audio_name,
+                "ref_text": ref_text,
+                "speed": speed || 1.0,
+                "num_step": num_step || 16
+            })
+        });
+
+        // Kiểm tra nếu API báo lỗi (Ví dụ: 400, 500)
+        if (!response.ok) {
+            let errorMsg = `HTTP Error: ${response.status}`;
+            try {
+                // Thử đọc chi tiết lỗi từ FastAPI (nó thường trả về {"detail": "..."})
+                const errData = await response.json();
+                errorMsg = errData.detail || errorMsg;
+            } catch (e) {
+                // Bỏ qua nếu không thể parse json lỗi
+            }
+            throw new Error(`API trả về lỗi: ${errorMsg}`);
+        }
+
+        // BƯỚC 2: Thiết lập thư mục lưu trữ cục bộ (Giống Bước 3 của ausync)
+        const documentsPath = app.getPath("documents");
+        const saveDir = path.join(documentsPath, "ai.type", "data", "tts", username || "default");
+
+        if (!fs.existsSync(saveDir)) {
+            fs.mkdirSync(saveDir, { recursive: true });
+        }
+
+        // Đảm bảo đuôi file là .wav
+        const safeFilename = filename.endsWith(".wav") ? filename : `${filename}.wav`;
+        const filePath = path.join(saveDir, safeFilename);
+
+        // BƯỚC 3: Đọc luồng dữ liệu (binary) từ response và ghi ra file
+        const arrayBuffer = await response.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        fs.writeFileSync(filePath, buffer);
+
+        sendToRenderer("tools-log", `[Type TTS] ✅ Đã lưu file thành công tại: ${filePath}`);
+
+        return {
+            success: true,
+            filePath: filePath // Trả về đường dẫn để Angular load vào UI
+        };
+
+    } catch (error) {
+        console.error("Type TTS Error:", error);
+        sendToRenderer("tools-log", `[Type TTS] ❌ Lỗi: ${error.message}`);
+        return { success: false, error: error.message };
+    }
+});
