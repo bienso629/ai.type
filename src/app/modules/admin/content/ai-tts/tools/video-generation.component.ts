@@ -11,8 +11,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
-import { AppConfig } from 'app/core/config/app.config';
-import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 import { MyKeysService } from 'app/modules/_services/mykey';
 
@@ -184,13 +182,9 @@ import { MyKeysService } from 'app/modules/_services/mykey';
     ],
 })
 export class VideoGenerationComponent implements OnInit, OnDestroy {
-    config: AppConfig;
-    user: User;
-
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
-        // { id: '1248295', name: 'Huệ Tiktoker' },
     ];
     selectedVoice = 'vi-VN-HoaiMyNeural';
     selectedRate: number = 1.0;
@@ -217,9 +211,9 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     if (result && result.success && result.data.length > 0) {
                         this.myvoices = result.data;
                         this.myvoices.map((voice: any) => {
-                            if (voice.base === 'ausynclab.io') {
+                            if (voice.base === 'ausynclab.io' || voice.base === 'tts.type.vn') {
                                 this.voiceList.push({
-                                    id: voice.id,
+                                    id: `${voice.id}-${voice.base}`,
                                     name: voice.name
                                 });
                             }
@@ -270,7 +264,8 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         // 2. CHẠY THEO CỤM (BATCHING) - Cứ 3 file chạy cùng lúc để máy không bị Crash
         const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
         const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
-        const batchSize = (isEdgeVoice) ? 3 : 1;
+        const isTTSTypeVoice = this.selectedVoice.indexOf('tts.type.vn');
+        const batchSize = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
 
         try {
             for (let i = 0; i < pendingSubs.length; i += batchSize) {
@@ -347,25 +342,49 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     };
                     res = await (window as any).electron.invoke('tts-generate', payload);
                 } else {
-                    // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
-                    // Tương tự hàm generateAusyncTTS ở ai-tts.component.ts
-                    const niceFilename = `${prefix}_${slug}_ausync`;
-                    const key = await this.myvoices.filter((voice: any) => (voice['id'] === this.selectedVoice));
+                    const selectedVoice = this.selectedVoice.split('-');
+                    const voice_id = selectedVoice[0];
 
-                    const payload = {
-                        text: sub.text,
-                        voice_id: this.selectedVoice, // Ví dụ: '1248295'
-                        key: key[0]['api_key'],
-                        speed: this.selectedRate || 1.0,
-                        filename: niceFilename,
-                        username: subPath,
-                    };
+                    if (selectedVoice[1] === 'tts.type.vn') {
+                        // --- LOGIC MỚI: TYPE TTS (SERVER) ---
+                        const niceFilename = `${prefix}_${slug}_typetts`;
+                        const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
 
-                    res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+                        const payload = {
+                            text: sub.text,
+                            voice_id: voice[0]['id'], // Ví dụ: '1248295'
+                            key: voice[0]['api_key'],
+                            ref_audio_name: voice[0]['ref_audio_name'],
+                            ref_text: voice[0]['ref_text'],
+                            speed: voice[0]['speed'] || this.selectedRate || 1.0,
+                            num_step: voice[0]['num_step'] || 16,
+                            filename: niceFilename,
+                            username: subPath,
+                        };
+
+                        res = await (window as any).electron.invoke('tts-type-generate', payload);
+                    } else {
+                        // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
+                        const niceFilename = `${prefix}_${slug}_ausync`;
+                        const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
+
+                        const payload = {
+                            text: sub.text,
+                            voice_id: voice_id, // Ví dụ: '1248295'
+                            key: voice[0]['api_key'],
+                            speed: voice[0]['api_key'] || this.selectedRate || 1.0,
+                            filename: niceFilename,
+                            username: subPath,
+                        };
+
+                        res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+                    }
+
+
                 }
 
                 // Xử lý kết quả trả về chung
-                if (res && res.success) {
+                if (res) {
                     // Ausync thường trả về filePath, Edge cũng vậy.
                     const rawPath = res.filePath || res.url || res.result;
                     if (rawPath) {
