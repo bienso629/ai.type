@@ -362,8 +362,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                             username: subPath,
                         };
 
-                        console.log('payload', payload);
-
                         res = await (window as any).electron.invoke('tts-type-generate', payload);
                     } else {
                         // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
@@ -385,8 +383,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
                 // Xử lý kết quả trả về chung
                 if (res && res.success !== false && !res.error) {
-                    console.log('Thành công:', res);
-
                     const rawPath = res.filePath || res.url || res.result;
                     if (rawPath) {
                         sub.audioUrl = rawPath.startsWith('file://')
