@@ -362,6 +362,8 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                             username: subPath,
                         };
 
+                        console.log('payload', payload);
+
                         res = await (window as any).electron.invoke('tts-type-generate', payload);
                     } else {
                         // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
@@ -379,13 +381,12 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
                         res = await (window as any).electron.invoke('tts-ausync-generate', payload);
                     }
-
-
                 }
 
                 // Xử lý kết quả trả về chung
-                if (res) {
-                    // Ausync thường trả về filePath, Edge cũng vậy.
+                if (res && res.success !== false && !res.error) {
+                    console.log('Thành công:', res);
+
                     const rawPath = res.filePath || res.url || res.result;
                     if (rawPath) {
                         sub.audioUrl = rawPath.startsWith('file://')
@@ -393,7 +394,16 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                             : `file://${rawPath}`;
                     }
                 } else {
-                    console.error(`Error processing sub ${sub.id}:`, res?.error || 'Unknown error');
+                    // Xử lý khi có lỗi (như lỗi 502)
+                    const errorMsg = res?.error || 'Lỗi không xác định từ API';
+                    console.error(`Error processing sub ${sub.text}:`, errorMsg);
+
+                    // Báo lỗi cho người dùng biết câu này tạch
+                    this.toastr.error(`Lỗi tạo âm thanh: ${errorMsg}`);
+
+                    // Gán cờ báo lỗi vào sub để sau này có thể làm nút "Thử lại (Retry)"
+                    sub.hasError = true;
+                    sub.errorMessage = errorMsg;
                 }
             } catch (err: any) {
                 console.error(`Lỗi Electron cho sub ${sub.id}:`, err.message);
