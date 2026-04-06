@@ -3212,7 +3212,7 @@ ipcMain.handle('cancel-tts', async (event) => {
     // Duyệt qua tất cả các task đang chạy ngầm và gọi API hủy
     for (const taskId of activeTtsTasks) {
         cancelPromises.push(
-            fetch(`http://127.0.0.1:8000/cancel_task/${taskId}`, { method: 'POST' })
+            fetch(`https://tts.type.vn/cancel_task/${taskId}`, { method: 'POST' })
                 .catch(err => console.log(`Lỗi hủy task ${taskId}:`, err.message))
         );
     }

@@ -13,6 +13,7 @@ import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 import { MyKeysService } from 'app/modules/_services/mykey';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'app-video-generation',
@@ -182,6 +183,8 @@ import { MyKeysService } from 'app/modules/_services/mykey';
     ],
 })
 export class VideoGenerationComponent implements OnInit, OnDestroy {
+    private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
+
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
@@ -240,7 +243,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         }[] = [];
         let globalCounter = 0;
 
-        // 1. Gom tất cả dữ liệu (BỎ LOGIC CHECK FILE CŨ ĐỂ ÉP TẠO LẠI VTT)
+        // 1. Gom tất cả dữ liệu
         this.data.scenes.forEach((scene: any, sIdx: number) => {
             scene.subtitles.forEach((sub: any, subIdx: number) => {
                 if (!sub.audioUrl) {
@@ -251,7 +254,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                         globalIndex: globalCounter,
                     });
                 }
-                globalCounter++; // Tăng biến đếm liên tục cho mọi subtitle
+                globalCounter++;
             });
         });
 
@@ -261,38 +264,57 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         }
 
         this.toastr.info(`Bắt đầu xử lý ${pendingSubs.length} mục...`, 'System');
-        this.currentStatus = 'Đang khởi tạo các luồng xử lý...';
+        this.currentStatus = 'Đang khởi tạo luồng xử lý liên tục...';
 
-        // 2. CHẠY THEO CỤM (BATCHING) - Cứ 3 file chạy cùng lúc để máy không bị Crash
+        // 2. XÁC ĐỊNH SỐ LUỒNG CHẠY SONG SONG
         const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
         const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
-        const isTTSTypeVoice = this.selectedVoice.indexOf('tts.type.vn');
-        const batchSize = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
+        const isTTSTypeVoice = this.selectedVoice.indexOf('tts.type.vn') !== -1;
+
+        // Số luồng tối đa chạy cùng lúc
+        const concurrencyLimit = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
 
         try {
-            for (let i = 0; i < pendingSubs.length; i += batchSize) {
-                // KIỂM TRA: Nếu người dùng bấm Hủy thì bẻ gãy vòng lặp ngay lập tức
-                if (this.isCancelled) {
-                    console.log('Đã dừng tiến trình gom batch do người dùng hủy.');
-                    break;
-                }
+            let currentIndex = 0; // Biến đánh dấu vị trí file đang được bốc ra xử lý
 
-                const batch = pendingSubs.slice(i, i + batchSize);
+            // 3. TẠO HÀM WORKER XỬ LÝ LIÊN TỤC
+            const worker = async () => {
+                // Vòng lặp sẽ chạy liên tục chừng nào vẫn còn file trong hàng đợi
+                while (currentIndex < pendingSubs.length) {
+                    // Kiểm tra cờ hủy từ người dùng
+                    if (this.isCancelled) {
+                        console.log('Tiến trình worker đã dừng do người dùng hủy.');
+                        break;
+                    }
 
-                // Mở 3 tiến trình cùng lúc
-                const tasks = batch.map((item) =>
-                    this.generateAudioForSub(
+                    // Lấy ra index hiện tại và lập tức tăng index lên 
+                    // để worker khác lấy file tiếp theo không bị trùng
+                    const taskIndex = currentIndex++;
+                    const item = pendingSubs[taskIndex];
+
+                    // Chờ chạy xong file này thì vòng lặp mới tiếp tục bốc file mới
+                    await this.generateAudioForSub(
                         item.sub,
                         item.sIdx,
                         item.subIdx,
-                        item.globalIndex,
-                    )
-                );
+                        item.globalIndex
+                    );
 
-                // Bắt buộc phải đợi 3 file này đẻ ra xong xuôi mới chạy 3 file tiếp theo
-                await Promise.all(tasks);
+                    this.saveData();
+                }
+            };
+
+            // 4. KÍCH HOẠT CÁC WORKERS CHẠY CÙNG LÚC
+            const workers = [];
+            // Nếu concurrencyLimit = 3, ta sẽ tạo ra 3 vòng lặp chạy song song cạnh tranh nhau
+            for (let i = 0; i < concurrencyLimit; i++) {
+                workers.push(worker());
             }
 
+            // Chờ tất cả các workers hoàn thành hết công việc trong hàng đợi
+            await Promise.all(workers);
+
+            // 5. HOÀN TẤT
             if (!this.isCancelled) {
                 this.isFinished = true;
                 this.currentStatus = 'Hoàn tất!';
@@ -300,8 +322,8 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                 setTimeout(() => { this.dialogRef.close(this.data); }, 1000);
             }
         } catch (err) {
-            console.error('Batch error:', err);
-            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý.');
+            console.error('Concurrency processing error:', err);
+            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý liên tục.');
         } finally {
             this.cd.markForCheck();
         }
@@ -461,14 +483,22 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         this.dialogRef.close(null);
     }
 
+    // TẠO HÀM LƯU DỮ LIỆU ĐỘC LẬP
+    saveData() {
+        if (!this.data || !this.data.uuid) return;
+        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+        // Lưu nguyên cục this.data (chính là projectData bên ngoài truyền vào)
+        this.multiAccountService.setItem(storageKey, this.data);
+    }
+
     constructor(
         private _voice: MyKeysService,
         public dialogRef: MatDialogRef<VideoGenerationComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-    ) {
-    }
+        private multiAccountService: MultiAccountService
+    ) { }
 
     ngOnInit(): void {
         if (this.data && this.data.scenes) {
