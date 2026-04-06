@@ -15,7 +15,8 @@ import * as $ from 'jquery';
     <div mat-dialog-content class="mt-4 p-0">
         <form [formGroup]="chatgptForm">
             <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
-                <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" (paste)=paste($event) (keyup.enter)="send()" required matInput cdkTextareaAutosize></textarea>
+                <!-- Sửa lại (paste)="paste($event)" cho đúng chuẩn cú pháp Angular -->
+                <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" (paste)="paste($event)" (keyup.enter)="send()" required matInput cdkTextareaAutosize></textarea>
 
                 <!-- <button mat-icon-button type="button" matSuffix>
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:clipboard'"></mat-icon>
@@ -47,8 +48,10 @@ export class CopyPasteDialog implements OnInit {
         });
     }
 
-    markdown2html(source: any) {
-        return marked.parse(source) as string;
+    markdown2html(source: string) {
+        // Cấu hình gfm: true để bắt buộc hỗ trợ Github Flavored Markdown (bao gồm Table)
+        // breaks: true để giữ nguyên các dấu xuống dòng của text thường
+        return marked.parse(source, { gfm: true, breaks: true }) as string;
     }
 
     paste(event: ClipboardEvent) {
@@ -56,21 +59,19 @@ export class CopyPasteDialog implements OnInit {
         const textData: string = event.clipboardData?.getData('text') || '';
         if (!textData) return;
 
-        // 3. Parse toàn bộ Markdown sang HTML để giữ nguyên cấu trúc phức tạp
+        // 3. Parse TOÀN BỘ văn bản Markdown sang HTML TRƯỚC.
         const fullHtmlStr: string = this.markdown2html(textData);
 
-        // 4. Bọc vào một thẻ div ảo để jQuery dễ dàng lặp qua các top-level elements
+        // 4. Đưa toàn bộ HTML sinh ra vào một container ảo (DOM ảo)
         const $container = $(`<div>${fullHtmlStr}</div>`);
 
-        // 5. Lặp qua từng node con (p, pre, table, ul, h1...), gán ID và đẩy vào clipboard
+        // 5. Lặp qua từng phần tử top-level (ví dụ: <p>, <table>, <pre>, <ul>...)
         $container.children().each((_: number, element: HTMLElement) => {
             const $el = $(element);
 
-            // Bọc (wrap) phần tử gốc vào một div để không làm vỡ CSS hay cấu trúc của thẻ đặc biệt (pre, code, table)
+            // 6. Bọc mỗi phần tử vào một thẻ div để cấp ID riêng biệt như bạn muốn
             const $wrapper = $('<div></div>')
-                .prop('id', `source-text-${uuid.v4()}`)
-                .addClass('markdown-clipboard-block')
-                .append($el.clone()); // Dùng clone() để bảo toàn khoảng trắng, newlines bên trong thẻ pre
+                .append($el.clone()); // Dùng clone() để giữ nguyên toàn bộ cấu trúc phức tạp bên trong
 
             this.clipboard.push($wrapper.prop('outerHTML'));
         });
