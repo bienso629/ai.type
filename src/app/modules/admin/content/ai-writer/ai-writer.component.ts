@@ -2548,15 +2548,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
-                        // console.log('result', result);
                         this.collections = result.data;
-                    } else {
-                        this.alert('Tập tải về không chính xác.');
                     }
                 },
-                error: () => {
-                    this.alert('Tập chưa được tải về.');
-                },
+                error: () => { },
                 complete: () => { },
             });
     }

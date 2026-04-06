@@ -15,7 +15,7 @@ import * as uuid from 'uuid';
     <div mat-dialog-content class="mt-4 p-0">
         <form [formGroup]="chatgptForm">
             <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
-                <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" (paste)=paste($event) required matInput cdkTextareaAutosize></textarea>
+                <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" required matInput cdkTextareaAutosize></textarea>
 
                 <!-- <button mat-icon-button type="button" matSuffix>
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:clipboard'"></mat-icon>
@@ -50,10 +50,6 @@ export class CopyPasteDialog implements OnInit {
         this.chatgptForm = this._formBuilder.group({
             chatgpt: ['', Validators.required],
         });
-    }
-
-    paste(event: ClipboardEvent) {
-        this.chatgptForm.controls['chatgpt'].setValue(event.clipboardData.getData('text'));
     }
 
     sendTxt() {
