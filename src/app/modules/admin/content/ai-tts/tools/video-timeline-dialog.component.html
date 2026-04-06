@@ -28,7 +28,7 @@
                 <mat-icon class="icon-size-4">delete</mat-icon>
             </button>
 
-            <div class="h-2/4 bg-gray-100 relative flex items-center justify-center group">
+            <div class="bg-gray-100 min-h-50 relative flex items-center justify-center group">
                 @if (scene.imageUrl) {
                 <ng-container *ngIf="isImageType(scene.imageUrl); else videoPlayer">
                     <img [src]="scene.imageUrl" class="w-full h-full object-cover pointer-events-none">
@@ -66,17 +66,22 @@
                     </span>
                 </div>
 
-                <div
-                    class="flex-grow overflow-y-auto mb-3 text-sm rounded-md bg-gray-50 scrollbar-hide">
+                <div class="flex-grow overflow-y-auto text-sm rounded-md bg-gray-50 scrollbar-hide">
                     @for (sub of scene.subtitles; track sub.id || subIdx; let subIdx = $index) {
                     <div class="relative flex items-start mb-1.5 last:mb-0 group">
-                        <p class="text-gray-700 leading-relaxed">
+                        @if (!sub.isEditing) {
+                        <p class="text-gray-700 leading-relaxed flex-1 pr-2">
                             <span class="font-mono text-[10px] text-gray-400 bg-gray-200/50 p-1 rounded">[{{
                                 getGlobalIndex(sceneIdx, subIdx) }}. {{sub.id}}]</span>
                             {{ sub.text }}
                         </p>
 
-                        <p class="">
+                        <div class="flex-shrink-0 flex flex-row items-center whitespace-nowrap">
+                            <button mat-icon-button class="icon-size-6"
+                                (click)="$event.stopPropagation(); enableEditSub(sub)" matTooltip="Sửa câu thoại">
+                                <mat-icon class="icon-size-4 text-blue-400 hover:text-blue-600">edit</mat-icon>
+                            </button>
+
                             <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*"
                                 class="hidden">
                             @if (sub.audioUrl) {
@@ -84,15 +89,30 @@
                                 (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
                                 <mat-icon class="icon-size-4 text-red-500 hover:bg-red-50">delete_outline</mat-icon>
                             </button>
-                            }
-
+                            } @else {
                             <button mat-icon-button class="icon-size-6" (click)="audioInput.click()">
                                 <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl"
                                     [class.text-gray-300]="!sub.audioUrl">
                                     {{ sub.audioUrl ? 'volume_up' : 'add_circle_outline' }}
                                 </mat-icon>
                             </button>
-                        </p>
+                            }
+                        </div>
+                        }
+                        @else {
+                        <div class="flex-1 w-full bg-white rounded shadow-sm border border-blue-300 p-2 z-10">
+                            <textarea [(ngModel)]="sub.tempText"
+                                class="w-full text-sm p-1 border-none outline-none resize-y min-h-[60px]"
+                                placeholder="Nhập nội dung câu thoại..."></textarea>
+
+                            <div class="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
+                                <button mat-button class="h-8 min-h-8 px-3" color="warn"
+                                    (click)="$event.stopPropagation(); cancelEditSub(sub)">Hủy</button>
+                                <button mat-flat-button class="h-8 min-h-8 px-3" color="primary"
+                                    (click)="$event.stopPropagation(); saveEditSub(scene, sub)">Lưu</button>
+                            </div>
+                        </div>
+                        }
                     </div>
                     }
                 </div>

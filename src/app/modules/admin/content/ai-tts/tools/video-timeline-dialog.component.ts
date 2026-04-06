@@ -146,6 +146,48 @@ export class VideoTimelineDialogComponent implements OnInit {
         }
     }
 
+    // --- Bắt đầu: Logic Sửa Subtitle Inline ---
+    enableEditSub(sub: any) {
+        // Bật cờ edit và copy đoạn text hiện tại ra một biến tạm để người dùng sửa
+        sub.isEditing = true;
+        sub.tempText = sub.text;
+    }
+
+    saveEditSub(scene: any, sub: any) {
+        const newText = sub.tempText ? sub.tempText.trim() : '';
+
+        // NẾU NGƯỜI DÙNG ĐỂ TRỐNG: Xóa subtitle này khỏi scene
+        if (newText === '') {
+            const index = scene.subtitles.indexOf(sub);
+            if (index !== -1) {
+                scene.subtitles.splice(index, 1); // Xóa phần tử khỏi mảng
+                this.toastr.warning('Đã xóa câu thoại do nội dung bị bỏ trống.');
+                this.saveData(); // Lưu lại vào LocalStorage
+            }
+            return; // Dừng thực thi hàm
+        }
+
+        // NẾU CÓ NỘI DUNG: Lưu bình thường
+        sub.text = newText;
+        sub.isEditing = false;
+
+        // Cảnh báo nhẹ: nếu người dùng sửa chữ, file audio cũ có thể không khớp
+        if (sub.audioUrl && sub.text !== sub.tempText) {
+            this.toastr.info('Bạn vừa sửa lời thoại. Hãy cẩn thận vì file âm thanh cũ có thể không còn khớp nữa nhé!', 'Lưu ý');
+        } else {
+            this.toastr.success('Đã cập nhật câu thoại!');
+        }
+
+        // Lưu vào LocalStorage
+        this.saveData();
+    }
+
+    cancelEditSub(sub: any) {
+        // Tắt chế độ sửa, mọi thứ quay về như cũ
+        sub.isEditing = false;
+        delete sub.tempText; // Xóa biến tạm cho nhẹ RAM
+    }
+
     async generateImage(scene: any, index: number) {
         this.clipboard.copy(scene.prompt);
         this.toastr.info(`Đã copy prompt cho Scene #${index + 1}...`);
