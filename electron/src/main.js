@@ -3103,6 +3103,9 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
     }
 });
 
+// Thêm một Set ở đầu file để lưu trữ các task đang chạy
+const activeTtsTasks = new Set();
+
 ipcMain.handle("tts-type-generate", async (event, payload) => {
     const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username } = payload;
 
@@ -3133,6 +3136,9 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
 
         if (!taskId) throw new Error("API không trả về Task ID");
 
+        // BỎ TASK ID VÀO SỔ THEO DÕI
+        if (taskId) activeTtsTasks.add(taskId);
+
         // BƯỚC 2: Polling (Hỏi thăm) xem file đã xong chưa
         sendToRenderer("tools-log", `[Type TTS] Đang xử lý Audio (Task ID: ${taskId})...`);
 
@@ -3159,6 +3165,9 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
 
         // BƯỚC 3: Tải file audio về máy tính
         sendToRenderer("tools-log", `[Type TTS] Đã xử lý xong, đang tải file về...`);
+
+        // KHI NÀO TẢI XONG FILE, XÓA TASK KHỎI SỔ
+        activeTtsTasks.delete(taskId);
 
         const fileRes = await fetch(`${API_BASE_URL}${downloadPath}`);
         if (!fileRes.ok) throw new Error("Không thể tải file âm thanh từ server.");
@@ -3192,4 +3201,26 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
         sendToRenderer("tools-log", `[Type TTS] ❌ Lỗi: ${error.message}`);
         return { success: false, error: error.message };
     }
+});
+
+// 2. THÊM CỔNG MỚI ĐỂ NHẬN LỆNH HỦY TỪ ANGULAR
+ipcMain.handle('cancel-tts', async (event) => {
+    console.log('Nhận lệnh hủy từ UI. Đang hủy các task:', Array.from(activeTtsTasks));
+
+    const cancelPromises = [];
+
+    // Duyệt qua tất cả các task đang chạy ngầm và gọi API hủy
+    for (const taskId of activeTtsTasks) {
+        cancelPromises.push(
+            fetch(`http://127.0.0.1:8000/cancel_task/${taskId}`, { method: 'POST' })
+                .catch(err => console.log(`Lỗi hủy task ${taskId}:`, err.message))
+        );
+    }
+
+    // Đợi gửi lệnh hủy xong
+    await Promise.all(cancelPromises);
+
+    // Xóa sạch sổ
+    activeTtsTasks.clear();
+    return { success: true };
 });

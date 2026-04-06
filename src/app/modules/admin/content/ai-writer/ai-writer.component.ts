@@ -1678,10 +1678,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 this.source.text = this.source.text.concat(result.clipboard);
-                this.toastr.success(`Đã chuyển đoạn văn xong.`);
                 this.selectedIndex = 0;
 
                 // lam moi lai giao dien
+                this.toastr.success(`Đã chuyển đoạn văn xong.`);
                 this.cd.markForCheck();
             }
         });

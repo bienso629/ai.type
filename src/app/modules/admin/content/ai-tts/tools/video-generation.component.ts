@@ -198,6 +198,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
     currentStatus = 'Đang chờ cấu hình...';
 
     myvoices: any = [];
+    isCancelled = false;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -229,6 +230,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
     async startParallelProcess(): Promise<void> {
         this.isStarted = true;
+        this.isCancelled = false; // Reset lại cờ
 
         const pendingSubs: {
             sub: any;
@@ -269,6 +271,12 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
         try {
             for (let i = 0; i < pendingSubs.length; i += batchSize) {
+                // KIỂM TRA: Nếu người dùng bấm Hủy thì bẻ gãy vòng lặp ngay lập tức
+                if (this.isCancelled) {
+                    console.log('Đã dừng tiến trình gom batch do người dùng hủy.');
+                    break;
+                }
+
                 const batch = pendingSubs.slice(i, i + batchSize);
 
                 // Mở 3 tiến trình cùng lúc
@@ -285,13 +293,12 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                 await Promise.all(tasks);
             }
 
-            this.isFinished = true;
-            this.currentStatus = 'Hoàn tất khởi tạo toàn bộ tài nguyên âm thanh & phụ đề!';
-            this.toastr.success(`Đã hoàn tất quá trình xử lý cho ${this.totalTasks} câu thoại!`);
-
-            setTimeout(() => {
-                this.dialogRef.close(this.data);
-            }, 1000);
+            if (!this.isCancelled) {
+                this.isFinished = true;
+                this.currentStatus = 'Hoàn tất!';
+                this.toastr.success('Đã hoàn tất quá trình!');
+                setTimeout(() => { this.dialogRef.close(this.data); }, 1000);
+            }
         } catch (err) {
             console.error('Batch error:', err);
             this.toastr.error('Có lỗi xảy ra trong quá trình xử lý.');
@@ -432,7 +439,25 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         return str;
     }
 
-    cancel(): void {
+    // Sửa lại hàm Cancel: Gọi lệnh xuống Electron
+    async cancel(): Promise<void> {
+        // 1. Đánh dấu dừng các vòng lặp batching
+        this.isCancelled = true;
+
+        // 2. Nếu tiến trình đang chạy, gửi lệnh "bắn bỏ" xuống Electron
+        if (this.isStarted) {
+            this.toastr.warning('Đang ngắt kết nối và hủy tiến trình ngầm...', 'Hệ thống');
+
+            try {
+                if ((window as any).electron) {
+                    await (window as any).electron.invoke('cancel-tts');
+                }
+            } catch (err) {
+                console.error('Lỗi khi gửi lệnh hủy:', err);
+            }
+        }
+
+        // 3. Đóng Dialog
         this.dialogRef.close(null);
     }
 
@@ -457,6 +482,10 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        if (this.isStarted && !this.isFinished) {
+            this.cancel();
+        }
+
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
