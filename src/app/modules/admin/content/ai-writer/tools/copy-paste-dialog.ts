@@ -1,8 +1,9 @@
 import { Component, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MatDialogRef } from "@angular/material/dialog";
-
+import { marked } from 'marked';
 import * as uuid from 'uuid';
+import * as $ from 'jquery';
 
 @Component({
     selector: 'chatgpt-paste-dialog',
@@ -46,13 +47,32 @@ export class CopyPasteDialog implements OnInit {
         });
     }
 
+    markdown2html(source: any) {
+        return marked.parse(source) as string;
+    }
+
     paste(event: ClipboardEvent) {
-        let data: any = event.clipboardData.getData('text');
-        data = data.split(/\r?\n|\r|\n/g);
-        data.map((text: String, _index: number) => {
-            if (text && text.length > 0) {
-                this.clipboard.push(`<p id="source-text-${uuid.v4()}">${text}</p>`);
-            }
+        // 2. Lấy dữ liệu text một cách an toàn
+        const textData: string = event.clipboardData?.getData('text') || '';
+        if (!textData) return;
+
+        // 3. Parse toàn bộ Markdown sang HTML để giữ nguyên cấu trúc phức tạp
+        const fullHtmlStr: string = this.markdown2html(textData);
+
+        // 4. Bọc vào một thẻ div ảo để jQuery dễ dàng lặp qua các top-level elements
+        const $container = $(`<div>${fullHtmlStr}</div>`);
+
+        // 5. Lặp qua từng node con (p, pre, table, ul, h1...), gán ID và đẩy vào clipboard
+        $container.children().each((_: number, element: HTMLElement) => {
+            const $el = $(element);
+
+            // Bọc (wrap) phần tử gốc vào một div để không làm vỡ CSS hay cấu trúc của thẻ đặc biệt (pre, code, table)
+            const $wrapper = $('<div></div>')
+                .prop('id', `source-text-${uuid.v4()}`)
+                .addClass('markdown-clipboard-block')
+                .append($el.clone()); // Dùng clone() để bảo toàn khoảng trắng, newlines bên trong thẻ pre
+
+            this.clipboard.push($wrapper.prop('outerHTML'));
         });
     }
 
