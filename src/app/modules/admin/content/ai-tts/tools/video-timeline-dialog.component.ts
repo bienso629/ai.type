@@ -4,9 +4,6 @@ import {
     ViewChild,
     ElementRef,
     Inject,
-    Component as NgComponent,
-    Inject as NgInject,
-    OnDestroy,
 } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -34,8 +31,6 @@ import { VideoGenerationComponent } from './video-generation.component';
 import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { UserService } from 'app/core/user/user.service';
-import { FuseConfigService } from '@fuse/services/config';
 
 // Interface cho Electron API
 interface electron {
@@ -356,8 +351,6 @@ export class VideoTimelineDialogComponent implements OnInit {
         private multiAccountService: MultiAccountService,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
-        private _userService: UserService,
-        private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private dialog: MatDialog, // Cần MatDialog để mở form thêm cảnh

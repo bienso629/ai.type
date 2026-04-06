@@ -2,8 +2,8 @@ import { Component, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MatDialogRef } from "@angular/material/dialog";
 import { marked } from 'marked';
-import * as uuid from 'uuid';
 import * as $ from 'jquery';
+import * as uuid from 'uuid';
 
 @Component({
     selector: 'chatgpt-paste-dialog',
@@ -15,8 +15,7 @@ import * as $ from 'jquery';
     <div mat-dialog-content class="mt-4 p-0">
         <form [formGroup]="chatgptForm">
             <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
-                <!-- Sửa lại (paste)="paste($event)" cho đúng chuẩn cú pháp Angular -->
-                <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" (paste)="paste($event)" (keyup.enter)="send()" required matInput cdkTextareaAutosize></textarea>
+                <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" (paste)=paste($event) required matInput cdkTextareaAutosize></textarea>
 
                 <!-- <button mat-icon-button type="button" matSuffix>
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:clipboard'"></mat-icon>
@@ -26,9 +25,14 @@ import * as $ from 'jquery';
     </div>
 
     <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button (click)="send()" color="primary" class="float-right">
-            Sử dụng nội dung này
+        <button mat-flat-button (click)="sendTxt()" color="primary" class="float-right">
+            Sử dụng Text
         </button>
+
+        <button mat-flat-button (click)="sendMarkdown()" color="warn" class="float-right">
+            Sử dụng Markdown
+        </button>
+        
         <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
     </div>`,
 })
@@ -44,40 +48,49 @@ export class CopyPasteDialog implements OnInit {
     ngOnInit(): void {
         // Create the form
         this.chatgptForm = this._formBuilder.group({
-            chatgpt: ['', Validators.required]
+            chatgpt: ['', Validators.required],
         });
-    }
-
-    markdown2html(source: string) {
-        // Cấu hình gfm: true để bắt buộc hỗ trợ Github Flavored Markdown (bao gồm Table)
-        // breaks: true để giữ nguyên các dấu xuống dòng của text thường
-        return marked.parse(source, { gfm: true, breaks: true }) as string;
     }
 
     paste(event: ClipboardEvent) {
-        // 2. Lấy dữ liệu text một cách an toàn
-        const textData: string = event.clipboardData?.getData('text') || '';
-        if (!textData) return;
+        this.chatgptForm.controls['chatgpt'].setValue(event.clipboardData.getData('text'));
+    }
 
-        // 3. Parse TOÀN BỘ văn bản Markdown sang HTML TRƯỚC.
-        const fullHtmlStr: string = this.markdown2html(textData);
+    sendTxt() {
+        let textData = this.chatgptForm.controls['chatgpt'].value;
 
-        // 4. Đưa toàn bộ HTML sinh ra vào một container ảo (DOM ảo)
-        const $container = $(`<div>${fullHtmlStr}</div>`);
+        textData = textData.split(/\r?\n|\r|\n/g);
+        textData.map((text: String, _index: number) => {
+            if (text && text.length > 0) {
+                this.clipboard.push(`<p id="source-text-${uuid.v4()}">${text}</p>`);
+            }
+        });
 
-        // 5. Lặp qua từng phần tử top-level (ví dụ: <p>, <table>, <pre>, <ul>...)
-        $container.children().each((_: number, element: HTMLElement) => {
-            const $el = $(element);
-
-            // 6. Bọc mỗi phần tử vào một thẻ div để cấp ID riêng biệt như bạn muốn
-            const $wrapper = $('<div></div>')
-                .append($el.clone()); // Dùng clone() để giữ nguyên toàn bộ cấu trúc phức tạp bên trong
-
-            this.clipboard.push($wrapper.prop('outerHTML'));
+        this.dialogRef.close({
+            clipboard: this.clipboard
         });
     }
 
-    send(): void {
+    sendMarkdown() {
+        let textData = this.chatgptForm.controls['chatgpt'].value;
+
+        // 3. Parse toàn bộ Markdown sang HTML để giữ nguyên cấu trúc phức tạp
+        const fullHtmlStr: string = marked.parse(textData) as string;
+        console.log('fullHtmlStr', fullHtmlStr);
+        // 4. Bọc vào một thẻ div ảo để jQuery dễ dàng lặp qua các top-level elements
+        const $container = $(`<div>${fullHtmlStr}</div>`);
+
+        // 5. Lặp qua từng node con (p, pre, table, ul, h1...), gán ID và đẩy vào clipboard
+        $container.children().each((_: number, element: HTMLElement) => {
+            const $el = $(element);
+
+            // Bọc (wrap) phần tử gốc vào một div để không làm vỡ CSS hay cấu trúc của thẻ đặc biệt (pre, code, table)
+            const $wrapper = $('<div></div>')
+                .append($el.clone()); // Dùng clone() để bảo toàn khoảng trắng, newlines bên trong thẻ pre
+
+            this.clipboard.push($wrapper.prop('outerHTML'));
+        });
+
         this.dialogRef.close({
             clipboard: this.clipboard
         });

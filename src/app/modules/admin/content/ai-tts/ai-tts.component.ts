@@ -676,7 +676,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             YÊU CẦU:
             1. Mỗi phân cảnh (scene) PHẢI có:
-            - "prompt": 1 mô tả hình ảnh tiếng Việt.
+            - "prompt": Tạo video bằng tiếng Việt.
             - "subtitles": Mảng chứa các object { "id": "ID_GỐC", "text": "NỘI DUNG" }.
             2. Logic gom nhóm: Những đoạn văn bản có nội dung liền mạch hoặc ngắn thì gom chung vào 1 "prompt" ảnh.
             3. KHÔNG ĐƯỢC bỏ sót bất kỳ ID nào. Phải đảm bảo đủ 138 text gốc.
@@ -687,7 +687,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             KẾT QUẢ TRẢ VỀ LÀ JSON ARRAY NHƯ VÍ DỤ SAU:
             [
             {
-                "prompt": "Mô tả hình ảnh cho nhóm này",
+                "prompt": "Tạo video cho nhóm này",
                 "subtitles": [
                 { "id": "3l8bm4hkp", "text": "Trân trọng giới thiệu..." },
                 { "id": "aanpwkn1d", "text": "CHƯƠNG I..." }
