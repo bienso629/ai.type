@@ -16,19 +16,24 @@
         (cdkDropListDropped)="onSceneDropped($event)">
 
         @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
-        <div class="flex-none w-80 bg-gray-50 rounded-md overflow-hidden select-none example-box relative" cdkDrag>
-            <div class="cdk-drag-handle absolute top-2 left-2 z-10 w-8 h-8 flex items-center justify-center bg-white/80 rounded-full cursor-move shadow-sm hover:bg-white"
+        <div class="flex-none w-80 max-h-full h-full bg-gray-50 rounded-xl overflow-hidden select-none example-box relative"
+            cdkDrag>
+            <div class="cdk-drag-handle absolute top-2 left-2 z-10 flex items-center justify-center cursor-move"
                 cdkDragHandle>
-                <mat-icon class="text-gray-500 icon-size-5">drag_indicator</mat-icon>
+                <mat-icon class="text-white icon-size-5">drag_indicator</mat-icon>
+
+                <span class="text-white text-xs px-2.5 py-0">
+                    Scene #{{ sceneIdx + 1 }}
+                </span>
             </div>
 
             <button mat-icon-button color="warn"
-                class="absolute top-2 right-2 z-10 bg-white/80 hover:bg-red-50 icon-size-8 shadow-sm flex items-center justify-center rounded-full"
+                class="absolute top-2 right-2 z-10 icon-size-8 flex items-center justify-center rounded-full"
                 (click)="$event.stopPropagation(); removeScene($index)" size="small">
                 <mat-icon class="icon-size-4">delete</mat-icon>
             </button>
 
-            <div class="bg-gray-100 min-h-50 relative flex items-center justify-center group">
+            <div class="bg-gray-100 max-h-100 h-50 overflow-hidden relative flex items-center justify-center group">
                 @if (scene.imageUrl) {
                 <ng-container *ngIf="isImageType(scene.imageUrl); else videoPlayer">
                     <img [src]="scene.imageUrl" class="w-full h-full object-cover pointer-events-none">
@@ -38,7 +43,7 @@
                         [id]="'video_' + $index"></video>
                 </ng-template>
                 } @else {
-                <div class="text-center p-4">
+                <div class="text-center p-4 w-full h-full min-h-100 object-cover">
                     <mat-icon class="text-gray-400 text-5xl">image</mat-icon>
                     <p class="text-xs text-gray-500 mt-2">No image selected</p>
                 </div>
@@ -59,14 +64,9 @@
                 </div>
             </div>
 
-            <div class="p-4 flex flex-col h-64">
-                <div class="flex justify-between items-start mb-3">
-                    <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0 rounded-full">
-                        Scene #{{ sceneIdx + 1 }}
-                    </span>
-                </div>
-
-                <div class="flex-grow overflow-y-auto text-sm rounded-md bg-gray-50 scrollbar-hide">
+            <div
+                class="p-4 max-h-100 h-50 bg-white bg-opacity-70 m-2 overflow-auto scrollbar-hide rounded-lg">
+                <div class="flex-grow overflow-y-auto text-sm scrollbar-hide">
                     @for (sub of scene.subtitles; track sub.id || subIdx; let subIdx = $index) {
                     <div class="relative flex items-start mb-1.5 last:mb-0 group">
                         @if (!sub.isEditing) {
@@ -79,7 +79,7 @@
                         <div class="flex-shrink-0 flex flex-row items-center whitespace-nowrap">
                             <button mat-icon-button class="icon-size-6"
                                 (click)="$event.stopPropagation(); enableEditSub(sub)" matTooltip="Sửa câu thoại">
-                                <mat-icon class="icon-size-4 text-blue-400 hover:text-blue-600">edit</mat-icon>
+                                <mat-icon class="icon-size-3.5 text-blue-400 hover:text-blue-600">edit</mat-icon>
                             </button>
 
                             <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*"
@@ -100,9 +100,9 @@
                         </div>
                         }
                         @else {
-                        <div class="flex-1 w-full bg-white rounded shadow-sm border border-blue-300 p-2 z-10">
+                        <div class="flex-1 w-full bg-white rounded p-2 z-10">
                             <textarea [(ngModel)]="sub.tempText"
-                                class="w-full text-sm p-1 border-none outline-none resize-y min-h-[60px]"
+                                class="w-full text-sm p-1 border-none outline-none scrollbar-hide resize-y min-h-[60px]"
                                 placeholder="Nhập nội dung câu thoại..."></textarea>
 
                             <div class="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
