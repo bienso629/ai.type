@@ -11,11 +11,10 @@ import {
     MatDialog,
     MatDialogModule,
 } from '@angular/material/dialog';
-import { CommonModule } from '@angular/common'; // Cần cho *ngIf, *ngFor cũ (trong isImageType)
+import { CommonModule } from '@angular/common'; 
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 
-// Angular Material & CDK Imports
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import {
@@ -32,24 +31,22 @@ import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
-// Interface cho Electron API
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
 }
 
-// --- COMPONENT CHÍNH: Standalone ---
 @Component({
     selector: 'app-video-timeline-dialog',
     standalone: true,
     templateUrl: 'video-timeline-dialog.component.html',
     imports: [
-        CommonModule, // Cần CommonModule cho các directive cơ bản
+        CommonModule, 
         FormsModule,
         MatDialogModule,
         MatButtonModule,
         MatIconModule,
-        MatInputModule, // Cần MatLabelModule cho mat-label
-        DragDropModule, // Module Kéo thả
+        MatInputModule, 
+        DragDropModule, 
     ]
 })
 export class VideoTimelineDialogComponent implements OnInit {
@@ -60,16 +57,12 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     projectData: any;
 
-    // Các biến phục vụ kéo thả bằng chuột (manual scroll ngang)
     private isMouseDown = false;
     private startX = 0;
     private scrollLeftStart = 0;
 
-    // --- Logic Kéo thả bằng chuột (Manual Scroll Ngang) ---
     startDragging(e: MouseEvent) {
-        // Chỉ scroll nếu không phải đang cầm vào handle kéo thả cảnh
         if ((e.target as HTMLElement).closest('.cdk-drag-handle')) return;
-
         this.isMouseDown = true;
         this.startX = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
         this.scrollLeftStart = this.scrollContainer.nativeElement.scrollLeft;
@@ -84,29 +77,22 @@ export class VideoTimelineDialogComponent implements OnInit {
         e.preventDefault();
         const x = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
         const walk = (x - this.startX) * 1.5;
-        this.scrollContainer.nativeElement.scrollLeft =
-            this.scrollLeftStart - walk;
+        this.scrollContainer.nativeElement.scrollLeft = this.scrollLeftStart - walk;
     }
-    // ---------------------
 
-    // --- Logic CDk Drag & Drop (Sắp xếp lại thứ tự Scene) ---
     onSceneDropped(event: CdkDragDrop<any[]>) {
         if (event.previousIndex === event.currentIndex) {
             return;
         }
-        // Di chuyển phần tử trong mảng dữ liệu (Hàm của CDK)
         moveItemInArray(
             this.projectData.scenes,
             event.previousIndex,
             event.currentIndex,
         );
-        // Lưu lại dữ liệu mới
         this.saveData();
         console.log('New scene order saved.');
     }
-    // ------------------------------------------------
 
-    // Thêm/Cập nhật hàm này trong class VideoTimelineDialogComponent
     getGlobalIndex(sceneIdx: number, subIdx: number): number {
         if (!this.projectData || !this.projectData.scenes) return 0;
         let total = 0;
@@ -116,7 +102,6 @@ export class VideoTimelineDialogComponent implements OnInit {
         return total + subIdx + 1;
     }
 
-    // Hàm xử lý chọn Audio local (đảm bảo lưu vào đúng sub)
     async onAudioFileSelected(event: any, sub: any) {
         const file = event.target.files[0];
         if (!file) return;
@@ -125,30 +110,23 @@ export class VideoTimelineDialogComponent implements OnInit {
             const originalPath = electron.getPathForFile(file);
             const localPath = await electron.selectLocalFile(originalPath);
             sub.audioUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
-            this.saveData(); // Lưu lại vào MultiAccountService
+            this.saveData(); 
             this.toastr.success('Đã cập nhật Audio!');
         } catch (e) {
             this.toastr.error('Lỗi: ' + e);
         }
     }
 
-    // Thêm hàm này vào trong class VideoTimelineDialogComponent trong file .ts
     removeAudio(sub: any) {
         if (sub.audioUrl) {
-            // Gỡ bỏ thuộc tính audioUrl
             delete sub.audioUrl;
-
-            // Cập nhật lại projectData và lưu vào local storage/indexedDB
             this.saveData();
-
-            // Thông báo cho người dùng
             this.toastr.info('Đã xóa liên kết âm thanh câu thoại.');
         }
     }
 
-    // --- Bắt đầu: Logic Sửa Subtitle Inline ---
+    // --- Logic Sửa Subtitle Inline ---
     enableEditSub(sub: any) {
-        // Bật cờ edit và copy đoạn text hiện tại ra một biến tạm để người dùng sửa
         sub.isEditing = true;
         sub.tempText = sub.text;
     }
@@ -160,49 +138,40 @@ export class VideoTimelineDialogComponent implements OnInit {
         if (newText === '') {
             const index = scene.subtitles.indexOf(sub);
             if (index !== -1) {
-                scene.subtitles.splice(index, 1); // Xóa phần tử khỏi mảng
+                scene.subtitles.splice(index, 1); 
                 this.toastr.warning('Đã xóa câu thoại do nội dung bị bỏ trống.');
-                this.saveData(); // Lưu lại vào LocalStorage
+                this.saveData(); 
             }
-            return; // Dừng thực thi hàm
+            return; 
         }
 
         // NẾU CÓ NỘI DUNG: Lưu bình thường
         sub.text = newText;
         sub.isEditing = false;
-
-        // Cảnh báo nhẹ: nếu người dùng sửa chữ, file audio cũ có thể không khớp
+        
         if (sub.audioUrl && sub.text !== sub.tempText) {
             this.toastr.info('Bạn vừa sửa lời thoại. Hãy cẩn thận vì file âm thanh cũ có thể không còn khớp nữa nhé!', 'Lưu ý');
         } else {
             this.toastr.success('Đã cập nhật câu thoại!');
         }
 
-        // Lưu vào LocalStorage
         this.saveData();
     }
 
     cancelEditSub(sub: any) {
-        // Tắt chế độ sửa, mọi thứ quay về như cũ
         sub.isEditing = false;
-        delete sub.tempText; // Xóa biến tạm cho nhẹ RAM
+        delete sub.tempText; 
     }
+    // ---------------------------------
 
     async generateImage(scene: any, index: number) {
         this.clipboard.copy(scene.prompt);
         this.toastr.info(`Đã copy prompt cho Scene #${index + 1}...`);
-
-        // Giả lập
-        // scene.imageUrl =
-        //     'https://via.placeholder.com/400x225?text=Generating...';
-        // this.saveData();
     }
 
     generateAllImages(): void {
-        // 1. Lưu lại trạng thái timeline hiện tại
         this.saveData();
 
-        // Kiểm tra an toàn xem có dữ liệu không
         if (
             !this.projectData ||
             !this.projectData.scenes ||
@@ -212,16 +181,13 @@ export class VideoTimelineDialogComponent implements OnInit {
             return;
         }
 
-        this.projectData['username'] = this.data.username || 'anonymous'; // Đảm bảo có username trong data
+        this.projectData['username'] = this.data.username || 'anonymous'; 
 
-        // 4. Dùng hàm alert (FuseConfirmationService) của bạn để thông báo thành công
         this.alert({
             title: 'Khởi tạo Audio thành công!',
             message: `Hệ thống đã hoàn tất tạo âm thanh cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
             confirm: 'Tiếp tục Production',
             cb: () => {
-                // Khi người dùng bấm "Tiếp tục Production"
-                // Đóng Timeline và ném bộ data HOÀN CHỈNH này ra ngoài cho ai-tts.component.ts xử lý tiếp
                 this.dialogRef.close(this.projectData);
                 this.router.navigate(['/livestream', this.projectData.uuid || 'unknown_project']);
             },
@@ -232,23 +198,17 @@ export class VideoTimelineDialogComponent implements OnInit {
     }
 
     prepareForVideoGeneration() {
-        // 2. Mở cửa sổ Tiến trình Audio Song Song
         const processDialogRef = this.dialog.open(VideoGenerationComponent, {
             width: '550px',
-            disableClose: true, // Bắt buộc người dùng phải đợi hoặc bấm nút Hủy bên trong
-            data: this.projectData, // Truyền nguyên bộ data sang cho nó chạy
+            disableClose: true, 
+            data: this.projectData, 
         });
 
-        // 3. Lắng nghe kết quả trả về khi cửa sổ Tiến trình đóng lại
         processDialogRef.afterClosed().subscribe((updatedProjectData) => {
             if (updatedProjectData) {
-                // Nhận lại data đã được nhồi đầy đủ "audioUrl" cho từng sub
                 this.projectData = updatedProjectData;
-
-                // Lưu lại một lần nữa để chắc chắn LocalStorage đã cập nhật
                 this.saveData();
             } else {
-                // Trường hợp trả về null (người dùng bấm Hủy bỏ ở màn hình config)
                 this.toastr.info('Hủy tiến trình tạo Audio.');
             }
         });
@@ -263,7 +223,6 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.dialogRef.close();
     }
 
-    // Xử lý file cục bộ thông qua Electron File System
     async onFileSelected(event: any, scene: any) {
         const fileInput = event.target as HTMLInputElement;
         if (fileInput.files && fileInput.files.length > 0) {
@@ -272,13 +231,11 @@ export class VideoTimelineDialogComponent implements OnInit {
             try {
                 const electron = (window as any).electron;
 
-                // 1. Kiểm tra xem bridge có tồn tại không
                 if (!electron || !electron.getPathForFile) {
                     this.toastr.error('Lỗi cấu hình.');
                     return;
                 }
 
-                // 2. Lấy đường dẫn thật qua webUtils (đã được expose qua bridge)
                 const originalPath = electron.getPathForFile(file);
 
                 if (!originalPath) {
@@ -288,9 +245,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                     return;
                 }
 
-                // 3. Gọi hàm copy file vào thư mục app (IPC đã viết ở main.js)
-                const localFilePath =
-                    await electron.selectLocalFile(originalPath);
+                const localFilePath = await electron.selectLocalFile(originalPath);
 
                 scene.imageUrl = localFilePath;
                 this.saveData();
@@ -302,65 +257,49 @@ export class VideoTimelineDialogComponent implements OnInit {
         }
     }
 
-    // Kiểm tra loại file để hiển thị img hoặc video
     isImageType(url: string): boolean {
         const imageExtensions = [
-            'jpg',
-            'jpeg',
-            'png',
-            'gif',
-            'bmp',
-            'webp',
-            'svg',
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
         ];
         const cleanUrl = url.replace('file://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
         return fileExtension ? imageExtensions.includes(fileExtension) : true;
     }
 
-    // --- Logic NÚT MỚI: Thêm Scene mới ---
     addNewScene() {
-        // Mở một Dialog con làm form nhập liệu
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '550px',
-            disableClose: true, // Buộc dùng nút Hủy/Thêm
-            data: { subtitles: '', prompt: '' }, // Khởi tạo data trống
+            disableClose: true, 
+            data: { subtitles: '', prompt: '' }, 
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result && result.subtitles && result.prompt) {
-                // 'result' chứa data người dùng nhập
-
-                // 1. Chuyển đổi subtitles (chuỗi xuống dòng) thành mảng {id, text}
                 const subtitleTexts = result.subtitles
                     .split('\n')
                     .filter((s: string) => s.trim() !== '');
                 const formattedSubtitles = subtitleTexts.map(
                     (text: string, index: number) => ({
-                        id: index + 1, // Tạm thời dùng index làm ID
+                        id: index + 1, 
                         text: text.trim(),
                     }),
                 );
 
-                // 2. Tạo đối tượng Scene mới
                 const newScene = {
-                    id: `manual_${Date.now()}`, // Tạo ID duy nhất
+                    id: `manual_${Date.now()}`, 
                     subtitles: formattedSubtitles,
                     prompt: result.prompt.trim(),
-                    imageUrl: null, // Cảnh mới chưa có ảnh/video
+                    imageUrl: null, 
                 };
 
-                // 3. Thêm cảnh mới vào cuối mảng scenes
                 if (!this.projectData) this.projectData = { scenes: [] };
                 if (!this.projectData.scenes) this.projectData.scenes = [];
 
                 this.projectData.scenes.push(newScene);
 
-                // 4. Lưu dữ liệu
                 this.saveData();
                 this.toastr.success('Đã thêm Scene mới thành công!');
 
-                // Tùy chọn: Tự động scroll về cuối timeline
                 setTimeout(() => {
                     this.scrollContainer.nativeElement.scrollLeft =
                         this.scrollContainer.nativeElement.scrollWidth;
@@ -375,13 +314,8 @@ export class VideoTimelineDialogComponent implements OnInit {
             message: `Bạn có chắc chắn muốn xóa Scene #${index + 1} không?`,
             confirm: 'Xóa liền',
             cb: () => {
-                // 1. Xóa phần tử khỏi mảng
                 this.projectData.scenes.splice(index, 1);
-
-                // 2. Lưu lại vào localStorage
                 this.saveData();
-
-                // 3. Thông báo cho người dùng
                 this.toastr.warning(`Đã xóa Scene #${index + 1}`);
             },
         });
@@ -395,11 +329,10 @@ export class VideoTimelineDialogComponent implements OnInit {
         private toastr: ToastrService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private dialog: MatDialog, // Cần MatDialog để mở form thêm cảnh
+        private dialog: MatDialog, 
     ) { }
 
     ngOnInit() {
-        // Load dữ liệu từ LocalStorage
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
     }
@@ -410,35 +343,19 @@ export class VideoTimelineDialogComponent implements OnInit {
             message: alert
                 ? alert.message
                 : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu. <span class="font-medium">Hãy tiếp tục với một URL mới luôn nào!</span>',
-            icon: {
-                show: true,
-                name: 'feather:check',
-                color: 'primary',
-            },
+            icon: { show: true, name: 'feather:check', color: 'primary' },
             actions: {
-                confirm: {
-                    show: true,
-                    label: alert ? alert.confirm : 'Khởi động lại',
-                    color: 'primary',
-                },
-                cancel: {
-                    show: true,
-                    label: alert ? alert.cancel : 'Đóng cửa sổ',
-                },
+                confirm: { show: true, label: alert ? alert.confirm : 'Khởi động lại', color: 'primary' },
+                cancel: { show: true, label: alert ? alert.cancel : 'Đóng cửa sổ' },
             },
             dismissible: true,
         });
 
-        // Subscribe to afterClosed from the dialog reference
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                if (alert.cb) {
-                    alert.cb();
-                }
+                if (alert.cb) alert.cb();
             } else {
-                if (alert.cc) {
-                    alert.cc();
-                }
+                if (alert.cc) alert.cc();
             }
         });
     }
