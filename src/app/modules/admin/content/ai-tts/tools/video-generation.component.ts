@@ -183,8 +183,6 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
     ],
 })
 export class VideoGenerationComponent implements OnInit, OnDestroy {
-    private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
-
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
@@ -204,6 +202,22 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
     isCancelled = false;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+    private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
+
+    constructor(
+        private _voice: MyKeysService,
+        public dialogRef: MatDialogRef<VideoGenerationComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private toastr: ToastrService,
+        private cd: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService
+    ) { }
+
+    saveData() {
+        if (!this.data || !this.data.uuid) return;
+        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+        this.multiAccountService.setItem(storageKey, this.data);
+    }
 
     getMyKeys() {
         this._voice.getMyKeys({
@@ -233,7 +247,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
     async startParallelProcess(): Promise<void> {
         this.isStarted = true;
-        this.isCancelled = false; // Reset lại cờ
+        this.isCancelled = false;
 
         const pendingSubs: {
             sub: any;
@@ -271,28 +285,22 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
         const isTTSTypeVoice = this.selectedVoice.indexOf('tts.type.vn') !== -1;
 
-        // Số luồng tối đa chạy cùng lúc
         const concurrencyLimit = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
 
         try {
-            let currentIndex = 0; // Biến đánh dấu vị trí file đang được bốc ra xử lý
+            let currentIndex = 0;
 
             // 3. TẠO HÀM WORKER XỬ LÝ LIÊN TỤC
             const worker = async () => {
-                // Vòng lặp sẽ chạy liên tục chừng nào vẫn còn file trong hàng đợi
                 while (currentIndex < pendingSubs.length) {
-                    // Kiểm tra cờ hủy từ người dùng
                     if (this.isCancelled) {
                         console.log('Tiến trình worker đã dừng do người dùng hủy.');
                         break;
                     }
 
-                    // Lấy ra index hiện tại và lập tức tăng index lên 
-                    // để worker khác lấy file tiếp theo không bị trùng
                     const taskIndex = currentIndex++;
                     const item = pendingSubs[taskIndex];
 
-                    // Chờ chạy xong file này thì vòng lặp mới tiếp tục bốc file mới
                     await this.generateAudioForSub(
                         item.sub,
                         item.sIdx,
@@ -300,18 +308,17 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                         item.globalIndex
                     );
 
+                    // LƯU NGAY LẬP TỨC SAU KHI CÓ KẾT QUẢ CỦA 1 CÂU
                     this.saveData();
                 }
             };
 
             // 4. KÍCH HOẠT CÁC WORKERS CHẠY CÙNG LÚC
             const workers = [];
-            // Nếu concurrencyLimit = 3, ta sẽ tạo ra 3 vòng lặp chạy song song cạnh tranh nhau
             for (let i = 0; i < concurrencyLimit; i++) {
                 workers.push(worker());
             }
 
-            // Chờ tất cả các workers hoàn thành hết công việc trong hàng đợi
             await Promise.all(workers);
 
             // 5. HOÀN TẤT
@@ -359,7 +366,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
             try {
                 if (isEdgeVoice) {
-                    // --- LOGIC CŨ: EDGE TTS (OFFLINE) ---
                     const niceFilename = `${prefix}_${slug}_${this.selectedVoice}`;
                     const payload = {
                         text: sub.text,
@@ -375,13 +381,12 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     const voice_id = selectedVoice[0];
 
                     if (selectedVoice[1] === 'tts.type.vn') {
-                        // --- LOGIC MỚI: TYPE TTS (SERVER) ---
                         const niceFilename = `${prefix}_${slug}_typetts`;
                         const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
 
                         const payload = {
                             text: sub.text,
-                            voice_id: voice[0]['id'], // Ví dụ: '1248295'
+                            voice_id: voice[0]['id'],
                             key: voice[0]['api_key'],
                             ref_audio_name: voice[0]['ref_audio_name'],
                             ref_text: voice[0]['ref_text'],
@@ -393,13 +398,12 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
                         res = await (window as any).electron.invoke('tts-type-generate', payload);
                     } else {
-                        // --- LOGIC MỚI: AUSYNC TTS (SERVER) ---
                         const niceFilename = `${prefix}_${slug}_ausync`;
                         const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
 
                         const payload = {
                             text: sub.text,
-                            voice_id: voice_id, // Ví dụ: '1248295'
+                            voice_id: voice_id,
                             key: voice[0]['api_key'],
                             speed: voice[0]['api_key'] || this.selectedRate || 1.0,
                             filename: niceFilename,
@@ -410,7 +414,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     }
                 }
 
-                // Xử lý kết quả trả về chung
                 if (res && res.success !== false && !res.error) {
                     const rawPath = res.filePath || res.url || res.result;
                     if (rawPath) {
@@ -419,14 +422,9 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                             : `file://${rawPath}`;
                     }
                 } else {
-                    // Xử lý khi có lỗi (như lỗi 502)
                     const errorMsg = res?.error || 'Lỗi không xác định từ API';
                     console.error(`Error processing sub ${sub.text}:`, errorMsg);
-
-                    // Báo lỗi cho người dùng biết câu này tạch
                     this.toastr.error(`Lỗi tạo âm thanh: ${errorMsg}`);
-
-                    // Gán cờ báo lỗi vào sub để sau này có thể làm nút "Thử lại (Retry)"
                     sub.hasError = true;
                     sub.errorMessage = errorMsg;
                 }
@@ -437,7 +435,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                 this.progress = Math.round((this.completedTasks / this.totalTasks) * 100);
                 this.currentStatus = sub.text;
                 this.cd.markForCheck();
-                resolve(); // Báo hiệu tiến trình con này đã xong
+                resolve();
             }
         });
     }
@@ -461,15 +459,11 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         return str;
     }
 
-    // Sửa lại hàm Cancel: Gọi lệnh xuống Electron
     async cancel(): Promise<void> {
-        // 1. Đánh dấu dừng các vòng lặp batching
         this.isCancelled = true;
 
-        // 2. Nếu tiến trình đang chạy, gửi lệnh "bắn bỏ" xuống Electron
         if (this.isStarted) {
             this.toastr.warning('Đang ngắt kết nối và hủy tiến trình ngầm...', 'Hệ thống');
-
             try {
                 if ((window as any).electron) {
                     await (window as any).electron.invoke('cancel-tts');
@@ -479,26 +473,8 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
             }
         }
 
-        // 3. Đóng Dialog
         this.dialogRef.close(null);
     }
-
-    // TẠO HÀM LƯU DỮ LIỆU ĐỘC LẬP
-    saveData() {
-        if (!this.data || !this.data.uuid) return;
-        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
-        // Lưu nguyên cục this.data (chính là projectData bên ngoài truyền vào)
-        this.multiAccountService.setItem(storageKey, this.data);
-    }
-
-    constructor(
-        private _voice: MyKeysService,
-        public dialogRef: MatDialogRef<VideoGenerationComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any,
-        private toastr: ToastrService,
-        private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
-    ) { }
 
     ngOnInit(): void {
         if (this.data && this.data.scenes) {
@@ -507,7 +483,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                 0,
             );
         }
-
         this.getMyKeys();
     }
 
@@ -515,7 +490,6 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
         if (this.isStarted && !this.isFinished) {
             this.cancel();
         }
-
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
