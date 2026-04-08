@@ -182,7 +182,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
         `,
     ],
 })
-export class VideoGenerationComponent implements OnInit, OnDestroy {
+export class AudioGenerationComponent implements OnInit, OnDestroy {
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
         { id: 'vi-VN-HoaiMyNeural', name: 'Hoài My' },
@@ -206,7 +206,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
     constructor(
         private _voice: MyKeysService,
-        public dialogRef: MatDialogRef<VideoGenerationComponent>,
+        public dialogRef: MatDialogRef<AudioGenerationComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
@@ -366,7 +366,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
 
             try {
                 if (isEdgeVoice) {
-                    const niceFilename = `${prefix}_${slug}_${this.selectedVoice}`;
+                    const niceFilename = `${prefix}_${slug}`;
                     const payload = {
                         text: sub.text,
                         voice: this.selectedVoice,
@@ -381,7 +381,7 @@ export class VideoGenerationComponent implements OnInit, OnDestroy {
                     const voice_id = selectedVoice[0];
 
                     if (selectedVoice[1] === 'tts.type.vn') {
-                        const niceFilename = `${prefix}_${slug}_typetts`;
+                        const niceFilename = `${prefix}_${slug}`;
                         const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
 
                         const payload = {

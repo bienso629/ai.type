@@ -11,7 +11,7 @@ import {
     MatDialog,
     MatDialogModule,
 } from '@angular/material/dialog';
-import { CommonModule } from '@angular/common'; 
+import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 
@@ -26,7 +26,7 @@ import {
 import { AddSceneComponent } from './add-scene.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
-import { VideoGenerationComponent } from './video-generation.component';
+import { AudioGenerationComponent } from './audio-generation.component';
 import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
@@ -40,13 +40,13 @@ interface electron {
     standalone: true,
     templateUrl: 'video-timeline-dialog.component.html',
     imports: [
-        CommonModule, 
+        CommonModule,
         FormsModule,
         MatDialogModule,
         MatButtonModule,
         MatIconModule,
-        MatInputModule, 
-        DragDropModule, 
+        MatInputModule,
+        DragDropModule,
     ]
 })
 export class VideoTimelineDialogComponent implements OnInit {
@@ -110,7 +110,16 @@ export class VideoTimelineDialogComponent implements OnInit {
             const originalPath = electron.getPathForFile(file);
             const localPath = await electron.selectLocalFile(originalPath);
             sub.audioUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
-            this.saveData(); 
+
+            // ---> THÊM ĐOẠN NÀY: Lấy thời lượng thực tế của Audio
+            const audioObj = new Audio(sub.audioUrl);
+            audioObj.addEventListener('loadedmetadata', () => {
+                sub.duration = audioObj.duration; // Lưu số giây thực tế vào sub
+                this.saveData(); // Cập nhật lại data sau khi đã lấy được duration
+            });
+            // <--- KẾT THÚC ĐOẠN THÊM
+
+            this.saveData();
             this.toastr.success('Đã cập nhật Audio!');
         } catch (e) {
             this.toastr.error('Lỗi: ' + e);
@@ -120,6 +129,8 @@ export class VideoTimelineDialogComponent implements OnInit {
     removeAudio(sub: any) {
         if (sub.audioUrl) {
             delete sub.audioUrl;
+            delete sub.duration; // Thêm dòng này để xóa thời lượng thực tế cũ
+
             this.saveData();
             this.toastr.info('Đã xóa liên kết âm thanh câu thoại.');
         }
@@ -138,17 +149,17 @@ export class VideoTimelineDialogComponent implements OnInit {
         if (newText === '') {
             const index = scene.subtitles.indexOf(sub);
             if (index !== -1) {
-                scene.subtitles.splice(index, 1); 
+                scene.subtitles.splice(index, 1);
                 this.toastr.warning('Đã xóa câu thoại do nội dung bị bỏ trống.');
-                this.saveData(); 
+                this.saveData();
             }
-            return; 
+            return;
         }
 
         // NẾU CÓ NỘI DUNG: Lưu bình thường
         sub.text = newText;
         sub.isEditing = false;
-        
+
         if (sub.audioUrl && sub.text !== sub.tempText) {
             this.toastr.info('Bạn vừa sửa lời thoại. Hãy cẩn thận vì file âm thanh cũ có thể không còn khớp nữa nhé!', 'Lưu ý');
         } else {
@@ -160,7 +171,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     cancelEditSub(sub: any) {
         sub.isEditing = false;
-        delete sub.tempText; 
+        delete sub.tempText;
     }
     // ---------------------------------
 
@@ -181,7 +192,7 @@ export class VideoTimelineDialogComponent implements OnInit {
             return;
         }
 
-        this.projectData['username'] = this.data.username || 'anonymous'; 
+        this.projectData['username'] = this.data.username || 'anonymous';
 
         this.alert({
             title: 'Khởi tạo Audio thành công!',
@@ -198,10 +209,10 @@ export class VideoTimelineDialogComponent implements OnInit {
     }
 
     prepareForVideoGeneration() {
-        const processDialogRef = this.dialog.open(VideoGenerationComponent, {
+        const processDialogRef = this.dialog.open(AudioGenerationComponent, {
             width: '550px',
-            disableClose: true, 
-            data: this.projectData, 
+            disableClose: true,
+            data: this.projectData,
         });
 
         processDialogRef.afterClosed().subscribe((updatedProjectData) => {
@@ -269,8 +280,8 @@ export class VideoTimelineDialogComponent implements OnInit {
     addNewScene() {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '550px',
-            disableClose: true, 
-            data: { subtitles: '', prompt: '' }, 
+            disableClose: true,
+            data: { subtitles: '', prompt: '' },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
@@ -280,16 +291,16 @@ export class VideoTimelineDialogComponent implements OnInit {
                     .filter((s: string) => s.trim() !== '');
                 const formattedSubtitles = subtitleTexts.map(
                     (text: string, index: number) => ({
-                        id: index + 1, 
+                        id: index + 1,
                         text: text.trim(),
                     }),
                 );
 
                 const newScene = {
-                    id: `manual_${Date.now()}`, 
+                    id: `manual_${Date.now()}`,
                     subtitles: formattedSubtitles,
                     prompt: result.prompt.trim(),
-                    imageUrl: null, 
+                    imageUrl: null,
                 };
 
                 if (!this.projectData) this.projectData = { scenes: [] };
@@ -321,6 +332,33 @@ export class VideoTimelineDialogComponent implements OnInit {
         });
     }
 
+    // Thêm hàm này vào trong class VideoTimelineDialogComponent
+    getSceneDuration(scene: any): string {
+        if (!scene || !scene.subtitles || scene.subtitles.length === 0) return '0s';
+
+        let totalSeconds = 0;
+
+        for (const sub of scene.subtitles) {
+            if (sub.duration) {
+                // Nếu đã có sẵn thời lượng thực tế của file audio
+                totalSeconds += sub.duration;
+            } else if (sub.text) {
+                // Ước lượng nếu chưa có file audio (trung bình ~4 từ/giây)
+                const words = sub.text.trim().split(/\s+/).length;
+                totalSeconds += Math.max(1, words / 4); // Ít nhất là 1 giây
+            }
+        }
+
+        const total = Math.round(totalSeconds);
+
+        // Format hiển thị (VD: 45s hoặc 1m15s)
+        if (total < 60) return `${total}s`;
+
+        const minutes = Math.floor(total / 60);
+        const seconds = total % 60;
+        return `${minutes}m${seconds}s`;
+    }
+
     constructor(
         public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
         private clipboard: Clipboard,
@@ -329,7 +367,7 @@ export class VideoTimelineDialogComponent implements OnInit {
         private toastr: ToastrService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private dialog: MatDialog, 
+        private dialog: MatDialog,
     ) { }
 
     ngOnInit() {
