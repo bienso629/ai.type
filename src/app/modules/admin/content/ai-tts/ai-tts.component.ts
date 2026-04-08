@@ -102,6 +102,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     totalDuration: number = 0;
 
     isGlobalProcessing: boolean = false;
+    isCancelled: boolean = false; // Thêm biến này
     myvoices: any = [];
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -166,6 +167,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // @ CORE TTS LOGIC (CONCURRENT & RETRY)
     // -----------------------------------------------------------------------------------------------------
 
+    // Hàm hỗ trợ đọc thời lượng file Audio bằng HTML5
+    // [MỚI] Hàm lấy thời lượng Audio trực tiếp trên Trình duyệt
+    private getAudioDuration(blobUrl: string): Promise<number> {
+        return new Promise((resolve) => {
+            const audio = new Audio(blobUrl);
+            audio.addEventListener('loadedmetadata', () => {
+                // Trả về thời lượng dạng giây, làm tròn 2 chữ số thập phân
+                resolve(Number(audio.duration.toFixed(2)));
+            });
+            audio.addEventListener('error', () => {
+                console.warn('Không thể đọc duration từ:', blobUrl);
+                resolve(0);
+            });
+        });
+    }
+
     async generateAll() {
         const pendingClips = this.audioList.filter((c) => !c.url && !c.file);
 
@@ -174,44 +191,191 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        if (this.isGlobalProcessing) return;
         this.isGlobalProcessing = true;
-
-        // Chia nhỏ danh sách để xử lý theo batch (tránh treo máy)
-        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-        const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
-        const batchSize = (isEdgeVoice) ? 3 : 1;
-        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Batch size: ${batchSize})...`);
-
-        for (let i = 0; i < pendingClips.length; i += batchSize) {
-            const batch = pendingClips.slice(i, i + batchSize);
-            await Promise.all(batch.map(clip => this.generateAudio(clip)));
-
-            // Nghỉ một chút giữa các batch để máy "thở"
-            await new Promise(r => setTimeout(r, 500));
-        }
-
-        this.isGlobalProcessing = false;
-        this.toastr.success('Đã hoàn tất toàn bộ danh sách!');
+        this.isCancelled = false;
         this.cd.markForCheck();
+
+        // Lấy thông tin voice của clip đầu tiên để quyết định số luồng
+        const sampleVoice = pendingClips[0].voice || this.selectedVoice;
+        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+        const isEdgeVoice = edgeVoices.includes(sampleVoice);
+        const isTTSTypeVoice = sampleVoice.indexOf('tts.type.vn') !== -1;
+
+        // Xác định số luồng chạy song song
+        const concurrencyLimit = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
+        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Số luồng đồng thời: ${concurrencyLimit})...`, 'System');
+
+        try {
+            let currentIndex = 0;
+
+            // Tạo hàm Worker xử lý liên tục
+            const worker = async () => {
+                while (currentIndex < pendingClips.length) {
+                    if (this.isCancelled) {
+                        console.log('Tiến trình worker đã dừng do người dùng hủy.');
+                        break;
+                    }
+
+                    const taskIndex = currentIndex++;
+                    const clip = pendingClips[taskIndex];
+                    const globalIndex = this.audioList.indexOf(clip); // Lấy vị trí thật trong mảng tổng
+
+                    await this.generateAudio(clip, globalIndex);
+
+                    // Lưu dữ liệu ngay sau khi xong 1 clip
+                    this.saveToLocal();
+                }
+            };
+
+            // Kích hoạt các workers chạy cùng lúc
+            const workers = [];
+            for (let i = 0; i < concurrencyLimit; i++) {
+                workers.push(worker());
+            }
+
+            await Promise.all(workers);
+
+            if (!this.isCancelled) {
+                this.toastr.success('Đã hoàn tất toàn bộ danh sách!');
+            }
+        } catch (err) {
+            console.error('Concurrency processing error:', err);
+            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý liên tục.');
+        } finally {
+            this.isGlobalProcessing = false;
+            this.cd.markForCheck();
+        }
     }
 
     // Tìm đến hàm generateAudio và sửa lại như sau:
-    async generateAudio(clip: AudioClip): Promise<void> {
-        if (!clip.description || !clip.description.trim()) {
-            this.toastr.warning(`"${clip.name}" không có nội dung text`);
-            return Promise.resolve();
-        }
+    async generateAudio(clip: AudioClip, globalIndex?: number): Promise<void> {
+        return new Promise(async (resolve) => {
+            if (!clip.description || !clip.description.trim()) {
+                this.toastr.warning(`"${clip.name}" không có nội dung text`);
+                resolve();
+                return;
+            }
 
-        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+            if (!(window as any).electron || !(window as any).electron.invoke) {
+                this.toastr.error('Cần chạy trên App Desktop (Electron).');
+                resolve();
+                return;
+            }
 
-        // Nếu là giọng Edge TTS Offline
-        if (clip.voice && edgeVoices.includes(clip.voice)) {
-            return this.generateEdgeTTSLocal(clip);
-        }
+            clip.isProcessing = true;
+            this.cd.markForCheck();
 
-        // [MỚI] Nếu là giọng Huệ (ID: 1248295) hoặc các giọng từ AusyncLab
-        return this.generateAusyncTTS(clip);
+            const username = this.user?.name || 'anonymous';
+            const subPath = `${username}/${this.uuid || 'default'}`;
+
+            // Nếu không truyền globalIndex (ví dụ bấm tạo lẻ từng cái), tự tìm index của nó
+            const actualIndex = globalIndex !== undefined ? globalIndex : this.audioList.indexOf(clip);
+            const prefix = (actualIndex >= 0 ? actualIndex + 1 : 0).toString().padStart(3, '0');
+            const slug = this.toSlug(clip.description.substring(0, 50));
+
+            // Lấy thông tin voice của clip
+            const clipVoice = clip.voice || this.selectedVoice;
+            const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+            const isEdgeVoice = edgeVoices.includes(clipVoice);
+
+            let res: any;
+
+            try {
+                if (isEdgeVoice) {
+                    const niceFilename = `${prefix}_${slug}`;
+                    const payload = {
+                        text: clip.description,
+                        voice: clipVoice,
+                        rate: clip.rate || 1.0,
+                        pitch: clip.pitch || 0,
+                        filename: niceFilename,
+                        username: subPath,
+                    };
+                    res = await (window as any).electron.invoke('tts-generate', payload);
+                } else {
+                    const selectedVoiceSplit = clipVoice.split('-');
+                    const voice_id = selectedVoiceSplit[0];
+
+                    if (clipVoice.indexOf('tts.type.vn') !== -1) {
+                        const niceFilename = `${prefix}_${slug}`;
+                        const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
+
+                        if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
+
+                        const payload = {
+                            text: clip.description,
+                            voice_id: voiceInfo[0]['id'],
+                            key: voiceInfo[0]['api_key'],
+                            ref_audio_name: voiceInfo[0]['ref_audio_name'],
+                            ref_text: voiceInfo[0]['ref_text'],
+                            speed: clip.rate || voiceInfo[0]['speed'] || 1.0,
+                            num_step: voiceInfo[0]['num_step'] || 16,
+                            filename: niceFilename,
+                            username: subPath,
+                        };
+                        res = await (window as any).electron.invoke('tts-type-generate', payload);
+                    } else {
+                        const niceFilename = `${prefix}_${slug}_ausync`;
+                        const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
+
+                        if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
+
+                        const payload = {
+                            text: clip.description,
+                            voice_id: voice_id,
+                            key: voiceInfo[0]['api_key'],
+                            speed: clip.rate || voiceInfo[0]['speed'] || 1.0,
+                            filename: niceFilename,
+                            username: subPath,
+                        };
+                        res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+                    }
+                }
+
+                // Xử lý kết quả trả về
+                if (res && res.success !== false && !res.error) {
+                    const rawPath = res.filePath || res.url || res.result;
+                    if (rawPath) {
+                        clip['localFilePath'] = rawPath;
+                        clip.audioFileName = rawPath.split(/[\\/]/).pop();
+                        clip.username = subPath;
+                        clip.rawUrl = null; // Bắt buộc set null để load lại blob mới
+                        clip.isProcessing = false;
+
+                        // Load lại blob để wavesurfer có thể play được
+                        await this.loadLocalAudioContent(clip);
+
+                        if (!this.isGlobalProcessing) {
+                            this.playClip(clip);
+                            this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
+                        }
+                        this.saveToLocal();
+                    }
+                } else {
+                    const errorMsg = res?.error || 'Lỗi không xác định từ API';
+                    this.handleTTSError(clip, errorMsg, resolve);
+                    return; // Dừng tại đây, hàm handleTTSError sẽ quyết định gọi resolve sau
+                }
+            } catch (err: any) {
+                console.error(`Lỗi cho clip ${clip.name}:`, err.message);
+                this.handleTTSError(clip, err.message, resolve);
+                return;
+            } finally {
+                clip.isProcessing = false;
+                this.cd.markForCheck();
+                resolve();
+            }
+        });
+    }
+
+    async cancelProcessing() {
+        this.isCancelled = true;
+        this.toastr.warning('Đang dừng quá trình tạo Audio...');
+        try {
+            if ((window as any).electron) {
+                await (window as any).electron.invoke('cancel-tts');
+            }
+        } catch (err) { }
     }
 
     // Thêm hàm generateAusyncTTS vào class Voice2videoComponent
@@ -593,7 +757,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     ): Promise<boolean> {
         if (!(window as any).electron) return false;
 
-        // Nếu path chưa có, thử dựng lại path (đề phòng F5 mất data)
         let filePath = clip['localFilePath'];
 
         // Nếu clip có rawUrl là blob rồi thì thôi
@@ -604,7 +767,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 'read-local-audio',
                 {
                     path: filePath,
-                    filename: clip.audioFileName, // Fallback nếu bên main cần
+                    filename: clip.audioFileName,
                 },
             );
 
@@ -620,13 +783,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 clip.rawUrl = blobUrl;
                 clip.url = this.sanitizer.bypassSecurityTrustUrl(blobUrl);
+
+                // ==========================================
+                // [MỚI] ĐO VÀ CẬP NHẬT DURATION NGAY LẬP TỨC
+                // ==========================================
+                // Dù là tạo mới hay load lại từ local, nếu duration = 0 thì tự đo lại
+                if (!clip.duration || clip.duration === 0) {
+                    clip.duration = await this.getAudioDuration(blobUrl);
+                    this.calculateTotalDuration(); // Cập nhật ngay tổng thời gian của toàn project
+                }
+                // ==========================================
+
                 return true;
             } else {
-                // [CƠ CHẾ RETRY] Nếu không thấy file và mới thử dưới 3 lần
                 if (retryCount < 3) {
                     console.warn(`Chưa thấy file, thử lại sau 500ms...`);
-                    await new Promise((r) => setTimeout(r, 500)); // Đợi 0.5s
-                    return this.loadLocalAudioContent(clip, retryCount + 1); // Gọi đệ quy
+                    await new Promise((r) => setTimeout(r, 500));
+                    return this.loadLocalAudioContent(clip, retryCount + 1);
                 }
             }
         } catch (e) {
