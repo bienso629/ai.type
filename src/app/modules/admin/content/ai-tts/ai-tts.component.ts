@@ -26,6 +26,7 @@ import WaveSurfer from 'wavesurfer.js';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MyKeysService } from 'app/modules/_services/mykey';
 
 export interface AudioClip {
     id: string;
@@ -50,7 +51,7 @@ export interface AudioClip {
     styleUrls: ['./ai-tts.component.scss'],
     templateUrl: './ai-tts.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [CrawlService],
+    providers: [CrawlService, MyKeysService],
 })
 export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     config: AppConfig;
@@ -101,8 +102,35 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     totalDuration: number = 0;
 
     isGlobalProcessing: boolean = false;
+    myvoices: any = [];
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    getMyKeys() {
+        this._voice.getMyKeys({
+            username: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data.length > 0) {
+                        this.myvoices = result.data;
+                        this.myvoices.map((voice: any) => {
+                            if (voice.base === 'ausynclab.io' || voice.base === 'tts.type.vn') {
+                                this.voiceList.push({
+                                    id: `${voice.id}-${voice.base}`,
+                                    name: voice.name
+                                });
+                            }
+                        });
+                    }
+                },
+                error: (e: any) => {
+                    this.toastr.warning('Tải video thất bại.');
+                },
+                complete: () => { }
+            });
+    }
 
     cleanupBlobs() {
         this.audioList.forEach((clip) => {
@@ -201,7 +229,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const index = this.audioList.indexOf(clip);
         const prefix = (index >= 0 ? index + 1 : 0).toString().padStart(3, '0');
         const slug = this.toSlug(clip.description.substring(0, 50));
-        const niceFilename = `${prefix}_${slug}_ausync`;
+        const niceFilename = `${prefix}_${slug}`;
 
         const payload = {
             text: clip.description,
@@ -256,7 +284,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const shortText = clip.description.substring(0, 50);
         const slug = this.toSlug(shortText);
 
-        const niceFilename = `${prefix}_${slug}_${clip.voice}`;
+        const niceFilename = `${prefix}_${slug}`;
 
         const payload = {
             text: clip.description,
@@ -1270,6 +1298,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     constructor(
         private titleService: Title,
+        private _voice: MyKeysService,
         private _crawlService: CrawlService,
         private _userService: UserService,
         private helperService: HelperService,
@@ -1334,6 +1363,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.currentName = name;
 
             if (this.uuid) {
+                this.getMyKeys();
+
                 // Đảm bảo IndexedDB đã sẵn sàng
                 await this.multiAccountService.isReady;
 
