@@ -3146,14 +3146,22 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
         let attempts = 0;
 
         while (attempts < 200) { // Timeout khoảng 400 giây
+            // === THÊM ĐOẠN NÀY ===
+            // Nếu taskId đã bị hàm cancel-tts xóa khỏi sổ, lập tức dừng vòng lặp
+            if (!activeTtsTasks.has(taskId)) {
+                throw new Error("Task đã bị hủy bởi người dùng.");
+            }
+            // =====================
+
             const statusRes = await fetch(`${API_BASE_URL}/status/${taskId}`);
             const statusData = await statusRes.json();
 
+            // Cập nhật thêm việc bắt trạng thái cancelled từ server (nếu có)
             if (statusData.status === "done") {
-                downloadPath = statusData.download_url; // Endpoint tải file
+                downloadPath = statusData.download_url;
                 break;
-            } else if (statusData.status === "error") {
-                throw new Error(statusData.message || "Model Python báo lỗi trong quá trình xử lý.");
+            } else if (statusData.status === "error" || statusData.status === "cancelled") {
+                throw new Error(statusData.message || "Quá trình tạo audio đã bị dừng hoặc lỗi.");
             }
 
             // Chờ 2 giây trước khi hỏi lại
