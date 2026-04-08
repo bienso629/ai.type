@@ -228,7 +228,7 @@ export class GeminiMatrixDialog {
                         Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
                 const response = await this.ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3-flash-preview',
                     contents: prompt,
                 });
 

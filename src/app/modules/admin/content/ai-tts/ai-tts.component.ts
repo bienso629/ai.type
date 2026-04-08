@@ -874,7 +874,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             Tôi có danh sách các đoạn thoại, định dạng: [ID | Thời lượng] Nội dung...
 
             QUY TẮC BẮT BUỘC:
-            1. TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh (scene) tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 10 GIÂY. Gần chạm 10 giây phải ngắt sang scene mới.
+            1. TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh (scene) tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 9 GIÂY. Gần chạm 9 giây phải ngắt sang scene mới.
             2. GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
             3. KHÔNG BỎ SÓT bất kỳ ID nào.
 
@@ -893,7 +893,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         try {
             const response = await this.ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: promptText,
             });
 

@@ -157,7 +157,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
 
             // Gửi toàn bộ nội dung
             const result = await this.ai.models.generateContent({
-                model: 'gemini-2.5-flash', // Dùng bản 2.0 ổn định
+                model: 'gemini-3-flash-preview', // Dùng bản 2.0 ổn định
                 contents: parts
             });
 
