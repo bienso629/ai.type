@@ -443,7 +443,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                        - Nếu người dùng cung cấp link video trong "CHỈ ĐẠO CỦA ĐẠO DIỄN", trích xuất vào "videoUrl".
                     OUTPUT JSON: { "data": [ { "id": <ID>, "comment": "...", "result": "...", "target_time": "...", "delay": 120, "videoUrl": "..." } ] }
                 `;
-                this.chatSession = this.ai.chats.create({ model: 'gemini-2.5-flash', history: [{ role: "user", parts: [{ text: systemInstruction }] }, { role: "model", parts: [{ text: "Đã hiểu." }] }] });
+                this.chatSession = this.ai.chats.create({ model: 'gemini-3-flash-preview', history: [{ role: "user", parts: [{ text: systemInstruction }] }, { role: "model", parts: [{ text: "Đã hiểu." }] }] });
                 messageToSend = `Nội dung live: "${texts || 'Đang giới thiệu chung'}". ${userPromptBlock} DANH SÁCH DIỄN VIÊN: ${castList} Tạo kịch bản JSON ngay.`;
             } else {
                 messageToSend = `Diễn biến mới: "${texts || 'Vẫn đang tiếp tục'}". ${userPromptBlock} DANH SÁCH DIỄN VIÊN: ${castList} Tiếp tục tạo kịch bản.`;

@@ -615,7 +615,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
             });
 
@@ -1151,7 +1151,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                                 // Call AI to generate content
                                 const response =
                                     await this.ai.models.generateContent({
-                                        model: 'gemini-2.5-flash',
+                                        model: 'gemini-3-flash-preview',
                                         contents: [createUserContent(images)],
                                     });
 
@@ -1279,7 +1279,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Call AI to generate content
                 const response = await this.ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3-flash-preview',
                     contents: [createUserContent(images)],
                 });
 
@@ -1525,7 +1525,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
             });
 

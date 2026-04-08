@@ -728,7 +728,7 @@ Với mỗi từ khóa, hãy:
 Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiểu cho marketer.`;
 
             const response = await this.ai.models.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3-flash-preview',
                 contents: prompt,
             });
 
