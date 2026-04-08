@@ -877,6 +877,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             1. TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh (scene) tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 9 GIÂY. Gần chạm 9 giây phải ngắt sang scene mới.
             2. GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
             3. KHÔNG BỎ SÓT bất kỳ ID nào.
+            4. Tỉ lệ mặc định 9:16.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
