@@ -863,37 +863,31 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const allClips = data.clips;
 
-        // 3. Tạo một dòng văn bản duy nhất kèm ID để AI biết đoạn nào thuộc ID nào
-        // Cấu trúc: [ID:abc] Nội dung văn bản... [ID:xyz] Nội dung...
+        // Rút gọn format đầu vào cho thật "sạch"
         const continuousText = allClips
-            .map((c: any) => `[ID:${c.id}] ${c.description}`)
-            .join(' ');
+            .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
+            .join('\n');
 
-        // 4. Prompt ép buộc gom nhóm (Grouping Logic)
+        // Yêu cầu AI CHỈ trả về mảng các ID, không bắt nó gõ lại text
         const promptText = `
             BẠN LÀ BIÊN TẬP VIÊN VIDEO. 
-            Ví dụ tôi có tổng 138 đoạn văn bản (được đánh dấu bằng [ID:xxx]). 
-            Nhiệm vụ của bạn là gom nhóm chúng lại thành các phân cảnh (scenes), càng ít càng tốt (có thể là dưới 20 phân cảnh thôi).
+            Tôi có danh sách các đoạn thoại, định dạng: [ID | Thời lượng] Nội dung...
 
-            YÊU CẦU:
-            1. Mỗi phân cảnh (scene) PHẢI có:
-            - "prompt": Tạo video bằng tiếng Việt.
-            - "subtitles": Mảng chứa các object { "id": "ID_GỐC", "text": "NỘI DUNG" }.
-            2. Logic gom nhóm: Những đoạn văn bản có nội dung liền mạch hoặc ngắn thì gom chung vào 1 "prompt" ảnh.
-            3. KHÔNG ĐƯỢC bỏ sót bất kỳ ID nào. Phải đảm bảo đủ 138 text gốc.
+            QUY TẮC BẮT BUỘC:
+            1. TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh (scene) tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 10 GIÂY. Gần chạm 10 giây phải ngắt sang scene mới.
+            2. GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
+            3. KHÔNG BỎ SÓT bất kỳ ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
 
-            KẾT QUẢ TRẢ VỀ LÀ JSON ARRAY NHƯ VÍ DỤ SAU:
+            KẾT QUẢ TRẢ VỀ LÀ JSON ARRAY (Chỉ trả về JSON thuần túy). 
+            LƯU Ý: Thay vì mảng objects, chỉ cần trả về mảng các ID (subtitleIds) để tiết kiệm băng thông.
             [
-            {
-                "prompt": "Tạo video cho nhóm này",
-                "subtitles": [
-                { "id": "3l8bm4hkp", "text": "Trân trọng giới thiệu..." },
-                { "id": "aanpwkn1d", "text": "CHƯƠNG I..." }
-                ]
-            }
+              {
+                "prompt": "Mô tả bối cảnh hình ảnh tiếng Việt chi tiết cho scene này...",
+                "subtitleIds": ["9v4x5bk6t", "7u3ca93rv"]
+              }
             ]
         `;
 
@@ -903,18 +897,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 contents: promptText,
             });
 
-            // Lấy text từ cấu trúc candidates
-            const finalScenes = this.helperService.safeJsonParseFromAI(
-                response.text,
-            );
+            // Lấy kết quả từ AI (Lúc này nó chỉ chứa prompt và mảng subtitleIds)
+            const aiResponseScenes = this.helperService.safeJsonParseFromAI(response.text);
 
-            // 5. Lưu cấu trúc mới (Cấu trúc này tối ưu cho Render)
-            // Thay vì lưu theo Clips, ta lưu theo danh sách SCENES
+            // BƯỚC MỚI: Map ID về lại text gốc từ mảng allClips
+            const finalScenes = aiResponseScenes.map((scene: any) => {
+                return {
+                    prompt: scene.prompt,
+                    subtitles: scene.subtitleIds.map((id: string) => {
+                        // Tìm câu thoại gốc dựa trên ID
+                        const originalClip = allClips.find((c: any) => c.id === id);
+                        return {
+                            id: id,
+                            text: originalClip ? originalClip.description : "" // Lắp text gốc vào
+                        };
+                    })
+                };
+            });
+
+            // 5. Lưu cấu trúc mới (Khúc này giữ nguyên như code cũ của bạn)
             const videoProject = {
                 uuid: data.uuid,
                 title: data.title,
                 totalOriginalClips: allClips.length,
-                totalScenes: finalScenes.length, // Sẽ khoảng 100
+                totalScenes: finalScenes.length,
                 scenes: finalScenes,
             };
 
