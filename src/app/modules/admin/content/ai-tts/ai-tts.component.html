@@ -36,20 +36,11 @@
                     [svgIcon]="'heroicons_outline:upload'"></mat-icon>
             </button>
 
+            <button mat-icon-button (click)="clear()" *ngIf="audioList.length > 0">
+                <mat-icon class="icon-size-5 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
+            </button>
+
             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-
-            <button mat-flat-button class="bg-blue-500 text-white" (click)="clear()" *ngIf="audioList.length > 0">
-                <mat-icon [svgIcon]="'feather:repeat'"></mat-icon>
-                <span class="ml-2">Làm mới</span>
-            </button>
-
-            <button mat-flat-button color="primary" (click)="generateAll()" [disabled]="isGlobalProcessing"
-                *ngIf="audioList.length > 0">
-                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
-                    [svgIcon]="'feather:loader'"></mat-icon>
-                <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
-                <span class="ml-2">Tạo podcast</span>
-            </button>
 
             <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button
                 [disabled]="isAnalyzing">
@@ -123,14 +114,15 @@
                             </div>
                             <!-- <span class="text-sm text-gray-400 mr-1">Kéo thả để sắp xếp</span> -->
                             <div class="items-center min-w-[300px]">
-                                <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense" appearance="fill">
+                                <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense border-none" appearance="fill">
                                     <mat-select #bulkVoice [placeholder]="'Chọn giọng đọc...'"
                                         [(ngModel)]="selectedVoice">
                                         <mat-option *ngFor="let v of voiceList" [value]="v.id">{{v.name}}</mat-option>
                                     </mat-select>
                                 </mat-form-field>
 
-                                <mat-form-field class="w-40 ml-2 field-hidden-subscript fuse-mat-dense" appearance="fill">
+                                <mat-form-field class="w-40 ml-2 field-hidden-subscript fuse-mat-dense"
+                                    appearance="fill">
                                     <mat-select #bulkRate [placeholder]="'Tốc độ'">
                                         <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
                                         <mat-option [value]="0.6">0.6x</mat-option>
@@ -148,7 +140,8 @@
                                     </mat-select>
                                 </mat-form-field>
 
-                                <mat-form-field class="w-40 ml-2 field-hidden-subscript fuse-mat-dense" appearance="fill">
+                                <mat-form-field class="w-40 ml-2 field-hidden-subscript fuse-mat-dense"
+                                    appearance="fill">
                                     <mat-select #bulkPitch [placeholder]="'Cao độ'">
                                         <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
                                         <mat-option [value]="-15">-15</mat-option>
@@ -168,6 +161,14 @@
                                     (click)="applyBulkSettings(bulkVoice.value, bulkRate.value, bulkPitch.value)">
                                     <mat-icon [svgIcon]="'heroicons_outline:cog'"></mat-icon>
                                     <span class="ml-2">Cài đặt</span>
+                                </button>
+
+                                <button mat-flat-button color="primary" (click)="generateAll()"
+                                    [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0" class="ml-2">
+                                    <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
+                                        [svgIcon]="'feather:loader'"></mat-icon>
+                                    <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
+                                    <span class="ml-2">Tạo podcast</span>
                                 </button>
                             </div>
                         </div>
