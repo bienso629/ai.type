@@ -101,7 +101,6 @@ function loadBinaries() {
     binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos");
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos");
     binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos");
-    binaries.downloader = getPath("downloader-win.exe", "downloader-macos");
 
     console.log("[Binaries] Đã load xong đường dẫn các tools:", binaries);
 }
