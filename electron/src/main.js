@@ -77,7 +77,7 @@ function loadBinaries() {
         const fileName = isWin ? winName : macName;
         // Đường dẫn tương tự logic cũ của bạn
         const binPath = path.resolve(__dirname, "..", fileName);
-        
+
         // [QUAN TRỌNG] Cấp quyền thực thi trên macOS/Linux để tránh lỗi Permission denied
         if (!isWin && fs.existsSync(binPath)) {
             try {
@@ -86,7 +86,7 @@ function loadBinaries() {
                 console.error(`[Binaries] Lỗi cấp quyền cho ${fileName}:`, e);
             }
         }
-        
+
         // Trả về đường dẫn nếu file tồn tại, nếu không thì log cảnh báo
         if (fs.existsSync(binPath)) {
             return binPath;
@@ -102,7 +102,7 @@ function loadBinaries() {
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos");
     binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos");
     binaries.downloader = getPath("downloader-win.exe", "downloader-macos");
-    
+
     console.log("[Binaries] Đã load xong đường dẫn các tools:", binaries);
 }
 
@@ -2874,10 +2874,28 @@ async function zaloCrawlDirect(tWindow, uniqueID) {
 
 function cleanFilePath(fileUrl) {
     if (!fileUrl) return '';
-    let p = fileUrl.replace('file://', '');
-    if (process.platform === 'win32' && p.startsWith('/')) {
+    let p = fileUrl;
+
+    // Xóa prefix file://
+    if (p.startsWith('file://')) {
+        p = p.substring(7); // Giữ lại dấu / đầu tiên (VD: /C:/... hoặc /Users/...)
+    }
+
+    // Trên Windows, đường dẫn tuyệt đối có dạng /C:/Users/...
+    // Ta cần bỏ dấu / ở đầu đi để thành C:/Users/...
+    if (process.platform === 'win32' && p.match(/^\/[a-zA-Z]:/)) {
         p = p.substring(1);
     }
+
+    try {
+        p = decodeURIComponent(p); // Giải mã %20 thành dấu cách
+    } catch (e) { }
+
+    // Đổi gạch chéo thành gạch chéo ngược chuẩn của Windows
+    if (process.platform === 'win32') {
+        p = p.replace(/\//g, '\\');
+    }
+
     return p;
 }
 
@@ -2942,19 +2960,36 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         let finalAudioListContent = "";
         const finalAudioListTxt = path.join(workspaceDir, 'final_audio_list.txt');
 
+        let errorLogs = []; // Tích lũy lỗi để báo ra UI
+
         // --- BƯỚC 1: XỬ LÝ TỪNG SCENE ---
         for (let i = 0; i < projectData.scenes.length; i++) {
             const scene = projectData.scenes[i];
             const sceneImgPath = cleanFilePath(scene.imageUrl);
-            if (!fs.existsSync(sceneImgPath) || !scene.subtitles) continue;
+
+            // CHỐT 1: Kiểm tra ảnh/video nền
+            if (!sceneImgPath || !fs.existsSync(sceneImgPath)) {
+                errorLogs.push(`Cảnh ${i + 1} (Chưa có ảnh/video nền)`);
+                continue;
+            }
+            if (!scene.subtitles || scene.subtitles.length === 0) {
+                errorLogs.push(`Cảnh ${i + 1} (Không có thoại)`);
+                continue;
+            }
 
             let sceneDurationMs = 0;
             let mergedVtt = "WEBVTT\n\n";
+            let validAudiosInScene = 0;
 
             for (let j = 0; j < scene.subtitles.length; j++) {
                 const sub = scene.subtitles[j];
                 const audioPath = cleanFilePath(sub.audioUrl);
-                if (!fs.existsSync(audioPath)) continue;
+
+                // CHỐT 2: Kiểm tra file âm thanh
+                if (!audioPath || !fs.existsSync(audioPath)) {
+                    errorLogs.push(`Thoại ${j + 1} của Cảnh ${i + 1} (Chưa tạo Audio)`);
+                    continue;
+                }
 
                 const wavPath = path.join(workspaceDir, `temp_${i}_${j}.wav`);
 
@@ -2970,15 +3005,16 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n${sub.text.replace(/\n/g, ' ')}\n\n`;
                 sceneDurationMs += durationMs;
 
-                finalAudioListContent += `file '${wavPath.replace(/\\/g, '/').replace(/'/g, "'\\''")}'\n`;
+                // Ghi tên file gọn gàng
+                finalAudioListContent += `file '${path.basename(wavPath)}'\n`;
+                validAudiosInScene++;
             }
 
-            if (sceneDurationMs === 0) continue;
+            if (validAudiosInScene === 0) continue; // Bỏ qua Scene nếu không có file âm thanh nào hợp lệ
 
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
             const sceneVideoPath = path.join(workspaceDir, `scene_${i}_video.mp4`);
 
-            // FILTER VIDEO: Đã loại bỏ hiệu ứng fade ở đây
             let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
 
             if (includeSubtitle) {
@@ -2996,6 +3032,12 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         }
 
         // --- BƯỚC 2: GỘP AUDIO TỔNG ---
+        // CHỐT 3: Ngăn chặn Render mảng rỗng và báo lỗi siêu chi tiết
+        if (!finalAudioListContent.trim() || sceneVideos.length === 0) {
+            const errDetail = errorLogs.length > 0 ? ` Lỗi: ${errorLogs.join(' | ')}` : '';
+            throw new Error(`Dữ liệu không đủ để Render.${errDetail}`);
+        }
+
         fs.writeFileSync(finalAudioListTxt, finalAudioListContent);
         const finalAudioWav = path.join(workspaceDir, 'final_audio.wav');
         await execPromise(`"${ffmpegCmd}" -y -f concat -safe 0 -i "${finalAudioListTxt}" -ar 44100 -ac 2 "${finalAudioWav}"`);

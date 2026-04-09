@@ -234,34 +234,50 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
     // --- CẬP NHẬT HÀM PLAY ---
     playCurrent() {
-        if (!this.currentSubtitle) return;
+        if (!this.currentScene) return;
 
-        // 1. Chuẩn bị cắt chữ và gán đoạn đầu tiên lên màn hình
+        // Xóa interval/timeout dự phòng cũ nếu có
+        if (this.fallbackInterval) {
+            clearInterval(this.fallbackInterval);
+            clearTimeout(this.fallbackInterval);
+        }
+
+        // ==========================================
+        // [QUAN TRỌNG] XỬ LÝ SCENE KHÔNG CÓ PHỤ ĐỀ
+        // ==========================================
+        if (!this.currentScene.subtitles || this.currentScene.subtitles.length === 0 || !this.currentSubtitle) {
+            this.currentDisplayedText = ''; // Xóa chữ trên màn hình
+            this.isPlaying = true;
+            this.cd.markForCheck();
+
+            // Cho hiển thị hình ảnh/video không lời trong 5 giây rồi tự qua Scene tiếp theo
+            this.fallbackInterval = setTimeout(() => {
+                if (this.isPlaying) this.moveToNextSubtitle();
+            }, 5000);
+            return;
+        }
+
+        // ==========================================
+        // XỬ LÝ SCENE CÓ PHỤ ĐỀ BÌNH THƯỜNG
+        // ==========================================
         this.prepareSubtitleChunks(this.currentSubtitle.text);
         this.currentDisplayedText = this.textChunks.length > 0 ? this.textChunks[0].text : '';
 
         const audioUrl = this.currentSubtitle.audioUrl;
 
-        // Xóa interval dự phòng cũ nếu có
-        if (this.fallbackInterval) clearInterval(this.fallbackInterval);
-
         if (audioUrl) {
             this.audioPlayer.src = audioUrl;
             this.audioPlayer.load();
 
-            // 2. Bắt sự kiện thời gian thực của Audio để đổi chữ
             this.audioPlayer.ontimeupdate = () => {
                 if (this.audioPlayer.duration && this.textChunks.length > 1) {
                     const currentTime = this.audioPlayer.currentTime;
                     const totalDuration = this.audioPlayer.duration;
-
-                    // Tính tổng trọng số (tổng số ký tự)
                     const totalWeight = this.textChunks.reduce((sum, c) => sum + c.weight, 0);
 
                     let accumulatedWeight = 0;
                     let targetIndex = 0;
 
-                    // Tìm xem với giây hiện tại thì đang đọc tới đoạn chunk nào
                     for (let i = 0; i < this.textChunks.length; i++) {
                         accumulatedWeight += this.textChunks[i].weight;
                         const chunkEndTime = (accumulatedWeight / totalWeight) * totalDuration;
@@ -272,7 +288,6 @@ export class LivestreamComponent implements OnInit, OnDestroy {
                         }
                     }
 
-                    // Nếu nhảy sang đoạn mới thì cập nhật UI
                     if (this.currentDisplayedText !== this.textChunks[targetIndex].text) {
                         this.currentDisplayedText = this.textChunks[targetIndex].text;
                         this.cd.markForCheck();
@@ -289,7 +304,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
                 this.cd.markForCheck();
             });
         } else {
-            // Nếu không có Audio, giả lập đổi chữ mỗi 3 giây
+            // Nếu có chữ nhưng chưa tạo file Audio, giả lập đọc 3 giây/đoạn
             this.isPlaying = true;
             this.cd.markForCheck();
 
@@ -303,7 +318,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
                     clearInterval(this.fallbackInterval);
                     if (this.isPlaying) this.moveToNextSubtitle();
                 }
-            }, 3000); // 3 giây đổi 1 đoạn
+            }, 3000);
         }
     }
 
@@ -312,12 +327,15 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
         this.currentSubtitleIndex++;
 
-        // Hết câu thoại trong Scene -> Chuyển Scene
-        if (this.currentSubtitleIndex >= this.currentScene.subtitles.length) {
+        // Đo độ dài mảng thoại (Nếu không có mảng thì coi như độ dài = 0)
+        const currentSubLength = this.currentScene.subtitles ? this.currentScene.subtitles.length : 0;
+
+        // Hết câu thoại trong Scene (hoặc Scene đó rỗng) -> Chuyển Scene
+        if (this.currentSubtitleIndex >= currentSubLength) {
             this.currentSubtitleIndex = 0;
             this.currentSceneIndex++;
 
-            // Hết Scenes -> Lặp lại từ đầu (Loop)
+            // Hết Scenes -> Lặp lại từ đầu (Loop Livestream)
             if (this.currentSceneIndex >= this.projectData.scenes.length) {
                 this.currentSceneIndex = 0;
                 console.log("=== Vòng lặp mới Livestream ===");
@@ -326,6 +344,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
         this.playCurrent();
     }
+
     // Dừng âm thanh và dọn dẹp tiến trình ngay lập tức khi bấm nút X
     stopAudio() {
         this.isPlaying = false;
