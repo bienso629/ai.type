@@ -2991,14 +2991,14 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const isVideoInput = sceneImgPath.toLowerCase().endsWith('.mp4');
             const inputArgs = isVideoInput ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
 
-            await execPromise(`ffmpeg -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`);
+            await execPromise(`"${ffmpegCmd}" -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`);
             sceneVideos.push(sceneVideoPath);
         }
 
         // --- BƯỚC 2: GỘP AUDIO TỔNG ---
         fs.writeFileSync(finalAudioListTxt, finalAudioListContent);
         const finalAudioWav = path.join(workspaceDir, 'final_audio.wav');
-        await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalAudioListTxt}" -ar 44100 -ac 2 "${finalAudioWav}"`);
+        await execPromise(`"${ffmpegCmd}" -y -f concat -safe 0 -i "${finalAudioListTxt}" -ar 44100 -ac 2 "${finalAudioWav}"`);
 
         // --- BƯỚC 3: GỘP CÁC ĐOẠN VIDEO ---
         const finalVideoListTxt = path.join(workspaceDir, 'final_video_list.txt');
@@ -3006,14 +3006,14 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         fs.writeFileSync(finalVideoListTxt, finalVideoListContent);
 
         const finalVideoMuted = path.join(workspaceDir, 'final_video_muted.mp4');
-        await execPromise(`ffmpeg -y -f concat -safe 0 -i "${finalVideoListTxt}" -c copy "${finalVideoMuted}"`);
+        await execPromise(`"${ffmpegCmd}" -y -f concat -safe 0 -i "${finalVideoListTxt}" -c copy "${finalVideoMuted}"`);
 
         // --- BƯỚC 4: GHÉP HÌNH VÀ TIẾNG (MUXING) ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', `${safeTitle}_${Date.now()}.mp4`);
 
         // Sử dụng -map để đảm bảo lấy đúng luồng hình từ video và tiếng từ wav
-        await execPromise(`ffmpeg -y -i "${finalVideoMuted}" -i "${finalAudioWav}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "${finalExportPath}"`);
+        await execPromise(`"${ffmpegCmd}" -y -i "${finalVideoMuted}" -i "${finalAudioWav}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "${finalExportPath}"`);
 
         return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
 
