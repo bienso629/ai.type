@@ -60,6 +60,55 @@ if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
     adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
 }
 
+// ==== QUẢN LÝ BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
+const binaries = {
+    ffmpeg: null,
+    ytdlp: null,
+    edgeTts: null,
+    typeLite: null,
+    downloader: null
+};
+
+function loadBinaries() {
+    const isWin = process.platform === "win32";
+
+    // Hàm phụ trợ để map tên file theo hệ điều hành
+    const getPath = (winName, macName) => {
+        const fileName = isWin ? winName : macName;
+        // Đường dẫn tương tự logic cũ của bạn
+        const binPath = path.resolve(__dirname, "..", fileName);
+        
+        // [QUAN TRỌNG] Cấp quyền thực thi trên macOS/Linux để tránh lỗi Permission denied
+        if (!isWin && fs.existsSync(binPath)) {
+            try {
+                fs.chmodSync(binPath, "755");
+            } catch (e) {
+                console.error(`[Binaries] Lỗi cấp quyền cho ${fileName}:`, e);
+            }
+        }
+        
+        // Trả về đường dẫn nếu file tồn tại, nếu không thì log cảnh báo
+        if (fs.existsSync(binPath)) {
+            return binPath;
+        } else {
+            console.warn(`[Binaries] ⚠️ Không tìm thấy file: ${binPath}`);
+            return null; // Hoặc trả về string trống tùy logic
+        }
+    };
+
+    // Load từng file theo đúng tên bạn đã đặt trong thư mục
+    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos");
+    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos");
+    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos");
+    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos");
+    binaries.downloader = getPath("downloader-win.exe", "downloader-macos");
+    
+    console.log("[Binaries] Đã load xong đường dẫn các tools:", binaries);
+}
+
+// Chạy hàm load ngay khi khởi tạo
+loadBinaries();
+
 async function googleAdsGenerateKeywordIdeas({
     keywordText,
     customerId,
@@ -1585,11 +1634,11 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
  */
 async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pitch) {
     return new Promise((resolve, reject) => {
-        if (!fs.existsSync(edgeTtsExe)) {
-            return reject(new Error(`Không tìm thấy file Edge TTS Core tại: ${edgeTtsExe}`));
+        const exePath = binaries.edgeTts;
+        if (!exePath) {
+            return reject(new Error("Không tìm thấy file Edge TTS Core!"));
         }
 
-        // [SỬA TẠI ĐÂY]: Sử dụng cú pháp --key=value để tránh lỗi tham số âm
         const args = [
             `--text=${text}`,
             `--voice=${voice}`,
@@ -1599,9 +1648,9 @@ async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pi
             `--write-subtitles=${subPath}`
         ];
 
-        sendToRenderer("tools-log", `[TTS-Exe] Executing: ${edgeTtsExe} ...`);
+        sendToRenderer("tools-log", `[TTS-Exe] Executing: ${exePath} ...`);
 
-        execFile(edgeTtsExe, args, (error, stdout, stderr) => {
+        execFile(exePath, args, (error, stdout, stderr) => {
             if (error) {
                 sendToRenderer("tools-log", `[TTS-Exe] Error: ${stderr || error.message}`);
                 return reject(error);
@@ -2137,21 +2186,19 @@ app.whenReady().then(async () => {
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
     createMainWindow();
 
-    if (downloader && fs.existsSync(downloader)) {
-        downloaderProcess = execFile(downloader, [], (err, stdout, stderr) => {
+    if (binaries.downloader) {
+        downloaderProcess = execFile(binaries.downloader, [], (err, stdout, stderr) => {
             if (err) sendToRenderer("tools-log", `❌ Downloader lỗi: ${err}`);
             if (stdout) sendToRenderer("tools-log", `📥 Downloader: ${stdout}`);
-            if (stderr)
-                sendToRenderer("tools-log", `⚠️ Downloader stderr: ${stderr}`);
+            if (stderr) sendToRenderer("tools-log", `⚠️ Downloader stderr: ${stderr}`);
         });
     }
 
-    if (type && fs.existsSync(type)) {
-        typeProcess = execFile(type, [], (err, stdout, stderr) => {
+    if (binaries.typeLite) {
+        typeProcess = execFile(binaries.typeLite, [], (err, stdout, stderr) => {
             if (err) sendToRenderer("tools-log", `❌ Type lỗi: ${err}`);
             if (stdout) sendToRenderer("tools-log", `📥 Type: ${stdout}`);
-            if (stderr)
-                sendToRenderer("tools-log", `⚠️ Type stderr: ${stderr}`);
+            if (stderr) sendToRenderer("tools-log", `⚠️ Type stderr: ${stderr}`);
         });
     }
 
@@ -2835,8 +2882,9 @@ function cleanFilePath(fileUrl) {
 }
 
 async function getAudioDuration(filePath) {
+    const ffmpegCmd = binaries.ffmpeg || "ffmpeg"; // Fallback về system nếu file đi kèm bị lỗi/mất
     try {
-        await execPromise(`ffmpeg -i "${filePath}"`);
+        await execPromise(`"${ffmpegCmd}" -i "${filePath}"`);
         return 2.0;
     } catch (e) {
         const match = e.message.match(/Duration: (\d{2}):(\d{2}):(\d{2}\.\d+)/);
@@ -2864,6 +2912,8 @@ function formatVttTime(ms) {
 
 ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
+        const ffmpegCmd = binaries.ffmpeg || "ffmpeg";
+
         sendToRenderer("tools-log", `[Render] Bắt đầu xử lý dự án: ${projectData.title}`);
 
         // 1. Cấu hình độ phân giải và tỉ lệ
@@ -2909,7 +2959,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 const wavPath = path.join(workspaceDir, `temp_${i}_${j}.wav`);
 
                 // Chuẩn hóa audio (44100Hz Stereo) để tránh lỗi mất tiếng
-                await execPromise(`ffmpeg -y -i "${audioPath}" -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
+                await execPromise(`"${ffmpegCmd}" -y -i "${audioPath}" -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
 
                 const durationSec = await getAudioDuration(wavPath);
                 const durationMs = Math.round(durationSec * 1000);
