@@ -42,6 +42,10 @@
 
             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
+            <input type="text" [(ngModel)]="extraPrompt"
+                class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 w-48 sm:w-64 dark:bg-gray-800 bg-white placeholder-gray-400"
+                placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
+
             <button class="bg-green-500 text-white" (click)="createVideo()" type="button" mat-flat-button
                 [disabled]="isAnalyzing">
                 <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
