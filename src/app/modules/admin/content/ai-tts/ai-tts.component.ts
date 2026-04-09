@@ -75,6 +75,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     private readonly MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 
     projectTitle: string = 'Dự án mới';
+    videoProject: any = null; // [MỚI] Biến lưu trữ kịch bản phân cảnh (scenes)
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
     currentUuid: string | null = null;
@@ -615,9 +616,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     saveToLocal(currentUuid?: string) {
         // Ưu tiên dùng uuid truyền vào, nếu không thì dùng uuid hiện tại của component
         const targetUuid = currentUuid || this.uuid;
-
         if (!targetUuid) return;
 
+        // 1. GOM DỮ LIỆU VÀ LƯU AUDIO LIST
         const dataToSave = {
             uuid: targetUuid,
             title: this.projectTitle,
@@ -626,8 +627,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 name: clip.name,
                 description: clip.description,
                 voice: clip.voice,
-                rate: clip.rate || 1.0,   // Lưu rate
-                pitch: clip.pitch || 0,   // Lưu pitch
+                rate: clip.rate || 1.0,
+                pitch: clip.pitch || 0,
                 duration: clip.duration,
                 audioFileName: clip.audioFileName,
                 username: clip.username,
@@ -636,9 +637,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             })),
         };
 
-        // Lưu vào IndexedDB (thông qua Service) với key định danh theo UUID
-        const storageKey = `${this.STORAGE_AUDIO_KEY}_${targetUuid}`;
-        this.multiAccountService.setItem(storageKey, dataToSave);
+        const storageKeyAudio = `${this.STORAGE_AUDIO_KEY}_${targetUuid}`;
+        this.multiAccountService.setItem(storageKeyAudio, dataToSave);
+
+        // 2. [MỚI] LƯU VIDEO TIMELINE (SCENES) NẾU CÓ DỮ LIỆU
+        if (this.videoProject) {
+            const storageKeyVideo = `${this.STORAGE_CLIPS_KEY}_${targetUuid}`;
+            this.multiAccountService.setItem(storageKeyVideo, this.videoProject);
+        }
     }
 
     loadAudiosFromLocal(currentUuid: string): boolean {
@@ -673,7 +679,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     loadClipsFromLocal(currentUuid?: string): boolean {
         if (!currentUuid) return false;
 
-        // [CẬP NHẬT]: Lấy data từ MultiAccountService
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${currentUuid}`;
         const videoProject = this.multiAccountService.getItem(storageKey);
 
@@ -681,12 +686,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             try {
                 // Kiểm tra xem project có dữ liệu scenes thực tế không
                 if (videoProject.scenes && videoProject.scenes.length > 0) {
+                    this.videoProject = videoProject; // [MỚI] Gán vào biến class
+
                     const isDialogOpen = this.dialog.openDialogs.some(
                         (d) => d.componentInstance instanceof VideoTimelineDialogComponent
                     );
 
                     if (!isDialogOpen) {
-                        this.openTimelineDialog(videoProject);
+                        this.openTimelineDialog(this.videoProject);
                     }
                     return true;
                 }
@@ -877,7 +884,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             1. TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh (scene) tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 9 GIÂY. Gần chạm 9 giây phải ngắt sang scene mới.
             2. GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
             3. KHÔNG BỎ SÓT bất kỳ ID nào.
-            4. Tỉ lệ mặc định 9:16.
+            4. NẾU CHƯA CÓ CÀI ĐẶT TỈ LỆ THIẾT KẾ THÌ ĐẶT MẶC ĐỊNH 9:16.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
@@ -905,19 +912,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 return {
                     prompt: scene.prompt,
+                    imageUrl: null, // Khởi tạo sẵn để Dialog dùng sau này
                     subtitles: scene.subtitleIds.map((id: string) => {
                         // Tìm câu thoại gốc dựa trên ID
                         const originalClip = allClips.find((c: any) => c.id === id);
+                        
+                        // Chuẩn hóa đường dẫn localFilePath thành file:// để HTML5 (Angular) có thể đọc/play được
+                        let safeAudioUrl = null;
+                        if (originalClip && originalClip.localFilePath) {
+                            const safePath = originalClip.localFilePath.replace(/\\/g, '/');
+                            safeAudioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
+                        }
+
                         return {
                             id: id,
-                            text: originalClip ? originalClip.description : "" // Lắp text gốc vào
+                            text: originalClip ? originalClip.description : "",
+                            duration: originalClip ? (originalClip.duration || 0) : 0, // Bốc duration sang
+                            audioUrl: safeAudioUrl // Dialog đang dùng biến 'audioUrl' để check trạng thái
                         };
                     })
                 };
             });
 
-            // 5. Lưu cấu trúc mới (Khúc này giữ nguyên như code cũ của bạn)
-            const videoProject = {
+            // 5. Gán TRỰC TIẾP vào biến class (Không dùng const)
+            this.videoProject = {
                 uuid: data.uuid,
                 title: data.title,
                 totalOriginalClips: allClips.length,
@@ -925,12 +943,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 scenes: finalScenes,
             };
 
-            // [CẬP NHẬT]: Lưu vào MultiAccountService theo UUID
-            const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.uuid}`;
-            this.multiAccountService.setItem(storageKey, videoProject);
+            // [CẬP NHẬT]: Dùng hàm chung để lưu đồng bộ cả 2 mảng
+            this.saveToLocal();
 
             // 2. MỞ DIALOG NGAY LẬP TỨC
-            this.openTimelineDialog(videoProject);
+            this.openTimelineDialog(this.videoProject);
 
             this.toastr.success(
                 `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
@@ -1322,8 +1339,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     /**
- * Áp dụng cấu hình hàng loạt cho tất cả các clip chưa có file upload
- */
+     * Áp dụng cấu hình hàng loạt cho tất cả các clip chưa có file upload
+     */
     applyBulkSettings(voice: string, rate: number, pitch: number): void {
         if (!this.audioList || this.audioList.length === 0) return;
 
