@@ -856,7 +856,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        let geminiKey = this.secretKey[6] || this.secretKey[0];
+        let geminiKey = this.secretKey[1] || this.secretKey[0];
         this.ai = new GoogleGenAI({ apiKey: geminiKey });
 
         // [CẬP NHẬT]: Lấy data từ MultiAccountService thay vì localStorage
@@ -960,25 +960,42 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             // Map ID về lại text gốc, lấy duration và URL từ mảng allClips
             const finalScenes = aiResponseScenes.map((scene: any) => {
-                return {
-                    prompt: scene.prompt,
-                    imageUrl: null,
-                    subtitles: scene.subtitleIds.map((id: string) => {
-                        const originalClip = allClips.find((c: any) => c.id === id);
+                let exactSceneDuration = 0; // Biến tính tổng thời gian của riêng scene này
 
-                        let safeAudioUrl = null;
-                        if (originalClip && originalClip.localFilePath) {
+                const mappedSubtitles = scene.subtitleIds.map((id: string) => {
+                    const originalClip = allClips.find((c: any) => c.id === id);
+
+                    let safeAudioUrl = null;
+                    let clipDuration = 0;
+
+                    if (originalClip) {
+                        clipDuration = originalClip.duration || 0;
+                        exactSceneDuration += clipDuration; // Cộng dồn thời gian từng câu thoại
+
+                        if (originalClip.localFilePath) {
                             const safePath = originalClip.localFilePath.replace(/\\/g, '/');
                             safeAudioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
                         }
+                    }
 
-                        return {
-                            id: id,
-                            text: originalClip ? originalClip.description : "",
-                            duration: originalClip ? (originalClip.duration || 0) : 0,
-                            audioUrl: safeAudioUrl
-                        };
-                    })
+                    return {
+                        id: id,
+                        text: originalClip ? originalClip.description : "",
+                        duration: clipDuration,
+                        audioUrl: safeAudioUrl
+                    };
+                });
+
+                // Làm tròn 1 chữ số thập phân (VD: 4.5s)
+                const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
+
+                // Nối cứng yêu cầu thời lượng vào cuối Prompt của AI
+                const finalScenePrompt = `${scene.prompt.trim()}\n\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
+
+                return {
+                    prompt: finalScenePrompt, // <-- Prompt đã được fix cứng thời gian
+                    imageUrl: null,
+                    subtitles: mappedSubtitles
                 };
             });
 
