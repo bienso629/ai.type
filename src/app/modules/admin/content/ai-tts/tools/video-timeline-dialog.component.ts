@@ -4,6 +4,7 @@ import {
     ViewChild,
     ElementRef,
     Inject,
+    CUSTOM_ELEMENTS_SCHEMA,
 } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -47,11 +48,14 @@ interface electron {
         MatIconModule,
         MatInputModule,
         DragDropModule,
-    ]
+    ],
+    schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class VideoTimelineDialogComponent implements OnInit {
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
-    private readonly STORAGE_AUDIO_KEY = 'ai_type_audio_merger_data';
+    
+    // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
+    showMasterPrompt: boolean = false;
 
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
 

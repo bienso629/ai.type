@@ -8,12 +8,12 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 // --- 1. IMPORT DÒNG NÀY ---
 import { MatSelectModule } from '@angular/material/select';
 import { DragDropModule } from '@angular/cdk/drag-drop';
-import { SharedModule } from 'app/shared.module';
 import { Voice2videoComponent } from 'app/modules/admin/content/ai-tts/ai-tts.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
 import { AddSceneComponent } from 'app/modules/admin/content/ai-tts/tools/add-scene.component';
 import { AudioGenerationComponent } from 'app/modules/admin/content/ai-tts/tools/audio-generation.component';
+import { SharedModule } from 'app/shared.module';
 
 const Routes: Route[] = [
     {
