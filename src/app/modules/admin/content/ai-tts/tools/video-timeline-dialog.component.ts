@@ -193,22 +193,22 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.toastr.info(`Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`, 'Thành công');
 
         // 4. (TÙY CHỌN BỔ SUNG): Tự động gọi tool mở thẳng web Dreamina giống như ở ngoài màn hình chính
-        if ((window as any).electron) {
-            try {
-                const uniqueID = Math.random().toString(36).substr(2, 9);
-                await (window as any).electron.tools({
-                    url: 'https://dreamina.capcut.com',
-                    command: 'dreamina.capcut',
-                    uniqueID,
-                    username: this.projectData['username'] || 'anonymous',
-                    filenamePrefix: `scene_${index + 1}_`,
-                    width: 1600,
-                    height: 900,
-                });
-            } catch (error) {
-                console.error("Lỗi khi mở tool Dreamina:", error);
-            }
-        }
+        // if ((window as any).electron) {
+        //     try {
+        //         const uniqueID = Math.random().toString(36).substr(2, 9);
+        //         await (window as any).electron.tools({
+        //             url: 'https://dreamina.capcut.com',
+        //             command: 'dreamina.capcut',
+        //             uniqueID,
+        //             username: this.projectData['username'] || 'anonymous',
+        //             filenamePrefix: `scene_${index + 1}_`,
+        //             width: 1600,
+        //             height: 900,
+        //         });
+        //     } catch (error) {
+        //         console.error("Lỗi khi mở tool Dreamina:", error);
+        //     }
+        // }
     }
 
     generateAllImages(): void {
