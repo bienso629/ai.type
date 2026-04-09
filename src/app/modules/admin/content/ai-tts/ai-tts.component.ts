@@ -76,6 +76,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     projectTitle: string = 'Dự án mới';
     videoProject: any = null; // [MỚI] Biến lưu trữ kịch bản phân cảnh (scenes)
+    extraPrompt: string = ''; // [MỚI] Biến lưu trữ prompt người dùng nhập thêm
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
     currentUuid: string | null = null;
@@ -875,15 +876,27 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
 
-        // [CẬP NHẬT PROMPT]: Yêu cầu đóng vai Art Director để viết Master Prompt
+        // [MỚI] Quy đổi tổng thời gian ra định dạng phút:giây cho chuyên nghiệp
+        const totalSecs = Math.round(this.totalDuration || 0);
+        const mins = Math.floor(totalSecs / 60);
+        const secs = totalSecs % 60;
+        const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
+
+        // Tạo khối text mang lệnh yêu cầu bổ sung nếu người dùng có nhập
+        const userExtraInstruction = this.extraPrompt && this.extraPrompt.trim() !== ''
+            ? `\n\n🎯 YÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG (Rất quan trọng, phải tuân thủ tuyệt đối):\n- ${this.extraPrompt.trim()}`
+            : '';
+
+        // [CẬP NHẬT PROMPT]: Ép AI ghi chính xác thời lượng vào Master Prompt
         const promptText = `
             BẠN LÀ ĐẠO DIỄN NGHỆ THUẬT (ART DIRECTOR) VÀ BIÊN TẬP VIÊN VIDEO CHUYÊN NGHIỆP. 
-            Tôi có danh sách các đoạn thoại của một kịch bản, định dạng: [ID | Thời lượng] Nội dung...
+            Tôi có danh sách các đoạn thoại của một kịch bản, TỔNG THỜI LƯỢNG CHÍNH XÁC LÀ: ${durationString} (${totalSecs}s).
 
             NHIỆM VỤ CỦA BẠN:
-            1. Sáng tạo MASTER PROMPT (Prompt Tổng): Dựa vào bối cảnh câu chuyện, hãy viết một prompt định hướng thiết kế hình ảnh chung cho toàn bộ video. Phải quy định rõ: Art Style (Cinematic, Ghibli, 3D Pixar, Realistic, v.v...), Không khí (Vibe/Mood), Ánh sáng (Lighting), và Tông màu chủ đạo (Color Palette).
+            1. Sáng tạo MASTER PROMPT (Prompt Tổng): Dựa vào bối cảnh câu chuyện, hãy viết một prompt định hướng thiết kế hình ảnh chung cho toàn bộ video. Phải quy định rõ: Art Style (Cinematic, Ghibli, 3D Pixar, Realistic, v.v...), Không khí (Vibe/Mood), Ánh sáng (Lighting), và Tông màu chủ đạo (Color Palette). 
+               👉 ĐẶC BIỆT BẮT BUỘC: Ở cuối đoạn Master Prompt, phải ghi chốt lại câu: "Tổng thời lượng video: ${durationString}."
             2. Xây dựng TẠO HÌNH NHÂN VẬT: Xác định các nhân vật xuất hiện, mô tả chi tiết ngoại hình, độ tuổi, trang phục đặc trưng để vẽ ảnh nhất quán.
-            3. Gom nhóm các câu thoại thành các phân cảnh (scene).
+            3. Gom nhóm các câu thoại thành các phân cảnh (scene).${userExtraInstruction}
 
             QUY TẮC GOM NHÓM BẮT BUỘC:
             - TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 10 GIÂY. Gần chạm 10 giây phải ngắt sang scene mới.
@@ -895,7 +908,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             KẾT QUẢ TRẢ VỀ LÀ MỘT JSON OBJECT ĐÚNG ĐỊNH DẠNG SAU (Chỉ trả về JSON thuần túy, không bọc markdown):
             {
-              "masterPrompt": "Viết Master Prompt chi tiết bằng tiếng Việt định hướng hình ảnh cho toàn bộ video...",
+              "masterPrompt": "Viết Master Prompt chi tiết bằng tiếng Việt định hướng hình ảnh... (Và kết thúc bằng câu Tổng thời lượng video: ${durationString})",
               "characters": [
                 {
                   "role": "Tên/Vai trò (VD: Ông giáo già)",
