@@ -575,39 +575,39 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         clip.isProcessing = false;
         this.cd.markForCheck();
 
-        console.error(`Error processing clip ${clip.name}:`, errorMessage);
+        // console.error(`Error processing clip ${clip.name}:`, errorMessage);
 
-        // Mở dialog hỏi người dùng
-        const dialogRef = this._fuseConfirmationService.open({
-            title: 'Lỗi chuyển đổi',
-            message: `Không thể tạo audio cho: "<b>${clip.name}</b>"<br>Lỗi: <span class="text-red-500">${errorMessage}</span><br>Bạn có muốn thử lại đoạn này không?`,
-            icon: {
-                show: true,
-                name: 'heroicons_outline:exclamation-circle',
-                color: 'warn',
-            },
-            actions: {
-                confirm: {
-                    show: true,
-                    label: 'Thử lại ngay',
-                    color: 'primary',
-                },
-                cancel: { show: true, label: 'Bỏ qua' },
-            },
-            dismissible: false,
-        });
+        // // Mở dialog hỏi người dùng
+        // const dialogRef = this._fuseConfirmationService.open({
+        //     title: 'Lỗi chuyển đổi',
+        //     message: `Không thể tạo audio cho: "<b>${clip.name}</b>"<br>Lỗi: <span class="text-red-500">${errorMessage}</span><br>Bạn có muốn thử lại đoạn này không?`,
+        //     icon: {
+        //         show: true,
+        //         name: 'heroicons_outline:exclamation-circle',
+        //         color: 'warn',
+        //     },
+        //     actions: {
+        //         confirm: {
+        //             show: true,
+        //             label: 'Thử lại ngay',
+        //             color: 'primary',
+        //         },
+        //         cancel: { show: true, label: 'Bỏ qua' },
+        //     },
+        //     dismissible: false,
+        // });
 
-        dialogRef.afterClosed().subscribe((result) => {
-            if (result === 'confirmed') {
-                // Retry: Gọi lại generateAudio
-                this.generateAudio(clip).then(() => {
-                    if (resolveCallback) resolveCallback();
-                });
-            } else {
-                // Ignore: Resolve để Promise.all tiếp tục chạy các task khác
-                if (resolveCallback) resolveCallback();
-            }
-        });
+        // dialogRef.afterClosed().subscribe((result) => {
+        //     if (result === 'confirmed') {
+        //         // Retry: Gọi lại generateAudio
+        //         this.generateAudio(clip).then(() => {
+        //             if (resolveCallback) resolveCallback();
+        //         });
+        //     } else {
+        //         // Ignore: Resolve để Promise.all tiếp tục chạy các task khác
+        //         if (resolveCallback) resolveCallback();
+        //     }
+        // });
     }
 
     // -----------------------------------------------------------------------------------------------------
