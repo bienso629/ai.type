@@ -4,19 +4,52 @@
         <span>Dựng kịch bản phát Livestream</span>
     </div>
 
-    <button mat-icon-button (click)="close()">
-        <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
-    </button>
+    <div class="flex items-center gap-1">
+        <button mat-icon-button class="ml-2 transition-colors" (click)="showMasterPrompt = !showMasterPrompt">
+            <mat-icon class="icon-size-5"
+                [ngClass]="showMasterPrompt ? 'text-gray-400 hover:text-gray-600' : 'text-blue-500'">
+                {{ showMasterPrompt ? 'visibility_off' : 'visibility' }}
+            </mat-icon>
+        </button>
+
+        <button mat-icon-button (click)="close()">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
+    </div>
 </div>
 
-<div mat-dialog-content class="p-0 overflow-hidden">
+<div mat-dialog-content class="p-0 flex flex-row overflow-hidden">
+    <div class="overflow-y-auto bg-indigo-50 rounded-xl scrollbar-hide flex-shrink-0 transition-all duration-300 ease-in-out"
+        [ngClass]="showMasterPrompt ? 'w-80 opacity-100 mr-2' : 'w-0 opacity-0 mr-0 overflow-hidden border-none'">
+
+        <div class="w-80 p-4">
+            <div class="flex items-center mb-2">
+                <mat-icon class="icon-size-5 text-indigo-600 mr-2"
+                    [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
+                <h3 class="font-bold text-indigo-800 text-sm">Master Prompt (Định hướng hình ảnh)</h3>
+            </div>
+            <p class="text-gray-700 text-sm mb-4 italic">"{{ projectData?.masterPrompt }}"</p>
+
+            <div class="flex items-center mb-2">
+                <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:users'"></mat-icon>
+                <h3 class="font-bold text-indigo-800 text-sm">Tạo hình Nhân vật (Casting)</h3>
+            </div>
+            <ul class="list-disc pl-5 text-sm text-gray-700">
+                @for (char of projectData?.characters; track char) {
+                <li class="mb-1"><span class="font-bold text-indigo-900">{{ char.role }}:</span> {{ char.personality }}
+                </li>
+                }
+            </ul>
+        </div>
+    </div>
+
     <div class="flex overflow-x-hidden scrollbar-hide rounded-xl space-x-4 timeline-container cursor-grab active:cursor-grabbing"
         #scrollContainer (mousedown)="startDragging($event)" (mouseleave)="stopDragging()" (mouseup)="stopDragging()"
         (mousemove)="moveEvent($event)" cdkDropList cdkDropListOrientation="horizontal"
         (cdkDropListDropped)="onSceneDropped($event)">
 
         @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
-        <div class="flex-none w-100 max-h-full h-full bg-gray-50 rounded-xl overflow-hidden select-none example-box relative"
+        <div class="flex-none w-80 max-h-full h-full bg-gray-50 rounded-xl overflow-hidden select-none example-box relative"
             cdkDrag>
             <div class="cdk-drag-handle absolute top-2 left-2 z-10 flex items-center justify-center cursor-move"
                 cdkDragHandle>
@@ -30,10 +63,10 @@
             <button mat-icon-button color="warn"
                 class="absolute icon-size-6 top-2 right-2 z-10 flex items-center justify-center rounded-full"
                 (click)="$event.stopPropagation(); removeScene($index)" size="small">
-                <mat-icon class="icon-size-5">delete</mat-icon>
+                <mat-icon class="icon-size-4">delete</mat-icon>
             </button>
 
-            <div class="bg-gray-100 max-h-60 h-60 overflow-hidden relative flex items-center justify-center group">
+            <div class="bg-gray-200 max-h-60 h-60 overflow-hidden relative flex items-center justify-center group">
                 @if (scene.imageUrl) {
                 <ng-container *ngIf="isImageType(scene.imageUrl); else videoPlayer">
                     <img [src]="scene.imageUrl" class="w-full h-full object-cover pointer-events-none">
@@ -64,7 +97,7 @@
                 </div>
             </div>
 
-            <div class="p-4 max-h-60 h-60 bg-white bg-opacity-70 m-2 overflow-auto scrollbar-hide rounded-lg">
+            <div class="p-4 max-h-60 h-60 overflow-auto scrollbar-hide rounded-lg">
                 <div class="flex-grow overflow-y-auto text-sm scrollbar-hide">
                     @for (sub of scene.subtitles; track sub.id || subIdx; let subIdx = $index) {
                     <div class="relative flex items-start mb-1.5 last:mb-0 group">

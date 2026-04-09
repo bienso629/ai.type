@@ -875,49 +875,84 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
 
-        // Yêu cầu AI CHỈ trả về mảng các ID, không bắt nó gõ lại text
+        // [CẬP NHẬT PROMPT]: Yêu cầu đóng vai Art Director để viết Master Prompt
         const promptText = `
-            BẠN LÀ BIÊN TẬP VIÊN VIDEO. 
-            Tôi có danh sách các đoạn thoại, định dạng: [ID | Thời lượng] Nội dung...
+            BẠN LÀ ĐẠO DIỄN NGHỆ THUẬT (ART DIRECTOR) VÀ BIÊN TẬP VIÊN VIDEO CHUYÊN NGHIỆP. 
+            Tôi có danh sách các đoạn thoại của một kịch bản, định dạng: [ID | Thời lượng] Nội dung...
 
-            QUY TẮC BẮT BUỘC:
-            1. TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh (scene) tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 9 GIÂY. Gần chạm 9 giây phải ngắt sang scene mới.
-            2. GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
-            3. KHÔNG BỎ SÓT bất kỳ ID nào.
-            4. NẾU CHƯA CÓ CÀI ĐẶT TỈ LỆ THIẾT KẾ THÌ ĐẶT MẶC ĐỊNH 9:16.
+            NHIỆM VỤ CỦA BẠN:
+            1. Sáng tạo MASTER PROMPT (Prompt Tổng): Dựa vào bối cảnh câu chuyện, hãy viết một prompt định hướng thiết kế hình ảnh chung cho toàn bộ video. Phải quy định rõ: Art Style (Cinematic, Ghibli, 3D Pixar, Realistic, v.v...), Không khí (Vibe/Mood), Ánh sáng (Lighting), và Tông màu chủ đạo (Color Palette).
+            2. Xây dựng TẠO HÌNH NHÂN VẬT: Xác định các nhân vật xuất hiện, mô tả chi tiết ngoại hình, độ tuổi, trang phục đặc trưng để vẽ ảnh nhất quán.
+            3. Gom nhóm các câu thoại thành các phân cảnh (scene).
+
+            QUY TẮC GOM NHÓM BẮT BUỘC:
+            - TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 10 GIÂY. Gần chạm 10 giây phải ngắt sang scene mới.
+            - GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
+            - KHÔNG BỎ SÓT bất kỳ ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
 
-            KẾT QUẢ TRẢ VỀ LÀ JSON ARRAY (Chỉ trả về JSON thuần túy). 
-            LƯU Ý: Thay vì mảng objects, chỉ cần trả về mảng các ID (subtitleIds) để tiết kiệm băng thông.
-            [
-              {
-                "prompt": "Mô tả bối cảnh hình ảnh tiếng Việt chi tiết cho scene này...",
-                "subtitleIds": ["9v4x5bk6t", "7u3ca93rv"]
-              }
-            ]
+            KẾT QUẢ TRẢ VỀ LÀ MỘT JSON OBJECT ĐÚNG ĐỊNH DẠNG SAU (Chỉ trả về JSON thuần túy, không bọc markdown):
+            {
+              "masterPrompt": "Viết Master Prompt chi tiết bằng tiếng Việt định hướng hình ảnh cho toàn bộ video...",
+              "characters": [
+                {
+                  "role": "Tên/Vai trò (VD: Ông giáo già)",
+                  "personality": "Mô tả ngoại hình, trang phục, sắc thái..."
+                }
+              ],
+              "scenes": [
+                {
+                  "prompt": "Mô tả hình ảnh chi tiết cho scene này (Lưu ý: phải match với Master Prompt ở trên)...",
+                  "subtitleIds": ["9v4x5bk6t", "7u3ca93rv"]
+                }
+              ]
+            }
         `;
 
         try {
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: promptText,
-            });
+            // Khởi tạo các biến cho cơ chế Retry
+            let retries = 3;
+            let delay = 2000;
+            let response = null;
 
-            // Lấy kết quả từ AI (Lúc này nó chỉ chứa prompt và mảng subtitleIds)
-            const aiResponseScenes = this.helperService.safeJsonParseFromAI(response.text);
+            // Vòng lặp thử lại nếu gặp lỗi 503
+            for (let i = 0; i < retries; i++) {
+                try {
+                    response = await this.ai.models.generateContent({
+                        model: 'gemini-2.5-flash',
+                        contents: promptText,
+                    });
+                    break;
+                } catch (apiError: any) {
+                    const isOverloaded = apiError?.message?.includes('503') || apiError?.status === 503;
+                    if (isOverloaded && i < retries - 1) {
+                        console.warn(`[Gemini API] Server đang bận. Đang thử lại lần ${i + 1}/${retries}...`);
+                        this.toastr.info(`AI đang bận, tự động thử lại lần ${i + 1}...`, 'Hệ thống');
+                        await new Promise(r => setTimeout(r, delay));
+                        delay *= 2;
+                    } else {
+                        throw apiError;
+                    }
+                }
+            }
 
-            // BƯỚC MỚI: Map ID về lại text gốc từ mảng allClips
+            if (!response) throw new Error("Không nhận được phản hồi từ AI sau nhiều lần thử.");
+
+            // [CẬP NHẬT LOGIC MAP DỮ LIỆU]: Lấy Object tổng thể thay vì Array
+            // Lấy Object tổng thể từ AI
+            const aiResponse = this.helperService.safeJsonParseFromAI(response.text);
+            const aiResponseScenes = aiResponse.scenes || [];
+
+            // Map ID về lại text gốc, lấy duration và URL từ mảng allClips
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 return {
                     prompt: scene.prompt,
-                    imageUrl: null, // Khởi tạo sẵn để Dialog dùng sau này
+                    imageUrl: null,
                     subtitles: scene.subtitleIds.map((id: string) => {
-                        // Tìm câu thoại gốc dựa trên ID
                         const originalClip = allClips.find((c: any) => c.id === id);
-                        
-                        // Chuẩn hóa đường dẫn localFilePath thành file:// để HTML5 (Angular) có thể đọc/play được
+
                         let safeAudioUrl = null;
                         if (originalClip && originalClip.localFilePath) {
                             const safePath = originalClip.localFilePath.replace(/\\/g, '/');
@@ -927,41 +962,40 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         return {
                             id: id,
                             text: originalClip ? originalClip.description : "",
-                            duration: originalClip ? (originalClip.duration || 0) : 0, // Bốc duration sang
-                            audioUrl: safeAudioUrl // Dialog đang dùng biến 'audioUrl' để check trạng thái
+                            duration: originalClip ? (originalClip.duration || 0) : 0,
+                            audioUrl: safeAudioUrl
                         };
                     })
                 };
             });
 
-            // 5. Gán TRỰC TIẾP vào biến class (Không dùng const)
+            // 5. Gán TRỰC TIẾP vào biến class, THAY "overview" BẰNG "masterPrompt"
             this.videoProject = {
                 uuid: data.uuid,
                 title: data.title,
+                masterPrompt: aiResponse.masterPrompt || "", // <-- Lấy Master Prompt từ AI
+                characters: aiResponse.characters || [],     // <-- Lấy Danh sách nhân vật
                 totalOriginalClips: allClips.length,
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,
             };
 
-            // [CẬP NHẬT]: Dùng hàm chung để lưu đồng bộ cả 2 mảng
+            // Dùng hàm chung để lưu đồng bộ
             this.saveToLocal();
 
-            // 2. MỞ DIALOG NGAY LẬP TỨC
+            // MỞ DIALOG
             this.openTimelineDialog(this.videoProject);
 
             this.toastr.success(
                 `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
                 'Thành công',
             );
-
-            this.isAnalyzing = false;
         } catch (error) {
             console.error('Lỗi logic gom nhóm:', error);
-
+            this.toastr.error('Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau ít phút.');
+        } finally {
             this.isAnalyzing = false;
-            this.toastr.error(
-                'Lỗi khi tối ưu nội dung bằng AI. Vui lòng thử lại.',
-            );
+            this.cd.markForCheck();
         }
     }
 
@@ -998,8 +1032,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
 
         this.dialog.open(VideoTimelineDialogComponent, {
-            width: '95vw', // Chiều rộng chiếm 95% màn hình
-            maxHeight: '90vh', // Chỉ giới hạn chiều cao tối đa
+            width: '98vw', // Chiều rộng chiếm 95% màn hình
+            maxHeight: '69vh', // Chỉ giới hạn chiều cao tối đa
             height: 'auto', // Tự động co giãn theo nội dung
             data: data, // Truyền dữ liệu trực tiếp vào dialog
             panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần
