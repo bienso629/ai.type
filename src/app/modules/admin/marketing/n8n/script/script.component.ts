@@ -450,12 +450,10 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             }
 
             const result = await this.chatSession.sendMessage({ message: messageToSend });
-            const responseText = result.text;
-            const jsonMatch = responseText.match(/```json\n([\s\S]*?)```/) || responseText.match(/\{[\s\S]*\}/);
+            const jsonMatch = result.text;
             if (jsonMatch) {
-                let jsonString = jsonMatch[1] || jsonMatch[0];
                 try {
-                    this.comments = JSON.parse(jsonString);
+                    this.comments = JSON.parse(jsonMatch);
                     this.generateRandomComment();
                     this.toastr.success('Đã tạo kịch bản thành công!');
                 } catch (e) {

@@ -77,25 +77,32 @@ function loadBinaries() {
 
     const getPath = (winName, macName, label) => {
         const fileName = isWin ? winName : macName;
-
-        // 1. Đường dẫn gốc (khi chạy dev)
         let binPath = path.resolve(__dirname, "..", fileName);
 
-        // 2. Kiểm tra nếu đang chạy trong môi trường đã đóng gói (ASAR)
         if (binPath.includes('app.asar')) {
-            // Chuyển đổi đường dẫn từ app.asar sang app.asar.unpacked
             binPath = binPath.replace('app.asar', 'app.asar.unpacked');
         }
 
         if (fs.existsSync(binPath)) {
             if (!isWin) {
-                try { fs.chmodSync(binPath, "755"); } catch (e) { }
+                try {
+                    // Cấp quyền thực thi
+                    fs.chmodSync(binPath, "755");
+
+                    // Tự động gỡ quarantine trên Mac nếu có thể (chạy ngầm)
+                    if (process.platform === 'darwin') {
+                        exec(`xattr -dr com.apple.quarantine "${binPath}"`, (err) => {
+                            if (err) console.log(`[Gatekeeper] Không cần gỡ quarantine hoặc đã sạch.`);
+                        });
+                    }
+                } catch (e) {
+                    console.error(`Lỗi cấp quyền cho ${label}:`, e);
+                }
             }
-            results.push(`✅ ${label}: Sẵn sàng`);
             return binPath;
         } else {
             hasError = true;
-            results.push(`❌ ${label}: KHÔNG TÌM THẤY`);
+            results.push(`❌ ${label}: KHÔNG TÌM THẤY tại ${binPath}`);
             return null;
         }
     };
@@ -105,19 +112,15 @@ function loadBinaries() {
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
     binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
 
-    // Chỉ hiển thị dialog nếu phát hiện lỗi thiếu file
+    // CHỈ HIỆN DIALOG KHI CÓ LỖI THỰC SỰ (THIẾU FILE)
     if (hasError) {
-        const statusMessage = results.join("\n");
         dialog.showMessageBox({
             type: 'error',
-            title: 'Kiểm tra hệ thống thực thi',
-            message: 'Phát hiện thiếu file hệ thống!',
-            detail: statusMessage + `\n\nLưu ý: Với macOS, hãy đảm bảo các file *-macos nằm ở thư mục gốc của dự án.`,
+            title: 'Lỗi Hệ Thống',
+            message: 'Phát hiện thiếu file thực thi quan trọng!',
+            detail: results.join("\n"),
             buttons: ['OK']
         });
-    } else {
-        // Ghi log vào console hoặc terminal thay vì hiện popup làm phiền người dùng
-        console.log("Hệ thống binary đã sẵn sàng!");
     }
 }
 

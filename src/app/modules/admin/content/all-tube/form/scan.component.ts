@@ -324,7 +324,6 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
             model: 'gemini-3-flash-preview',
             contents: 'Why is the sky blue?',
         });
-        console.log(response.text);
     }
 
     download() {
