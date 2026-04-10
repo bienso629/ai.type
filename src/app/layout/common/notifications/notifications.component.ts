@@ -540,7 +540,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                 const ai = new GoogleGenAI({ apiKey: this.secretKey[index] });
 
                 return ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3-flash-preview',
                     contents: createUserContent(imageParts)
                 });
             } catch (error) {
@@ -555,7 +555,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                     const ai = new GoogleGenAI({ apiKey: this.secretKey[index] });
 
                     return ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3-flash-preview',
                         contents: prompt,
                     });
                 } catch (error) {
@@ -568,7 +568,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     async createImage(prompt: string, index: number) {
         const ai = new GoogleGenAI({ apiKey: this.secretKey[index] });
         return ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
+            model: 'gemini-3-flash-preview-image',
             contents: prompt,
             config: {
                 responseModalities: [Modality.TEXT, Modality.IMAGE],
