@@ -853,13 +853,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.toastr.error(
                 'Thiếu API Key cho AI. Vui lòng kiểm tra cài đặt.',
             );
+            this.isAnalyzing = false;
             return;
         }
 
-        let geminiKey = this.secretKey[1] || this.secretKey[0];
+        let geminiKey = this.secretKey[6] || this.secretKey[0];
         this.ai = new GoogleGenAI({ apiKey: geminiKey });
 
-        // [CẬP NHẬT]: Lấy data từ MultiAccountService thay vì localStorage
+        // Lấy data từ MultiAccountService thay vì localStorage
         const storageKey = `${this.STORAGE_AUDIO_KEY}_${this.uuid}`;
         const data = this.multiAccountService.getItem(storageKey);
 
@@ -876,49 +877,86 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
 
-        // [MỚI] Quy đổi tổng thời gian ra định dạng phút:giây cho chuyên nghiệp
+        // [CẬP NHẬT] Phân tích định dạng yêu cầu
+        const defaultFormat = "Video Cinematic chuyên nghiệp";
+        const userFormat = this.extraPrompt && this.extraPrompt.trim() !== ''
+            ? this.extraPrompt.trim()
+            : defaultFormat;
+
+        // Tự động phát hiện định dạng
+        const userFormatLower = userFormat.toLowerCase();
+
+        const isComic = userFormatLower.includes('truyện') ||
+            userFormatLower.includes('comic') ||
+            userFormatLower.includes('manga') ||
+            userFormatLower.includes('webtoon');
+
+        // Phát hiện xem người dùng có muốn làm màn dọc không
+        const isVertical = userFormatLower.includes('9:16') ||
+            userFormatLower.includes('dọc') ||
+            userFormatLower.includes('tiktok') ||
+            userFormatLower.includes('shorts') ||
+            userFormatLower.includes('reels') ||
+            userFormatLower.includes('webtoon');
+
+        // Xử lý thời lượng
+        const maxDurationRule = isComic
+            ? "TỐI ĐA 20 GIÂY cho mỗi Trang/Khung truyện (để có đủ nội dung chia thành 3-5 hình nhỏ)."
+            : "TỐI ĐA 10 GIÂY cho mỗi Phân cảnh (để giữ nhịp độ video dồn dập).";
+
+        // Phân nhánh "Thần chú" cho AI vẽ ảnh
+        let comicInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO/ẢNH: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động cụ thể.`;
+
+        if (isComic) {
+            if (isVertical) {
+                // Thần chú cho truyện cuộn dọc 9:16 (Webtoon)
+                comicInstruction = `\n👉 HƯỚNG DẪN ĐẶC BIỆT CHO TRUYỆN TRANH DỌC (9:16): Mỗi "scene" đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Trong phần "prompt" của scene đó, BẮT BUỘC mở đầu bằng câu tiếng Anh: "A vertical scrolling webtoon comic strip, panels stacked vertically from top to bottom..." sau đó mô tả nội dung các ô truyện.`;
+            } else {
+                // Thần chú cho truyện ngang/vuông truyền thống
+                comicInstruction = `\n👉 HƯỚNG DẪN ĐẶC BIỆT CHO TRUYỆN TRANH: Mỗi "scene" đại diện cho MỘT TRANG TRUYỆN. Trong phần "prompt" của scene đó, BẮT BUỘC mở đầu bằng câu tiếng Anh: "A multi-panel comic page layout, split into multiple frames..." sau đó mô tả nội dung các ô truyện.`;
+            }
+        }
+
+        // Quy đổi tổng thời gian ra định dạng phút:giây cho chuyên nghiệp
         const totalSecs = Math.round(this.totalDuration || 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
 
-        // Tạo khối text mang lệnh yêu cầu bổ sung nếu người dùng có nhập
-        const userExtraInstruction = this.extraPrompt && this.extraPrompt.trim() !== ''
-            ? `\n\n🎯 YÊU CẦU BỔ SUNG TỪ NGƯỜI DÙNG (Rất quan trọng, phải tuân thủ tuyệt đối):\n- ${this.extraPrompt.trim()}`
-            : '';
-
-        // [CẬP NHẬT PROMPT]: Ép AI ghi chính xác thời lượng vào Master Prompt
+        // [CẬP NHẬT PROMPT]: Trí tuệ nhân tạo siêu thích ứng
         const promptText = `
-            BẠN LÀ ĐẠO DIỄN NGHỆ THUẬT (ART DIRECTOR) VÀ BIÊN TẬP VIÊN VIDEO CHUYÊN NGHIỆP. 
+            BẠN LÀ GIÁM ĐỐC SÁNG TẠO (CREATIVE DIRECTOR) XUẤT SẮC. 
             Tôi có danh sách các đoạn thoại của một kịch bản, TỔNG THỜI LƯỢNG CHÍNH XÁC LÀ: ${durationString} (${totalSecs}s).
 
+            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${comicInstruction}
+
             NHIỆM VỤ CỦA BẠN:
-            1. Sáng tạo MASTER PROMPT (Prompt Tổng): Dựa vào bối cảnh câu chuyện, hãy viết một prompt định hướng thiết kế hình ảnh chung cho toàn bộ video. Phải quy định rõ: Art Style (Cinematic, Ghibli, 3D Pixar, Realistic, v.v...), Không khí (Vibe/Mood), Ánh sáng (Lighting), và Tông màu chủ đạo (Color Palette). 
-               👉 ĐẶC BIỆT BẮT BUỘC: Ở cuối đoạn Master Prompt, phải ghi chốt lại câu: "Tổng thời lượng video: ${durationString}."
-            2. Xây dựng TẠO HÌNH NHÂN VẬT: Xác định các nhân vật xuất hiện, mô tả chi tiết ngoại hình, độ tuổi, trang phục đặc trưng để vẽ ảnh nhất quán.
-            3. Gom nhóm các câu thoại thành các phân cảnh (scene).${userExtraInstruction}
+            1. Sáng tạo MASTER PROMPT (Prompt Tổng): Dựa vào định dạng tác phẩm và bối cảnh câu chuyện, hãy viết một prompt định hướng hình ảnh chung. Quy định rõ: Art Style, Không khí (Vibe/Mood), Ánh sáng, và Tông màu. 
+               👉 ĐẶC BIỆT BẮT BUỘC: Ở cuối đoạn Master Prompt, phải ghi chốt lại câu: "Tổng thời lượng tác phẩm: ${durationString}."
+            2. Xây dựng TẠO HÌNH NHÂN VẬT: Xác định các nhân vật xuất hiện, mô tả chi tiết ngoại hình, độ tuổi, trang phục đặc trưng để vẽ nhất quán.
+            3. Gom nhóm các câu thoại thành các phân cảnh (scene / trang truyện).
 
             QUY TẮC GOM NHÓM BẮT BUỘC:
-            - TỔNG THỜI LƯỢNG TỐI ĐA: Cộng dồn "Thời lượng" của các câu trong cùng một phân cảnh tuyệt đối KHÔNG ĐƯỢC VƯỢT QUÁ 10 GIÂY. Gần chạm 10 giây phải ngắt sang scene mới.
+            - ${maxDurationRule} Gần chạm mốc thời gian này phải ngắt sang scene/panel mới.
             - GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
-            - KHÔNG BỎ SÓT bất kỳ ID nào.
+            - KHÔNG BỎ SÓT bất kỳ ID thoại nào.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
 
             KẾT QUẢ TRẢ VỀ LÀ MỘT JSON OBJECT ĐÚNG ĐỊNH DẠNG SAU (Chỉ trả về JSON thuần túy, không bọc markdown):
             {
-              "masterPrompt": "Viết Master Prompt chi tiết bằng tiếng Việt định hướng hình ảnh... (Và kết thúc bằng câu Tổng thời lượng video: ${durationString})",
+              "masterPrompt": "Viết Master Prompt chi tiết bằng tiếng Việt định hướng hình ảnh... (Và kết thúc bằng câu Tổng thời lượng tác phẩm: ${durationString})",
               "characters": [
                 {
-                  "role": "Tên/Vai trò (VD: Ông giáo già)",
-                  "personality": "Mô tả ngoại hình, trang phục, sắc thái..."
+                  "role": "Tên/Vai trò",
+                  "personality": "Mô tả ngoại hình, trang phục..."
                 }
               ],
               "scenes": [
                 {
-                  "prompt": "Mô tả hình ảnh chi tiết cho scene này (Lưu ý: phải match với Master Prompt ở trên)...",
-                  "subtitleIds": ["9v4x5bk6t", "7u3ca93rv"]
+                  "prompt": "Mô tả chi tiết (Nhớ tuân thủ hướng dẫn mở đầu prompt tùy theo định dạng Truyện tranh hay Video)...",
+                  "subtitleIds": ["id1", "id2"]
                 }
               ]
             }
@@ -934,7 +972,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             for (let i = 0; i < retries; i++) {
                 try {
                     response = await this.ai.models.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3-flash-preview',
                         contents: promptText,
                     });
                     break;
@@ -953,7 +991,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             if (!response) throw new Error("Không nhận được phản hồi từ AI sau nhiều lần thử.");
 
-            // [CẬP NHẬT LOGIC MAP DỮ LIỆU]: Lấy Object tổng thể thay vì Array
             // Lấy Object tổng thể từ AI
             const aiResponse = this.helperService.safeJsonParseFromAI(response.text);
             const aiResponseScenes = aiResponse.scenes || [];
@@ -999,7 +1036,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 };
             });
 
-            // 5. Gán TRỰC TIẾP vào biến class, THAY "overview" BẰNG "masterPrompt"
+            // Gán TRỰC TIẾP vào biến class
             this.videoProject = {
                 uuid: data.uuid,
                 title: data.title,
@@ -1022,7 +1059,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             );
         } catch (error) {
             console.error('Lỗi logic gom nhóm:', error);
-            this.toastr.error('Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau ít phút.');
+            this.toastr.error('Hệ thống AI hiện đang quá tải hoặc cấu trúc trả về lỗi. Vui lòng thử lại sau ít phút.');
         } finally {
             this.isAnalyzing = false;
             this.cd.markForCheck();
