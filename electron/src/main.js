@@ -105,16 +105,20 @@ function loadBinaries() {
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
     binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
 
-    // Bắn Alert ngay lập tức ra màn hình máy tính (không thông qua Angular)
-    const statusMessage = results.join("\n");
-
-    dialog.showMessageBox({
-        type: hasError ? 'error' : 'info',
-        title: 'Kiểm tra hệ thống thực thi',
-        message: hasError ? 'Phát hiện thiếu file hệ thống!' : 'Hệ thống đã sẵn sàng!',
-        detail: statusMessage + (hasError ? `\n\nLưu ý: Với macOS, hãy đảm bảo các file *-macos nằm ở thư mục gốc của dự án.` : ''),
-        buttons: ['OK']
-    });
+    // Chỉ hiển thị dialog nếu phát hiện lỗi thiếu file
+    if (hasError) {
+        const statusMessage = results.join("\n");
+        dialog.showMessageBox({
+            type: 'error',
+            title: 'Kiểm tra hệ thống thực thi',
+            message: 'Phát hiện thiếu file hệ thống!',
+            detail: statusMessage + `\n\nLưu ý: Với macOS, hãy đảm bảo các file *-macos nằm ở thư mục gốc của dự án.`,
+            buttons: ['OK']
+        });
+    } else {
+        // Ghi log vào console hoặc terminal thay vì hiện popup làm phiền người dùng
+        console.log("Hệ thống binary đã sẵn sàng!");
+    }
 }
 
 async function googleAdsGenerateKeywordIdeas({
@@ -3022,8 +3026,23 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             if (includeSubtitle) {
                 const mergedVttPath = path.join(workspaceDir, `scene_${i}_merged.vtt`);
                 fs.writeFileSync(mergedVttPath, mergedVtt, 'utf-8');
-                const safeSubPath = mergedVttPath.replace(/\\/g, '/').replace(/:/g, '\\:');
-                videoFilter += `,subtitles='${safeSubPath}'`;
+
+                let safeSubPath = mergedVttPath;
+
+                if (process.platform === 'win32') {
+                    // Windows: Cần xử lý dấu : sau ổ đĩa và đổi ngược gạch chéo
+                    safeSubPath = safeSubPath.replace(/\\/g, '/').replace(/:/g, '\\:');
+                } else {
+                    // macOS/Linux: Escape các ký tự đặc biệt như dấu cách, dấu phẩy, dấu hai chấm
+                    // FFmpeg filter yêu cầu escape các ký tự này để không hiểu lầm là tham số filter
+                    safeSubPath = safeSubPath
+                        .replace(/,/g, '\\,')
+                        .replace(/'/g, "'\\\\\\''") // Escape dấu nháy đơn cực kỳ phức tạp trong ffmpeg
+                        .replace(/:/g, '\\:');
+                }
+
+                // Thay đổi dòng videoFilter nếu cần định dạng font
+                videoFilter += `,subtitles='${safeSubPath}':force_style='FontName=Arial,FontSize=18'`;
             }
 
             const isVideoInput = sceneImgPath.toLowerCase().endsWith('.mp4');
