@@ -6,6 +6,7 @@ const {
     screen,
     session,
     ipcMain,
+    dialog, // <--- Thêm cái này vào
 } = require("electron");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
@@ -71,53 +72,44 @@ const binaries = {
 
 function loadBinaries() {
     const isWin = process.platform === "win32";
+    let results = [];
+    let hasError = false;
 
-    const getPath = (winName, macName) => {
+    const getPath = (winName, macName, label) => {
         const fileName = isWin ? winName : macName;
-        
-        // Radar quét mọi ngóc ngách có thể chứa file binary
-        const possiblePaths = [
-            // 1. Môi trường Dev (khi đang chạy npm start)
-            path.join(__dirname, fileName),                  // Nếu file nằm cùng chỗ với main.js trong thư mục src
-            path.join(__dirname, "..", fileName),            // Nếu file nằm ở thư mục gốc (ngoài src)
-            path.join(__dirname, "..", "bin", fileName),     // Nếu file nằm trong thư mục gốc /bin/
-            
-            // 2. Môi trường Production (Khi đã build ra .app / .exe)
-            process.resourcesPath ? path.join(process.resourcesPath, fileName) : '', 
-            process.resourcesPath ? path.join(process.resourcesPath, "bin", fileName) : '',
-            process.resourcesPath ? path.join(process.resourcesPath, "app.asar.unpacked", fileName) : ''
-        ].filter(Boolean); // Lọc bỏ các đường dẫn rỗng để tránh lỗi
+        // Bác để file main.js trong src nên lùi 1 cấp ra root để tìm file
+        const binPath = path.resolve(__dirname, "..", fileName);
 
-        let foundPath = null;
-        for (const p of possiblePaths) {
-            if (fs.existsSync(p)) {
-                foundPath = p;
-                break;
-            }
-        }
-
-        if (foundPath) {
-            // Cấp quyền thực thi trên macOS/Linux để không bị lỗi Permission Denied
+        if (fs.existsSync(binPath)) {
             if (!isWin) {
-                try {
-                    fs.chmodSync(foundPath, "755");
-                } catch (e) {
-                    console.error(`[Binaries] Lỗi cấp quyền cho ${fileName}:`, e);
-                }
+                try { fs.chmodSync(binPath, "755"); } catch (e) { }
             }
-            return foundPath;
+            results.push(`✅ ${label}: Sẵn sàng`);
+            return binPath;
         } else {
-            console.warn(`[Binaries] ⚠️ TÌM ĐỎ MẮT KHÔNG THẤY FILE: ${fileName}`);
+            hasError = true;
+            results.push(`❌ ${label}: KHÔNG TÌM THẤY`);
+            // Log chi tiết đường dẫn lỗi ra terminal để bác dễ debug
+            console.error(`[Error] Thiếu file tại: ${binPath}`);
             return null;
         }
     };
 
-    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos");
-    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos");
-    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos");
-    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos");
+    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "FFmpeg");
+    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "Youtube-DL");
+    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
+    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
 
-    console.log("[Binaries] Đường dẫn Tools sau khi quét:", binaries);
+    // Bắn Alert ngay lập tức ra màn hình máy tính (không thông qua Angular)
+    const statusMessage = results.join("\n");
+
+    dialog.showMessageBox({
+        type: hasError ? 'error' : 'info',
+        title: 'Kiểm tra hệ thống thực thi',
+        message: hasError ? 'Phát hiện thiếu file hệ thống!' : 'Hệ thống đã sẵn sàng!',
+        detail: statusMessage + (hasError ? `\n\nLưu ý: Với macOS, hãy đảm bảo các file *-macos nằm ở thư mục gốc của dự án.` : ''),
+        buttons: ['OK']
+    });
 }
 
 // Chạy hàm load ngay khi khởi tạo
@@ -2926,7 +2918,16 @@ function formatVttTime(ms) {
 
 ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
-        const ffmpegCmd = binaries.ffmpeg || "ffmpeg";
+        // Lấy đường dẫn đã load (ví dụ: /Users/abc/ffmpeg-macos)
+        const ffmpegPath = binaries.ffmpeg;
+
+        if (!ffmpegPath) {
+            dialog.showErrorBox("Lỗi Render", "Không tìm thấy FFmpeg. Hãy kiểm tra lại file ffmpeg-macos ở thư mục gốc.");
+            return { success: false, error: "Thiếu FFmpeg" };
+        }
+
+        // CHỐT: Luôn dùng dấu nháy kép bao quanh path để Mac không bị lỗi command not found
+        const ffmpegCmd = `"${ffmpegPath}"`;
 
         sendToRenderer("tools-log", `[Render] Bắt đầu xử lý dự án: ${projectData.title}`);
 
@@ -2990,7 +2991,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 const wavPath = path.join(workspaceDir, `temp_${i}_${j}.wav`);
 
                 // Chuẩn hóa audio (44100Hz Stereo) để tránh lỗi mất tiếng
-                await execPromise(`"${ffmpegCmd}" -y -i "${audioPath}" -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
+                await execPromise(`${ffmpegCmd} -y -i "${audioPath}" -ar 44100 -ac 2 -c:a pcm_s16le "${wavPath}"`);
 
                 const durationSec = await getAudioDuration(wavPath);
                 const durationMs = Math.round(durationSec * 1000);
