@@ -3029,7 +3029,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const isVideoInput = sceneImgPath.toLowerCase().endsWith('.mp4');
             const inputArgs = isVideoInput ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
 
-            await execPromise(`"${ffmpegCmd}" -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`);
+            await execPromise(`${ffmpegCmd} -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoPath}"`);
             sceneVideos.push(sceneVideoPath);
         }
 
