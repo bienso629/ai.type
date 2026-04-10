@@ -2925,26 +2925,41 @@ function formatVttTime(ms) {
 // IPC HANDLER: RENDER CUSTOM VIDEO CHUẨN STUDIO (CHỐNG LỆCH AUDIO)
 // =====================================================================
 
+/**
+ * Chạy FFmpeg bằng spawn để xử lý tham số chính xác hơn exec
+ */
+function spawnFFmpeg(args, cwd) {
+    return new Promise((resolve, reject) => {
+        const ffmpegPath = binaries.ffmpeg;
+        const child = spawn(ffmpegPath, args, { cwd });
+
+        let stderr = "";
+        child.stderr.on("data", (data) => {
+            stderr += data.toString();
+        });
+
+        child.on("close", (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`FFmpeg exit code ${code}. Stderr: ${stderr.slice(-500)}`));
+        });
+    });
+}
+
 ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
-        const ffmpegPath = binaries.ffmpeg;
-        if (!ffmpegPath) {
-            dialog.showErrorBox("Lỗi Render", "Không tìm thấy FFmpeg.");
-            return { success: false, error: "Thiếu FFmpeg" };
+        if (!binaries.ffmpeg) {
+            return { success: false, error: "Thiếu FFmpeg binary." };
         }
 
-        const ffmpegCmd = `"${ffmpegPath}"`;
-        sendToRenderer("tools-log", `[Render] Đang xử lý cú pháp filter cho FFmpeg 8.x...`);
+        sendToRenderer("tools-log", `[Render] Đang sử dụng phương thức Spawn (Array Args)...`);
 
-        // 1. Cấu hình độ phân giải
-        let baseW = 1920, baseH = 1080;
+        // 1. Cấu hình khung hình
         let w = 1080, h = 1920;
-        if (projectData.exportRatio === '16:9') { w = baseW; h = baseH; }
-        else if (projectData.exportRatio === '1:1') { w = baseH; h = baseH; }
+        if (projectData.exportRatio === '16:9') { w = 1920; h = 1080; }
+        else if (projectData.exportRatio === '1:1') { w = 1080; h = 1080; }
 
         const includeSubtitle = projectData.withSubtitle === true;
-        const docPath = app.getPath('documents');
-        const workspaceDir = path.join(docPath, 'ai.type', 'data', 'exports', projectData.uuid || Date.now().toString());
+        const workspaceDir = path.join(app.getPath('documents'), 'ai.type', 'data', 'exports', projectData.uuid || Date.now().toString());
 
         if (fs.existsSync(workspaceDir)) fs.rmSync(workspaceDir, { recursive: true, force: true });
         fs.mkdirSync(workspaceDir, { recursive: true });
@@ -2959,7 +2974,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
             if (!originalImgPath || !fs.existsSync(originalImgPath) || !scene.subtitles?.length) continue;
 
-            // Copy file vào workspace để tránh dấu cách trong đường dẫn gốc
+            // Copy input vào workspace để sạch đường dẫn
             const imgExt = path.extname(originalImgPath) || '.jpeg';
             const localInputName = `input_${i}${imgExt}`;
             fs.copyFileSync(originalImgPath, path.join(workspaceDir, localInputName));
@@ -2973,18 +2988,14 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 if (!originalAudioPath || !fs.existsSync(originalAudioPath)) continue;
 
                 const wavName = `audio_${i}_${j}.wav`;
-                const localWavPath = path.join(workspaceDir, wavName);
 
-                // Chuẩn hóa Audio
-                await execPromise(`${ffmpegCmd} -y -i "${originalAudioPath}" -ar 44100 -ac 2 "${localWavPath}"`);
+                // Chuẩn hóa Audio bằng spawn
+                await spawnFFmpeg(['-y', '-i', originalAudioPath, '-ar', '44100', '-ac', '2', wavName], workspaceDir);
 
-                const durationSec = await getAudioDuration(localWavPath);
+                const durationSec = await getAudioDuration(path.join(workspaceDir, wavName));
                 const durationMs = Math.round(durationSec * 1000);
 
-                const startMs = sceneDurationMs;
-                const endMs = sceneDurationMs + durationMs;
-
-                mergedVtt += `${formatVttTime(startMs)} --> ${formatVttTime(endMs)}\n${sub.text.replace(/\n/g, ' ')}\n\n`;
+                mergedVtt += `${formatVttTime(sceneDurationMs)} --> ${formatVttTime(sceneDurationMs + durationMs)}\n${sub.text.replace(/\n/g, ' ')}\n\n`;
                 sceneDurationMs += durationMs;
                 finalAudioListContent += `file '${wavName}'\n`;
             }
@@ -2992,51 +3003,50 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
             const sceneVideoName = `scene_${i}.mp4`;
 
-            // CÚ PHÁP FILTER MỚI: Phải có filename='...'
+            // Xử lý Video Filter
             let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
-
             if (includeSubtitle) {
                 const vttName = `scene_${i}.vtt`;
                 fs.writeFileSync(path.join(workspaceDir, vttName), mergedVtt, 'utf-8');
-
-                // FIX: Thêm filename= và bọc tên file trong nháy đơn lồng nhau
-                // Cú pháp: subtitles=filename='file.vtt':force_style='...'
+                // Lưu ý: Dùng dấu nháy đơn lồng nhau cho tham số filename bên trong filter
                 videoFilter += `,subtitles=filename='${vttName}':force_style='FontName=Arial,FontSize=18'`;
             }
 
             const isVideo = localInputName.toLowerCase().endsWith('.mp4');
-            const inputArgs = isVideo ? `-stream_loop -1 -i "${localInputName}"` : `-loop 1 -framerate 30 -i "${localInputName}"`;
+            const args = [
+                '-y',
+                ...(isVideo ? ['-stream_loop', '-1', '-i', localInputName] : ['-loop', '1', '-framerate', '30', '-i', localInputName]),
+                '-t', sceneDurationSec,
+                '-vf', videoFilter,
+                '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-pix_fmt', 'yuv420p',
+                sceneVideoName
+            ];
 
-            const cmd = `${ffmpegCmd} -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoName}"`;
-
-            await execPromise(cmd, { cwd: workspaceDir });
+            await spawnFFmpeg(args, workspaceDir);
             sceneVideos.push(sceneVideoName);
         }
 
         // --- BƯỚC 2: GỘP AUDIO TỔNG ---
-        if (sceneVideos.length === 0) throw new Error("Không có dữ liệu hợp lệ.");
-
         fs.writeFileSync(path.join(workspaceDir, 'audios.txt'), finalAudioListContent);
-        await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i audios.txt -ar 44100 -ac 2 final_audio.wav`, { cwd: workspaceDir });
+        await spawnFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'audios.txt', '-ar', '44100', '-ac', '2', 'final_audio.wav'], workspaceDir);
 
         // --- BƯỚC 3: GỘP VIDEO TỔNG ---
         const videoListContent = sceneVideos.map(v => `file '${v}'`).join('\n');
         fs.writeFileSync(path.join(workspaceDir, 'videos.txt'), videoListContent);
-        await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i videos.txt -c copy final_video_muted.mp4`, { cwd: workspaceDir });
+        await spawnFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'videos.txt', '-c', 'copy', 'final_video_muted.mp4'], workspaceDir);
 
         // --- BƯỚC 4: MUXING & EXPORT ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const exportName = `${safeTitle}_${Date.now()}.mp4`;
-        const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', exportName);
+        const finalExportPath = path.join(app.getPath('documents'), 'ai.type', 'data', 'exports', `${safeTitle}_${Date.now()}.mp4`);
 
-        await execPromise(`${ffmpegCmd} -y -i final_video_muted.mp4 -i final_audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k output.mp4`, { cwd: workspaceDir });
+        await spawnFFmpeg(['-y', '-i', 'final_video_muted.mp4', '-i', 'final_audio.wav', '-map', '0:v:0', '-map', '1:a:0', '-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', 'output.mp4'], workspaceDir);
 
         fs.copyFileSync(path.join(workspaceDir, 'output.mp4'), finalExportPath);
 
         return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
 
     } catch (err) {
-        console.error("Render Final Error:", err);
+        console.error("Spawn Render Error:", err);
         return { success: false, error: err.message };
     }
 });
