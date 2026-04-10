@@ -619,9 +619,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 contents: prompt,
             });
 
-            const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
+            const jsonText = response.text;
             if (jsonText) {
-                const data = JSON.parse(jsonText[1]);
+                const data = JSON.parse(jsonText);
 
                 if (data) {
                     this.seo.description.text = data.description;
@@ -1155,11 +1155,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                                         contents: [createUserContent(images)],
                                     });
 
-                                const jsonText = response.text.match(
-                                    /```json\n([\s\S]*?)```/,
-                                );
+                                const jsonText = response.text;
                                 if (jsonText) {
-                                    const data = JSON.parse(jsonText[1]);
+                                    const data = JSON.parse(jsonText);
 
                                     data.contents.map((text: string) => {
                                         this.source.text.push(
@@ -1283,9 +1281,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     contents: [createUserContent(images)],
                 });
 
-                const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
+                const jsonText = response.text;
                 if (jsonText) {
-                    const data = JSON.parse(jsonText[1]);
+                    const data = JSON.parse(jsonText);
 
                     data.contents.map((text: string) => {
                         this.source.text.push(
@@ -1529,9 +1527,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 contents: prompt,
             });
 
-            const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
+            const jsonText = response.text;
             if (jsonText) {
-                const data = JSON.parse(jsonText[1]);
+                const data = JSON.parse(jsonText);
 
                 if (data) {
                     this.seo.description.text = data.description;

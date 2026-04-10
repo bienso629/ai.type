@@ -139,7 +139,7 @@
                             </div>
 
                             <mat-accordion MatAccordionDisplayMode="flat" multi *ngIf="arr_keyword.length > 0">
-                                <mat-expansion-panel [expanded]="false">
+                                <mat-expansion-panel [expanded]="true">
                                     <mat-expansion-panel-header #keywords>
                                         <mat-panel-title (click)="keywords._toggle()" class="flex items-center">
                                             <mat-label>Tìm thấy {{arr_keyword.length}} từ khoá trong bài.</mat-label>
@@ -147,42 +147,36 @@
                                     </mat-expansion-panel-header>
 
                                     <div class="flex flex-col gt-sm:flex-row" *ngIf="arr_keyword.length > 0">
-                                        <!-- <p class="text-base text-gray-400">Spin Content bởi những từ khoá dưới đây.</p> -->
-                                        <div
-                                            class="py-2 px-4 max-h-60 min-h-60 overflow-y-auto overflow-x-hidden border rounded-md">
-                                            <div class="flex flex-row items-center py-0 mt-0"
-                                                *ngFor="let item of arr_keyword">
-                                                <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:hash'"></mat-icon> -->
-                                                <div class="flex-1 text-base">{{item}}</div>
+                                        <div class="flex flex-row items-center mt-0 pl-4 py-2 border-b border-b-gray-50 last:border-none"
+                                            *ngFor="let item of arr_keyword">
+                                            <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:hash'"></mat-icon> -->
+                                            <div class="flex-1 text-base">{{item}}</div>
 
-                                                <div class="flex-0">
-                                                    <button mat-icon-button [matMenuTriggerFor]="xulytukhoa"
-                                                        class="ml-1">
-                                                        <mat-icon>more_horiz</mat-icon>
+                                            <div class="flex-0">
+                                                <button mat-icon-button [matMenuTriggerFor]="xulytukhoa" class="ml-1">
+                                                    <mat-icon>more_horiz</mat-icon>
+                                                </button>
+
+                                                <mat-menu #xulytukhoa="matMenu">
+                                                    <button mat-menu-item (click)="chatgpt(item, $event)"
+                                                        [color]="'primary'">
+                                                        <mat-icon class="icon-size-4"
+                                                            [svgIcon]="'feather:message-circle'"></mat-icon>
+                                                        <span>Hỏi về '{{item}}</span>
                                                     </button>
 
-                                                    <mat-menu #xulytukhoa="matMenu">
-                                                        <button mat-menu-item (click)="chatgpt(item, $event)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:message-circle'"></mat-icon>
-                                                            <span>Hỏi về '{{item}}</span>
-                                                        </button>
+                                                    <button mat-menu-item (click)="synonym(item, $event)"
+                                                        [matMenuTriggerFor]="forumActions">
+                                                        <mat-icon class="icon-size-4"
+                                                            [svgIcon]="'feather:type'"></mat-icon>
+                                                        <mat-label>Giải nghĩa '{{item}}'</mat-label>
+                                                    </button>
 
-                                                        <button mat-menu-item (click)="synonym(item, $event)"
-                                                            [matMenuTriggerFor]="forumActions">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:type'"></mat-icon>
-                                                            <mat-label>Giải nghĩa '{{item}}'</mat-label>
-                                                        </button>
-
-                                                        <button mat-menu-item (click)="keywordGoogle(item, $event)">
-                                                            <mat-icon class="icon-size-4"
-                                                                svgIcon="feather:rss"></mat-icon>
-                                                            <mat-label>Phát triển nội dung từ</mat-label>
-                                                        </button>
-                                                    </mat-menu>
-                                                </div>
+                                                    <button mat-menu-item (click)="keywordGoogle(item, $event)">
+                                                        <mat-icon class="icon-size-4" svgIcon="feather:rss"></mat-icon>
+                                                        <mat-label>Phát triển nội dung từ</mat-label>
+                                                    </button>
+                                                </mat-menu>
                                             </div>
                                         </div>
                                     </div>
@@ -838,7 +832,8 @@
 
                                                 <button mat-icon-button class="ml-1 icon-size-8"
                                                     (click)="fileUpload.click()" matTooltipPosition="above"
-                                                    matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn" [disabled]="loading">
+                                                    matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn"
+                                                    [disabled]="loading">
                                                     <mat-icon *ngIf="loading"
                                                         class="animate-spin icon-size-4 text-white"
                                                         [svgIcon]="'feather:loader'"></mat-icon>

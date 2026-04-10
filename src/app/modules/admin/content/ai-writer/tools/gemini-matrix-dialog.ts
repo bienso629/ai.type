@@ -232,10 +232,10 @@ export class GeminiMatrixDialog {
                     contents: prompt,
                 });
 
-                const jsonText = response.text.match(/```json\n([\s\S]*?)```/);
+                const jsonText = response.text;
                 if (jsonText) {
                     try {
-                        const data = JSON.parse(jsonText[1]);
+                        const data = JSON.parse(jsonText);
 
                         const post = {
                             title: data['title'],
