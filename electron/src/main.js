@@ -72,37 +72,52 @@ const binaries = {
 function loadBinaries() {
     const isWin = process.platform === "win32";
 
-    // Hàm phụ trợ để map tên file theo hệ điều hành
     const getPath = (winName, macName) => {
         const fileName = isWin ? winName : macName;
-        // Đường dẫn tương tự logic cũ của bạn
-        const binPath = path.resolve(__dirname, "..", fileName);
+        
+        // Radar quét mọi ngóc ngách có thể chứa file binary
+        const possiblePaths = [
+            // 1. Môi trường Dev (khi đang chạy npm start)
+            path.join(__dirname, fileName),                  // Nếu file nằm cùng chỗ với main.js trong thư mục src
+            path.join(__dirname, "..", fileName),            // Nếu file nằm ở thư mục gốc (ngoài src)
+            path.join(__dirname, "..", "bin", fileName),     // Nếu file nằm trong thư mục gốc /bin/
+            
+            // 2. Môi trường Production (Khi đã build ra .app / .exe)
+            process.resourcesPath ? path.join(process.resourcesPath, fileName) : '', 
+            process.resourcesPath ? path.join(process.resourcesPath, "bin", fileName) : '',
+            process.resourcesPath ? path.join(process.resourcesPath, "app.asar.unpacked", fileName) : ''
+        ].filter(Boolean); // Lọc bỏ các đường dẫn rỗng để tránh lỗi
 
-        // [QUAN TRỌNG] Cấp quyền thực thi trên macOS/Linux để tránh lỗi Permission denied
-        if (!isWin && fs.existsSync(binPath)) {
-            try {
-                fs.chmodSync(binPath, "755");
-            } catch (e) {
-                console.error(`[Binaries] Lỗi cấp quyền cho ${fileName}:`, e);
+        let foundPath = null;
+        for (const p of possiblePaths) {
+            if (fs.existsSync(p)) {
+                foundPath = p;
+                break;
             }
         }
 
-        // Trả về đường dẫn nếu file tồn tại, nếu không thì log cảnh báo
-        if (fs.existsSync(binPath)) {
-            return binPath;
+        if (foundPath) {
+            // Cấp quyền thực thi trên macOS/Linux để không bị lỗi Permission Denied
+            if (!isWin) {
+                try {
+                    fs.chmodSync(foundPath, "755");
+                } catch (e) {
+                    console.error(`[Binaries] Lỗi cấp quyền cho ${fileName}:`, e);
+                }
+            }
+            return foundPath;
         } else {
-            console.warn(`[Binaries] ⚠️ Không tìm thấy file: ${binPath}`);
-            return null; // Hoặc trả về string trống tùy logic
+            console.warn(`[Binaries] ⚠️ TÌM ĐỎ MẮT KHÔNG THẤY FILE: ${fileName}`);
+            return null;
         }
     };
 
-    // Load từng file theo đúng tên bạn đã đặt trong thư mục
     binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos");
     binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos");
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos");
     binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos");
 
-    console.log("[Binaries] Đã load xong đường dẫn các tools:", binaries);
+    console.log("[Binaries] Đường dẫn Tools sau khi quét:", binaries);
 }
 
 // Chạy hàm load ngay khi khởi tạo
@@ -906,24 +921,6 @@ const fileExists = (p) => {
 // ==== PATH CONFIG ====
 const documentsDir = path.join(os.homedir(), "Documents");
 const fallbackPort = 5454;
-
-const downloader = path.resolve(
-    __dirname,
-    "..",
-    process.platform === "win32" ? "downloader-win.exe" : "downloader-macos",
-);
-const type = path.resolve(
-    __dirname,
-    "..",
-    process.platform === "win32" ? "type-lite-win.exe" : "type-lite-macos",
-);
-
-// [THÊM] Khai báo đường dẫn tool Edge TTS mới
-const edgeTtsExe = path.resolve(
-    __dirname,
-    "..",
-    process.platform === "win32" ? "edge-tts-win.exe" : "edge-tts-macos",
-);
 
 let mainWindow;
 let targetWindow = null;
