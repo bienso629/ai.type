@@ -77,8 +77,15 @@ function loadBinaries() {
 
     const getPath = (winName, macName, label) => {
         const fileName = isWin ? winName : macName;
-        // Bác để file main.js trong src nên lùi 1 cấp ra root để tìm file
-        const binPath = path.resolve(__dirname, "..", fileName);
+
+        // 1. Đường dẫn gốc (khi chạy dev)
+        let binPath = path.resolve(__dirname, "..", fileName);
+
+        // 2. Kiểm tra nếu đang chạy trong môi trường đã đóng gói (ASAR)
+        if (binPath.includes('app.asar')) {
+            // Chuyển đổi đường dẫn từ app.asar sang app.asar.unpacked
+            binPath = binPath.replace('app.asar', 'app.asar.unpacked');
+        }
 
         if (fs.existsSync(binPath)) {
             if (!isWin) {
@@ -89,8 +96,6 @@ function loadBinaries() {
         } else {
             hasError = true;
             results.push(`❌ ${label}: KHÔNG TÌM THẤY`);
-            // Log chi tiết đường dẫn lỗi ra terminal để bác dễ debug
-            console.error(`[Error] Thiếu file tại: ${binPath}`);
             return null;
         }
     };
