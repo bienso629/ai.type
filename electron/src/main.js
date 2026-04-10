@@ -2934,7 +2934,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         }
 
         const ffmpegCmd = `"${ffmpegPath}"`;
-        sendToRenderer("tools-log", `[Render] Khởi động quy trình chuẩn hóa đường dẫn cho macOS...`);
+        sendToRenderer("tools-log", `[Render] Đang xử lý cú pháp filter cho FFmpeg 8.x...`);
 
         // 1. Cấu hình độ phân giải
         let baseW = 1920, baseH = 1080;
@@ -2959,11 +2959,10 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
             if (!originalImgPath || !fs.existsSync(originalImgPath) || !scene.subtitles?.length) continue;
 
-            // CHIÊU MỚI: Copy ảnh/video gốc vào workspace để xóa sổ dấu cách trong đường dẫn
-            const imgExt = path.extname(originalImgPath);
-            const localInputName = `input_scene_${i}${imgExt}`;
-            const localInputPath = path.join(workspaceDir, localInputName);
-            fs.copyFileSync(originalImgPath, localInputPath);
+            // Copy file vào workspace để tránh dấu cách trong đường dẫn gốc
+            const imgExt = path.extname(originalImgPath) || '.jpeg';
+            const localInputName = `input_${i}${imgExt}`;
+            fs.copyFileSync(originalImgPath, path.join(workspaceDir, localInputName));
 
             let sceneDurationMs = 0;
             let mergedVtt = "WEBVTT\n\n";
@@ -2973,11 +2972,10 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 const originalAudioPath = cleanFilePath(sub.audioUrl);
                 if (!originalAudioPath || !fs.existsSync(originalAudioPath)) continue;
 
-                // Copy Audio vào workspace
                 const wavName = `audio_${i}_${j}.wav`;
                 const localWavPath = path.join(workspaceDir, wavName);
 
-                // Chuẩn hóa Audio trực tiếp từ nguồn
+                // Chuẩn hóa Audio
                 await execPromise(`${ffmpegCmd} -y -i "${originalAudioPath}" -ar 44100 -ac 2 "${localWavPath}"`);
 
                 const durationSec = await getAudioDuration(localWavPath);
@@ -2992,23 +2990,24 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             }
 
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
-            const sceneVideoName = `scene_${i}_video.mp4`;
+            const sceneVideoName = `scene_${i}.mp4`;
 
-            // XỬ LÝ FILTER (Lúc này cực kỳ sạch vì chỉ dùng tên file)
+            // CÚ PHÁP FILTER MỚI: Phải có filename='...'
             let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
 
             if (includeSubtitle) {
                 const vttName = `scene_${i}.vtt`;
                 fs.writeFileSync(path.join(workspaceDir, vttName), mergedVtt, 'utf-8');
-                // Không dùng nháy đơn bao quanh tên file nếu dùng kèm cwd và tên file không dấu cách
-                videoFilter += `,subtitles=${vttName}:force_style='FontName=Arial,FontSize=18'`;
+
+                // FIX: Thêm filename= và bọc tên file trong nháy đơn lồng nhau
+                // Cú pháp: subtitles=filename='file.vtt':force_style='...'
+                videoFilter += `,subtitles=filename='${vttName}':force_style='FontName=Arial,FontSize=18'`;
             }
 
             const isVideo = localInputName.toLowerCase().endsWith('.mp4');
-            const inputArgs = isVideo ? `-stream_loop -1 -i ${localInputName}` : `-loop 1 -framerate 30 -i ${localInputName}`;
+            const inputArgs = isVideo ? `-stream_loop -1 -i "${localInputName}"` : `-loop 1 -framerate 30 -i "${localInputName}"`;
 
-            // Lệnh Render siêu gọn
-            const cmd = `${ffmpegCmd} -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p ${sceneVideoName}`;
+            const cmd = `${ffmpegCmd} -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoName}"`;
 
             await execPromise(cmd, { cwd: workspaceDir });
             sceneVideos.push(sceneVideoName);
@@ -3025,12 +3024,11 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         fs.writeFileSync(path.join(workspaceDir, 'videos.txt'), videoListContent);
         await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i videos.txt -c copy final_video_muted.mp4`, { cwd: workspaceDir });
 
-        // --- BƯỚC 4: MUXING ---
+        // --- BƯỚC 4: MUXING & EXPORT ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const exportName = `${safeTitle}_${Date.now()}.mp4`;
         const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', exportName);
 
-        // Muxing tại chỗ rồi copy ra ngoài
         await execPromise(`${ffmpegCmd} -y -i final_video_muted.mp4 -i final_audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k output.mp4`, { cwd: workspaceDir });
 
         fs.copyFileSync(path.join(workspaceDir, 'output.mp4'), finalExportPath);
