@@ -20,6 +20,7 @@ import { BlogService } from 'app/modules/_services/blog';
 import moment from 'moment';
 import { GoogleGenAI } from '@google/genai';
 import { HelperService } from 'app/helper.service';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'chatgpt2s',
@@ -246,10 +247,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                 this.ai = new GoogleGenAI({ apiKey: this.secretKey[0] });
 
-                const prompt = `Trả lời câu hỏi: "${question}" một cách chi tiết và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
+                const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
 
                 const result = await this.ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3-flash-preview',
                     contents: prompt,
                 });
 
@@ -272,6 +273,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         updatedAt: new Date()
                     });
 
+                    this.cdref.detectChanges();
                     this.chatgptStore(result.text, question);
                 } else {
                     this.toastr.warning('Gemini của bạn chưa hoạt động.');
@@ -321,13 +323,12 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         private _overlay: Overlay,
         private _h: HelperService,
         private cdref: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService,
         private _viewContainerRef: ViewContainerRef
     ) {
         // lấy secretKey và searchAPIKey
-        this.settings = localStorage.getItem('settings');
-
+        this.settings = this.multiAccountService.getItem('settings');
         if (this.settings) {
-            this.settings = JSON.parse(this.settings);
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
         }
