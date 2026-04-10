@@ -17,6 +17,12 @@
         "productName": "AI.Type",
         "appId": "ai.type.vn",
         "asar": true,
+        "asarUnpack": [
+            "ffmpeg-macos",
+            "yt-dlp-macos",
+            "edge-tts-macos",
+            "type-lite-macos"
+        ],
         "files": [
             "dist/main.js",
             "preload.js",
