@@ -112,9 +112,6 @@ function loadBinaries() {
     });
 }
 
-// Chạy hàm load ngay khi khởi tạo
-loadBinaries();
-
 async function googleAdsGenerateKeywordIdeas({
     keywordText,
     customerId,
@@ -2168,6 +2165,9 @@ app.whenReady().then(async () => {
         }
         callback({ requestHeaders: details.requestHeaders });
     });
+
+    // Chạy hàm load ngay khi khởi tạo
+    loadBinaries();
 
     startGoService();
     startSttWebSocketServer();
