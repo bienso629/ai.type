@@ -1340,15 +1340,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         document.body.removeChild(link);
     }
 
-    // [CẬP NHẬT] Hàm Clear - Làm mới thông minh
+    // [CẬP NHẬT] Hàm Clear - Làm mới thông minh (Chỉ cập nhật text, giữ nguyên Audio)
     clear() {
         this.toastr.info(
-            'Đang tải lại dữ liệu gốc từ Server...',
-            'Làm mới',
+            'Đang đồng bộ lại văn bản từ Server, giữ nguyên Audio cũ...',
+            'Làm mới thông minh',
         );
-        const storageKey = `${this.STORAGE_AUDIO_KEY}_${this.currentUuid}`;
-        localStorage.removeItem(storageKey);
-        this.detail(this.currentUuid, this.currentName || '');
+
+        // Gọi detail với tham số thứ 3 báo hiệu đây là Reload
+        this.detail(this.currentUuid, this.currentName || '', true);
     }
 
     calculateTotalDuration() {
@@ -1463,7 +1463,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    detail(uuid: string, name: string) {
+    detail(uuid: string, name: string, isReload: boolean = false) {
         this._crawlService
             .detail({ uuid: uuid, username: name })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -1476,29 +1476,51 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                                 `${this.projectTitle} | Audio Manager`,
                             );
                         }
+
+                        // Lưu lại danh sách cũ để đối chiếu
+                        const oldAudioList = this.audioList || [];
+
                         this.audioList = result.data.done.map(
                             (htmlItem: any, index: number) => {
-                                const cleanText =
-                                    this.removeHTML.transform(htmlItem);
+                                const cleanText = this.removeHTML.transform(htmlItem);
+                                const shortName = cleanText.length > 50
+                                    ? cleanText.substring(0, 50) + '...'
+                                    : cleanText;
+
+                                // Nếu đang Reload VÀ vị trí này đã có clip cũ -> Giữ nguyên file, đắp text mới
+                                if (isReload && index < oldAudioList.length) {
+                                    const oldClip = oldAudioList[index];
+                                    return {
+                                        ...oldClip,             // Giữ nguyên url, audioFileName, duration, ID, voice...
+                                        description: cleanText, // Ghi đè text thoại mới
+                                        name: shortName         // Ghi đè tiêu đề mới
+                                    };
+                                }
+
+                                // Nếu tạo mới (hoặc đoạn văn mới được thêm vào từ Server)
                                 return {
                                     id: this.generateId(),
-                                    name:
-                                        cleanText.length > 50
-                                            ? cleanText.substring(0, 50) + '...'
-                                            : cleanText,
+                                    name: shortName,
                                     duration: 0,
                                     description: cleanText,
                                     isProcessing: false,
                                     voice: 'vi-VN-NamMinhNeural',
-                                    rate: 1.0, // Mặc định tốc độ chuẩn
-                                    pitch: 0,   // Mặc định cao độ chuẩn
+                                    rate: 1.0,
+                                    pitch: 0,
                                     prompt: '',
                                 };
                             },
                         );
+
                         this.calculateTotalDuration();
+
+                        // Lưu đè lại Storage (Lúc này Storage đã chứa Text mới + Link Audio cũ)
                         this.saveToLocal(uuid);
                         this.cd.markForCheck();
+
+                        if (isReload) {
+                            this.toastr.success('Đã cập nhật văn bản mới thành công!');
+                        }
                     }
                 },
             });
