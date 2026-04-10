@@ -17,23 +17,23 @@
         "productName": "AI.Type",
         "appId": "ai.type.vn",
         "asar": true,
-        "asarUnpack": [
-            "ffmpeg-macos",
-            "yt-dlp-macos",
-            "edge-tts-macos",
-            "type-lite-macos"
-        ],
         "files": [
             "dist/main.js",
             "preload.js",
             "fallback/**/*",
-            "edge-tts-*",
-            "type-lite-*",
-            "ffmpeg-*",
-            "yt-dlp-*",
             "icons/**/*",
             "node_modules/**/*",
             "package.json"
+        ],
+        "extraResources": [
+            "ffmpeg-*",
+            "yt-dlp-*",
+            "edge-tts-*",
+            "type-lite-*",
+            {
+                "from": "bin",
+                "to": "bin"
+            }
         ],
         "win": {
             "icon": "icons/icon.ico",
@@ -61,20 +61,6 @@
         "dmg": {
             "sign": false
         },
-        "extraResources": [
-            {
-                "from": "bin",
-                "to": "bin"
-            },
-            {
-                "from": "services",
-                "to": ".",
-                "filter": [
-                    "gologin-core-macos",
-                    "gologin-core-win.exe"
-                ]
-            }
-        ],
         "publish": [
             {
                 "provider": "generic",

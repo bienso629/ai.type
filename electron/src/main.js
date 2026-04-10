@@ -7,6 +7,7 @@ const {
     session,
     ipcMain,
     dialog, // <--- Thêm cái này vào
+    Notification
 } = require("electron");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
@@ -77,27 +78,19 @@ function loadBinaries() {
 
     const getPath = (winName, macName, label) => {
         const fileName = isWin ? winName : macName;
-        let binPath = path.resolve(__dirname, "..", fileName);
+        let binPath = "";
 
-        if (binPath.includes('app.asar')) {
-            binPath = binPath.replace('app.asar', 'app.asar.unpacked');
+        if (app.isPackaged) {
+            // Khi đã đóng gói, file nằm thẳng trong thư mục resources
+            binPath = path.join(process.resourcesPath, fileName);
+        } else {
+            // Khi chạy DEV (npm start)
+            binPath = path.resolve(__dirname, "..", fileName);
         }
 
         if (fs.existsSync(binPath)) {
             if (!isWin) {
-                try {
-                    // Cấp quyền thực thi
-                    fs.chmodSync(binPath, "755");
-
-                    // Tự động gỡ quarantine trên Mac nếu có thể (chạy ngầm)
-                    if (process.platform === 'darwin') {
-                        exec(`xattr -dr com.apple.quarantine "${binPath}"`, (err) => {
-                            if (err) console.log(`[Gatekeeper] Không cần gỡ quarantine hoặc đã sạch.`);
-                        });
-                    }
-                } catch (e) {
-                    console.error(`Lỗi cấp quyền cho ${label}:`, e);
-                }
+                try { fs.chmodSync(binPath, "755"); } catch (e) { }
             }
             return binPath;
         } else {
@@ -112,7 +105,6 @@ function loadBinaries() {
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
     binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
 
-    // CHỈ HIỆN DIALOG KHI CÓ LỖI THỰC SỰ (THIẾU FILE)
     if (hasError) {
         dialog.showMessageBox({
             type: 'error',
@@ -121,6 +113,20 @@ function loadBinaries() {
             detail: results.join("\n"),
             buttons: ['OK']
         });
+    }
+}
+
+function sendNotification(title, body) {
+    // Kiểm tra xem hệ thống có hỗ trợ thông báo không
+    if (Notification.isSupported()) {
+        new Notification({
+            title: title,
+            body: body,
+            // icon: path.join(__dirname, 'assets/icon.png') // Thêm icon nếu muốn
+        }).show();
+    } else {
+        // Fallback sang log nếu không hỗ trợ
+        console.log(`[Notification]: ${title} - ${body}`);
     }
 }
 
@@ -2155,6 +2161,10 @@ function startSttServer() {
 
 // ==== APP EVENT ==== //
 app.whenReady().then(async () => {
+    if (process.platform === 'win32') {
+        app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
+    }
+
     const filter = {
         urls: [
             "*://*.type.vn/*",
@@ -2954,7 +2964,8 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             return { success: false, error: "Thiếu FFmpeg binary." };
         }
 
-        sendToRenderer("tools-log", `[Render] Đang sử dụng phương thức Spawn (Array Args)...`);
+        // sendToRenderer("tools-log", `[Render] Đang sử dụng phương thức Spawn (Array Args)...`);
+        sendNotification("Xuất video", `Đang khởi tạo render: ${projectData.title}`);
 
         // 1. Cấu hình khung hình
         let w = 1080, h = 1920;
@@ -3046,8 +3057,9 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
         fs.copyFileSync(path.join(workspaceDir, 'output.mp4'), finalExportPath);
 
-        return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
+        sendNotification("Thành Công!", `Video của bạn đã sẵn sàng`);
 
+        return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
     } catch (err) {
         console.error("Spawn Render Error:", err);
         return { success: false, error: err.message };
