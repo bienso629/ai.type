@@ -23,7 +23,8 @@
             "fallback/**/*",
             "edge-tts-*",
             "type-lite-*",
-            "gologin-core-*",
+            "ffmpeg-*",
+            "yt-dlp-*",
             "icons/**/*",
             "node_modules/**/*",
             "package.json"
