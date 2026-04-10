@@ -3030,18 +3030,19 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
                 let safeSubPath = mergedVttPath;
 
                 if (process.platform === 'win32') {
-                    // Windows: Cần xử lý dấu : sau ổ đĩa và đổi ngược gạch chéo
+                    // Windows: Thay \ thành / và escape dấu :
                     safeSubPath = safeSubPath.replace(/\\/g, '/').replace(/:/g, '\\:');
                 } else {
-                    // macOS/Linux: Escape các ký tự đặc biệt như dấu cách, dấu phẩy, dấu hai chấm
-                    // FFmpeg filter yêu cầu escape các ký tự này để không hiểu lầm là tham số filter
+                    // MacOS: FFmpeg yêu cầu escape dấu : và các ký tự đặc biệt trong đường dẫn tuyệt đối
+                    // Cần dùng gạch chéo ngược để escape các ký tự đặc biệt trước khi đưa vào filter
                     safeSubPath = safeSubPath
-                        .replace(/,/g, '\\,')
-                        .replace(/'/g, "'\\\\\\''") // Escape dấu nháy đơn cực kỳ phức tạp trong ffmpeg
-                        .replace(/:/g, '\\:');
+                        .replace(/\\/g, '/')   // Đảm bảo dùng gạch chéo xuôi
+                        .replace(/:/g, '\\:')  // Escape dấu hai chấm (Rất quan trọng trên Mac)
+                        .replace(/ /g, '\\ '); // Escape dấu cách nếu có
                 }
 
-                // Thay đổi dòng videoFilter nếu cần định dạng font
+                // Quan trọng: Sử dụng dấu nháy kép bên ngoài và KHÔNG dùng nháy đơn bao quanh safeSubPath 
+                // nếu đã escape dấu cách, hoặc dùng cấu trúc chuẩn xác như sau:
                 videoFilter += `,subtitles='${safeSubPath}':force_style='FontName=Arial,FontSize=18'`;
             }
 
