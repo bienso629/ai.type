@@ -2934,11 +2934,11 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         }
 
         const ffmpegCmd = `"${ffmpegPath}"`;
-        sendToRenderer("tools-log", `[Render] Bắt đầu: ${projectData.title}`);
+        sendToRenderer("tools-log", `[Render] Khởi động quy trình chuẩn hóa đường dẫn cho macOS...`);
 
         // 1. Cấu hình độ phân giải
         let baseW = 1920, baseH = 1080;
-        let w = 1080, h = 1920; 
+        let w = 1080, h = 1920;
         if (projectData.exportRatio === '16:9') { w = baseW; h = baseH; }
         else if (projectData.exportRatio === '1:1') { w = baseH; h = baseH; }
 
@@ -2955,25 +2955,32 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         // --- BƯỚC 1: XỬ LÝ TỪNG SCENE ---
         for (let i = 0; i < projectData.scenes.length; i++) {
             const scene = projectData.scenes[i];
-            const sceneImgPath = cleanFilePath(scene.imageUrl);
+            const originalImgPath = cleanFilePath(scene.imageUrl);
 
-            if (!sceneImgPath || !fs.existsSync(sceneImgPath) || !scene.subtitles?.length) continue;
+            if (!originalImgPath || !fs.existsSync(originalImgPath) || !scene.subtitles?.length) continue;
+
+            // CHIÊU MỚI: Copy ảnh/video gốc vào workspace để xóa sổ dấu cách trong đường dẫn
+            const imgExt = path.extname(originalImgPath);
+            const localInputName = `input_scene_${i}${imgExt}`;
+            const localInputPath = path.join(workspaceDir, localInputName);
+            fs.copyFileSync(originalImgPath, localInputPath);
 
             let sceneDurationMs = 0;
             let mergedVtt = "WEBVTT\n\n";
 
             for (let j = 0; j < scene.subtitles.length; j++) {
                 const sub = scene.subtitles[j];
-                const audioPath = cleanFilePath(sub.audioUrl);
-                if (!audioPath || !fs.existsSync(audioPath)) continue;
+                const originalAudioPath = cleanFilePath(sub.audioUrl);
+                if (!originalAudioPath || !fs.existsSync(originalAudioPath)) continue;
 
-                const wavName = `temp_${i}_${j}.wav`;
-                const wavPath = path.join(workspaceDir, wavName);
+                // Copy Audio vào workspace
+                const wavName = `audio_${i}_${j}.wav`;
+                const localWavPath = path.join(workspaceDir, wavName);
 
-                // Chuẩn hóa Audio
-                await execPromise(`${ffmpegCmd} -y -i "${audioPath}" -ar 44100 -ac 2 "${wavPath}"`);
+                // Chuẩn hóa Audio trực tiếp từ nguồn
+                await execPromise(`${ffmpegCmd} -y -i "${originalAudioPath}" -ar 44100 -ac 2 "${localWavPath}"`);
 
-                const durationSec = await getAudioDuration(wavPath);
+                const durationSec = await getAudioDuration(localWavPath);
                 const durationMs = Math.round(durationSec * 1000);
 
                 const startMs = sceneDurationMs;
@@ -2986,66 +2993,52 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
             const sceneVideoName = `scene_${i}_video.mp4`;
-            const sceneVideoPath = path.join(workspaceDir, sceneVideoName);
 
-            // XỬ LÝ FILTER VIDEO & SUBTITLES (CHIÊU QUYẾT ĐỊNH)
+            // XỬ LÝ FILTER (Lúc này cực kỳ sạch vì chỉ dùng tên file)
             let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
-            
-            if (includeSubtitle) {
-                const vttFileName = `scene_${i}_merged.vtt`;
-                fs.writeFileSync(path.join(workspaceDir, vttFileName), mergedVtt, 'utf-8');
 
-                if (process.platform === 'win32') {
-                    // Windows xử lý path tuyệt đối khá tốt
-                    const safePath = path.join(workspaceDir, vttFileName).replace(/\\/g, '/').replace(/:/g, '\\:');
-                    videoFilter += `,subtitles='${safePath}':force_style='FontName=Arial,FontSize=18'`;
-                } else {
-                    // macOS: Dùng đường dẫn tương đối để né "Application Support"
-                    // CHỈ truyền tên file vì ta sẽ dùng { cwd: workspaceDir }
-                    videoFilter += `,subtitles='${vttFileName}':force_style='FontName=Arial,FontSize=18'`;
-                }
+            if (includeSubtitle) {
+                const vttName = `scene_${i}.vtt`;
+                fs.writeFileSync(path.join(workspaceDir, vttName), mergedVtt, 'utf-8');
+                // Không dùng nháy đơn bao quanh tên file nếu dùng kèm cwd và tên file không dấu cách
+                videoFilter += `,subtitles=${vttName}:force_style='FontName=Arial,FontSize=18'`;
             }
 
-            const isVideo = sceneImgPath.toLowerCase().endsWith('.mp4');
-            const inputArgs = isVideo ? `-stream_loop -1 -i "${sceneImgPath}"` : `-loop 1 -framerate 30 -i "${sceneImgPath}"`;
+            const isVideo = localInputName.toLowerCase().endsWith('.mp4');
+            const inputArgs = isVideo ? `-stream_loop -1 -i ${localInputName}` : `-loop 1 -framerate 30 -i ${localInputName}`;
 
-            // Thực thi render từng scene với CWD (Current Working Directory)
-            const cmd = `${ffmpegCmd} -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p "${sceneVideoName}"`;
-            
+            // Lệnh Render siêu gọn
+            const cmd = `${ffmpegCmd} -y ${inputArgs} -t ${sceneDurationSec} -vf "${videoFilter}" -c:v libx264 -preset fast -crf 23 -pix_fmt yuv420p ${sceneVideoName}`;
+
             await execPromise(cmd, { cwd: workspaceDir });
             sceneVideos.push(sceneVideoName);
         }
 
         // --- BƯỚC 2: GỘP AUDIO TỔNG ---
-        if (sceneVideos.length === 0) throw new Error("Không có dữ liệu hợp lệ để render.");
-        
-        const finalAudioListTxt = path.join(workspaceDir, 'final_audio_list.txt');
-        fs.writeFileSync(finalAudioListTxt, finalAudioListContent);
-        const finalAudioWav = 'final_audio.wav';
-        await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i "final_audio_list.txt" -ar 44100 -ac 2 "${finalAudioWav}"`, { cwd: workspaceDir });
+        if (sceneVideos.length === 0) throw new Error("Không có dữ liệu hợp lệ.");
+
+        fs.writeFileSync(path.join(workspaceDir, 'audios.txt'), finalAudioListContent);
+        await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i audios.txt -ar 44100 -ac 2 final_audio.wav`, { cwd: workspaceDir });
 
         // --- BƯỚC 3: GỘP VIDEO TỔNG ---
-        const finalVideoListTxt = path.join(workspaceDir, 'final_video_list.txt');
-        const finalVideoListContent = sceneVideos.map(v => `file '${v}'`).join('\n');
-        fs.writeFileSync(finalVideoListTxt, finalVideoListContent);
+        const videoListContent = sceneVideos.map(v => `file '${v}'`).join('\n');
+        fs.writeFileSync(path.join(workspaceDir, 'videos.txt'), videoListContent);
+        await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i videos.txt -c copy final_video_muted.mp4`, { cwd: workspaceDir });
 
-        const finalVideoMuted = 'final_video_muted.mp4';
-        await execPromise(`${ffmpegCmd} -y -f concat -safe 0 -i "final_video_list.txt" -c copy "${finalVideoMuted}"`, { cwd: workspaceDir });
-
-        // --- BƯỚC 4: MUXING (GHÉP HÌNH & TIẾNG) ---
+        // --- BƯỚC 4: MUXING ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-        const exportFileName = `${safeTitle}_${Date.now()}.mp4`;
-        const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', exportFileName);
+        const exportName = `${safeTitle}_${Date.now()}.mp4`;
+        const finalExportPath = path.join(docPath, 'ai.type', 'data', 'exports', exportName);
 
-        await execPromise(`${ffmpegCmd} -y -i "${finalVideoMuted}" -i "${finalAudioWav}" -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k "${finalExportPath}"`, { cwd: workspaceDir });
+        // Muxing tại chỗ rồi copy ra ngoài
+        await execPromise(`${ffmpegCmd} -y -i final_video_muted.mp4 -i final_audio.wav -map 0:v:0 -map 1:a:0 -c:v copy -c:a aac -b:a 192k output.mp4`, { cwd: workspaceDir });
 
-        // Dọn dẹp folder workspace sau khi export thành công (tùy chọn)
-        fs.rmSync(workspaceDir, { recursive: true, force: true });
+        fs.copyFileSync(path.join(workspaceDir, 'output.mp4'), finalExportPath);
 
         return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
 
     } catch (err) {
-        console.error("Render Error:", err);
+        console.error("Render Final Error:", err);
         return { success: false, error: err.message };
     }
 });
