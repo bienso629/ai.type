@@ -877,85 +877,83 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
 
-        // [CẬP NHẬT] Phân tích định dạng yêu cầu
+        // [CẬP NHẬT] Phân tích định dạng yêu cầu từ người dùng
         const defaultFormat = "Video Cinematic chuyên nghiệp";
         const userFormat = this.extraPrompt && this.extraPrompt.trim() !== ''
             ? this.extraPrompt.trim()
             : defaultFormat;
 
-        // Tự động phát hiện định dạng
         const userFormatLower = userFormat.toLowerCase();
 
-        const isComic = userFormatLower.includes('truyện') ||
-            userFormatLower.includes('comic') ||
-            userFormatLower.includes('manga') ||
-            userFormatLower.includes('webtoon');
+        // 1. Nhận diện các định dạng
+        const isComic = userFormatLower.includes('truyện') || userFormatLower.includes('comic') || userFormatLower.includes('manga') || userFormatLower.includes('webtoon');
+        const isSlide = userFormatLower.includes('slide') || userFormatLower.includes('trình chiếu') || userFormatLower.includes('thuyết trình') || userFormatLower.includes('powerpoint');
+        const isPodcast = userFormatLower.includes('podcast') || userFormatLower.includes('radio') || userFormatLower.includes('kể chuyện audio');
+        const isVertical = userFormatLower.includes('9:16') || userFormatLower.includes('dọc') || userFormatLower.includes('tiktok') || userFormatLower.includes('shorts') || userFormatLower.includes('reels');
 
-        // Phát hiện xem người dùng có muốn làm màn dọc không
-        const isVertical = userFormatLower.includes('9:16') ||
-            userFormatLower.includes('dọc') ||
-            userFormatLower.includes('tiktok') ||
-            userFormatLower.includes('shorts') ||
-            userFormatLower.includes('reels') ||
-            userFormatLower.includes('webtoon');
+        // 2. [QUY TẮC THÉP]: Ép AI chia khung tuyệt đối <= 8 giây cho mọi thể loại
+        const maxDurationRule = "TUYỆT ĐỐI TỐI ĐA 8 GIÂY cho mỗi Phân cảnh. Gần chạm 8 giây BẮT BUỘC phải ngắt sang scene mới. Tổng thời lượng thoại trong một scene không bao giờ được vượt quá 8s.";
 
-        // Xử lý thời lượng
-        const maxDurationRule = isComic
-            ? "TỐI ĐA 20 GIÂY cho mỗi Trang/Khung truyện (để có đủ nội dung chia thành 3-5 hình nhỏ)."
-            : "TỐI ĐA 10 GIÂY cho mỗi Phân cảnh (để giữ nhịp độ video dồn dập).";
+        let formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO TĨNH/ĐỘNG: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động hoặc phong cảnh.`;
 
-        // Phân nhánh "Thần chú" cho AI vẽ ảnh
-        let comicInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO/ẢNH: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động cụ thể.`;
-
+        // ĐÃ VIỆT HÓA TOÀN BỘ THẦN CHÚ
         if (isComic) {
             if (isVertical) {
-                // Thần chú cho truyện cuộn dọc 9:16 (Webtoon)
-                comicInstruction = `\n👉 HƯỚNG DẪN ĐẶC BIỆT CHO TRUYỆN TRANH DỌC (9:16): Mỗi "scene" đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Trong phần "prompt" của scene đó, BẮT BUỘC mở đầu bằng câu tiếng Anh: "A vertical scrolling webtoon comic strip, panels stacked vertically from top to bottom..." sau đó mô tả nội dung các ô truyện.`;
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" (dài tối đa 8s) đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, các khung hình xếp chồng lên nhau từ trên xuống dưới..."`;
             } else {
-                // Thần chú cho truyện ngang/vuông truyền thống
-                comicInstruction = `\n👉 HƯỚNG DẪN ĐẶC BIỆT CHO TRUYỆN TRANH: Mỗi "scene" đại diện cho MỘT TRANG TRUYỆN. Trong phần "prompt" của scene đó, BẮT BUỘC mở đầu bằng câu tiếng Anh: "A multi-panel comic page layout, split into multiple frames..." sau đó mô tả nội dung các ô truyện.`;
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" (dài tối đa 8s) đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện, được chia nhỏ thành nhiều khung hình..."`;
             }
+        } else if (isSlide) {
+            formatInstruction = `\n👉 HƯỚNG DẪN CHO SLIDESHOW/TRÌNH CHIẾU: Mỗi "scene" là MỘT SLIDE ẢNH. Chừa khoảng trống (không gian âm) tinh tế để chèn chữ.`;
+        } else if (isPodcast) {
+            formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Dù là podcast, mỗi scene TUYỆT ĐỐI KHÔNG QUÁ 8 GIÂY. CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng thay đổi nhẹ góc máy (cận cảnh, góc nghiêng, thu phóng chậm) để video không bị nhàm chán.`;
+        } else if (isVertical) {
+            formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
         }
 
-        // Quy đổi tổng thời gian ra định dạng phút:giây cho chuyên nghiệp
+        // Quy đổi tổng thời gian ra định dạng phút:giây
         const totalSecs = Math.round(this.totalDuration || 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
 
-        // [CẬP NHẬT PROMPT]: Trí tuệ nhân tạo siêu thích ứng
+        // [CẬP NHẬT PROMPT TỔNG LỰC]: Thêm Quy tắc Tiếng Việt 100%
         const promptText = `
-            BẠN LÀ GIÁM ĐỐC SÁNG TẠO (CREATIVE DIRECTOR) XUẤT SẮC. 
-            Tôi có danh sách các đoạn thoại của một kịch bản, TỔNG THỜI LƯỢNG CHÍNH XÁC LÀ: ${durationString} (${totalSecs}s).
+            BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
+            Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).
 
-            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${comicInstruction}
+            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${formatInstruction}
+
+            🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
+            - SỬ DỤNG 100% TIẾNG VIỆT cho toàn bộ kết quả trả về (bao gồm cả Master Prompt, mô tả nhân vật, và mô tả phân cảnh).
+            - TUYỆT ĐỐI KHÔNG được chèn bất kỳ từ tiếng Anh nào (Ví dụ: thay vì dùng "Cinematic", "Wide shot", "Lo-fi", hãy dùng các từ tương đương trong tiếng Việt như "Điện ảnh", "Góc máy rộng", "Tĩnh lặng").
 
             NHIỆM VỤ CỦA BẠN:
-            1. Sáng tạo MASTER PROMPT (Prompt Tổng): Dựa vào định dạng tác phẩm và bối cảnh câu chuyện, hãy viết một prompt định hướng hình ảnh chung. Quy định rõ: Art Style, Không khí (Vibe/Mood), Ánh sáng, và Tông màu. 
-               👉 ĐẶC BIỆT BẮT BUỘC: Ở cuối đoạn Master Prompt, phải ghi chốt lại câu: "Tổng thời lượng tác phẩm: ${durationString}."
-            2. Xây dựng TẠO HÌNH NHÂN VẬT: Xác định các nhân vật xuất hiện, mô tả chi tiết ngoại hình, độ tuổi, trang phục đặc trưng để vẽ nhất quán.
-            3. Gom nhóm các câu thoại thành các phân cảnh (scene / trang truyện).
+            1. Sáng tạo MASTER PROMPT: Dựa vào định dạng tác phẩm, hãy viết prompt định hướng hình ảnh chung. Quy định rõ: Phong cách nghệ thuật, Không khí, Ánh sáng, Tông màu. 
+               👉 BẮT BUỘC: Ở cuối Master Prompt ghi: "Tổng thời lượng tác phẩm: ${durationString}."
+            2. Xây dựng TẠO HÌNH: Mô tả nhân vật hoặc các yếu tố đồ họa chính để AI vẽ ảnh giữ được sự nhất quán.
+            3. CHIA PHÂN CẢNH (Scene / Panel / Slide): Gom nhóm các câu thoại.
 
             QUY TẮC GOM NHÓM BẮT BUỘC:
-            - ${maxDurationRule} Gần chạm mốc thời gian này phải ngắt sang scene/panel mới.
-            - GIỮ NGUYÊN THỨ TỰ từ trên xuống dưới, không xáo trộn.
+            - ${maxDurationRule} Gần chạm mốc này phải ngắt sang scene/slide mới.
+            - GIỮ NGUYÊN THỨ TỰ thoại, không xáo trộn.
             - KHÔNG BỎ SÓT bất kỳ ID thoại nào.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
 
-            KẾT QUẢ TRẢ VỀ LÀ MỘT JSON OBJECT ĐÚNG ĐỊNH DẠNG SAU (Chỉ trả về JSON thuần túy, không bọc markdown):
+            KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY (Không bọc thẻ markdown):
             {
-              "masterPrompt": "Viết Master Prompt chi tiết bằng tiếng Việt định hướng hình ảnh... (Và kết thúc bằng câu Tổng thời lượng tác phẩm: ${durationString})",
+              "masterPrompt": "Viết Master Prompt chi tiết bằng Tiếng Việt...",
               "characters": [
                 {
                   "role": "Tên/Vai trò",
-                  "personality": "Mô tả ngoại hình, trang phục..."
+                  "personality": "Mô tả chi tiết bằng Tiếng Việt..."
                 }
               ],
               "scenes": [
                 {
-                  "prompt": "Mô tả chi tiết (Nhớ tuân thủ hướng dẫn mở đầu prompt tùy theo định dạng Truyện tranh hay Video)...",
+                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt (Tuân thủ đúng HƯỚNG DẪN ĐỊNH DẠNG ở trên)...",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
