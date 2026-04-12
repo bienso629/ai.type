@@ -709,7 +709,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let restoredUrl = null;
             let restoredRawUrl = null;
 
-            // Logic nhận diện file Offline chuẩn xác hơn
+            // Vẫn giữ check cũ để phòng hờ các project cũ chưa có localFilePath
             const isOfflineVoice =
                 (item.voice && offlineVoices.includes(item.voice)) ||
                 (item.audioFileName &&
@@ -718,14 +718,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     ));
 
             if (item.audioFileName) {
-                if (isOfflineVoice) {
-                    // FILE OFFLINE: Không gắn link Server bậy bạ
-                    // Tự động load file local sau 100ms
+                // [CẬP NHẬT TRỌNG TÂM]: Kiểm tra localFilePath ĐẦU TIÊN
+                if (item.localFilePath || isOfflineVoice) {
+
+                    // NẾU CÓ localFilePath (C:\...) HOẶC LÀ GIỌNG EDGE TTS 
+                    // => ĐÂY LÀ FILE ĐANG NẰM Ở Ổ CỨNG, BẮT BUỘC ĐỌC TỪ LOCAL
+
                     setTimeout(() => {
                         this.loadLocalAudioContent(item);
                     }, 100);
+
                 } else {
-                    // FILE SERVER: Gắn link https bình thường
+                    // CHỈ KHI NÀO KHÔNG CÓ localFilePath THÌ MỚI GẮN LINK SERVER
                     let userFolder =
                         item.username || this.user?.name || 'anonymous';
                     let baseUrl = this.SERVER_AUDIO_URL || '';
@@ -741,7 +745,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             }
 
             return {
-                ...item, // Copy lại toàn bộ dữ liệu (bao gồm description)
+                ...item,
                 file: null,
                 url: restoredUrl,
                 rawUrl: restoredRawUrl,
