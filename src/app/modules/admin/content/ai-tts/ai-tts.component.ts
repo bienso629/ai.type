@@ -876,7 +876,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
 
-        // [CẬP NHẬT] Phân tích định dạng yêu cầu từ người dùng
+        // Phân tích định dạng yêu cầu từ người dùng
         const defaultFormat = "Video Cinematic chuyên nghiệp";
         const userFormat = this.extraPrompt && this.extraPrompt.trim() !== ''
             ? this.extraPrompt.trim()
@@ -888,55 +888,77 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const isComic = userFormatLower.includes('truyện') || userFormatLower.includes('comic') || userFormatLower.includes('manga') || userFormatLower.includes('webtoon');
         const isSlide = userFormatLower.includes('slide') || userFormatLower.includes('trình chiếu') || userFormatLower.includes('thuyết trình') || userFormatLower.includes('powerpoint');
         const isPodcast = userFormatLower.includes('podcast') || userFormatLower.includes('radio') || userFormatLower.includes('kể chuyện audio');
+
+        // Mặc định: Nếu không phải Comic, Slide hay Podcast thì là Video
+        const isVideo = !isComic && !isSlide && !isPodcast;
         const isVertical = userFormatLower.includes('9:16') || userFormatLower.includes('dọc') || userFormatLower.includes('tiktok') || userFormatLower.includes('shorts') || userFormatLower.includes('reels');
 
-        // 2. [QUY TẮC THÉP VÀ NGOẠI LỆ]: Xử lý triệt để chống trùng lặp ID
-        const maxDurationRule = `
-            - GIỚI HẠN: Tối đa 8 GIÂY cho mỗi Phân cảnh.
-            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn 8 giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene, chấp nhận scene đó lố thời gian. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene.
-            - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về. Không bao giờ được phép lặp lại một ID ở hai scene khác nhau.`;
-
-        let formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO TĨNH/ĐỘNG: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động hoặc phong cảnh.`;
-
-        if (isComic) {
-            if (isVertical) {
-                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" (dài tối đa 8s, trừ ngoại lệ) đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, các khung hình xếp chồng lên nhau từ trên xuống dưới..."`;
-            } else {
-                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" (dài tối đa 8s, trừ ngoại lệ) đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện..."`;
-            }
-        } else if (isSlide) {
-            formatInstruction = `\n👉 HƯỚNG DẪN CHO SLIDESHOW/TRÌNH CHIẾU: Mỗi "scene" là MỘT SLIDE ẢNH. Chừa khoảng trống (không gian âm) tinh tế để chèn chữ.`;
-        } else if (isPodcast) {
-            formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Mỗi scene TUYỆT ĐỐI KHÔNG QUÁ 8 GIÂY (trừ ngoại lệ). CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng thay đổi nhẹ góc máy (cận cảnh, góc nghiêng, thu phóng chậm) để video không bị nhàm chán.`;
-        } else if (isVertical) {
-            formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
-        }
-
-        // Quy đổi tổng thời gian ra định dạng phút:giây
+        // Quy đổi tổng thời gian ra định dạng phút:giây (Chỉ dùng cho Video)
         const totalSecs = Math.round(this.totalDuration || 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
 
-        // [CẬP NHẬT PROMPT TỔNG LỰC]
+        // 2. Phân nhánh Thần chú và Luật thời gian
+        let maxDurationRule = "";
+        let formatInstruction = "";
+        let timeConstraintPrompt = "Tôi có một kịch bản thoại chi tiết."; // Mặc định cho Non-Video
+        let masterPromptDurationLimit = ""; // Mặc định không đòi hỏi chốt thời gian
+
+        if (isVideo) {
+            // LUẬT KHẮT KHE CHỈ DÀNH CHO VIDEO
+            timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
+            masterPromptDurationLimit = `\n               👉 BẮT BUỘC: Ở cuối Master Prompt ghi: "Tổng thời lượng tác phẩm: ${durationString}."`;
+
+            maxDurationRule = `
+            - GIỚI HẠN THỜI GIAN: Tối đa 8 GIÂY cho mỗi Phân cảnh.
+            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn 8 giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene.`;
+
+            if (isVertical) {
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
+            } else {
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO TĨNH/ĐỘNG: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động hoặc phong cảnh.`;
+            }
+        } else {
+            // LUẬT TỰ DO DÀNH CHO TRUYỆN TRANH, SLIDE, PODCAST
+            maxDurationRule = `
+            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với từng phân cảnh/slide/khung truyện dựa theo diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene.`;
+
+            if (isComic) {
+                if (isVertical) {
+                    formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, các khung hình xếp chồng lên nhau từ trên xuống dưới..."`;
+                } else {
+                    formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện..."`;
+                }
+            } else if (isSlide) {
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO SLIDESHOW/TRÌNH CHIẾU: Mỗi "scene" là MỘT SLIDE ẢNH. Chừa khoảng trống (không gian âm) tinh tế để chèn chữ.`;
+            } else if (isPodcast) {
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Mỗi "scene" đại diện cho một bối cảnh. CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng có thể thay đổi nhẹ góc máy (cận cảnh, góc nghiêng, thu phóng chậm).`;
+            }
+        }
+
+        const antiDuplicationRule = `
+            - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về. Không bao giờ được phép lặp lại một ID ở hai scene khác nhau.`;
+
+        // [PROMPT GỬI CHO AI]
         const promptText = `
             BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
-            Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).
+            ${timeConstraintPrompt}
 
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
             - SỬ DỤNG 100% TIẾNG VIỆT cho toàn bộ kết quả trả về.
-            - TUYỆT ĐỐI KHÔNG được chèn bất kỳ từ tiếng Anh nào (Ví dụ: thay vì dùng "Cinematic", hãy dùng "Điện ảnh").
+            - TUYỆT ĐỐI KHÔNG được chèn bất kỳ từ tiếng Anh nào.
 
             NHIỆM VỤ CỦA BẠN:
-            1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. 
-               👉 BẮT BUỘC: Ở cuối Master Prompt ghi: "Tổng thời lượng tác phẩm: ${durationString}."
-            2. Xây dựng TẠO HÌNH: Mô tả nhân vật hoặc các yếu tố đồ họa.
+            1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. ${masterPromptDurationLimit}
+            2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Xác định các nhân vật xuất hiện. Viết mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình, độ tuổi, kiểu tóc, trang phục đặc trưng cho từng người.
             3. CHIA PHÂN CẢNH: Gom nhóm các câu thoại.
 
-            QUY TẮC GOM NHÓM BẮT BUỘC (QUAN TRỌNG NHẤT):
-            ${maxDurationRule}
+            QUY TẮC GOM NHÓM VÀ VIẾT PROMPT BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
+            - 👤 BẢO TOÀN NHÂN VẬT (CHARACTER CONSISTENCY): Trong phần "prompt" của từng scene, khi nhân vật nào xuất hiện, BẠN BẮT BUỘC PHẢI CHÈN LẠI mô tả ngoại hình của họ vào câu đó. TUYỆT ĐỐI KHÔNG chỉ gọi tên trống không.
+            - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT ON IMAGE): Trong tất cả các mô tả phân cảnh, tuyệt đối không được yêu cầu có chữ viết, bảng hiệu, logo. Hình ảnh phải hoàn toàn sạch.
             - GIỮ NGUYÊN THỨ TỰ thoại, không xáo trộn.
             - KHÔNG BỎ SÓT bất kỳ ID thoại nào.
 
@@ -949,12 +971,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               "characters": [
                 {
                   "role": "Tên/Vai trò",
-                  "personality": "Mô tả chi tiết bằng Tiếng Việt..."
+                  "personality": "Mô tả chi tiết và cố định bằng Tiếng Việt..."
                 }
               ],
               "scenes": [
                 {
-                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt...",
+                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt (Phải chứa mô tả ngoại hình nhân vật nếu có xuất hiện)...",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
@@ -996,7 +1018,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             // Map ID về lại text gốc, lấy duration và URL từ mảng allClips
             const finalScenes = aiResponseScenes.map((scene: any) => {
-                let exactSceneDuration = 0; // Biến tính tổng thời gian của riêng scene này
+                let exactSceneDuration = 0;
 
                 const mappedSubtitles = scene.subtitleIds.map((id: string) => {
                     const originalClip = allClips.find((c: any) => c.id === id);
@@ -1006,7 +1028,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     if (originalClip) {
                         clipDuration = originalClip.duration || 0;
-                        exactSceneDuration += clipDuration; // Cộng dồn thời gian từng câu thoại
+                        exactSceneDuration += clipDuration;
 
                         if (originalClip.localFilePath) {
                             const safePath = originalClip.localFilePath.replace(/\\/g, '/');
@@ -1022,14 +1044,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     };
                 });
 
-                // Làm tròn 1 chữ số thập phân (VD: 4.5s)
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
 
-                // Nối cứng yêu cầu thời lượng vào cuối Prompt của AI
-                const finalScenePrompt = `${scene.prompt.trim()}\n\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
+                // [CẬP NHẬT TRỌNG TÂM]: Gắn cứng thần chú cấm chữ bằng tiếng Anh vào đuôi mọi prompt
+                let finalScenePrompt = scene.prompt.trim();
+                finalScenePrompt += `\n\n(Constraints: completely textless, no text, no watermark, no signature, clean background)`;
+
+                // Gắn thêm thời gian nếu là Video
+                if (isVideo) {
+                    finalScenePrompt += `\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
+                }
 
                 return {
-                    prompt: finalScenePrompt, // <-- Prompt đã được fix cứng thời gian
+                    prompt: finalScenePrompt,
                     imageUrl: null,
                     subtitles: mappedSubtitles
                 };
