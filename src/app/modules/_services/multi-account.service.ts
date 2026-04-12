@@ -7,8 +7,8 @@ import { BehaviorSubject } from 'rxjs';
 const SECRET_KEY = 'ai_type_secret_key_2026_!@#';
 
 export interface AccountSession {
-    id: string;          // Khóa chính: username hoặc email
-    isActive: number;    // 1 là đang dùng, 0 là tài khoản lưu trữ
+    id: string;            // Khóa chính: username hoặc email
+    isActive: number;      // 1 là đang dùng, 0 là tài khoản lưu trữ
     encryptedData: string; // Dữ liệu đã mã hóa
 }
 
@@ -52,7 +52,6 @@ export class MultiAccountService {
 
     /**
      * Thay thế cho localStorage.setItem(key, value)
-     * Lưu vào RAM ngay lập tức, rồi âm thầm lưu xuống IndexedDB
      */
     setItem(key: string, value: any): void {
         this.currentSessionData[key] = value;
@@ -64,7 +63,6 @@ export class MultiAccountService {
 
     /**
      * Thay thế cho localStorage.getItem(key)
-     * Lấy trực tiếp từ RAM, không block UI, trả về đúng kiểu dữ liệu (Object/Array/String)
      */
     getItem(key: string): any {
         return this.currentSessionData[key] !== undefined ? this.currentSessionData[key] : null;
@@ -91,9 +89,24 @@ export class MultiAccountService {
         }
     }
 
+    // ==========================================
+    // 2. HÀM XỬ LÝ LỖI TOÀN CỤC CHO INDEXEDDB
+    // ==========================================
+    
+    /**
+     * Bọc các thao tác DB để không bao giờ làm crash App khi mất quyền truy cập Storage
+     */
+    private async safeDbCall<T>(operation: () => Promise<T>, fallbackValue: T): Promise<T> {
+        try {
+            return await operation();
+        } catch (error) {
+            console.error('🚨 [IndexedDB Error]: Trình duyệt từ chối hoặc lỗi bộ nhớ!', error);
+            return fallbackValue;
+        }
+    }
 
     // ==========================================
-    // 2. QUẢN LÝ MULTI-ACCOUNT & DB
+    // 3. QUẢN LÝ MULTI-ACCOUNT & DB (ĐÃ BỌC TRY-CATCH)
     // ==========================================
 
     /**
@@ -102,29 +115,34 @@ export class MultiAccountService {
     private async saveToBackground(): Promise<void> {
         if (!this.currentAccountId) return;
         
-        const encrypted = this.encryptData(this.currentSessionData);
-        await db.sessions.put({
-            id: this.currentAccountId,
-            isActive: 1,
-            encryptedData: encrypted
-        });
+        await this.safeDbCall(async () => {
+            const encrypted = this.encryptData(this.currentSessionData);
+            await db.sessions.put({
+                id: this.currentAccountId!,
+                isActive: 1,
+                encryptedData: encrypted
+            });
+        }, undefined);
     }
 
     /**
      * Tự động load tài khoản đang Active khi mở App
      */
     async loadActiveAccount(): Promise<any> {
-        const activeRecord = await db.sessions.where('isActive').equals(1).first();
-        if (activeRecord) {
-            this.currentAccountId = activeRecord.id;
-            this.currentSessionData = this.decryptData(activeRecord.encryptedData) || {};
+        return this.safeDbCall(async () => {
+            const activeRecord = await db.sessions.where('isActive').equals(1).first();
             
-            this.activeAccountSubject.next(this.currentSessionData);
-            return this.currentSessionData;
-        }
-        
-        this.activeAccountSubject.next(null);
-        return null;
+            if (activeRecord && activeRecord.encryptedData) {
+                this.currentAccountId = activeRecord.id;
+                this.currentSessionData = this.decryptData(activeRecord.encryptedData) || {};
+                
+                this.activeAccountSubject.next(this.currentSessionData);
+                return this.currentSessionData;
+            }
+            
+            this.activeAccountSubject.next(null);
+            return null;
+        }, null);
     }
 
     /**
@@ -132,17 +150,13 @@ export class MultiAccountService {
      */
     async saveAccount(accountId: string, rawData: any): Promise<void> {
         this.currentAccountId = accountId;
-        
-        // Giữ lại những key cũ nếu có, gộp chung với data mới từ lúc login
         this.currentSessionData = { ...this.currentSessionData, ...rawData }; 
         
-        // Tắt active các tài khoản khác
-        await db.sessions.toCollection().modify({ isActive: 0 });
+        await this.safeDbCall(async () => {
+            await db.sessions.toCollection().modify({ isActive: 0 });
+        }, undefined);
         
-        // Lưu xuống DB
         await this.saveToBackground();
-        
-        // Bắn tín hiệu ra toàn App
         this.activeAccountSubject.next(this.currentSessionData);
     }
 
@@ -150,60 +164,63 @@ export class MultiAccountService {
      * Lấy danh sách TẤT CẢ tài khoản đang lưu trong máy (Để làm UI Chuyển tài khoản)
      */
     async getAllAccounts(): Promise<any[]> {
-        const allRecords = await db.sessions.toArray();
-        return allRecords.map(record => {
-            const data = this.decryptData(record.encryptedData);
-            return {
-                id: record.id,
-                isActive: record.isActive === 1,
-                profile: data?.profile || data?.user || null // Tùy vào cấu trúc data bạn lưu lúc login
-            };
-        });
+        return this.safeDbCall(async () => {
+            const allRecords = await db.sessions.toArray();
+            return allRecords
+                .filter(record => record != null)
+                .map(record => {
+                    const data = this.decryptData(record?.encryptedData || '');
+                    return {
+                        id: record?.id,
+                        isActive: record?.isActive === 1,
+                        profile: data?.profile || data?.user || null
+                    };
+                });
+        }, []);
     }
 
     /**
      * Chuyển đổi qua lại giữa các tài khoản
      */
     async switchAccount(accountId: string): Promise<boolean> {
-        const targetAccount = await db.sessions.get(accountId);
-        if (!targetAccount) return false;
+        return this.safeDbCall(async () => {
+            const targetAccount = await db.sessions.get(accountId);
+            if (!targetAccount || !targetAccount.encryptedData) return false;
 
-        // Cập nhật DB
-        await db.sessions.toCollection().modify({ isActive: 0 });
-        await db.sessions.update(accountId, { isActive: 1 });
-        
-        // Cập nhật Cache & Bắn tín hiệu
-        this.currentAccountId = accountId;
-        this.currentSessionData = this.decryptData(targetAccount.encryptedData) || {};
-        this.activeAccountSubject.next(this.currentSessionData);
-        
-        return true;
+            await db.sessions.toCollection().modify({ isActive: 0 });
+            await db.sessions.update(accountId, { isActive: 1 });
+            
+            this.currentAccountId = accountId;
+            this.currentSessionData = this.decryptData(targetAccount.encryptedData) || {};
+            this.activeAccountSubject.next(this.currentSessionData);
+            
+            return true;
+        }, false);
     }
 
     /**
      * Đăng xuất: Xóa tài khoản khỏi máy
      */
     async removeAccount(accountId: string): Promise<void> {
-        await db.sessions.delete(accountId);
-        
-        // Nếu đang xóa chính tài khoản đang dùng
-        if (this.currentAccountId === accountId) {
-            const fallback = await db.sessions.toCollection().first();
-            if (fallback) {
-                // Tự động switch sang tài khoản khác còn trong máy
-                await this.switchAccount(fallback.id);
-            } else {
-                // Hết sạch tài khoản
-                this.currentAccountId = null;
-                this.currentSessionData = {};
-                this.activeAccountSubject.next(null);
+        await this.safeDbCall(async () => {
+            await db.sessions.delete(accountId);
+            
+            if (this.currentAccountId === accountId) {
+                const fallback = await db.sessions.toCollection().first();
+                if (fallback) {
+                    await this.switchAccount(fallback.id);
+                } else {
+                    this.currentAccountId = null;
+                    this.currentSessionData = {};
+                    this.activeAccountSubject.next(null);
+                }
             }
-        }
+        }, undefined);
     }
 
 
     // ==========================================
-    // 3. CÁC HÀM MÃ HÓA & GIẢI MÃ
+    // 4. CÁC HÀM MÃ HÓA & GIẢI MÃ
     // ==========================================
     
     private encryptData(data: any): string {
