@@ -890,22 +890,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const isPodcast = userFormatLower.includes('podcast') || userFormatLower.includes('radio') || userFormatLower.includes('kể chuyện audio');
         const isVertical = userFormatLower.includes('9:16') || userFormatLower.includes('dọc') || userFormatLower.includes('tiktok') || userFormatLower.includes('shorts') || userFormatLower.includes('reels');
 
-        // 2. [QUY TẮC THÉP]: Ép AI chia khung tuyệt đối <= 8 giây cho mọi thể loại
-        const maxDurationRule = "TUYỆT ĐỐI TỐI ĐA 8 GIÂY cho mỗi Phân cảnh. Gần chạm 8 giây BẮT BUỘC phải ngắt sang scene mới. Tổng thời lượng thoại trong một scene không bao giờ được vượt quá 8s.";
+        // 2. [QUY TẮC THÉP VÀ NGOẠI LỆ]: Xử lý triệt để chống trùng lặp ID
+        const maxDurationRule = `
+            - GIỚI HẠN: Tối đa 8 GIÂY cho mỗi Phân cảnh.
+            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn 8 giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene, chấp nhận scene đó lố thời gian. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene.
+            - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về. Không bao giờ được phép lặp lại một ID ở hai scene khác nhau.`;
 
         let formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO TĨNH/ĐỘNG: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động hoặc phong cảnh.`;
 
-        // ĐÃ VIỆT HÓA TOÀN BỘ THẦN CHÚ
         if (isComic) {
             if (isVertical) {
-                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" (dài tối đa 8s) đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, các khung hình xếp chồng lên nhau từ trên xuống dưới..."`;
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" (dài tối đa 8s, trừ ngoại lệ) đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, các khung hình xếp chồng lên nhau từ trên xuống dưới..."`;
             } else {
-                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" (dài tối đa 8s) đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện, được chia nhỏ thành nhiều khung hình..."`;
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" (dài tối đa 8s, trừ ngoại lệ) đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện..."`;
             }
         } else if (isSlide) {
             formatInstruction = `\n👉 HƯỚNG DẪN CHO SLIDESHOW/TRÌNH CHIẾU: Mỗi "scene" là MỘT SLIDE ẢNH. Chừa khoảng trống (không gian âm) tinh tế để chèn chữ.`;
         } else if (isPodcast) {
-            formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Dù là podcast, mỗi scene TUYỆT ĐỐI KHÔNG QUÁ 8 GIÂY. CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng thay đổi nhẹ góc máy (cận cảnh, góc nghiêng, thu phóng chậm) để video không bị nhàm chán.`;
+            formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Mỗi scene TUYỆT ĐỐI KHÔNG QUÁ 8 GIÂY (trừ ngoại lệ). CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng thay đổi nhẹ góc máy (cận cảnh, góc nghiêng, thu phóng chậm) để video không bị nhàm chán.`;
         } else if (isVertical) {
             formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
         }
@@ -916,7 +918,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const secs = totalSecs % 60;
         const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
 
-        // [CẬP NHẬT PROMPT TỔNG LỰC]: Thêm Quy tắc Tiếng Việt 100%
+        // [CẬP NHẬT PROMPT TỔNG LỰC]
         const promptText = `
             BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
             Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).
@@ -924,24 +926,24 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
-            - SỬ DỤNG 100% TIẾNG VIỆT cho toàn bộ kết quả trả về (bao gồm cả Master Prompt, mô tả nhân vật, và mô tả phân cảnh).
-            - TUYỆT ĐỐI KHÔNG được chèn bất kỳ từ tiếng Anh nào (Ví dụ: thay vì dùng "Cinematic", "Wide shot", "Lo-fi", hãy dùng các từ tương đương trong tiếng Việt như "Điện ảnh", "Góc máy rộng", "Tĩnh lặng").
+            - SỬ DỤNG 100% TIẾNG VIỆT cho toàn bộ kết quả trả về.
+            - TUYỆT ĐỐI KHÔNG được chèn bất kỳ từ tiếng Anh nào (Ví dụ: thay vì dùng "Cinematic", hãy dùng "Điện ảnh").
 
             NHIỆM VỤ CỦA BẠN:
-            1. Sáng tạo MASTER PROMPT: Dựa vào định dạng tác phẩm, hãy viết prompt định hướng hình ảnh chung. Quy định rõ: Phong cách nghệ thuật, Không khí, Ánh sáng, Tông màu. 
+            1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. 
                👉 BẮT BUỘC: Ở cuối Master Prompt ghi: "Tổng thời lượng tác phẩm: ${durationString}."
-            2. Xây dựng TẠO HÌNH: Mô tả nhân vật hoặc các yếu tố đồ họa chính để AI vẽ ảnh giữ được sự nhất quán.
-            3. CHIA PHÂN CẢNH (Scene / Panel / Slide): Gom nhóm các câu thoại.
+            2. Xây dựng TẠO HÌNH: Mô tả nhân vật hoặc các yếu tố đồ họa.
+            3. CHIA PHÂN CẢNH: Gom nhóm các câu thoại.
 
-            QUY TẮC GOM NHÓM BẮT BUỘC:
-            - ${maxDurationRule} Gần chạm mốc này phải ngắt sang scene/slide mới.
+            QUY TẮC GOM NHÓM BẮT BUỘC (QUAN TRỌNG NHẤT):
+            ${maxDurationRule}
             - GIỮ NGUYÊN THỨ TỰ thoại, không xáo trộn.
             - KHÔNG BỎ SÓT bất kỳ ID thoại nào.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
 
-            KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY (Không bọc thẻ markdown):
+            KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY:
             {
               "masterPrompt": "Viết Master Prompt chi tiết bằng Tiếng Việt...",
               "characters": [
@@ -952,7 +954,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               ],
               "scenes": [
                 {
-                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt (Tuân thủ đúng HƯỚNG DẪN ĐỊNH DẠNG ở trên)...",
+                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt...",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
