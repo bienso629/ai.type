@@ -186,12 +186,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async generateAll() {
-        const pendingClips = this.audioList.filter((c) => !c.url && !c.file);
-
-        if (pendingClips.length === 0) {
-            this.toastr.info('Tất cả đã có audio.');
-            return;
-        }
+        const pendingClips = this.audioList;
 
         this.isGlobalProcessing = true;
         this.isCancelled = false;
