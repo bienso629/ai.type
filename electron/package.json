@@ -68,8 +68,8 @@
             }
         ]
     },
-    "author": "Yên Nguyễn",
-    "license": "ISC",
+    "author": "Yên AI",
+    "license": "license.txt",
     "dependencies": {
         "@babel/node": "^7.23.9",
         "@babel/runtime": "^7.24.5",

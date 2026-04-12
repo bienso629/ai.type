@@ -1,0 +1,21 @@
+COPYRIGHT AND TERMS OF USE
+
+Copyright (c) 2026 Nguyễn Quang Yên. All rights reserved.
+
+1. Quyền sử dụng (Grant of License):
+Bạn (người dùng cuối) chỉ được cấp quyền cài đặt và sử dụng phần mềm này cho mục đích cá nhân hoặc nội bộ doanh nghiệp.
+
+2. Các hành vi bị cấm (Restrictions):
+Bạn KHÔNG ĐƯỢC PHÉP:
+
+Sao chép, phân phối, hoặc chia sẻ phần mềm này cho bên thứ ba.
+
+Bán lại, cho thuê, hoặc dùng phần mềm này để kiếm tiền trực tiếp từ việc phân phối nó.
+
+Sửa đổi, dịch ngược (reverse-engineer), giải mã (decompile), hoặc tạo ra các phần mềm phái sinh dựa trên mã nguồn của phần mềm này.
+
+3. Bảo lưu quyền (Ownership):
+Toàn bộ mã nguồn, thiết kế và quyền sở hữu trí tuệ của phần mềm này thuộc về Nguyễn Quang Yên.
+
+4. Từ chối bảo hành (Disclaimer of Warranty):
+Phần mềm được cung cấp "có sao dùng vậy". Tác giả không chịu trách nhiệm cho bất kỳ thiệt hại nào phát sinh trong quá trình sử dụng phần mềm.

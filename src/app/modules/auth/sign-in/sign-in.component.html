@@ -135,9 +135,9 @@
             <!-- <div class="mt-6 text-base tracking-tight leading-6 text-dark-400 max-w-2xl">
                 ai.type là phần mềm hỗ trợ tạo content bằng văn bản, video, hình ảnh hoặc âm thanh
             </div> -->
-            <div class="flex items-center mt-8">
-                <div class="flex flex-0 items-center -space-x-1.5">
-                    <ng-container *ngFor="let account of accounts; let i = index">
+            <div class="flex items-center mt-8" *ngIf="accounts && accounts.length > 0">
+                <div class="flex flex-0 items-center -space-x-1.5" *ngFor="let account of accounts; let i = index">
+                    <ng-container *ngIf="account.profile">
                         <ng-container
                             *ngIf="account.profile.avatar && account.profile.avatar !== 'https://type.vnnull'">
                             <img *ngIf="account && account.profile"

@@ -254,8 +254,9 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         });
 
         this.multiAccountService.getAllAccounts().then(accounts => {
-            console.log('accounts', accounts);
-            this.accounts = accounts;
+            if (accounts && accounts.length > 0) {
+                this.accounts = accounts;
+            }
         });
     }
 
