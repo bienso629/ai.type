@@ -859,7 +859,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         let geminiKey = this.secretKey[6] || this.secretKey[0];
         this.ai = new GoogleGenAI({ apiKey: geminiKey });
 
-        // Lấy data từ MultiAccountService thay vì localStorage
+        // Lấy data từ MultiAccountService
         const storageKey = `${this.STORAGE_AUDIO_KEY}_${this.uuid}`;
         const data = this.multiAccountService.getItem(storageKey);
 
@@ -871,7 +871,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const allClips = data.clips;
 
-        // Rút gọn format đầu vào cho thật "sạch"
+        // Rút gọn format đầu vào để AI dễ đọc
         const continuousText = allClips
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
@@ -884,29 +884,29 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const userFormatLower = userFormat.toLowerCase();
 
-        // 1. Nhận diện các định dạng
+        // Nhận diện các định dạng đặc thù
         const isComic = userFormatLower.includes('truyện') || userFormatLower.includes('comic') || userFormatLower.includes('manga') || userFormatLower.includes('webtoon');
         const isSlide = userFormatLower.includes('slide') || userFormatLower.includes('trình chiếu') || userFormatLower.includes('thuyết trình') || userFormatLower.includes('powerpoint');
         const isPodcast = userFormatLower.includes('podcast') || userFormatLower.includes('radio') || userFormatLower.includes('kể chuyện audio');
 
-        // Mặc định: Nếu không phải Comic, Slide hay Podcast thì là Video
+        // Mặc định là Video nếu không thuộc các loại trên
         const isVideo = !isComic && !isSlide && !isPodcast;
         const isVertical = userFormatLower.includes('9:16') || userFormatLower.includes('dọc') || userFormatLower.includes('tiktok') || userFormatLower.includes('shorts') || userFormatLower.includes('reels');
 
-        // Quy đổi tổng thời gian ra định dạng phút:giây (Chỉ dùng cho Video)
+        // Quy đổi tổng thời gian (Chỉ dùng thông báo cho Video)
         const totalSecs = Math.round(this.totalDuration || 0);
         const mins = Math.floor(totalSecs / 60);
         const secs = totalSecs % 60;
         const durationString = mins > 0 ? `${mins} phút ${secs} giây` : `${secs} giây`;
 
-        // 2. Phân nhánh Thần chú và Luật thời gian
+        // Khởi tạo các biến điều hướng Prompt
         let maxDurationRule = "";
         let formatInstruction = "";
-        let timeConstraintPrompt = "Tôi có một kịch bản thoại chi tiết."; // Mặc định cho Non-Video
-        let masterPromptDurationLimit = ""; // Mặc định không đòi hỏi chốt thời gian
+        let timeConstraintPrompt = "Tôi có một kịch bản thoại chi tiết.";
+        let masterPromptDurationLimit = "";
 
         if (isVideo) {
-            // LUẬT KHẮT KHE CHỈ DÀNH CHO VIDEO
+            // LUẬT KHẮT KHE CHO VIDEO (Để AI render không bị lỗi)
             timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
             masterPromptDurationLimit = `\n               👉 BẮT BUỘC: Ở cuối Master Prompt ghi: "Tổng thời lượng tác phẩm: ${durationString}."`;
 
@@ -917,30 +917,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if (isVertical) {
                 formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
             } else {
-                formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO TĨNH/ĐỘNG: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động hoặc phong cảnh.`;
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO TĨNH/ĐỘNG: Mỗi "scene" là một góc máy đơn lẻ, tập trung vào một hành động cụ thể.`;
             }
         } else {
-            // LUẬT TỰ DO DÀNH CHO TRUYỆN TRANH, SLIDE, PODCAST
+            // LUẬT TỰ DO CHO TRUYỆN TRANH, SLIDE, PODCAST
             maxDurationRule = `
-            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với từng phân cảnh/slide/khung truyện dựa theo diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene.`;
+            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene.`;
 
             if (isComic) {
                 if (isVertical) {
-                    formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" đại diện cho MỘT ĐOẠN TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, các khung hình xếp chồng lên nhau từ trên xuống dưới..."`;
+                    formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH DỌC (WEBTOON 9:16): Mỗi "scene" đại diện cho MỘT TRANG TRUYỆN CUỘN DỌC. Prompt BẮT BUỘC mở đầu: "Một đoạn truyện tranh webtoon cuộn dọc, bố cục chia thành nhiều khung hình (panels) xếp chồng lên nhau, ngăn cách bằng khoảng trắng rõ ràng..."`;
                 } else {
-                    formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện..."`;
+                    formatInstruction = `\n👉 HƯỚNG DẪN CHO TRUYỆN TRANH NGANG: Mỗi "scene" đại diện cho MỘT TRANG TRUYỆN. Prompt BẮT BUỘC mở đầu: "Bố cục một trang truyện tranh với nhiều ô truyện, các khung hình được phân chia bằng viền trắng rành mạch..."`;
                 }
             } else if (isSlide) {
                 formatInstruction = `\n👉 HƯỚNG DẪN CHO SLIDESHOW/TRÌNH CHIẾU: Mỗi "scene" là MỘT SLIDE ẢNH. Chừa khoảng trống (không gian âm) tinh tế để chèn chữ.`;
             } else if (isPodcast) {
-                formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Mỗi "scene" đại diện cho một bối cảnh. CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng có thể thay đổi nhẹ góc máy (cận cảnh, góc nghiêng, thu phóng chậm).`;
+                formatInstruction = `\n👉 HƯỚNG DẪN CHO PODCAST/RADIO: Mỗi "scene" đại diện cho một bối cảnh. CÁC SCENE LIÊN TIẾP PHẢI MIÊU TẢ CÙNG MỘT BỐI CẢNH TĨNH LẶNG nhưng thay đổi nhẹ góc máy để tạo chiều sâu.`;
             }
         }
 
         const antiDuplicationRule = `
-            - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về. Không bao giờ được phép lặp lại một ID ở hai scene khác nhau.`;
+            - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về.`;
 
-        // [PROMPT GỬI CHO AI]
+        // PROMPT TỔNG LỰC GỬI CHO GEMINI
         const promptText = `
             BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
             ${timeConstraintPrompt}
@@ -949,18 +949,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
             - SỬ DỤNG 100% TIẾNG VIỆT cho toàn bộ kết quả trả về.
-            - TUYỆT ĐỐI KHÔNG được chèn bất kỳ từ tiếng Anh nào.
+            - TUYỆT ĐỐI KHÔNG chèn tiếng Anh vào mô tả.
 
             NHIỆM VỤ CỦA BẠN:
-            1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. ${masterPromptDurationLimit}
-            2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Xác định các nhân vật xuất hiện. Viết mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình, độ tuổi, kiểu tóc, trang phục đặc trưng cho từng người.
+            1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
+            2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình nhân vật (tuổi, tóc, trang phục đặc trưng).
             3. CHIA PHÂN CẢNH: Gom nhóm các câu thoại.
 
-            QUY TẮC GOM NHÓM VÀ VIẾT PROMPT BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
-            - 👤 BẢO TOÀN NHÂN VẬT (CHARACTER CONSISTENCY): Trong phần "prompt" của từng scene, khi nhân vật nào xuất hiện, BẠN BẮT BUỘC PHẢI CHÈN LẠI mô tả ngoại hình của họ vào câu đó. TUYỆT ĐỐI KHÔNG chỉ gọi tên trống không.
-            - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT ON IMAGE): Trong tất cả các mô tả phân cảnh, tuyệt đối không được yêu cầu có chữ viết, bảng hiệu, logo. Hình ảnh phải hoàn toàn sạch.
-            - GIỮ NGUYÊN THỨ TỰ thoại, không xáo trộn.
-            - KHÔNG BỎ SÓT bất kỳ ID thoại nào.
+            QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
+            - 👤 BẢO TOÀN NHÂN VẬT: Trong "prompt" từng scene, khi nhân vật xuất hiện, BẮT BUỘC PHẢI CHÈN LẠI mô tả ngoại hình đặc trưng của họ.
+            - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
+            - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
+            - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
             ${continuousText}
@@ -976,7 +976,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               ],
               "scenes": [
                 {
-                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt (Phải chứa mô tả ngoại hình nhân vật nếu có xuất hiện)...",
+                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt (Chứa mô tả nhân vật và khung viền nếu có)...",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
@@ -984,12 +984,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         `;
 
         try {
-            // Khởi tạo các biến cho cơ chế Retry
             let retries = 3;
             let delay = 2000;
             let response = null;
 
-            // Vòng lặp thử lại nếu gặp lỗi 503
             for (let i = 0; i < retries; i++) {
                 try {
                     response = await this.ai.models.generateContent({
@@ -1000,7 +998,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 } catch (apiError: any) {
                     const isOverloaded = apiError?.message?.includes('503') || apiError?.status === 503;
                     if (isOverloaded && i < retries - 1) {
-                        console.warn(`[Gemini API] Server đang bận. Đang thử lại lần ${i + 1}/${retries}...`);
                         this.toastr.info(`AI đang bận, tự động thử lại lần ${i + 1}...`, 'Hệ thống');
                         await new Promise(r => setTimeout(r, delay));
                         delay *= 2;
@@ -1010,19 +1007,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
 
-            if (!response) throw new Error("Không nhận được phản hồi từ AI sau nhiều lần thử.");
+            if (!response) throw new Error("Không nhận được phản hồi từ AI.");
 
-            // Lấy Object tổng thể từ AI
             const aiResponse = this.helperService.safeJsonParseFromAI(response.text);
             const aiResponseScenes = aiResponse.scenes || [];
 
-            // Map ID về lại text gốc, lấy duration và URL từ mảng allClips
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 let exactSceneDuration = 0;
 
                 const mappedSubtitles = scene.subtitleIds.map((id: string) => {
                     const originalClip = allClips.find((c: any) => c.id === id);
-
                     let safeAudioUrl = null;
                     let clipDuration = 0;
 
@@ -1046,11 +1040,17 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
 
-                // [CẬP NHẬT TRỌNG TÂM]: Gắn cứng thần chú cấm chữ bằng tiếng Anh vào đuôi mọi prompt
+                // [XỬ LÝ HẬU KỲ PROMPT]: Gắn cứng thần chú cấm chữ và ép khung truyện bằng tiếng Anh
                 let finalScenePrompt = scene.prompt.trim();
-                finalScenePrompt += `\n\n(Constraints: completely textless, no text, no watermark, no signature, clean background)`;
 
-                // Gắn thêm thời gian nếu là Video
+                let constraintStr = "completely textless, no text, no watermark, no signature, clean background";
+                if (isComic) {
+                    constraintStr += ", distinct comic panel layout, clear white gutters, split frames, strict panel borders";
+                }
+
+                finalScenePrompt += `\n\n(Constraints: ${constraintStr})`;
+
+                // Chỉ gắn thời lượng chính xác nếu định dạng là VIDEO
                 if (isVideo) {
                     finalScenePrompt += `\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
                 }
@@ -1062,30 +1062,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 };
             });
 
-            // Gán TRỰC TIẾP vào biến class
             this.videoProject = {
                 uuid: data.uuid,
                 title: data.title,
-                masterPrompt: aiResponse.masterPrompt || "", // <-- Lấy Master Prompt từ AI
-                characters: aiResponse.characters || [],     // <-- Lấy Danh sách nhân vật
+                masterPrompt: aiResponse.masterPrompt || "",
+                characters: aiResponse.characters || [],
                 totalOriginalClips: allClips.length,
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,
             };
 
-            // Dùng hàm chung để lưu đồng bộ
             this.saveToLocal();
-
-            // MỞ DIALOG
             this.openTimelineDialog(this.videoProject);
+            this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`);
 
-            this.toastr.success(
-                `Đã tối ưu thành ${finalScenes.length} phân cảnh!`,
-                'Thành công',
-            );
         } catch (error) {
             console.error('Lỗi logic gom nhóm:', error);
-            this.toastr.error('Hệ thống AI hiện đang quá tải hoặc cấu trúc trả về lỗi. Vui lòng thử lại sau ít phút.');
+            this.toastr.error('Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau.');
         } finally {
             this.isAnalyzing = false;
             this.cd.markForCheck();
