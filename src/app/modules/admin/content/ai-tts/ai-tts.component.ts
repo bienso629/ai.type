@@ -247,6 +247,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // Tìm đến hàm generateAudio và sửa lại như sau:
     async generateAudio(clip: AudioClip, globalIndex?: number): Promise<void> {
         return new Promise(async (resolve) => {
+            console.log('clip', clip);
             if (!clip.description || !clip.description.trim()) {
                 this.toastr.warning(`"${clip.name}" không có nội dung text`);
                 resolve();
@@ -794,11 +795,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // ==========================================
                 // [MỚI] ĐO VÀ CẬP NHẬT DURATION NGAY LẬP TỨC
                 // ==========================================
-                // Dù là tạo mới hay load lại từ local, nếu duration = 0 thì tự đo lại
-                if (!clip.duration || clip.duration === 0) {
-                    clip.duration = await this.getAudioDuration(blobUrl);
-                    this.calculateTotalDuration(); // Cập nhật ngay tổng thời gian của toàn project
-                }
+                // Luôn cập nhật lại duration với file mới nhất
+                clip.duration = await this.getAudioDuration(blobUrl);
+                this.calculateTotalDuration(); // Cập nhật ngay tổng thời gian của toàn project
                 // ==========================================
 
                 return true;
