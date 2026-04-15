@@ -162,19 +162,19 @@
                                                         [color]="'primary'">
                                                         <mat-icon class="icon-size-4"
                                                             [svgIcon]="'feather:message-circle'"></mat-icon>
-                                                        <span>Hỏi về '{{item}}</span>
+                                                        <span class="clamp-1">Hỏi về '{{item}}</span>
                                                     </button>
 
                                                     <button mat-menu-item (click)="synonym(item, $event)"
                                                         [matMenuTriggerFor]="forumActions">
                                                         <mat-icon class="icon-size-4"
                                                             [svgIcon]="'feather:type'"></mat-icon>
-                                                        <mat-label>Giải nghĩa '{{item}}'</mat-label>
+                                                        <mat-label class="clamp-1">Giải nghĩa '{{item}}'</mat-label>
                                                     </button>
 
                                                     <button mat-menu-item (click)="keywordGoogle(item, $event)">
                                                         <mat-icon class="icon-size-4" svgIcon="feather:rss"></mat-icon>
-                                                        <mat-label>Phát triển nội dung từ</mat-label>
+                                                        <mat-label class="clamp-1">Phát triển nội dung từ</mat-label>
                                                     </button>
                                                 </mat-menu>
                                             </div>
