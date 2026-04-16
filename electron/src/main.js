@@ -3325,3 +3325,64 @@ ipcMain.handle('cancel-tts', async (event) => {
     activeTtsTasks.clear();
     return { success: true };
 });
+
+ipcMain.handle('download-video', async (event, payload) => {
+    try {
+        const { urls } = payload;
+        if (!urls || urls.length === 0) {
+            return { success: false, error: 'Không có URL hợp lệ' };
+        }
+
+        const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            fs.mkdirSync(aiTypingDir, { recursive: true });
+        }
+        
+        // Output template cho yt-dlp: Downloads/AI.TYPING/{channel_name}/{title}.{ext}
+        const outputTemplate = path.join(aiTypingDir, '%(uploader)s', '%(title)s.%(ext)s');
+
+        sendToRenderer("tools-log", `[Download] Đang tiến hành tải dữ liệu chất lượng tốt nhất...`);
+        
+        for(let url of urls) {
+            // Tải best video & audio
+            const args = [
+                '-o', outputTemplate,
+                '--newline',
+                '-f', 'bestvideo+bestaudio/best'
+            ];
+            if (binaries.ffmpeg) {
+                args.push('--ffmpeg-location', binaries.ffmpeg);
+            }
+            args.push(url);
+            
+            await new Promise((resolve, reject) => {
+                const child = spawn(ytdlpPath, args);
+                
+                child.stdout.on('data', (data) => {
+                    const line = data.toString().trim();
+                    if(line) sendToRenderer("tools-log", `[Download] ${line}`);
+                });
+                
+                child.stderr.on('data', (data) => {
+                    const line = data.toString().trim();
+                    if(line) sendToRenderer("tools-log", `[Download] ${line}`);
+                });
+                
+                child.on('close', (code) => {
+                    if(code === 0) resolve();
+                    else reject(new Error(`Thất bại với mã thoát: ${code}`));
+                });
+            });
+        }
+
+        sendNotification("Tải Video", "Tải video hoàn tất vào thư mục AI.TYPING!");
+        return { success: true };
+
+    } catch (err) {
+        console.error("Download Video Error:", err);
+        return { success: false, error: err.message };
+    }
+});

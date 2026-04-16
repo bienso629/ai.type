@@ -60,28 +60,22 @@ export class AllTubeComponent implements OnInit, OnDestroy {
                     complete: () => { }
                 });
         } else {
-            this._youtubeService.download({
-                URLS: urls,
-                quality: this.quality,
-                username: this.user.name,
-                subtitle: false,
-                thumbnail: false,
-                // mode: "parallel"
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (results) => {
-                        if (results && results.success) {
-                            this.toastr.success('Tải video về thành công!');
-                        } else {
-                            this.toastr.warning('Tải video thất bại.');
-                        }
-                    },
-                    error: (e: any) => {
-                        this.toastr.warning('Tải video thất bại.');
-                    },
-                    complete: () => { }
+            if ((window as any).electron) {
+                this.toastr.info('Đang bắt đầu tải video...');
+                (window as any).electron.invoke('download-video', {
+                    urls: urls
+                }).then((result: any) => {
+                    if (result && result.success) {
+                        this.toastr.success('Tải video về thành công!');
+                    } else {
+                        this.toastr.warning('Tải video thất bại: ' + (result?.error || 'Unknown error'));
+                    }
+                }).catch((e: any) => {
+                    this.toastr.error('Có lỗi xảy ra: ' + e);
                 });
+            } else {
+                this.toastr.warning('Vui lòng chạy trên app Desktop để tải video!');
+            }
         }
     }
 
