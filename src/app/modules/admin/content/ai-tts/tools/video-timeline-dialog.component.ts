@@ -239,21 +239,45 @@ export class VideoTimelineDialogComponent implements OnInit {
         });
     }
 
-    prepareForVideoGeneration() {
-        const processDialogRef = this.dialog.open(AudioGenerationComponent, {
-            width: '550px',
-            disableClose: true,
-            data: this.projectData,
-        });
+    async prepareForVideoGeneration() {
+        if (!this.projectData || !this.projectData.scenes) {
+            this.toastr.warning('Không có dữ liệu để rà soát!');
+            return;
+        }
 
-        processDialogRef.afterClosed().subscribe((updatedProjectData) => {
-            if (updatedProjectData) {
-                this.projectData = updatedProjectData;
-                this.saveData();
-            } else {
-                this.toastr.info('Hủy tiến trình tạo Audio.');
+        this.toastr.info('Đang rà soát và cập nhật thời lượng các file audio...', 'Hệ thống');
+
+        const promises: Promise<void>[] = [];
+        let updatedCount = 0;
+
+        for (const scene of this.projectData.scenes) {
+            for (const sub of (scene.subtitles || [])) {
+                if (sub.audioUrl) {
+                    const p = new Promise<void>((resolve) => {
+                        const audioObj = new Audio(sub.audioUrl);
+                        audioObj.addEventListener('loadedmetadata', () => {
+                            sub.duration = audioObj.duration;
+                            updatedCount++;
+                            resolve();
+                        });
+                        audioObj.addEventListener('error', () => {
+                            console.error('Không thể load audio:', sub.audioUrl);
+                            resolve();
+                        });
+                    });
+                    promises.push(p);
+                }
             }
-        });
+        }
+
+        if (promises.length > 0) {
+            await Promise.all(promises);
+            this.saveData();
+            this.toastr.success(`Đã cập nhật thời lượng cho ${updatedCount}/${promises.length} file audio thành công!`);
+        } else {
+            this.toastr.warning('Không tìm thấy file audio nào để rà soát.');
+            this.saveData();
+        }
     }
 
     saveData() {

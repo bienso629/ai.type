@@ -247,7 +247,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // Tìm đến hàm generateAudio và sửa lại như sau:
     async generateAudio(clip: AudioClip, globalIndex?: number): Promise<void> {
         return new Promise(async (resolve) => {
-            console.log('clip', clip);
             if (!clip.description || !clip.description.trim()) {
                 this.toastr.warning(`"${clip.name}" không có nội dung text`);
                 resolve();
