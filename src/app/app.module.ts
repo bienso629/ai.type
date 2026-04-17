@@ -1,4 +1,4 @@
-import { APP_INITIALIZER, importProvidersFrom, NgModule } from '@angular/core';
+import { APP_INITIALIZER, importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA } from '@angular/core';
 import { BrowserModule, DomSanitizer } from '@angular/platform-browser';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ExtraOptions, PreloadAllModules, RouterModule } from '@angular/router';
@@ -29,6 +29,7 @@ const routerConfig: ExtraOptions = {
 };
 
 @NgModule({
+    schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],
     declarations: [
         AppComponent
     ],
