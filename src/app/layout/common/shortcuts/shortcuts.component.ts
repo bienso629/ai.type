@@ -33,62 +33,75 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
     private _overlayRef: OverlayRef;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    _baseShortcuts: Shortcut[] = [];
+
     getShortcuts() {
-        // Get the shortcuts
+        // Lắng nghe danh sách shortcut gốc CHỈ MỘT LẦN
         this._shortcutsService.shortcuts$
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((shortcuts: Shortcut[]) => {
-                this.shortcuts = [];
-
-                this.shortcuts = shortcuts;
-
-                if (this.user.groups?.includes("nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download")) {
-                    this.shortcuts.push({
-                        id: '989ce876-c177-4d71-a749-1953c477f825',
-                        label: 'Tạo ảnh',
-                        description: 'Công cụ hỗ trợ tự động tạo hình ảnh bằng nội dung gợi ý',
-                        icon: 'feather:image',
-                        link: '/ai-image',
-                        useRouter: true
-                    });
-                }
-
-                if (this.user.groups?.includes("nhóm-download-video-từ-youtube-facebook")) {
-                    this.shortcuts.push({
-                        id: '3c48e75e-2ae7-4b73-938a-12dc655be28b',
-                        label: 'Tải Video',
-                        description: 'Tải toàn bộ video của 1 kênh về máy tính cá nhân',
-                        icon: 'feather:youtube',
-                        link: '/all-tube',
-                        useRouter: true
-                    });
-                }
-
-                if (this.user.groups?.includes("nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói")) {
-                    this.shortcuts.push({
-                        id: 'a1ae91d3-e2cb-459b-9be9-a184694f548b',
-                        label: 'Text2Voice',
-                        description: 'Chuyển đổi văn bản thành giọng nói hỗ trợ tiếng Việt',
-                        icon: 'feather:mic',
-                        link: '/ai-text2speech',
-                        useRouter: true
-                    });
-                }
-
-                if (this.user.groups?.includes("nhóm-sử-dụng-seo-và-báo-cáo")) {
-                    this.shortcuts.push({
-                        id: '2daac375-a2f7-4393-b4d7-ce6061628b66',
-                        label: ' Link hay',
-                        description: 'Kiểm tra sức khỏe của website',
-                        icon: 'feather:link',
-                        link: '/links',
-                        useRouter: true
-                    });
-                }
-
-                // Mark for check
-                this._changeDetectorRef.markForCheck();
+                // Lưu lại mảng gốc, không ghi đè thẳng vào this.shortcuts
+                this._baseShortcuts = shortcuts || [];
+                this._updateShortcuts();
             });
+    }
+
+    private _updateShortcuts() {
+        // Sao chép mảng gốc để tránh reference mutation
+        this.shortcuts = [...this._baseShortcuts];
+
+        // Nếu thông tin user chưa sẵn sàng thì dừng
+        if (!this.user) {
+            this._changeDetectorRef.markForCheck();
+            return;
+        }
+
+        if (this.user.groups?.includes("nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download")) {
+            this.shortcuts.push({
+                id: '989ce876-c177-4d71-a749-1953c477f825',
+                label: 'Tạo ảnh',
+                description: 'Công cụ hỗ trợ tự động tạo hình ảnh bằng nội dung gợi ý',
+                icon: 'feather:image',
+                link: '/ai-image',
+                useRouter: true
+            });
+        }
+
+        if (this.user.groups?.includes("nhóm-download-video-từ-youtube-facebook")) {
+            this.shortcuts.push({
+                id: '3c48e75e-2ae7-4b73-938a-12dc655be28b',
+                label: 'Tải Video',
+                description: 'Tải toàn bộ video của 1 kênh về máy tính cá nhân',
+                icon: 'feather:youtube',
+                link: '/all-tube',
+                useRouter: true
+            });
+        }
+
+        if (this.user.groups?.includes("nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói")) {
+            this.shortcuts.push({
+                id: 'a1ae91d3-e2cb-459b-9be9-a184694f548b',
+                label: 'Text2Voice',
+                description: 'Chuyển đổi văn bản thành giọng nói hỗ trợ tiếng Việt',
+                icon: 'feather:mic',
+                link: '/ai-text2speech',
+                useRouter: true
+            });
+        }
+
+        if (this.user.groups?.includes("nhóm-sử-dụng-seo-và-báo-cáo")) {
+            this.shortcuts.push({
+                id: '2daac375-a2f7-4393-b4d7-ce6061628b66',
+                label: ' Link hay',
+                description: 'Kiểm tra sức khỏe của website',
+                icon: 'feather:link',
+                link: '/links',
+                useRouter: true
+            });
+        }
+
+        // Mark for check
+        this._changeDetectorRef.markForCheck();
     }
 
     /**
@@ -127,8 +140,11 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
                 
-                this.getShortcuts();
+                this._updateShortcuts();
             });
+
+        // Khởi tạo lấy dữ liệu Shortcuts
+        this.getShortcuts();
 
         // Subscribe to config changes
         this._fuseConfigService.config$
