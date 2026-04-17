@@ -29,8 +29,7 @@ const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
 const { version } = require("./../package.json"); // Lấy version từ file package.json
 
-// Đánh lừa Google Account Login trên Toàn bộ App (Bypass "browser may not be secure")
-app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+// Không set cứng User Agent ở đây nữa, sẽ tự động bóc tách từ Chromium gốc ở bước khi App đã Ready
 
 let serviceProcess = null;
 const uploadsDir = path.join(app.getPath('userData'), 'uploads');
@@ -957,6 +956,7 @@ const documentsDir = path.join(os.homedir(), "Documents");
 const fallbackPort = 5454;
 
 let mainWindow;
+let secondaryWindow = null;
 let targetWindow = null;
 let downloaderProcess = null;
 let typeProcess = null;
@@ -1435,7 +1435,7 @@ function createMainWindow() {
             contextIsolation: true,
             enableRemoteModule: false,
             webSecurity: false,
-            webviewTag: false,
+            webviewTag: true,
             devTools: true,
             nodeIntegration: true,
             nodeIntegrationInSubFrames: true,
@@ -2191,22 +2191,34 @@ app.whenReady().then(async () => {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
     }
 
+    // [ANTI-BOT] Lấy User Agent GỐC 100% của Chromium hiện tại
+    let trueAgent = session.defaultSession.getUserAgent();
+    // Bóc đi 2 cái đuôi báo danh "Tôi là ứng dụng Electron giả lập"
+    trueAgent = trueAgent.replace(/Electron\/[\d.]+ /g, '')
+                         .replace(/ai.type\/[\d.]+ /g, '');
+    
+    // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
+    app.userAgentFallback = trueAgent;
+    session.defaultSession.setUserAgent(trueAgent);
+
     const filter = {
         urls: [
             "*://*.type.vn/*",
             "*://*.facebook.com/*",
             "*://facebook.com/*",
             "*://chatgpt.com/*",
-            "*://google.com/*",
             "*://*.messenger.com/*",
+            "*://accounts.google.com/*" // Đọc để tiêu diệt hints
         ]
     };
 
-    session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
-        details.requestHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-        if (details.requestHeaders['sec-ch-ua']) {
-            details.requestHeaders['sec-ch-ua'] = '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"';
-        }
+    // Cài đặt vượt rào bot chung
+    const setupHeaders = (details, callback) => {
+        // Trả lại trạng thái Chrome nguyên bản tự nhiên nhất cho Google Login, không giả mạo hay xoá bất kỳ hint nào!
+
+
+        // Chặn cho Facebook/ChatGPT vẫn dùng UA tự động tự nhiên
+        // Không set cứng Chrome 122 ở đây nữa vì đã sửa cấu trúc tự động phía trên!
 
         if (details.url.includes('type.vn')) {
             // Ép Origin để NodeBB cho phép hiển thị ảnh từ localhost:5454
@@ -2215,7 +2227,10 @@ app.whenReady().then(async () => {
             delete details.requestHeaders['Sec-Fetch-Site'];
         }
         callback({ requestHeaders: details.requestHeaders });
-    });
+    };
+
+    // Áp dụng cho session mặc định
+    session.defaultSession.webRequest.onBeforeSendHeaders(filter, setupHeaders);
 
     // Chạy hàm load ngay khi khởi tạo
     loadBinaries();
@@ -2224,6 +2239,192 @@ app.whenReady().then(async () => {
     startSttWebSocketServer();
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
     createMainWindow();
+
+    // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
+    app.on('web-contents-created', (event, contents) => {
+        if (contents.getType() === 'webview') {
+            // Duck-type tương thích chức năng
+            targetWindow = {
+                webContents: contents,
+                isDestroyed: () => contents.isDestroyed(),
+                close: () => {} // Webview tự đóng theo giao diện HTML
+            };
+
+            // ============================================================
+            // PUPPETEER STEALTH LOGIN: Mở Chromium THẬT (không phải Electron)
+            // để đăng nhập Google, rồi chuyển cookie về Electron.
+            // Google phát hiện Electron qua JS fingerprinting nên BrowserWindow
+            // luôn bị chặn. Puppeteer Stealth patch hết các dấu hiệu đó.
+            // ============================================================
+            let isGeminiAuthRunning = false; // Tránh mở nhiều lần
+
+            const launchStealthLogin = async (loginUrl, webviewContents) => {
+                if (isGeminiAuthRunning) return;
+                isGeminiAuthRunning = true;
+                sendToRenderer("tools-log", "[Gemini-Auth] Đang mở Chrome thật để đăng nhập...");
+
+                const CHROME_DEBUG_PORT = 9224;
+
+                try {
+                    const realChromePath = getChromePath();
+                    if (!realChromePath) {
+                        sendToRenderer("tools-log", "[Gemini-Auth] ❌ Không tìm thấy Chrome trên máy!");
+                        isGeminiAuthRunning = false;
+                        return;
+                    }
+
+                    const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+
+                    const chromeArgs = [
+                        `--remote-debugging-port=${CHROME_DEBUG_PORT}`,
+                        `--user-data-dir=${googleAuthDir}`,
+                        '--no-first-run',
+                        '--no-default-browser-check',
+                        `--window-size=550,750`,
+                        loginUrl
+                    ];
+
+                    sendToRenderer("tools-log", `[Gemini-Auth] Mở: ${realChromePath}`);
+                    const chromeProcess = require('child_process').spawn(realChromePath, chromeArgs, {
+                        detached: false,
+                        stdio: 'ignore'
+                    });
+
+                    // Chờ Chrome khởi động xong (2 giây)
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+
+                    sendToRenderer("tools-log", "[Gemini-Auth] Đang kết nối vào Chrome...");
+
+                    // Kết nối vào Chrome đang chạy qua remote debugging
+                    let stealthBrowser;
+                    try {
+                        stealthBrowser = await puppeteer.connect({
+                            browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
+                            defaultViewport: null
+                        });
+                    } catch (connectErr) {
+                        // Thử lại sau 3 giây nếu Chrome chưa sẵn sàng
+                        await new Promise(resolve => setTimeout(resolve, 3000));
+                        stealthBrowser = await puppeteer.connect({
+                            browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
+                            defaultViewport: null
+                        });
+                    }
+
+                    sendToRenderer("tools-log", "[Gemini-Auth] ✅ Đã kết nối Chrome! Hãy đăng nhập Google...");
+
+                    // Tìm tab đang mở trang Google login
+                    const pages = await stealthBrowser.pages();
+                    let loginPage = pages.find(p => p.url().includes('accounts.google.com'));
+                    if (!loginPage && pages.length > 0) loginPage = pages[pages.length - 1];
+
+                    if (!loginPage) {
+                        sendToRenderer("tools-log", "[Gemini-Auth] ❌ Không tìm thấy tab đăng nhập!");
+                        stealthBrowser.disconnect();
+                        isGeminiAuthRunning = false;
+                        return;
+                    }
+
+                    // Theo dõi: khi user login xong, URL sẽ rời khỏi accounts.google.com
+                    sendToRenderer("tools-log", "[Gemini-Auth] Đang chờ bạn đăng nhập...");
+                    
+                    try {
+                        await loginPage.waitForFunction(() => {
+                            const url = window.location.href;
+                            return !url.includes('accounts.google.com/v3/signin')
+                                && !url.includes('accounts.google.com/o/oauth2')
+                                && !url.includes('accounts.google.com/signin')
+                                && !url.includes('accounts.google.com/ServiceLogin');
+                        }, { timeout: 300000 }); // Chờ tối đa 5 phút
+                    } catch (waitErr) {
+                        sendToRenderer("tools-log", "[Gemini-Auth] ⏰ Hết thời gian chờ đăng nhập!");
+                        stealthBrowser.disconnect();
+                        isGeminiAuthRunning = false;
+                        return;
+                    }
+
+                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 Đăng nhập thành công! Đang chuyển cookie...");
+
+                    // Hút cookie từ Chrome đang chạy
+                    const client = await loginPage.createCDPSession();
+                    const { cookies: allCookies } = await client.send('Network.getAllCookies');
+
+                    const googleCookies = allCookies.filter(c =>
+                        c.domain.includes('.google.com') || c.domain.includes('google.com')
+                    );
+
+                    sendToRenderer("tools-log", `[Gemini-Auth] Thu được ${googleCookies.length} cookie Google.`);
+
+                    // Import cookie vào Electron
+                    let importedCount = 0;
+                    for (const cookie of googleCookies) {
+                        try {
+                            const cookieObj = {
+                                url: `http${cookie.secure ? 's' : ''}://${cookie.domain.replace(/^\./, '')}${cookie.path}`,
+                                name: cookie.name,
+                                value: cookie.value,
+                                domain: cookie.domain,
+                                path: cookie.path,
+                                secure: cookie.secure,
+                                httpOnly: cookie.httpOnly,
+                                sameSite: cookie.sameSite === 'None' ? 'no_restriction'
+                                        : cookie.sameSite === 'Lax' ? 'lax'
+                                        : cookie.sameSite === 'Strict' ? 'strict'
+                                        : undefined
+                            };
+                            if (cookie.expires && cookie.expires > 0) {
+                                cookieObj.expirationDate = cookie.expires;
+                            }
+                            await session.defaultSession.cookies.set(cookieObj);
+                            importedCount++;
+                        } catch (cookieErr) {
+                            // Bỏ qua cookie lỗi
+                        }
+                    }
+
+                    sendToRenderer("tools-log", `[Gemini-Auth] ✅ Đã import ${importedCount}/${googleCookies.length} cookie thành công!`);
+
+                    // Đóng Chrome
+                    try {
+                        await stealthBrowser.close();
+                    } catch (closeErr) {
+                        // Chrome có thể đã đóng
+                        try { chromeProcess.kill(); } catch(e){}
+                    }
+
+                    // Reload webview
+                    if (!webviewContents.isDestroyed()) {
+                        sendToRenderer("tools-log", "[Gemini-Auth] Đang tải lại Gemini...");
+                        webviewContents.loadURL('https://gemini.google.com/app');
+                    }
+
+                } catch (err) {
+                    sendToRenderer("tools-log", `[Gemini-Auth] Lỗi: ${err.message}`);
+                } finally {
+                    isGeminiAuthRunning = false;
+                }
+            };
+
+            // Bắt sự kiện navigate tới trang login Google
+            contents.on('will-navigate', (e, url) => {
+                if (url.includes('accounts.google.com')) {
+                    e.preventDefault();
+                    launchStealthLogin(url, contents);
+                }
+            });
+
+            // Bắt sự kiện mở popup mới (nút Sign In có thể mở popup)
+            contents.setWindowOpenHandler(({ url }) => {
+                if (url.includes('accounts.google.com')) {
+                    launchStealthLogin(url, contents);
+                    return { action: 'deny' };
+                }
+                return { action: 'allow' };
+            });
+
+            sendToRenderer("tools-log", "[Webview] Đã đính kèm thẻ webview mới vào luồng Download Ảnh tự động!");
+        }
+    });
 
     if (binaries.downloader) {
         downloaderProcess = execFile(binaries.downloader, [], (err, stdout, stderr) => {
@@ -2340,20 +2541,31 @@ app.whenReady().then(async () => {
                     data.username,
                 );
 
-                createTargetWindow(
-                    data.url,
-                    () => {
-                        createImageByDreamina(data.url, uniqueID, {
-                            outDir: data.outDir || defaultOutDir,
-                            maxImages: data.maxImages || 100,
-                            filenamePrefix: data.filenamePrefix || "dream_",
-                            prompt: data.prompt,
-                        });
-                    },
-                    uniqueID,
-                    data.width || 1000,
-                    data.height || 1100,
-                );
+                if (targetWindow && !targetWindow.isDestroyed()) {
+                    // Nếu Webview đã mở, chạy script trực tiếp lên đó luôn
+                    createImageByDreamina(data.url, uniqueID, {
+                        outDir: data.outDir || defaultOutDir,
+                        maxImages: data.maxImages || 100,
+                        filenamePrefix: data.filenamePrefix || "dream_",
+                        prompt: data.prompt,
+                    });
+                } else {
+                    // Nếu chưa mở (chạy nền), gọi popup như cũ
+                    createTargetWindow(
+                        data.url,
+                        () => {
+                            createImageByDreamina(data.url, uniqueID, {
+                                outDir: data.outDir || defaultOutDir,
+                                maxImages: data.maxImages || 100,
+                                filenamePrefix: data.filenamePrefix || "dream_",
+                                prompt: data.prompt,
+                            });
+                        },
+                        uniqueID,
+                        data.width || 1000,
+                        data.height || 1100,
+                    );
+                }
                 break;
             }
             case "facebook-login": {

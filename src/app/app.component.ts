@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, signal } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, AfterViewInit } from '@angular/core';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
@@ -14,7 +14,7 @@ import { MultiAccountService } from './modules/_services/multi-account.service';
     templateUrl: './app.component.html',
     styleUrls: ['./app.component.scss']
 })
-export class AppComponent implements OnInit, OnDestroy {
+export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;
     uuid = new DeviceUUID().get();
 
@@ -28,6 +28,64 @@ export class AppComponent implements OnInit, OnDestroy {
     // 5 phút kiểm tra một lần
     private readonly ONE_HOUR_MS = 1000 * 60 * 5;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    // ===== UI Split-Pane State =====
+    // 3 mức snap: 100 (ẩn webview), 75 (1/4 webview), 50 (2/4 webview)
+    leftPaneWidth: number = 100; // Mặc định ẩn webview
+    isDragging: boolean = false;
+    private dragStartX: number = 0;
+
+    get isWebviewVisible(): boolean {
+        return this.leftPaneWidth < 100;
+    }
+
+    startDragging(event: MouseEvent) {
+        this.isDragging = true;
+        this.dragStartX = event.clientX;
+        event.preventDefault();
+    }
+
+    stopDragging() {
+        if (this.isDragging) {
+            this.isDragging = false;
+            // Snap vào mức gần nhất: 50%, 75%, 100%
+            this.snapToNearest();
+        }
+    }
+
+    onDrag(event: MouseEvent) {
+        if (!this.isDragging) return;
+        const newWidth = (event.clientX / window.innerWidth) * 100;
+        // Cho phép kéo tự do trong khoảng 40-100
+        if (newWidth >= 40 && newWidth <= 100) {
+            this.leftPaneWidth = newWidth;
+        }
+    }
+
+    private snapToNearest() {
+        // Snap vào mức gần nhất
+        const snapPoints = [50, 75, 100];
+        let closest = snapPoints[0];
+        let minDist = Math.abs(this.leftPaneWidth - closest);
+        for (const point of snapPoints) {
+            const dist = Math.abs(this.leftPaneWidth - point);
+            if (dist < minDist) {
+                minDist = dist;
+                closest = point;
+            }
+        }
+        this.leftPaneWidth = closest;
+    }
+
+    // Toggle webview: ẩn/hiện nhanh
+    toggleWebview() {
+        if (this.leftPaneWidth >= 100) {
+            this.leftPaneWidth = 75; // Mở ra mức 1/4
+        } else {
+            this.leftPaneWidth = 100; // Ẩn
+        }
+    }
+    // ===============================
 
     updateTime(): void {
         let activeInfo = this.multiAccountService.getItem('active_info');
@@ -115,6 +173,26 @@ export class AppComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
             });
+    }
+
+    ngAfterViewInit() {
+        // Khởi tạo thẻ webview bằng Javascript nguyên thuỷ (Native DOM) để không bị xích mích với Compiler của Angular
+        setTimeout(() => {
+            const container = document.getElementById('webview-container-div');
+            if (container) {
+                const webview = document.createElement('webview');
+                webview.setAttribute('src', 'https://gemini.google.com/');
+                webview.setAttribute('allowpopups', 'true');
+                
+                webview.style.width = '100%';
+                webview.style.height = '100%';
+                webview.style.border = 'none';
+                webview.style.display = 'flex';
+                webview.style.flex = '1';
+
+                container.appendChild(webview);
+            }
+        }, 500); // Đợi DOM sẵn sàng chút xíu
     }
 
     ngOnDestroy() {

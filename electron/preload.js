@@ -20,6 +20,15 @@ contextBridge.exposeInMainWorld('electron', {
     },
     requestContextMenu: () => ipcRenderer.send('show-context-menu'),
 
+    // ===== DUAL SCREEN =====
+    openSecondaryScreen: (url) => ipcRenderer.send('open-secondary-screen', url),
+    sendToSecondary: (data) => ipcRenderer.send('send-to-secondary', data),
+    onSecondaryData: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('secondary-data', listener);
+        return () => ipcRenderer.removeListener('secondary-data', listener);
+    },
+
     // ===== STT BRIDGE =====
     stt: {
         sendToChrome: (payload) => ipcRenderer.send('stt-send-to-chrome', payload),
