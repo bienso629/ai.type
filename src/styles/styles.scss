@@ -330,6 +330,8 @@ fuse-vertical-navigation {
 
 .cdk-overlay-container {
     z-index: 10000 !important;
+    max-width: var(--main-pane-width, 100vw);
+    overflow: hidden;
 }
 
 ng-select {

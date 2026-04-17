@@ -52,6 +52,7 @@ contextBridge.exposeInMainWorld('electron', {
     captureApp: (data) => ipcRenderer.invoke('capture-app', data),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     relaunchApp: () => ipcRenderer.send('app:relaunch'),
+    clearGoogleCookies: () => ipcRenderer.invoke('clear-google-cookies'),
     startGoLoginTraffic: (payload) => ipcRenderer.invoke('gologin:start-traffic', payload),
     stopGoLoginProfile: (profileId) => ipcRenderer.invoke('gologin:stop-profile', profileId),
     stopAllGoLoginProfiles: () => ipcRenderer.invoke('gologin:stop-all'),
@@ -59,7 +60,8 @@ contextBridge.exposeInMainWorld('electron', {
         return webUtils.getPathForFile(file);
     },
     selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath }),
-    resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height })
+    resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
+    onWebviewDownloadComplete: (callback) => ipcRenderer.on('webview-download-complete', (event, data) => callback(data))
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...

@@ -1116,8 +1116,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
 
         this.dialog.open(VideoTimelineDialogComponent, {
-            width: '98vw', // Chiều rộng chiếm 95% màn hình
-            maxHeight: '69vh', // Chỉ giới hạn chiều cao tối đa
+            width: '95%', // Lấy 95% chiều rộng của left-pane (được giới hạn bởi overlay container)
+            maxHeight: '85vh', // Tăng thêm một chút chiều cao 
             height: 'auto', // Tự động co giãn theo nội dung
             data: data, // Truyền dữ liệu trực tiếp vào dialog
             panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần

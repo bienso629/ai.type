@@ -49,7 +49,8 @@
         (cdkDropListDropped)="onSceneDropped($event)">
 
         @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
-        <div class="flex-none w-80 max-h-full h-full bg-gray-50 rounded-xl overflow-hidden select-none example-box relative"
+        <div class="flex-none w-80 max-h-full h-full bg-gray-50 rounded-xl overflow-hidden select-none example-box relative transition-all duration-300"
+            [ngClass]="activeDownloadScene === scene ? 'ring-[4px] ring-inset ring-blue-500 shadow-xl' : ''"
             cdkDrag>
             <div class="cdk-drag-handle absolute top-2 left-2 z-10 flex items-center justify-center cursor-move"
                 cdkDragHandle>
