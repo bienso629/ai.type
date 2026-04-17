@@ -414,7 +414,7 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
 
             const isVid = p.toLowerCase().endsWith('.mp4');
             sendToRenderer("tools-log", `[Dreamina] ${isVid ? '🎬 Video' : '✅ Ảnh'} đã tải: ${path.basename(p)}`);
-            
+
             // Gửi action dreamina-downloaded để Renderer gắn ngược lại chương trình
             _evt.reply("tools-response", { action: "dreamina-downloaded", file: p, isVid });
         } catch (e) {
@@ -2195,8 +2195,8 @@ app.whenReady().then(async () => {
     let trueAgent = session.defaultSession.getUserAgent();
     // Bóc đi 2 cái đuôi báo danh "Tôi là ứng dụng Electron giả lập"
     trueAgent = trueAgent.replace(/Electron\/[\d.]+ /g, '')
-                         .replace(/ai.type\/[\d.]+ /g, '');
-    
+        .replace(/ai.type\/[\d.]+ /g, '');
+
     // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
     app.userAgentFallback = trueAgent;
     session.defaultSession.setUserAgent(trueAgent);
@@ -2240,14 +2240,47 @@ app.whenReady().then(async () => {
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
     createMainWindow();
 
+    // ===== IPC: Xoá toàn bộ cookie Google để đăng nhập lại =====
+    ipcMain.handle('clear-google-cookies', async () => {
+        try {
+            const cookies = await session.defaultSession.cookies.get({});
+            let removedCount = 0;
+            for (const cookie of cookies) {
+                if (cookie.domain.includes('google') || cookie.domain.includes('labs.google')) {
+                    const url = `http${cookie.secure ? 's' : ''}://${cookie.domain.replace(/^\./, '')}${cookie.path}`;
+                    await session.defaultSession.cookies.remove(url, cookie.name);
+                    removedCount++;
+                }
+            }
+            
+            // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
+            const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+            if (fs.existsSync(googleAuthDir)) {
+                fs.rmSync(googleAuthDir, { recursive: true, force: true });
+            }
+            
+            sendToRenderer("tools-log", `[Gemini-Auth] ✅ Đã xoá ${removedCount} cookie Google.`);
+            return { success: true, removed: removedCount };
+        } catch (err) {
+            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi xoá cookie: ${err.message}`);
+            return { success: false, error: err.message };
+        }
+    });
+
     // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
     app.on('web-contents-created', (event, contents) => {
         if (contents.getType() === 'webview') {
-            // Duck-type tương thích chức năng
+            // Duck-type tương thích chức năng (bao gồm EventEmitter methods)
+            const EventEmitter = require('events');
+            const fakeEmitter = new EventEmitter();
             targetWindow = {
                 webContents: contents,
                 isDestroyed: () => contents.isDestroyed(),
-                close: () => {} // Webview tự đóng theo giao diện HTML
+                close: () => { },
+                once: (...args) => fakeEmitter.once(...args),
+                on: (...args) => fakeEmitter.on(...args),
+                removeListener: (...args) => fakeEmitter.removeListener(...args),
+                emit: (...args) => fakeEmitter.emit(...args),
             };
 
             // ============================================================
@@ -2327,7 +2360,7 @@ app.whenReady().then(async () => {
 
                     // Theo dõi: khi user login xong, URL sẽ rời khỏi accounts.google.com
                     sendToRenderer("tools-log", "[Gemini-Auth] Đang chờ bạn đăng nhập...");
-                    
+
                     try {
                         await loginPage.waitForFunction(() => {
                             const url = window.location.href;
@@ -2343,17 +2376,31 @@ app.whenReady().then(async () => {
                         return;
                     }
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 Đăng nhập thành công! Đang chuyển cookie...");
+                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 Đăng nhập thành công! Đang xác thực với Labs...");
 
-                    // Hút cookie từ Chrome đang chạy
+                    // QUAN TRỌNG: Sau khi login Google, cần truy cập labs.google để domain đó tạo cookie xác thực riêng
+                    try {
+                        await loginPage.goto('https://labs.google/fx/vi/tools/flow', { waitUntil: 'networkidle2', timeout: 30000 });
+                    } catch (navErr) {
+                        sendToRenderer("tools-log", "[Gemini-Auth] ⚠️ Labs chậm tải, vẫn tiếp tục lấy cookie...");
+                    }
+                    
+                    // Chờ thêm 2 giây để cookie ổn định
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+
+                    sendToRenderer("tools-log", "[Gemini-Auth] Đang chuyển cookie...");
+
+                    // Hút TOÀN BỘ cookie từ Chrome (không chỉ google.com)
                     const client = await loginPage.createCDPSession();
                     const { cookies: allCookies } = await client.send('Network.getAllCookies');
 
+                    // Lấy tất cả cookie liên quan Google + Labs
                     const googleCookies = allCookies.filter(c =>
-                        c.domain.includes('.google.com') || c.domain.includes('google.com')
+                        c.domain.includes('google') || c.domain.includes('gstatic')
+                        || c.domain.includes('googleapis') || c.domain.includes('labs.google')
                     );
 
-                    sendToRenderer("tools-log", `[Gemini-Auth] Thu được ${googleCookies.length} cookie Google.`);
+                    sendToRenderer("tools-log", `[Gemini-Auth] Thu được ${googleCookies.length} cookie.`);
 
                     // Import cookie vào Electron
                     let importedCount = 0;
@@ -2368,9 +2415,9 @@ app.whenReady().then(async () => {
                                 secure: cookie.secure,
                                 httpOnly: cookie.httpOnly,
                                 sameSite: cookie.sameSite === 'None' ? 'no_restriction'
-                                        : cookie.sameSite === 'Lax' ? 'lax'
+                                    : cookie.sameSite === 'Lax' ? 'lax'
                                         : cookie.sameSite === 'Strict' ? 'strict'
-                                        : undefined
+                                            : undefined
                             };
                             if (cookie.expires && cookie.expires > 0) {
                                 cookieObj.expirationDate = cookie.expires;
@@ -2389,13 +2436,13 @@ app.whenReady().then(async () => {
                         await stealthBrowser.close();
                     } catch (closeErr) {
                         // Chrome có thể đã đóng
-                        try { chromeProcess.kill(); } catch(e){}
+                        try { chromeProcess.kill(); } catch (e) { }
                     }
 
                     // Reload webview
                     if (!webviewContents.isDestroyed()) {
                         sendToRenderer("tools-log", "[Gemini-Auth] Đang tải lại Gemini...");
-                        webviewContents.loadURL('https://gemini.google.com/app');
+                        webviewContents.loadURL('https://labs.google/fx/vi/tools/flow');
                     }
 
                 } catch (err) {
@@ -2420,6 +2467,39 @@ app.whenReady().then(async () => {
                     return { action: 'deny' };
                 }
                 return { action: 'allow' };
+            });
+
+            // Bắt sự kiện người dùng tải xuống từ màn hình phụ
+            contents.session.on('will-download', (event, item, webContents) => {
+                const fileName = item.getFilename();
+                sendToRenderer("tools-log", `[Webview] Bắt đầu tải file: ${fileName}`);
+                
+                item.on('updated', (event, state) => {
+                    if (state === 'interrupted') {
+                        sendToRenderer("tools-log", "[Webview] Tải xuống bị gián đoạn.");
+                    } else if (state === 'progressing') {
+                        if (item.isPaused()) {
+                            sendToRenderer("tools-log", "[Webview] Tải xuống bị tạm dừng.");
+                        } 
+                    }
+                });
+
+                item.once('done', (event, state) => {
+                    if (state === 'completed') {
+                        const localPath = item.getSavePath();
+                        sendToRenderer("tools-log", `[Webview] Tải xuống hoàn tất: ${localPath}`);
+                        
+                        // Gửi sự kiện cho Angular Frontend biết
+                        if (mainWindow) {
+                            mainWindow.webContents.send('webview-download-complete', {
+                                file: localPath,
+                                name: fileName
+                            });
+                        }
+                    } else {
+                        sendToRenderer("tools-log", `[Webview] Tải xuống thất bại: ${state}`);
+                    }
+                });
             });
 
             sendToRenderer("tools-log", "[Webview] Đã đính kèm thẻ webview mới vào luồng Download Ảnh tự động!");
@@ -3576,19 +3656,19 @@ ipcMain.handle('download-video', async (event, payload) => {
         }
 
         const ytdlpPath = binaries.ytdlp || "yt-dlp";
-        
+
         const downloadsPath = app.getPath('downloads');
         const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
         if (!fs.existsSync(aiTypingDir)) {
             fs.mkdirSync(aiTypingDir, { recursive: true });
         }
-        
+
         // Output template cho yt-dlp: Downloads/AI.TYPING/{channel_name}/{title}.{ext}
         const outputTemplate = path.join(aiTypingDir, '%(uploader)s', '%(title)s.%(ext)s');
 
         sendToRenderer("tools-log", `[Download] Đang tiến hành tải dữ liệu chất lượng tốt nhất...`);
-        
-        for(let url of urls) {
+
+        for (let url of urls) {
             // Tải best video & audio
             const args = [
                 '-o', outputTemplate,
@@ -3599,22 +3679,22 @@ ipcMain.handle('download-video', async (event, payload) => {
                 args.push('--ffmpeg-location', binaries.ffmpeg);
             }
             args.push(url);
-            
+
             await new Promise((resolve, reject) => {
                 const child = spawn(ytdlpPath, args);
-                
+
                 child.stdout.on('data', (data) => {
                     const line = data.toString().trim();
-                    if(line) sendToRenderer("tools-log", `[Download] ${line}`);
+                    if (line) sendToRenderer("tools-log", `[Download] ${line}`);
                 });
-                
+
                 child.stderr.on('data', (data) => {
                     const line = data.toString().trim();
-                    if(line) sendToRenderer("tools-log", `[Download] ${line}`);
+                    if (line) sendToRenderer("tools-log", `[Download] ${line}`);
                 });
-                
+
                 child.on('close', (code) => {
-                    if(code === 0) resolve();
+                    if (code === 0) resolve();
                     else reject(new Error(`Thất bại với mã thoát: ${code}`));
                 });
             });

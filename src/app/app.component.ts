@@ -59,7 +59,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         // Cho phép kéo tự do trong khoảng 40-100
         if (newWidth >= 40 && newWidth <= 100) {
             this.leftPaneWidth = newWidth;
+            this.updateRootCssVar();
         }
+    }
+
+    // Đồng bộ CSS variable lên :root để cdk-overlay-container (nằm ở body) đọc được
+    private updateRootCssVar() {
+        document.documentElement.style.setProperty('--main-pane-width', this.leftPaneWidth + 'vw');
     }
 
     private snapToNearest() {
@@ -75,14 +81,36 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         }
         this.leftPaneWidth = closest;
+        this.updateRootCssVar();
     }
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
         if (this.leftPaneWidth >= 100) {
-            this.leftPaneWidth = 75; // Mở ra mức 1/4
+            this.leftPaneWidth = 75;
         } else {
-            this.leftPaneWidth = 100; // Ẩn
+            this.leftPaneWidth = 100;
+        }
+        this.updateRootCssVar();
+    }
+
+    // Xoá cookie Google để đăng nhập lại tài khoản khác
+    async clearGoogleCookies() {
+        try {
+            const electron = (window as any).electron;
+            if (electron?.clearGoogleCookies) {
+                await electron.clearGoogleCookies();
+            }
+            // Reload webview
+            const container = document.getElementById('webview-container-div');
+            if (container) {
+                const webview = container.querySelector('webview') as any;
+                if (webview?.reload) {
+                    webview.loadURL('https://labs.google/fx/vi/tools/flow');
+                }
+            }
+        } catch (err) {
+            console.error('Lỗi xoá cookie:', err);
         }
     }
     // ===============================
@@ -162,6 +190,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnInit() {
+        // Set CSS variable ban đầu cho cdk-overlay-container
+        this.updateRootCssVar();
+        
         // 2. Thiết lập bộ đếm (Timer)
         this.intervalId = setInterval(() => {
             this.updateTime();
@@ -181,9 +212,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             const container = document.getElementById('webview-container-div');
             if (container) {
                 const webview = document.createElement('webview');
-                webview.setAttribute('src', 'https://gemini.google.com/');
+                webview.setAttribute('src', 'https://labs.google/fx/vi/tools/flow');
                 webview.setAttribute('allowpopups', 'true');
-                
+
                 webview.style.width = '100%';
                 webview.style.height = '100%';
                 webview.style.border = 'none';

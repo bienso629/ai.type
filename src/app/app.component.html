@@ -2,7 +2,8 @@
      [class.is-dragging]="isDragging"
      (mousemove)="onDrag($event)" 
      (mouseup)="stopDragging()" 
-     [style.--webview-width]="(100 - leftPaneWidth) + 'vw'" 
+     [style.--webview-width]="(100 - leftPaneWidth) + 'vw'"
+     [style.--main-pane-width]="leftPaneWidth + 'vw'"
      style="position: absolute; inset: 0; width: 100vw; height: 100vh;">
   
   <!-- Overlay chặn webview cướp chuột khi đang kéo -->
