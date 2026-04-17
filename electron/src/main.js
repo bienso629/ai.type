@@ -29,6 +29,9 @@ const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
 const { version } = require("./../package.json"); // Lấy version từ file package.json
 
+// Đánh lừa Google Account Login trên Toàn bộ App (Bypass "browser may not be secure")
+app.userAgentFallback = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+
 let serviceProcess = null;
 const uploadsDir = path.join(app.getPath('userData'), 'uploads');
 
@@ -376,6 +379,27 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
 
     if (!targetWindow || targetWindow.isDestroyed()) return;
 
+    // --- Tự động Paste Prompt ---
+    if (options.prompt) {
+        const safePrompt = options.prompt.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+        targetWindow.webContents.executeJavaScript(`
+            setTimeout(() => {
+                const editor = document.querySelector('rich-textarea') || document.querySelector('p[data-placeholder]')?.parentElement || document.querySelector('div[contenteditable="true"]');
+                if (editor) {
+                    editor.focus();
+                    document.execCommand('insertText', false, \`${safePrompt}\`);
+                    
+                    // Thử tìm nút Send và ấn tự động luôn sau 1 giây
+                    setTimeout(() => {
+                        const sendBtn = document.querySelector('button[aria-label*="Send message"], button[aria-label*="Gửi tin nhắn"], button.send-button');
+                        if (sendBtn && !sendBtn.disabled) sendBtn.click();
+                    }, 1000);
+                }
+            }, 3000);
+        `).catch(err => console.log('Auto-paste prompt error:', err.message));
+    }
+    // ----------------------------
+
     const seen = new Set();
     let saved = 0;
 
@@ -391,6 +415,9 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
 
             const isVid = p.toLowerCase().endsWith('.mp4');
             sendToRenderer("tools-log", `[Dreamina] ${isVid ? '🎬 Video' : '✅ Ảnh'} đã tải: ${path.basename(p)}`);
+            
+            // Gửi action dreamina-downloaded để Renderer gắn ngược lại chương trình
+            _evt.reply("tools-response", { action: "dreamina-downloaded", file: p, isVid });
         } catch (e) {
             sendToRenderer("tools-log", `[Dreamina] ❌ Lỗi: ${e.message}`);
         }
@@ -1552,7 +1579,7 @@ function createTargetWindow(
             sandbox: false,
             nativeWindowOpen: true,
             enableRemoteModule: false,
-            webSecurity: false,
+            webSecurity: !url.includes("google.com"),
             webviewTag: false,
             devTools: false,
             nodeIntegrationInSubFrames: true,
@@ -1561,9 +1588,8 @@ function createTargetWindow(
     });
 
     // Fake user-agent nếu cần
-    targetWindow.webContents.setUserAgent(
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-    );
+    const fakeUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+    targetWindow.webContents.setUserAgent(fakeUserAgent);
 
     targetWindow.loadURL(targetUrlWithUniqueID);
 
@@ -2178,6 +2204,9 @@ app.whenReady().then(async () => {
 
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, (details, callback) => {
         details.requestHeaders["User-Agent"] = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
+        if (details.requestHeaders['sec-ch-ua']) {
+            details.requestHeaders['sec-ch-ua'] = '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"';
+        }
 
         if (details.url.includes('type.vn')) {
             // Ép Origin để NodeBB cho phép hiển thị ảnh từ localhost:5454
@@ -2318,6 +2347,7 @@ app.whenReady().then(async () => {
                             outDir: data.outDir || defaultOutDir,
                             maxImages: data.maxImages || 100,
                             filenamePrefix: data.filenamePrefix || "dream_",
+                            prompt: data.prompt,
                         });
                     },
                     uniqueID,
