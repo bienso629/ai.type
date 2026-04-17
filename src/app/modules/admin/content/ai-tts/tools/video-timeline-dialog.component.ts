@@ -192,23 +192,41 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.clipboard.copy(finalPrompt);
         this.toastr.info(`Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`, 'Thành công');
 
-        // 4. (TÙY CHỌN BỔ SUNG): Tự động gọi tool mở thẳng web Dreamina giống như ở ngoài màn hình chính
-        // if ((window as any).electron) {
-        //     try {
-        //         const uniqueID = Math.random().toString(36).substr(2, 9);
-        //         await (window as any).electron.tools({
-        //             url: 'https://dreamina.capcut.com',
-        //             command: 'dreamina.capcut',
-        //             uniqueID,
-        //             username: this.projectData['username'] || 'anonymous',
-        //             filenamePrefix: `scene_${index + 1}_`,
-        //             width: 1600,
-        //             height: 900,
-        //         });
-        //     } catch (error) {
-        //         console.error("Lỗi khi mở tool Dreamina:", error);
-        //     }
-        // }
+        // 4. Mở tool tự động tải ảnh từ https://gemini.google.com/ để sử dụng quyền lợi từ tài khoản Ultra
+        if ((window as any).electron) {
+            try {
+                const uniqueID = Math.random().toString(36).substr(2, 9);
+                await (window as any).electron.tools({
+                    url: 'https://gemini.google.com/',
+                    command: 'dreamina.capcut',
+                    uniqueID,
+                    prompt: finalPrompt,
+                    username: this.projectData['username'] || 'anonymous',
+                    filenamePrefix: `scene_${index + 1}_`,
+                    width: 1600,
+                    height: 900,
+                });
+
+                // Lắng nghe kết quả tải về từ electron
+                const unbind = (window as any).electron.onToolsResponse((res: any) => {
+                    if (res && res.action === 'dreamina-downloaded' && !res.isVid) {
+                        const localPath = res.file;
+                        // Gắn ngược lại imageUrl cho chương trình
+                        scene.imageUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
+                        
+                        // Lưu sau mỗi lần tạo hình thành công
+                        this.saveData(); 
+                        this.toastr.success(`Đã tự động tải và gắn ảnh cho Scene #${index + 1}`);
+                        
+                        // Hủy lắng nghe sau khi đã nhận được ảnh
+                        unbind();
+                    }
+                });
+
+            } catch (error) {
+                console.error("Lỗi khi mở tool:", error);
+            }
+        }
     }
 
     generateAllImages(): void {

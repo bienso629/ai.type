@@ -4,6 +4,7 @@
     "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
     "main": "dist/main.js",
     "scripts": {
+        "dev": "nodemon --watch src --exec electron src/main.js",
         "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json",
         "build:win": "npm run obfuscate && electron-builder --win -p always",
         "build:mac": "npm run obfuscate && electron-builder --mac",
@@ -127,6 +128,7 @@
         "electron-builder": "^26.0.12",
         "electron-installer-dmg": "^5.0.1",
         "electron-packager": "^17.1.2",
-        "javascript-obfuscator": "^4.1.1"
+        "javascript-obfuscator": "^4.1.1",
+        "nodemon": "^3.1.14"
     }
 }
