@@ -183,16 +183,16 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     gaLoading = false;
     gaError = '';
     gaSummary: {
-        activeUsers: number;
+        totalUsers: number;
         sessions: number;
         screenPageViews: number;
         engagementRate: number;
     } | null = null;
 
     // Dữ liệu tham chiếu
-    gaByCountry: { dimension: string; activeUsers: number }[] = [];
-    gaByDevice: { dimension: string; activeUsers: number }[] = [];
-    gaByAge: { dimension: string; activeUsers: number }[] = [];
+    gaByCountry: { dimension: string; totalUsers: number }[] = [];
+    gaByDevice: { dimension: string; totalUsers: number }[] = [];
+    gaByAge: { dimension: string; totalUsers: number }[] = [];
 
     // --- BIẾN LƯU KẾT QUẢ PHÂN TÍCH NHIỀU SEGMENT ---
     analyzedResults: SegmentResult[] = [];
@@ -643,7 +643,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             if (this.gaSummary) {
                 gaContext = `
 Đồng thời, trang web đang có các chỉ số Google Analytics 4 (GA4) tổng quan trong cùng kỳ như sau:
-- Active Users (Người dùng): ${this.gaSummary.activeUsers}
+- Total Users (Tổng Người dùng): ${this.gaSummary.totalUsers}
 - Sessions (Phiên): ${this.gaSummary.sessions}
 - Page Views (Lượt xem trang): ${this.gaSummary.screenPageViews}
 - Engagement Rate (Tỷ lệ tương tác): ${(this.gaSummary.engagementRate * 100).toFixed(2)}%
@@ -730,28 +730,167 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
     async exportPdf(): Promise<void> {
         this.isExportingPdf = true;
         this.cd.detectChanges();
-        
+
         // Ngủ 500ms để chờ Angular nặn hàng ngàn thẻ table row (DOM) ra màn hình thay vì cuộn ảo
         await new Promise(resolve => setTimeout(resolve, 500));
-        
+
         try {
-            if (window.electron && window.electron.exportGscPdf) {
-                const res = await window.electron.exportGscPdf({
-                    siteUrl: this.siteUrl,
-                    startDate: this.startDate,
-                    endDate: this.endDate
-                });
-                
-                if (!res.success && res.error !== "Đã hủy lưu file") {
-                    this.toastr.error(res.error || 'Không xuất được PDF');
-                } else if (res.success) {
-                    this.toastr.success('Đã xuất PDF báo cáo');
-                }
-            } else {
-                window.print();
+            const element = document.querySelector('google-search-console') as HTMLElement
+                || document.querySelector('google-search-console\\.component') as HTMLElement;
+
+            if (!element) {
+                this.toastr.error('Không tìm thấy vùng báo cáo để chụp PDF');
+                return;
             }
+
+            this.toastr.info('Đang kết xuất hình ảnh báo cáo (có thể mất vài giây)...');
+
+            // Import động thư viện (đã cài = npm i html2canvas jspdf)
+            const html2canvas = (await import('html2canvas')).default;
+            const { jsPDF } = await import('jspdf');
+
+            // 1. Phá vỡ các giới hạn scroll, cắt thẻ flex-auto để web bung vô hạn chiều dọc
+            const absContainer = element.querySelector('.absolute.inset-0') as HTMLElement;
+            const scrollContainer = element.querySelector('.overflow-y-auto') as HTMLElement;
+
+            let oldAbsPos = ''; let oldAbsOver = '';
+            let oldScrollOver = ''; let oldScrollHeight = ''; let oldScrollFlex = '';
+
+            if (absContainer) {
+                oldAbsPos = absContainer.style.position;
+                oldAbsOver = absContainer.style.overflow;
+                absContainer.style.position = 'relative';
+                absContainer.style.overflow = 'visible';
+                absContainer.classList.remove('absolute', 'inset-0'); // Trị tận gốc box giới hạn
+            }
+            if (scrollContainer) {
+                oldScrollOver = scrollContainer.style.overflow;
+                oldScrollHeight = scrollContainer.style.height;
+                oldScrollFlex = scrollContainer.style.flex;
+
+                scrollContainer.style.overflow = 'visible';
+                scrollContainer.style.height = 'max-content';
+                scrollContainer.style.flex = 'none'; // Phá vỡ flex-auto 
+                scrollContainer.classList.remove('flex-auto', 'overflow-y-auto');
+            }
+
+            // Chờ browser repaint layout đã bung
+            await new Promise(r => setTimeout(r, 400));
+
+            // 2. Ẩn tất cả các nút bấm hoặc form control bằng tag gốc thay vì class tailwind (cho chắc)
+            const hiddenEls = element.querySelectorAll('.border-b, button, mat-form-field, input[type="file"], .hidden-print');
+            const backups: any[] = [];
+            hiddenEls.forEach((el: any) => {
+                backups.push({ el, display: el.style.display });
+                el.style.display = 'none'; // Giấu đi tạm thời
+            });
+
+            // 3. Chụp phần tử chứa nội dung thay vì toàn trang để bỏ qua header bị thừa
+            const targetCapture = scrollContainer || element;
+            const canvas = await html2canvas(targetCapture, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                windowWidth: targetCapture.scrollWidth,
+                windowHeight: targetCapture.scrollHeight,
+                ignoreElements: (node: Element) => {
+                    // Chặn html2canvas clone webview/iframe vì Electron sẽ throw 'Invalid embedder frame'
+                    const tag = (node.tagName || '').toLowerCase();
+                    return tag === 'webview' || tag === 'iframe';
+                }
+            });
+
+            // 4. Phục hồi lại toàn bộ giao diện nguyên trạng ngay sau khi chụp
+            backups.forEach((b: any) => {
+                if (b.el && b.el.style) {
+                    b.el.style.display = b.display;
+                }
+            });
+            if (absContainer) {
+                absContainer.style.position = oldAbsPos;
+                absContainer.style.overflow = oldAbsOver;
+                absContainer.classList.add('absolute', 'inset-0');
+            }
+            if (scrollContainer) {
+                scrollContainer.style.overflow = oldScrollOver;
+                scrollContainer.style.height = oldScrollHeight;
+                scrollContainer.style.flex = oldScrollFlex;
+                scrollContainer.classList.add('flex-auto', 'overflow-y-auto');
+            }
+
+            this.toastr.info('Đang nén thành file PDF nhiều trang...');
+
+            // 5. Tính toán Canvas -> multi-page PDF (A4)
+            const imgData = canvas.toDataURL('image/jpeg', 1.0); // Sử dụng jpeg chất lượng 100% để file nhẹ hơn PNG
+            const pdf = new jsPDF('p', 'mm', 'a4');
+            const margin = 10; // Căn lề 10mm (trái, phải, trên, dưới)
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pageHeight = pdf.internal.pageSize.getHeight();
+
+            const innerWidth = pdfWidth - (margin * 2);
+            const innerPageHeight = pageHeight - (margin * 2);
+
+            // Tính tổng chiều dài ảnh tương ứng với chiều rộng khu vực nột dung (chừa lề)
+            const imgHeight = (canvas.height * innerWidth) / canvas.width;
+
+            let heightLeft = imgHeight;
+            let position = 0; // Vị trí Y
+
+            // In trang 1
+            // Đặt ảnh xuống trang: Y lùi vô margin
+            pdf.addImage(imgData, 'JPEG', margin, margin, innerWidth, imgHeight);
+            heightLeft -= innerPageHeight;
+
+            // Cắt trang tiếp theo nếu nội dung vẫn còn tràn (scroll)
+            while (heightLeft > 0) {
+                position -= innerPageHeight;
+                pdf.addPage();
+
+                // Vẽ ảnh lùi lên trên 1 đoạn
+                pdf.addImage(imgData, 'JPEG', margin, position + margin, innerWidth, imgHeight);
+                heightLeft -= innerPageHeight;
+            }
+
+            // Xử lý vẽ Header, căn lề đè trắng và Đánh số trang cho tất cả các trang
+            const totalPages = pdf.getNumberOfPages();
+            const displayUrl = (this.siteUrl || 'unknown_domain').replace(/^https?:\/\//, '').replace(/\/$/, '');
+            const headerText = `BAO CAO SEO CHO ${displayUrl} TỪ ${this.startDate} TỚI ${this.endDate}`;
+
+            for (let i = 1; i <= totalPages; i++) {
+                pdf.setPage(i);
+
+                // QUAN TRỌNG: Gọi setColor trong mỗi trang vì hàm addPage() sẽ reset state của jsPDF về mặc định (Màu Đen)
+                pdf.setFillColor(255, 255, 255);
+
+                // Che lề trên (top border)
+                pdf.rect(0, 0, pdfWidth, margin, 'F');
+                // Che lề dưới (bottom border)
+                pdf.rect(0, pageHeight - margin, pdfWidth, margin, 'F');
+
+                // Viết Header góc trên bên trái
+                pdf.setFontSize(9);
+                pdf.setTextColor(100, 100, 100);
+                pdf.text(headerText, margin, margin - 3);
+
+                // Ghi số trang góc dưới bên phải
+                pdf.text(`Trang ${i} / ${totalPages}`, pdfWidth - margin, pageHeight - 4, { align: 'right' });
+            }
+
+            // 6. Sinh tên file và tải xuống 
+            let safeDomain = "SEO_Report";
+            if (this.siteUrl) {
+                safeDomain = this.siteUrl.replace(/https?:\/\//, '').replace(/[\/\\]/g, '_');
+            }
+            const defaultName = `[AI.TYPE] ${safeDomain} (${this.startDate} to ${this.endDate}).pdf`;
+
+            // Hàm save của jsPDF sẽ tự động gửi 1 luồng Download xuống Browser / Electron
+            pdf.save(defaultName);
+
+            this.toastr.success('✅ Đã xuất File Báo Cáo thành công!');
+
         } catch (e: any) {
             this.toastr.error(e.message || 'Lỗi khi xuất PDF');
+            console.error("Lỗi xuất File PDF: ", e);
         } finally {
             this.isExportingPdf = false;
             this.cd.detectChanges();
@@ -937,7 +1076,7 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
         try {
             // A. Summary Metrics (Luôn lấy All Users)
-            const summary = await this.callGaReport({ metrics: ['activeUsers', 'sessions', 'screenPageViews', 'engagementRate'] });
+            const summary = await this.callGaReport({ metrics: ['totalUsers', 'sessions', 'screenPageViews', 'engagementRate'] });
             const row0 = summary?.rows?.[0]?.metricValues || [];
             const summaryMetrics: any = {};
             (summary?.metricHeaders || []).forEach((m: any, idx: number) => {
@@ -945,21 +1084,21 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 summaryMetrics[m.name] = Number(val);
             });
             this.gaSummary = {
-                activeUsers: summaryMetrics['activeUsers'] || 0,
+                totalUsers: summaryMetrics['totalUsers'] || 0,
                 sessions: summaryMetrics['sessions'] || 0,
                 screenPageViews: summaryMetrics['screenPageViews'] || 0,
                 engagementRate: summaryMetrics['engagementRate'] || 0,
             };
 
             // B. Load Lists (Country, Device, Age)
-            const byCountry = await this.callGaReport({ metrics: ['activeUsers'], dimensions: ['country'], limit: 15 });
-            this.gaByCountry = (byCountry?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, activeUsers: Number(r.metricValues?.[0]?.value) }));
+            const byCountry = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['country'], limit: 15 });
+            this.gaByCountry = (byCountry?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
 
-            const byDevice = await this.callGaReport({ metrics: ['activeUsers'], dimensions: ['deviceCategory'], limit: 10 });
-            this.gaByDevice = (byDevice?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, activeUsers: Number(r.metricValues?.[0]?.value) }));
+            const byDevice = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['deviceCategory'], limit: 10 });
+            this.gaByDevice = (byDevice?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
 
-            const byAge = await this.callGaReport({ metrics: ['activeUsers'], dimensions: ['userAgeBracket'], limit: 10 });
-            this.gaByAge = (byAge?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, activeUsers: Number(r.metricValues?.[0]?.value) }));
+            const byAge = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['userAgeBracket'], limit: 10 });
+            this.gaByAge = (byAge?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
 
             // C. Lập danh sách các phân tích cần chạy
             // 1. All Users

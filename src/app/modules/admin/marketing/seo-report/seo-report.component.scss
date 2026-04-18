@@ -1,20 +1,17 @@
 /* Tùy chỉnh Layout dành riêng cho Print PDF */
 @media print {
-    /* 1. Ẩn toàn bộ Menu trái, Header điều hướng và các Nút bấm */
-    fuse-vertical-navigation,
-    .fuse-vertical-navigation,
-    fuse-header,
-    header,
-    .border-b, /* Header con của SEO Report */
-    button, /* Tắt mọi nút bấm như Báo cáo, Chọn GSC */
-    input[type='file'],
-    .hidden-print,
-    .cdk-overlay-container, /* Ẩn các khối modal rác */
-    /* Ẩn các mảng form control dư thừa (Date picker, select box) */
-    mat-form-field {
-        display: none !important;
+    /* 1. Ẩn toàn bộ Menu trái cục bộ của Electron App, Header và các khung ảo khác bằng ng-deep */
+    ::ng-deep {
+        fuse-vertical-navigation,
+        .fuse-vertical-navigation,
+        fuse-header,
+        header,
+        .cdk-overlay-container,
+        mat-form-field, /* Cho chắc ăn */
+        .hidden-print {
+            display: none !important;
+        }
     }
-
     /* 2. Ép các vùng Overflow của Tailwind bung ra hết cỡ để màn hình PDF hiển thị đủ trang */
     .overflow-y-auto,
     .absolute,
