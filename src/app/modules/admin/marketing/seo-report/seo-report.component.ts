@@ -745,147 +745,90 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
 
             this.toastr.info('Đang kết xuất hình ảnh báo cáo (có thể mất vài giây)...');
 
-            // Import động thư viện (đã cài = npm i html2canvas jspdf)
-            const html2canvas = (await import('html2canvas')).default;
-            const { jsPDF } = await import('jspdf');
-
             // 1. Phá vỡ các giới hạn scroll, cắt thẻ flex-auto để web bung vô hạn chiều dọc
-            const absContainer = element.querySelector('.absolute.inset-0') as HTMLElement;
             const scrollContainer = element.querySelector('.overflow-y-auto') as HTMLElement;
-
-            let oldAbsPos = ''; let oldAbsOver = '';
-            let oldScrollOver = ''; let oldScrollHeight = ''; let oldScrollFlex = '';
-
-            if (absContainer) {
-                oldAbsPos = absContainer.style.position;
-                oldAbsOver = absContainer.style.overflow;
-                absContainer.style.position = 'relative';
-                absContainer.style.overflow = 'visible';
-                absContainer.classList.remove('absolute', 'inset-0'); // Trị tận gốc box giới hạn
-            }
-            if (scrollContainer) {
-                oldScrollOver = scrollContainer.style.overflow;
-                oldScrollHeight = scrollContainer.style.height;
-                oldScrollFlex = scrollContainer.style.flex;
-
-                scrollContainer.style.overflow = 'visible';
-                scrollContainer.style.height = 'max-content';
-                scrollContainer.style.flex = 'none'; // Phá vỡ flex-auto 
-                scrollContainer.classList.remove('flex-auto', 'overflow-y-auto');
-            }
-
-            // Chờ browser repaint layout đã bung
-            await new Promise(r => setTimeout(r, 400));
-
-            // 2. Ẩn tất cả các nút bấm hoặc form control bằng tag gốc thay vì class tailwind (cho chắc)
-            const hiddenEls = element.querySelectorAll('.border-b, button, mat-form-field, input[type="file"], .hidden-print');
-            const backups: any[] = [];
-            hiddenEls.forEach((el: any) => {
-                backups.push({ el, display: el.style.display });
-                el.style.display = 'none'; // Giấu đi tạm thời
-            });
-
-            // 3. Chụp phần tử chứa nội dung thay vì toàn trang để bỏ qua header bị thừa
             const targetCapture = scrollContainer || element;
-            const canvas = await html2canvas(targetCapture, {
-                scale: 2,
-                useCORS: true,
-                backgroundColor: '#ffffff',
-                windowWidth: targetCapture.scrollWidth,
-                windowHeight: targetCapture.scrollHeight,
-                ignoreElements: (node: Element) => {
-                    // Chặn html2canvas clone webview/iframe vì Electron sẽ throw 'Invalid embedder frame'
-                    const tag = (node.tagName || '').toLowerCase();
-                    return tag === 'webview' || tag === 'iframe';
+
+            // Xoá tạm thời class dark của ứng dụng nếu có để ngăn PDF bị ám đen màu nền
+            const darkElements = Array.from(document.querySelectorAll('.dark'));
+            darkElements.forEach(el => el.classList.remove('dark'));
+
+            // 2. Tách đúng đoạn HTML của google-search-console ra một DOM tĩnh hoàn toàn để thoát ly khỏi cấu trúc Angular Flexbox
+            const printOverlay = document.createElement('div');
+            printOverlay.id = 'static-print-overlay';
+            // Cảm ơn Angular vì đã render Virtual Scroll ở đoạn await delay 500ms phía trên, giờ ta chỉ việc lấy HTML tĩnh.
+            printOverlay.innerHTML = targetCapture.outerHTML;
+            document.body.appendChild(printOverlay);
+
+            // 3. Tạo một style động dành riêng cho quá trình in 
+            const printStyle = document.createElement('style');
+            printStyle.innerHTML = `
+                @media print {
+                    /* Ép toàn bộ khung nền màn hình thành màu trắng tinh khiết chống lại cờ Dark Mode */
+                    html, body {
+                        background-color: white !important;
+                        color: black !important;
+                    }
+                    /* Ẩn hoàn toàn gốc rễ ứng dụng Angular hiện hành */
+                    app-root {
+                        display: none !important;
+                    }
+                    /* Layout tĩnh phải trôi tự do (relative/static) mới được trình duyệt tự cắt trang (Pagination) */
+                    #static-print-overlay {
+                        display: block !important;
+                        position: relative !important;
+                        top: 0 !important;
+                        left: 0 !important;
+                        width: 100% !important;
+                        height: auto !important;
+                        background: white !important;
+                        overflow: visible !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                    }
+                    /* Ép bung toàn bộ chiều cao các box cuộn */
+                    .overflow-y-auto, .absolute.inset-0, .v-scroll, .flex-auto {
+                        position: relative !important;
+                        overflow: visible !important;
+                        height: auto !important;
+                        display: block !important;
+                        max-height: none !important;
+                        width: auto !important;
+                        flex: none !important;
+                    }
+                    /* Ẩn ba cái nút lặt vặt */
+                    .border-b, button, mat-form-field, input[type="file"], .hidden-print {
+                        display: none !important;
+                    }
+                    /* Ép in màu nền */
+                    * {
+                        -webkit-print-color-adjust: exact !important;
+                        print-color-adjust: exact !important;
+                    }
                 }
+                @media screen {
+                    /* Trên màn hình người dùng, ẩn cái frame nháp này đi một cách kín đáo */
+                    #static-print-overlay {
+                        display: none !important;
+                    }
+                }
+            `;
+            document.head.appendChild(printStyle);
+
+            this.toastr.info('Đang kết xuất báo cáo thành File PDF Vector...');
+            
+            // 4. Gửi lệnh qua Electron để tiến hành kêt xuất PDF Native (Chromium)
+            await (window as any).electron.exportGscPdf({
+                siteUrl: this.siteUrl,
+                startDate: this.startDate,
+                endDate: this.endDate
             });
 
-            // 4. Phục hồi lại toàn bộ giao diện nguyên trạng ngay sau khi chụp
-            backups.forEach((b: any) => {
-                if (b.el && b.el.style) {
-                    b.el.style.display = b.display;
-                }
-            });
-            if (absContainer) {
-                absContainer.style.position = oldAbsPos;
-                absContainer.style.overflow = oldAbsOver;
-                absContainer.classList.add('absolute', 'inset-0');
-            }
-            if (scrollContainer) {
-                scrollContainer.style.overflow = oldScrollOver;
-                scrollContainer.style.height = oldScrollHeight;
-                scrollContainer.style.flex = oldScrollFlex;
-                scrollContainer.classList.add('flex-auto', 'overflow-y-auto');
-            }
-
-            this.toastr.info('Đang nén thành file PDF nhiều trang...');
-
-            // 5. Tính toán Canvas -> multi-page PDF (A4)
-            const imgData = canvas.toDataURL('image/jpeg', 1.0); // Sử dụng jpeg chất lượng 100% để file nhẹ hơn PNG
-            const pdf = new jsPDF('p', 'mm', 'a4');
-            const margin = 10; // Căn lề 10mm (trái, phải, trên, dưới)
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pageHeight = pdf.internal.pageSize.getHeight();
-
-            const innerWidth = pdfWidth - (margin * 2);
-            const innerPageHeight = pageHeight - (margin * 2);
-
-            // Tính tổng chiều dài ảnh tương ứng với chiều rộng khu vực nột dung (chừa lề)
-            const imgHeight = (canvas.height * innerWidth) / canvas.width;
-
-            let heightLeft = imgHeight;
-            let position = 0; // Vị trí Y
-
-            // In trang 1
-            // Đặt ảnh xuống trang: Y lùi vô margin
-            pdf.addImage(imgData, 'JPEG', margin, margin, innerWidth, imgHeight);
-            heightLeft -= innerPageHeight;
-
-            // Cắt trang tiếp theo nếu nội dung vẫn còn tràn (scroll)
-            while (heightLeft > 0) {
-                position -= innerPageHeight;
-                pdf.addPage();
-
-                // Vẽ ảnh lùi lên trên 1 đoạn
-                pdf.addImage(imgData, 'JPEG', margin, position + margin, innerWidth, imgHeight);
-                heightLeft -= innerPageHeight;
-            }
-
-            // Xử lý vẽ Header, căn lề đè trắng và Đánh số trang cho tất cả các trang
-            const totalPages = pdf.getNumberOfPages();
-            const displayUrl = (this.siteUrl || 'unknown_domain').replace(/^https?:\/\//, '').replace(/\/$/, '');
-            const headerText = `BAO CAO SEO CHO ${displayUrl} TỪ ${this.startDate} TỚI ${this.endDate}`;
-
-            for (let i = 1; i <= totalPages; i++) {
-                pdf.setPage(i);
-
-                // QUAN TRỌNG: Gọi setColor trong mỗi trang vì hàm addPage() sẽ reset state của jsPDF về mặc định (Màu Đen)
-                pdf.setFillColor(255, 255, 255);
-
-                // Che lề trên (top border)
-                pdf.rect(0, 0, pdfWidth, margin, 'F');
-                // Che lề dưới (bottom border)
-                pdf.rect(0, pageHeight - margin, pdfWidth, margin, 'F');
-
-                // Viết Header góc trên bên trái
-                pdf.setFontSize(9);
-                pdf.setTextColor(100, 100, 100);
-                pdf.text(headerText, margin, margin - 3);
-
-                // Ghi số trang góc dưới bên phải
-                pdf.text(`Trang ${i} / ${totalPages}`, pdfWidth - margin, pageHeight - 4, { align: 'right' });
-            }
-
-            // 6. Sinh tên file và tải xuống 
-            let safeDomain = "SEO_Report";
-            if (this.siteUrl) {
-                safeDomain = this.siteUrl.replace(/https?:\/\//, '').replace(/[\/\\]/g, '_');
-            }
-            const defaultName = `[AI.TYPE] ${safeDomain} (${this.startDate} to ${this.endDate}).pdf`;
-
-            // Hàm save của jsPDF sẽ tự động gửi 1 luồng Download xuống Browser / Electron
-            pdf.save(defaultName);
-
+            // 5. Quét dọn chiến trường sau khi hoàn tất
+            document.body.removeChild(printOverlay);
+            document.head.removeChild(printStyle);
+            darkElements.forEach(el => el.classList.add('dark'));
+            
             this.toastr.success('✅ Đã xuất File Báo Cáo thành công!');
 
         } catch (e: any) {
