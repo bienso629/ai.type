@@ -1005,10 +1005,10 @@ function gscSaveToken(tokens) {
 }
 
 function getAuthHtml(title, message, isSuccess) {
-    const color = isSuccess ? '#10b981' : '#ef4444'; 
+    const color = isSuccess ? '#10b981' : '#ef4444';
     const bgColor = isSuccess ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
-    const icon = isSuccess 
-        ? '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' 
+    const icon = isSuccess
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>'
         : '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
     return `<!DOCTYPE html>
     <html lang="vi">
@@ -1073,7 +1073,7 @@ async function gscDoLogin() {
         const server = http.createServer(async (req, res) => {
             try {
                 const urlObj = new URL(req.url, `http://${req.headers.host}`);
-                
+
                 if (urlObj.pathname === '/google') {
                     const code = urlObj.searchParams.get("code");
                     const error = urlObj.searchParams.get("error");
@@ -1121,7 +1121,7 @@ async function gscDoLogin() {
         // Lắng nghe ở port cố định 5455 để dễ cấu hình trên Google Cloud Console
         server.listen(5455, '127.0.0.1', () => {
             const redirectUri = `http://localhost:5455/google`;
-            
+
             // Cập nhật lại redirectUri để Google OAuth cho phép
             gscOauth2Client._clientId = GSC_CLIENT_ID;
             gscOauth2Client._clientSecret = GSC_CLIENT_SECRET;
@@ -2290,13 +2290,13 @@ app.whenReady().then(async () => {
                     removedCount++;
                 }
             }
-            
+
             // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
             const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
-            
+
             sendToRenderer("tools-log", `[Gemini-Auth] ✅ Đã xoá ${removedCount} cookie Google.`);
             return { success: true, removed: removedCount };
         } catch (err) {
@@ -2309,13 +2309,13 @@ app.whenReady().then(async () => {
         try {
             // Clear in defaultSession
             await session.defaultSession.clearStorageData();
-            
+
             // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
             const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
-            
+
             // Tìm webview đang chạy và xoá storage của nó (nếu khác defaultSession)
             if (targetWindow && targetWindow.webContents) {
                 await targetWindow.webContents.session.clearStorageData();
@@ -2431,15 +2431,15 @@ app.whenReady().then(async () => {
                                 const pages = await browserInstance.pages();
                                 const page = pages.find(p => !p.isClosed());
                                 if (!page) return;
-                                
+
                                 const client = await page.createCDPSession();
                                 const { cookies: allCookies } = await client.send('Network.getAllCookies');
                                 await client.detach();
-                                
+
                                 // DUMP COOKIES TO FILE FOR DEBUGGING
                                 try {
                                     require('fs').writeFileSync(require('path').join(__dirname, '../../debug_cookies.json'), JSON.stringify(allCookies, null, 2));
-                                } catch (e) {}
+                                } catch (e) { }
 
                                 for (const cookie of allCookies) {
                                     try {
@@ -2457,7 +2457,7 @@ app.whenReady().then(async () => {
                                                         : undefined
                                         };
                                         if (cookie.expires && cookie.expires > 0) cookieObj.expirationDate = cookie.expires;
-                                        
+
                                         await webviewContents.session.cookies.set(cookieObj);
                                         if (webviewContents.session !== session.defaultSession) {
                                             await session.defaultSession.cookies.set(cookieObj);
@@ -2489,8 +2489,8 @@ app.whenReady().then(async () => {
                                             `);
                                         }
                                     }
-                                } catch (e) {}
-                            } catch (e) {}
+                                } catch (e) { }
+                            } catch (e) { }
                         }, 1500);
                     };
 
@@ -2509,7 +2509,7 @@ app.whenReady().then(async () => {
                         if (syncInterval) clearInterval(syncInterval);
                         stealthBrowser.disconnect();
                         isGeminiAuthRunning = false;
-                        
+
                         // Nếu user tự đóng popup, ta vẫn thử reload lại webview vì cookie đã được đồng bộ ngầm
                         if (!webviewContents.isDestroyed()) {
                             webviewContents.reloadIgnoringCache();
@@ -2532,7 +2532,7 @@ app.whenReady().then(async () => {
                         const pages = await stealthBrowser.pages();
                         if (pages.length > 0) activePage = pages[pages.length - 1];
                     }
-                    
+
                     // Chờ thêm 2 giây để cookie ổn định
                     await new Promise(resolve => setTimeout(resolve, 2000));
 
@@ -2619,7 +2619,7 @@ app.whenReady().then(async () => {
                                 `);
                             }
                         }
-                    } catch (e) {}
+                    } catch (e) { }
 
                     // Đóng Chrome
                     try {
@@ -2664,14 +2664,14 @@ app.whenReady().then(async () => {
             contents.session.on('will-download', (event, item, webContents) => {
                 const fileName = item.getFilename();
                 sendToRenderer("tools-log", `[Webview] Bắt đầu tải file: ${fileName}`);
-                
+
                 item.on('updated', (event, state) => {
                     if (state === 'interrupted') {
                         sendToRenderer("tools-log", "[Webview] Tải xuống bị gián đoạn.");
                     } else if (state === 'progressing') {
                         if (item.isPaused()) {
                             sendToRenderer("tools-log", "[Webview] Tải xuống bị tạm dừng.");
-                        } 
+                        }
                     }
                 });
 
@@ -2679,7 +2679,7 @@ app.whenReady().then(async () => {
                     if (state === 'completed') {
                         const localPath = item.getSavePath();
                         sendToRenderer("tools-log", `[Webview] Tải xuống hoàn tất: ${localPath}`);
-                        
+
                         // Gửi sự kiện cho Angular Frontend biết
                         if (mainWindow) {
                             mainWindow.webContents.send('webview-download-complete', {
@@ -3896,6 +3896,55 @@ ipcMain.handle('download-video', async (event, payload) => {
 
     } catch (err) {
         console.error("Download Video Error:", err);
+        return { success: false, error: err.message };
+    }
+});
+
+// =====================================================================
+// XUẤT BÁO CÁO PDF BẰNG IPC (Chữa cháy lỗi No Print Preview của Electron)
+// =====================================================================
+ipcMain.handle('export-gsc-pdf', async (event, payload) => {
+    try {
+        const { siteUrl, startDate, endDate } = payload || {};
+        let safeDomain = "SEO_Report";
+        if (siteUrl) safeDomain = siteUrl.replace(/https?:\/\//, '').replace(/[\/\\]/g, '_');
+        
+        const defaultName = `[AI.TYPE] ${safeDomain} (${startDate} to ${endDate}).pdf`;
+        const defaultPath = path.join(app.getPath('downloads'), defaultName);
+
+        // Hiển thị hộp thoại lưu file hệ thống
+        const { filePath } = await dialog.showSaveDialog({
+            title: 'Lưu báo cáo SEO thành PDF',
+            defaultPath: defaultPath,
+            filters: [
+                { name: 'PDF Document', extensions: ['pdf'] }
+            ]
+        });
+
+        // Nếu người dùng chọn chỗ lưu
+        if (filePath) {
+            sendToRenderer("tools-log", `[PDF] Đang kết xuất trang web SEO Report thành PDF... vui lòng chờ.`);
+            
+            // Lấy nội dung frontend (đang hiển thị màn hình Report) và build thành PDF Vector (cực nét)
+            const pdfData = await event.sender.printToPDF({
+                printBackground: true,
+                landscape: false,
+                pageSize: 'A4',
+                margins: { marginType: 'default' }
+            });
+            
+            // Ghi file
+            fs.writeFileSync(filePath, pdfData);
+            sendToRenderer("tools-log", `✅ Đã lưu PDF Báo Cáo thành công tại: ${filePath}`);
+            sendNotification("Báo cáo SEO", "Xuất file PDF thành công!");
+            
+            return { success: true, filePath };
+        } else {
+            return { success: false, error: "Đã hủy lưu file" }; // Người dùng ấn Cancel
+        }
+    } catch (err) {
+        console.error("Lỗi xuất PDF:", err);
+        sendToRenderer("tools-log", `❌ Lỗi khi xuất PDF: ${err.message}`);
         return { success: false, error: err.message };
     }
 });

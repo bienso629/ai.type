@@ -639,23 +639,35 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 `- Từ khóa: "${r.query}", Lượt nhấp: ${r.clicks}, Hiển thị: ${r.impressions}, CTR: ${r.ctr.toFixed(1)}%, Vị trí TB: ${r.position.toFixed(1)}`
             ).join('\n');
 
+            let gaContext = '';
+            if (this.gaSummary) {
+                gaContext = `
+Đồng thời, trang web đang có các chỉ số Google Analytics 4 (GA4) tổng quan trong cùng kỳ như sau:
+- Active Users (Người dùng): ${this.gaSummary.activeUsers}
+- Sessions (Phiên): ${this.gaSummary.sessions}
+- Page Views (Lượt xem trang): ${this.gaSummary.screenPageViews}
+- Engagement Rate (Tỷ lệ tương tác): ${(this.gaSummary.engagementRate * 100).toFixed(2)}%
+`;
+            }
+
             const prompt = `
-Bạn là một chuyên gia SEO hàng đầu với 10 năm kinh nghiệm phân tích dữ liệu Google Search Console. 
-Dưới đây là số liệu 50 từ khóa hàng đầu của website tôi trong kỳ qua:
+Bạn là một chuyên gia SEO hàng đầu với 10 năm kinh nghiệm phân tích dữ liệu đa kênh (Google Search Console & Google Analytics 4). 
+Dưới đây là số liệu 50 từ khóa hàng đầu của website tôi hiện tại (từ GSC):
 
 ${dataString}
-
+${gaContext}
 Hãy phân tích và trình bày cấu trúc kết quả theo trình tự sau:
 
-PHẦN 1: TỔNG QUAN HIỆU SUẤT
-- Những điểm sáng đã làm tốt: Nêu ra các từ khóa đang có kết quả cực kỳ ấn tượng (Vị trí cao, phần trăm CTR tốt) để ghi nhận thành quả.
-- Trọng tâm cần cải thiện: Tóm tắt ngắn gọn những khuyết điểm lớn nhất đang kìm hãm lượng truy cập (ví dụ: nhiều từ khóa on top nhưng nội dung tiêu đề kém, hoặc chưa khai thác được nhiều long-tail keywords,...).
+PHẦN 1: TỔNG QUAN HIỆU SUẤT VÀ TRẢI NGHIỆM NGƯỜI DÙNG
+- Những điểm sáng đã làm tốt: Ghi nhận thành quả của những từ khóa top, hoặc tỷ lệ tương tác (nếu có).
+- Trọng tâm cần cải thiện: Tóm tắt ngắn gọn các nguyên nhân kìm hãm lượng truy cập (CTR kém, hoặc nếu có GA4 thì nhận xét xem Tỷ lệ tương tác/Page views có tương xứng với Lượt nhấp không). Mức tương tác dưới 50% thường được xem là thấp.
 
 PHẦN 2: CHI TIẾT TỪNG TIÊU CHÍ (Kết hợp dữ liệu nếu có)
 1. Low-hanging fruit (Trái ngọt dễ hái): Từ khóa rơi vị trí 11-20 nhưng Impressions rất cao (Hãy kể tên từ khóa và đề xuất gắn thêm liên kết nội bộ).
 2. Tối ưu tiêu đề (Title): Từ khóa có vị trí Top 1 đến Top 5 rất tốt, có Impressions cao nhưng CTR lại quá thấp (< 4%).
-3. Tăng trưởng đột ngột: Từ khóa có Impressions lớn một cách bất thường, có thể là do đợt trend hoặc người dùng tò mò (đề xuất viết thêm bài chuyên sâu).
-4. Đề xuất nhóm Long-tail keyword: Những từ khoá có đuôi dài mang tính hỏi đáp để viết mới.
+3. Tăng trưởng đột ngột: Từ khóa có Impressions lớn một cách bất thường, có thể là do trend (đề xuất viết thêm bài chuyên sâu).
+4. Phễu lưu giữ người dùng: Từ những từ khóa mang lại Lượt nhấp nhiều nhất so với Tỷ lệ tương tác tổng quan, hãy đề xuất 2-3 cách điều hướng UI/UX hoặc bổ sung Media/Video để giữ chân người dùng ở lại trang lâu hơn.
+5. Đề xuất nhóm Long-tail keyword: Những từ khoá có đuôi dài mang tính hỏi đáp để viết mới.
 
 Trả về kết quả bằng ĐỊNH DẠNG BẢNG HTML (dùng chuỗi thẻ <table>, <thead>, <tbody>, <tr>, <th>, <td>).
 VƠI MỖI TIÊU CHÍ TRÊN, HÃY TẠO RIÊNG MỘT BẢNG VÀ CHÈN SẴN style="margin-top: 1.5rem; margin-bottom: 2rem;" VÀO THẺ &lt;table&gt; ĐỂ CÁCH ĐỀU. Các cột khuyên dùng: "Từ khóa", "Vị trí", "Lượt hiển thị", "CTR", "Đề xuất tối ưu". 
@@ -713,7 +725,15 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
         window.URL.revokeObjectURL(url);
     }
 
+    isExportingPdf: boolean = false;
+
     async exportPdf(): Promise<void> {
+        this.isExportingPdf = true;
+        this.cd.detectChanges();
+        
+        // Ngủ 500ms để chờ Angular nặn hàng ngàn thẻ table row (DOM) ra màn hình thay vì cuộn ảo
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         try {
             if (window.electron && window.electron.exportGscPdf) {
                 const res = await window.electron.exportGscPdf({
@@ -721,16 +741,20 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
                     startDate: this.startDate,
                     endDate: this.endDate
                 });
-                if (!res.success) {
+                
+                if (!res.success && res.error !== "Đã hủy lưu file") {
                     this.toastr.error(res.error || 'Không xuất được PDF');
-                    return;
+                } else if (res.success) {
+                    this.toastr.success('Đã xuất PDF báo cáo');
                 }
-                this.toastr.success('Đã xuất PDF báo cáo');
             } else {
                 window.print();
             }
         } catch (e: any) {
             this.toastr.error(e.message || 'Lỗi khi xuất PDF');
+        } finally {
+            this.isExportingPdf = false;
+            this.cd.detectChanges();
         }
     }
 
