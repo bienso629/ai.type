@@ -755,6 +755,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.calculateTotalDuration();
         this.cd.markForCheck();
+
+        // Tự động quét các file ở dưới local để map nếu có sẵn
+        setTimeout(() => {
+            this.scanAndAttachLocalFiles();
+        }, 300);
     }
 
     // Hàm trung gian: Gọi Electron lấy file -> Biến thành Blob -> Gán vào Clip
@@ -811,6 +816,63 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             console.error('Lỗi load local file:', e);
         }
         return false;
+    }
+
+    async scanAndAttachLocalFiles() {
+        if (!(window as any).electron) return;
+        
+        let modified = false;
+        const baseUsername = this.user?.name || 'anonymous';
+        const projectSubPath = `${baseUsername}/${this.uuid || 'default'}`;
+
+        for (let i = 0; i < this.audioList.length; i++) {
+            const clip = this.audioList[i];
+            
+            // Bỏ qua nếu đã tải hoặc file thực tế
+            if (clip['localFilePath'] || clip.file || (clip.rawUrl && clip.rawUrl.startsWith('blob:'))) continue;
+
+            let possibleFilenames = [];
+            if (clip.audioFileName) {
+                possibleFilenames.push(clip.audioFileName);
+            } else if (clip.description && clip.description.trim() !== '') {
+                // Tạo guess
+                const prefix = i.toString().padStart(3, '0');
+                const shortText = clip.description.substring(0, 50);
+                const slug = this.toSlug(shortText);
+                
+                possibleFilenames.push(`${prefix}_${slug}.mp3`);
+                possibleFilenames.push(`${prefix}_${slug}.wav`);
+                possibleFilenames.push(`${prefix}_${slug}_ausync.mp3`);
+                possibleFilenames.push(`${prefix}_${slug}_ausync.wav`);
+            }
+
+            for (const fname of possibleFilenames) {
+                try {
+                    const payload = {
+                        username: projectSubPath,
+                        filename: fname
+                    };
+                    const result = await (window as any).electron.invoke('check-local-file-exists', payload);
+                    
+                    if (result && result.exists) {
+                        clip['localFilePath'] = result.path;
+                        clip.audioFileName = fname;
+                        clip.username = projectSubPath;
+                        
+                        modified = true;
+                        
+                        // Tiến hành load luôn cho WaveSurfer có blob
+                        await this.loadLocalAudioContent(clip);
+                        break; 
+                    }
+                } catch(e) { }
+            }
+        }
+
+        if (modified) {
+            this.cd.markForCheck();
+            this.saveToLocal();
+        }
     }
 
     uploadLocalFile(clip: AudioClip): Promise<string | null> {
@@ -1457,25 +1519,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     /**
-     * Áp dụng cấu hình hàng loạt cho tất cả các clip chưa có file upload
+     * Đồng bộ cấu hình từ dòng đầu tiên (clip 0) cho tất cả các clip khác
      */
-    applyBulkSettings(voice: string, rate: number, pitch: number): void {
-        if (!this.audioList || this.audioList.length === 0) return;
+    syncSettingsFromFirst(): void {
+        if (!this.audioList || this.audioList.length <= 1) return;
+
+        const firstClip = this.audioList[0];
+        const voice = firstClip.voice;
+        const rate = firstClip.rate;
+        const pitch = firstClip.pitch;
 
         let count = 0;
-        this.audioList.forEach(clip => {
-            // Chỉ áp dụng cho các clip dạng text (không phải file audio người dùng tự upload lên)
-            if (!clip.file) {
+        for (let i = 1; i < this.audioList.length; i++) {
+            const clip = this.audioList[i];
+            if (!clip.file) { // Chỉ áp dụng cho clip text
                 if (voice) clip.voice = voice;
                 if (rate !== undefined) clip.rate = rate;
                 if (pitch !== undefined) clip.pitch = pitch;
                 count++;
             }
-        });
+        }
 
         if (count > 0) {
             this.saveToLocal(); // Lưu vào IndexedDB ngay
-            this.toastr.success(`Đã cập nhật cấu hình cho ${count} clips thành công!`);
+            this.toastr.success(`Đã đồng bộ cấu hình xuống ${count} clips thành công!`);
             this.cd.markForCheck();
         }
     }

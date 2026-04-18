@@ -1809,6 +1809,33 @@ ipcMain.handle("tts-generate", async (event, payload) => {
 });
 
 // 2. Hàm đọc file - Cập nhật logic fallback (phòng hờ)
+ipcMain.handle("check-local-file-exists", async (event, payload) => {
+    try {
+        const { path: filePath, filename, username } = payload;
+        let targetPath = filePath;
+
+        if (!targetPath && filename) {
+            const documentsPath = app.getPath("documents");
+            targetPath = path.join(
+                documentsPath,
+                "ai.type",
+                "data",
+                "tts",
+                username || "anonymous",
+                filename
+            );
+        }
+
+        if (targetPath && fs.existsSync(targetPath)) {
+            return { exists: true, path: targetPath };
+        } else {
+            return { exists: false };
+        }
+    } catch (error) {
+        return { exists: false, error: error.message };
+    }
+});
+
 ipcMain.handle("read-local-audio", async (event, payload) => {
     try {
         const { path: filePath, filename } = payload;
