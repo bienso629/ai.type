@@ -1004,104 +1004,142 @@ function gscSaveToken(tokens) {
     }
 }
 
+function getAuthHtml(title, message, isSuccess) {
+    const color = isSuccess ? '#10b981' : '#ef4444'; 
+    const bgColor = isSuccess ? 'rgba(16, 185, 129, 0.1)' : 'rgba(239, 68, 68, 0.1)';
+    const icon = isSuccess 
+        ? '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>' 
+        : '<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="15" y1="9" x2="9" y2="15"></line><line x1="9" y1="9" x2="15" y2="15"></line></svg>';
+    return `<!DOCTYPE html>
+    <html lang="vi">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>${title}</title>
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+        <style>
+            body {
+                margin: 0; padding: 0; font-family: 'Inter', sans-serif;
+                background-color: #0f172a; color: #f8fafc;
+                display: flex; align-items: center; justify-content: center;
+                height: 100vh; overflow: hidden;
+            }
+            .glass-panel {
+                background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(12px);
+                border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 24px;
+                padding: 48px; max-width: 420px; width: 100%; text-align: center;
+                box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+                transform: translateY(20px); opacity: 0;
+                animation: slideUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            }
+            .icon-wrapper {
+                width: 80px; height: 80px; margin: 0 auto 24px; border-radius: 50%;
+                display: flex; align-items: center; justify-content: center;
+                background-color: ${bgColor}; color: ${color};
+                box-shadow: 0 0 20px ${isSuccess ? 'rgba(16, 185, 129, 0.2)' : 'rgba(239, 68, 68, 0.2)'};
+                animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards;
+                transform: scale(0);
+            }
+            h1 { margin: 0 0 12px; font-size: 24px; font-weight: 700; letter-spacing: -0.025em; }
+            p { margin: 0 0 32px; font-size: 15px; color: #94a3b8; line-height: 1.6; }
+            .btn {
+                background: ${isSuccess ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)'};
+                color: white; border: none; padding: 14px 28px; border-radius: 12px;
+                font-size: 15px; font-weight: 600; cursor: pointer; transition: all 0.2s ease;
+                box-shadow: 0 4px 14px ${isSuccess ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}; width: 100%;
+            }
+            .btn:hover { transform: translateY(-2px); box-shadow: 0 6px 20px ${isSuccess ? 'rgba(16, 185, 129, 0.4)' : 'rgba(239, 68, 68, 0.4)'}; }
+            @keyframes slideUp { to { transform: translateY(0); opacity: 1; } }
+            @keyframes scaleIn { to { transform: scale(1); } }
+        </style>
+    </head>
+    <body>
+        <div class="glass-panel">
+            <div class="icon-wrapper">${icon}</div>
+            <h1>${title}</h1>
+            <p>${message}</p>
+            <button class="btn" onclick="window.close()">Đóng cửa sổ này</button>
+        </div>
+        ${isSuccess ? '<script>setTimeout(() => window.close(), 3000);</script>' : ''}
+    </body>
+    </html>`;
+}
+
 // Mở cửa sổ login Google, lấy "code" rồi đổi sang access_token + refresh_token
 async function gscDoLogin() {
-    // Tạo URL đăng nhập Google
-    const authUrl = gscOauth2Client.generateAuthUrl({
-        access_type: "offline",
-        scope: SCOPES_GSC, // ['https://www.googleapis.com/auth/webmasters.readonly']
-        prompt: "consent", // để lần đầu chắc chắn trả refresh_token
-    });
-
-    sendToRenderer("tools-log", `[GSC] Mở cửa sổ đăng nhập: ${authUrl}`);
-
     return new Promise((resolve, reject) => {
-        const authWindow = new BrowserWindow({
-            width: 600,
-            height: 800,
-            show: true, // show sau khi ready-to-show
-            frame: false,
-            resizable: false,
-            movable: false,
-            focusable: true,
-            fullscreenable: false,
-            autoHideMenuBar: true,
-            hasShadow: true,
-            skipTaskbar: false,
-            alwaysOnTop: false,
-            backgroundColor: "#FFFFFF",
-            webPreferences: {
-                nodeIntegration: false,
-                contextIsolation: true,
-            },
-        });
+        const { shell } = require('electron');
 
-        authWindow.loadURL(authUrl);
-
-        // Bắt các lần redirect của Google
-        authWindow.webContents.on("will-redirect", async (_event, url) => {
+        const server = http.createServer(async (req, res) => {
             try {
-                // Chỉ xử lý khi redirect đúng về GSC_REDIRECT_URI
-                if (!url.startsWith(GSC_REDIRECT_URI)) {
-                    return;
+                const urlObj = new URL(req.url, `http://${req.headers.host}`);
+                
+                if (urlObj.pathname === '/google') {
+                    const code = urlObj.searchParams.get("code");
+                    const error = urlObj.searchParams.get("error");
+
+                    if (error) {
+                        sendToRenderer("tools-log", `[GSC] Lỗi OAuth: ${error}`);
+                        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end(getAuthHtml('Lỗi xác thực', `Quá trình đăng nhập thất bại: ${error}. Vui lòng thử lại.`, false));
+                        server.close();
+                        reject(new Error(error));
+                        return;
+                    }
+
+                    if (!code) {
+                        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                        res.end(getAuthHtml('Lỗi hệ thống', `Không tìm thấy mã xác thực từ Google trả về.`, false));
+                        server.close();
+                        reject(new Error("No code in redirect URL"));
+                        return;
+                    }
+
+                    res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
+                    res.end(getAuthHtml('Thành công', 'Quá trình xác thực hoàn tất! Bạn có thể quay lại app ai.type, cửa sổ này sẽ tự đóng lại.', true));
+                    server.close();
+
+                    sendToRenderer("tools-log", "[GSC] Nhận code từ trình duyệt chính, đang đổi sang token...");
+                    const { tokens } = await gscOauth2Client.getToken(code);
+                    gscOauth2Client.setCredentials(tokens);
+                    gscSaveToken(tokens);
+
+                    sendToRenderer("tools-log", "[GSC] Đăng nhập thành công, đã lưu token.");
+                    resolve();
+                } else {
+                    res.writeHead(404);
+                    res.end();
                 }
-
-                const urlObj = new URL(url);
-                const code = urlObj.searchParams.get("code");
-                const error = urlObj.searchParams.get("error");
-
-                if (error) {
-                    sendToRenderer("tools-log", `[GSC] Lỗi OAuth: ${error}`);
-                    reject(new Error(error));
-                    authWindow.close();
-                    return;
-                }
-
-                if (!code) {
-                    // Không có code cũng coi như thất bại
-                    sendToRenderer(
-                        "tools-log",
-                        "[GSC] Không tìm thấy mã code trong redirect URL",
-                    );
-                    reject(new Error("No code in redirect URL"));
-                    authWindow.close();
-                    return;
-                }
-
-                sendToRenderer(
-                    "tools-log",
-                    "[GSC] Nhận code, đang đổi sang token...",
-                );
-
-                // Đổi authorization code lấy access_token + refresh_token
-                const { tokens } = await gscOauth2Client.getToken(code);
-                gscOauth2Client.setCredentials(tokens);
-                gscSaveToken(tokens); // lưu ra file TOKEN_GSC_PATH
-
-                sendToRenderer(
-                    "tools-log",
-                    "[GSC] Đăng nhập thành công, đã lưu token.",
-                );
-
-                resolve();
-                authWindow.close();
             } catch (err) {
-                sendToRenderer(
-                    "tools-log",
-                    `[GSC] Lỗi trong will-redirect: ${(err && err.message) || err}`,
-                );
+                res.writeHead(500);
+                res.end(`Loi: ${err.message}`);
+                server.close();
                 reject(err);
-                authWindow.close();
             }
         });
 
-        // Nếu user tự tắt cửa sổ thì coi như hủy
-        authWindow.on("closed", () => {
-            sendToRenderer(
-                "tools-log",
-                "[GSC] Cửa sổ đăng nhập bị đóng trước khi hoàn tất.",
-            );
-            reject(new Error("Login window closed by user"));
+        // Lắng nghe ở port cố định 5455 để dễ cấu hình trên Google Cloud Console
+        server.listen(5455, '127.0.0.1', () => {
+            const redirectUri = `http://localhost:5455/google`;
+            
+            // Cập nhật lại redirectUri để Google OAuth cho phép
+            gscOauth2Client._clientId = GSC_CLIENT_ID;
+            gscOauth2Client._clientSecret = GSC_CLIENT_SECRET;
+            gscOauth2Client.redirectUri = redirectUri;
+
+            const authUrl = gscOauth2Client.generateAuthUrl({
+                access_type: "offline",
+                scope: SCOPES_GSC,
+                prompt: "consent",
+            });
+
+            sendToRenderer("tools-log", `[GSC] Mở Chrome mặc định: ${authUrl}`);
+            shell.openExternal(authUrl);
+        });
+
+        server.on('error', (e) => {
+            sendToRenderer("tools-log", `[GSC] Lỗi server listen: ${e.message}`);
+            reject(e);
         });
     });
 }

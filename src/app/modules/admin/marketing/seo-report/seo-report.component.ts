@@ -179,6 +179,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
 
     // Google Analytics 4 (GA4) Variables
     gaPropertyId = ''; // cho phép nhập từ UI
+    gaPropertyIds: string[] = [];
     gaLoading = false;
     gaError = '';
     gaSummary: {
@@ -616,6 +617,71 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         }
     }
 
+    async generateAIAnalysis(): Promise<void> {
+        if (!this.ai) {
+            this.toastr.error('Bạn chưa cấu hình API Key cho Google Gemini trong phần Cài đặt.');
+            return;
+        }
+
+        if (!this.rows || this.rows.length === 0) {
+            this.toastr.error('Chưa có dữ liệu từ khóa để phân tích. Hãy tải dữ liệu GSC trước.');
+            return;
+        }
+
+        this.aiLoading = true;
+        this.aiSuggestions = '';
+        this.cd.markForCheck();
+
+        try {
+            // Lấy tối đa 50 từ khóa hàng đầu để tránh quá tải token
+            const top50 = this.rows.slice(0, 50);
+            const dataString = top50.map((r: any) =>
+                `- Từ khóa: "${r.query}", Lượt nhấp: ${r.clicks}, Hiển thị: ${r.impressions}, CTR: ${r.ctr.toFixed(1)}%, Vị trí TB: ${r.position.toFixed(1)}`
+            ).join('\n');
+
+            const prompt = `
+Bạn là một chuyên gia SEO hàng đầu với 10 năm kinh nghiệm phân tích dữ liệu Google Search Console. 
+Dưới đây là số liệu 50 từ khóa hàng đầu của website tôi trong kỳ qua:
+
+${dataString}
+
+Hãy phân tích và trình bày cấu trúc kết quả theo trình tự sau:
+
+PHẦN 1: TỔNG QUAN HIỆU SUẤT
+- Những điểm sáng đã làm tốt: Nêu ra các từ khóa đang có kết quả cực kỳ ấn tượng (Vị trí cao, phần trăm CTR tốt) để ghi nhận thành quả.
+- Trọng tâm cần cải thiện: Tóm tắt ngắn gọn những khuyết điểm lớn nhất đang kìm hãm lượng truy cập (ví dụ: nhiều từ khóa on top nhưng nội dung tiêu đề kém, hoặc chưa khai thác được nhiều long-tail keywords,...).
+
+PHẦN 2: CHI TIẾT TỪNG TIÊU CHÍ (Kết hợp dữ liệu nếu có)
+1. Low-hanging fruit (Trái ngọt dễ hái): Từ khóa rơi vị trí 11-20 nhưng Impressions rất cao (Hãy kể tên từ khóa và đề xuất gắn thêm liên kết nội bộ).
+2. Tối ưu tiêu đề (Title): Từ khóa có vị trí Top 1 đến Top 5 rất tốt, có Impressions cao nhưng CTR lại quá thấp (< 4%).
+3. Tăng trưởng đột ngột: Từ khóa có Impressions lớn một cách bất thường, có thể là do đợt trend hoặc người dùng tò mò (đề xuất viết thêm bài chuyên sâu).
+4. Đề xuất nhóm Long-tail keyword: Những từ khoá có đuôi dài mang tính hỏi đáp để viết mới.
+
+Trả về kết quả bằng ĐỊNH DẠNG BẢNG HTML (dùng chuỗi thẻ <table>, <thead>, <tbody>, <tr>, <th>, <td>).
+VƠI MỖI TIÊU CHÍ TRÊN, HÃY TẠO RIÊNG MỘT BẢNG VÀ CHÈN SẴN style="margin-top: 1.5rem; margin-bottom: 2rem;" VÀO THẺ &lt;table&gt; ĐỂ CÁCH ĐỀU. Các cột khuyên dùng: "Từ khóa", "Vị trí", "Lượt hiển thị", "CTR", "Đề xuất tối ưu". 
+KHÔNG DÙNG danh sách <ul> <li> để liệt kê từ khóa nữa. Có thể dùng <h3> cho tiêu đề từng tiêu chí.
+KHÔNG DÙNG MARKDOWN. KHÔNG ĐÓNG DẤU \`\`\`html hoặc \`\`\` quanh bài viết. Nếu một tiêu chí nào không có số liệu thỏa mãn thì có thể bỏ qua.
+Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạn".`;
+
+            const response = await this.ai.models.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: prompt
+            });
+            let responseText = response.text || '';
+
+            // Loại bỏ bọc markdown nếu có bị dính
+            responseText = responseText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+
+            this.aiSuggestions = responseText;
+        } catch (error: any) {
+            this.toastr.error('Lỗi khi phân tích AI: ' + error.message);
+            console.error('AI Error:', error);
+        } finally {
+            this.aiLoading = false;
+            this.cd.markForCheck();
+        }
+    }
+
     downloadCsv(): void {
         if (!this.dailyStatsAll.length) {
             this.toastr.error('Chưa có dữ liệu để xuất CSV');
@@ -821,6 +887,15 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
     // ==================================================================================
 
     async loadGaOverview(): Promise<void> {
+        if (this.gaPropertyId) {
+            const trimmed = this.gaPropertyId.trim();
+            if (trimmed && !this.gaPropertyIds.includes(trimmed)) {
+                this.gaPropertyIds.unshift(trimmed);
+                if (this.gaPropertyIds.length > 20) this.gaPropertyIds.pop();
+                this.multiAccountService.setItem('gaPropertyIds', this.gaPropertyIds);
+            }
+        }
+
         if (!this.startDate || !this.endDate) {
             this.toastr.error('Vui lòng chọn ngày bắt đầu và kết thúc ở bước 1 trước');
             return;
@@ -1041,7 +1116,7 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private _fuseConfigService: FuseConfigService,
-         private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`báo cáo seo | ai.type - công cụ tạo content`);
 
@@ -1080,14 +1155,21 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
     }
 
     ngOnInit(): void {
-        const today = new Date();
-        const end = today.toISOString().slice(0, 10);
-        const startDateObj = new Date();
-        startDateObj.setDate(today.getDate() - 28);
-        const start = startDateObj.toISOString().slice(0, 10);
+        const savedGaIds = this.multiAccountService.getItem('gaPropertyIds');
+        if (savedGaIds && Array.isArray(savedGaIds)) {
+            this.gaPropertyIds = savedGaIds;
+            if (!this.gaPropertyId && this.gaPropertyIds.length > 0) {
+                this.gaPropertyId = this.gaPropertyIds[0];
+            }
+        }
 
-        this.startDate = start;
-        this.endDate = end;
+        const today = new Date();
+        const year = today.getFullYear();
+        const month = String(today.getMonth() + 1).padStart(2, '0');
+        const day = String(today.getDate()).padStart(2, '0');
+
+        this.startDate = `${year}-${month}-01`;
+        this.endDate = `${year}-${month}-${day}`;
     }
 
     ngOnDestroy(): void {

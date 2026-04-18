@@ -16,6 +16,7 @@ import { NgApexchartsModule } from 'ng-apexcharts';
 import { SharedModule } from 'app/shared.module';
 import { GSCReportComponent } from 'app/modules/admin/marketing/seo-report/seo-report.component';
 import { MatSelectModule } from '@angular/material/select';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 
 const Routes: Route[] = [
     {
@@ -43,6 +44,7 @@ const Routes: Route[] = [
         MatListModule,
         MatSidenavModule,
         MatSelectModule,
+        MatAutocompleteModule,
         MatButtonToggleModule,
         NgApexchartsModule,
         TimeagoModule.forRoot(),
