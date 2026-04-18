@@ -103,66 +103,97 @@
 
                 </ngx-datatable>
             </div>
+
+            <!-- BẮT ĐẦU BLOCK PHÂN TÍCH AI -->
+            <div class="mt-4 w-full p-6 bg-slate-50 rounded-lg border border-slate-200 gap-2"
+                *ngIf="rows && rows.length > 0">
+                <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            <mat-icon class="icon-size-5" svgIcon="feather:command"></mat-icon>
+                        </div>
+                        <div>
+                            <h3 class="text-lg font-bold text-slate-800 m-0">Cố vấn SEO AI</h3>
+                            <p class="text-sm text-slate-500 m-0">Phân tích số liệu 50 TỪ KHÓA TOP ĐẦU của bạn</p>
+                        </div>
+                    </div>
+
+                    <button mat-flat-button color="primary" (click)="generateAIAnalysis()" [disabled]="aiLoading">
+                        <mat-icon *ngIf="!aiLoading" class="icon-size-4" svgIcon="feather:zap"></mat-icon>
+                        <mat-icon *ngIf="aiLoading" class="icon-size-4 animate-spin"
+                            svgIcon="feather:loader"></mat-icon>
+                        <mat-label class="ml-2" *ngIf="!aiLoading">Phân tích dữ liệu ngay</mat-label>
+                        <mat-label class="ml-2" *ngIf="aiLoading">Đang phân tích (có thể mất 15s)...</mat-label>
+                    </button>
+                </div>
+
+                <div *ngIf="aiSuggestions"
+                    class="mt-4 p-6 bg-white rounded-lg overflow-hidden prose max-w-none text-slate-700">
+                    <div [innerHTML]="aiSuggestions" class="text-base"></div>
+                </div>
+            </div>
+            <!-- KẾT THÚC BLOCK PHÂN TÍCH AI -->
         </div>
 
         <div class="flex flex-col items-start justify-start h-full w-full">
             <div class="pt-8 w-full">
                 <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                     <div class="p-4 border rounded-lg">
-                        <div class="text-xs text-gray-500">Tổng lượt nhấp</div>
+                        <div class="text-base text-gray-500">Tổng lượt nhấp</div>
                         <div class="text-xl font-semibold">{{ totalClicks | number }}</div>
                     </div>
                     <div class="p-4 border rounded-lg">
-                        <div class="text-xs text-gray-500">Tổng lượt hiển thị</div>
+                        <div class="text-base text-gray-500">Tổng lượt hiển thị</div>
                         <div class="text-xl font-semibold">{{ totalImpressions | number }}</div>
                     </div>
                     <div class="p-4 border rounded-lg">
-                        <div class="text-xs text-gray-500">CTR trung bình</div>
+                        <div class="text-base text-gray-500">CTR trung bình</div>
                         <div class="text-xl font-semibold">{{ avgCtr | number:'1.1-2' }}%</div>
                     </div>
                     <div class="p-4 border rounded-lg">
-                        <div class="text-xs text-gray-500">Vị trí trung bình</div>
+                        <div class="text-base text-gray-500">Vị trí trung bình</div>
                         <div class="text-xl font-semibold">{{ avgPosition | number:'1.1-2' }}</div>
                     </div>
                 </div>
             </div>
 
-            <div class="pt-8 w-full">
-                <h3 class="text-base mb-2">
-                    Lượt nhấp & Lượt hiển thị theo từ khóa hàng đầu
-                </h3>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-8 w-full">
+                <div class="w-full">
+                    <h3 class="text-base mb-2">
+                        Lượt nhấp & Lượt hiển thị theo từ khóa hàng đầu
+                    </h3>
 
-                <apx-chart *ngIf="chartOptionsTopQueries" [series]="chartOptionsTopQueries.series"
-                    [chart]="chartOptionsTopQueries.chart" [xaxis]="chartOptionsTopQueries.xaxis"
-                    [dataLabels]="chartOptionsTopQueries.dataLabels" [plotOptions]="chartOptionsTopQueries.plotOptions"
-                    [legend]="chartOptionsTopQueries.legend">
-                </apx-chart>
+                    <apx-chart *ngIf="chartOptionsTopQueries" [series]="chartOptionsTopQueries.series"
+                        [chart]="chartOptionsTopQueries.chart" [xaxis]="chartOptionsTopQueries.xaxis"
+                        [dataLabels]="chartOptionsTopQueries.dataLabels"
+                        [plotOptions]="chartOptionsTopQueries.plotOptions" [legend]="chartOptionsTopQueries.legend">
+                    </apx-chart>
+                </div>
+
+                <div class="w-full">
+                    <h3 class="text-base mb-2">
+                        Tỉ lệ CTR trung bình theo từ khóa hàng đầu
+                    </h3>
+
+                    <apx-chart *ngIf="chartOptionsCtr" [series]="chartOptionsCtr.series" [chart]="chartOptionsCtr.chart"
+                        [xaxis]="chartOptionsCtr.xaxis" [yaxis]="chartOptionsCtr.yaxis"
+                        [dataLabels]="chartOptionsCtr.dataLabels">
+                    </apx-chart>
+                </div>
             </div>
 
-            <div class="pt-8 w-full">
-                <h3 class="text-base mb-2">
-                    Tỉ lệ CTR trung bình theo từ khóa hàng đầu
-                </h3>
-
-                <apx-chart *ngIf="chartOptionsCtr" [series]="chartOptionsCtr.series" [chart]="chartOptionsCtr.chart"
-                    [xaxis]="chartOptionsCtr.xaxis" [yaxis]="chartOptionsCtr.yaxis"
-                    [dataLabels]="chartOptionsCtr.dataLabels">
-                </apx-chart>
-            </div>
-
-            <div class="pt-8 w-full">
+            <div class="pt-8 w-full" *ngIf="chartOptionsKeywordCompare">
                 <h3 class="text-base mb-2">
                     So sánh CTR theo ngày giữa các từ khóa đã chọn
                 </h3>
 
-                <apx-chart *ngIf="chartOptionsKeywordCompare" [series]="chartOptionsKeywordCompare.series"
-                    [chart]="chartOptionsKeywordCompare.chart" [xaxis]="chartOptionsKeywordCompare.xaxis"
-                    [yaxis]="chartOptionsKeywordCompare.yaxis" [legend]="chartOptionsKeywordCompare.legend"
-                    [dataLabels]="chartOptionsKeywordCompare.dataLabels">
+                <apx-chart [series]="chartOptionsKeywordCompare.series" [chart]="chartOptionsKeywordCompare.chart"
+                    [xaxis]="chartOptionsKeywordCompare.xaxis" [yaxis]="chartOptionsKeywordCompare.yaxis"
+                    [legend]="chartOptionsKeywordCompare.legend" [dataLabels]="chartOptionsKeywordCompare.dataLabels">
                 </apx-chart>
             </div>
 
-            <div class="pt-8 w-full">
+            <div class="pt-8 w-full" *ngIf="chartOptionsKeywordGrowth">
                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                     <h3 class="text-base sm:text-lg font-semibold">
                         Tăng trưởng theo ngày (multi-keyword)
@@ -176,21 +207,19 @@
                     </mat-button-toggle-group>
                 </div>
 
-                <apx-chart *ngIf="chartOptionsKeywordGrowth" [series]="chartOptionsKeywordGrowth.series"
-                    [chart]="chartOptionsKeywordGrowth.chart" [xaxis]="chartOptionsKeywordGrowth.xaxis"
-                    [yaxis]="chartOptionsKeywordGrowth.yaxis" [legend]="chartOptionsKeywordGrowth.legend"
-                    [dataLabels]="chartOptionsKeywordGrowth.dataLabels">
+                <apx-chart [series]="chartOptionsKeywordGrowth.series" [chart]="chartOptionsKeywordGrowth.chart"
+                    [xaxis]="chartOptionsKeywordGrowth.xaxis" [yaxis]="chartOptionsKeywordGrowth.yaxis"
+                    [legend]="chartOptionsKeywordGrowth.legend" [dataLabels]="chartOptionsKeywordGrowth.dataLabels">
                 </apx-chart>
             </div>
 
-            <div class="pt-8 w-full">
+            <div class="pt-8 w-full" *ngIf="chartOptionsHeatmap">
                 <h3 class="text-base mb-2">
                     Heatmap {{ selectedMetric }} theo ngày (màu càng đậm → giá trị càng cao)
                 </h3>
 
-                <apx-chart *ngIf="chartOptionsHeatmap" [series]="chartOptionsHeatmap.series"
-                    [chart]="chartOptionsHeatmap.chart" [xaxis]="chartOptionsHeatmap.xaxis"
-                    [dataLabels]="chartOptionsHeatmap.dataLabels">
+                <apx-chart [series]="chartOptionsHeatmap.series" [chart]="chartOptionsHeatmap.chart"
+                    [xaxis]="chartOptionsHeatmap.xaxis" [dataLabels]="chartOptionsHeatmap.dataLabels">
                 </apx-chart>
             </div>
 
@@ -201,27 +230,27 @@
                     Search volume (Google Ads) cho keyword đang chọn
                 </h3>
 
-                <div *ngIf="!currentAdsKeyword" class="text-xs text-gray-500 mb-4">
+                <div *ngIf="!currentAdsKeyword" class="text-base text-gray-500 mb-4">
                     Click một dòng keyword trong bảng "Bảng số liệu" để lấy search volume từ Google
                     Ads.
                 </div>
 
-                <div *ngIf="currentAdsKeyword" class="text-xs text-gray-600 mb-2">
+                <div *ngIf="currentAdsKeyword" class="text-base text-gray-600 mb-2">
                     Keyword:
                     <span class="font-semibold">{{ currentAdsKeyword }}</span>
                 </div>
 
-                <div *ngIf="adsLoading" class="text-xs text-blue-500">
+                <div *ngIf="adsLoading" class="text-base text-blue-500">
                     Đang gọi Google Ads API...
                 </div>
 
-                <div *ngIf="adsError" class="text-xs text-red-500">
+                <div *ngIf="adsError" class="text-base text-red-500">
                     {{ adsError }}
                 </div>
 
                 <div *ngIf="!adsLoading && !adsError && currentAdsKeyword">
                     <div *ngIf="adsResults && adsResults.length > 0; else noAdsData" class="overflow-x-auto">
-                        <table class="min-w-full text-xs border">
+                        <table class="min-w-full text-base border">
                             <thead class="bg-gray-50">
                                 <tr>
                                     <th class="px-2 py-1 border text-left">
@@ -265,7 +294,7 @@
                         </table>
                     </div>
                     <ng-template #noAdsData>
-                        <div class="text-xs text-gray-500">
+                        <div class="text-base text-gray-500">
                             Không có dữ liệu Google Ads cho keyword này.
                             Kiểm tra lại Developer Token, Customer ID, refresh token nếu cần.
                         </div>
@@ -285,7 +314,13 @@
                         <mat-form-field class="w-full sm:w-80 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'">
                             <mat-label>GA4 property ID</mat-label>
-                            <input matInput [(ngModel)]="gaPropertyId" placeholder="vd: 123456789">
+                            <input matInput [(ngModel)]="gaPropertyId" placeholder="vd: 123456789"
+                                [matAutocomplete]="gaPropertyAuto">
+                            <mat-autocomplete #gaPropertyAuto="matAutocomplete">
+                                <mat-option *ngFor="let id of gaPropertyIds" [value]="id">
+                                    {{ id }}
+                                </mat-option>
+                            </mat-autocomplete>
                             <mat-hint>Số liệu từ {{ startDate }} → {{ endDate }}. Lấy Property ID trong GA4
                                 Admin.</mat-hint>
                         </mat-form-field>
@@ -347,22 +382,22 @@
                     <ng-container *ngIf="!gaLoading && !gaError && gaSummary">
                         <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
                             <div class="p-4 border rounded-lg bg-blue-50 border-blue-100">
-                                <div class="text-xs text-blue-600">Active Users</div>
+                                <div class="text-base text-blue-600">Active Users</div>
                                 <div class="text-xl font-bold text-blue-800">{{ gaSummary.activeUsers | number
                                     }}</div>
                             </div>
                             <div class="p-4 border rounded-lg bg-green-50 border-green-100">
-                                <div class="text-xs text-green-600">Sessions</div>
+                                <div class="text-base text-green-600">Sessions</div>
                                 <div class="text-xl font-bold text-green-800">{{ gaSummary.sessions | number }}
                                 </div>
                             </div>
                             <div class="p-4 border rounded-lg bg-purple-50 border-purple-100">
-                                <div class="text-xs text-purple-600">Page Views</div>
+                                <div class="text-base text-purple-600">Page Views</div>
                                 <div class="text-xl font-bold text-purple-800">{{ gaSummary.screenPageViews |
                                     number }}</div>
                             </div>
                             <div class="p-4 border rounded-lg bg-orange-50 border-orange-100">
-                                <div class="text-xs text-orange-600">Engagement Rate</div>
+                                <div class="text-base text-orange-600">Engagement Rate</div>
                                 <div class="text-xl font-bold text-orange-800">{{ gaSummary.engagementRate * 100
                                     | number:'1.1-2' }}%</div>
                             </div>
@@ -375,7 +410,7 @@
                                 </div>
                             </div>
                             <div class="overflow-x-auto">
-                                <table class="w-full text-xs">
+                                <table class="w-full text-base">
                                     <thead class="bg-gray-50 sticky top-0 z-10">
                                         <tr class="border-t">
                                             <th class="text-left py-2 px-3 font-semibold text-gray-600">Hạng
@@ -421,8 +456,8 @@
 
                         <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
                             <div class="border rounded-lg p-3">
-                                <!-- <div class="text-xs font-semibold mb-1">Top quốc gia</div> -->
-                                <table class="w-full text-xs">
+                                <!-- <div class="text-base font-semibold mb-1">Top quốc gia</div> -->
+                                <table class="w-full text-base">
                                     <thead>
                                         <tr>
                                             <th class="text-left py-1">Quốc gia</th>
@@ -439,8 +474,8 @@
                             </div>
 
                             <div class="border rounded-lg p-3">
-                                <!-- <div class="text-xs font-semibold mb-1">Thiết bị</div> -->
-                                <table class="w-full text-xs">
+                                <!-- <div class="text-base font-semibold mb-1">Thiết bị</div> -->
+                                <table class="w-full text-base">
                                     <thead>
                                         <tr>
                                             <th class="text-left py-1">Thiết bị</th>
@@ -457,8 +492,8 @@
                             </div>
 
                             <div class="border rounded-lg p-3">
-                                <!-- <div class="text-xs font-semibold mb-1">Độ tuổi</div> -->
-                                <table class="w-full text-xs">
+                                <!-- <div class="text-base font-semibold mb-1">Độ tuổi</div> -->
+                                <table class="w-full text-base">
                                     <thead>
                                         <tr>
                                             <th class="text-left py-1">Độ tuổi</th>
@@ -481,7 +516,7 @@
             <!-- <div class="mt-8 w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h3 class="text-base font-semibold mb-1">Tự động gửi báo cáo hằng ngày qua email</h3>
-                    <div class="text-xs text-gray-500 max-w-lg">
+                    <div class="text-base text-gray-500 max-w-lg">
                         Tính năng này cần backend / Electron IPC <code>scheduleSeoEmail</code>.
                         Hiện tại hàm đã được hook sẵn trong component.
                     </div>
@@ -491,32 +526,6 @@
                     <mat-label class="ml-2">Tạo lịch gửi báo cáo</mat-label>
                 </button>
             </div> -->
-
-            <div class="w-full my-6 border-t border-gray-50"></div>
-
-            <div class="mt-2 pb-6 w-full">
-                <div class="mb-4">
-                    <h3 class="text-xl sm:text-2xl text-primary mb-1">
-                        AI đề xuất keyword cần cải thiện
-                    </h3>
-
-                    <div *ngIf="!aiSuggestions && !aiLoading" class="text-xs text-gray-500 max-w-lg">
-                        Bấm "Phân tích bằng AI" để nhận gợi ý từ khóa có nhiều impressions nhưng CTR thấp
-                        cần tối ưu.
-                    </div>
-
-                    <div class="border rounded-lg p-4 bg-gray-50 whitespace-pre-wrap text-base text-gray-700 my-6"
-                        *ngIf="aiSuggestions">
-                        {{ aiSuggestions }}
-                    </div>
-                </div>
-
-                <button mat-flat-button color="primary" [disabled]="aiLoading" (click)="generateAiSuggestions()">
-                    <mat-icon svgIcon="feather:cpu"></mat-icon>
-                    <mat-label class="ml-2">{{ aiLoading ? 'Đang phân tích' : 'Phân tích bằng AI'
-                        }}</mat-label>
-                </button>
-            </div>
         </div>
     </div>
 </div>
