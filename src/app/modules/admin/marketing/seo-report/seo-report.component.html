@@ -125,7 +125,7 @@
                     </div>
                 </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 pt-8 w-full">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 w-full">
                     <div class="w-full">
                         <h3 class="text-base mb-2">
                             Lượt nhấp & Lượt hiển thị theo từ khóa hàng đầu
@@ -347,22 +347,22 @@
                         <ng-container *ngIf="!gaLoading && !gaError && gaSummary">
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
                                 <div class="p-4 border rounded-lg bg-blue-50 border-blue-100">
-                                    <div class="text-base text-blue-600">Active Users</div>
-                                    <div class="text-xl font-bold text-blue-800">{{ gaSummary.activeUsers | number
+                                    <div class="text-base text-blue-600">Người dùng</div>
+                                    <div class="text-xl font-bold text-blue-800">{{ gaSummary.totalUsers | number
                                         }}</div>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-green-50 border-green-100">
-                                    <div class="text-base text-green-600">Sessions</div>
+                                    <div class="text-base text-green-600">Phiên truy cập</div>
                                     <div class="text-xl font-bold text-green-800">{{ gaSummary.sessions | number }}
                                     </div>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-purple-50 border-purple-100">
-                                    <div class="text-base text-purple-600">Page Views</div>
+                                    <div class="text-base text-purple-600">Lượt xem trang</div>
                                     <div class="text-xl font-bold text-purple-800">{{ gaSummary.screenPageViews |
                                         number }}</div>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-orange-50 border-orange-100">
-                                    <div class="text-base text-orange-600">Engagement Rate</div>
+                                    <div class="text-base text-orange-600">Tỷ lệ tương tác</div>
                                     <div class="text-xl font-bold text-orange-800">{{ gaSummary.engagementRate * 100
                                         | number:'1.1-2' }}%</div>
                                 </div>
@@ -423,7 +423,7 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                                 <div class="border rounded-lg p-3">
                                     <!-- <div class="text-base font-semibold mb-1">Top quốc gia</div> -->
                                     <table class="w-full text-base">
@@ -492,9 +492,9 @@
                                 <mat-icon class="icon-size-5" svgIcon="feather:command"></mat-icon>
                             </div>
                             <div>
-                                <h3 class="text-lg font-bold text-slate-800 m-0">Cố vấn SEO AI</h3>
-                                <p class="text-sm text-slate-500 m-0">Phân tích số liên quan giữa GSC và GA4 để đề xuất
-                                    SEO</p>
+                                <h3 class="text-lg font-bold text-slate-800 m-0">Những việc cần làm</h3>
+                                <p class="text-sm text-slate-500 m-0">Phân tích số liệu để đề xuất những việc cần làm
+                                </p>
                             </div>
                         </div>
 
