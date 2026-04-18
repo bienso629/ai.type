@@ -53,6 +53,7 @@ contextBridge.exposeInMainWorld('electron', {
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     relaunchApp: () => ipcRenderer.send('app:relaunch'),
     clearGoogleCookies: () => ipcRenderer.invoke('clear-google-cookies'),
+    clearAllCookies: () => ipcRenderer.invoke('clear-all-cookies'),
     startGoLoginTraffic: (payload) => ipcRenderer.invoke('gologin:start-traffic', payload),
     stopGoLoginProfile: (profileId) => ipcRenderer.invoke('gologin:stop-profile', profileId),
     stopAllGoLoginProfiles: () => ipcRenderer.invoke('gologin:stop-all'),

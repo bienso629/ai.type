@@ -94,23 +94,30 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         this.updateRootCssVar();
     }
 
-    // Xoá cookie Google để đăng nhập lại tài khoản khác
-    async clearGoogleCookies() {
+    // Xoá toàn bộ cookie và làm mới webview
+    async clearWebviewCookie() {
         try {
             const electron = (window as any).electron;
-            if (electron?.clearGoogleCookies) {
+            if (electron?.clearAllCookies) {
+                await electron.clearAllCookies();
+            } else if (electron?.clearGoogleCookies) {
                 await electron.clearGoogleCookies();
             }
-            // Reload webview
+            
+            // Clear trên webview DOM
             const container = document.getElementById('webview-container-div');
             if (container) {
                 const webview = container.querySelector('webview') as any;
-                if (webview?.reload) {
+                if (webview && webview.clearData) {
+                    await webview.clearData({ datatypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
+                    console.log('Webview data cleared.');
+                }
+                if (webview?.reloadIgnoringCache) {
                     webview.loadURL('https://labs.google/fx/vi/tools/flow');
                 }
             }
         } catch (err) {
-            console.error('Lỗi xoá cookie:', err);
+            console.error('Lỗi xoá toàn bộ cookie:', err);
         }
     }
     // ===============================

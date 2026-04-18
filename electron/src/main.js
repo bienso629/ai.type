@@ -2267,6 +2267,30 @@ app.whenReady().then(async () => {
         }
     });
 
+    ipcMain.handle('clear-all-cookies', async () => {
+        try {
+            // Clear in defaultSession
+            await session.defaultSession.clearStorageData();
+            
+            // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
+            const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+            if (fs.existsSync(googleAuthDir)) {
+                fs.rmSync(googleAuthDir, { recursive: true, force: true });
+            }
+            
+            // Tìm webview đang chạy và xoá storage của nó (nếu khác defaultSession)
+            if (targetWindow && targetWindow.webContents) {
+                await targetWindow.webContents.session.clearStorageData();
+            }
+
+            sendToRenderer("tools-log", `[Gemini-Auth] ✅ Đã xoá toàn bộ Cookie và Storage của ứng dụng.`);
+            return { success: true };
+        } catch (err) {
+            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi xoá tất cả cookie: ${err.message}`);
+            return { success: false, error: err.message };
+        }
+    });
+
     // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
     app.on('web-contents-created', (event, contents) => {
         if (contents.getType() === 'webview') {
@@ -2297,6 +2321,7 @@ app.whenReady().then(async () => {
                 sendToRenderer("tools-log", "[Gemini-Auth] Đang mở Chrome thật để đăng nhập...");
 
                 const CHROME_DEBUG_PORT = 9224;
+                let syncInterval = null;
 
                 try {
                     const realChromePath = getChromePath();
@@ -2361,6 +2386,78 @@ app.whenReady().then(async () => {
                     // Theo dõi: khi user login xong, URL sẽ rời khỏi accounts.google.com
                     sendToRenderer("tools-log", "[Gemini-Auth] Đang chờ bạn đăng nhập...");
 
+                    // CƠ CHẾ ĐỒNG BỘ COOKIE LIÊN TỤC: Đề phòng user tự đóng popup bằng tay
+                    const startContinuousSync = async (browserInstance) => {
+                        syncInterval = setInterval(async () => {
+                            try {
+                                const pages = await browserInstance.pages();
+                                const page = pages.find(p => !p.isClosed());
+                                if (!page) return;
+                                
+                                const client = await page.createCDPSession();
+                                const { cookies: allCookies } = await client.send('Network.getAllCookies');
+                                await client.detach();
+                                
+                                // DUMP COOKIES TO FILE FOR DEBUGGING
+                                try {
+                                    require('fs').writeFileSync(require('path').join(__dirname, '../../debug_cookies.json'), JSON.stringify(allCookies, null, 2));
+                                } catch (e) {}
+
+                                for (const cookie of allCookies) {
+                                    try {
+                                        const cookieObj = {
+                                            url: `http${cookie.secure ? 's' : ''}://${cookie.domain.replace(/^\./, '')}${cookie.path}`,
+                                            name: cookie.name,
+                                            value: cookie.value,
+                                            domain: cookie.name.startsWith('__Host-') ? undefined : cookie.domain,
+                                            path: cookie.path,
+                                            secure: cookie.secure,
+                                            httpOnly: cookie.httpOnly,
+                                            sameSite: cookie.sameSite === 'None' ? 'no_restriction'
+                                                : cookie.sameSite === 'Lax' ? 'lax'
+                                                    : cookie.sameSite === 'Strict' ? 'strict'
+                                                        : undefined
+                                        };
+                                        if (cookie.expires && cookie.expires > 0) cookieObj.expirationDate = cookie.expires;
+                                        
+                                        await webviewContents.session.cookies.set(cookieObj);
+                                        if (webviewContents.session !== session.defaultSession) {
+                                            await session.defaultSession.cookies.set(cookieObj);
+                                        }
+                                    } catch (e) {
+                                        console.log(`[Gemini-Auth] Sync Lỗi set cookie ${cookie.name}: ${e.message}`);
+                                    }
+                                }
+
+                                // ĐỒNG BỘ LOCAL STORAGE VÀ SESSION STORAGE
+                                try {
+                                    const lsData = await page.evaluate(() => JSON.stringify(localStorage));
+                                    const ssData = await page.evaluate(() => JSON.stringify(sessionStorage));
+                                    if (!webviewContents.isDestroyed()) {
+                                        if (lsData) {
+                                            webviewContents.executeJavaScript(`
+                                                try {
+                                                    const data = ${lsData};
+                                                    for (let key in data) localStorage.setItem(key, data[key]);
+                                                } catch(e){}
+                                            `);
+                                        }
+                                        if (ssData) {
+                                            webviewContents.executeJavaScript(`
+                                                try {
+                                                    const data = ${ssData};
+                                                    for (let key in data) sessionStorage.setItem(key, data[key]);
+                                                } catch(e){}
+                                            `);
+                                        }
+                                    }
+                                } catch (e) {}
+                            } catch (e) {}
+                        }, 1500);
+                    };
+
+                    startContinuousSync(stealthBrowser);
+
                     try {
                         await loginPage.waitForFunction(() => {
                             const url = window.location.href;
@@ -2370,19 +2467,32 @@ app.whenReady().then(async () => {
                                 && !url.includes('accounts.google.com/ServiceLogin');
                         }, { timeout: 300000 }); // Chờ tối đa 5 phút
                     } catch (waitErr) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] ⏰ Hết thời gian chờ đăng nhập!");
+                        sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết giờ!");
+                        if (syncInterval) clearInterval(syncInterval);
                         stealthBrowser.disconnect();
                         isGeminiAuthRunning = false;
+                        
+                        // Nếu user tự đóng popup, ta vẫn thử reload lại webview vì cookie đã được đồng bộ ngầm
+                        if (!webviewContents.isDestroyed()) {
+                            webviewContents.reloadIgnoringCache();
+                        }
                         return;
                     }
 
                     sendToRenderer("tools-log", "[Gemini-Auth] 🎉 Đăng nhập thành công! Đang xác thực với Labs...");
 
                     // QUAN TRỌNG: Sau khi login Google, cần truy cập labs.google để domain đó tạo cookie xác thực riêng
+                    let activePage = loginPage;
                     try {
-                        await loginPage.goto('https://labs.google/fx/vi/tools/flow', { waitUntil: 'networkidle2', timeout: 30000 });
+                        if (activePage.isClosed()) {
+                            const pages = await stealthBrowser.pages();
+                            activePage = pages[pages.length - 1];
+                        }
+                        await activePage.goto('https://labs.google/fx/vi/tools/flow', { waitUntil: 'networkidle2', timeout: 30000 });
                     } catch (navErr) {
                         sendToRenderer("tools-log", "[Gemini-Auth] ⚠️ Labs chậm tải, vẫn tiếp tục lấy cookie...");
+                        const pages = await stealthBrowser.pages();
+                        if (pages.length > 0) activePage = pages[pages.length - 1];
                     }
                     
                     // Chờ thêm 2 giây để cookie ổn định
@@ -2390,15 +2500,25 @@ app.whenReady().then(async () => {
 
                     sendToRenderer("tools-log", "[Gemini-Auth] Đang chuyển cookie...");
 
+                    if (!activePage || activePage.isClosed()) {
+                        throw new Error("Không tìm thấy tab để lấy cookie!");
+                    }
+
+                    // Sync User-Agent để tránh Google đá văng do lệch fingerprint
+                    try {
+                        const chromeUA = await stealthBrowser.userAgent();
+                        webviewContents.setUserAgent(chromeUA);
+                        sendToRenderer("tools-log", `[Gemini-Auth] Đã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
+                    } catch (e) {
+                        sendToRenderer("tools-log", `[Gemini-Auth] Lỗi đồng bộ UA: ${e.message}`);
+                    }
+
                     // Hút TOÀN BỘ cookie từ Chrome (không chỉ google.com)
-                    const client = await loginPage.createCDPSession();
+                    const client = await activePage.createCDPSession();
                     const { cookies: allCookies } = await client.send('Network.getAllCookies');
 
-                    // Lấy tất cả cookie liên quan Google + Labs
-                    const googleCookies = allCookies.filter(c =>
-                        c.domain.includes('google') || c.domain.includes('gstatic')
-                        || c.domain.includes('googleapis') || c.domain.includes('labs.google')
-                    );
+                    // Lấy toàn bộ cookie để hỗ trợ cả Youtube, bên thứ 3 (tránh bị thiếu cookie session)
+                    const googleCookies = allCookies;
 
                     sendToRenderer("tools-log", `[Gemini-Auth] Thu được ${googleCookies.length} cookie.`);
 
@@ -2422,32 +2542,65 @@ app.whenReady().then(async () => {
                             if (cookie.expires && cookie.expires > 0) {
                                 cookieObj.expirationDate = cookie.expires;
                             }
-                            await session.defaultSession.cookies.set(cookieObj);
+                            // __Host- cookies MUST NOT have a domain attribute
+                            if (cookie.name.startsWith('__Host-')) {
+                                delete cookieObj.domain;
+                            }
+                            await webviewContents.session.cookies.set(cookieObj);
+                            if (webviewContents.session !== session.defaultSession) {
+                                await session.defaultSession.cookies.set(cookieObj);
+                            }
                             importedCount++;
                         } catch (cookieErr) {
-                            // Bỏ qua cookie lỗi
+                            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
+                            console.log(`[Gemini-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
                         }
                     }
 
                     sendToRenderer("tools-log", `[Gemini-Auth] ✅ Đã import ${importedCount}/${googleCookies.length} cookie thành công!`);
+
+                    // Đồng bộ Local Storage và Session Storage lần cuối
+                    try {
+                        const lsData = await activePage.evaluate(() => JSON.stringify(localStorage));
+                        const ssData = await activePage.evaluate(() => JSON.stringify(sessionStorage));
+                        if (!webviewContents.isDestroyed()) {
+                            if (lsData) {
+                                await webviewContents.executeJavaScript(`
+                                    try {
+                                        const data = ${lsData};
+                                        for (let key in data) localStorage.setItem(key, data[key]);
+                                    } catch(e){}
+                                `);
+                            }
+                            if (ssData) {
+                                await webviewContents.executeJavaScript(`
+                                    try {
+                                        const data = ${ssData};
+                                        for (let key in data) sessionStorage.setItem(key, data[key]);
+                                    } catch(e){}
+                                `);
+                            }
+                        }
+                    } catch (e) {}
 
                     // Đóng Chrome
                     try {
                         await stealthBrowser.close();
                     } catch (closeErr) {
                         // Chrome có thể đã đóng
-                        try { chromeProcess.kill(); } catch (e) { }
                     }
+                    try { chromeProcess.kill(); } catch (e) { }
 
                     // Reload webview
                     if (!webviewContents.isDestroyed()) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] Đang tải lại Gemini...");
-                        webviewContents.loadURL('https://labs.google/fx/vi/tools/flow');
+                        sendToRenderer("tools-log", "[Gemini-Auth] Đang tải lại trang...");
+                        webviewContents.reloadIgnoringCache();
                     }
 
                 } catch (err) {
                     sendToRenderer("tools-log", `[Gemini-Auth] Lỗi: ${err.message}`);
                 } finally {
+                    if (syncInterval) clearInterval(syncInterval);
                     isGeminiAuthRunning = false;
                 }
             };
