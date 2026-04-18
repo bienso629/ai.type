@@ -753,6 +753,14 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
             const darkElements = Array.from(document.querySelectorAll('.dark'));
             darkElements.forEach(el => el.classList.remove('dark'));
 
+            // Gán chết màu nền trắng vào thuộc tính style inline để dập lại màu nền xám đen (#212121) của cửa sổ BrowserWindow
+            const htmlTag = document.documentElement;
+            const bodyTag = document.body;
+            const originalHtmlBg = htmlTag.style.backgroundColor;
+            const originalBodyBg = bodyTag.style.backgroundColor;
+            htmlTag.style.backgroundColor = '#ffffff';
+            bodyTag.style.backgroundColor = '#ffffff';
+
             // 2. Tách đúng đoạn HTML của google-search-console ra một DOM tĩnh hoàn toàn để thoát ly khỏi cấu trúc Angular Flexbox
             const printOverlay = document.createElement('div');
             printOverlay.id = 'static-print-overlay';
@@ -796,6 +804,16 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
                         width: auto !important;
                         flex: none !important;
                     }
+                    /* Khắc phục biểu đồ (SVG của ApexChart) fix cứng width theo OuterHTML khiến chúng đè lên nhau */
+                    apx-chart, apx-chart > div {
+                        width: 100% !important;
+                        max-width: 100% !important;
+                        overflow: hidden !important;
+                    }
+                    apx-chart svg {
+                        width: 100% !important;
+                        height: auto !important;
+                    }
                     /* Ẩn ba cái nút lặt vặt */
                     .border-b, button, mat-form-field, input[type="file"], .hidden-print {
                         display: none !important;
@@ -828,6 +846,8 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
             document.body.removeChild(printOverlay);
             document.head.removeChild(printStyle);
             darkElements.forEach(el => el.classList.add('dark'));
+            htmlTag.style.backgroundColor = originalHtmlBg;
+            bodyTag.style.backgroundColor = originalBodyBg;
             
             this.toastr.success('✅ Đã xuất File Báo Cáo thành công!');
 

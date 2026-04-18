@@ -17,7 +17,7 @@
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 space-x-2">
             <button mat-flat-button color="primary" (click)="exportPdf()">
                 <mat-icon svgIcon="feather:file-text" class="icon-size-4"></mat-icon>
-                <mat-label class="ml-2">Báo cáo</mat-label>
+                <mat-label class="ml-2">Xuất báo cáo</mat-label>
             </button>
             <input type="file" (change)="readFile($event)" class="hidden" #csvInput>
         </div>
@@ -93,10 +93,26 @@
                     (activate)="onTableActivate($event)">
 
                     <ngx-datatable-column name="Truy vấn" prop="query"></ngx-datatable-column>
-                    <ngx-datatable-column name="Lượt nhấp" prop="clicks"></ngx-datatable-column>
-                    <ngx-datatable-column name="Lượt hiển thị" prop="impressions"></ngx-datatable-column>
-                    <ngx-datatable-column name="CTR (%)" prop="ctr"></ngx-datatable-column>
-                    <ngx-datatable-column name="Vị trí" prop="position"></ngx-datatable-column>
+                    <ngx-datatable-column name="Lượt nhấp" prop="clicks">
+                        <ng-template let-value="value" ngx-datatable-cell-template>
+                            {{ value | number }}
+                        </ng-template>
+                    </ngx-datatable-column>
+                    <ngx-datatable-column name="Lượt hiển thị" prop="impressions">
+                        <ng-template let-value="value" ngx-datatable-cell-template>
+                            {{ value | number }}
+                        </ng-template>
+                    </ngx-datatable-column>
+                    <ngx-datatable-column name="CTR (%)" prop="ctr">
+                        <ng-template let-value="value" ngx-datatable-cell-template>
+                            {{ value | number:'1.0-2' }}%
+                        </ng-template>
+                    </ngx-datatable-column>
+                    <ngx-datatable-column name="Vị trí" prop="position">
+                        <ng-template let-value="value" ngx-datatable-cell-template>
+                            {{ value | number:'1.0-2' }}
+                        </ng-template>
+                    </ngx-datatable-column>
 
                 </ngx-datatable>
             </div>
@@ -294,12 +310,12 @@
                             <div class="flex items-center gap-2">
                                 <button mat-flat-button color="primary" (click)="loadGaOverview()">
                                     <mat-icon class="icon-size-4" svgIcon="feather:bar-chart-2"></mat-icon>
-                                    <span class="ml-2">Lấy dữ liệu & Phân tích Đa chiều</span>
+                                    <span class="ml-2">Lấy dữ liệu & Phân tích đa chiều</span>
                                 </button>
                             </div>
 
                             <div *ngIf="analyzedResults.length > 0"
-                                class="flex flex-col gap-3 mt-2 p-4 bg-gray-50 rounded-lg border border-gray-50">
+                                class="flex flex-col gap-3 mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
                                 <div class="text-sm font-semibold w-full text-gray-700">
                                     Kết quả phân tích ({{ analyzedResults.length }} tiêu chí):
                                 </div>
@@ -502,7 +518,7 @@
                             <mat-icon *ngIf="!aiLoading" class="icon-size-4" svgIcon="feather:zap"></mat-icon>
                             <mat-icon *ngIf="aiLoading" class="icon-size-4 animate-spin"
                                 svgIcon="feather:loader"></mat-icon>
-                            <mat-label class="ml-2" *ngIf="!aiLoading">Phân tích dữ liệu ngay</mat-label>
+                            <mat-label class="ml-2" *ngIf="!aiLoading">Xem đề xuất việc cần làm</mat-label>
                             <mat-label class="ml-2" *ngIf="aiLoading">Đang phân tích (có thể mất 15s)...</mat-label>
                         </button>
                     </div>

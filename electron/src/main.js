@@ -3925,6 +3925,11 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
         if (filePath) {
             sendToRenderer("tools-log", `[PDF] Đang kết xuất trang web SEO Report thành PDF... vui lòng chờ.`);
             
+            // Xử lý dứt điểm Bug kinh điển: PrintToPDF luôn rò rỉ màu nền #212121 của BrowserWindow ra thành màu PDF Page
+            const win = BrowserWindow.fromWebContents(event.sender);
+            const originalColor = win.getBackgroundColor();
+            win.setBackgroundColor('#ffffff');
+
             // Lấy nội dung frontend (đang hiển thị màn hình Report) và build thành PDF Vector (cực nét, dạng text)
             const marginInches = 0.4;
             const pdfData = await event.sender.printToPDF({
@@ -3936,6 +3941,9 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
                 headerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: left; padding-left: ${marginInches * 96}px;">Báo cáo đề xuất chỉnh sửa SEO cho ${safeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')} (${startDate} to ${endDate})</div>`,
                 footerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: right; padding-right: ${marginInches * 96}px;">Trang <span class="pageNumber"></span> / <span class="totalPages"></span></div>`
             });
+            
+            // Phục hồi lại màu nền tối của cửa sổ App
+            win.setBackgroundColor(originalColor || '#212121');
             
             // Ghi file
             fs.writeFileSync(filePath, pdfData);
