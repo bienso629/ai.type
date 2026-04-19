@@ -191,8 +191,16 @@ export class LinksComponent implements OnInit, OnDestroy {
                 });
         } else {
             let temp = localStorage.getItem('statistics');
-            temp = JSON.parse(temp);
-            this.totalElements = temp['links'];
+            if (temp && temp != 'undefined') {
+                try {
+                    let parsedTemp = JSON.parse(temp);
+                    this.totalElements = parseInt(parsedTemp['links']) || 0;
+                } catch (e) {
+                    this.totalElements = 0;
+                }
+            } else {
+                this.totalElements = 0;
+            }
 
             if (this.totalElements > 0) {
                 this.setPage({
@@ -260,7 +268,15 @@ export class LinksComponent implements OnInit, OnDestroy {
                         });
 
                         rows.splice(start, this.page.size, ...newDocs);
-                        this.rows = rows;
+                        this.rows = [...rows];
+
+                        // Quan trọng: Vì API không trả về total, ta phải tự đối chiếu tổng số để ngx-datatable có thể render!
+                        if (newDocs.length < this.page.size) {
+                            this.totalElements = this.rows.length;
+                        } else {
+                            // Vẫn còn trang tiếp theo, cộng thêm sức chứa ảo để user còn cuộn tiếp
+                            this.totalElements = this.rows.length + this.page.size;
+                        }
 
                         // Cập nhật bookmark cho trang tiếp theo
                         this.currentBookmark = resData.bookmark;
@@ -623,8 +639,14 @@ export class LinksComponent implements OnInit, OnDestroy {
 
         let temp = localStorage.getItem('statistics');
         if (temp && temp != 'undefined') {
-            temp = JSON.parse(temp);
-            this.totalElements = parseInt(temp['links']);
+            try {
+                let parsedTemp = JSON.parse(temp);
+                this.totalElements = parseInt(parsedTemp['links']) || 0;
+            } catch (e) {
+                this.totalElements = 0;
+            }
+        } else {
+            this.totalElements = 0;
         }
     }
 

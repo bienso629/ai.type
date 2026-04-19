@@ -94,13 +94,13 @@
             <!-- Drawer -->
             <mat-drawer class="flex sm:w-90 w-full" [autoFocus]="false" cdkScrollable (scroll)="scrolled($event)"
                 [mode]="drawerMode" [opened]="drawerOpened" #matDrawer>
-                <a href="https://type.vn/post/109" target="_blank">
+                <!-- <a href="https://type.vn/post/109" target="_blank">
                     <div matTooltipPosition="above"
                         matTooltip="Tại sao dân content lại thích Spin Content? Click xem lý do."
                         class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-400 text-white">
                         Clone bài viết
                     </div>
-                </a>
+                </a> -->
 
                 <!-- <div class="comments" [class.active]="isActive">
                     <ng-container *ngIf="comments.length > 0;else templateName">
@@ -587,10 +587,10 @@
                         (scroll)="scrolled($event)">
                         <!-- Nguyên liệu tạo Dàn ý -->
                         <div class="flex flex-col gt-sm:flex-row px-3 pt-6 pb-3 sticky top-0 bg-white z-10">
-                            <div
+                            <!-- <div
                                 class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-200 text-primary-700">
                                 Sáng tạo nội dung
-                            </div>
+                            </div> -->
 
                             <div class="flex flex-row gt-sm:flex-row px-3">
                                 <button mat-flat-button [color]="'primary'" (click)="chatgpt('ai.type')" type="button"
@@ -622,7 +622,10 @@
                                         *ngIf="source.prompt && source.prompt.length >= 0" class="border-primary">
                                         <mat-expansion-panel-header #panelPrompt>
                                             <mat-panel-title (click)="panelPrompt._toggle()" class="flex items-center">
-                                                <mat-label class="font-semibold text-primary">Prompt dành cho AI
+                                                <mat-icon class="icon-size-4 mr-2 text-primary"
+                                                    [svgIcon]="'feather:terminal'"></mat-icon>
+                                                <mat-label class="font-semibold text-primary">Soạn Prompt cho công việc
+                                                    này
                                                     ({{source.prompt.length}})</mat-label>
 
                                                 <!-- <mat-label
@@ -630,7 +633,7 @@
                                                     matTooltipPosition="above" matTooltip="Thêm prompt mới"
                                                     (click)="createPrompt()">thêm</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="createPrompt()" matTooltipPosition="above"
                                                     matTooltip="Thêm prompt mới">
                                                     <mat-icon class="icon-size-4 text-primary"
@@ -691,6 +694,8 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH2>
                                             <mat-panel-title (click)="panelH2._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-blue-500"
+                                                    [svgIcon]="'feather:file-text'"></mat-icon>
                                                 <mat-label class="font-semibold">Nội dung sáng tạo</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
@@ -708,13 +713,14 @@
                                                     (click)="clearall($event); source.text = []">
                                                     xoá ({{source.text.length}})</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8" (click)="createNode()"
-                                                    matTooltipPosition="above" matTooltip="Thêm nội dung mới">
+                                                <button mat-icon-button class="ml-auto icon-size-8"
+                                                    (click)="createNode()" matTooltipPosition="above"
+                                                    matTooltip="Thêm nội dung mới">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-0 icon-size-8"
                                                     (click)="moveall(source.text, $event); source.text = []"
                                                     [matBadge]="source.text.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
@@ -723,7 +729,7 @@
                                                         [svgIcon]="'feather:align-left'"></mat-icon>
                                                 </button>
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-0 icon-size-8"
                                                     (click)="clearall($event); source.text = []"
                                                     [matBadge]="source.text.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
@@ -814,6 +820,8 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH5>
                                             <mat-panel-title (click)="panelH5._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-green-500"
+                                                    [svgIcon]="'feather:image'"></mat-icon>
                                                 <mat-label class="font-semibold">Biến Hình ảnh thành Bài
                                                     ({{source.img.length}})</mat-label>
                                                 <input hidden type="file" multiple class="file-input"
@@ -830,7 +838,7 @@
                                                     matTooltip="Chọn hình ảnh có sẵn trong sưu tập"
                                                     (click)="allFiles()">có sẵn</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="fileUpload.click()" matTooltipPosition="above"
                                                     matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn"
                                                     [disabled]="loading">
@@ -841,7 +849,7 @@
                                                         [svgIcon]="'heroicons_outline:upload'"></mat-icon>
                                                 </button>
 
-                                                <button mat-icon-button class="ml-1 icon-size-8" (click)="allFiles()"
+                                                <button mat-icon-button class="ml-0 icon-size-8" (click)="allFiles()"
                                                     matTooltipPosition="above"
                                                     matTooltip="Chọn hình ảnh có sẵn trong sưu tập">
                                                     <mat-icon class="icon-size-4 text-blue-600"
@@ -895,6 +903,8 @@
                                         <mat-expansion-panel-header #panelPlaylistYoutube>
                                             <mat-panel-title (click)="panelPlaylistYoutube._toggle()"
                                                 class="flex flex-row items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-red-500"
+                                                    [svgIcon]="'feather:video'"></mat-icon>
                                                 <mat-label class="font-semibold">Biến Video thành Bài
                                                     ({{source.playlist[0].youtube.length}})</mat-label>
 
@@ -903,8 +913,9 @@
                                                     matTooltipPosition="above" matTooltip="Thêm video mới"
                                                     (click)="insertVideo()">thêm</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8" (click)="insertVideo()"
-                                                    matTooltipPosition="above" matTooltip="Thêm video mới">
+                                                <button mat-icon-button class="ml-auto icon-size-8"
+                                                    (click)="insertVideo()" matTooltipPosition="above"
+                                                    matTooltip="Thêm video mới">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -985,6 +996,8 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH3>
                                             <mat-panel-title (click)="panelH3._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-purple-500"
+                                                    [svgIcon]="'feather:cpu'"></mat-icon>
                                                 <mat-label class="font-semibold">Gemini đã hồi đáp</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
@@ -999,7 +1012,7 @@
                                                     (click)="clearall($event); source.chatgpt = []">
                                                     xoá ({{source.chatgpt.length}})</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="moveall(source.chatgpt, $event); source.chatgpt = []"
                                                     [matBadge]="source.chatgpt.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
@@ -1008,7 +1021,7 @@
                                                         [svgIcon]="'feather:align-left'"></mat-icon>
                                                 </button>
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-0 icon-size-8"
                                                     (click)="clearall($event); source.chatgpt = []"
                                                     [matBadge]="source.chatgpt.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
@@ -1105,6 +1118,8 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelH7>
                                             <mat-panel-title (click)="panelH7._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-teal-500"
+                                                    [svgIcon]="'feather:link'"></mat-icon>
                                                 <mat-label class="font-semibold">Gắn Backlink vào Bài
                                                     ({{source.a.length}})</mat-label>
 
@@ -1113,8 +1128,9 @@
                                                     matTooltipPosition="above" matTooltip="Thêm link mới"
                                                     (click)="createlink()">thêm</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8" (click)="createlink()"
-                                                    matTooltipPosition="above" matTooltip="Thêm link mới">
+                                                <button mat-icon-button class="ml-auto icon-size-8"
+                                                    (click)="createlink()" matTooltipPosition="above"
+                                                    matTooltip="Thêm link mới">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -1170,7 +1186,9 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelHTML>
                                             <mat-panel-title (click)="panelHTML._toggle()" class="flex items-center">
-                                                <mat-label class="font-semibold">Gợi ý Prompt
+                                                <mat-icon class="icon-size-4 mr-2 text-orange-500"
+                                                    [svgIcon]="'feather:list'"></mat-icon>
+                                                <mat-label class="font-semibold">Gợi ý Prompt cho bạn
                                                     ({{source.pre.length}})</mat-label>
                                             </mat-panel-title>
 
@@ -1255,6 +1273,8 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelH4>
                                             <mat-panel-title (click)="panelH4._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-yellow-500"
+                                                    [svgIcon]="'feather:book-open'"></mat-icon>
                                                 <mat-label class="font-semibold">Từ điển kiến thức</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
@@ -1269,7 +1289,7 @@
                                                     (click)="clearall($event); source.word = []">
                                                     xoá ({{source.word.length}})</mat-label> -->
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="moveall(source.word, $event); source.word = []"
                                                     [matBadge]="source.word.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
@@ -1278,7 +1298,7 @@
                                                         [svgIcon]="'feather:align-left'"></mat-icon>
                                                 </button>
 
-                                                <button mat-icon-button class="ml-1 icon-size-8"
+                                                <button mat-icon-button class="ml-0 icon-size-8"
                                                     (click)="clearall($event); source.word = []"
                                                     [matBadge]="source.word.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
@@ -1363,6 +1383,8 @@
                                     <mat-expansion-panel [expanded]="autohidden">
                                         <mat-expansion-panel-header #panelSource>
                                             <mat-panel-title (click)="panelSource._toggle()" class="flex items-center">
+                                                <mat-icon class="icon-size-4 mr-2 text-gray-500"
+                                                    [svgIcon]="'feather:globe'"></mat-icon>
                                                 <mat-label class="font-semibold">Nguồn khác
                                                     ({{source.source.length}})</mat-label>
                                             </mat-panel-title>
@@ -2391,10 +2413,10 @@
                     <div class="flex-1 flex-col w-1/2 shrink-0 h-full relative overflow-x-hidden overflow-y-auto border-l"
                         cdkScrollable (scroll)="scrolled($event)">
                         <div class="flex flex-row w-full gt-sm:flex-row pt-6 px-6 pb-3 sticky top-0 bg-white z-10">
-                            <div
+                            <!-- <div
                                 class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white">
                                 Kết quả công việc
-                            </div>
+                            </div> -->
 
                             <mat-form-field *ngIf="uuid && details"
                                 class="w-50 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix mr-2"
