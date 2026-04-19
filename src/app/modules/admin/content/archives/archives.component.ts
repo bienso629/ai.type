@@ -128,7 +128,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
      * Hàm Tìm kiếm Node - Reset toàn bộ dấu mốc bookmark
      */
     searchNode() {
-        this.table.offset = 0;
+        this.isLoading = false;
+        if (this.table) this.table.offset = 0;
         this.selected = [];
         this.currentBookmark = null;
         this.cachePageSize = 0;
@@ -137,9 +138,9 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         if (this.uuids.length > 0) {
             // Nếu có keyword khi đang trong Collection thì filter local
             if (this.keyword) {
-                this.rows = this.rows.filter((item) =>
+                this.rows = [...this.rows.filter((item) =>
                     item.title.toLowerCase().includes(this.keyword.toLowerCase()),
-                );
+                )];
                 this.totalElements = this.rows.length;
                 this.table.recalculatePages();
                 this.cd.markForCheck();
@@ -148,6 +149,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             }
         } else {
             this.rows = [];
+            this.rows = [...this.rows]; // force update empty state
+            this.cd.markForCheck();
             const query = {
                 username: this.user.name,
                 keyword: this.keyword,
@@ -173,8 +176,13 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                             this.cd.markForCheck();
                         }
                     });
-            } else {
-                // Mặc định từ statistics (Sài Gòn)
+                // Mặc định từ statistics (khi xóa keyword)
+                let temp = localStorage.getItem('statistics');
+                if (temp && temp !== 'undefined') {
+                    const stats = JSON.parse(temp);
+                    this.totalElements = stats['archives'] || 0;
+                }
+
                 if (this.totalElements > 0) {
                     this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
                 }
@@ -261,7 +269,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         // 1. Trích xuất tất cả UUID bài viết từ các tập đã chọn
         this.uuids = [
             ...new Set(
-                this.selectedCollections.flatMap((item: any) => {
+                (this.selectedCollections || []).flatMap((item: any) => {
                     // item.uuid bây giờ là 1 mảng các string ID bài viết
                     return Array.isArray(item.uuid) ? item.uuid : (item.uuid ? [item.uuid] : []);
                 }),
@@ -269,20 +277,23 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         ];
 
         // 2. Reset toàn bộ trạng thái UI và mốc phân trang
+        this.isLoading = false;
         if (this.table) this.table.offset = 0;
         this.selected = [];
         this.rows = [];
+        this.rows = [...this.rows]; // force empty array update for datatable
         this.currentBookmark = null; // BẮT BUỘC: Bookmark cũ không dùng được cho tập UUIDs mới
         this.cachePageSize = 0;
         this.cache = {};
+        this.cd.markForCheck();
 
         // 3. Tính toán lại tổng số phần tử (totalElements)
         if (this.uuids.length === 0) {
             // Nếu không chọn collection nào, lấy tổng số từ statistics (Tất cả bài viết)
             let temp = localStorage.getItem('statistics');
-            if (temp) {
+            if (temp && temp !== 'undefined') {
                 const stats = JSON.parse(temp);
-                this.totalElements = stats['writing'] || 0;
+                this.totalElements = stats['archives'] || 0;
             }
         } else {
             // Nếu chọn collection, tổng số chính là số lượng UUIDs đã trích xuất
