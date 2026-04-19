@@ -37,10 +37,11 @@ export class BigDataComponent implements OnInit, OnDestroy {
     keyword: String = '';
     page: Page = {
         pageNumber: 0,
-        size: 200,
+        size: 100,
         totalElements: 0,
         totalPages: 0
     };
+    isLoading: boolean = false;
 
     levels: any[] = [];
 
@@ -88,7 +89,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
             appID: 'fastmailv2.tadu.fastmailv2',
             q: this.keyword || null,
             page: this.page,
-            page_size: 200,
+            page_size: this.page.size,
             fields: 'url,title,status,http_status',
             sort: '-updated_at',
             status: this.group
@@ -127,7 +128,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
             appID: 'fastmailv2.tadu.fastmailv2',
             q: this.keyword || null,
             page: this.page,
-            page_size: 200,
+            page_size: this.page.size,
             fields: 'url,title,status,http_status',
             sort: '-updated_at',
             status: this.group
@@ -158,6 +159,10 @@ export class BigDataComponent implements OnInit, OnDestroy {
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
+        if (this.isLoading) return;
+        if (!pageInfo.pageSize)
+            pageInfo.pageSize = this.page.size;
+        
         // Current page number is determined by last call to setPage
         // This is the page the UI is currently displaying
         // The current page is based on the UI pagesize and scroll position
@@ -166,19 +171,19 @@ export class BigDataComponent implements OnInit, OnDestroy {
 
         // Calculate row offset in the UI using pageInfo
         // This is the scroll position in rows
-        const rowOffset = pageInfo.offset * 200;
+        const rowOffset = pageInfo.offset * pageInfo.pageSize;
 
         this.page = {
-            pageNumber: Math.floor(rowOffset / 200),
-            size: 200,
+            pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
+            size: pageInfo.pageSize,
             totalElements: 0,
             totalPages: 0
         };
 
         // We keep a index of server loaded pages so we don't load same data twice
         // This is based on the server page not the UI
-        if (this.cachePageSize !== 200) {
-            this.cachePageSize = 200;
+        if (this.cachePageSize !== this.page.size) {
+            this.cachePageSize = this.page.size;
             this.cache = {};
         }
 
@@ -187,13 +192,15 @@ export class BigDataComponent implements OnInit, OnDestroy {
         }
 
         this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
 
         this._bigdataService.records({
             username: this.user.name,
             keyword: this.keyword,
             appID: 'fastmailv2.tadu.fastmailv2',
             page: this.page,
-            page_size: 200,
+            page_size: this.page.size,
             q: this.keyword,
             fields: 'url,title,status,http_status',
             sort: '-updated_at',
@@ -207,29 +214,36 @@ export class BigDataComponent implements OnInit, OnDestroy {
 
                         // Create array to store data if missing
                         // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows) {
+                        if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
                         // Calc starting row offset
                         // This is the position to insert the new data
-                        const start = this.page.pageNumber * 200;
+                        const start = this.page.pageNumber * this.page.size;
 
                         // Copy existing data
                         const rows = [...this.rows];
 
                         // Insert new rows into correct position
-                        rows.splice(start, 200, ...result.items);
+                        rows.splice(start, this.page.size, ...result.items);
 
                         // Set rows to our new rows for display
                         this.rows = rows;
+                    } else if (!result || result.success === false || (result.items && result.items.length === 0)) {
+                        delete this.cache[this.page.pageNumber];
                     }
                 },
-                error: () => {
+                error: (err) => {
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cd.markForCheck();
                 },
                 complete: () => {
-                    this.table.recalculatePages();
-
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
                     // lam moi lai giao dien
                     this.cd.markForCheck();
                 }

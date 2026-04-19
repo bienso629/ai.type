@@ -34,10 +34,11 @@ export class WP2MDComponent implements OnInit, OnDestroy {
     keyword: String = '';
     page: Page = {
         pageNumber: 0,
-        size: 10,
+        size: 100,
         totalElements: 0,
         totalPages: 0
     };
+    isLoading: boolean = false;
     lastId: string;
 
     @ViewChild(DatatableComponent) table: DatatableComponent;
@@ -129,6 +130,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
+        if (this.isLoading) return;
         if (!pageInfo.pageSize)
             pageInfo.pageSize = this.page.size;
 
@@ -161,6 +163,8 @@ export class WP2MDComponent implements OnInit, OnDestroy {
         }
 
         this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
 
         this._wp2mdService.all({
             username: this.user.name,
@@ -174,7 +178,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                     if (result && result.success && result.data && result.data.length > 0) {
                         // Create array to store data if missing
                         // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows) {
+                        if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
@@ -191,14 +195,22 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
                             // Set rows to our new rows for display
                             this.rows = rows;
-                            this.lastId = (this.rows.length > 0) ? this.rows[this.rows.length - 1]['_id'] : null;
+                            this.lastId = (this.rows.length > 0 && this.rows[this.rows.length - 1] && this.rows[this.rows.length - 1]['_id']) ? this.rows[this.rows.length - 1]['_id'] : null;
                         }
+                    } else if (!result || result.success === false || (result.success && (!result.data || result.data.length === 0))) {
+                        delete this.cache[this.page.pageNumber];
                     }
                 },
-                error: () => {
+                error: (err) => {
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cd.markForCheck();
                 },
                 complete: () => {
-                    this.table.recalculatePages();
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
                     // lam moi lai giao dien
                     this.cd.markForCheck();
                 }

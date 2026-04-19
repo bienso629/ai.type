@@ -109,10 +109,11 @@ export class AIFacePostComponent
     keyword: String = '';
     page: Page = {
         pageNumber: 0,
-        size: 10,
+        size: 100,
         totalElements: 0,
         totalPages: 0,
     };
+    isLoading: boolean = false;
     currentBookmark: string;
 
     SelectionType = SelectionType;
@@ -307,6 +308,7 @@ export class AIFacePostComponent
      * @param page The page to select
      */
     setPage(pageInfo?: PageInfo) {
+        if (this.isLoading) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
@@ -325,6 +327,8 @@ export class AIFacePostComponent
 
         if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
 
         const collection = this.sitemapForm.controls['collection'].value;
 
@@ -340,7 +344,7 @@ export class AIFacePostComponent
             .subscribe({
                 next: (result: any) => {
                     const resData = result.data;
-                    if (resData && resData.docs) {
+                    if (resData && resData.docs && resData.docs.length > 0) {
                         const newRowsWithHeaders = [];
 
                         resData.docs.forEach((doc: any) => {
@@ -380,8 +384,22 @@ export class AIFacePostComponent
 
                         this.currentBookmark = resData.bookmark;
                         this.cd.detectChanges();
+                    } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
+                        delete this.cache[this.page.pageNumber];
                     }
                 },
+                error: (err) => {
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cd.markForCheck();
+                },
+                complete: () => {
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
+                    this.cd.markForCheck();
+                }
             });
     }
 

@@ -36,10 +36,11 @@ export class ZmsComponent implements OnInit, OnDestroy {
     keyword: String = '';
     page: Page = {
         pageNumber: 0,
-        size: 10,
+        size: 100,
         totalElements: 20,
         totalPages: 0
     };
+    isLoading: boolean = false;
     lastId: string;
 
     levels: any[] = [];
@@ -203,6 +204,7 @@ export class ZmsComponent implements OnInit, OnDestroy {
          * @param page The page to select
          */
     setPage(pageInfo: PageInfo) {
+        if (this.isLoading) return;
         if (!pageInfo.pageSize)
             pageInfo.pageSize = this.page.size;
 
@@ -235,6 +237,8 @@ export class ZmsComponent implements OnInit, OnDestroy {
         }
 
         this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
 
         this._customerService.deviceTokens({
             username: this.user.name,
@@ -246,12 +250,12 @@ export class ZmsComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result: any) => {
-                    if (result && result.data.length > 0) {
+                    if (result && result.data && result.data.length > 0) {
                         this.totalElements = result.total;
 
                         // Create array to store data if missing
                         // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows) {
+                        if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
@@ -267,15 +271,21 @@ export class ZmsComponent implements OnInit, OnDestroy {
 
                         // Set rows to our new rows for display
                         this.rows = rows;
-                        this.lastId = (this.rows.length > 0) ? this.rows[this.rows.length - 1]['_id'] : null;
+                        this.lastId = (this.rows.length > 0 && this.rows[this.rows.length - 1] && this.rows[this.rows.length - 1]['_id']) ? this.rows[this.rows.length - 1]['_id'] : null;
+                    } else if (!result || result.success === false) {
+                        delete this.cache[this.page.pageNumber];
                     }
                 },
-                error: () => {
+                error: (err) => {
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cd.markForCheck();
                 },
                 complete: () => {
-                    this.table.recalculatePages();
-
-                    // lam moi lai giao dien
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
                     this.cd.markForCheck();
                 }
             });

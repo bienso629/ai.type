@@ -59,8 +59,8 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
-            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+        <ngx-datatable [virtualization]="true" #table class="material fullscreen transition-opacity duration-300" [columnMode]="ColumnMode.force"
+            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
             [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
             [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
             [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
@@ -80,7 +80,7 @@
             <ngx-datatable-column name="E-mail" [width]="300" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p class="truncate hover:text-clip text-primary">{{row.customer_info.email || 'Chưa cập nhật'}}</p>
+                    <p *ngIf="row" class="truncate hover:text-clip text-primary">{{row.customer_info.email || 'Chưa cập nhật'}}</p>
                 </ng-template>
             </ngx-datatable-column>
 
@@ -88,7 +88,7 @@
             <ngx-datatable-column name="Bật/Tắt Thông báo" [width]="200" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p class="truncate hover:text-clip">{{(row.status) ? 'Đang bật' : 'Đã tắt'}}</p>
+                    <p *ngIf="row" class="truncate hover:text-clip">{{(row.status) ? 'Đang bật' : 'Đã tắt'}}</p>
                 </ng-template>
             </ngx-datatable-column>
 
@@ -96,7 +96,7 @@
             <ngx-datatable-column name="Thiết bị" [width]="200" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p class="truncate hover:text-clip">{{row.platform || 'Không rõ'}}</p>
+                    <p *ngIf="row" class="truncate hover:text-clip">{{row.platform || 'Không rõ'}}</p>
                 </ng-template>
             </ngx-datatable-column>
 
@@ -127,7 +127,7 @@
             <ngx-datatable-column name="Ngày tham gia" [width]="200" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p class="truncate hover:text-clip">{{row.created_at | timeago}}</p>
+                    <p *ngIf="row" class="truncate hover:text-clip">{{row.created_at | timeago}}</p>
                 </ng-template>
             </ngx-datatable-column>
 
@@ -135,7 +135,7 @@
             <ngx-datatable-column name="Công cụ" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch">
+                    <div *ngIf="row" class="flex items-center justify-self-stretch">
                         <mat-label matTooltipPosition="above" matTooltip="Gửi tin nhắn kích hoạt"
                             [routerLink]="['/ai-writer', user.name, row.uuid]"
                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">

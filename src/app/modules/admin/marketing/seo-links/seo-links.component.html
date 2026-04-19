@@ -140,7 +140,8 @@
                 </div>
 
                 <div class="relative flex flex-auto bg-gray-50 dark:bg-transparent overflow-hidden">
-                    <ngx-datatable [virtualization]="true" #table class="material expandable fullscreen"
+                    <ngx-datatable [virtualization]="true" #table class="material expandable fullscreen transition-opacity duration-300"
+                        [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
                         [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true"
                         [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
                         [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows" [selected]="selected"
@@ -155,18 +156,18 @@
                         <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false"
                             [resizeable]="false" name="" [width]="60">
                             <ng-template let-row="row" ngx-datatable-cell-template>
-                                <div class="flex items-center justify-self-stretch">
-                                    <mat-label *ngIf="row.options.status === 200" (click)="recheck(row)"
+                                <div *ngIf="row" class="flex items-center justify-self-stretch">
+                                    <mat-label *ngIf="row.options?.status === 200" (click)="recheck(row)"
                                         class="h-7 leading-7 items-center cursor-pointer text-green-500 rounded-full">
                                         {{row.options.status}}
                                     </mat-label>
 
-                                    <mat-label *ngIf="row.options.status === 500" (click)="recheck(row)"
+                                    <mat-label *ngIf="row.options?.status === 500" (click)="recheck(row)"
                                         class="h-7 leading-7 items-center cursor-pointer text-yellow-400 rounded-full">
                                         {{row.options.status}}
                                     </mat-label>
 
-                                    <mat-label *ngIf="row.options.status === 404" (click)="recheck(row)"
+                                    <mat-label *ngIf="row.options?.status === 404" (click)="recheck(row)"
                                         class="h-7 leading-7 items-center cursor-pointer text-red-500 rounded-full">
                                         {{row.options.status}}
                                     </mat-label>
@@ -178,7 +179,7 @@
                         <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false"
                             [resizeable]="false" name="Tiêu đề" [width]="400">
                             <ng-template let-row="row" ngx-datatable-cell-template>
-                                <div class="flex items-center justify-self-stretch">
+                                <div *ngIf="row" class="flex items-center justify-self-stretch">
                                     <mat-label class="">
                                         {{row.title || 'Chưa có tiêu đề'}}
                                     </mat-label>
@@ -190,7 +191,7 @@
                         <ngx-datatable-column name="Link hay" [sortable]="false" [canAutoResize]="true"
                             [draggable]="false" [resizeable]="true">
                             <ng-template let-row="row" ngx-datatable-cell-template>
-                                <p class="truncate hover:text-clip flex items-center justify-self-stretch">
+                                <p *ngIf="row" class="truncate hover:text-clip flex items-center justify-self-stretch">
                                     <mat-label class="flex">
                                         {{row.link}}
                                     </mat-label>
@@ -202,25 +203,21 @@
                         <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                             [resizeable]="false" [width]="150">
                             <ng-template let-row="row" ngx-datatable-cell-template>
-                                <a mat-icon-button class="mr-0" (click)="edit(row)" matTooltipPosition="left"
-                                    [matTooltip]="'Chỉnh sửa'">
-                                    <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'feather:edit-3'"></mat-icon>
-                                </a>
+                                <ng-container *ngIf="row">
+                                    <a mat-icon-button class="mr-0" (click)="edit(row)" matTooltipPosition="left"
+                                        [matTooltip]="'Chỉnh sửa'">
+                                        <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'feather:edit-3'"></mat-icon>
+                                    </a>
 
-                                <!-- <a mat-icon-button class="mr-0" (click)="crawl(row.link)" matTooltipPosition="above"
-                                    [matTooltip]="'Lấy nội dung'">
-                                    <mat-icon class="icon-size-4 text-green-600"
-                                        [svgIcon]="'feather:file-text'"></mat-icon>
-                                </a> -->
-
-                                <button mat-icon-button class="mr-0" (click)="checkseo(row)" matTooltipPosition="left"
-                                    [matTooltip]="'Kiểm tra SEO ' + row.link"
-                                    [disabled]="row['loadding'] || ai.isLoadingFor(row._id)">
-                                    <mat-progress-spinner *ngIf="ai.isLoadingFor(row._id)" [diameter]="16"
-                                        [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
-                                    <mat-icon *ngIf="!ai.isLoadingFor(row._id)" class="icon-size-4 text-green-600"
-                                        [svgIcon]="'feather:target'"></mat-icon>
-                                </button>
+                                    <button mat-icon-button class="mr-0" (click)="checkseo(row)" matTooltipPosition="left"
+                                        [matTooltip]="'Kiểm tra SEO ' + row.link"
+                                        [disabled]="row['loadding'] || ai.isLoadingFor(row._id)">
+                                        <mat-progress-spinner *ngIf="ai.isLoadingFor(row._id)" [diameter]="16"
+                                            [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
+                                        <mat-icon *ngIf="!ai.isLoadingFor(row._id)" class="icon-size-4 text-green-600"
+                                            [svgIcon]="'feather:target'"></mat-icon>
+                                    </button>
+                                </ng-container>
                             </ng-template>
                         </ngx-datatable-column>
 
