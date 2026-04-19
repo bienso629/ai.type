@@ -40,13 +40,14 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     rows = [];
     totalElements: number;
     pageNumber: number;
+    isLoading: boolean = false;
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
     keyword: String = '';
     uuids: any[] = [];
     page: Page = {
         pageNumber: 0,
-        size: 10,
+        size: 25,
         totalElements: 0,
         totalPages: 0,
     };
@@ -185,6 +186,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
      * setPage: Xử lý dữ liệu bọc trong result.data.docs và result.data.bookmark
      */
     setPage(pageInfo: PageInfo) {
+        if (this.isLoading) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
@@ -202,6 +204,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         }
         if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
 
         this._crawlService.archive({
             username: this.user.name,
@@ -214,8 +218,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (result: any) => {
                     // Bóc tách theo cấu trúc middleware trả về: result.data.docs
-                    const resData = result.data;
-                    if (resData && resData.docs) {
+                    const resData = result?.data;
+                    if (resData && resData.docs && resData.docs.length > 0) {
                         if (!this.rows || this.rows.length === 0) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
@@ -229,10 +233,22 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
                         // Lưu bookmark từ server để dùng cho request tiếp theo
                         this.currentBookmark = resData.bookmark;
+                    } else if (!resData || !resData.success === false) {
+                        // Nếu không lấy được dữ liệu do lỗi, gỡ cache để lần cuộn sau có thể gọi tiếp
+                        delete this.cache[this.page.pageNumber];
                     }
                 },
+                error: (err) => {
+                    // Xóa cache khi có lỗi mạng để người dùng cuộn lại thì fetch lại
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cd.markForCheck();
+                },
                 complete: () => {
-                    this.table.recalculatePages();
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
                     this.cd.markForCheck();
                 }
             });
