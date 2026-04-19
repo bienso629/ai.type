@@ -60,10 +60,11 @@ export class LinksComponent implements OnInit, OnDestroy {
     keyword: String = '';
     page: Page = {
         pageNumber: 0,
-        size: 10,
+        size: 100,
         totalElements: 0,
         totalPages: 0
     };
+    isLoading: boolean = false;
     currentBookmark: string;
 
     downloadJsonHref: any;
@@ -209,6 +210,7 @@ export class LinksComponent implements OnInit, OnDestroy {
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
+        if (this.isLoading) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
@@ -227,6 +229,8 @@ export class LinksComponent implements OnInit, OnDestroy {
 
         if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
 
         this._logService.fetch({
             username: this.user.name,
@@ -264,7 +268,21 @@ export class LinksComponent implements OnInit, OnDestroy {
                         this.statistic();
                         this.generateDownloadJsonUri();
                         this.cd.detectChanges();
+                    } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
+                        delete this.cache[this.page.pageNumber];
                     }
+                },
+                error: (err) => {
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cd.markForCheck();
+                },
+                complete: () => {
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
+                    this.cd.markForCheck();
                 }
             });
     }

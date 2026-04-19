@@ -231,7 +231,8 @@
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex w-1/2 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable [virtualization]="true" #table class="material expandable fullscreen"
+                        <ngx-datatable [virtualization]="true" #table class="material expandable fullscreen transition-opacity duration-300"
+                            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
                             [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true"
                             [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
                             [footerHeight]="50" [rowHeight]="50" [displayCheck]="displayCheck" [scrollbarV]="true"
@@ -248,28 +249,30 @@
                                 [width]="300" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                                 [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <div *ngIf="row.isHeader" class="flex items-center justify-between">
-                                        <a class="h-8 flex items-center justify-between leading-8 cursor-pointer p-3 rounded-full border border-green-500 text-green-500 bg-green-50 hover:bg-green-100"
-                                            (click)="selectRowsByDate(row.dateLabel)">
-                                            <mat-icon class="icon-size-4 text-green-500"
-                                                [svgIcon]="'feather:calendar'"></mat-icon>
-                                            <mat-label class="ml-2">{{ row.dateLabel }}</mat-label>
-                                        </a>
-                                    </div>
+                                    <ng-container *ngIf="row">
+                                        <div *ngIf="row.isHeader" class="flex items-center justify-between">
+                                            <a class="h-8 flex items-center justify-between leading-8 cursor-pointer p-3 rounded-full border border-green-500 text-green-500 bg-green-50 hover:bg-green-100"
+                                                (click)="selectRowsByDate(row.dateLabel)">
+                                                <mat-icon class="icon-size-4 text-green-500"
+                                                    [svgIcon]="'feather:calendar'"></mat-icon>
+                                                <mat-label class="ml-2">{{ row.dateLabel }}</mat-label>
+                                            </a>
+                                        </div>
 
-                                    <div *ngIf="!row.isHeader" [class.active-row]="isActive(row)">
-                                        <p class="font-normal truncate hover:text-clip cursor-pointer"
-                                            (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
-                                            {{row.text || '...'}}
-                                        </p>
-                                    </div>
+                                        <div *ngIf="!row.isHeader" [class.active-row]="isActive(row)">
+                                            <p class="font-normal truncate hover:text-clip cursor-pointer"
+                                                (click)="previewNow(row)" [ngClass]="{used: row.used > 0}">
+                                                {{row.text || '...'}}
+                                            </p>
+                                        </div>
+                                    </ng-container>
                                 </ng-template>
                             </ngx-datatable-column>
 
                             <ngx-datatable-column name="" [width]="100" [sortable]="false" [canAutoResize]="false"
                                 [draggable]="false" [resizeable]="false">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
-                                    <div class="flex items-center justify-end">
+                                    <div *ngIf="row" class="flex items-center justify-end">
                                         <a *ngIf="row.href && row.href.length > 0"
                                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
                                             [href]="row.href[0]" target="_blank" matTooltipPosition="above"
