@@ -117,3 +117,22 @@ ng-dropdown-panel.ng-select-bottom {
 	margin-left: 0px;
 	border-radius: 0 0 5px 5px !important;
 }
+
+// Tinh chỉnh ngx-datatable loading indicator mỏng gọn lại
+::ng-deep {
+    .ngx-datatable.material {
+        .progress-linear {
+            height: 2px !important;
+            
+            .container {
+                height: 2px !important;
+                background-color: rgba(0, 0, 0, 0.05) !important;
+                
+                .bar {
+                    height: 2px !important;
+                    box-shadow: 0 0 4px rgba(59, 130, 246, 0.3);
+                }
+            }
+        }
+    }
+}

@@ -53,46 +53,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 const nodes = (results && results[0] && results[0].data) ? results[0].data : [[], 0, 0];
                 const wp2md = (results && results[1] && results[1].data) ? results[1].data : { total: 0 };
 
-                this.statistics[`${this.user.name}`] = {
+                this._statistics = {
                     done: nodes[0].length,
                     money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0),
                     archives: nodes[1]['total'],
                     node: nodes[2]['total'],
                     wp2md: wp2md['total'],
                 }
-
-                // tạo báo cáo
-                this.createReport();
             },
             error: (e: any) => {
                 console.log('e', e)
             },
             complete: () => { }
         });
-    }
-
-    // tạo báo cáo công việc cho mỗi user
-    createReport() {
-        this._userClientService.renderTable({
-            username: this.user.name,
-            createdAt1: moment().startOf('day').toString(),
-            createdAt2: moment().endOf('day').toString(),
-            table: {
-                key: 'table',
-                value: this.statistics[this.user.name]
-            }
-        })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result: any) => {
-                    if (result && result.success) {
-                        localStorage.setItem('statistics', JSON.stringify(this.statistics[`${this.user.name}`]));
-                        this.statistics();
-                    }
-                },
-                error: () => { },
-                complete: () => { }
-            });
     }
 
     // lấy account về để đồng bộ
@@ -104,36 +77,15 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        // // Nếu đã active rồi thì lấy về và không yêu cầu active lại nữa
-                        // localStorage.setItem('active_info', result.data.active_info);
-
                         if (result.data.styles && result.data.styles.length > 0) localStorage.setItem('styles', JSON.stringify(result.data.styles));
                         if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
                         if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
                         if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
-
-                        // lập báo cáo theo ngày
-                        this.createStatistic();
                     }
                 },
-                error: () => {
-                },
-                complete: () => {
-                }
+                error: () => { },
+                complete: () => { }
             });
-    }
-
-    statistics() {
-        let temp = localStorage.getItem('statistics');
-        if (temp && temp !== 'undefined') {
-            temp = JSON.parse(temp);
-
-            this._statistics.done = temp['done'] ? temp['done'] : 0;
-            this._statistics.money = temp['money'] ? temp['money'] : 0;
-            this._statistics.archives = temp['archives'] ? temp['archives'] : 0;
-            this._statistics.node = temp['node'] ? temp['node'] : 0;
-            this._statistics.wp2md = (temp['wp2md']) ? temp['wp2md'] : 0;
-        }
     }
 
     /**
@@ -173,7 +125,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
                 // đồng bộ account về máy
                 this.account();
-                this.statistics();
+
+                // lập báo cáo theo ngày
+                this.createStatistic();
             });
 
         const activeInfo = this.multiAccountService.getItem('active_info');

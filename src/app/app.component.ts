@@ -18,7 +18,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;
     uuid = new DeviceUUID().get();
 
-    statistics: any = {};
     checkActiveInfo = false;
     dialogRef: any;
 
@@ -103,7 +102,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             } else if (electron?.clearGoogleCookies) {
                 await electron.clearGoogleCookies();
             }
-            
+
             // Clear trên webview DOM
             const container = document.getElementById('webview-container-div');
             if (container) {
@@ -199,7 +198,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     ngOnInit() {
         // Set CSS variable ban đầu cho cdk-overlay-container
         this.updateRootCssVar();
-        
+
         // 2. Thiết lập bộ đếm (Timer)
         this.intervalId = setInterval(() => {
             this.updateTime();

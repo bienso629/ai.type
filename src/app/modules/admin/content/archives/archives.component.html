@@ -58,11 +58,12 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [virtualization]="true" #table class="material fullscreen" [columnMode]="ColumnMode.force"
-            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
-            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
-            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
-            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+        <ngx-datatable [virtualization]="true" #table class="material fullscreen transition-opacity duration-300"
+            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected"
+            [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false" [displayCheck]="displayCheck"
+            (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
+            [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
+            [scrollbarV]="true" [rows]="rows">
             <!-- Column Templates -->
             <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
@@ -71,7 +72,7 @@
             <ngx-datatable-column name="Mã công việc" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch">
+                    <div *ngIf="row" class="flex items-center justify-self-stretch">
                         <mat-label matTooltipPosition="above" matTooltip="Tiếp tục sửa nội dung"
                             [routerLink]="['/ai-writer', user.name, row.uuid]"
                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
@@ -85,8 +86,10 @@
             <ngx-datatable-column name="Tiêu đề" [width]="400" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row.seo" class="font-normal truncate hover:text-clip">{{row.title}}</p>
-                    <p class="font-normal truncate hover:text-clip" *ngIf="!row.seo">{{row.title}}</p>
+                    <ng-container *ngIf="row">
+                        <p *ngIf="row.seo" class="font-normal truncate hover:text-clip">{{row.title}}</p>
+                        <p class="font-normal truncate hover:text-clip" *ngIf="!row.seo">{{row.title}}</p>
+                    </ng-container>
                 </ng-template>
             </ngx-datatable-column>
 
@@ -94,7 +97,7 @@
             <ngx-datatable-column name="Sử dụng" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch">
+                    <div *ngIf="row" class="flex items-center justify-self-stretch">
                         <mat-label *ngIf="row.used < 0"
                             class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white">Chưa
                             xác nhận</mat-label>
@@ -107,7 +110,9 @@
             <ngx-datatable-column name="Ngày chỉnh sửa" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    {{row.updatedAt | timeago}}
+                    <ng-container *ngIf="row">
+                        {{row.updatedAt | timeago}}
+                    </ng-container>
                 </ng-template>
             </ngx-datatable-column>
 
@@ -116,9 +121,9 @@
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <!--Using ng-option and for loop-->
-                    <ng-select [(ngModel)]="row.authors" [multiple]="true" [closeOnSelect]="false" [searchable]="false"
-                        appendTo="body" bindLabel="username" bindValue="username" placeholder="Mời bạn cùng viết"
-                        class="min-w-50 max-w-60 custom-select-archives">
+                    <ng-select *ngIf="row" [(ngModel)]="row.authors" [multiple]="true" [closeOnSelect]="false"
+                        [searchable]="false" appendTo="body" bindLabel="username" bindValue="username"
+                        placeholder="Mời bạn cùng viết" class="min-w-50 max-w-60 custom-select-archives">
                         <!-- <ng-template ng-header-tmp>
                             <button mat-flat-button>Select all</button>
                             <button mat-flat-button>Unselect all</button>
@@ -140,7 +145,7 @@
             <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div class="flex items-center justify-self-stretch gap-1">
+                    <div *ngIf="row" class="flex items-center justify-self-stretch gap-1">
                         <button *ngIf="permissionScriptCommentLike" mat-icon-button matTooltipPosition="above"
                             matTooltip="Lên kịch bản comment, like hoặc share cho bài '{{ row.title }}'"
                             [routerLink]="['/amxh']" [routerLink]="['/amxh']"

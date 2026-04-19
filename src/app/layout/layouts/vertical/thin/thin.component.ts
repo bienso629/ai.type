@@ -20,7 +20,6 @@ import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 })
 export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterViewInit, AfterContentInit {
     fileName: string;
-    statistics: any = {};
 
     isScreenSmall: boolean;
     navigation: Navigation;
