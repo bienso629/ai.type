@@ -117,7 +117,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
         } else {
             let temp = localStorage.getItem('statistics');
             temp = JSON.parse(temp);
-            this.totalElements = temp['archives'];
+            this.totalElements = temp['node'];
 
             if (this.totalElements > 0) {
                 this.setPage({
@@ -369,8 +369,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
     ngOnInit(): void {
         let temp = localStorage.getItem('statistics');
         temp = JSON.parse(temp);
-
-        this.totalElements = temp['archives'];
+        this.totalElements = temp['node'];
     }
 
     ngOnDestroy(): void {
