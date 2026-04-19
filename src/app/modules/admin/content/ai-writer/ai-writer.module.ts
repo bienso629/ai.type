@@ -92,6 +92,7 @@ const Routes: Route[] = [{
         QuillModule.forRoot({
             modules: {
                 syntax: true,
+                table: true,
                 toolbar: [
                     ['bold', 'italic', 'underline', 'strike'],        // toggled buttons
                     ['blockquote', 'code-block'],

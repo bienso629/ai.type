@@ -110,11 +110,11 @@
                     <!-- Chatbot Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Chatbot Api</mat-label>
+                        <mat-label>Tích hợp Chatbot</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'" matPrefix></mat-icon>
                         <input [formControlName]="'chatbot'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tạo công cụ chatbot phục vụ công việc của bạn <a
+                    <div class="mt-1 text-md text-hint">Tích hợp chatbot phục vụ công việc của bạn <a
                             href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên hệ</a> nhận
                         API.</div>
                 </div>
@@ -123,22 +123,24 @@
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>ZMS Api</mat-label>
+                        <mat-label>Tích hợp Zalo CRM</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:database'" matPrefix></mat-icon>
                         <input [formControlName]="'customer'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Gửi tin nhắn ZNS, SMS, E-mail tới khách hàng của bạn.</div>
+                    <div class="mt-1 text-md text-hint">Tích hợp Zalo CRM phục vụ công việc của bạn <a
+                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên hệ</a> nhận
+                        API.</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')">
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Databot Api</mat-label>
+                        <mat-label>Công cụ cào dữ liệu</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:link-2'" matPrefix></mat-icon>
                         <input [formControlName]="'bigdata'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Cào và phân tích dữ liệu của bạn.</div>
+                    <div class="mt-1 text-md text-hint">Công cụ cào và phân tích dữ liệu cho bạn.</div>
                 </div>
 
                 <div class="w-full mt-2"
@@ -146,7 +148,7 @@
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Text2Speech Api</mat-label>
+                        <mat-label>Chuyển đổi văn bản thành giọng nói</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'" matPrefix></mat-icon>
                         <input [formControlName]="'tts'" type="text" matInput>
                     </mat-form-field>
@@ -157,7 +159,7 @@
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Video2Post Api</mat-label>
+                        <mat-label>Chuyển đổi video thành bài viết</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:film'" matPrefix></mat-icon>
                         <input [formControlName]="'sst'" type="text" matInput>
                     </mat-form-field>
@@ -168,11 +170,12 @@
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>a-Social Api</mat-label>
+                        <mat-label>Tự động hóa công việc</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:target'" matPrefix></mat-icon>
                         <input [formControlName]="'mxhauto'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tự động đăng bài lên Tiktok, Facebook.</div>
+                    <div class="mt-1 text-md text-hint">Tự động hóa công việc của bạn như: Nhắc lịch, tự động đăng bài,
+                        viết comment,...</div>
                 </div>
             </mat-tab>
 
