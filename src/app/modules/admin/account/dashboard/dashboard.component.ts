@@ -39,6 +39,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    createReport() {
+        this._userClientService.renderTable({
+            username: this.user.name,
+            createdAt1: moment().startOf('day').toString(),
+            createdAt2: moment().endOf('day').toString(),
+            table: {
+                key: 'table',
+                value: this._statistics
+            }
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result: any) => {
+                    if (result && result.success) {
+                        localStorage.setItem('statistics', JSON.stringify(this._statistics));
+                    }
+                },
+                error: () => { },
+                complete: () => { }
+            });
+    }
+
     // lấy số liệu công việc cho mỗi user
     createStatistic() {
         forkJoin([
@@ -60,6 +82,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     node: nodes[2]['total'],
                     wp2md: wp2md['total'],
                 }
+
+                this.createReport();
             },
             error: (e: any) => {
                 console.log('e', e)
