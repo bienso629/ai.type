@@ -2262,6 +2262,17 @@ app.whenReady().then(async () => {
     trueAgent = trueAgent.replace(/Electron\/[\d.]+ /g, '')
         .replace(/ai.type\/[\d.]+ /g, '');
 
+    try {
+        const fs = require('fs');
+        const uaPath = require('path').join(app.getPath('userData'), 'chrome_ua.txt');
+        if (fs.existsSync(uaPath)) {
+            const savedUa = fs.readFileSync(uaPath, 'utf-8').trim();
+            if (savedUa) {
+                trueAgent = savedUa;
+            }
+        }
+    } catch(e) {}
+
     // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
     app.userAgentFallback = trueAgent;
     session.defaultSession.setUserAgent(trueAgent);
@@ -2403,6 +2414,7 @@ app.whenReady().then(async () => {
                         `--user-data-dir=${googleAuthDir}`,
                         '--no-first-run',
                         '--no-default-browser-check',
+                        `--window-position=-3000,-3000`,
                         `--window-size=550,750`,
                         loginUrl
                     ];
@@ -2523,6 +2535,18 @@ app.whenReady().then(async () => {
 
                     startContinuousSync(stealthBrowser);
 
+                    // Hiển thị lại cửa sổ nếu chờ quá 3 giây (tức là cần user thao tác)
+                    let bringToFrontTimer = setTimeout(async () => {
+                        try {
+                            const target = stealthBrowser.target();
+                            const client = await target.createCDPSession();
+                            const { windowId } = await client.send('Browser.getWindowForTarget');
+                            await client.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal', left: 200, top: 100 } });
+                        } catch (e) {
+                            console.log('Không thể hiển thị cửa sổ auth:', e.message);
+                        }
+                    }, 3000);
+
                     try {
                         await loginPage.waitForFunction(() => {
                             const url = window.location.href;
@@ -2531,7 +2555,9 @@ app.whenReady().then(async () => {
                                 && !url.includes('accounts.google.com/signin')
                                 && !url.includes('accounts.google.com/ServiceLogin');
                         }, { timeout: 300000 }); // Chờ tối đa 5 phút
+                        clearTimeout(bringToFrontTimer);
                     } catch (waitErr) {
+                        clearTimeout(bringToFrontTimer);
                         sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết giờ!");
                         if (syncInterval) clearInterval(syncInterval);
                         stealthBrowser.disconnect();
@@ -2574,6 +2600,12 @@ app.whenReady().then(async () => {
                         const chromeUA = await stealthBrowser.userAgent();
                         webviewContents.setUserAgent(chromeUA);
                         sendToRenderer("tools-log", `[Gemini-Auth] Đã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
+                        
+                        try {
+                            const fs = require('fs');
+                            const uaPath = require('path').join(app.getPath('userData'), 'chrome_ua.txt');
+                            fs.writeFileSync(uaPath, chromeUA, 'utf-8');
+                        } catch(e) {}
                     } catch (e) {
                         sendToRenderer("tools-log", `[Gemini-Auth] Lỗi đồng bộ UA: ${e.message}`);
                     }
