@@ -59,6 +59,10 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
 
+    toggleGemini() {
+        window.dispatchEvent(new Event('toggle-gemini'));
+    }
+
     async catureScreen() {
         // Tạo tên file theo timestamp
         const fileName = `screenshot_${new Date().getTime()}.png`;

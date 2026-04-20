@@ -14,11 +14,6 @@
     <router-outlet></router-outlet>
   </div>
 
-  <!-- Nút tab Gemini - sát mép phải khi webview đang ẩn -->
-  <div class="gemini-tab" [style.display]="isWebviewVisible ? 'none' : 'flex'" (click)="toggleWebview()">
-    <span class="gemini-tab-icon">✦</span>
-    <span class="gemini-tab-text">Gemini</span>
-  </div>
 
   <!-- Vách ngăn ở giữa -->
   <div class="split-resizer" 
@@ -35,7 +30,6 @@
        style="position: absolute; right: 0; top: 0; bottom: 0; padding-left: 6px;">
     
 
-    <div class="webview-close-btn" (click)="toggleWebview()" title="Ẩn Gemini">✕</div>
     <div id="webview-container-div" style="width: 100%; height: 100%; border: none; display: flex; flex: 1; background: #1a1a1a;"></div>
   </div>
   
