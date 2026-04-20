@@ -249,7 +249,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         this.signInForm = this._formBuilder.group({
             username: ['', [Validators.required, Validators.email]],
             password: ['', Validators.required],
-            server: ['vn.s2', Validators.required],
+            server: ['vn.s1', Validators.required],
             rememberMe: [true],
         });
 
