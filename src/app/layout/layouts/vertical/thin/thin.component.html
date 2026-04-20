@@ -91,6 +91,10 @@
         </eco-fab-speed-dial-trigger>
 
         <eco-fab-speed-dial-actions>
+            <button mat-mini-fab [color]="'primary'" (click)="toggleGemini()" matTooltip="Mở Gemini" matTooltipPosition="left">
+                <mat-icon class="icon-size-4">auto_awesome</mat-icon>
+            </button>
+
             <button mat-mini-fab [color]="'primary'" [routerLink]="['/help']">
                 <mat-icon class="icon-size-4" svgIcon="feather:music"></mat-icon>
             </button>

@@ -67,6 +67,9 @@
     </eco-fab-speed-dial-trigger>
 
     <eco-fab-speed-dial-actions>
+        <button mat-mini-fab (click)="toggleGemini()" matTooltip="Mở Gemini" matTooltipPosition="left">
+            <mat-icon>auto_awesome</mat-icon>
+        </button>
         <button mat-mini-fab [routerLink]="['/ai-writer']">
             <mat-icon>add</mat-icon>
         </button>

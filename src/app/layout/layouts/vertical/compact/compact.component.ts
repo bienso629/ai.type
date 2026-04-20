@@ -92,6 +92,10 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
 
+    toggleGemini() {
+        window.dispatchEvent(new Event('toggle-gemini'));
+    }
+
     /**
      * Toggle navigation
      *

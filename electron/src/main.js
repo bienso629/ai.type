@@ -3092,6 +3092,12 @@ app.whenReady().then(async () => {
         createMainWindow();
     });
 
+    globalShortcut.register("CommandOrControl+Shift+L", () => {
+        if (mainWindow) {
+            mainWindow.webContents.send("tools-response", { action: "toggle-gemini-webview" });
+        }
+    });
+
     // Đăng ký phím tắt CTRL+R hoặc Command+R
     globalShortcut.register('CommandOrControl+Shift+R', () => {
         if (mainWindow) {

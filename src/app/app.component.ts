@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, signal, AfterViewInit } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, AfterViewInit, ChangeDetectorRef } from '@angular/core';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
@@ -155,7 +155,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private _fuseConfirmationService: FuseConfirmationService,
         public dialog: MatDialog,
         private router: Router,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private cdr: ChangeDetectorRef
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
@@ -210,6 +211,22 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             .subscribe((user: User) => {
                 this.user = user;
             });
+
+        // Lắng nghe sự kiện toggle webview từ main.js qua phím tắt
+        if ((window as any).electron) {
+            (window as any).electron.onToolsResponse((data: any) => {
+                if (data && data.action === 'toggle-gemini-webview') {
+                    this.toggleWebview();
+                    this.cdr.detectChanges();
+                }
+            });
+        }
+
+        // Lắng nghe sự kiện qua DOM event từ chuỗi button bên Layout
+        window.addEventListener('toggle-gemini', () => {
+            this.toggleWebview();
+            this.cdr.detectChanges();
+        });
     }
 
     ngAfterViewInit() {

@@ -76,11 +76,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 const wp2md = (results && results[1] && results[1].data) ? results[1].data : { total: 0 };
 
                 this._statistics = {
-                    done: nodes[0].length,
-                    money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0),
-                    archives: nodes[1]['total'],
-                    node: nodes[2]['total'],
-                    wp2md: wp2md['total'],
+                    done: nodes[0].length || 0,
+                    money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0) || 0,
+                    archives: nodes[1]['total'] || 0,
+                    node: nodes[2]['total'] || 0,
+                    wp2md: wp2md['total'] || 0,
                 }
 
                 this.createReport();
