@@ -147,10 +147,10 @@
                                     </mat-expansion-panel-header>
 
                                     <div class="flex flex-col gt-sm:flex-row" *ngIf="arr_keyword.length > 0">
-                                        <div class="flex flex-row items-center mt-0 pl-4 pr-1 py-1 border-b border-b-gray-50 last:border-none"
+                                        <div class="flex flex-row items-center mt-0 pl-4 pr-1 py-0 border-b border-b-gray-50 last:border-none"
                                             *ngFor="let item of arr_keyword">
                                             <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:hash'"></mat-icon> -->
-                                            <div class="flex-1">{{item}}</div>
+                                            <div class="flex-1 line-clamp-1">{{item}}</div>
 
                                             <div class="flex-0">
                                                 <button mat-icon-button [matMenuTriggerFor]="xulytukhoa" class="ml-1">

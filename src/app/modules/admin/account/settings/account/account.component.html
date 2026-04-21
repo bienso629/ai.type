@@ -102,7 +102,7 @@
                 <!-- <div class="mt-2 mb-2 border-t"></div> -->
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">Công cụ hỗ trợ công việc</div>
+                    <div class="text-secondary">Tích hợp các module cho công việc</div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
@@ -190,13 +190,33 @@
 
                 <div class="w-full mt-4">
                     <!-- Secret Key -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>Gemini AI Studio</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
-                        <input [formControlName]="'secretKey'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Bạn có tài khoản Gemini AI Studio. Lấy mã <a
+                    <div class="flex items-center mb-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')">
+                        <mat-label class="text-secondary text-base mr-4">Keys của Gemini AI Studio</mat-label>
+                        <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
+                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                            <mat-label class="ml-2">Thêm Key</mat-label>
+                        </button>
+                    </div>
+
+                    <div cdkDropList (cdkDropListDropped)="dropGeminiKey($event)" class="flex flex-col w-1/2 mt-4">
+                        <div *ngFor="let key of geminiKeys; let i = index" cdkDrag
+                            class="flex mt-2 items-center p-1 rounded-lg bg-gray-50 overflow-hidden">
+                            <mat-form-field cdkDragHandle class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-icon class="icon-size-4 cursor-move" [svgIcon]="'heroicons_outline:key'"
+                                    matPrefix></mat-icon>
+                                <input type="text" matInput [value]="key" (input)="onGeminiKeyChange(i, $event)"
+                                    placeholder="Nhập Secret Key">
+
+                                <button mat-icon-button type="button" color="warn" matSuffix
+                                    (click)="removeGeminiKey(i)">
+                                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                                </button>
+                            </mat-form-field>
+                        </div>
+                    </div>
+
+                    <div class="mt-2 text-md text-hint">Bạn có tài khoản Gemini AI Studio. Lấy mã <a
                             href="https://aistudio.google.com/apikey" target="_blank" class="font-semibold">Secret
                             Key</a> tại đây. Xin lưu ý từ model gemini-2.0 trở lên tài khoản Google của bạn cần liên kết
                         tài
