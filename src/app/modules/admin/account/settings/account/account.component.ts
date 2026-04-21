@@ -10,6 +10,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 import { UserClientService } from 'app/modules/_services/user';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 @Component({
     selector: 'settings-account',
@@ -29,6 +30,7 @@ export class SettingsAccountComponent implements OnInit {
     private unsubscribeRes: () => void;
 
     accountForm: UntypedFormGroup;
+    geminiKeys: string[] = [''];
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -300,6 +302,42 @@ export class SettingsAccountComponent implements OnInit {
             mxhauto: [(settings && settings.mxhauto) ? settings.mxhauto : ''],
             n8n: [(settings && settings.n8n) ? settings.n8n : ''],
         });
+
+        const secretKeyValue = this.accountForm.get('secretKey').value;
+        if (secretKeyValue) {
+            this.geminiKeys = secretKeyValue.split(';').filter((k: string) => k.trim() !== '');
+            if (this.geminiKeys.length === 0) {
+                this.geminiKeys = [''];
+            }
+        }
+    }
+
+    addGeminiKey(): void {
+        this.geminiKeys.unshift('');
+        this.updateSecretKey();
+    }
+
+    removeGeminiKey(index: number): void {
+        this.geminiKeys.splice(index, 1);
+        if (this.geminiKeys.length === 0) {
+            this.geminiKeys = [''];
+        }
+        this.updateSecretKey();
+    }
+
+    onGeminiKeyChange(index: number, event: Event): void {
+        this.geminiKeys[index] = (event.target as HTMLInputElement).value;
+        this.updateSecretKey();
+    }
+
+    dropGeminiKey(event: CdkDragDrop<string[]>): void {
+        moveItemInArray(this.geminiKeys, event.previousIndex, event.currentIndex);
+        this.updateSecretKey();
+    }
+
+    updateSecretKey(): void {
+        const validKeys = this.geminiKeys.filter(k => k.trim() !== '');
+        this.accountForm.get('secretKey').setValue(validKeys.join(';'));
     }
 
     /**

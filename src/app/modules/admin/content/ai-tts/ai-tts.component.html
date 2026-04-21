@@ -41,7 +41,7 @@
             </button>
 
             <button mat-icon-button>
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:upload-cloud'"></mat-icon>
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:mic'"></mat-icon>
                 <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Thêm audio">
             </button>
@@ -61,7 +61,7 @@
                 </mat-label>
             </button>
 
-            <button *ngIf="videoProject" class="bg-gray-800 hover:bg-gray-700 text-white ml-2"
+            <button *ngIf="videoProject" class="bg-blue-600 hover:bg-blue-700 text-white"
                 (click)="openTimelineDialog(videoProject)" mat-flat-button>
                 <mat-icon class="icon-size-5 text-white" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
                 <mat-label class="ml-2 text-white">Hiện kịch bản</mat-label>

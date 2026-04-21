@@ -1,7 +1,7 @@
 <div class="flex flex-row justify-between items-center pb-0 mb-4">
     <div class="flex items-center text-xl font-normal text-primary tracking-tight">
         <mat-icon class="mr-2 icon-size-5 text-primary" [svgIcon]="'feather:edit-3'"></mat-icon>
-        <span>Dựng kịch bản phát Livestream</span>
+        <span>Thiết kế video</span>
     </div>
 
     <div class="flex items-center gap-1">
@@ -19,7 +19,7 @@
 </div>
 
 <div mat-dialog-content class="p-0 flex flex-row overflow-hidden">
-    <div class="overflow-y-auto bg-indigo-50 rounded-xl scrollbar-hide flex-shrink-0 transition-all duration-300 ease-in-out"
+    <div class="overflow-y-auto bg-indigo-50 rounded-lg scrollbar-hide flex-shrink-0 transition-all duration-300 ease-in-out"
         [ngClass]="showMasterPrompt ? 'w-80 opacity-100 mr-2' : 'w-0 opacity-1 mr-0 overflow-hidden border-none'">
 
         <div class="w-80 p-4">
@@ -43,13 +43,13 @@
         </div>
     </div>
 
-    <div class="flex px-6 py-2 overflow-x-hidden scrollbar-hide rounded-xl space-x-4 timeline-container cursor-grab active:cursor-grabbing pb-4"
+    <div class="flex overflow-x-hidden scrollbar-hide rounded-lg space-x-4 timeline-container cursor-grab active:cursor-grabbing"
         #scrollContainer (mousedown)="startDragging($event)" (mouseleave)="stopDragging()" (mouseup)="stopDragging()"
         (mousemove)="moveEvent($event)" cdkDropList cdkDropListOrientation="horizontal"
         (cdkDropListDropped)="onSceneDropped($event)">
 
         @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
-        <div class="flex-none flex flex-col w-80 max-h-full h-full rounded-xl overflow-hidden select-none relative transition-all duration-300"
+        <div class="flex-none flex flex-col w-80 max-h-full h-full rounded-lg overflow-hidden select-none relative transition-all duration-300"
             [ngClass]="activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50'" cdkDrag>
             <div class="cdk-drag-handle absolute top-2 left-2 z-10 flex items-center justify-center cursor-move"
                 cdkDragHandle>

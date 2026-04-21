@@ -12,6 +12,7 @@ import { MatDialogModule } from '@angular/material/dialog';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -66,6 +67,7 @@ import { settingsRoutes } from 'app/modules/admin/account/settings/settings.rout
         MatAutocompleteModule,
         MatDialogModule,
         MatGridListModule,
+        DragDropModule,
 
         MatCheckboxModule,
         MomentDateModule,

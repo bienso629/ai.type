@@ -185,7 +185,6 @@ export class AIImageComponent
                                 if (this.secretKey) {
                                     let geminiKey = this.secretKey[0];
                                     if (voice.api_key) geminiKey = voice.api_key;
-                                    console.log('geminiKey', geminiKey);
                                     this.ai = new GoogleGenAI({ apiKey: geminiKey });
                                 }
                             }
