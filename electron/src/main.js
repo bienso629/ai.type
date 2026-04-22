@@ -2638,6 +2638,9 @@ app.whenReady().then(async () => {
                             };
                             if (cookie.expires && cookie.expires > 0) {
                                 cookieObj.expirationDate = cookie.expires;
+                            } else {
+                                // Nếu là session cookie, gán thời gian 1 năm để tránh mất khi tắt ứng dụng
+                                cookieObj.expirationDate = Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 365);
                             }
                             // __Host- cookies MUST NOT have a domain attribute
                             if (cookie.name.startsWith('__Host-')) {
@@ -2702,11 +2705,78 @@ app.whenReady().then(async () => {
                 }
             };
 
-            // Bắt sự kiện navigate tới trang login Google
+            // Bắt sự kiện khi tải xong trang (nếu là trang đăng nhập Google, hiển thị thông báo để user tự bấm)
+            contents.on('did-finish-load', () => {
+                const currentUrl = contents.getURL();
+                if (currentUrl.includes('accounts.google.com')) {
+                    contents.executeJavaScript(`
+                        if (!document.getElementById('ai-type-login-overlay')) {
+                            const overlay = document.createElement('div');
+                            overlay.id = 'ai-type-login-overlay';
+                            overlay.style.position = 'fixed';
+                            overlay.style.top = '0';
+                            overlay.style.left = '0';
+                            overlay.style.width = '100vw';
+                            overlay.style.height = '100vh';
+                            overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+                            overlay.style.zIndex = '2147483647';
+                            overlay.style.display = 'flex';
+                            overlay.style.flexDirection = 'column';
+                            overlay.style.justifyContent = 'center';
+                            overlay.style.alignItems = 'center';
+                            overlay.style.fontFamily = 'Arial, sans-serif';
+
+                            const icon = document.createElement('img');
+                            icon.src = 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg';
+                            icon.style.width = '64px';
+                            icon.style.marginBottom = '20px';
+
+                            const title = document.createElement('h2');
+                            title.innerText = 'Yêu Cầu Đăng Nhập';
+                            title.style.color = '#202124';
+                            title.style.marginBottom = '10px';
+                            title.style.fontSize = '24px';
+
+                            const desc = document.createElement('p');
+                            desc.innerText = 'Vui lòng bấm nút dưới đây để mở trình duyệt an toàn và đăng nhập Google.';
+                            desc.style.color = '#5f6368';
+                            desc.style.marginBottom = '30px';
+                            desc.style.fontSize = '14px';
+
+                            const btn = document.createElement('button');
+                            btn.innerText = 'Mở Trình Duyệt Đăng Nhập';
+                            btn.style.padding = '12px 24px';
+                            btn.style.fontSize = '15px';
+                            btn.style.backgroundColor = '#1a73e8';
+                            btn.style.color = '#fff';
+                            btn.style.border = 'none';
+                            btn.style.borderRadius = '4px';
+                            btn.style.cursor = 'pointer';
+                            btn.style.fontWeight = 'bold';
+                            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
+
+                            btn.onclick = () => {
+                                btn.innerText = 'Đang mở...';
+                                btn.style.backgroundColor = '#80868b';
+                                window.location.href = 'gemini-auth://start';
+                            };
+
+                            overlay.appendChild(icon);
+                            overlay.appendChild(title);
+                            overlay.appendChild(desc);
+                            overlay.appendChild(btn);
+                            document.body.appendChild(overlay);
+                        }
+                    `).catch(e => console.log('Inject login overlay error:', e));
+                }
+            });
+
+            // Bắt sự kiện khi user tự bấm vào nút Login từ lớp overlay
             contents.on('will-navigate', (e, url) => {
-                if (url.includes('accounts.google.com')) {
+                if (url.includes('gemini-auth://start')) {
                     e.preventDefault();
-                    launchStealthLogin(url, contents);
+                    // Lấy chính URL hiện tại (có chứa tham số continue=... của trang gốc) để đăng nhập
+                    launchStealthLogin(contents.getURL(), contents);
                 }
             });
 
