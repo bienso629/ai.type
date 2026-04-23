@@ -2,9 +2,8 @@
 <fuse-loading-bar></fuse-loading-bar>
 
 <!-- Navigation -->
-<fuse-vertical-navigation class="bg-card dark:bg-gray-900 print:hidden" [appearance]="'thin'"
-    [mode]="isScreenSmall ? 'over' : 'side'" [name]="'mainNavigation'" [navigation]="navigation.compact"
-    [opened]="!isScreenSmall">
+<fuse-vertical-navigation class="bg-card dark:bg-gray-900 print:hidden" [appearance]="'thin'" [mode]="isScreenSmall ? 'over' : 'side'" [name]="'mainNavigation'"
+    [navigation]="navigation.compact" [opened]="!isScreenSmall">
     <!-- Navigation header hook -->
     <ng-container fuseVerticalNavigationContentHeader>
         <!-- Logo -->
@@ -17,8 +16,7 @@
 <!-- Wrapper -->
 <div class="flex flex-col flex-auto w-full min-w-0">
     <!-- Header -->
-    <div
-        class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden">
+    <div class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden">
         <!-- Navigation toggle button -->
         <div class="space-x-1 sm:space-x-1">
             <button mat-icon-button (click)="toggleNavigation('mainNavigation')" title="Thu gọn/ Mở rộng menu">
@@ -72,8 +70,7 @@
     </div>
 
     <!-- Footer -->
-    <div
-        class="relative flex flex-0 items-center justify-start w-full h-14 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
+    <div class="relative flex flex-0 items-center justify-start w-full h-14 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
         <!-- <button class="mr-2" mat-icon-button (click)="help()">
             <mat-icon [svgIcon]="'feather:info'"></mat-icon>
         </button> -->
@@ -95,9 +92,9 @@
                 <mat-icon class="icon-size-4">auto_awesome</mat-icon>
             </button>
 
-            <button mat-mini-fab [color]="'primary'" [routerLink]="['/help']">
+            <!-- <button mat-mini-fab [color]="'primary'" [routerLink]="['/help']">
                 <mat-icon class="icon-size-4" svgIcon="feather:music"></mat-icon>
-            </button>
+            </button> -->
 
             <button mat-mini-fab [color]="'primary'" [routerLink]="['/ai-writer']">
                 <mat-icon class="icon-size-4" svgIcon="feather:edit-3"></mat-icon>
