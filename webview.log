@@ -524,3 +524,64 @@ For more information and help, consult
 https://electronjs.org/docs/tutorial/security.
 This warning will not show up
 once the app is packaged. (line 2 at node:electron/js2c/sandbox_bundle)
+[WEBVIEW] 1: [object Object] (line 24 at https://labs.google/fx/vi)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: logging event error TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: logging event error TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 2: %cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged. (line 2 at node:electron/js2c/sandbox_bundle)
+[WEBVIEW] 1: %c%s color: red; background: yellow; font-size: 24px; WARNING! (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBAAAAaAQ/d=1/excm=_b,_tp,accountchooserview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlHY3YrFkmwUqXLobOFJ2A2NzhLFZw/dti=1/m=_b,_tp)
+[WEBVIEW] 1: %c%s font-size: 18px; Using this console may allow attackers to impersonate you and steal your information using an attack called Self-XSS.
+Do not enter or paste code that you do not understand. (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBAAAAaAQ/d=1/excm=_b,_tp,accountchooserview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlHY3YrFkmwUqXLobOFJ2A2NzhLFZw/dti=1/m=_b,_tp)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: logging event error TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 3: logging event error TRPCClientError: Unauthorized (line 1 at https://labs.google/fx/_next/static/chunks/pages/_app-961dbc1e8ac9ca4b.js)
+[WEBVIEW] 2: %cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged. (line 2 at node:electron/js2c/sandbox_bundle)
+[WEBVIEW] 1: %c%s color: red; background: yellow; font-size: 24px; WARNING! (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBAAAAaAQ/d=1/excm=_b,_tp,accountchooserview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlHY3YrFkmwUqXLobOFJ2A2NzhLFZw/dti=1/m=_b,_tp)
+[WEBVIEW] 1: %c%s font-size: 18px; Using this console may allow attackers to impersonate you and steal your information using an attack called Self-XSS.
+Do not enter or paste code that you do not understand. (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBAAAAaAQ/d=1/excm=_b,_tp,accountchooserview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlHY3YrFkmwUqXLobOFJ2A2NzhLFZw/dti=1/m=_b,_tp)
+[WEBVIEW] 1: [object Object] (line 24 at https://labs.google/fx/vi/tools/flow)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #418; visit https://reactjs.org/docs/error-decoder.html?invariant=418 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 3: Uncaught Error: Minified React error #423; visit https://reactjs.org/docs/error-decoder.html?invariant=423 for the full message or use the non-minified dev environment for full errors and additional helpful warnings. (line 1 at https://labs.google/fx/_next/static/chunks/framework-978f03270918e8ac.js)
+[WEBVIEW] 2: %cElectron Security Warning (Insecure Content-Security-Policy) font-weight: bold; This renderer process has either no Content Security
+  Policy set or a policy with "unsafe-eval" enabled. This exposes users of
+  this app to unnecessary security risks.
+
+For more information and help, consult
+https://electronjs.org/docs/tutorial/security.
+This warning will not show up
+once the app is packaged. (line 2 at node:electron/js2c/sandbox_bundle)
+[WEBVIEW] 1: %c%s color: red; background: yellow; font-size: 24px; WARNING! (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBCAAAaAQ/d=1/excm=_b,_tp,identifierview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlFWL3WyKsIrFVf0YeRriayoTukHQQ/dti=1/m=_b,_tp)
+[WEBVIEW] 1: %c%s font-size: 18px; Using this console may allow attackers to impersonate you and steal your information using an attack called Self-XSS.
+Do not enter or paste code that you do not understand. (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBCAAAaAQ/d=1/excm=_b,_tp,identifierview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlFWL3WyKsIrFVf0YeRriayoTukHQQ/dti=1/m=_b,_tp)
+[WEBVIEW] 1: %c%s color: red; background: yellow; font-size: 24px; WARNING! (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBAAAAaAQ/d=1/excm=_b,_tp,identifierview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlHY3YrFkmwUqXLobOFJ2A2NzhLFZw/dti=1/m=_b,_tp)
+[WEBVIEW] 1: %c%s font-size: 18px; Using this console may allow attackers to impersonate you and steal your information using an attack called Self-XSS.
+Do not enter or paste code that you do not understand. (line 469 at https://www.gstatic.com/_/mss/boq-identity/_/js/k=boq-identity.AccountsSignInUi.en_US.8tJAv8mZf9w.es5.O/am=Kf8GAABCEUgGwP___zcAIACCaOB6FoAmEBkAAAAAAAAAALBAAAAaAQ/d=1/excm=_b,_tp,identifierview/ed=1/dg=0/wt=2/ujg=1/rs=AOaEmlHY3YrFkmwUqXLobOFJ2A2NzhLFZw/dti=1/m=_b,_tp)
