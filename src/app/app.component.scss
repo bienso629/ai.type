@@ -184,3 +184,30 @@
     width: 0 !important;
     overflow: hidden;
 }
+
+/* Nút xoá cookie lấp ló ở cạnh đáy */
+.webview-clear-cookie-btn {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%) translateY(90%);
+    z-index: 1000;
+    padding: 10px 16px;
+    background: rgba(229, 62, 62, 0.9);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-bottom: none;
+    border-radius: 8px 8px 0 0; /* Bo tròn 2 góc trên */
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: bold;
+    box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+    white-space: nowrap;
+}
+
+.webview-clear-cookie-btn:hover {
+    transform: translateX(-50%) translateY(0);
+    background: rgba(229, 62, 62, 1);
+}
