@@ -27,18 +27,121 @@ import { EditDialog } from 'app/modules/admin/marketing/seo-links/dialogs/edit-d
         <mat-label class="self-center">Kết quả đánh giá SEO của {{data.link}}</mat-label>
     </div>
 
-    <div mat-dialog-content class="mt-4 p-0 ket-qua-seo" [innerHTML]="data.html"></div>
+    <div id="pdf-content" mat-dialog-content class="mt-4 p-0 ket-qua-seo bg-white" [innerHTML]="data.html"></div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-between w-full">
         <button mat-flat-button color="medium" (click)="close()" class="ml-0">Đóng cửa sổ</button>
+        <button mat-flat-button color="primary" (click)="exportPDF()" [disabled]="isExporting">
+            {{ isExporting ? 'Đang xử lý...' : 'Xuất PDF' }}
+        </button>
     </div>`
 })
 
 export class DialogContentComponent {
+    isExporting = false;
+
     constructor(public dialogRef: MatDialogRef<DialogContentComponent>, @Inject(MAT_DIALOG_DATA) public data: { html: string, link: string }) { }
 
     close() {
         this.dialogRef.close();
+    }
+
+    async exportPDF() {
+        const dataElement = document.getElementById('pdf-content');
+        if (dataElement) {
+            this.isExporting = true;
+
+            try {
+                // Sử dụng thư viện có sẵn trong package.json
+                const pdfMake = require('pdfmake/build/pdfmake');
+                const pdfFonts = require('pdfmake/build/vfs_fonts');
+                const htmlToPdfmake = require('html-to-pdfmake');
+
+                pdfMake.vfs = pdfFonts.pdfMake ? pdfFonts.pdfMake.vfs : pdfFonts.vfs;
+
+                // Lấy nội dung HTML
+                let htmlContent = dataElement.innerHTML;
+
+                // Thuật toán vẽ Emoji thành hình ảnh Base64 để pdfmake có thể nhận diện được
+                const emojiRegex = /([\u2700-\u27BF]|[\uE000-\uF8FF]|\uD83C[\uDC00-\uDFFF]|\uD83D[\uDC00-\uDFFF]|[\u2011-\u26FF]|\uD83E[\uDD10-\uDDFF])/g;
+                htmlContent = htmlContent.replace(emojiRegex, (match) => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = 30;
+                    canvas.height = 30;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.font = '24px "Segoe UI Emoji", "Apple Color Emoji", Arial, sans-serif';
+                        ctx.textBaseline = 'middle';
+                        ctx.textAlign = 'center';
+                        ctx.fillText(match, 15, 17);
+                    }
+                    const dataUrl = canvas.toDataURL('image/png');
+                    // Biến Emoji thành thẻ <img> để html-to-pdfmake vẽ như 1 bức ảnh thu nhỏ xen lẫn văn bản
+                    return `<img src="${dataUrl}" width="14" height="14" style="margin: 0 2px;" />`;
+                });
+
+                // Chuyển đổi HTML -> PDFMake 
+                const htmlConverted = htmlToPdfmake(htmlContent, {
+                    window: window,
+                    tableAutoSize: true
+                });
+
+                // Thuật toán ép pdfmake hiển thị hình ảnh (icon) nằm trên cùng 1 dòng với văn bản
+                const fixInlineImages = (node: any) => {
+                    const isInline = (n: any) => typeof n === 'string' || (n && (n.text !== undefined || n.image !== undefined));
+                    
+                    if (Array.isArray(node)) {
+                        for (let i = 0; i < node.length; i++) {
+                            if (Array.isArray(node[i])) {
+                                const allInline = node[i].every(isInline);
+                                const hasImage = node[i].some((n: any) => n && n.image !== undefined);
+                                if (allInline && hasImage) {
+                                    node[i] = { text: node[i] }; // Ép thành inline text block
+                                } else {
+                                    fixInlineImages(node[i]);
+                                }
+                            } else {
+                                fixInlineImages(node[i]);
+                            }
+                        }
+                    } else if (node && typeof node === 'object') {
+                        if (node.stack) {
+                            const allInline = node.stack.every(isInline);
+                            const hasImage = node.stack.some((n: any) => n && n.image !== undefined);
+                            if (allInline && hasImage) {
+                                node.text = node.stack;
+                                delete node.stack; // Đổi stack thành text block để tránh xuống dòng
+                                fixInlineImages(node.text);
+                            } else {
+                                fixInlineImages(node.stack);
+                            }
+                        } else {
+                            for (let key in node) {
+                                if (node.hasOwnProperty(key)) {
+                                    fixInlineImages(node[key]);
+                                }
+                            }
+                        }
+                    }
+                };
+                
+                fixInlineImages(htmlConverted);
+
+                const docDefinition = {
+                    content: htmlConverted,
+                    pageMargins: [42, 42, 42, 42],
+                    info: {
+                        title: 'Kết quả SEO',
+                    }
+                };
+
+                pdfMake.createPdf(docDefinition).download('Ket_Qua_SEO.pdf');
+            } catch (error) {
+                console.error('Lỗi khi xuất PDF:', error);
+            } finally {
+                this.isExporting = false;
+            }
+        }
     }
 }
 
