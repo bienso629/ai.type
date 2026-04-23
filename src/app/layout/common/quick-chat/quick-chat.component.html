@@ -7,7 +7,8 @@
             <ng-container *ngIf="!opened">
                 <div class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover">
                     <div class="relative flex flex-0 items-center justify-center w-10 h-10">
-                        <mat-icon class="icon-size-5 text-primary transition-all cursor-pointer hover:scale-110" title="Mở Quản lý Tools" [svgIcon]="'feather:grid'"></mat-icon>
+                        <mat-icon class="icon-size-5 text-primary transition-all cursor-pointer hover:scale-110"
+                            title="Mở Quản lý Tools" [svgIcon]="'feather:grid'"></mat-icon>
                     </div>
                 </div>
             </ng-container>
@@ -25,13 +26,15 @@
         <!-- Content -->
         <div class="flex flex-auto overflow-hidden border-t">
             <!-- Tools list (Left Sidebar) -->
-            <div class="flex-0 w-16 h-full overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto" fuseScrollbar
-                [fuseScrollbarOptions]="{wheelPropagation: false}">
+            <div class="flex-0 w-16 h-full overflow-y-auto overscroll-y-contain sm:overflow-hidden sm:overscroll-auto"
+                fuseScrollbar [fuseScrollbarOptions]="{wheelPropagation: false}">
                 <div class="flex-auto">
                     <ng-container *ngFor="let tool of tools; trackBy: trackByFn">
-                        <div class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover" (click)="openTool(tool)" [title]="tool.name">
-                            <div class="relative flex flex-0 items-center justify-center w-10 h-10">
-                                <img class="w-full h-full rounded-full object-cover border border-gray-200 p-1" [src]="getFavicon(tool.url)" [alt]="tool.name"
+                        <div class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
+                            (click)="openTool(tool)" [title]="tool.name">
+                            <div class="relative flex flex-0 items-center justify-center w-8 h-8">
+                                <img class="w-full h-full rounded-full object-cover border border-gray-200 p-0.5"
+                                    [src]="getFavicon(tool.url)" [alt]="tool.name"
                                     onerror="this.src='./assets/images/logo/favicon.svg'" />
                             </div>
                         </div>
@@ -44,24 +47,28 @@
                 <div class="flex flex-col flex-auto p-6 overflow-y-auto">
                     <div class="mb-8">
                         <h2 class="text-xl font-semibold mb-2 text-secondary">Quản lý Web Tools</h2>
-                        <p class="text-sm text-gray-500">Thêm các trang web thường xuyên sử dụng vào thanh tiện ích để mở nhanh trên màn hình phụ.</p>
+                        <p class="text-sm text-gray-500">Thêm các trang web thường xuyên sử dụng vào thanh tiện ích để
+                            mở nhanh trên màn hình phụ.</p>
                     </div>
 
                     <!-- Add Tool Form -->
                     <div class="bg-card rounded-2xl p-6 mb-8 border">
                         <h3 class="text-md font-medium mb-4">Thêm công cụ mới</h3>
-                        <mat-form-field class="w-full mb-4 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                        <mat-form-field class="w-full mb-4 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
                             <mat-label>Tên hiển thị</mat-label>
                             <input matInput [(ngModel)]="newToolName" placeholder="VD: Facebook, Capcut..." />
                         </mat-form-field>
 
-                        <mat-form-field class="w-full mb-6 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                        <mat-form-field class="w-full mb-6 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
                             <mat-label>Đường dẫn (URL)</mat-label>
                             <input matInput [(ngModel)]="newToolUrl" placeholder="https://..." />
                         </mat-form-field>
 
                         <div class="flex justify-end">
-                            <button mat-flat-button color="primary" [disabled]="!newToolName || !newToolUrl" (click)="saveTool()">
+                            <button mat-flat-button color="primary" [disabled]="!newToolName || !newToolUrl"
+                                (click)="saveTool()">
                                 <mat-icon class="icon-size-5">add</mat-icon>
                                 <mat-label class="text-white ml-2">Thêm vào danh sách</mat-label>
                             </button>
@@ -76,7 +83,8 @@
                         <div class="flex flex-col max-h-64 overflow-y-auto">
                             <ng-container *ngFor="let tool of tools">
                                 <div class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50">
-                                    <img [src]="getFavicon(tool.url)" class="w-6 h-6 mr-3" onerror="this.src='./assets/images/logo/favicon.svg'" />
+                                    <img [src]="getFavicon(tool.url)" class="w-6 h-6 mr-3"
+                                        onerror="this.src='./assets/images/logo/favicon.svg'" />
                                     <div class="flex-auto min-w-0">
                                         <div class="font-medium truncate">{{ tool.name }}</div>
                                         <div class="text-xs text-gray-500 truncate" dir="ltr">{{ tool.url }}</div>

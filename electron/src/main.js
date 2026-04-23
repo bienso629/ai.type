@@ -2429,7 +2429,6 @@ app.whenReady().then(async () => {
                         '--disable-sync',
                         '--disable-features=ChromeSigninInterceptEnabled,DialMediaRouteProvider',
                         '--disable-infobars',
-                        `--window-position=-3000,-3000`,
                         `--window-size=550,750`,
                         loginUrl
                     ];
@@ -2504,15 +2503,13 @@ app.whenReady().then(async () => {
 
                     startContinuousSync(stealthBrowser);
 
-                    // Hiển thị lại cửa sổ nếu chờ quá 3 giây
-                    let bringToFrontTimer = setTimeout(async () => {
-                        try {
-                            const target = stealthBrowser.target();
-                            const client = await target.createCDPSession();
-                            const { windowId } = await client.send('Browser.getWindowForTarget');
-                            await client.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal', left: 200, top: 100 } });
-                        } catch (e) { }
-                    }, 3000);
+                    // Đảm bảo window nổi lên trên cùng (focus)
+                    try {
+                        const pages = await stealthBrowser.pages();
+                        if (pages.length > 0) {
+                            await pages[0].bringToFront();
+                        }
+                    } catch (e) { }
 
                     try {
                         let isLoggedIn = false;
@@ -2534,9 +2531,7 @@ app.whenReady().then(async () => {
                             }
                         }
                         if (!isLoggedIn) throw new Error("Timeout waiting for login");
-                        clearTimeout(bringToFrontTimer);
                     } catch (waitErr) {
-                        clearTimeout(bringToFrontTimer);
                         sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết giờ!");
                         if (syncInterval) clearInterval(syncInterval);
                         try { await stealthBrowser.close(); } catch(e){}
