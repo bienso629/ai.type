@@ -2284,17 +2284,23 @@ app.whenReady().then(async () => {
             "*://facebook.com/*",
             "*://chatgpt.com/*",
             "*://*.messenger.com/*",
-            "*://accounts.google.com/*" // Đọc để tiêu diệt hints
+            "*://*.google.com/*",
+            "*://labs.google/*",
+            "*://*.labs.google/*"
         ]
     };
 
     // Cài đặt vượt rào bot chung
     const setupHeaders = (details, callback) => {
-        // Trả lại trạng thái Chrome nguyên bản tự nhiên nhất cho Google Login, không giả mạo hay xoá bất kỳ hint nào!
-
-
-        // Chặn cho Facebook/ChatGPT vẫn dùng UA tự động tự nhiên
-        // Không set cứng Chrome 122 ở đây nữa vì đã sửa cấu trúc tự động phía trên!
+        // Xoá dấu vết Electron khỏi Client Hints để qua mặt Google/Labs
+        const chUa = details.requestHeaders['Sec-CH-UA'] || details.requestHeaders['sec-ch-ua'];
+        if (chUa) {
+            let newChUa = chUa.replace(/,?\s*"Electron";\s*v="[^"]+"/, '').replace(/"Electron";\s*v="[^"]+"\s*,?/, '');
+            newChUa = newChUa.replace(/,?\s*"ai\.type";\s*v="[^"]+"/, '').replace(/"ai\.type";\s*v="[^"]+"\s*,?/, '');
+            
+            if (details.requestHeaders['Sec-CH-UA']) details.requestHeaders['Sec-CH-UA'] = newChUa;
+            if (details.requestHeaders['sec-ch-ua']) details.requestHeaders['sec-ch-ua'] = newChUa;
+        }
 
         if (details.url.includes('type.vn')) {
             // Ép Origin để NodeBB cho phép hiển thị ảnh từ localhost:5454
@@ -2383,6 +2389,12 @@ app.whenReady().then(async () => {
                 emit: (...args) => fakeEmitter.emit(...args),
             };
 
+            contents.on('console-message', (event, level, message, line, sourceId) => {
+                const fs = require('fs');
+                const logPath = require('path').join(__dirname, '../../webview.log');
+                fs.appendFileSync(logPath, `[WEBVIEW] ${level}: ${message} (line ${line} at ${sourceId})\n`);
+            });
+
             // ============================================================
             // PUPPETEER STEALTH LOGIN: Mở Chromium THẬT (không phải Electron)
             // để đăng nhập Google, rồi chuyển cookie về Electron.
@@ -2414,6 +2426,9 @@ app.whenReady().then(async () => {
                         `--user-data-dir=${googleAuthDir}`,
                         '--no-first-run',
                         '--no-default-browser-check',
+                        '--disable-sync',
+                        '--disable-features=ChromeSigninInterceptEnabled,DialMediaRouteProvider',
+                        '--disable-infobars',
                         `--window-position=-3000,-3000`,
                         `--window-size=550,750`,
                         loginUrl
@@ -2448,22 +2463,7 @@ app.whenReady().then(async () => {
 
                     sendToRenderer("tools-log", "[Gemini-Auth] ✅ Đã kết nối Chrome! Hãy đăng nhập Google...");
 
-                    // Tìm tab đang mở trang Google login
-                    const pages = await stealthBrowser.pages();
-                    let loginPage = pages.find(p => p.url().includes('accounts.google.com'));
-                    if (!loginPage && pages.length > 0) loginPage = pages[pages.length - 1];
-
-                    if (!loginPage) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] ❌ Không tìm thấy tab đăng nhập!");
-                        stealthBrowser.disconnect();
-                        isGeminiAuthRunning = false;
-                        return;
-                    }
-
-                    // Theo dõi: khi user login xong, URL sẽ rời khỏi accounts.google.com
-                    sendToRenderer("tools-log", "[Gemini-Auth] Đang chờ bạn đăng nhập...");
-
-                    // CƠ CHẾ ĐỒNG BỘ COOKIE LIÊN TỤC: Đề phòng user tự đóng popup bằng tay
+                    // Dùng vòng lặp kiểm tra URL liên tục trên tất cả các tab
                     const startContinuousSync = async (browserInstance) => {
                         syncInterval = setInterval(async () => {
                             try {
@@ -2474,11 +2474,6 @@ app.whenReady().then(async () => {
                                 const client = await page.createCDPSession();
                                 const { cookies: allCookies } = await client.send('Network.getAllCookies');
                                 await client.detach();
-
-                                // DUMP COOKIES TO FILE FOR DEBUGGING
-                                try {
-                                    require('fs').writeFileSync(require('path').join(__dirname, '../../debug_cookies.json'), JSON.stringify(allCookies, null, 2));
-                                } catch (e) { }
 
                                 for (const cookie of allCookies) {
                                     try {
@@ -2501,69 +2496,53 @@ app.whenReady().then(async () => {
                                         if (webviewContents.session !== session.defaultSession) {
                                             await session.defaultSession.cookies.set(cookieObj);
                                         }
-                                    } catch (e) {
-                                        console.log(`[Gemini-Auth] Sync Lỗi set cookie ${cookie.name}: ${e.message}`);
-                                    }
+                                    } catch (e) { }
                                 }
-
-                                // ĐỒNG BỘ LOCAL STORAGE VÀ SESSION STORAGE
-                                try {
-                                    const lsData = await page.evaluate(() => JSON.stringify(localStorage));
-                                    const ssData = await page.evaluate(() => JSON.stringify(sessionStorage));
-                                    if (!webviewContents.isDestroyed()) {
-                                        if (lsData) {
-                                            webviewContents.executeJavaScript(`
-                                                try {
-                                                    const data = ${lsData};
-                                                    for (let key in data) localStorage.setItem(key, data[key]);
-                                                } catch(e){}
-                                            `);
-                                        }
-                                        if (ssData) {
-                                            webviewContents.executeJavaScript(`
-                                                try {
-                                                    const data = ${ssData};
-                                                    for (let key in data) sessionStorage.setItem(key, data[key]);
-                                                } catch(e){}
-                                            `);
-                                        }
-                                    }
-                                } catch (e) { }
                             } catch (e) { }
                         }, 1500);
                     };
 
                     startContinuousSync(stealthBrowser);
 
-                    // Hiển thị lại cửa sổ nếu chờ quá 3 giây (tức là cần user thao tác)
+                    // Hiển thị lại cửa sổ nếu chờ quá 3 giây
                     let bringToFrontTimer = setTimeout(async () => {
                         try {
                             const target = stealthBrowser.target();
                             const client = await target.createCDPSession();
                             const { windowId } = await client.send('Browser.getWindowForTarget');
                             await client.send('Browser.setWindowBounds', { windowId, bounds: { windowState: 'normal', left: 200, top: 100 } });
-                        } catch (e) {
-                            console.log('Không thể hiển thị cửa sổ auth:', e.message);
-                        }
+                        } catch (e) { }
                     }, 3000);
 
                     try {
-                        await loginPage.waitForFunction(() => {
-                            const url = window.location.href;
-                            return !url.includes('accounts.google.com/v3/signin')
-                                && !url.includes('accounts.google.com/o/oauth2')
-                                && !url.includes('accounts.google.com/signin')
-                                && !url.includes('accounts.google.com/ServiceLogin');
-                        }, { timeout: 300000 }); // Chờ tối đa 5 phút
+                        let isLoggedIn = false;
+                        let checkCount = 0;
+                        while (!isLoggedIn && checkCount < 300) { // Timeout 5 phút (300 * 1s)
+                            await new Promise(r => setTimeout(r, 1000));
+                            checkCount++;
+                            const pages = await stealthBrowser.pages();
+                            if (pages.length === 0) throw new Error("All pages closed");
+                            
+                            for (const p of pages) {
+                                try {
+                                    const url = p.url();
+                                    if (url.includes('labs.google') && !url.includes('accounts.google.com')) {
+                                        isLoggedIn = true;
+                                        break;
+                                    }
+                                } catch(e) {}
+                            }
+                        }
+                        if (!isLoggedIn) throw new Error("Timeout waiting for login");
                         clearTimeout(bringToFrontTimer);
                     } catch (waitErr) {
                         clearTimeout(bringToFrontTimer);
                         sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết giờ!");
                         if (syncInterval) clearInterval(syncInterval);
-                        stealthBrowser.disconnect();
+                        try { await stealthBrowser.close(); } catch(e){}
+                        try { chromeProcess.kill(); } catch (e) { }
                         isGeminiAuthRunning = false;
 
-                        // Nếu user tự đóng popup, ta vẫn thử reload lại webview vì cookie đã được đồng bộ ngầm
                         if (!webviewContents.isDestroyed()) {
                             webviewContents.reloadIgnoringCache();
                         }
@@ -2660,6 +2639,8 @@ app.whenReady().then(async () => {
                     sendToRenderer("tools-log", `[Gemini-Auth] ✅ Đã import ${importedCount}/${googleCookies.length} cookie thành công!`);
 
                     // Đồng bộ Local Storage và Session Storage lần cuối
+                    // [BỎ QUA] Tránh làm hỏng IndexedDB
+                    /*
                     try {
                         const lsData = await activePage.evaluate(() => JSON.stringify(localStorage));
                         const ssData = await activePage.evaluate(() => JSON.stringify(sessionStorage));
@@ -2682,6 +2663,7 @@ app.whenReady().then(async () => {
                             }
                         }
                     } catch (e) { }
+                    */
 
                     // Đóng Chrome
                     try {
@@ -2718,30 +2700,13 @@ app.whenReady().then(async () => {
                             overlay.style.left = '0';
                             overlay.style.width = '100vw';
                             overlay.style.height = '100vh';
-                            overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.95)';
+                            overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
                             overlay.style.zIndex = '2147483647';
                             overlay.style.display = 'flex';
                             overlay.style.flexDirection = 'column';
                             overlay.style.justifyContent = 'center';
                             overlay.style.alignItems = 'center';
                             overlay.style.fontFamily = 'Arial, sans-serif';
-
-                            const icon = document.createElement('img');
-                            icon.src = 'https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg';
-                            icon.style.width = '64px';
-                            icon.style.marginBottom = '20px';
-
-                            const title = document.createElement('h2');
-                            title.innerText = 'Yêu Cầu Đăng Nhập';
-                            title.style.color = '#202124';
-                            title.style.marginBottom = '10px';
-                            title.style.fontSize = '24px';
-
-                            const desc = document.createElement('p');
-                            desc.innerText = 'Vui lòng bấm nút dưới đây để mở trình duyệt an toàn và đăng nhập Google.';
-                            desc.style.color = '#5f6368';
-                            desc.style.marginBottom = '30px';
-                            desc.style.fontSize = '14px';
 
                             const btn = document.createElement('button');
                             btn.innerText = 'Mở Trình Duyệt Đăng Nhập';
@@ -2761,9 +2726,6 @@ app.whenReady().then(async () => {
                                 window.location.href = 'gemini-auth://start';
                             };
 
-                            overlay.appendChild(icon);
-                            overlay.appendChild(title);
-                            overlay.appendChild(desc);
                             overlay.appendChild(btn);
                             document.body.appendChild(overlay);
                         }

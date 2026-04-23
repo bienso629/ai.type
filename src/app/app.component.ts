@@ -235,14 +235,25 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             const container = document.getElementById('webview-container-div');
             if (container) {
                 const webview = document.createElement('webview');
-                webview.setAttribute('src', 'https://labs.google/fx/vi/tools/flow');
+                webview.setAttribute('src', 'https://labs.google/fx/vi');
                 webview.setAttribute('allowpopups', 'true');
+                // Gán User-Agent nguyên thủy cứng (Chrome Mac) để bypass lỗi "Đang tải" của Google Labs
+                webview.setAttribute('useragent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
                 webview.style.width = '100%';
                 webview.style.height = '100%';
                 webview.style.border = 'none';
                 webview.style.display = 'flex';
                 webview.style.flex = '1';
+
+                webview.addEventListener('console-message', (e: any) => {
+                    console.log(`[Webview Console] level ${e.level}: ${e.message}`);
+                });
+
+                webview.addEventListener('dom-ready', () => {
+                    // Mở devtools để dễ debug lỗi Đang tải
+                    // webview.openDevTools();
+                });
 
                 container.appendChild(webview);
             }
