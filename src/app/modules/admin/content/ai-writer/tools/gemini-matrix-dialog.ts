@@ -110,8 +110,8 @@ export class GeminiMatrixDialog {
      */
     getStyles() {
         // Lấy phong cách viết
-        const styles = localStorage.getItem('styles');
-        this.styles = JSON.parse(styles);
+        const styles = this.multiAccountService.getItem('styles') || [];
+        this.styles = styles;
         if (styles.length === 0) {
             // khởi chạy đi nào
             this.alert({

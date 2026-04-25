@@ -235,11 +235,51 @@ export class VideoTimelineDialogComponent implements OnInit {
 
         this.toastr.info('Đang rà soát và cập nhật thời lượng các file audio...', 'Hệ thống');
 
+        if (!(window as any).electron) {
+            this.toastr.warning('Tính năng scan file chỉ hoạt động trên App Desktop.');
+        }
+
+        const projectSubPath = `${this.data.username || 'anonymous'}/${this.data.uuid || 'default'}`;
         const promises: Promise<void>[] = [];
         let updatedCount = 0;
 
-        for (const scene of this.projectData.scenes) {
-            for (const sub of (scene.subtitles || [])) {
+        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            const scene = this.projectData.scenes[sceneIdx];
+            if (!scene.subtitles) continue;
+
+            for (let subIdx = 0; subIdx < scene.subtitles.length; subIdx++) {
+                const sub = scene.subtitles[subIdx];
+
+                // Nếu chưa có audioUrl, thử tìm kiếm dưới local
+                if (!sub.audioUrl && sub.text && sub.text.trim() !== '' && (window as any).electron) {
+                    const globalIndex = this.getGlobalIndex(sceneIdx, subIdx);
+                    const prefix = globalIndex.toString().padStart(3, '0');
+                    const shortText = sub.text.substring(0, 50);
+                    const slug = this.toSlug(shortText);
+
+                    const possibleFilenames = [
+                        `${prefix}_${slug}.mp3`,
+                        `${prefix}_${slug}.wav`,
+                        `${prefix}_${slug}_ausync.mp3`,
+                        `${prefix}_${slug}_ausync.wav`
+                    ];
+
+                    for (const fname of possibleFilenames) {
+                        try {
+                            const payload = {
+                                username: projectSubPath,
+                                filename: fname
+                            };
+                            const result = await (window as any).electron.invoke('check-local-file-exists', payload);
+
+                            if (result && result.exists) {
+                                sub.audioUrl = result.path.startsWith('file://') ? result.path : `file://${result.path}`;
+                                break;
+                            }
+                        } catch (e) { }
+                    }
+                }
+
                 if (sub.audioUrl) {
                     const p = new Promise<void>((resolve) => {
                         const audioObj = new Audio(sub.audioUrl);
@@ -261,11 +301,22 @@ export class VideoTimelineDialogComponent implements OnInit {
         if (promises.length > 0) {
             await Promise.all(promises);
             this.saveData();
-            this.toastr.success(`Đã cập nhật thời lượng cho ${updatedCount}/${promises.length} file audio thành công!`);
+            this.toastr.success(`Đã quét và cập nhật thời lượng cho ${updatedCount} file audio thành công!`);
         } else {
             this.toastr.warning('Không tìm thấy file audio nào để rà soát.');
             this.saveData();
         }
+    }
+
+    toSlug(str: string): string {
+        str = str || '';
+        str = str.toLowerCase();
+        str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        str = str.replace(/[đĐ]/g, 'd');
+        str = str.replace(/([^0-9a-z-\s])/g, '');
+        str = str.replace(/(\s+)/g, '-');
+        str = str.replace(/^-+|-+$/g, '');
+        return str;
     }
 
     saveData() {

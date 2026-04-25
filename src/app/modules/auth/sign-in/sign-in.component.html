@@ -147,7 +147,7 @@
                         </ng-container>
 
                         <ng-container *ngIf="account.profile.avatar === 'https://type.vnnull'">
-                            <div
+                            <div (click)="onSelectAccount(account.id, i)"
                                 class="flex flex-0 items-center justify-center w-10 h-10 rounded-full cursor-pointer hover:scale-110 hover:z-10 transition-transform duration-200 text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200">
                                 <span>{{account.id.charAt(0)}}</span>
                             </div>

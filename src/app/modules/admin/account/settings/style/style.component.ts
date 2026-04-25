@@ -7,6 +7,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 import { ToastrService } from 'ngx-toastr';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'settings-style',
@@ -67,7 +68,7 @@ export class SettingsStyleComponent implements OnInit {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        localStorage.setItem('styles', JSON.stringify(this.styles));
+                        this.multiAccountService.setItem('styles', this.styles);
                         this.toastr.success(`Đồng bộ phong cách xong!`);
 
                     } else {
@@ -91,6 +92,7 @@ export class SettingsStyleComponent implements OnInit {
         private _userClientService: UserClientService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`tạo phong cách viết | ai.type - công cụ tạo content`);
     }
@@ -103,11 +105,8 @@ export class SettingsStyleComponent implements OnInit {
      * On init
      */
     ngOnInit(): void {
-        let styles: any = localStorage.getItem('styles');
-
-        if (styles) {
-            this.styles = JSON.parse(styles);
-        }
+        let styles: any = this.multiAccountService.getItem('styles') || [];
+        this.styles = styles;
 
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))

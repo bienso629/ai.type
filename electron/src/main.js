@@ -1417,7 +1417,7 @@ function openChromeApp(url, width = 400, height = 800) {
             "--autoplay-policy=no-user-gesture-required",
             "--use-fake-ui-for-media-stream",
             "--enable-speech-input",
-            "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+
         ];
 
         sendToRenderer(
@@ -1575,8 +1575,17 @@ function createTargetWindow(
     winWidth = 600,
     winHeight = 800,
 ) {
+    if (targetWindow && !targetWindow.isDestroyed()) {
+        targetWindow.close();
+    }
+
     const display = screen.getPrimaryDisplay();
     const { width: screenW, height: screenH } = display.workArea;
+
+    const finalWidth = Math.min(winWidth, Math.floor(screenW * 0.95));
+    const finalHeight = Math.min(winHeight, Math.floor(screenH * 0.95));
+    const finalX = Math.max(0, Math.floor((screenW - finalWidth) / 2));
+    const finalY = Math.max(0, Math.floor((screenH - finalHeight) / 2));
 
     const preloadPath = resolvePreload();
     sendToRenderer(
@@ -1595,10 +1604,11 @@ function createTargetWindow(
     }
 
     targetWindow = new BrowserWindow({
-        width: winWidth,
-        height: winHeight,
-        x: (screenW - winWidth) / 2,
-        y: (screenH - winHeight) / 2,
+        width: finalWidth,
+        height: finalHeight,
+        x: finalX,
+        y: finalY,
+        title: "Công cụ AI",
         show: true, // show sau khi ready-to-show
         frame: false,
         resizable: false,
@@ -1625,9 +1635,8 @@ function createTargetWindow(
         },
     });
 
-    // Fake user-agent nếu cần
-    const fakeUserAgent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36";
-    targetWindow.webContents.setUserAgent(fakeUserAgent);
+    // Dùng chung User-Agent "sạch" đã được lọc ở app.whenReady để tránh mismatch version với Client Hints
+    targetWindow.webContents.setUserAgent(app.userAgentFallback);
 
     targetWindow.loadURL(targetUrlWithUniqueID);
 
@@ -1654,8 +1663,11 @@ function createTargetWindow(
         },
     );
 
-    targetWindow.on("closed", () => {
-        targetWindow = null;
+    const currentWin = targetWindow;
+    currentWin.on("closed", () => {
+        if (targetWindow === currentWin) {
+            targetWindow = null;
+        }
     });
 
     return targetWindow;
@@ -2380,6 +2392,7 @@ app.whenReady().then(async () => {
             const EventEmitter = require('events');
             const fakeEmitter = new EventEmitter();
             targetWindow = {
+                isWebview: true,
                 webContents: contents,
                 isDestroyed: () => contents.isDestroyed(),
                 close: () => { },
@@ -2391,8 +2404,12 @@ app.whenReady().then(async () => {
 
             contents.on('console-message', (event, level, message, line, sourceId) => {
                 const fs = require('fs');
-                const logPath = require('path').join(__dirname, '../../webview.log');
-                fs.appendFileSync(logPath, `[WEBVIEW] ${level}: ${message} (line ${line} at ${sourceId})\n`);
+                const logPath = require('path').join(app.getPath('userData'), 'webview.log');
+                try {
+                    fs.appendFileSync(logPath, `[WEBVIEW] ${level}: ${message} (line ${line} at ${sourceId})\n`);
+                } catch (e) {
+                    console.error('Failed to write to webview.log:', e);
+                }
             });
 
             // ============================================================
@@ -2865,7 +2882,8 @@ app.whenReady().then(async () => {
     });
 
     ipcMain.on("tools-command", (event, data) => {
-        if (!data || !data.command) {
+        try {
+            if (!data || !data.command) {
             event.reply("tools-response", {
                 error: "Không có lệnh nào được gửi",
             });
@@ -2873,8 +2891,6 @@ app.whenReady().then(async () => {
         }
 
         if (!data.url) data.url = "https://google.com.vn";
-
-        if (targetWindow) targetWindow.close();
 
         sendToRenderer(
             "tools-log",
@@ -2898,7 +2914,7 @@ app.whenReady().then(async () => {
                     data.username,
                 );
 
-                if (targetWindow && !targetWindow.isDestroyed()) {
+                if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview) {
                     // Nếu Webview đã mở, chạy script trực tiếp lên đó luôn
                     createImageByDreamina(data.url, uniqueID, {
                         outDir: data.outDir || defaultOutDir,
@@ -3087,7 +3103,7 @@ app.whenReady().then(async () => {
                             });
 
                             if (browser) await browser.disconnect();
-                            if (targetWindow && !targetWindow.isDestroyed())
+                            if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview)
                                 targetWindow.close();
                         } catch (err) {
                             sendToRenderer(
@@ -3132,6 +3148,11 @@ app.whenReady().then(async () => {
                 event.reply("tools-response", {
                     error: "Command không hỗ trợ!",
                 });
+        }
+        } catch (error) {
+            console.error("tools-command error:", error);
+            event.reply("tools-response", { error: error.message });
+            require('electron').dialog.showErrorBox("Error in tools-command", error.stack);
         }
     });
 
