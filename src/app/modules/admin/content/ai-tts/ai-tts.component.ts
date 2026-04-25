@@ -754,6 +754,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
 
         this.calculateTotalDuration();
+        this.syncSettingsFromFirst(); // [MỚI] Tự động đồng bộ cài đặt từ clip đầu tiên
         this.cd.markForCheck();
 
         // Tự động quét các file ở dưới local để map nếu có sẵn
@@ -820,14 +821,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     async scanAndAttachLocalFiles() {
         if (!(window as any).electron) return;
-        
+
         let modified = false;
         const baseUsername = this.user?.name || 'anonymous';
         const projectSubPath = `${baseUsername}/${this.uuid || 'default'}`;
 
         for (let i = 0; i < this.audioList.length; i++) {
             const clip = this.audioList[i];
-            
+
             // Bỏ qua nếu đã tải hoặc file thực tế
             if (clip['localFilePath'] || clip.file || (clip.rawUrl && clip.rawUrl.startsWith('blob:'))) continue;
 
@@ -836,10 +837,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 possibleFilenames.push(clip.audioFileName);
             } else if (clip.description && clip.description.trim() !== '') {
                 // Tạo guess
-                const prefix = i.toString().padStart(3, '0');
+                const prefix = (i >= 0 ? i + 1 : 0).toString().padStart(3, '0');
                 const shortText = clip.description.substring(0, 50);
                 const slug = this.toSlug(shortText);
-                
+
                 possibleFilenames.push(`${prefix}_${slug}.mp3`);
                 possibleFilenames.push(`${prefix}_${slug}.wav`);
                 possibleFilenames.push(`${prefix}_${slug}_ausync.mp3`);
@@ -853,19 +854,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         filename: fname
                     };
                     const result = await (window as any).electron.invoke('check-local-file-exists', payload);
-                    
+
                     if (result && result.exists) {
                         clip['localFilePath'] = result.path;
                         clip.audioFileName = fname;
                         clip.username = projectSubPath;
-                        
+
                         modified = true;
-                        
+
                         // Tiến hành load luôn cho WaveSurfer có blob
                         await this.loadLocalAudioContent(clip);
-                        break; 
+                        break;
                     }
-                } catch(e) { }
+                } catch (e) { }
             }
         }
 
@@ -1179,7 +1180,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.dialog.open(VideoTimelineDialogComponent, {
             width: '95%', // Lấy 95% chiều rộng của left-pane (được giới hạn bởi overlay container)
-            maxHeight: '85vh', // Tăng thêm một chút chiều cao 
+            maxHeight: '95vh', // Tăng thêm một chút chiều cao 
             height: 'auto', // Tự động co giãn theo nội dung
             data: data, // Truyền dữ liệu trực tiếp vào dialog
             panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần
@@ -1597,6 +1598,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         );
 
                         this.calculateTotalDuration();
+                        this.syncSettingsFromFirst(); // [MỚI] Tự động đồng bộ cài đặt từ clip đầu tiên
 
                         // Lưu đè lại Storage (Lúc này Storage đã chứa Text mới + Link Audio cũ)
                         this.saveToLocal(uuid);

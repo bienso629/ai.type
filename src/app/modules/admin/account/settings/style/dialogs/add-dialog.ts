@@ -6,6 +6,7 @@ import { User } from "app/core/user/user.types";
 import { UserClientService } from "app/modules/_services/user";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
+import { MultiAccountService } from "app/modules/_services/multi-account.service";
 
 @Component({
     selector: 'styles-addmore-dialog',
@@ -79,16 +80,10 @@ export class AddStyleDialog implements OnInit, OnDestroy {
     }
 
     save(): void {
-        let styles: any = localStorage.getItem('styles');
+        let styles: any = this.multiAccountService.getItem('styles') || [];
 
         if (this.editForm.valid) {
             let style = this.editForm.value;
-
-            if (styles) {
-                styles = JSON.parse(styles);
-            } else {
-                styles = [];
-            }
 
             styles.push(style);
 
@@ -102,7 +97,7 @@ export class AddStyleDialog implements OnInit, OnDestroy {
                 .subscribe({
                     next: async (result) => {
                         if (result && result.success && result.data) {
-                            localStorage.setItem('styles', JSON.stringify(styles));
+                            this.multiAccountService.setItem('styles', styles);
                             this.onNoClick(style);
 
                             this.toastr.success(`Lưu phong cách thành công!`);
@@ -133,7 +128,7 @@ export class AddStyleDialog implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data) {
-                        localStorage.setItem('styles', JSON.stringify(this.data['styles']));
+                        this.multiAccountService.setItem('styles', this.data['styles']);
                         this.onNoClick(this.data['styles'][this.index]);
                         this.toastr.success(`Đồng bộ phong cách xong!`);
                     } else {
@@ -158,6 +153,7 @@ export class AddStyleDialog implements OnInit, OnDestroy {
         public dialogRef: MatDialogRef<AddStyleDialog>,
         @Inject(MAT_DIALOG_DATA) public data: AddStyleDialog,
         private toastr: ToastrService,
+        private multiAccountService: MultiAccountService
     ) {
         if (data && data['index'] > -1) {
             this.index = data['index'];

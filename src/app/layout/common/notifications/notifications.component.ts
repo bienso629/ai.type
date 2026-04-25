@@ -699,14 +699,13 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
             // lấy secretKey và searchAPIKey
             this.settings = this.multiAccountService.getItem('settings');
-            this.settings = JSON.parse(this.settings);
-            this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
-            this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
+            this.secretKey = (this.settings && this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
+            this.searchAPIKey = (this.settings && this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
 
             // Lấy phong cách viết
-            const styles = localStorage.getItem('styles');
+            const styles = this.multiAccountService.getItem('styles') || [];
             if (styles) {
-                this.styles = JSON.parse(styles);
+                this.styles = styles;
                 if (styles.length > 0) {
                     // khởi chạy đi nào
                     this.startAutoCreateNode();

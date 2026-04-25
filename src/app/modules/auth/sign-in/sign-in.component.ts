@@ -129,7 +129,10 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     async onSelectAccount(accountId: string, index: number) {
+        console.log("accountId: ", accountId);
+        console.log("index: ", index);
         const success = await this.multiAccountService.switchAccount(accountId);
+        console.log("success: ", success);
         if (success) {
             const user = this.accounts[index]['profile'];
             if (user) {

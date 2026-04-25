@@ -242,8 +242,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 const webview = document.createElement('webview');
                 webview.setAttribute('src', 'https://gemini.google.com/app?hl=vi');
                 webview.setAttribute('allowpopups', 'true');
-                // Gán User-Agent nguyên thủy cứng (Chrome Mac) để bypass lỗi "Đang tải" của Google Labs
-                webview.setAttribute('useragent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+                // Sử dụng User Agent gốc từ Electron main process (đã được lọc sạch) để tránh mismatch Client Hints
+                // webview.setAttribute('useragent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
                 webview.style.width = '100%';
                 webview.style.height = '100%';

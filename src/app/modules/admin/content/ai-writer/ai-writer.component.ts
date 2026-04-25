@@ -3295,8 +3295,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             this.domain = JSON.parse(localStorage.getItem('domain'));
         }
 
-        if (localStorage.getItem('styles')) {
-            this.styles = JSON.parse(localStorage.getItem('styles'));
+        const cachedStyles = this.multiAccountService.getItem('styles');
+        if (cachedStyles) {
+            this.styles = cachedStyles;
         } else {
             this.styles = [this.style];
         }
