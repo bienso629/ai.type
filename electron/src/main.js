@@ -2325,6 +2325,8 @@ app.whenReady().then(async () => {
 
     // Áp dụng cho session mặc định
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, setupHeaders);
+    // Áp dụng cho session của webview để Google không block (ERR_ABORTED)
+    session.fromPartition('persist:gemini-webview').webRequest.onBeforeSendHeaders(filter, setupHeaders);
 
     // Chạy hàm load ngay khi khởi tạo
     loadBinaries();
@@ -2385,6 +2387,23 @@ app.whenReady().then(async () => {
         }
     });
 
+    ipcMain.handle('clear-webview-auth', async () => {
+        try {
+            // Xóa session storage của webview
+            await session.fromPartition('persist:gemini-webview').clearStorageData();
+
+            // Chỉ xóa thư mục Chrome auth profile của Puppeteer
+            const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
+            if (fs.existsSync(googleAuthDir)) {
+                fs.rmSync(googleAuthDir, { recursive: true, force: true });
+            }
+            return { success: true };
+        } catch (error) {
+            console.error('Lỗi khi xoá auth webview:', error);
+            return { success: false, error: error.message };
+        }
+    });
+
     // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
     app.on('web-contents-created', (event, contents) => {
         if (contents.getType() === 'webview') {
@@ -2401,6 +2420,49 @@ app.whenReady().then(async () => {
                 removeListener: (...args) => fakeEmitter.removeListener(...args),
                 emit: (...args) => fakeEmitter.emit(...args),
             };
+
+            // Bổ sung menu chuột phải cho webview
+            contents.on('context-menu', (event, params) => {
+                const { Menu } = require('electron');
+                const template = [];
+
+                if (params.linkURL) {
+                    template.push({
+                        label: 'Copy Link',
+                        click: () => {
+                            const { clipboard } = require('electron');
+                            clipboard.writeText(params.linkURL);
+                        }
+                    });
+                }
+
+                if (params.hasImageContents) {
+                    template.push({ role: 'copyImage', label: 'Copy Image' });
+                }
+
+                if (params.editFlags.canCopy) {
+                    template.push({ role: 'copy', label: 'Copy' });
+                }
+                if (params.editFlags.canPaste) {
+                    template.push({ role: 'paste', label: 'Paste' });
+                }
+                if (params.editFlags.canCut) {
+                    template.push({ role: 'cut', label: 'Cut' });
+                }
+                if (params.editFlags.canSelectAll) {
+                    template.push({ role: 'selectAll', label: 'Select All' });
+                }
+
+                if (template.length > 0) {
+                    template.push({ type: 'separator' });
+                }
+                
+                template.push({ role: 'reload', label: 'Reload' });
+                template.push({ role: 'toggleDevTools', label: 'Inspect Element' });
+
+                const menu = Menu.buildFromTemplate(template);
+                menu.popup();
+            });
 
             contents.on('console-message', (event, level, message, line, sourceId) => {
                 const fs = require('fs');
@@ -2540,7 +2602,7 @@ app.whenReady().then(async () => {
                             for (const p of pages) {
                                 try {
                                     const url = p.url();
-                                    if (url.includes('labs.google') && !url.includes('accounts.google.com')) {
+                                    if (url.includes('gemini.google') && !url.includes('accounts.google.com')) {
                                         isLoggedIn = true;
                                         break;
                                     }
@@ -2556,23 +2618,23 @@ app.whenReady().then(async () => {
                         isGeminiAuthRunning = false;
 
                         if (!webviewContents.isDestroyed()) {
-                            webviewContents.reloadIgnoringCache();
+                            webviewContents.loadURL('https://gemini.google.com/app?hl=vi');
                         }
                         return;
                     }
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 Đăng nhập thành công! Đang xác thực với Labs...");
+                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 Đăng nhập thành công! Đang xác thực với Gemini...");
 
-                    // QUAN TRỌNG: Sau khi login Google, cần truy cập labs.google để domain đó tạo cookie xác thực riêng
+                    // QUAN TRỌNG: Sau khi login Google, cần truy cập gemini.google để domain đó tạo cookie xác thực riêng
                     let activePage = loginPage;
                     try {
                         if (activePage.isClosed()) {
                             const pages = await stealthBrowser.pages();
                             activePage = pages[pages.length - 1];
                         }
-                        await activePage.goto('https://labs.google/fx/vi/tools/flow', { waitUntil: 'networkidle2', timeout: 30000 });
+                        await activePage.goto('https://gemini.google.com/app?hl=vi', { waitUntil: 'networkidle2', timeout: 30000 });
                     } catch (navErr) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] ⚠️ Labs chậm tải, vẫn tiếp tục lấy cookie...");
+                        sendToRenderer("tools-log", "[Gemini-Auth] ⚠️ Gemini chậm tải, vẫn tiếp tục lấy cookie...");
                         const pages = await stealthBrowser.pages();
                         if (pages.length > 0) activePage = pages[pages.length - 1];
                     }
@@ -2699,55 +2761,11 @@ app.whenReady().then(async () => {
                 }
             };
 
-            // Bắt sự kiện khi tải xong trang (nếu là trang đăng nhập Google, hiển thị thông báo để user tự bấm)
-            contents.on('did-finish-load', () => {
-                const currentUrl = contents.getURL();
-                if (currentUrl.includes('accounts.google.com')) {
-                    contents.executeJavaScript(`
-                        if (!document.getElementById('ai-type-login-overlay')) {
-                            const overlay = document.createElement('div');
-                            overlay.id = 'ai-type-login-overlay';
-                            overlay.style.position = 'fixed';
-                            overlay.style.top = '0';
-                            overlay.style.left = '0';
-                            overlay.style.width = '100vw';
-                            overlay.style.height = '100vh';
-                            overlay.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
-                            overlay.style.zIndex = '2147483647';
-                            overlay.style.display = 'flex';
-                            overlay.style.flexDirection = 'column';
-                            overlay.style.justifyContent = 'center';
-                            overlay.style.alignItems = 'center';
-                            overlay.style.fontFamily = 'Arial, sans-serif';
 
-                            const btn = document.createElement('button');
-                            btn.innerText = 'Mở Trình Duyệt Đăng Nhập';
-                            btn.style.padding = '12px 24px';
-                            btn.style.fontSize = '15px';
-                            btn.style.backgroundColor = '#1a73e8';
-                            btn.style.color = '#fff';
-                            btn.style.border = 'none';
-                            btn.style.borderRadius = '4px';
-                            btn.style.cursor = 'pointer';
-                            btn.style.fontWeight = 'bold';
-                            btn.style.boxShadow = '0 1px 3px rgba(0,0,0,0.3)';
-
-                            btn.onclick = () => {
-                                btn.innerText = 'Đang mở...';
-                                btn.style.backgroundColor = '#80868b';
-                                window.location.href = 'gemini-auth://start';
-                            };
-
-                            overlay.appendChild(btn);
-                            document.body.appendChild(overlay);
-                        }
-                    `).catch(e => console.log('Inject login overlay error:', e));
-                }
-            });
 
             // Bắt sự kiện khi user tự bấm vào nút Login từ lớp overlay
             contents.on('will-navigate', (e, url) => {
-                if (url.includes('gemini-auth://start')) {
+                if (url.includes('trigger-stealth-login')) {
                     e.preventDefault();
                     // Lấy chính URL hiện tại (có chứa tham số continue=... của trang gốc) để đăng nhập
                     launchStealthLogin(contents.getURL(), contents);

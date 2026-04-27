@@ -130,10 +130,13 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     searchNode() {
         this.isLoading = false;
         if (this.table) this.table.offset = 0;
+
         this.selected = [];
         this.currentBookmark = null;
         this.cachePageSize = 0;
         this.cache = {};
+
+        this.cd.markForCheck();
 
         if (this.uuids.length > 0) {
             // Nếu có keyword khi đang trong Collection thì filter local
@@ -141,6 +144,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 this.rows = [...this.rows.filter((item) =>
                     item.title.toLowerCase().includes(this.keyword.toLowerCase()),
                 )];
+
                 this.totalElements = this.rows.length;
                 this.table.recalculatePages();
                 this.cd.markForCheck();
@@ -150,7 +154,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         } else {
             this.rows = [];
             this.rows = [...this.rows]; // force update empty state
-            this.cd.markForCheck();
+
             const query = {
                 username: this.user.name,
                 keyword: this.keyword,
@@ -176,6 +180,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                             this.cd.markForCheck();
                         }
                     });
+            } else {
                 // Mặc định từ statistics (khi xóa keyword)
                 let temp = localStorage.getItem('statistics');
                 if (temp && temp !== 'undefined') {

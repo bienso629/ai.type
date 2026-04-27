@@ -2,6 +2,12 @@
 	"folders": [
 		{
 			"path": "."
+		},
+		{
+			"path": "../api"
+		},
+		{
+			"path": "../apps"
 		}
 	],
 	"settings": {}

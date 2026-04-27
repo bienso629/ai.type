@@ -37,11 +37,11 @@
             </button> -->
 
             <button mat-icon-button (click)="clear()" *ngIf="audioList.length > 0">
-                <mat-icon class="icon-size-5 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
+                <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
             </button>
 
-            <button mat-icon-button>
-                <mat-icon class="icon-size-5" [svgIcon]="'feather:mic'"></mat-icon>
+            <button mat-icon-button color="primary">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'"></mat-icon>
                 <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Thêm audio">
             </button>

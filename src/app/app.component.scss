@@ -185,15 +185,24 @@
     overflow: hidden;
 }
 
-/* Nút xoá cookie lấp ló ở cạnh đáy */
-.webview-clear-cookie-btn {
+/* Nhóm các nút thao tác webview lấp ló ở cạnh đáy */
+.webview-action-group {
     position: absolute;
     bottom: 0;
     left: 50%;
     transform: translateX(-50%) translateY(90%);
     z-index: 1000;
+    display: flex;
+    gap: 8px; /* Khoảng cách giữa các nút */
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.webview-action-group:hover {
+    transform: translateX(-50%) translateY(0);
+}
+
+.webview-action-btn {
     padding: 10px 16px;
-    background: rgba(229, 62, 62, 0.9);
     color: white;
     border: 1px solid rgba(255, 255, 255, 0.2);
     border-bottom: none;
@@ -203,11 +212,22 @@
     font-weight: bold;
     box-shadow: 0 -2px 8px rgba(0, 0, 0, 0.3);
     backdrop-filter: blur(4px);
-    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), background 0.3s ease;
+    transition: background 0.3s ease;
     white-space: nowrap;
 }
 
-.webview-clear-cookie-btn:hover {
-    transform: translateX(-50%) translateY(0);
+.btn-login {
+    background: rgba(26, 115, 232, 0.9);
+}
+
+.btn-login:hover {
+    background: rgba(26, 115, 232, 1);
+}
+
+.btn-clear {
+    background: rgba(229, 62, 62, 0.9);
+}
+
+.btn-clear:hover {
     background: rgba(229, 62, 62, 1);
 }
