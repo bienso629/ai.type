@@ -29,12 +29,20 @@
        [class.webview-hidden]="!isWebviewVisible"
        style="position: absolute; right: 0; top: 0; bottom: 0; padding-left: 6px;">
     
-    <!-- Nút xoá dữ liệu -->
-    <button (click)="clearWebviewCookie()" 
-            class="webview-clear-cookie-btn"
-            title="Xoá toàn bộ Cookie & Session của Webview">
-      Xoá Cookie & Tải lại
-    </button>
+    <!-- Các nút thao tác Webview lấp ló ở dưới -->
+    <div class="webview-action-group">
+      <button (click)="openLoginBrowser()" 
+              class="webview-action-btn btn-login"
+              title="Mở trình duyệt riêng để đăng nhập Google">
+        Mở Trình Duyệt Đăng Nhập
+      </button>
+
+      <button (click)="clearWebviewCookie()" 
+              class="webview-action-btn btn-clear"
+              title="Xoá toàn bộ Cookie & Session của Webview">
+        Xoá Cookie & Tải lại
+      </button>
+    </div>
 
     <div id="webview-container-div" style="width: 100%; height: 100%; border: none; display: flex; flex: 1; background: #1a1a1a;"></div>
   </div>

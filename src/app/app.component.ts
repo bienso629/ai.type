@@ -97,10 +97,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     async clearWebviewCookie() {
         try {
             const electron = (window as any).electron;
-            if (electron?.clearAllCookies) {
-                await electron.clearAllCookies();
-            } else if (electron?.clearGoogleCookies) {
-                await electron.clearGoogleCookies();
+            
+            // Chỉ clear phần auth của Puppeteer, không clear cookie toàn app
+            if (electron?.clearWebviewAuth) {
+                await electron.clearWebviewAuth();
             }
 
             // Clear trên webview DOM
@@ -108,15 +108,28 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             if (container) {
                 const webview = container.querySelector('webview') as any;
                 if (webview && webview.clearData) {
-                    await webview.clearData({ datatypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
+                    await webview.clearData({ dataTypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
                     console.log('Webview data cleared.');
                 }
-                if (webview?.reloadIgnoringCache) {
-                    webview.loadURL('https://labs.google/fx/vi/tools/flow');
+                if (webview?.loadURL) {
+                    webview.loadURL('https://gemini.google.com/app?hl=vi');
                 }
             }
         } catch (err) {
             console.error('Lỗi xoá toàn bộ cookie:', err);
+        }
+    }
+
+    // Mở trang đăng nhập Google
+    openLoginBrowser() {
+        const container = document.getElementById('webview-container-div');
+        if (container) {
+            const webview = container.querySelector('webview') as any;
+            if (webview && webview.executeJavaScript) {
+                // Sử dụng executeJavaScript để giả lập việc click chuyển hướng bên trong webview.
+                // Dùng một URL HTTPS giả mạo thay vì custom protocol để Windows không nhảy bảng hỏi "Get an app to open this link".
+                webview.executeJavaScript("window.location.href = 'https://gemini.google.com/trigger-stealth-login';");
+            }
         }
     }
     // ===============================
@@ -240,6 +253,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             const container = document.getElementById('webview-container-div');
             if (container) {
                 const webview = document.createElement('webview');
+                // Tách phân vùng riêng để không ảnh hưởng cookie của toàn app
+                webview.setAttribute('partition', 'persist:gemini-webview');
                 webview.setAttribute('src', 'https://gemini.google.com/app?hl=vi');
                 webview.setAttribute('allowpopups', 'true');
                 // Sử dụng User Agent gốc từ Electron main process (đã được lọc sạch) để tránh mismatch Client Hints
