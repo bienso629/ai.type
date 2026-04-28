@@ -23,10 +23,16 @@
         [ngClass]="showMasterPrompt ? 'w-80 opacity-100 mr-2' : 'w-0 opacity-1 mr-0 overflow-hidden border-none'">
 
         <div class="w-80 p-4">
-            <div class="flex items-center mb-2">
-                <mat-icon class="icon-size-5 text-indigo-600 mr-2"
-                    [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
-                <h3 class="font-bold text-indigo-800 text-sm">Master Prompt (Định hướng hình ảnh)</h3>
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                    <mat-icon class="icon-size-5 text-indigo-600 mr-2"
+                        [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
+                    <h3 class="font-bold text-indigo-800 text-sm">Master Prompt</h3>
+                </div>
+                <button mat-icon-button class="text-pink-500 bg-pink-50 w-8 h-8 flex items-center justify-center rounded" 
+                        matTooltip="Director mode" (click)="openDirectorMode()">
+                    <mat-icon class="icon-size-4">movie_creation</mat-icon>
+                </button>
             </div>
             <p class="text-gray-700 text-sm mb-4 italic">"{{ projectData?.masterPrompt }}"</p>
 
