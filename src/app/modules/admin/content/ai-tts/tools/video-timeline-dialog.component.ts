@@ -25,6 +25,7 @@ import {
 } from '@angular/cdk/drag-drop';
 
 import { AddSceneComponent } from './add-scene.component';
+import { DirectorModeComponent } from './director-mode.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { AudioGenerationComponent } from './audio-generation.component';
@@ -421,6 +422,30 @@ export class VideoTimelineDialogComponent implements OnInit {
                 this.saveData();
                 this.toastr.warning(`Đã xóa Scene #${index + 1}`);
             },
+        });
+    }
+
+    openDirectorMode() {
+        const dialogRef = this.dialog.open(DirectorModeComponent, {
+            width: '900px',
+            maxWidth: '95vw',
+            panelClass: 'dark-theme-dialog',
+            data: { prompt: this.projectData?.masterPrompt || '' }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result) {
+                if (!this.projectData) this.projectData = {};
+                const currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
+                // Append the new director settings to the existing master prompt
+                if (currentPrompt) {
+                    this.projectData.masterPrompt = currentPrompt + (currentPrompt.endsWith(',') ? ' ' : ', ') + result;
+                } else {
+                    this.projectData.masterPrompt = result;
+                }
+                this.saveData();
+                this.toastr.success('Đã áp dụng các thông số Director Mode vào Master Prompt!');
+            }
         });
     }
 

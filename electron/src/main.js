@@ -931,15 +931,40 @@ function startFallbackServer() {
     const fallbackApp = express();
     const fallbackPath = path.resolve(__dirname, "..", "fallback");
     fallbackApp.use(express.static(fallbackPath));
-    fallbackApp.listen(fallbackPort, () => {
+    const server = fallbackApp.listen(fallbackPort, () => {
         sendToRenderer(
             "tools-log",
             `[✓] Fallback server chạy tại http://localhost:${fallbackPort}`,
         );
     });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.log(`[Fallback] Cổng ${fallbackPort} đang bận, thử dọn dẹp...`);
+            killPort(fallbackPort);
+            setTimeout(() => {
+                server.close();
+                server.listen(fallbackPort);
+            }, 1000);
+        }
+    });
 }
 
 puppeteer.use(StealthPlugin());
+const gotTheLock = app.requestSingleInstanceLock();
+if (!gotTheLock) {
+    app.quit();
+    process.exit(0);
+} else {
+    app.on('second-instance', (event, commandLine, workingDirectory) => {
+        // Có người dùng mở thêm app, focus vào cửa sổ hiện tại
+        if (mainWindow) {
+            if (mainWindow.isMinimized()) mainWindow.restore();
+            mainWindow.focus();
+        }
+    });
+}
+
 app.commandLine.appendSwitch("remote-debugging-port", "9999"); // BẮT BUỘC cho puppeteer.connect()
 
 // Thêm util này gần đầu file:
@@ -2254,11 +2279,24 @@ function startSttServer() {
         res.send(sttHtmlContent);
     });
 
-    sttApp.listen(port, () => {
+    const server = sttApp.listen(port, () => {
         sendToRenderer(
             "tools-log",
             `[STT-Server] Server running at http://localhost:${port}`,
         );
+    });
+
+    server.on('error', (err) => {
+        if (err.code === 'EADDRINUSE') {
+            console.log(`[STT-Server] Cổng ${port} đang bị chiếm, thử dọn dẹp...`);
+            killPort(port);
+            setTimeout(() => {
+                server.close();
+                server.listen(port);
+            }, 1000);
+        } else {
+            console.error(`[STT-Server] Lỗi không xác định:`, err);
+        }
     });
 }
 

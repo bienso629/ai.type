@@ -62,8 +62,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
     changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class AIFacePostComponent
-    implements OnInit, OnDestroy, AfterContentChecked
-{
+    implements OnInit, OnDestroy, AfterContentChecked {
     animationStates: any;
     user: User;
     config: AppConfig;
@@ -203,8 +202,8 @@ export class AIFacePostComponent
                         this.getLinks(result.data[0]['_id'], 0);
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -237,7 +236,7 @@ export class AIFacePostComponent
                 error: () => {
                     this.toastr.warning(`Không tải dữ liệu về.`);
                 },
-                complete: () => {},
+                complete: () => { },
             });
 
         // lấy bài theo collection
@@ -263,8 +262,8 @@ export class AIFacePostComponent
                         this.getCategories(this.domains[0] ?? ['domain']);
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -288,8 +287,8 @@ export class AIFacePostComponent
                         });
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -343,6 +342,7 @@ export class AIFacePostComponent
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
+                    console.log('data trả về ', result.data);
                     const resData = result.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
                         const newRowsWithHeaders = [];
@@ -377,7 +377,8 @@ export class AIFacePostComponent
                             ...newRowsWithHeaders,
                         ];
 
-                        this.totalElements = this.rows.length;
+                        // Cộng thêm một lượng pageSize ảo để ngx-datatable tạo thanh scrollbar cho phép kéo xuống load page tiếp theo
+                        this.totalElements = this.rows.length + this.page.size;
                         this.totalDisplayCount = this.rows.filter(
                             (row) => !row.isHeader,
                         ).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
@@ -385,6 +386,10 @@ export class AIFacePostComponent
                         this.currentBookmark = resData.bookmark;
                         this.cd.detectChanges();
                     } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
+                        // Hết dữ liệu thì chốt cứng totalElements bằng số row đang có
+                        if (this.rows) {
+                            this.totalElements = this.rows.length;
+                        }
                         delete this.cache[this.page.pageNumber];
                     }
                 },
@@ -417,9 +422,9 @@ export class AIFacePostComponent
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: () => {},
-                error: () => {},
-                complete: () => {},
+                next: () => { },
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -599,14 +604,15 @@ export class AIFacePostComponent
                 contents: prompt,
             });
 
-            const jsonText = response.text;
-            if (jsonText) {
+            const data = this._h.safeJsonParseFromAI(response.text);
+            if (data) {
                 try {
-                    const data = JSON.parse(jsonText);
                     localStorage.setItem(
                         'trend_analysis_result',
                         JSON.stringify(data),
                     );
+
+                    this.trendResult = data;
                 } catch (e) {
                     this.toastr.warning('Không thể phân tích được trend.');
                 }
@@ -661,7 +667,7 @@ export class AIFacePostComponent
                         // data.splice(0, 1);
                         this.storePost(data);
                     },
-                    complete: () => {},
+                    complete: () => { },
                 });
         } else {
             // quét tiếp
@@ -683,9 +689,9 @@ export class AIFacePostComponent
                     })
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
-                        next: () => {},
-                        error: () => {},
-                        complete: () => {},
+                        next: () => { },
+                        error: () => { },
+                        complete: () => { },
                     });
             }
         });
@@ -761,8 +767,8 @@ export class AIFacePostComponent
                         this.cd.markForCheck();
                     }
                 },
-                error: () => {},
-                complete: () => {},
+                error: () => { },
+                complete: () => { },
             });
     }
 
@@ -797,7 +803,7 @@ export class AIFacePostComponent
                 error: (e: any) => {
                     this.toastr.warning('Tải video thất bại.');
                 },
-                complete: () => {},
+                complete: () => { },
             });
     }
 
@@ -965,7 +971,7 @@ export class AIFacePostComponent
         );
     }
 
-    ngAfterContentChecked(): void {}
+    ngAfterContentChecked(): void { }
 
     /**
      * On init

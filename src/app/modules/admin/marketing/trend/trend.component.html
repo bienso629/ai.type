@@ -231,7 +231,8 @@
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex w-1/2 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable [virtualization]="true" #table class="material expandable fullscreen transition-opacity duration-300"
+                        <ngx-datatable [virtualization]="true" #table
+                            class="material expandable fullscreen transition-opacity duration-300"
                             [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
                             [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true"
                             [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
@@ -317,7 +318,7 @@
 
                     <div class="flex w-1/2 h-full relative overflow-hidden border-l">
                         <ng-container *ngIf="isAnalyzing">
-                            <div class="flex flex-col w-full h-full p-0 relative">
+                            <div class="flex flex-col w-full h-full p-4 relative">
                                 <div class="animate-pulse space-y-6 opacity-50">
                                     <div class="h-8 w-1/3 bg-gray-300 dark:bg-gray-700 rounded-lg mb-8"></div>
                                     <div class="space-y-6">
@@ -390,7 +391,8 @@
                                                             <span
                                                                 class="text-[10px] font-bold uppercase text-gray-500">Image
                                                                 Prompt (AI)</span>
-                                                            <button mat-icon-button class="icon-size-8" (click)="facePost2Node(item)">
+                                                            <button mat-icon-button class="icon-size-8"
+                                                                (click)="facePost2Node(item)">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'heroicons_outline:clipboard-copy'"></mat-icon>
                                                             </button>
