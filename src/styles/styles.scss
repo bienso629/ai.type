@@ -784,6 +784,14 @@ fuse-alert.fuse-alert-appearance-soft .fuse-alert-container {
 }
 
 ngx-datatable {
+    &.grid {
+        .datatable-body-row {
+            &:hover {
+                background-color: transparent !important;
+            }
+        }
+    }
+
     &.material {
         .datatable-header {
             border-bottom: 1px solid rgba(179, 179, 179, 0.13) !important;
@@ -879,10 +887,6 @@ ngx-datatable {
             width: 100%;
 
             .datatable-row-wrapper {
-                &:hover {
-                    background: #f9f9f9;
-                }
-
                 min-width: 100%;
                 max-width: 100%;
                 width: 100%;
@@ -901,7 +905,8 @@ ngx-datatable {
 
                 .datatable-body-row {
                     &:hover {
-                        background-color: transparent !important;
+                        // background-color: transparent !important;
+                        background: #f9f9f9;
 
                         .datatable-row-group,
                         .datatable-row-center {

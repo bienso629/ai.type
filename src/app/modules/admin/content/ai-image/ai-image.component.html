@@ -99,8 +99,10 @@
                                                 [mode]="'indeterminate'"></mat-progress-spinner>
                                         </button>
                                     </div>
-                                    <mat-hint *ngIf="!permissionDreamina">Chúng tôi tạo hình ảnh bằng Nano Banana có trả phí.</mat-hint>
-                                    <mat-hint *ngIf="permissionDreamina">Chúng tôi tạo hình ảnh bằng Nano Banana. Hoặc sử dụng công
+                                    <mat-hint *ngIf="!permissionDreamina">Chúng tôi tạo hình ảnh bằng Nano Banana có trả
+                                        phí.</mat-hint>
+                                    <mat-hint *ngIf="permissionDreamina">Chúng tôi tạo hình ảnh bằng Nano Banana. Hoặc
+                                        sử dụng công
                                         cụ
                                         <a href="javascript:void(0)"
                                             (click)="createImgWithDreamina('https://dreamina.capcut.com')"
@@ -125,8 +127,8 @@
                     <div class="flex-auto relative rounded-md overflow-y-auto">
                         <div class="mx-auto w-full bg-transparent" cdkScrollable>
                             <ng-container *ngIf="rows.length > 0">
-                                <ngx-datatable #datatable class="material fullscreen image-thumbnails" [rows]="rows"
-                                    [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
+                                <ngx-datatable #datatable class="material grid fullscreen image-thumbnails"
+                                    [rows]="rows" [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
                                     [headerHeight]="0" [footerHeight]="0" [columnMode]="'force'">
                                     <ngx-datatable-column [flexGrow]="1">
                                         <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
