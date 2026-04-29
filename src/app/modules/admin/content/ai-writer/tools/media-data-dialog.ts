@@ -63,7 +63,7 @@ import { MatDialogRef } from '@angular/material/dialog';
     <div class="flex-auto overflow-y-auto">
         <!-- CONTENT GOES HERE -->
         <div class="h-full w-full bg-transparent relative" cdkScrollable>
-            <ngx-datatable #datatable class="material fullscreen image-thumbnails" [rows]="rows"
+            <ngx-datatable #datatable class="material grid fullscreen image-thumbnails" [rows]="rows"
                 [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
                 [headerHeight]="0" [footerHeight]="0" [columnMode]="'force'">
                 <ngx-datatable-column [flexGrow]="1">
@@ -219,13 +219,14 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
         this._blogService.allFiles({
             username: this.user.name, folder: 'thumbnails'
         }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: async (result) => { 
+            next: async (result) => {
                 if (result) this.imageUrls = result.files;
-                this.rebuildRows();},
+                this.rebuildRows();
+            },
             complete: () => { }
         });
     }
-    
+
     /**
      * Constructor
      */
