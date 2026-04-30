@@ -106,14 +106,21 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             // Clear trên webview DOM
             const container = document.getElementById('webview-container-div');
             if (container) {
-                const webview = container.querySelector('webview') as any;
-                if (webview && webview.clearData) {
-                    await webview.clearData({ dataTypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
+                // Find the currently visible webview
+                const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
+                
+                if (activeWebview && activeWebview.clearData) {
+                    await activeWebview.clearData({ dataTypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
                     console.log('Webview data cleared.');
                 }
-                if (webview?.loadURL) {
-                    webview.loadURL('https://gemini.google.com/app?hl=vi');
-                }
+                
+                // Tải lại các webview
+                const webviews = container.querySelectorAll('webview');
+                webviews.forEach((wv: any) => {
+                    if (wv.reload) {
+                        wv.reload();
+                    }
+                });
             }
         } catch (err) {
             console.error('Lỗi xoá toàn bộ cookie:', err);
@@ -124,11 +131,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     openLoginBrowser() {
         const container = document.getElementById('webview-container-div');
         if (container) {
-            const webview = container.querySelector('webview') as any;
-            if (webview && webview.executeJavaScript) {
-                // Sử dụng executeJavaScript để giả lập việc click chuyển hướng bên trong webview.
-                // Dùng một URL HTTPS giả mạo thay vì custom protocol để Windows không nhảy bảng hỏi "Get an app to open this link".
-                webview.executeJavaScript("window.location.href = 'https://gemini.google.com/trigger-stealth-login';");
+            const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
+            if (activeWebview && activeWebview.executeJavaScript) {
+                activeWebview.executeJavaScript("window.location.href = 'https://gemini.google.com/trigger-stealth-login';");
             }
         }
     }
@@ -253,6 +258,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             const container = document.getElementById('webview-container-div');
             if (container) {
                 const webview = document.createElement('webview');
+                webview.setAttribute('data-tool-id', '1'); // Gắn ID mặc định cho Gemini
                 // Tách phân vùng riêng để không ảnh hưởng cookie của toàn app
                 webview.setAttribute('partition', 'persist:gemini-webview');
                 webview.setAttribute('src', 'https://gemini.google.com/app?hl=vi');

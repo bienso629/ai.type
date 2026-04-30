@@ -2495,8 +2495,14 @@ app.whenReady().then(async () => {
                     template.push({ type: 'separator' });
                 }
                 
-                template.push({ role: 'reload', label: 'Reload' });
-                template.push({ role: 'toggleDevTools', label: 'Inspect Element' });
+                template.push({ 
+                    label: 'Reload', 
+                    click: () => { contents.reload(); } 
+                });
+                template.push({ 
+                    label: 'Inspect Element', 
+                    click: () => { contents.inspectElement(params.x, params.y); } 
+                });
 
                 const menu = Menu.buildFromTemplate(template);
                 menu.popup();
