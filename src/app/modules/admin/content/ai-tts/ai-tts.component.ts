@@ -1031,8 +1031,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               "masterPrompt": "Viết Master Prompt chi tiết bằng Tiếng Việt...",
               "characters": [
                 {
-                  "role": "Tên/Vai trò",
-                  "personality": "Mô tả chi tiết và cố định bằng Tiếng Việt..."
+                  "name": "Tên nhân vật (nếu có)",
+                  "role": "Vai trò trong truyện",
+                  "appearance": "Đặc điểm ngoại hình chi tiết và cố định (tóc, mắt, khuôn mặt, trang phục đặc trưng)...",
+                  "personality": "Tính cách",
+                  "prompt": "Câu prompt độc lập bằng tiếng Anh chuẩn Midjourney/Stable Diffusion để tạo hình (casting) chân dung nhân vật này..."
                 }
               ],
               "scenes": [
@@ -1132,6 +1135,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,
             };
+
+            // Lưu danh sách nhân vật dưới local
+            if (aiResponse.characters && aiResponse.characters.length > 0) {
+                this.multiAccountService.setItem(`casting_list_${data.uuid}`, aiResponse.characters);
+            }
 
             this.saveToLocal();
             this.openTimelineDialog(this.videoProject);

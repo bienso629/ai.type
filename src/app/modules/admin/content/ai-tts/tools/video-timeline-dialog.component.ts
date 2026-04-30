@@ -54,10 +54,10 @@ interface electron {
 })
 export class VideoTimelineDialogComponent implements OnInit {
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
-    
+
     // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
     showMasterPrompt: boolean = false;
-    
+
     // Lưu lại Scene hiện tại đang được xử lý (khi bấm Prompt)
     activeDownloadScene: any = null;
 
@@ -65,6 +65,9 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     projectData: any;
 
+    @ViewChild('characterDialogTemplate') characterDialogTemplate!: any;
+    editingChar: any = {};
+    editingCharIndex: number = -1;
     private isMouseDown = false;
     private startX = 0;
     private scrollLeftStart = 0;
@@ -186,18 +189,76 @@ export class VideoTimelineDialogComponent implements OnInit {
     async generateImage(scene: any, index: number) {
         // 1. Lấy Master Prompt từ dữ liệu tổng của Project
         const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
-        
+
         // 2. Nối chuỗi: Master Prompt + [Xuống dòng] + Chi tiết phân cảnh
-        const finalPrompt = master 
-            ? `${master}\n\n[CHI TIẾT HÀNH ĐỘNG PHÂN CẢNH NÀY]:\n${scene.prompt}` 
+        const finalPrompt = master
+            ? `${master}\n\n[CHI TIẾT HÀNH ĐỘNG PHÂN CẢNH NÀY]:\n${scene.prompt}`
             : scene.prompt;
 
         // 3. Copy vào Clipboard
         this.clipboard.copy(finalPrompt);
         this.toastr.info(`Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`, 'Thành công');
-        
+
         // 4. Lưu lại scene để nếu có ảnh download về thì tự động gán vào
         this.activeDownloadScene = scene;
+    }
+
+    copyCharacterPrompt(char: any) {
+        if (!char.prompt) {
+            this.toastr.warning('Nhân vật này chưa có câu prompt tạo hình.');
+            return;
+        }
+        this.clipboard.copy(char.prompt);
+        this.toastr.success(`Đã copy prompt của nhân vật: ${char.name || char.role}`, 'Thành công');
+    }
+
+    openCharacterDialog(char?: any, index: number = -1) {
+        this.editingCharIndex = index;
+
+        if (char) {
+            this.editingChar = { ...char };
+        } else {
+            this.editingChar = { name: '', role: '', appearance: '', personality: '', prompt: '' };
+        }
+
+        this.dialog.open(this.characterDialogTemplate, {
+            width: '500px',
+            height: 'auto',
+            disableClose: true,
+            panelClass: 'p-0'
+        });
+    }
+
+    saveCharacter() {
+        if (!this.projectData.characters) {
+            this.projectData.characters = [];
+        }
+
+        if (this.editingCharIndex >= 0) {
+            this.projectData.characters[this.editingCharIndex] = { ...this.editingChar };
+            this.toastr.success('Đã cập nhật nhân vật!');
+        } else {
+            this.projectData.characters.push({ ...this.editingChar });
+            this.toastr.success('Đã thêm nhân vật mới!');
+        }
+
+        this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+        this.saveData();
+        this.dialog.closeAll();
+    }
+
+    removeCharacter(index: number) {
+        this.alert({
+            title: 'Xóa nhân vật',
+            message: 'Bạn có chắc chắn muốn xóa nhân vật này khỏi hồ sơ Casting?',
+            confirm: 'Xóa ngay',
+            cb: () => {
+                this.projectData.characters.splice(index, 1);
+                this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+                this.saveData();
+                this.toastr.warning('Đã xóa nhân vật.');
+            }
+        });
     }
 
     generateAllImages(): void {
@@ -499,7 +560,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                     const localPath = res.file;
                     // Gắn URL hình ảnh
                     this.activeDownloadScene.imageUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
-                    
+
                     // Lưu lại và báo thành công
                     this.saveData();
                     this.toastr.success(`Đã gán ảnh vừa tải ảnh vào Phân cảnh!`, "Tải ảnh thành công!");
