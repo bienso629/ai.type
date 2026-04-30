@@ -33,23 +33,33 @@ hr {
 }
 
 .timeline-container {
-    scrollbar-width: thin;
-    scrollbar-color: #cbd5e1 #f1f5f9;
     scroll-behavior: auto;
 }
 
-.timeline-container::-webkit-scrollbar {
-    height: 6px;
+.timeline-container ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
 }
 
-.timeline-container::-webkit-scrollbar-track {
-    background: #f1f5f9;
-    border-radius: 3px;
+.timeline-container ::-webkit-scrollbar-button {
+    display: none;
 }
 
-.timeline-container::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1;
-    border-radius: 3px;
+.timeline-container ::-webkit-scrollbar-track {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.timeline-container ::-webkit-scrollbar-thumb {
+    background-color: #cbd5e1 !important;
+    border-radius: 4px !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+.timeline-container ::-webkit-scrollbar-thumb:hover {
+    background-color: #94a3b8 !important;
 }
 
 /* Ẩn thanh cuộn nhưng vẫn giữ khả năng scroll */
@@ -946,4 +956,31 @@ input[type=checkbox]:checked:after {
     .youtube-playlist {
         height: 250px;
     }
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 4px !important;
+    height: 4px !important;
+}
+
+::-webkit-scrollbar-button {
+    display: none !important;
+}
+
+::-webkit-scrollbar-track {
+    background: transparent !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #5c5c5c !important;
+    border-radius: 2px !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8 !important;
 }

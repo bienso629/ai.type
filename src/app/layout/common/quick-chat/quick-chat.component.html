@@ -51,36 +51,16 @@
                             mở nhanh trên màn hình phụ.</p>
                     </div>
 
-                    <!-- Add Tool Form -->
-                    <div class="bg-card rounded-2xl p-6 mb-8 border">
-                        <h3 class="text-md font-medium mb-4">Thêm công cụ mới</h3>
-                        <mat-form-field class="w-full mb-4 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Tên hiển thị</mat-label>
-                            <input matInput [(ngModel)]="newToolName" placeholder="VD: Facebook, Capcut..." />
-                        </mat-form-field>
-
-                        <mat-form-field class="w-full mb-6 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Đường dẫn (URL)</mat-label>
-                            <input matInput [(ngModel)]="newToolUrl" placeholder="https://..." />
-                        </mat-form-field>
-
-                        <div class="flex justify-end">
-                            <button mat-flat-button color="primary" [disabled]="!newToolName || !newToolUrl"
-                                (click)="saveTool()">
-                                <mat-icon class="icon-size-5">add</mat-icon>
-                                <mat-label class="text-white ml-2">Thêm vào danh sách</mat-label>
-                            </button>
-                        </div>
-                    </div>
-
                     <!-- Tool Management List -->
                     <div class="bg-card rounded-2xl border overflow-hidden">
-                        <div class="flex items-center px-6 py-3 bg-gray-50 border-b">
-                            <span class="font-medium">Danh sách hiện tại</span>
+                        <div class="flex items-center px-4 py-3 bg-gray-50 border-b">
+                            <span class="font-medium flex-auto">Danh sách hiện tại</span>
+                            <button mat-icon-button color="primary" (click)="openAddDialog()"
+                                matTooltip="Thêm công cụ mới">
+                                <mat-icon class="icon-size-5">add_circle</mat-icon>
+                            </button>
                         </div>
-                        <div class="flex flex-col max-h-64 overflow-y-auto">
+                        <div class="flex flex-col h-auto">
                             <ng-container *ngFor="let tool of tools">
                                 <div class="flex items-center px-4 py-3 border-b last:border-none hover:bg-gray-50">
                                     <img [src]="getFavicon(tool.url)" class="w-6 h-6 mr-3"
@@ -100,6 +80,30 @@
                             </div>
                         </div>
                     </div>
+
+                    <ng-template #addDialogTemplate>
+                        <h2 class="text-lg p-0 py-3">Thêm công cụ mới</h2>
+                        <mat-dialog-content class="p-0">
+                            <mat-form-field class="w-full mt-2 mb-4 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>Tên hiển thị</mat-label>
+                                <input matInput [(ngModel)]="newToolName" placeholder="VD: Facebook, Capcut..." />
+                            </mat-form-field>
+
+                            <mat-form-field class="w-full mb-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>Đường dẫn (URL)</mat-label>
+                                <input matInput [(ngModel)]="newToolUrl" placeholder="https://..." />
+                            </mat-form-field>
+                        </mat-dialog-content>
+                        <mat-dialog-actions align="end" class="p-0 mt-2 gap-2">
+                            <button mat-button color="acent" mat-dialog-close>Hủy</button>
+                            <button mat-flat-button color="primary" [disabled]="!newToolName || !newToolUrl"
+                                (click)="saveTool()">
+                                Thêm vào danh sách
+                            </button>
+                        </mat-dialog-actions>
+                    </ng-template>
 
                 </div>
             </div>
