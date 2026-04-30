@@ -105,22 +105,51 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         if (this.selectedTool && this.selectedTool.id === id) {
             this.selectedTool = null;
         }
+
+        // Remove the associated webview from DOM if it exists
+        const container = document.getElementById('webview-container-div');
+        if (container) {
+            const webview = container.querySelector(`webview[data-tool-id="${id}"]`);
+            if (webview) {
+                container.removeChild(webview);
+            }
+        }
     }
 
     openTool(tool: ToolItem): void {
         this.selectedTool = tool;
         const container = document.getElementById('webview-container-div');
         if (container) {
-            const webview = container.querySelector('webview') as any;
+            // Find all webviews
+            const webviews = container.querySelectorAll('webview');
+            // Hide all webviews
+            webviews.forEach((wv: any) => {
+                wv.style.display = 'none';
+            });
+
+            // Check if webview for this tool exists
+            let webview = container.querySelector(`webview[data-tool-id="${tool.id}"]`) as any;
             if (webview) {
-                // Update src and load
+                // Show it
+                webview.style.display = 'flex';
+            } else {
+                // Create it
+                webview = document.createElement('webview');
+                webview.setAttribute('data-tool-id', tool.id);
+                // Share the same persist partition so logins carry over if applicable
+                webview.setAttribute('partition', 'persist:gemini-webview');
                 webview.setAttribute('src', tool.url);
-                if (webview.loadURL) {
-                    webview.loadURL(tool.url);
-                }
+                webview.setAttribute('allowpopups', 'true');
+                webview.style.width = '100%';
+                webview.style.height = '100%';
+                webview.style.border = 'none';
+                webview.style.display = 'flex';
+                webview.style.flex = '1';
+
+                container.appendChild(webview);
             }
         }
-
+        
         // Cập nhật isWebviewVisible (phát sự kiện toggle)
         window.dispatchEvent(new CustomEvent('toggle-gemini', { detail: { forceOpen: true } }));
         // Đóng panel sau khi chọn
