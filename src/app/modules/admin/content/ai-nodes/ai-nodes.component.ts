@@ -40,7 +40,8 @@ export class AINodesComponent implements OnInit, OnDestroy {
         totalPages: 0
     };
     isLoading: boolean = false;
-    lastId: string;
+    currentBookmark: string;
+    apiFetchedCount: number = 0;
 
     request = 'h1|body\nh2|body\nh3|body\nh4|body\nh5|body\np|body\nspan|body\nlabel|body\ntable|body\nimg,data-lazy-src+title+alt|body\niframe,data-lazy-src|body\na,href+title|body\nli|body\ntitle|html > head\nmeta,content:name|html > head\nmeta,content:property|html > head';
 
@@ -85,7 +86,8 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this.keyword = event.target.value.toLowerCase();
         this.selected = [];
         this.rows = [];
-        this.lastId = null;
+        this.currentBookmark = null;
+        this.apiFetchedCount = 0;
         this.cachePageSize = 0;
         this.cache = {};
 
@@ -137,7 +139,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
                                 this.totalElements = 0;
                             }
                         }
-                        
+
                         if (this.totalElements > 0) {
                             this.setPage({
                                 offset: 0,
@@ -192,57 +194,65 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this.isLoading = true;
         this.cd.markForCheck();
 
+        const payloadPage = {
+            ...this.page,
+            size: 25 // Cố định kích thước để tránh lỗi Invalid Bookmark của CouchDB
+        };
+
         this._crawlService.nodes({
             username: this.user.name,
             keyword: this.keyword,
-            page: this.page,
-            lastId: this.lastId
+            page: payloadPage,
+            bookmark: this.currentBookmark
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data && result.data.length > 0) {
+                next: async (result: any) => {
+                    const resData = result?.data;
+                    if (resData && resData.docs && resData.docs.length > 0) {
                         // Initialize rows array if it does not exist
                         if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        if (result.data.length > 0) {
-                            // Calc starting row offset
-                            // This is the position to insert the new data
-                            const start = this.page.pageNumber * this.page.size;
+                        const start = this.apiFetchedCount;
+                        const apiPageSize = 25;
 
-                            let newTotal = this.totalElements || 0;
-                            // If we received fewer items than a full page, we know exactly where the end is
-                            if (result.data.length < this.page.size) {
-                                newTotal = start + result.data.length;
-                            } else if (start + result.data.length > newTotal) {
-                                newTotal = start + result.data.length;
-                            }
-
-                            if (this.totalElements !== newTotal) {
-                                this.totalElements = newTotal;
-                            }
-
-                            if (!this.rows || this.rows.length !== this.totalElements) {
-                                const oldRows = this.rows || [];
-                                this.rows = new Array<any>(this.totalElements);
-                                for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
-                                    this.rows[i] = oldRows[i];
-                                }
-                            }
-
-                            // Copy existing data
-                            const rows = [...this.rows];
-
-                            // Insert new rows into correct position
-                            rows.splice(start, result.data.length, ...result.data);
-
-                            // Set rows to our new rows for display
-                            this.rows = rows;
-                            this.lastId = (this.rows.length > 0 && this.rows[this.rows.length - 1] && this.rows[this.rows.length - 1]['_id']) ? this.rows[this.rows.length - 1]['_id'] : null;
+                        let newTotal = this.totalElements || 0;
+                        if (resData.docs.length < apiPageSize) {
+                            newTotal = start + resData.docs.length;
+                        } else if (start + resData.docs.length > newTotal) {
+                            newTotal = start + resData.docs.length;
                         }
-                    } else if (!result || result.success === false || (result.success && (!result.data || result.data.length === 0))) {
+
+                        if (this.totalElements !== newTotal) {
+                            this.totalElements = newTotal;
+                        }
+
+                        if (!this.rows || this.rows.length !== this.totalElements) {
+                            const oldRows = this.rows || [];
+                            this.rows = new Array<any>(this.totalElements);
+                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                this.rows[i] = oldRows[i];
+                            }
+                        }
+
+                        const rows = [...this.rows];
+
+                        rows.splice(start, resData.docs.length, ...resData.docs);
+
+                        this.rows = rows;
+                        this.apiFetchedCount += resData.docs.length;
+                        this.currentBookmark = resData.bookmark;
+                        this.cd.detectChanges();
+                    } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                        // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
+                        this.currentBookmark = resData.bookmark;
+                        this.isLoading = false;
+                        delete this.cache[this.page.pageNumber];
+                        this.cd.detectChanges();
+                        this.setPage(pageInfo);
+                    } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
                         delete this.cache[this.page.pageNumber];
                     }
                 },
@@ -396,20 +406,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
                     return;
                 }
 
-                this._crawlService.totalSearchNode({
-                    username: this.user.name,
-                    keyword: '',
-                    page: this.page
-                })
-                    .pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe({
-                        next: (res) => {
-                            if (res && res.success && !this.keyword) {
-                                this.totalElements = res.data.total;
-                                this.cd.markForCheck();
-                            }
-                        }
-                    });
+                // totalSearchNode has been moved to ngOnInit to prioritize localStorage
             });
 
         // Subscribe to config changes
@@ -432,6 +429,24 @@ export class AINodesComponent implements OnInit, OnDestroy {
             }
         } else {
             this.totalElements = 0;
+        }
+
+        // Nếu localStorage không có hoặc bằng 0, mới gọi API để đếm
+        if (!this.totalElements) {
+            this._crawlService.totalSearchNode({
+                username: this.user.name,
+                keyword: '',
+                page: this.page
+            })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res) => {
+                        if (res && res.success && !this.keyword) {
+                            this.totalElements = res.data.total;
+                            this.cd.markForCheck();
+                        }
+                    }
+                });
         }
     }
 
