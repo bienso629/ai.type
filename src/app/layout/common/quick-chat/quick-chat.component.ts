@@ -1,8 +1,9 @@
-import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, Inject, NgZone, OnDestroy, OnInit, Renderer2, ViewEncapsulation } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, Inject, NgZone, OnDestroy, OnInit, Renderer2, ViewEncapsulation, ViewChild } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject } from 'rxjs';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 
 export interface ToolItem {
     id: string;
@@ -23,6 +24,9 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     selectedTool: ToolItem | null = null;
     opened: boolean = false;
 
+    @ViewChild('addDialogTemplate') addDialogTemplate: any;
+    private dialogRef: MatDialogRef<any>;
+
     // Form data
     newToolName: string = '';
     newToolUrl: string = '';
@@ -38,8 +42,9 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         private _renderer2: Renderer2,
         private _ngZone: NgZone,
         private _scrollStrategyOptions: ScrollStrategyOptions,
-        private multiAccountService: MultiAccountService
-    ) {}
+        private multiAccountService: MultiAccountService,
+        private _matDialog: MatDialog
+    ) { }
 
     @HostBinding('class') get classList(): any {
         return {
@@ -58,8 +63,9 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 { id: '1', name: 'Gemini', url: 'https://gemini.google.com/app?hl=vi' },
                 { id: '2', name: 'Google Labs', url: 'https://labs.google/fx/vi/tools/flow' },
                 { id: '3', name: 'Facebook', url: 'https://facebook.com' },
-                { id: '4', name: 'Capcut', url: 'https://www.capcut.com/my-edit' },
-                { id: '5', name: 'Dreamina', url: 'https://dreamina.capcut.com/ai-tool/generate' }
+                { id: '4', name: 'Tiktok', url: 'https://www.tiktok.com' },
+                { id: '5', name: 'Instagram', url: 'https://instagram.com' },
+                { id: '6', name: 'X', url: 'https://x.com' }
             ];
             this.multiAccountService.setItem('tools_urls', savedTools);
         }
@@ -81,6 +87,16 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         // Reset form
         this.newToolName = '';
         this.newToolUrl = '';
+        if (this.dialogRef) {
+            this.dialogRef.close();
+        }
+    }
+
+    openAddDialog(): void {
+        this.dialogRef = this._matDialog.open(this.addDialogTemplate, {
+            width: '400px',
+            disableClose: false
+        });
     }
 
     removeTool(id: string): void {
@@ -104,7 +120,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 }
             }
         }
-        
+
         // Cập nhật isWebviewVisible (phát sự kiện toggle)
         window.dispatchEvent(new CustomEvent('toggle-gemini', { detail: { forceOpen: true } }));
         // Đóng panel sau khi chọn
