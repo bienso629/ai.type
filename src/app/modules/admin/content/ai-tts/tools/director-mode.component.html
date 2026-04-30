@@ -1,7 +1,7 @@
-<div class="light-theme flex flex-col w-[900px] max-w-[95vw] rounded-xl overflow-hidden font-sans bg-white shadow-xl">
+<div class="light-theme flex flex-col font-sans bg-white">
     <!-- Header -->
-    <div class="flex items-center justify-between p-4 border-b border-gray-200 bg-white">
-        <div class="flex items-center gap-3">
+    <div class="flex items-center justify-between p-0 mb-3 bg-white">
+        <div class="flex items-center gap-2">
             <mat-icon class="text-indigo-600 text-3xl">movie_creation</mat-icon>
             <div>
                 <h2 class="text-gray-900 text-xl font-bold m-0 flex items-center gap-2">
@@ -10,14 +10,15 @@
                 </h2>
             </div>
         </div>
+
         <button mat-icon-button class="text-gray-400 hover:text-gray-700" (click)="dialogRef.close()">
             <mat-icon>close</mat-icon>
         </button>
     </div>
 
     <!-- Content body -->
-    <div class="flex-1 p-4 bg-white">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+    <div class="flex-1 p-0 bg-white">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
             <!-- LEFT COLUMN -->
             <div class="flex flex-col">
                 <!-- Time of day -->
@@ -178,8 +179,8 @@
     </div>
 
     <!-- Footer Actions -->
-    <div class="p-3 border-t border-gray-200 bg-gray-50 flex justify-end gap-3 rounded-b-xl">
+    <div class="px-0 mt-4 flex justify-end gap-1">
         <button mat-button class="text-gray-600" (click)="dialogRef.close()">Cancel</button>
-        <button mat-flat-button class="bg-indigo-600 text-white px-6" (click)="apply()">Apply to Master Prompt</button>
+        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">Apply to Master Prompt</button>
     </div>
 </div>

@@ -15,44 +15,46 @@ import { MatIconModule } from '@angular/material/icon';
             color: #111827;
         }
         .section-card {
-            background-color: #f3f4f6;
-            border-radius: 10px;
-            padding: 12px;
-            margin-bottom: 12px;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            border: 1px solid #f3f4f6;
         }
         .option-img {
             width: 100%;
             height: 45px;
             object-fit: cover;
-            border-radius: 6px;
+            border-radius: 8px;
             border: 2px solid transparent;
             transition: all 0.2s ease;
-            background-color: #e5e7eb;
+            background-color: #f9fafb;
         }
         .option-item.selected .option-img {
             border-color: #4f46e5;
-            box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.3);
+            box-shadow: 0 4px 12px rgba(79, 70, 229, 0.15);
         }
         .option-item:hover .option-img {
             opacity: 0.8;
+            background-color: #f3f4f6;
         }
         .toggle-btn {
             background-color: #ffffff;
             color: #6b7280;
             border-radius: 6px;
-            padding: 6px 12px;
+            padding: 8px 12px;
             text-align: center;
             cursor: pointer;
             transition: all 0.2s;
             font-size: 12px;
             flex: 1;
-            border: 1px solid #e5e7eb;
+            border: 1px solid transparent;
         }
         .toggle-btn.selected {
-            background-color: #4b5563;
-            color: #ffffff;
-            font-weight: 500;
-            border-color: #4b5563;
+            background-color: #ffffff;
+            color: #4f46e5;
+            font-weight: 600;
+            border-color: #4f46e5;
+            box-shadow: 0 2px 8px rgba(79, 70, 229, 0.1);
         }
         .scrollbar-hide::-webkit-scrollbar {
             display: none;
