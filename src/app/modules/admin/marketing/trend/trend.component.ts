@@ -319,9 +319,9 @@ export class AIFacePostComponent
             totalPages: 0,
         };
 
-        if (this.cachePageSize !== this.page.size) {
-            this.cachePageSize = this.page.size;
-            this.cache = {};
+        // Ngăn chặn việc gọi API khi scroll lên (khi dữ liệu đã được nạp)
+        if (this.rows && this.rows.length > rowOffset) {
+            return;
         }
 
         if (this.cache[this.page.pageNumber]) return;
@@ -330,13 +330,17 @@ export class AIFacePostComponent
         this.cd.markForCheck();
 
         const collection = this.sitemapForm.controls['collection'].value;
+        const payloadPage = {
+            ...this.page,
+            size: 25 // Fix cứng size để CouchDB không báo lỗi Invalid Bookmark khi ngx-datatable thay đổi pageSize
+        };
 
         this._crawlService
             .facePosts({
                 username: this.user.name,
                 keyword: this.keyword,
                 facegroup: collection ? collection._id : null,
-                page: this.page,
+                page: payloadPage,
                 bookmark: this.currentBookmark, // Truyền bookmark
             })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -386,6 +390,16 @@ export class AIFacePostComponent
                         this.currentBookmark = resData.bookmark;
                         this.cd.detectChanges();
                     } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
+                        // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
+                        if (resData && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                            this.currentBookmark = resData.bookmark;
+                            this.isLoading = false; 
+                            delete this.cache[this.page.pageNumber];
+                            this.cd.detectChanges();
+                            this.setPage(pageInfo);
+                            return;
+                        }
+
                         // Hết dữ liệu thì chốt cứng totalElements bằng số row đang có
                         if (this.rows) {
                             this.totalElements = this.rows.length;

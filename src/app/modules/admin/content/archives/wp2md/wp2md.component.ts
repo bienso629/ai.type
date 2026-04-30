@@ -110,18 +110,36 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                     complete: () => { }
                 });
         } else {
-            let temp = localStorage.getItem('statistics');
-            temp = JSON.parse(temp);
-            this.totalElements = temp['wp2md'];
-
-            if (this.totalElements > 0) {
-                this.setPage({
-                    offset: 0,
-                    pageSize: undefined,
-                    limit: undefined,
-                    count: this.totalElements
+            this._wp2mdService.totalWp2mdArchive({ username: this.user.name })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res) => {
+                        if (res && res.success) {
+                            this.totalElements = res.data.total;
+                        } else {
+                            // Fallback to local storage if API fails
+                            let temp = localStorage.getItem('statistics');
+                            if (temp) {
+                                try {
+                                    this.totalElements = JSON.parse(temp)['wp2md'] || 0;
+                                } catch (e) {
+                                    this.totalElements = 0;
+                                }
+                            } else {
+                                this.totalElements = 0;
+                            }
+                        }
+                        
+                        if (this.totalElements > 0) {
+                            this.setPage({
+                                offset: 0,
+                                pageSize: undefined,
+                                limit: undefined,
+                                count: this.totalElements
+                            });
+                        }
+                    }
                 });
-            }
         }
     }
 
@@ -176,9 +194,8 @@ export class WP2MDComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success && result.data && result.data.length > 0) {
-                        // Create array to store data if missing
-                        // The array should have the correct number of with "holes" for missing data
-                        if (!this.rows || this.rows.length === 0) {
+                        // Initialize rows array if it does not exist
+                        if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
@@ -187,11 +204,31 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                             // This is the position to insert the new data
                             const start = this.page.pageNumber * this.page.size;
 
+                            let newTotal = this.totalElements || 0;
+                            // If we received fewer items than a full page, we know exactly where the end is
+                            if (result.data.length < this.page.size) {
+                                newTotal = start + result.data.length;
+                            } else if (start + result.data.length > newTotal) {
+                                newTotal = start + result.data.length;
+                            }
+
+                            if (this.totalElements !== newTotal) {
+                                this.totalElements = newTotal;
+                            }
+
+                            if (!this.rows || this.rows.length !== this.totalElements) {
+                                const oldRows = this.rows || [];
+                                this.rows = new Array<any>(this.totalElements);
+                                for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                    this.rows[i] = oldRows[i];
+                                }
+                            }
+
                             // Copy existing data
                             const rows = [...this.rows];
 
                             // Insert new rows into correct position
-                            rows.splice(start, this.page.size, ...result.data);
+                            rows.splice(start, result.data.length, ...result.data);
 
                             // Set rows to our new rows for display
                             this.rows = rows;
@@ -343,6 +380,17 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                     this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
                     return;
                 }
+
+                this._wp2mdService.totalWp2mdArchive({ username: this.user.name })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: (res) => {
+                            if (res && res.success && !this.keyword) {
+                                this.totalElements = res.data.total;
+                                this.cd.markForCheck();
+                            }
+                        }
+                    });
             });
     }
 
@@ -354,9 +402,16 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         let temp = localStorage.getItem('statistics');
-        temp = JSON.parse(temp);
-
-        this.totalElements = temp['wp2md'];
+        if (temp) {
+            try {
+                let parsed = JSON.parse(temp);
+                this.totalElements = parsed['wp2md'] || 0;
+            } catch (e) {
+                this.totalElements = 0;
+            }
+        } else {
+            this.totalElements = 0;
+        }
     }
 
     error(message?: string) {
