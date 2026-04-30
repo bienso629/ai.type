@@ -54,6 +54,7 @@ export class LinksComponent implements OnInit, OnDestroy {
 
     rows: any[] = [];
     totalElements: number;
+    apiFetchedCount: number = 0;
     pageNumber: number;
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
@@ -161,6 +162,7 @@ export class LinksComponent implements OnInit, OnDestroy {
         this.keyword = event.target.value.toLowerCase();
         this.rows = [];
         this.currentBookmark = null; // Reset bookmark khi search mới
+        this.apiFetchedCount = 0;
         this.cachePageSize = 0;
         this.cache = {};
 
@@ -240,10 +242,15 @@ export class LinksComponent implements OnInit, OnDestroy {
         this.isLoading = true;
         this.cd.markForCheck();
 
+        const payloadPage = {
+            ...this.page,
+            size: 100 // Cố định kích thước để tránh lỗi Invalid Bookmark của CouchDB
+        };
+
         this._logService.fetch({
             username: this.user.name,
             keyword: this.keyword,
-            page: this.page,
+            page: payloadPage,
             bookmark: this.currentBookmark // Gửi bookmark thay vì lastId
         })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -257,7 +264,7 @@ export class LinksComponent implements OnInit, OnDestroy {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        const start = this.page.pageNumber * this.page.size;
+                        const start = this.apiFetchedCount;
                         const rows = [...this.rows];
 
                         // Map dữ liệu bổ sung như trạng thái loading
@@ -267,8 +274,9 @@ export class LinksComponent implements OnInit, OnDestroy {
                             return post;
                         });
 
-                        rows.splice(start, this.page.size, ...newDocs);
+                        rows.splice(start, newDocs.length, ...newDocs);
                         this.rows = [...rows];
+                        this.apiFetchedCount += newDocs.length;
 
                         // Quan trọng: Vì API không trả về total, ta phải tự đối chiếu tổng số để ngx-datatable có thể render!
                         if (newDocs.length < this.page.size) {

@@ -39,6 +39,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
     rows = [];
     totalElements: number;
+    apiFetchedCount: number = 0;
     pageNumber: number;
     isLoading: boolean = false;
     cache: Record<string, boolean> = {};
@@ -47,7 +48,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     uuids: any[] = [];
     page: Page = {
         pageNumber: 0,
-        size: 25,
+        size: 10,
         totalElements: 0,
         totalPages: 0,
     };
@@ -133,6 +134,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
         this.selected = [];
         this.currentBookmark = null;
+        this.apiFetchedCount = 0;
         this.cachePageSize = 0;
         this.cache = {};
 
@@ -246,10 +248,13 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        const start = this.page.pageNumber * this.page.size;
-                        
+                        // Sử dụng biến độc lập apiFetchedCount để đảm bảo data luôn nối đuôi liên tục
+                        // dù page.size của UI và API (25) khác nhau.
+                        const start = this.apiFetchedCount;
+
                         let newTotal = this.totalElements || 0;
-                        if (resData.docs.length < this.page.size) {
+                        const apiPageSize = 25; // Size cố định từ backend
+                        if (resData.docs.length < apiPageSize) {
                             newTotal = start + resData.docs.length;
                         } else if (start + resData.docs.length > newTotal) {
                             newTotal = start + resData.docs.length;
@@ -269,9 +274,10 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
                         const rows = [...this.rows];
 
-                        // GIỮ NGUYÊN LOGIC GỐC CỦA BẠN: Splice vào vị trí start
+                        // Nối dữ liệu vào đúng vị trí cuối cùng đã nạp từ API
                         rows.splice(start, resData.docs.length, ...resData.docs);
                         this.rows = rows;
+                        this.apiFetchedCount += resData.docs.length;
 
                         // Lưu bookmark từ server để dùng cho request tiếp theo
                         this.currentBookmark = resData.bookmark;
@@ -325,6 +331,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         this.rows = [];
         this.rows = [...this.rows]; // force empty array update for datatable
         this.currentBookmark = null; // BẮT BUỘC: Bookmark cũ không dùng được cho tập UUIDs mới
+        this.apiFetchedCount = 0;
         this.cachePageSize = 0;
         this.cache = {};
         this.cd.markForCheck();
@@ -456,25 +463,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
                 this.collection();
 
-                this._crawlService.searchTotalArchive({
-                    username: this.user.name,
-                    keyword: '',
-                    uuids: this.uuids,
-                    page: this.page,
-                })
-                    .pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe({
-                        next: (res: any) => {
-                            if (!this.keyword && this.uuids.length === 0) {
-                                let total = res?.data?.total;
-                                if (total === undefined) total = res?.data?.data?.total;
-                                if (total !== undefined) {
-                                    this.totalElements = total;
-                                    this.cd.markForCheck();
-                                }
-                            }
-                        }
-                    });
+                // searchTotalArchive moved to ngOnInit to prioritize localStorage
             });
 
         // Subscribe to config changes
@@ -503,6 +492,28 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             }
         } else {
             this.totalElements = 0;
+        }
+
+        if (!this.totalElements) {
+            this._crawlService.searchTotalArchive({
+                username: this.user.name,
+                keyword: '',
+                uuids: this.uuids,
+                page: this.page,
+            })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res: any) => {
+                        if (!this.keyword && this.uuids.length === 0) {
+                            let total = res?.data?.total;
+                            if (total === undefined) total = res?.data?.data?.total;
+                            if (total !== undefined) {
+                                this.totalElements = total;
+                                this.cd.markForCheck();
+                            }
+                        }
+                    }
+                });
         }
     }
 

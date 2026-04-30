@@ -226,7 +226,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
                         const rows = [...this.rows];
 
                         // Insert new rows into correct position
-                        rows.splice(start, this.page.size, ...result.items);
+                        rows.splice(start, result.items.length, ...result.items);
 
                         // Set rows to our new rows for display
                         this.rows = rows;
