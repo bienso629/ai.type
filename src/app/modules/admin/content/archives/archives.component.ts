@@ -162,36 +162,40 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 page: this.page,
             };
 
-            if (this.keyword) {
-                this._crawlService.searchTotalArchive(query)
-                    .pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe({
-                        next: (result: any) => {
-                            // Lấy total từ lớp bọc hệ thống
-                            const total = result.data?.total || result.data?.data?.total || 0;
+            this._crawlService.searchTotalArchive(query)
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (result: any) => {
+                        // Lấy total từ lớp bọc hệ thống
+                        let total = result?.data?.total;
+                        if (total === undefined) total = result?.data?.data?.total;
+
+                        if (total !== undefined) {
                             this.totalElements = total;
-
-                            if (this.totalElements > 0) {
-                                this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
+                        } else {
+                            // Mặc định từ statistics (khi xóa keyword)
+                            let temp = localStorage.getItem('statistics');
+                            if (temp && temp !== 'undefined') {
+                                try {
+                                    const stats = JSON.parse(temp);
+                                    this.totalElements = stats['archives'] || 0;
+                                } catch (e) {
+                                    this.totalElements = 0;
+                                }
+                            } else {
+                                this.totalElements = 0;
                             }
-                        },
-                        complete: () => {
-                            this.table.recalculatePages();
-                            this.cd.markForCheck();
                         }
-                    });
-            } else {
-                // Mặc định từ statistics (khi xóa keyword)
-                let temp = localStorage.getItem('statistics');
-                if (temp && temp !== 'undefined') {
-                    const stats = JSON.parse(temp);
-                    this.totalElements = stats['archives'] || 0;
-                }
 
-                if (this.totalElements > 0) {
-                    this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
-                }
-            }
+                        if (this.totalElements > 0) {
+                            this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
+                        }
+                    },
+                    complete: () => {
+                        if (this.table) this.table.recalculatePages();
+                        this.cd.markForCheck();
+                    }
+                });
         }
     }
 
@@ -211,20 +215,25 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             totalPages: 0,
         };
 
-        if (this.cachePageSize !== this.page.size) {
-            this.cachePageSize = this.page.size;
-            this.cache = {};
+        // Ngăn chặn việc gọi API khi scroll lên (nếu dữ liệu tại vị trí này đã được nạp)
+        if (this.rows && this.rows[rowOffset]) {
+            return;
         }
         if (this.cache[this.page.pageNumber]) return;
         this.cache[this.page.pageNumber] = true;
         this.isLoading = true;
         this.cd.markForCheck();
 
+        const payloadPage = {
+            ...this.page,
+            size: 25 // Fix cứng size để CouchDB không báo lỗi Invalid Bookmark
+        };
+
         this._crawlService.archive({
             username: this.user.name,
             keyword: this.keyword,
             uuids: this.uuids,
-            page: this.page,
+            page: payloadPage,
             bookmark: this.currentBookmark, // Sử dụng bookmark
         })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -233,19 +242,47 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                     // Bóc tách theo cấu trúc middleware trả về: result.data.docs
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
-                        if (!this.rows || this.rows.length === 0) {
+                        if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
                         const start = this.page.pageNumber * this.page.size;
+                        
+                        let newTotal = this.totalElements || 0;
+                        if (resData.docs.length < this.page.size) {
+                            newTotal = start + resData.docs.length;
+                        } else if (start + resData.docs.length > newTotal) {
+                            newTotal = start + resData.docs.length;
+                        }
+
+                        if (this.totalElements !== newTotal) {
+                            this.totalElements = newTotal;
+                        }
+
+                        if (!this.rows || this.rows.length !== this.totalElements) {
+                            const oldRows = this.rows || [];
+                            this.rows = new Array<any>(this.totalElements);
+                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                this.rows[i] = oldRows[i];
+                            }
+                        }
+
                         const rows = [...this.rows];
 
                         // GIỮ NGUYÊN LOGIC GỐC CỦA BẠN: Splice vào vị trí start
-                        rows.splice(start, this.page.size, ...resData.docs);
+                        rows.splice(start, resData.docs.length, ...resData.docs);
                         this.rows = rows;
 
                         // Lưu bookmark từ server để dùng cho request tiếp theo
                         this.currentBookmark = resData.bookmark;
+                    } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                        // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
+                        this.currentBookmark = resData.bookmark;
+                        this.isLoading = false;
+                        delete this.cache[this.page.pageNumber];
+                        this.cd.detectChanges();
+                        this.setPage(pageInfo);
+                        return;
                     } else if (!resData || !resData.success === false) {
                         // Nếu không lấy được dữ liệu do lỗi, gỡ cache để lần cuộn sau có thể gọi tiếp
                         delete this.cache[this.page.pageNumber];
@@ -408,14 +445,36 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 }
 
                 if (localStorage.following_users) {
-                    this.following_users = JSON.parse(
-                        localStorage.following_users,
-                    );
+                    try {
+                        this.following_users = JSON.parse(localStorage.following_users);
+                    } catch (e) {
+                        this.following_users = [];
+                    }
                 } else {
                     this.following();
                 }
 
                 this.collection();
+
+                this._crawlService.searchTotalArchive({
+                    username: this.user.name,
+                    keyword: '',
+                    uuids: this.uuids,
+                    page: this.page,
+                })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: (res: any) => {
+                            if (!this.keyword && this.uuids.length === 0) {
+                                let total = res?.data?.total;
+                                if (total === undefined) total = res?.data?.data?.total;
+                                if (total !== undefined) {
+                                    this.totalElements = total;
+                                    this.cd.markForCheck();
+                                }
+                            }
+                        }
+                    });
             });
 
         // Subscribe to config changes
@@ -435,9 +494,15 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         let temp = localStorage.getItem('statistics');
-        if (temp && temp != 'undefined') {
-            temp = JSON.parse(temp);
-            this.totalElements = temp['archives'];
+        if (temp && temp !== 'undefined') {
+            try {
+                let parsed = JSON.parse(temp);
+                this.totalElements = parsed['archives'] || 0;
+            } catch (e) {
+                this.totalElements = 0;
+            }
+        } else {
+            this.totalElements = 0;
         }
     }
 
