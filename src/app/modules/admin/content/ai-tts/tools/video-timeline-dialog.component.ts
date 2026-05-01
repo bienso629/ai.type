@@ -32,6 +32,8 @@ import { AudioGenerationComponent } from './audio-generation.component';
 import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { CharacterDialogComponent } from './character-dialog.component';
+import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -244,92 +246,51 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
     }
 
-    openCharacterDialog(char?: any, index: number = -1) {
-        this.editingCharIndex = index;
-
-        if (char) {
-            this.editingChar = { ...char };
-        } else {
-            this.editingChar = { name: '', role: '', appearance: '', personality: '', prompt: '' };
-        }
-
-        this.characterDialogRef = this.dialog.open(this.characterDialogTemplate, {
-            width: '500px',
-            height: 'auto',
+    openCharacterDialog(char: any = null, index: number = -1) {
+        const dialogRef = this.dialog.open(CharacterDialogComponent, {
+            width: '600px',
+            maxWidth: '95vw',
             disableClose: true,
-            panelClass: 'p-0'
+            data: { char: char, index: index }
         });
-    }
 
-    saveCharacter() {
-        if (!this.projectData.characters) {
-            this.projectData.characters = [];
-        }
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                if (!this.projectData) this.projectData = {};
+                if (!this.projectData.characters) this.projectData.characters = [];
 
-        if (this.editingCharIndex >= 0) {
-            this.projectData.characters[this.editingCharIndex] = { ...this.editingChar };
-            this.toastr.success('Đã cập nhật nhân vật!');
-        } else {
-            this.projectData.characters.push({ ...this.editingChar });
-            this.toastr.success('Đã thêm nhân vật mới!');
-        }
+                if (index >= 0) {
+                    this.projectData.characters[index] = result;
+                } else {
+                    this.projectData.characters.push(result);
+                }
 
-        this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
-        this.saveData();
-        if (this.characterDialogRef) {
-            this.characterDialogRef.close();
-            this.characterDialogRef = null;
-        }
+                this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+                this.saveData();
+
+                this.toastr.success(index >= 0 ? 'Đã cập nhật nhân vật' : 'Đã thêm nhân vật mới');
+            }
+        });
     }
 
     openEditScenePromptDialog(scene: any, index: number) {
-        this.editingSceneIndex = index;
-        this.editingScenePrompt = { ...scene };
-        this.editSceneDialogRef = this.dialog.open(this.editScenePromptTemplate, {
-            width: '600px',
-            height: 'auto',
+        const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
+            width: '700px',
+            maxWidth: '95vw',
             disableClose: true,
-            panelClass: 'p-0'
+            data: { scene: scene, index: index, characters: this.projectData?.characters || [] }
         });
-    }
 
-    addCharToScenePrompt(char: any) {
-        const charDesc = char.appearance || char.prompt;
-        if (!charDesc) {
-            this.toastr.warning('Nhân vật này chưa có thông tin ngoại hình.');
-            return;
-        }
-        if (!this.editingScenePrompt) return;
-
-        const currentPrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
-        const textToInsert = `${char.name || char.role}: ${charDesc}`;
-
-        if (currentPrompt) {
-            if (currentPrompt.includes(charDesc) || currentPrompt.includes(textToInsert)) {
-                this.toastr.info('Nhân vật này đã có trong phân cảnh rồi.');
-                return;
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                if (!this.projectData || !this.projectData.scenes) return;
+                if (index >= 0 && index < this.projectData.scenes.length) {
+                    this.projectData.scenes[index] = result;
+                    this.saveData();
+                    this.toastr.success('Đã lưu Prompt phân cảnh!');
+                }
             }
-
-            // Tìm vị trí của các directive hệ thống để chèn prompt nhân vật lên trước nó
-            let insertIndex = currentPrompt.length;
-            const constraintsMatch = currentPrompt.match(/\n*(\(Constraints:|\[BẮT BUỘC:)/i);
-            if (constraintsMatch && constraintsMatch.index !== undefined) {
-                insertIndex = constraintsMatch.index;
-            }
-
-            if (insertIndex < currentPrompt.length) {
-                const firstPart = currentPrompt.substring(0, insertIndex).trim();
-                const lastPart = currentPrompt.substring(insertIndex).trim();
-                const separator = firstPart.endsWith('.') ? '\n\n' : '.\n\n';
-                this.editingScenePrompt.prompt = firstPart + separator + textToInsert + '\n\n' + lastPart;
-            } else {
-                const separator = currentPrompt.endsWith('.') ? '\n' : '.\n';
-                this.editingScenePrompt.prompt = currentPrompt + separator + textToInsert;
-            }
-        } else {
-            this.editingScenePrompt.prompt = textToInsert;
-        }
-        this.toastr.success(`Đã chèn tạo hình "${char.name || char.role}" vào phân cảnh!`);
+        });
     }
 
     toggleEditMasterPrompt() {
@@ -338,18 +299,6 @@ export class VideoTimelineDialogComponent implements OnInit {
             this.toastr.success('Đã lưu Master Prompt!');
         }
         this.isEditingMasterPrompt = !this.isEditingMasterPrompt;
-    }
-
-    saveScenePrompt() {
-        if (this.editingSceneIndex >= 0) {
-            this.projectData.scenes[this.editingSceneIndex].prompt = this.editingScenePrompt.prompt;
-            this.saveData();
-            this.toastr.success('Đã cập nhật Prompt phân cảnh!');
-        }
-        if (this.editSceneDialogRef) {
-            this.editSceneDialogRef.close();
-            this.editSceneDialogRef = null;
-        }
     }
 
     removeCharacter(index: number) {
@@ -596,18 +545,19 @@ export class VideoTimelineDialogComponent implements OnInit {
             width: '900px',
             maxWidth: '95vw',
             panelClass: 'dark-theme-dialog',
-            data: { prompt: this.projectData?.masterPrompt || '' }
+            data: { prompt: this.projectData?.masterPrompt || '', targetName: 'Apply to Master Prompt' }
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 if (!this.projectData) this.projectData = {};
-                const currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
-                // Append the new director settings to the existing master prompt
+                let currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
+                currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+                
                 if (currentPrompt) {
-                    this.projectData.masterPrompt = currentPrompt + (currentPrompt.endsWith(',') ? ' ' : ', ') + result;
+                    this.projectData.masterPrompt = '[Cinematography: ' + result + ']\n\n' + currentPrompt;
                 } else {
-                    this.projectData.masterPrompt = result;
+                    this.projectData.masterPrompt = '[Cinematography: ' + result + ']';
                 }
                 this.saveData();
                 this.toastr.success('Đã áp dụng các thông số Director Mode vào Master Prompt!');

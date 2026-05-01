@@ -1,0 +1,50 @@
+<div class="bg-white rounded-lg flex flex-col">
+    <h2 class="text-xl font-bold p-0 text-slate-800 m-0">
+        Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
+    </h2>
+
+    <mat-dialog-content class="flex flex-col gap-4 p-0 py-4">
+        @if (characters && characters.length > 0) {
+        <div class="flex flex-col gap-2">
+            <span class="text-sm font-semibold text-indigo-800 flex items-center">
+                <mat-icon class="icon-size-4 mr-2">group_add</mat-icon> Đưa nhân vật vào phân cảnh:
+            </span>
+            <div class="flex flex-wrap gap-2">
+                @for (char of characters; track char) {
+                <button mat-stroked-button
+                    class="bg-green-500 border-0 hover:border-0 px-3 py-0 h-8 min-h-8 rounded-full text-white rounded-full"
+                    (click)="addCharToScenePrompt(char)">
+                    <mat-icon class="icon-size-4 text-white">add</mat-icon>
+                    <span class="ml-2 text-white">{{ char.name || char.role }}</span>
+                </button>
+                }
+            </div>
+        </div>
+        }
+
+        <div class="flex justify-end mb-[-16px] z-10 relative px-1">
+            <button mat-stroked-button
+                class="text-indigo-600 bg-white border-0 hover:border-0 hover:bg-indigo-50 px-3 py-0 h-8 min-h-8 rounded-full"
+                (click)="openDirectorModeForScene()">
+                <mat-icon class="icon-size-4">movie_creation</mat-icon>
+                <span class="ml-2">Director Mode</span>
+            </button>
+        </div>
+
+        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix w-full"
+            [subscriptSizing]="'dynamic'">
+            <mat-label>Prompt Chi Tiết</mat-label>
+            <textarea matInput class="px-2" [(ngModel)]="editingScenePrompt.prompt"
+                placeholder="Mô tả hành động, bối cảnh..." rows="8" cdkTextareaAutosize></textarea>
+            <mat-hint>Bấm vào các nhân vật ở trên để chèn tạo hình vào cảnh, sau đó bạn có thể sửa
+                đổi trang phục hoặc hành động tùy ý.</mat-hint>
+        </mat-form-field>
+    </mat-dialog-content>
+
+    <mat-dialog-actions align="end" class="pt-4 px-0 gap-1">
+        <button mat-flat-button color="accent" mat-dialog-close>Hủy</button>
+        <button mat-flat-button color="primary" (click)="save()">
+            Lưu thông tin
+        </button>
+    </mat-dialog-actions>
+</div>

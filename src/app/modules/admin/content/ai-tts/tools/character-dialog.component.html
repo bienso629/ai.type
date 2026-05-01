@@ -1,0 +1,49 @@
+<div class="bg-white rounded-lg flex flex-col">
+    <h2 class="text-xl font-bold p-0 text-slate-800 m-0">
+        {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
+    </h2>
+
+    <mat-dialog-content class="flex flex-col gap-2 p-0 py-4">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                <mat-label>Tên nhân vật</mat-label>
+                <input matInput [(ngModel)]="editingChar.name" placeholder="VD: Naruto" />
+            </mat-form-field>
+
+            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                <mat-label>Vai trò</mat-label>
+                <input matInput [(ngModel)]="editingChar.role" placeholder="VD: Nhân vật chính" />
+            </mat-form-field>
+        </div>
+
+        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'">
+            <mat-label>Ngoại hình</mat-label>
+            <textarea matInput class="px-2" [(ngModel)]="editingChar.appearance"
+                placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize></textarea>
+        </mat-form-field>
+
+        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'">
+            <mat-label>Tính cách</mat-label>
+            <textarea matInput class="px-2" [(ngModel)]="editingChar.personality"
+                placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize></textarea>
+        </mat-form-field>
+
+        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+            [subscriptSizing]="'dynamic'">
+            <mat-label>Prompt Tạo hình (Tiếng Anh)</mat-label>
+            <textarea matInput class="px-2" [(ngModel)]="editingChar.prompt"
+                placeholder="A boy with blonde hair..." cdkTextareaAutosize></textarea>
+            <mat-hint>Mô tả tiếng Anh chuẩn để dùng cho Midjourney/Stable Diffusion</mat-hint>
+        </mat-form-field>
+    </mat-dialog-content>
+
+    <mat-dialog-actions align="end" class="pt-4 px-0 gap-1">
+        <button mat-button mat-dialog-close>Hủy</button>
+        <button mat-flat-button color="primary" [disabled]="!editingChar.name && !editingChar.role"
+            (click)="save()">
+            Lưu thông tin
+        </button>
+    </mat-dialog-actions>
+</div>
