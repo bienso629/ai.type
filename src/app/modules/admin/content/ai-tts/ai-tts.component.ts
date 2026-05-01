@@ -81,6 +81,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
     currentUuid: string | null = null;
     currentName: string | null = null;
+    originalArchiveData: any = null; // [MỚI] Lưu lại toàn bộ dữ liệu gốc từ Server
 
     voiceList = [
         { id: 'vi-VN-NamMinhNeural', name: 'Nam Minh' },
@@ -1418,6 +1419,75 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    editClip(clip: any) {
+        clip.tempDescription = clip.description;
+        clip.isEditing = true;
+    }
+
+    saveClipEdit(clip: any) {
+        if (!clip.tempDescription || clip.tempDescription.trim() === '') {
+            this.toastr.warning('Nội dung không được để trống');
+            return;
+        }
+        clip.description = clip.tempDescription.trim();
+        // Cập nhật lại clip.name để hiển thị bản tóm tắt
+        clip.name = clip.description.length > 50 ? clip.description.substring(0, 50) + '...' : clip.description;
+        clip.isEditing = false;
+        
+        // Cập nhật subtitle trong videoProject nếu có liên kết
+        if (this.videoProject && this.videoProject.scenes) {
+            for (let scene of this.videoProject.scenes) {
+                if (scene.subtitles) {
+                    let sub = scene.subtitles.find((s: any) => s.id === clip.id);
+                    if (sub) {
+                        sub.text = clip.description;
+                    }
+                }
+            }
+        }
+        
+        this.saveToLocal();
+        this.update(); // Đồng bộ thay đổi lên Server!
+        this.cd.markForCheck();
+        this.toastr.success('Đã lưu thay đổi');
+    }
+
+    cancelClipEdit(clip: any) {
+        clip.isEditing = false;
+    }
+
+    /**
+     * Sửa archive đồng bộ lên Server
+     */
+    update(confirm: boolean = false) {
+        if (!this.uuid) return;
+
+        // Nếu có bản gốc (được nạp từ Server bằng hàm detail) thì lấy làm cơ sở
+        let data = this.originalArchiveData ? { ...this.originalArchiveData } : {
+            uuid: this.uuid,
+            title: this.projectTitle
+        };
+
+        // Ghi đè các trường quan trọng
+        data.done = this.audioList.map(clip => `<p>${clip.description}</p>`);
+        data.confirm = confirm;
+        data.username = this.user?.name;
+
+        this._crawlService
+            .archiveUpdate(data)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                error: (err) => {
+                    console.error('Lỗi khi đồng bộ lên Server', err);
+                },
+                complete: () => {
+                    // Không cần thông báo thành công ở đây vì saveClipEdit đã thông báo rồi
+                    // Để phòng hờ có thể thêm 1 thông báo nhỏ:
+                    // this.toastr.info('Đã đồng bộ nội dung lên Server');
+                }
+            });
+    }
+
     downloadClip(clip: AudioClip) {
         if (!clip.rawUrl) return;
         const link = document.createElement('a');
@@ -1573,6 +1643,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         // Lưu lại danh sách cũ để đối chiếu
                         const oldAudioList = this.audioList || [];
+                        
+                        // Lưu lại bản gốc từ server để có thể update() lên lại
+                        this.originalArchiveData = JSON.parse(JSON.stringify(result.data));
 
                         this.audioList = result.data.done.map(
                             (htmlItem: any, index: number) => {
