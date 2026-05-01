@@ -271,6 +271,20 @@ export class VideoTimelineDialogComponent implements OnInit {
         });
     }
 
+    duplicateCharacter(char: any) {
+        if (!this.projectData) this.projectData = {};
+        if (!this.projectData.characters) this.projectData.characters = [];
+        
+        const newChar = { ...char };
+        newChar.variant = newChar.variant ? `${newChar.variant} (Copy)` : 'Phiên bản mới';
+        
+        this.projectData.characters.push(newChar);
+        this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+        this.saveData();
+        
+        this.toastr.success(`Đã nhân bản nhân vật: ${char.name || char.role}`);
+    }
+
     openEditScenePromptDialog(scene: any, index: number) {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             width: '700px',

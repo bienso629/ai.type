@@ -4,10 +4,15 @@
     </h2>
 
     <mat-dialog-content class="flex flex-col gap-2 p-0 py-4">
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2">
             <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
                 <mat-label>Tên nhân vật</mat-label>
                 <input matInput [(ngModel)]="editingChar.name" placeholder="VD: Naruto" />
+            </mat-form-field>
+
+            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                <mat-label>Phiên bản (Tuỳ chọn)</mat-label>
+                <input matInput [(ngModel)]="editingChar.variant" placeholder="VD: Đồ công sở, Lúc tức giận..." />
             </mat-form-field>
 
             <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">

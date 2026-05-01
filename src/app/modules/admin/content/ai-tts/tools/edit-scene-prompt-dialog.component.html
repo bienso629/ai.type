@@ -15,7 +15,8 @@
                     class="bg-green-500 border-0 hover:border-0 px-3 py-0 h-8 min-h-8 rounded-full text-white rounded-full"
                     (click)="addCharToScenePrompt(char)">
                     <mat-icon class="icon-size-4 text-white">add</mat-icon>
-                    <span class="ml-2 text-white">{{ char.name || char.role }}</span>
+                    <span class="ml-2 text-white">{{ char.name || char.role }}{{ char.variant ? ' (' + char.variant +
+                        ')' : '' }}</span>
                 </button>
                 }
             </div>
@@ -26,7 +27,7 @@
             <button mat-stroked-button
                 class="text-indigo-600 bg-white border-0 hover:border-0 hover:bg-indigo-200 px-3 py-0 h-8 min-h-8 rounded-full"
                 (click)="openDirectorModeForScene()">
-                <mat-icon class="icon-size-4 text-indigo">movie_creation</mat-icon>
+                <mat-icon class="icon-size-4 text-indigo-600">movie_creation</mat-icon>
                 <span class="ml-2">Director Mode</span>
             </button>
         </div>

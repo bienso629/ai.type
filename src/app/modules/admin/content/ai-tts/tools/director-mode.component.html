@@ -4,7 +4,7 @@
         <div class="flex items-center gap-2">
             <mat-icon class="text-indigo-600 text-3xl">movie_creation</mat-icon>
             <div>
-                <h2 class="text-gray-900 text-xl font-bold m-0 flex items-center gap-2">
+                <h2 class="flex gap-2 text-indigo-600 text-xl font-bold m-0 items-center">
                     Director mode
                     <span class="text-gray-500 font-normal text-sm">Create like a professional</span>
                 </h2>
@@ -181,6 +181,7 @@
     <!-- Footer Actions -->
     <div class="px-0 mt-4 flex justify-end gap-2">
         <button mat-button class="text-gray-600" (click)="dialogRef.close()">Cancel</button>
-        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName || 'Apply to Master Prompt' }}</button>
+        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName || 'Apply to
+            Master Prompt' }}</button>
     </div>
 </div>
