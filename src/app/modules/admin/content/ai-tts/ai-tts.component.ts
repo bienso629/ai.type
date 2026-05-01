@@ -1018,7 +1018,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             3. CHIA PHÂN CẢNH: Gom nhóm các câu thoại.
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
-            - 👤 BẢO TOÀN NHÂN VẬT: Trong "prompt" từng scene, khi nhân vật xuất hiện, BẮT BUỘC PHẢI CHÈN LẠI mô tả ngoại hình đặc trưng của họ.
+            - 👤 TỐI ƯU NHÂN VẬT: Trong "prompt" từng scene, TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật. Chỉ cần gọi TÊN hoặc VAI TRÒ (VD: "Người cha", "Cô gái"). Việc tạo hình sẽ do hệ thống quản lý ở phần Characters riêng.
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
@@ -1187,9 +1187,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
 
         this.dialog.open(VideoTimelineDialogComponent, {
-            width: '95%', // Lấy 95% chiều rộng của left-pane (được giới hạn bởi overlay container)
-            maxHeight: '95vh', // Tăng thêm một chút chiều cao 
-            height: 'auto', // Tự động co giãn theo nội dung
+            width: '100vw',
+            height: '100vh',
+            maxWidth: '100vw',
+            maxHeight: '100vh',
             data: data, // Truyền dữ liệu trực tiếp vào dialog
             panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần
             autoFocus: false, // Tránh việc tự động nhảy focus làm cuộn timeline lung tung
