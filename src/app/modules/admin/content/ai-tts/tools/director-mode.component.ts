@@ -169,12 +169,12 @@ export class DirectorModeComponent implements OnInit {
         if (this.selections.lighting) parts.push(this.selections.lighting);
         
         if (this.selections.filmStockType) {
-            if (this.selections.filmStockColor !== 'Full color') {
+            if (this.selections.filmStockColor) {
                 parts.push(`${this.selections.filmStockColor} ${this.selections.filmStockType}`);
             } else {
                 parts.push(this.selections.filmStockType);
             }
-        } else if (this.selections.filmStockColor !== 'Full color') {
+        } else if (this.selections.filmStockColor) {
             parts.push(this.selections.filmStockColor);
         }
         

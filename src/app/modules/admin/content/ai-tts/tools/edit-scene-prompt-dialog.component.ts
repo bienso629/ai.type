@@ -19,6 +19,7 @@ export class EditScenePromptDialogComponent {
     editingScenePrompt: any;
     editingSceneIndex: number;
     characters: any[] = [];
+    masterPrompt: string = '';
 
     constructor(
         public dialogRef: MatDialogRef<EditScenePromptDialogComponent>,
@@ -29,6 +30,21 @@ export class EditScenePromptDialogComponent {
         this.editingSceneIndex = data.index;
         this.editingScenePrompt = { ...data.scene };
         this.characters = data.characters || [];
+        this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
+
+        if (this.masterPrompt) {
+            const hasCinematography = this.editingScenePrompt.prompt.includes('[Cinematography:');
+            const coreMaster = this.masterPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').trim();
+            const hasCoreMaster = coreMaster ? this.editingScenePrompt.prompt.includes(coreMaster) : false;
+
+            if (!hasCinematography && !hasCoreMaster) {
+                if (this.editingScenePrompt.prompt && this.editingScenePrompt.prompt.trim() !== '') {
+                    this.editingScenePrompt.prompt = this.masterPrompt + '\n\n' + this.editingScenePrompt.prompt;
+                } else {
+                    this.editingScenePrompt.prompt = this.masterPrompt;
+                }
+            }
+        }
     }
 
     addCharToScenePrompt(char: any) {

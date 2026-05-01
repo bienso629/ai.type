@@ -201,10 +201,8 @@ export class VideoTimelineDialogComponent implements OnInit {
         // 1. Lấy Master Prompt từ dữ liệu tổng của Project
         const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
-        // 2. Nối chuỗi: Master Prompt + [Xuống dòng] + Chi tiết phân cảnh
-        const finalPrompt = master
-            ? `${master}\n\n[CHI TIẾT HÀNH ĐỘNG PHÂN CẢNH NÀY]:\n${scene.prompt}`
-            : scene.prompt;
+        // 2. Không tự động nối Master Prompt nữa, dùng nguyên văn Scene Prompt
+        const finalPrompt = scene.prompt;
 
         // 3. Copy vào Clipboard
         this.clipboard.copy(finalPrompt);
@@ -278,7 +276,7 @@ export class VideoTimelineDialogComponent implements OnInit {
             width: '700px',
             maxWidth: '95vw',
             disableClose: true,
-            data: { scene: scene, index: index, characters: this.projectData?.characters || [] }
+            data: { scene: scene, index: index, characters: this.projectData?.characters || [], masterPrompt: this.projectData?.masterPrompt || '' }
         });
 
         dialogRef.afterClosed().subscribe(result => {
