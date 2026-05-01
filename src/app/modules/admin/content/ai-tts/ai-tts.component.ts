@@ -1019,6 +1019,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: Trong "prompt" từng scene, TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật. Chỉ cần gọi TÊN hoặc VAI TRÒ (VD: "Người cha", "Cô gái"). Việc tạo hình sẽ do hệ thống quản lý ở phần Characters riêng.
+            - 🎨 TỐI ƯU PHONG CÁCH: TUYỆT ĐỐI KHÔNG lặp lại phong cách nghệ thuật (art style) trong prompt của từng scene. Scene prompt CHỈ tập trung mô tả hành động, biểu cảm, và không gian bối cảnh.
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
