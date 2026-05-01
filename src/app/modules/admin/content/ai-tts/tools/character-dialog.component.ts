@@ -21,7 +21,7 @@ export class CharacterDialogComponent {
         @Inject(MAT_DIALOG_DATA) public data: any
     ) {
         this.isEditMode = data.index >= 0;
-        this.editingChar = data.char ? { ...data.char } : { name: '', role: '', appearance: '', personality: '', prompt: '' };
+        this.editingChar = data.char ? { ...data.char } : { name: '', variant: '', role: '', appearance: '', personality: '', prompt: '' };
     }
 
     save() {
