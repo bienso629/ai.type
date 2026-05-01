@@ -969,7 +969,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (isVideo) {
             // LUẬT KHẮT KHE CHO VIDEO (Để AI render không bị lỗi)
             timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
-            masterPromptDurationLimit = `\n               👉 BẮT BUỘC: Ở cuối Master Prompt ghi: "Tổng thời lượng tác phẩm: ${durationString}."`;
 
             maxDurationRule = `
             - GIỚI HẠN THỜI GIAN: Tối đa 8 GIÂY cho mỗi Phân cảnh.
