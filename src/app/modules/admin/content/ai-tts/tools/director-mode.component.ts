@@ -102,7 +102,53 @@ export class DirectorModeComponent implements OnInit {
     ) {
         // Init with existing prompt if any
         if (data && data.prompt) {
-            // Very simple parsing logic can go here if needed, but usually it's just building it
+            const match = data.prompt.match(/\[(?:Director|Cinematography):\s*(.*?)\]/);
+            if (match && match[1]) {
+                const parts = match[1].split(',').map((p: string) => p.trim());
+                parts.forEach((part: string) => {
+                    if (this.categories.timeOfDay.includes(part)) this.selections.timeOfDay = part;
+                    else if (this.categories.lighting.includes(part)) this.selections.lighting = part;
+                    else if (this.categories.focusDepth.includes(part)) this.selections.focusDepth = part;
+                    else if (this.categories.composition.includes(part)) this.selections.composition = part;
+                    else if (this.categories.shotSize.includes(part)) this.selections.shotSize = part;
+                    else if (this.categories.lenses.includes(part)) this.selections.lenses = part;
+                    else if (part === 'Static camera') {
+                        this.selections.movementType = 'Static';
+                    }
+                    else {
+                        let foundMovement = false;
+                        for (const type of this.categories.movementType) {
+                            if (part.includes(` ${type} with `)) {
+                                this.selections.movementType = type;
+                                const mParts = part.split(` ${type} with `);
+                                this.selections.movementSpeed = mParts[0];
+                                this.selections.movementEasing = mParts[1];
+                                foundMovement = true;
+                                break;
+                            }
+                        }
+                        if (foundMovement) return;
+
+                        let foundFilmStock = false;
+                        for (const type of this.categories.filmStockType) {
+                            if (part.endsWith(type)) {
+                                this.selections.filmStockType = type;
+                                const colorStr = part.replace(` ${type}`, '').trim();
+                                if (colorStr) {
+                                    this.selections.filmStockColor = colorStr;
+                                }
+                                foundFilmStock = true;
+                                break;
+                            }
+                        }
+                        if (!foundFilmStock) {
+                            if (part === 'Black & White' || part === 'Full color') {
+                                this.selections.filmStockColor = part;
+                            }
+                        }
+                    }
+                });
+            }
         }
     }
 
@@ -123,7 +169,13 @@ export class DirectorModeComponent implements OnInit {
         if (this.selections.lighting) parts.push(this.selections.lighting);
         
         if (this.selections.filmStockType) {
-            parts.push(`${this.selections.filmStockColor} ${this.selections.filmStockType}`);
+            if (this.selections.filmStockColor !== 'Full color') {
+                parts.push(`${this.selections.filmStockColor} ${this.selections.filmStockType}`);
+            } else {
+                parts.push(this.selections.filmStockType);
+            }
+        } else if (this.selections.filmStockColor !== 'Full color') {
+            parts.push(this.selections.filmStockColor);
         }
         
         if (this.selections.focusDepth) parts.push(this.selections.focusDepth);
