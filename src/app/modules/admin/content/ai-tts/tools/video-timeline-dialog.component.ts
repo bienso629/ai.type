@@ -61,13 +61,22 @@ export class VideoTimelineDialogComponent implements OnInit {
     // Lưu lại Scene hiện tại đang được xử lý (khi bấm Prompt)
     activeDownloadScene: any = null;
 
+    isEditingMasterPrompt: boolean = false;
+
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
+    @ViewChild('editScenePromptTemplate') editScenePromptTemplate!: any;
 
     projectData: any;
+    
+    editingScenePrompt: any = null;
+    editingSceneIndex: number = -1;
 
     @ViewChild('characterDialogTemplate') characterDialogTemplate!: any;
     editingChar: any = {};
     editingCharIndex: number = -1;
+    private characterDialogRef: any = null;
+    private editSceneDialogRef: any = null;
+    
     private isMouseDown = false;
     private startX = 0;
     private scrollLeftStart = 0;
@@ -212,6 +221,29 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.toastr.success(`Đã copy prompt của nhân vật: ${char.name || char.role}`, 'Thành công');
     }
 
+    addCharacterToMasterPrompt(char: any) {
+        if (!char.prompt) {
+            this.toastr.warning('Nhân vật này chưa có câu prompt tạo hình.');
+            return;
+        }
+
+        if (!this.projectData) this.projectData = {};
+        const currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
+        
+        if (currentPrompt) {
+            if (currentPrompt.includes(char.prompt)) {
+                 this.toastr.info('Nhân vật này đã có trong Master Prompt rồi.');
+                 return;
+            }
+            this.projectData.masterPrompt = currentPrompt + (currentPrompt.endsWith(',') || currentPrompt.endsWith('.') ? ' ' : '. ') + char.prompt;
+        } else {
+            this.projectData.masterPrompt = char.prompt;
+        }
+        
+        this.saveData();
+        this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
+    }
+
     openCharacterDialog(char?: any, index: number = -1) {
         this.editingCharIndex = index;
 
@@ -221,7 +253,7 @@ export class VideoTimelineDialogComponent implements OnInit {
             this.editingChar = { name: '', role: '', appearance: '', personality: '', prompt: '' };
         }
 
-        this.dialog.open(this.characterDialogTemplate, {
+        this.characterDialogRef = this.dialog.open(this.characterDialogTemplate, {
             width: '500px',
             height: 'auto',
             disableClose: true,
@@ -244,7 +276,80 @@ export class VideoTimelineDialogComponent implements OnInit {
 
         this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
         this.saveData();
-        this.dialog.closeAll();
+        if (this.characterDialogRef) {
+            this.characterDialogRef.close();
+            this.characterDialogRef = null;
+        }
+    }
+
+    openEditScenePromptDialog(scene: any, index: number) {
+        this.editingSceneIndex = index;
+        this.editingScenePrompt = { ...scene };
+        this.editSceneDialogRef = this.dialog.open(this.editScenePromptTemplate, {
+            width: '600px',
+            height: 'auto',
+            disableClose: true,
+            panelClass: 'p-0'
+        });
+    }
+
+    addCharToScenePrompt(char: any) {
+        const charDesc = char.appearance || char.prompt;
+        if (!charDesc) {
+            this.toastr.warning('Nhân vật này chưa có thông tin ngoại hình.');
+            return;
+        }
+        if (!this.editingScenePrompt) return;
+        
+        const currentPrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
+        const textToInsert = `${char.name || char.role}: ${charDesc}`;
+
+        if (currentPrompt) {
+            if (currentPrompt.includes(charDesc) || currentPrompt.includes(textToInsert)) {
+                 this.toastr.info('Nhân vật này đã có trong phân cảnh rồi.');
+                 return;
+            }
+            
+            // Tìm vị trí của các directive hệ thống để chèn prompt nhân vật lên trước nó
+            let insertIndex = currentPrompt.length;
+            const constraintsMatch = currentPrompt.match(/\n*(\(Constraints:|\[BẮT BUỘC:)/i);
+            if (constraintsMatch && constraintsMatch.index !== undefined) {
+                insertIndex = constraintsMatch.index;
+            }
+
+            if (insertIndex < currentPrompt.length) {
+                const firstPart = currentPrompt.substring(0, insertIndex).trim();
+                const lastPart = currentPrompt.substring(insertIndex).trim();
+                const separator = firstPart.endsWith('.') ? '\n\n' : '.\n\n';
+                this.editingScenePrompt.prompt = firstPart + separator + textToInsert + '\n\n' + lastPart;
+            } else {
+                const separator = currentPrompt.endsWith('.') ? '\n' : '.\n';
+                this.editingScenePrompt.prompt = currentPrompt + separator + textToInsert;
+            }
+        } else {
+            this.editingScenePrompt.prompt = textToInsert;
+        }
+        this.toastr.success(`Đã chèn tạo hình "${char.name || char.role}" vào phân cảnh!`);
+    }
+
+    toggleEditMasterPrompt() {
+        if (this.isEditingMasterPrompt) {
+            this.saveData();
+            this.toastr.success('Đã lưu Master Prompt!');
+        }
+        this.isEditingMasterPrompt = !this.isEditingMasterPrompt;
+    }
+
+    saveScenePrompt() {
+        if (this.editingSceneIndex >= 0) {
+            this.projectData.scenes[this.editingSceneIndex].prompt = this.editingScenePrompt.prompt;
+            this.saveData();
+            this.toastr.success('Đã cập nhật Prompt phân cảnh!');
+        }
+        if (this.editSceneDialogRef) {
+            this.editSceneDialogRef.close();
+            this.editSceneDialogRef = null;
+        }
     }
 
     removeCharacter(index: number) {
