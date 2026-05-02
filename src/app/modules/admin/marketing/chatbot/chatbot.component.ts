@@ -286,7 +286,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         });
 
         this.currentMessages = messages;
-        chat.scrollTop = chat.scrollHeight;
+        const chatContainer = document.getElementById('chat-container');
+        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
     appendTyping() {
@@ -313,7 +314,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         wrapper.id = 'typing';
 
         chat.appendChild(wrapper);
-        chat.scrollTop = chat.scrollHeight;
+        const chatContainer = document.getElementById('chat-container');
+        if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight;
     }
 
     removeTyping() {
@@ -499,7 +501,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                             // Dịch Markdown sang HTML và Update thẳng vào Bubble ngay lập tức
                             const html = marked.parse(fullText) as string;
                             bubble.innerHTML = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
-                            chat.scrollTop = chat.scrollHeight; // Cuộn chat xuống
+                            const chatContainer = document.getElementById('chat-container');
+                            if (chatContainer) chatContainer.scrollTop = chatContainer.scrollHeight; // Cuộn chat xuống
 
                             // Khi kết thúc toàn bộ luồng
                             if (data.done) {
