@@ -131,11 +131,6 @@
                                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
                             </mat-form-field>
                         </mat-menu>
-
-                        <a mat-icon-button [href]="downloadJsonHref" download="linkhay.json" [color]="'primary'"
-                            class="ml-1">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
-                        </a>
                     </div>
                 </div>
 
@@ -145,36 +140,13 @@
                         [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
                         [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true"
                         [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
-                        [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows" [selected]="selected"
+                        [footerHeight]="0" [rowHeight]="50" [scrollbarV]="true" [rows]="rows" [selected]="selected"
                         [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
                         [displayCheck]="displayCheck" (select)="onSelect($event)">
 
                         <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false"
                             [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
                             [checkboxable]="true"></ngx-datatable-column>
-
-                        <!-- Column Templates -->
-                        <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                            [resizeable]="false" name="" [width]="60">
-                            <ng-template let-row="row" ngx-datatable-cell-template>
-                                <div *ngIf="row" class="flex items-center justify-self-stretch">
-                                    <mat-label *ngIf="row.options?.status === 200" (click)="recheck(row)"
-                                        class="h-7 leading-7 items-center cursor-pointer text-green-500 rounded-full">
-                                        {{row.options.status}}
-                                    </mat-label>
-
-                                    <mat-label *ngIf="row.options?.status === 500" (click)="recheck(row)"
-                                        class="h-7 leading-7 items-center cursor-pointer text-yellow-400 rounded-full">
-                                        {{row.options.status}}
-                                    </mat-label>
-
-                                    <mat-label *ngIf="row.options?.status === 404" (click)="recheck(row)"
-                                        class="h-7 leading-7 items-center cursor-pointer text-red-500 rounded-full">
-                                        {{row.options.status}}
-                                    </mat-label>
-                                </div>
-                            </ng-template>
-                        </ngx-datatable-column>
 
                         <!-- Column Templates -->
                         <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false"
@@ -223,18 +195,6 @@
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-footer>
-                            <ng-template let-rowCount="rowCount" let-pageSize="pageSize"
-                                let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                                ngx-datatable-footer-template>
-                                <div class="flex w-full place-items-center px-3">
-                                    <span class="text-green-500">{{ statistics.status_200 }} hoạt động,</span>
-                                    <span class="text-red-500 ml-2">{{ statistics.status_404 }} lỗi,</span>
-                                    <span class="text-yellow-400 ml-2">{{ statistics.status_500
-                                        }} không tìm thấy</span>
-                                </div>
-                            </ng-template>
-                        </ngx-datatable-footer>
                     </ngx-datatable>
                 </div>
             </div>
