@@ -2702,7 +2702,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 } else {
                     this.timeLeft = 60;
 
-                    this.storelocal();
+                    // this.storelocal();
                     this.update(false); // tu dong luu tren server luon
                 }
             }, 1000);
@@ -3296,6 +3296,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             this.domain = savedDomain;
         }
 
+        // Lắng nghe sự kiện STT (từ Mic system capture)
+        this.onSttTranscribed = this.onSttTranscribed.bind(this);
+        window.addEventListener('stt-transcribed', this.onSttTranscribed);
+
         const cachedStyles = this.multiAccountService.getItem('styles');
         if (cachedStyles) {
             this.styles = cachedStyles;
@@ -3394,10 +3398,23 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
+    onSttTranscribed(e: any) {
+        const text = e.detail;
+        if (text && this.done) {
+            const htmlToInsert = `<p><strong>[Ghi âm]</strong> ${text.replace(/\n/g, '<br>')}</p>`;
+            this.done.push(htmlToInsert);
+            
+            // Trigger thay đổi giao diện
+            this.cd.detectChanges();
+            this.toastr.success('Đã tự động chèn kết quả ghi âm!');
+        }
+    }
+
     /**
      * On destroy
      */
     ngOnDestroy(): void {
+        window.removeEventListener('stt-transcribed', this.onSttTranscribed);
         clearInterval(this.intervalAutoSave);
 
         this.jobSubscriptions.forEach((sub) => sub.unsubscribe());

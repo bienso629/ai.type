@@ -250,6 +250,143 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             }
             this.cdr.detectChanges();
         });
+
+        // Lắng nghe sự kiện thu âm hệ thống
+        window.addEventListener('start-recording', (e: any) => {
+            this.startRecordingSystemAudio();
+        });
+    }
+
+    isRecordingSystemAudio: boolean = false;
+    mediaRecorder: any = null;
+
+    showMessage(title: string, message: string, iconName: string = 'feather:info', color: string = 'primary') {
+        if (this.dialogRef) this._fuseConfirmationService.close();
+
+        this.dialogRef = this._fuseConfirmationService.open({
+            title: title,
+            message: message,
+            icon: {
+                show: true,
+                name: iconName,
+                color: color as any
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Đóng',
+                    color: 'primary'
+                },
+                cancel: {
+                    show: false,
+                    label: ''
+                }
+            },
+            dismissible: true
+        });
+    }
+
+    async startRecordingSystemAudio() {
+        // Tự động chuyển sang màn hình AI Writer
+        this.router.navigate(['/ai-writer']);
+
+        if (this.isRecordingSystemAudio && this.mediaRecorder) {
+            this.mediaRecorder.stop();
+            this.isRecordingSystemAudio = false;
+            return;
+        }
+
+        try {
+            // Khởi tạo file ghi âm mới trên backend
+            await (window as any).electron.invoke('init-system-audio');
+
+            // Lấy danh sách các màn hình/cửa sổ đang mở
+            const sources = await (window as any).electron.invoke('desktop-capturer-get-sources', { types: ['window', 'screen'] });
+            
+            // Lấy màn hình đầu tiên (thường là màn hình chính)
+            const mainScreen = sources.find((s: any) => s.id.startsWith('screen:'));
+            
+            if (!mainScreen) {
+                console.error('Không tìm thấy màn hình.');
+                return;
+            }
+
+            // Yêu cầu quyền truy cập Audio/Video từ Hệ Điều Hành
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    mandatory: {
+                        chromeMediaSource: 'desktop',
+                        chromeMediaSourceId: mainScreen.id
+                    }
+                } as any,
+                video: {
+                    mandatory: {
+                        chromeMediaSource: 'desktop',
+                        chromeMediaSourceId: mainScreen.id
+                    }
+                } as any // Bắt buộc phải có cả video thì API desktop capture mới nhả audio
+            });
+
+            // Lọc bỏ hình ảnh, chỉ giữ lại kênh âm thanh
+            const audioTrack = stream.getAudioTracks()[0];
+            const audioStream = new MediaStream([audioTrack]);
+
+            // Khởi tạo bộ ghi âm
+            this.mediaRecorder = new MediaRecorder(audioStream, { mimeType: 'audio/webm;codecs=opus' });
+            const audioChunks: Blob[] = [];
+            
+            this.mediaRecorder.ondataavailable = (e: any) => {
+                if (e.data.size > 0) {
+                    audioChunks.push(e.data);
+                }
+            };
+
+            this.mediaRecorder.onstop = async () => {
+                this.showMessage('Đang xử lý âm thanh', 'Hệ thống đang dùng Gemini để dịch âm thanh thành văn bản. Quá trình này có thể mất vài chục giây, vui lòng đợi!', 'feather:loader', 'primary');
+                
+                try {
+                    // Gộp tất cả chunk thành 1 cục Blob duy nhất
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm;codecs=opus' });
+                    const arrayBuffer = await audioBlob.arrayBuffer();
+                    const uint8Array = new Uint8Array(arrayBuffer);
+
+                    // Gửi MỘT LẦN duy nhất xuống main.js (Uint8Array được hỗ trợ IPC gốc)
+                    await (window as any).electron.invoke('save-system-audio', uint8Array);
+
+                    // Lấy API key từ settings
+                    const settings = this.multiAccountService.getItem('settings');
+                    const secretKeyStr = settings?.secretKey || '';
+                    const secretKeys = secretKeyStr ? secretKeyStr.split(';') : [];
+                    const geminiKey = secretKeys.length > 1 ? secretKeys[1] : (secretKeys[0] || '');
+
+                    if (geminiKey) {
+                        const text = await (window as any).electron.invoke('transcribe-system-audio', geminiKey);
+                        if (text) {
+                            window.dispatchEvent(new CustomEvent('stt-transcribed', { detail: text }));
+                            this.showMessage('Thành công!', 'Đã xử lý xong văn bản và tự động chèn vào khung soạn thảo.', 'feather:check-circle', 'success');
+                        }
+                    } else {
+                        this.showMessage('Lỗi cấu hình', 'Chưa cấu hình API Key của Gemini trong Cài đặt', 'feather:alert-triangle', 'warn');
+                    }
+                } catch (e) {
+                    console.error('Lỗi xử lý file hoặc dịch STT:', e);
+                    this.showMessage('Lỗi phân tích', 'Có lỗi xảy ra khi nhờ Gemini dịch âm thanh. Vui lòng thử lại sau.', 'feather:x-circle', 'error');
+                }
+
+                // Tắt luồng mic/loa
+                stream.getTracks().forEach((track: any) => track.stop());
+            };
+            
+            // Cắt nhỏ file âm thanh mỗi 1000ms (1 giây) nhưng chỉ lưu vào mảng
+            this.isRecordingSystemAudio = true;
+            this.mediaRecorder.start(1000); 
+            this.showMessage('Bắt đầu ghi âm', 'Hệ thống đang ghi âm mọi âm thanh phát ra. Bạn có thể lướt xem TikTok hoặc YouTube. Khi xong, hãy bấm lại nút Micro để kết thúc và xuất chữ!', 'feather:mic', 'primary');
+            
+        } catch (err) {
+            console.error('Lỗi thu âm hệ thống:', err);
+            this.isRecordingSystemAudio = false;
+            this.showMessage('Lỗi hệ thống', 'Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập hoặc thử lại.', 'feather:x-circle', 'error');
+        }
     }
 
     ngAfterViewInit() {

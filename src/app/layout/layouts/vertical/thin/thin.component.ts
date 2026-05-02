@@ -59,8 +59,8 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
 
-    toggleGemini() {
-        window.dispatchEvent(new Event('toggle-gemini'));
+    startRecording() {
+        window.dispatchEvent(new Event('start-recording'));
     }
 
     async catureScreen() {
