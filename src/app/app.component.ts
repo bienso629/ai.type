@@ -8,6 +8,7 @@ import { Subject, takeUntil } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
 import { MultiAccountService } from './modules/_services/multi-account.service';
+import { ToastrService } from 'ngx-toastr';
 
 @Component({
     selector: 'app-root',
@@ -174,7 +175,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         public dialog: MatDialog,
         private router: Router,
         private multiAccountService: MultiAccountService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        private toastr: ToastrService
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
@@ -347,7 +349,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             };
 
             this.mediaRecorder.onstop = async () => {
-                this.showMessage('Đang xử lý âm thanh', 'Hệ thống đang dùng Gemini để dịch âm thanh thành văn bản. Quá trình này có thể mất vài chục giây, vui lòng đợi!', 'feather:loader', 'primary');
+                this.toastr.info('Hệ thống đang dùng Gemini để dịch âm thanh thành văn bản...', 'Đang xử lý');
                 
                 try {
                     // Gộp tất cả chunk thành 1 cục Blob duy nhất
@@ -368,14 +370,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                         const text = await (window as any).electron.invoke('transcribe-system-audio', { apiKey: geminiKey, audioPath: savedAudioPath });
                         if (text) {
                             window.dispatchEvent(new CustomEvent('stt-transcribed', { detail: text }));
-                            this.showMessage('Thành công!', 'Đã xử lý xong văn bản và tự động chèn vào khung soạn thảo.', 'feather:check-circle', 'success');
                         }
                     } else {
-                        this.showMessage('Lỗi cấu hình', 'Chưa cấu hình API Key của Gemini trong Cài đặt', 'feather:alert-triangle', 'warn');
+                        this.toastr.warning('Chưa cấu hình API Key của Gemini trong Cài đặt', 'Lỗi cấu hình');
                     }
                 } catch (e) {
                     console.error('Lỗi xử lý file hoặc dịch STT:', e);
-                    this.showMessage('Lỗi phân tích', 'Có lỗi xảy ra khi nhờ Gemini dịch âm thanh. Vui lòng thử lại sau.', 'feather:x-circle', 'error');
+                    this.toastr.error('Có lỗi xảy ra khi nhờ Gemini dịch âm thanh.', 'Lỗi phân tích');
                 }
 
                 // Tắt luồng mic/loa
@@ -385,12 +386,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             // Cắt nhỏ file âm thanh mỗi 1000ms (1 giây) nhưng chỉ lưu vào mảng
             this.setRecordingState(true);
             this.mediaRecorder.start(1000); 
-            this.showMessage('Bắt đầu ghi âm', 'Hệ thống đang ghi âm mọi âm thanh phát ra. Bạn có thể lướt xem TikTok hoặc YouTube. Khi xong, hãy bấm lại nút Micro để kết thúc và xuất chữ!', 'feather:mic', 'primary');
+            this.toastr.info('Đang ghi âm toàn hệ thống. Bấm lại nút Micro để kết thúc.', 'Bắt đầu ghi âm');
             
         } catch (err) {
             console.error('Lỗi thu âm hệ thống:', err);
             this.setRecordingState(false);
-            this.showMessage('Lỗi hệ thống', 'Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập hoặc thử lại.', 'feather:x-circle', 'error');
+            this.toastr.error('Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập.', 'Lỗi hệ thống');
         }
     }
 
