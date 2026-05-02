@@ -12,7 +12,7 @@
                     <div class="flex flex-col px-8 py-6 pb-3">
                         <div class="text-lg font-bold">{{style.name}}</div>
                         
-                        <div class="mt-2 min-h-50 max-h-50 overflow-auto text-base">
+                        <div class="mt-2 min-h-50 max-h-50 overflow-auto hover-scroll text-base">
                             {{style.desc}}
                         </div>
 
@@ -40,7 +40,7 @@
                                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:arrow-left'"></mat-icon>
                             </button>
                         </div>
-                        <div class="overflow-auto h-full">
+                        <div class="overflow-auto hover-scroll h-full">
                             <img src="{{style.avatar}}" class="h-20 w-auto rounded-md" />
                             <div class="mt-2">
                                 <button mat-icon-button [color]="'primary'">

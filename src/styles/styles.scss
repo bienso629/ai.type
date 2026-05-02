@@ -984,3 +984,16 @@ input[type=checkbox]:checked:after {
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8 !important;
 }
+
+/* Hover-only Scrollbar Utility */
+.hover-scroll::-webkit-scrollbar-thumb {
+    background: transparent !important;
+}
+
+.hover-scroll:hover::-webkit-scrollbar-thumb {
+    background: #cbd5e1 !important; /* Lighter color when just hovering the container */
+}
+
+.hover-scroll::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8 !important; /* Darker when hovering the scrollbar itself */
+}
