@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
 import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
@@ -14,6 +14,8 @@ import { NavigationService } from 'app/core/navigation/navigation.service';
 })
 export class CompactLayoutComponent implements OnInit, OnDestroy {
     isScreenSmall: boolean;
+    isRecording: boolean = false;
+    private _recordingStateListener: any;
     navigation: Navigation;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -39,7 +41,8 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
         private _router: Router,
         private _navigationService: NavigationService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
-        private _fuseNavigationService: FuseNavigationService
+        private _fuseNavigationService: FuseNavigationService,
+        private _changeDetectorRef: ChangeDetectorRef
     ) {
     }
 
@@ -77,6 +80,13 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
                 // Check if the screen is small
                 this.isScreenSmall = !matchingAliases.includes('md');
             });
+
+        // Lắng nghe trạng thái ghi âm
+        this._recordingStateListener = (e: any) => {
+            this.isRecording = e.detail;
+            this._changeDetectorRef.detectChanges();
+        };
+        window.addEventListener('recording-state-changed', this._recordingStateListener);
     }
 
     /**
@@ -84,6 +94,7 @@ export class CompactLayoutComponent implements OnInit, OnDestroy {
      */
     ngOnDestroy(): void {
         // Unsubscribe from all subscriptions
+        window.removeEventListener('recording-state-changed', this._recordingStateListener);
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
