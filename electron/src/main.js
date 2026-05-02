@@ -7,7 +7,8 @@ const {
     session,
     ipcMain,
     dialog, // <--- Thêm cái này vào
-    Notification
+    Notification,
+    desktopCapturer
 } = require("electron");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
@@ -1225,6 +1226,67 @@ async function parseSelector({ instruction, html, model }) {
         return { value: text };
     }
 }
+
+// ==== AUDIO RECORDING TỪ WEBVIEW ====
+let audioRecordStream = null;
+ipcMain.on('webview-audio-chunk', (event, buffer) => {
+    if (!audioRecordStream) {
+        const audioPath = path.join(app.getPath('userData'), 'meeting_audio.webm');
+        audioRecordStream = fs.createWriteStream(audioPath);
+        console.log(`[Audio Recording] Bắt đầu ghi âm lưu tại: ${audioPath}`);
+    }
+    audioRecordStream.write(buffer);
+});
+
+ipcMain.handle('init-system-audio', () => {
+    // Không cần tạo stream nữa vì gửi 1 lần
+    return true;
+});
+
+ipcMain.handle('save-system-audio', (event, uint8ArrayData) => {
+    const audioPath = path.join(app.getPath('userData'), 'meeting_audio.webm');
+    // uint8ArrayData có thể là Buffer hoặc Uint8Array từ IPC
+    const buffer = Buffer.from(uint8ArrayData);
+    fs.writeFileSync(audioPath, buffer);
+    console.log(`[Audio Recording] Đã lưu file âm thanh hoàn chỉnh tại: ${audioPath}`);
+    return true;
+});
+
+ipcMain.handle('transcribe-system-audio', async (event, apiKey) => {
+    const audioPath = path.join(app.getPath('userData'), 'meeting_audio.webm');
+
+    try {
+        const genAI = new GoogleGenerativeAI(apiKey);
+        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+
+        const base64Data = fs.readFileSync(audioPath).toString("base64");
+        
+        const result = await model.generateContent([
+            {
+                inlineData: {
+                    data: base64Data,
+                    mimeType: "audio/webm"
+                }
+            },
+            { text: "Hãy nghe và viết lại chính xác nội dung văn bản tiếng Việt của đoạn âm thanh này. Chỉ cần trả về nội dung, không giải thích." }
+        ]);
+        
+        return result.response.text();
+    } catch (e) {
+        console.error('Lỗi khi gọi Gemini dịch âm thanh:', e);
+        throw e;
+    }
+});
+
+// ==== DESKTOP CAPTURER (CÁCH 2) ====
+ipcMain.handle('desktop-capturer-get-sources', async (event, opts) => {
+    const sources = await desktopCapturer.getSources(opts);
+    return sources.map(s => ({
+        id: s.id,
+        name: s.name,
+        display_id: s.display_id,
+    }));
+});
 
 // ==== UTILS ====
 function sendToRenderer(channel, data) {
