@@ -88,7 +88,7 @@
         </eco-fab-speed-dial-trigger>
 
         <eco-fab-speed-dial-actions>
-            <button mat-mini-fab [color]="'primary'" (click)="startRecording()" matTooltip="Thu âm hệ thống" matTooltipPosition="left">
+            <button mat-mini-fab [color]="isRecording ? 'warn' : 'primary'" [class.animate-pulse]="isRecording" (click)="startRecording()" matTooltip="Thu âm hệ thống" matTooltipPosition="left">
                 <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
             </button>
 

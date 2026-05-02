@@ -260,6 +260,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     isRecordingSystemAudio: boolean = false;
     mediaRecorder: any = null;
 
+    setRecordingState(state: boolean) {
+        this.isRecordingSystemAudio = state;
+        window.dispatchEvent(new CustomEvent('recording-state-changed', { detail: state }));
+    }
+
     showMessage(title: string, message: string, iconName: string = 'feather:info', color: string = 'primary') {
         if (this.dialogRef) this._fuseConfirmationService.close();
 
@@ -292,7 +297,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (this.isRecordingSystemAudio && this.mediaRecorder) {
             this.mediaRecorder.stop();
-            this.isRecordingSystemAudio = false;
+            this.setRecordingState(false);
             return;
         }
 
@@ -350,8 +355,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                     const arrayBuffer = await audioBlob.arrayBuffer();
                     const uint8Array = new Uint8Array(arrayBuffer);
 
-                    // Gửi MỘT LẦN duy nhất xuống main.js (Uint8Array được hỗ trợ IPC gốc)
-                    await (window as any).electron.invoke('save-system-audio', uint8Array);
+                    // Gửi MỘT LẦN duy nhất xuống main.js và nhận lại đường dẫn file
+                    const savedAudioPath = await (window as any).electron.invoke('save-system-audio', uint8Array);
 
                     // Lấy API key từ settings
                     const settings = this.multiAccountService.getItem('settings');
@@ -360,7 +365,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                     const geminiKey = secretKeys.length > 1 ? secretKeys[1] : (secretKeys[0] || '');
 
                     if (geminiKey) {
-                        const text = await (window as any).electron.invoke('transcribe-system-audio', geminiKey);
+                        const text = await (window as any).electron.invoke('transcribe-system-audio', { apiKey: geminiKey, audioPath: savedAudioPath });
                         if (text) {
                             window.dispatchEvent(new CustomEvent('stt-transcribed', { detail: text }));
                             this.showMessage('Thành công!', 'Đã xử lý xong văn bản và tự động chèn vào khung soạn thảo.', 'feather:check-circle', 'success');
@@ -378,13 +383,13 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             };
             
             // Cắt nhỏ file âm thanh mỗi 1000ms (1 giây) nhưng chỉ lưu vào mảng
-            this.isRecordingSystemAudio = true;
+            this.setRecordingState(true);
             this.mediaRecorder.start(1000); 
             this.showMessage('Bắt đầu ghi âm', 'Hệ thống đang ghi âm mọi âm thanh phát ra. Bạn có thể lướt xem TikTok hoặc YouTube. Khi xong, hãy bấm lại nút Micro để kết thúc và xuất chữ!', 'feather:mic', 'primary');
             
         } catch (err) {
             console.error('Lỗi thu âm hệ thống:', err);
-            this.isRecordingSystemAudio = false;
+            this.setRecordingState(false);
             this.showMessage('Lỗi hệ thống', 'Không thể khởi động ghi âm. Vui lòng kiểm tra quyền truy cập hoặc thử lại.', 'feather:x-circle', 'error');
         }
     }

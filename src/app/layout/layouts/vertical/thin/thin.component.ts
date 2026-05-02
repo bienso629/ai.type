@@ -12,14 +12,17 @@ import { HelpComponent } from 'app/modules/microsites/help/help.component';
 import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
+import { ChangeDetectorRef } from '@angular/core';
 
 @Component({
     selector: 'thin-layout',
     templateUrl: './thin.component.html',
     encapsulation: ViewEncapsulation.None
 })
-export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterViewInit, AfterContentInit {
+export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, AfterContentInit {
     fileName: string;
+    isRecording: boolean = false;
+    private _recordingStateListener: any;
 
     isScreenSmall: boolean;
     navigation: Navigation;
@@ -152,7 +155,8 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
         public dialog: MatDialog,
         private _navigationService: NavigationService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
-        private _fuseNavigationService: FuseNavigationService
+        private _fuseNavigationService: FuseNavigationService,
+        private _changeDetectorRef: ChangeDetectorRef
     ) { }
 
     ngAfterViewInit(): void { }
@@ -166,6 +170,12 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
      * On init
      */
     ngOnInit(): void {
+        this._recordingStateListener = (event: any) => {
+            this.isRecording = event.detail;
+            this._changeDetectorRef.detectChanges();
+        };
+        window.addEventListener('recording-state-changed', this._recordingStateListener);
+
         // Subscribe to navigation data
         this._navigationService.navigation$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -186,6 +196,7 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, OnInit, AfterView
      * On destroy
      */
     ngOnDestroy(): void {
+        window.removeEventListener('recording-state-changed', this._recordingStateListener);
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();

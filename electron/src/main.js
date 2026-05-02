@@ -1244,17 +1244,25 @@ ipcMain.handle('init-system-audio', () => {
 });
 
 ipcMain.handle('save-system-audio', (event, uint8ArrayData) => {
-    const audioPath = path.join(app.getPath('userData'), 'meeting_audio.webm');
-    // uint8ArrayData có thể là Buffer hoặc Uint8Array từ IPC
+    // Lưu vào Documents\ai.type\data\notes
+    const notesDir = path.join(app.getPath('documents'), 'ai.type', 'data', 'notes');
+    if (!fs.existsSync(notesDir)) {
+        fs.mkdirSync(notesDir, { recursive: true });
+    }
+    
+    // Tên file có chứa mốc thời gian riêng biệt
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+    const audioPath = path.join(notesDir, `recording_${timestamp}.webm`);
+    
     const buffer = Buffer.from(uint8ArrayData);
     fs.writeFileSync(audioPath, buffer);
     console.log(`[Audio Recording] Đã lưu file âm thanh hoàn chỉnh tại: ${audioPath}`);
-    return true;
+    return audioPath;
 });
 
-ipcMain.handle('transcribe-system-audio', async (event, apiKey) => {
-    const audioPath = path.join(app.getPath('userData'), 'meeting_audio.webm');
-
+ipcMain.handle('transcribe-system-audio', async (event, payload) => {
+    const { apiKey, audioPath } = payload;
+    
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
