@@ -235,6 +235,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             if (!this.isCancelled) {
                 this.toastr.success('Đã hoàn tất toàn bộ danh sách!');
+                this.update(); // Tự động lưu lên server sau khi tạo xong
             }
         } catch (err) {
             console.error('Concurrency processing error:', err);
@@ -279,8 +280,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let res: any;
 
             try {
+                const timestamp = Date.now();
                 if (isEdgeVoice) {
-                    const niceFilename = `${prefix}_${slug}`;
+                    const niceFilename = `${prefix}_${slug}_${timestamp}`;
                     const payload = {
                         text: clip.description,
                         voice: clipVoice,
@@ -295,7 +297,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     const voice_id = selectedVoiceSplit[0];
 
                     if (clipVoice.indexOf('tts.type.vn') !== -1) {
-                        const niceFilename = `${prefix}_${slug}`;
+                        const niceFilename = `${prefix}_${slug}_${timestamp}`;
                         const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
 
                         if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
@@ -313,7 +315,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         };
                         res = await (window as any).electron.invoke('tts-type-generate', payload);
                     } else {
-                        const niceFilename = `${prefix}_${slug}_ausync`;
+                        const niceFilename = `${prefix}_${slug}_ausync_${timestamp}`;
                         const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
 
                         if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
@@ -346,6 +348,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         if (!this.isGlobalProcessing) {
                             this.playClip(clip);
                             this.toastr.success(`Đã tạo: ${clip.audioFileName}`);
+                            this.update(); // Tự động lưu lên server
                         }
                         this.saveToLocal();
                     }
