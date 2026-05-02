@@ -403,7 +403,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     connect(e: any) {
         this.domain = e.value;
-        localStorage.setItem('domain', JSON.stringify(this.domain));
+        this.multiAccountService.setItem('domain', this.domain);
     }
 
     compareStyleFn = (o1: any, o2: any) => {
@@ -1584,7 +1584,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     if (result && result.success && result.data.length > 0) {
                         this.domains = result.data;
 
-                        if (!localStorage.getItem('domain')) {
+                        if (!this.multiAccountService.getItem('domain')) {
                             this.domain = this.domains[0];
                         }
 
@@ -3291,8 +3291,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         }
 
-        if (localStorage.getItem('domain')) {
-            this.domain = JSON.parse(localStorage.getItem('domain'));
+        const savedDomain = this.multiAccountService.getItem('domain');
+        if (savedDomain) {
+            this.domain = savedDomain;
         }
 
         const cachedStyles = this.multiAccountService.getItem('styles');

@@ -97,7 +97,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     async clearWebviewCookie() {
         try {
             const electron = (window as any).electron;
-            
+
             // Chỉ clear phần auth của Puppeteer, không clear cookie toàn app
             if (electron?.clearWebviewAuth) {
                 await electron.clearWebviewAuth();
@@ -108,12 +108,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             if (container) {
                 // Find the currently visible webview
                 const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
-                
+
                 if (activeWebview && activeWebview.clearData) {
                     await activeWebview.clearData({ dataTypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
                     console.log('Webview data cleared.');
                 }
-                
+
                 // Tải lại các webview
                 const webviews = container.querySelectorAll('webview');
                 webviews.forEach((wv: any) => {
@@ -219,9 +219,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         this.updateRootCssVar();
 
         // 2. Thiết lập bộ đếm (Timer)
-        this.intervalId = setInterval(() => {
-            this.updateTime();
-        }, this.ONE_HOUR_MS);
+        // this.intervalId = setInterval(() => {
+        //     this.updateTime();
+        // }, this.ONE_HOUR_MS);
 
         // Subscribe to user changes
         this._userService.user$
@@ -264,7 +264,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 webview.setAttribute('src', 'https://gemini.google.com/app?hl=vi');
                 webview.setAttribute('allowpopups', 'true');
                 // Sử dụng User Agent gốc từ Electron main process (đã được lọc sạch) để tránh mismatch Client Hints
-                // webview.setAttribute('useragent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+                webview.setAttribute('useragent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
 
                 webview.style.width = '100%';
                 webview.style.height = '100%';
