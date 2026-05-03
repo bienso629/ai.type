@@ -80,17 +80,14 @@
 
         <span class="font-normal text-base text-secondary">AI Type là một phần mềm có sử dụng AI.
             <a href="https://ai.type.vn" title="Phần mềm Tự động viết bài">Chính sách khi sử dụng AI TYPE</a> &copy;
-            {{currentYear}}</span>
-
-        <span class="font-normal text-base text-secondary">Phiên bản {{ appVersion }},
+            {{currentYear}}. Phiên bản {{ appVersion }},
             <ng-container *ngIf="activeInfo && activeInfo.user; else elseTemplate">
                 <span>tài khoản đã xác thực.</span>
             </ng-container>
             <ng-template #elseTemplate>
                 <span>tài khoản chưa xác thực.</span> <a class="underline" [routerLink]="['/settings']"
                     [queryParams]="{ tab: 'active' }">Xác thực ngay</a>.
-            </ng-template>
-        </span>
+            </ng-template></span>
     </div>
 
     <eco-fab-speed-dial #myFab [direction]="direction" [animationMode]="animationMode">
