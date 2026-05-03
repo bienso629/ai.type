@@ -85,6 +85,6 @@ export const appConfig: AppConfig = {
             'vn.s1': 'https://apiv1.type.vn/v1',
             'vn.s2': 'https://apiv2.type.vn/v1',
         },
-        gen: 'ab:77:72:35:21:b8:3c:2e:25:b5:74:13:cb:91:fe:f4:7a:a7:dd:0a'
+        gen: '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8'
     }
 };
