@@ -20,13 +20,13 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 })
 export class CollectionComponent implements OnInit, OnDestroy {
     user: User;
-    
+
     collections: any[] = [];
     selectedCollection: any;
-    
+
     editingTitle: boolean = false;
     newTitle: string = '';
-    
+
     rows = [];
     totalElements: number = 0;
     apiFetchedCount: number = 0;
@@ -40,15 +40,15 @@ export class CollectionComponent implements OnInit, OnDestroy {
         totalPages: 0,
     };
     currentBookmark: string = null;
-    
+
     @ViewChild(DatatableComponent) table: DatatableComponent;
     selected = [];
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
-    
+
     permissionText2Voice: boolean = false;
     permissionScriptCommentLike: boolean = false;
-    
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -61,7 +61,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private _fuseConfirmationService: FuseConfirmationService
     ) {
-        this.titleService.setTitle(`collection | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(`tập của bạn | ai.type - công cụ tạo content`);
 
         this._userService.user$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -69,7 +69,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                 this.user = user;
                 this.permissionText2Voice = this._userService.permissionText2Voice(this.user);
                 this.permissionScriptCommentLike = this._userService.permissionScriptCommentLike(this.user);
-                
+
                 this.loadCollections();
             });
     }
@@ -98,7 +98,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                 next: (result) => {
                     if (result && result.success) {
                         this.collections = result.data;
-                        
+
                         // Check if collectionId is in query params
                         this.route.queryParams.subscribe(params => {
                             if (params['collectionId']) {
@@ -127,14 +127,14 @@ export class CollectionComponent implements OnInit, OnDestroy {
         if (this.table) this.table.offset = 0;
         this.selected = [];
         this.rows = [];
-        this.rows = [...this.rows]; 
-        this.currentBookmark = null; 
+        this.rows = [...this.rows];
+        this.currentBookmark = null;
         this.apiFetchedCount = 0;
         this.cache = {};
         this.cd.markForCheck();
 
         let uuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
-        
+
         this.totalElements = uuids.length;
 
         if (this.totalElements > 0) {
@@ -163,7 +163,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
 
         if (this.rows && this.rows[rowOffset]) return;
         if (this.cache[this.page.pageNumber]) return;
-        
+
         this.cache[this.page.pageNumber] = true;
         this.isLoading = true;
         this.cd.markForCheck();
@@ -172,7 +172,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
 
         const payloadPage = {
             ...this.page,
-            size: 25 
+            size: 25
         };
 
         this._crawlService.archive({
@@ -180,68 +180,68 @@ export class CollectionComponent implements OnInit, OnDestroy {
             keyword: '',
             uuids: uuids,
             page: payloadPage,
-            bookmark: this.currentBookmark, 
+            bookmark: this.currentBookmark,
         })
-        .pipe(takeUntil(this._unsubscribeAll))
-        .subscribe({
-            next: (result: any) => {
-                const resData = result?.data;
-                if (resData && resData.docs && resData.docs.length > 0) {
-                    if (!this.rows) {
-                        this.rows = new Array<any>(this.totalElements || 0);
-                    }
-
-                    const start = this.apiFetchedCount;
-
-                    let newTotal = this.totalElements || 0;
-                    const apiPageSize = 25; 
-                    if (resData.docs.length < apiPageSize) {
-                        newTotal = start + resData.docs.length;
-                    } else if (start + resData.docs.length > newTotal) {
-                        newTotal = start + resData.docs.length;
-                    }
-
-                    if (this.totalElements !== newTotal) {
-                        this.totalElements = newTotal;
-                    }
-
-                    if (!this.rows || this.rows.length !== this.totalElements) {
-                        const oldRows = this.rows || [];
-                        this.rows = new Array<any>(this.totalElements);
-                        for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
-                            this.rows[i] = oldRows[i];
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    const resData = result?.data;
+                    if (resData && resData.docs && resData.docs.length > 0) {
+                        if (!this.rows) {
+                            this.rows = new Array<any>(this.totalElements || 0);
                         }
-                    }
 
-                    const rows = [...this.rows];
-                    rows.splice(start, resData.docs.length, ...resData.docs);
-                    this.rows = rows;
-                    this.apiFetchedCount += resData.docs.length;
-                    this.currentBookmark = resData.bookmark;
-                } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
-                    this.currentBookmark = resData.bookmark;
+                        const start = this.apiFetchedCount;
+
+                        let newTotal = this.totalElements || 0;
+                        const apiPageSize = 25;
+                        if (resData.docs.length < apiPageSize) {
+                            newTotal = start + resData.docs.length;
+                        } else if (start + resData.docs.length > newTotal) {
+                            newTotal = start + resData.docs.length;
+                        }
+
+                        if (this.totalElements !== newTotal) {
+                            this.totalElements = newTotal;
+                        }
+
+                        if (!this.rows || this.rows.length !== this.totalElements) {
+                            const oldRows = this.rows || [];
+                            this.rows = new Array<any>(this.totalElements);
+                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                this.rows[i] = oldRows[i];
+                            }
+                        }
+
+                        const rows = [...this.rows];
+                        rows.splice(start, resData.docs.length, ...resData.docs);
+                        this.rows = rows;
+                        this.apiFetchedCount += resData.docs.length;
+                        this.currentBookmark = resData.bookmark;
+                    } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                        this.currentBookmark = resData.bookmark;
+                        this.isLoading = false;
+                        delete this.cache[this.page.pageNumber];
+                        this.cd.detectChanges();
+                        this.setPage(pageInfo);
+                        return;
+                    } else {
+                        delete this.cache[this.page.pageNumber];
+                    }
+                },
+                error: () => {
+                    delete this.cache[this.page.pageNumber];
                     this.isLoading = false;
-                    delete this.cache[this.page.pageNumber];
-                    this.cd.detectChanges();
-                    this.setPage(pageInfo);
-                    return;
-                } else {
-                    delete this.cache[this.page.pageNumber];
+                    this.cd.markForCheck();
+                },
+                complete: () => {
+                    this.isLoading = false;
+                    if (this.table) {
+                        this.table.recalculatePages();
+                    }
+                    this.cd.markForCheck();
                 }
-            },
-            error: () => {
-                delete this.cache[this.page.pageNumber];
-                this.isLoading = false;
-                this.cd.markForCheck();
-            },
-            complete: () => {
-                this.isLoading = false;
-                if (this.table) {
-                    this.table.recalculatePages();
-                }
-                this.cd.markForCheck();
-            }
-        });
+            });
     }
 
     onSelect({ selected }) {
@@ -310,7 +310,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         if (this.selectedCollection.uuid && Array.isArray(this.selectedCollection.uuid)) {
                             this.selectedCollection.uuid = this.selectedCollection.uuid.filter(u => u !== row.uuid);
                         }
-                        this.onChangeCollection(); 
+                        this.onChangeCollection();
                     } else {
                         this.toastr.error('Có lỗi xảy ra');
                     }
