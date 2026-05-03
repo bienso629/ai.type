@@ -9,6 +9,7 @@ import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { ActivatedRoute } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 @Component({
     selector: 'app-collection',
@@ -22,6 +23,9 @@ export class CollectionComponent implements OnInit, OnDestroy {
     
     collections: any[] = [];
     selectedCollection: any;
+    
+    editingTitle: boolean = false;
+    newTitle: string = '';
     
     rows = [];
     totalElements: number = 0;
@@ -54,7 +58,8 @@ export class CollectionComponent implements OnInit, OnDestroy {
         private route: ActivatedRoute,
         private cd: ChangeDetectorRef,
         private clipboard: Clipboard,
-        private toastr: ToastrService
+        private toastr: ToastrService,
+        private _fuseConfirmationService: FuseConfirmationService
     ) {
         this.titleService.setTitle(`collection | ai.type - công cụ tạo content`);
 
@@ -117,6 +122,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
     }
 
     onChangeCollection() {
+        if (!this.selectedCollection) return;
         this.isLoading = false;
         if (this.table) this.table.offset = 0;
         this.selected = [];
@@ -142,6 +148,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
     }
 
     setPage(pageInfo: PageInfo) {
+        if (!this.selectedCollection) return;
         if (this.isLoading) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
@@ -244,5 +251,109 @@ export class CollectionComponent implements OnInit, OnDestroy {
 
     displayCheck(row: any) {
         return row && row.title ? row.title !== 'Ethel Price' : false;
+    }
+
+    startEditTitle(collection: any) {
+        this.editingTitle = true;
+        this.newTitle = collection.title;
+    }
+
+    cancelEditTitle() {
+        this.editingTitle = false;
+        this.newTitle = '';
+    }
+
+    saveTitle() {
+        if (!this.selectedCollection) return;
+        const newTitle = this.newTitle.trim();
+        if (newTitle && newTitle !== this.selectedCollection.title) {
+            this._crawlService.updateCollection({
+                _id: this.selectedCollection._id,
+                title: newTitle,
+                username: this.user.name
+            }).subscribe(res => {
+                if (res.success || res.ok) {
+                    this.selectedCollection.title = newTitle;
+                    this.toastr.success('Cập nhật tên tập thành công');
+                    this.editingTitle = false;
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.error('Lỗi khi cập nhật tên tập');
+                }
+            });
+        } else {
+            this.editingTitle = false;
+        }
+    }
+
+    removeFromCollection(row: any) {
+        if (!this.selectedCollection || !row.uuid) return;
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa khỏi tập',
+            message: `Bạn có chắc chắn muốn gỡ công việc ${row.uuid} khỏi tập này?`,
+            icon: { show: true, name: 'heroicons_outline:exclamation-triangle', color: 'warn' },
+            actions: {
+                confirm: { show: true, label: 'Gỡ bỏ', color: 'warn' },
+                cancel: { show: true, label: 'Hủy' }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this._crawlService.removeCollection({
+                    _id: this.selectedCollection._id,
+                    uuid: row.uuid,
+                    username: this.user.name
+                }).subscribe(res => {
+                    if (res.success || res.ok) {
+                        this.toastr.success('Đã gỡ công việc khỏi tập');
+                        if (this.selectedCollection.uuid && Array.isArray(this.selectedCollection.uuid)) {
+                            this.selectedCollection.uuid = this.selectedCollection.uuid.filter(u => u !== row.uuid);
+                        }
+                        this.onChangeCollection(); 
+                    } else {
+                        this.toastr.error('Có lỗi xảy ra');
+                    }
+                });
+            }
+        });
+    }
+
+    removeSelectedFromCollection() {
+        if (!this.selectedCollection || this.selected.length === 0) return;
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa hàng loạt',
+            message: `Bạn có chắc chắn muốn gỡ ${this.selected.length} công việc đã chọn khỏi tập này?`,
+            icon: { show: true, name: 'heroicons_outline:exclamation-triangle', color: 'warn' },
+            actions: {
+                confirm: { show: true, label: 'Gỡ bỏ', color: 'warn' },
+                cancel: { show: true, label: 'Hủy' }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                let count = 0;
+                let total = this.selected.length;
+                this.selected.forEach(row => {
+                    this._crawlService.removeCollection({
+                        _id: this.selectedCollection._id,
+                        uuid: row.uuid,
+                        username: this.user.name
+                    }).subscribe(res => {
+                        count++;
+                        if (res.success || res.ok) {
+                            if (this.selectedCollection.uuid && Array.isArray(this.selectedCollection.uuid)) {
+                                this.selectedCollection.uuid = this.selectedCollection.uuid.filter(u => u !== row.uuid);
+                            }
+                        }
+                        if (count === total) {
+                            this.toastr.success(`Đã gỡ ${total} công việc khỏi tập`);
+                            this.onChangeCollection();
+                        }
+                    });
+                });
+            }
+        });
     }
 }
