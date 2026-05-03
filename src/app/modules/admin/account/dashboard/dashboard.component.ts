@@ -14,6 +14,7 @@ import { Subject, takeUntil } from 'rxjs';
 @Component({
     selector: 'dashboard',
     templateUrl: './dashboard.component.html',
+    styleUrls: ['./dashboard.component.scss'],
     providers: [UserClientService, CrawlService],
     encapsulation: ViewEncapsulation.None
 })

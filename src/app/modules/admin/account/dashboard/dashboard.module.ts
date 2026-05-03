@@ -8,6 +8,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
+import { TimeagoModule } from 'ngx-timeago';
 import { DashboardComponent } from 'app/modules/admin/account/dashboard/dashboard.component';
 
 const Routes: Route[] = [
@@ -32,7 +33,8 @@ const Routes: Route[] = [
         MatInputModule,
         MatGridListModule,
         FuseAlertModule,
-        SharedModule
+        SharedModule,
+        TimeagoModule.forRoot()
     ]
 })
 export class DashboardModule {

@@ -1,28 +1,28 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-white">
     <!-- Main -->
     <div class="flex-auto overflow-y-auto" cdkScrollable>
-
-
         <!-- CONTENT GOES HERE -->
         <div class="p-6 md:p-8">
-            <div class="text-2xl font-bold tracking-tight leading-8 mb-6">100 tập của bạn</div>
-            <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div class="text-2xl font-bold tracking-tight leading-8 mb-6">{{collections?.length || 0}} tập của bạn</div>
+            <div *ngIf="collections && collections.length > 0"
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div *ngFor="let item of collections" [routerLink]="['/collection']"
                     [queryParams]="{ collectionId: item._id }"
-                    class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-green-600 rounded-lg overflow-hidden cursor-pointer">
+                    class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-green-600 rounded-xl overflow-hidden cursor-pointer">
                     <div class="p-6 flex flex-col flex-auto">
                         <div class="flex items-center justify-between mb-4">
-                            <div class="text-lg font-medium tracking-tight truncate" [title]="item.title">{{item.title}}
+                            <div class="text-lg font-medium tracking-tight truncate" [title]="item.title">
+                                {{item.title}}
                             </div>
                             <div
-                                class="flex items-center justify-center min-w-8 h-8 px-2 rounded-full bg-primary-50 text-primary-600 font-semibold text-sm">
+                                class="flex items-center justify-center min-w-8 h-8 px-2 rounded-full bg-primary-50 text-primary-600 font-normal text-base">
                                 {{item.count || 0}}
                             </div>
                         </div>
                         <div class="mt-4 flex items-center justify-between text-xs text-secondary">
                             <span class="flex items-center">
                                 <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:clock'"></mat-icon>
-                                {{item.updatedAt | date:'dd/MM/yyyy'}}
+                                {{item.updatedAt | timeago}}
                             </span>
                             <span
                                 class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{item.type}}</span>
@@ -30,10 +30,60 @@
                     </div>
                 </div>
             </div>
+        </div>
 
-            <div *ngIf="!collections || collections.length === 0"
-                class="flex flex-col items-center justify-center p-8 sm:p-12">
-                <div class="text-2xl font-normal tracking-tight text-secondary">Chưa có tập nào</div>
+        <!-- Empty State -->
+        <div *ngIf="!collections || collections.length === 0" class="empty-state-container">
+            <div class="empty-state-card">
+                <!-- Animated illustration -->
+                <div class="empty-state-icon-wrap">
+                    <svg class="empty-state-svg" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Background Gradient Circle -->
+                        <circle cx="60" cy="60" r="56" fill="url(#bgGrad)" />
+
+                        <!-- Document Base -->
+                        <rect x="28" y="28" width="52" height="68" rx="6" fill="white" fill-opacity="0.15"
+                            stroke="white" stroke-opacity="0.3" stroke-width="1.5" />
+                        <!-- Header line -->
+                        <rect x="40" y="42" width="28" height="6" rx="3" fill="white" fill-opacity="0.6" />
+                        <!-- Text lines -->
+                        <rect x="40" y="56" width="20" height="4" rx="2" fill="white" fill-opacity="0.3" />
+                        <rect x="40" y="66" width="14" height="4" rx="2" fill="white" fill-opacity="0.3" />
+                        <rect x="40" y="76" width="24" height="4" rx="2" fill="white" fill-opacity="0.3" />
+
+                        <!-- Floating Media Box -->
+                        <rect x="52" y="48" width="44" height="34" rx="6" fill="white" fill-opacity="0.25"
+                            stroke="white" stroke-opacity="0.5" stroke-width="1.5" />
+                        <circle cx="65" cy="58" r="3.5" fill="white" fill-opacity="0.7" />
+                        <path d="M54 75 L63 65 L69 71 L77 61 L93 75" fill="none" stroke="white" stroke-opacity="0.7"
+                            stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+
+                        <!-- Floating Add/Create Button -->
+                        <circle cx="82" cy="82" r="14" fill="white" fill-opacity="0.95" />
+                        <path d="M82 75 V89 M75 82 H89" fill="none" stroke="#059669" stroke-width="2.5"
+                            stroke-linecap="round" />
+
+                        <!-- Sparkles -->
+                        <circle cx="92" cy="34" r="3" fill="#a7f3d0" opacity="0.8" />
+                        <circle cx="22" cy="46" r="2" fill="#6ee7b7" opacity="0.6" />
+                        <circle cx="34" cy="88" r="2.5" fill="#6ee7b7" opacity="0.7" />
+                        <path d="M72 26 L73 30 L77 31 L73 32 L72 36 L71 32 L67 31 L71 30 Z" fill="white"
+                            fill-opacity="0.8" />
+
+                        <defs>
+                            <linearGradient id="bgGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#10b981" />
+                                <stop offset="1" stop-color="#059669" />
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                    <!-- Pulse rings -->
+                    <span class="pulse-ring pulse-ring-1"></span>
+                    <span class="pulse-ring pulse-ring-2"></span>
+                </div>
+
+                <h2 class="empty-state-title">Chưa có tập nào</h2>
+                <p class="empty-state-desc">Bộ sưu tập của bạn đang trống.<br>Hãy bắt đầu công việc ngay nào!</p>
             </div>
         </div>
     </div>
