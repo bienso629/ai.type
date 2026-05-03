@@ -13,6 +13,8 @@ import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
 
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChangeDetectorRef } from '@angular/core';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { AuthUtils } from 'app/core/auth/auth.utils';
 
 @Component({
     selector: 'thin-layout',
@@ -22,6 +24,8 @@ import { ChangeDetectorRef } from '@angular/core';
 export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, AfterContentInit {
     fileName: string;
     isRecording: boolean = false;
+    appVersion: string = '1.0.0';
+    activeInfo: any = {};
     private _recordingStateListener: any;
 
     isScreenSmall: boolean;
@@ -156,8 +160,14 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
         private _navigationService: NavigationService,
         private _fuseMediaWatcherService: FuseMediaWatcherService,
         private _fuseNavigationService: FuseNavigationService,
-        private _changeDetectorRef: ChangeDetectorRef
-    ) { }
+        private _changeDetectorRef: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService
+    ) { 
+        const activeInfo = this.multiAccountService.getItem('active_info');
+        if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
+            this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
+        }
+    }
 
     ngAfterViewInit(): void { }
 
@@ -170,6 +180,11 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
      * On init
      */
     ngOnInit(): void {
+        if ((window as any).electron) {
+            (window as any).electron.getAppVersion().then((v: string) => {
+                this.appVersion = v;
+            });
+        }
         this._recordingStateListener = (event: any) => {
             this.isRecording = event.detail;
             this._changeDetectorRef.detectChanges();

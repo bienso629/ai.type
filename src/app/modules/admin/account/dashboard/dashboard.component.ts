@@ -7,89 +7,43 @@ import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { UserClientService } from 'app/modules/_services/user';
-import { forkJoin, Subject, takeUntil } from 'rxjs';
-import moment from 'moment';
-import { LogService } from 'app/modules/_services/link';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { WP2MDService } from 'app/modules/_services/wp2md';
-import { AuthUtils } from 'app/core/auth/auth.utils';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { CrawlService } from 'app/modules/_services/crawl';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'dashboard',
     templateUrl: './dashboard.component.html',
-    providers: [UserClientService, CrawlService, CrawlService, WP2MDService, LogService],
+    providers: [UserClientService, CrawlService],
     encapsulation: ViewEncapsulation.None
 })
 export class DashboardComponent implements OnInit, OnDestroy {
     user: User;
     config: AppConfig;
 
-    appVersion: string = '1.0.0'; // Giá trị mặc định
-    activeInfo: any = {};
-
-    _statistics = {
-        done: 0,
-        money: 0,
-        archives: 0,
-        node: 0,
-        wp2md: 0
-    };
-
-    /* END TWO OBJECTS */
+    collections: any[] = [];
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    createReport() {
-        this._userClientService.renderTable({
-            username: this.user.name,
-            createdAt1: moment().startOf('day').toString(),
-            createdAt2: moment().endOf('day').toString(),
-            table: {
-                key: 'table',
-                value: this._statistics
-            }
-        })
+    /**
+     * Lấy toàn bộ collection
+     */
+    collection() {
+        this._crawlService
+            .collections({
+                username: this.user.name,
+                page: { size: 100 },
+                includeUuid: false
+            })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result: any) => {
+                next: async (result) => {
                     if (result && result.success) {
-                        localStorage.setItem('statistics', JSON.stringify(this._statistics));
+                        this.collections = result.data;
                     }
                 },
                 error: () => { },
-                complete: () => { }
+                complete: () => { },
             });
-    }
-
-    // lấy số liệu công việc cho mỗi user
-    createStatistic() {
-        forkJoin([
-            this._crawlService.statistics({
-                username: this.user.name
-            }),
-            this._wp2mdService.totalWp2mdArchive({
-                username: this.user.name
-            }),
-        ]).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-            next: async (results: any) => {
-                const nodes = (results && results[0] && results[0].data) ? results[0].data : [[], 0, 0];
-                const wp2md = (results && results[1] && results[1].data) ? results[1].data : { total: 0 };
-
-                this._statistics = {
-                    done: nodes[0].length || 0,
-                    money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0) || 0,
-                    archives: nodes[1]['total'] || 0,
-                    node: nodes[2]['total'] || 0,
-                    wp2md: wp2md['total'] || 0,
-                }
-
-                this.createReport();
-            },
-            error: (e: any) => {
-                console.log('e', e)
-            },
-            complete: () => { }
-        });
     }
 
     // lấy account về để đồng bộ
@@ -118,13 +72,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
     constructor(
         private titleService: Title,
         private _userService: UserService,
-        private _crawlService: CrawlService,
-        private _wp2mdService: WP2MDService,
         private _userClientService: UserClientService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private _fuseConfigService: FuseConfigService,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _crawlService: CrawlService
     ) {
         this.titleService.setTitle(`thống kê | ai.type - công cụ tạo content`);
 
@@ -150,23 +103,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 // đồng bộ account về máy
                 this.account();
 
-                // lập báo cáo theo ngày
-                this.createStatistic();
+                this.collection();
             });
 
-        const activeInfo = this.multiAccountService.getItem('active_info');
-        if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
-            this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
-        }
+
     }
 
-    async ngOnInit(): Promise<void> {
-        // throw new Error('Method not implemented.');
-
-        // Kiểm tra xem có đang chạy trong môi trường Electron không
-        if ((window as any).electron) {
-            this.appVersion = await (window as any).electron.getAppVersion();
-        }
+    ngOnInit(): void {
     }
 
     ngOnDestroy(): void {

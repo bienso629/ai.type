@@ -1,0 +1,248 @@
+import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import { Title } from '@angular/platform-browser';
+import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
+import { UserService } from 'app/core/user/user.service';
+import { User } from 'app/core/user/user.types';
+import { CrawlService } from 'app/modules/_services/crawl';
+import { Subject, takeUntil } from 'rxjs';
+import { Page, PageInfo } from 'app/core/navigation/navigation.types';
+import { ActivatedRoute } from '@angular/router';
+import { Clipboard } from '@angular/cdk/clipboard';
+import { ToastrService } from 'ngx-toastr';
+
+@Component({
+    selector: 'app-collection',
+    templateUrl: './collection.component.html',
+    styleUrls: ['./collection.component.scss'],
+    providers: [CrawlService],
+    encapsulation: ViewEncapsulation.None
+})
+export class CollectionComponent implements OnInit, OnDestroy {
+    user: User;
+    
+    collections: any[] = [];
+    selectedCollection: any;
+    
+    rows = [];
+    totalElements: number = 0;
+    apiFetchedCount: number = 0;
+    pageNumber: number = 0;
+    isLoading: boolean = false;
+    cache: Record<string, boolean> = {};
+    page: Page = {
+        pageNumber: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+    };
+    currentBookmark: string = null;
+    
+    @ViewChild(DatatableComponent) table: DatatableComponent;
+    selected = [];
+    ColumnMode = ColumnMode;
+    SelectionType = SelectionType;
+    
+    permissionText2Voice: boolean = false;
+    permissionScriptCommentLike: boolean = false;
+    
+    private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    constructor(
+        private titleService: Title,
+        private _crawlService: CrawlService,
+        private _userService: UserService,
+        private route: ActivatedRoute,
+        private cd: ChangeDetectorRef,
+        private clipboard: Clipboard,
+        private toastr: ToastrService
+    ) {
+        this.titleService.setTitle(`collection | ai.type - công cụ tạo content`);
+
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+                this.permissionText2Voice = this._userService.permissionText2Voice(this.user);
+                this.permissionScriptCommentLike = this._userService.permissionScriptCommentLike(this.user);
+                
+                this.loadCollections();
+            });
+    }
+
+    ngOnInit(): void {
+    }
+
+    ngOnDestroy(): void {
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
+    }
+
+    trackByFn(index: number, item: any): any {
+        return item.id || index;
+    }
+
+    loadCollections() {
+        this._crawlService
+            .collections({
+                username: this.user.name,
+                page: { size: 100 },
+                includeUuid: true
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result) => {
+                    if (result && result.success) {
+                        this.collections = result.data;
+                        
+                        // Check if collectionId is in query params
+                        this.route.queryParams.subscribe(params => {
+                            if (params['collectionId']) {
+                                const found = this.collections.find(c => c._id === params['collectionId']);
+                                if (found) {
+                                    this.goToCollection(found);
+                                }
+                            } else if (this.collections.length > 0) {
+                                this.goToCollection(this.collections[0]);
+                            }
+                        });
+                    }
+                },
+                complete: () => { this.cd.markForCheck(); }
+            });
+    }
+
+    goToCollection(collection: any) {
+        this.selectedCollection = collection;
+        this.onChangeCollection();
+    }
+
+    onChangeCollection() {
+        this.isLoading = false;
+        if (this.table) this.table.offset = 0;
+        this.selected = [];
+        this.rows = [];
+        this.rows = [...this.rows]; 
+        this.currentBookmark = null; 
+        this.apiFetchedCount = 0;
+        this.cache = {};
+        this.cd.markForCheck();
+
+        let uuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
+        
+        this.totalElements = uuids.length;
+
+        if (this.totalElements > 0) {
+            this.setPage({
+                offset: 0,
+                pageSize: this.page.size,
+                limit: this.page.size,
+                count: this.totalElements,
+            });
+        }
+    }
+
+    setPage(pageInfo: PageInfo) {
+        if (this.isLoading) return;
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
+        this.pageNumber = pageInfo.offset;
+        const rowOffset = pageInfo.offset * pageInfo.pageSize;
+
+        this.page = {
+            pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
+            size: pageInfo.pageSize,
+            totalElements: 0,
+            totalPages: 0,
+        };
+
+        if (this.rows && this.rows[rowOffset]) return;
+        if (this.cache[this.page.pageNumber]) return;
+        
+        this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cd.markForCheck();
+
+        let uuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
+
+        const payloadPage = {
+            ...this.page,
+            size: 25 
+        };
+
+        this._crawlService.archive({
+            username: this.user.name,
+            keyword: '',
+            uuids: uuids,
+            page: payloadPage,
+            bookmark: this.currentBookmark, 
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result: any) => {
+                const resData = result?.data;
+                if (resData && resData.docs && resData.docs.length > 0) {
+                    if (!this.rows) {
+                        this.rows = new Array<any>(this.totalElements || 0);
+                    }
+
+                    const start = this.apiFetchedCount;
+
+                    let newTotal = this.totalElements || 0;
+                    const apiPageSize = 25; 
+                    if (resData.docs.length < apiPageSize) {
+                        newTotal = start + resData.docs.length;
+                    } else if (start + resData.docs.length > newTotal) {
+                        newTotal = start + resData.docs.length;
+                    }
+
+                    if (this.totalElements !== newTotal) {
+                        this.totalElements = newTotal;
+                    }
+
+                    if (!this.rows || this.rows.length !== this.totalElements) {
+                        const oldRows = this.rows || [];
+                        this.rows = new Array<any>(this.totalElements);
+                        for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                            this.rows[i] = oldRows[i];
+                        }
+                    }
+
+                    const rows = [...this.rows];
+                    rows.splice(start, resData.docs.length, ...resData.docs);
+                    this.rows = rows;
+                    this.apiFetchedCount += resData.docs.length;
+                    this.currentBookmark = resData.bookmark;
+                } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
+                    this.currentBookmark = resData.bookmark;
+                    this.isLoading = false;
+                    delete this.cache[this.page.pageNumber];
+                    this.cd.detectChanges();
+                    this.setPage(pageInfo);
+                    return;
+                } else {
+                    delete this.cache[this.page.pageNumber];
+                }
+            },
+            error: () => {
+                delete this.cache[this.page.pageNumber];
+                this.isLoading = false;
+                this.cd.markForCheck();
+            },
+            complete: () => {
+                this.isLoading = false;
+                if (this.table) {
+                    this.table.recalculatePages();
+                }
+                this.cd.markForCheck();
+            }
+        });
+    }
+
+    onSelect({ selected }) {
+        this.selected.splice(0, this.selected.length);
+        this.selected.push(...selected);
+    }
+
+    displayCheck(row: any) {
+        return row && row.title ? row.title !== 'Ethel Price' : false;
+    }
+}
