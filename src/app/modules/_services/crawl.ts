@@ -1149,6 +1149,31 @@ export class CrawlService {
         );
     }
 
+    public updateCollection(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.api[this.user.server]}/crawl/node/collection/update`;
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(data => {
+                return data;
+            }),
+            tap(_ => {
+                // this.log('login');
+            }),
+            catchError(this.handleError('server', []))
+        );
+    }
+
     public linkCollections(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
