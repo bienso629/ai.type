@@ -73,16 +73,16 @@
 
     <!-- Footer -->
     <div
-        class="relative flex flex-col flex-0 items-start justify-center w-full h-auto py-2 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
+        class="relative flex flex-row flex-0 items-start justify-middle w-full p-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
         <!-- <button class="mr-2" mat-icon-button (click)="help()">
             <mat-icon [svgIcon]="'feather:info'"></mat-icon>
         </button> -->
 
-        <span class="font-normal text-sm text-secondary">AI Type là một phần mềm có sử dụng AI.
+        <span class="font-normal text-base text-secondary">AI Type là một phần mềm có sử dụng AI.
             <a href="https://ai.type.vn" title="Phần mềm Tự động viết bài">Chính sách khi sử dụng AI TYPE</a> &copy;
             {{currentYear}}</span>
 
-        <span class="font-normal text-sm mt-0.5 text-secondary">Phiên bản {{ appVersion }},
+        <span class="font-normal text-base text-secondary">Phiên bản {{ appVersion }},
             <ng-container *ngIf="activeInfo && activeInfo.user; else elseTemplate">
                 <span>tài khoản đã xác thực.</span>
             </ng-container>

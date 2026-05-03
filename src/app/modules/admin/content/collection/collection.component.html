@@ -64,7 +64,7 @@
                                     </ng-container>
 
                                     <!-- Hiển thị khi đang sửa -->
-                                    <div *ngIf="editingTitle" class="flex items-center ml-2 gap-2">
+                                    <div *ngIf="editingTitle" class="flex items-center ml-2 gap-1">
                                         <input type="text" class="px-2 py-1 border rounded w-64 text-sm bg-white"
                                             [(ngModel)]="newTitle" (keyup.enter)="saveTitle()"
                                             (keyup.escape)="cancelEditTitle()" autofocus placeholder="Nhập tên mới">
