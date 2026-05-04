@@ -51,6 +51,11 @@
                 <ng-container *ngSwitchCase="'script'">
                     <amxh-script class="h-full" [data]="captions"></amxh-script>
                 </ng-container>
+
+                <!-- Share -->
+                <ng-container *ngSwitchCase="'share'">
+                    <amxh-share class="h-full" [data]="articleData"></amxh-share>
+                </ng-container>
             </ng-container>
         </mat-drawer-content>
     </mat-drawer-container>

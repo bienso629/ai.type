@@ -24,6 +24,7 @@ export class AMXHComponent implements OnInit, OnDestroy {
     user: User;
 
     captions: { index: number; text: string }[] = [];
+    articleData: any = null;
     removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
 
     @ViewChild('drawer') drawer: MatDrawer;
@@ -41,6 +42,12 @@ export class AMXHComponent implements OnInit, OnDestroy {
             icon: 'feather:sliders',
             title: 'Kịch bản Tiktok',
             description: 'Xem livstream, bấm like, viết comment tự động',
+        },
+        {
+            id: 'share',
+            icon: 'feather:share-2',
+            title: 'Chia sẻ đa kênh',
+            description: 'Chia sẻ bài viết lên các trang mạng xã hội',
         }
     ];
 
@@ -50,18 +57,22 @@ export class AMXHComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
-    detail(uuid: string, name: string, tab:string) {
+    detail(uuid: string, name: string, tab: string) {
         this._crawlService.detail({ uuid: uuid, username: name }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: async (result: any) => {
-                if (result && result.data && result.data.done) {
-                    this.captions = result.data.done.map((htmlItem: any, index: number) => {
-                        const cleanText = this.removeHTML.transform(htmlItem);
-
-                        return {
-                            index: index,
-                            text: cleanText,
-                        };
-                    });
+                if (result && result.data) {
+                    this.articleData = result.data;
+                    
+                    if (result.data.done) {
+                        this.captions = result.data.done.map((htmlItem: any, index: number) => {
+                            const cleanText = this.removeHTML.transform(htmlItem);
+    
+                            return {
+                                index: index,
+                                text: cleanText,
+                            };
+                        });
+                    }
 
                     this.goToPanel(tab);
                 }

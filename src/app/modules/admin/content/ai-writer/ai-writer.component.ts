@@ -2126,6 +2126,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     arr_keyword: this.arr_keyword,
                     domain: this.domain,
                     username: this.user.name,
+                    thumbnail: this.detectForm.get('step1').get('thumbnail').value,
                 })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
@@ -2229,6 +2230,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             arr_keyword: this.arr_keyword,
             domain: this.domain,
             username: this.user.name,
+            thumbnail: this.detectForm.get('step1').get('thumbnail').value,
             confirm: confirm,
             new_version: this.new_version,
             createdAt: this.version_value,
@@ -2746,6 +2748,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 seo: this.seo,
                 arr_keyword: this.arr_keyword,
                 domain: this.domain,
+                thumbnail: this.detectForm.get('step1').get('thumbnail').value,
             }),
         );
     }
@@ -2759,6 +2762,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 localStorage.removeItem('editor');
 
                 this.detectForm.get('step1').get('title').setValue('');
+                this.detectForm.get('step1').get('thumbnail').setValue('');
                 this.detectForm.get('step2').get('url').setValue('');
                 // this.domain = '';
 
@@ -2845,6 +2849,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.detectForm.get('step1').get('title').setValue(editor.title);
         this.detectForm.get('step2').get('url').setValue(editor.url);
+        
+        if (editor.thumbnail) {
+            this.detectForm.get('step1').get('thumbnail').setValue(editor.thumbnail);
+        }
 
         if (this.seo.description && this.seo.description.text) {
             this.detectForm
@@ -3366,6 +3374,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             step1: this._formBuilder.group({
                 title: ['', Validators.required],
                 description: [''],
+                thumbnail: [''],
             }),
             step2: this._formBuilder.group({
                 url: [''],
@@ -3407,6 +3416,39 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             // Trigger thay đổi giao diện
             this.cd.detectChanges();
             this.toastr.success('Đã tự động chèn kết quả ghi âm!');
+        }
+    }
+
+    get thumbnailsList(): string[] {
+        if (!this.detectForm || !this.detectForm.get('step1')) return [];
+        const val = this.detectForm.get('step1').get('thumbnail').value;
+        return val ? val.split('\n').filter((p: string) => p.trim() !== '') : [];
+    }
+
+    removeThumbnail(index: number) {
+        const list = this.thumbnailsList;
+        if (index >= 0 && index < list.length) {
+            list.splice(index, 1);
+            this.detectForm.get('step1').get('thumbnail').setValue(list.join('\n'));
+            this.cd.markForCheck();
+        }
+    }
+
+    onThumbnailSelected(event: any) {
+        if (event.target.files && event.target.files.length > 0) {
+            const files = Array.from(event.target.files);
+            const paths = files.map((file: any) => file.path || file.name);
+            const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
+            
+            // Xử lý xuống dòng nếu đã có dữ liệu trước đó
+            const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
+            
+            this.detectForm.get('step1').get('thumbnail').setValue(newValue);
+            this.toastr.success(`Đã đính kèm ${files.length} tệp phương tiện local!`);
+            this.cd.markForCheck();
+            
+            // Xoá value của input file để có thể chọn lại file cũ nếu muốn
+            event.target.value = '';
         }
     }
 
