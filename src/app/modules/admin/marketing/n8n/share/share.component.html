@@ -50,6 +50,13 @@
                 group</mat-hint>
         </div>
 
+        <mat-form-field class="w-full fuse-mat-dense mb-4">
+            <mat-label>Hẹn giờ đăng bài (Phút)</mat-label>
+            <input matInput type="number" [formControlName]="'delay_minutes'" placeholder="0 để đăng ngay" min="0">
+            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
+            <mat-hint>Nhập 0 để đăng ngay lập tức, hoặc số phút để lên lịch (ví dụ: 60 = 1 tiếng).</mat-hint>
+        </mat-form-field>
+
         <div class="flex justify-end mt-4">
             <button mat-flat-button color="primary" (click)="submitShare()">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
