@@ -3,6 +3,9 @@ import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms
 import { ToastrService } from 'ngx-toastr';
 import { RemoveHTMLPipe } from "app/app.pipe";
 import { N8nService } from 'app/modules/_services/n8n.service';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+
+import { HttpClient } from '@angular/common/http';
 
 @Component({
     selector: 'amxh-share',
@@ -15,12 +18,17 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     @Input() data: any;
     shareForm: UntypedFormGroup;
     private removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
+    
+    fbPages: any[] = [];
+    isFetchingPages: boolean = false;
 
     constructor(
         private _formBuilder: UntypedFormBuilder,
         private _changeDetectorRef: ChangeDetectorRef,
         private toastr: ToastrService,
-        private _n8nService: N8nService
+        private _n8nService: N8nService,
+        private http: HttpClient,
+        private multiAccountService: MultiAccountService
     ) {}
 
     ngOnInit(): void {
@@ -28,9 +36,82 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             title: ['', Validators.required],
             description: [''],
             thumbnail: [''],
+            pageId: ['', Validators.required],
             delay_minutes: [0]
         });
+        
+        // Load pages từ MultiAccountService nếu có
+        const savedPages = this.multiAccountService.getItem('fb_pages');
+        if (savedPages) {
+            try {
+                this.fbPages = typeof savedPages === 'string' ? JSON.parse(savedPages) : savedPages;
+                // Tự động chọn page đầu tiên nếu có
+                if (this.fbPages.length > 0) {
+                    this.shareForm.get('pageId').setValue(this.fbPages[0].id);
+                }
+            } catch (e) {}
+        }
+        
         this.updateFormFromData();
+
+        // Tự động kiểm tra và tạo Workflow trên n8n nếu chưa có
+        this._n8nService.setupFacebookWorkflow().subscribe({
+            next: (res) => {
+                if (res.status === 'created') {
+                    this.toastr.success('Đã tự động khởi tạo Workflow Đăng bài Facebook trên n8n!');
+                }
+            },
+            error: (err) => {
+                console.warn('Không thể tự động tạo workflow n8n:', err);
+            }
+        });
+    }
+
+    showTokenInput: boolean = false;
+    fbTokenInput: string = '';
+
+    fetchFacebookPages(): void {
+        if (!this.fbTokenInput) {
+            this.toastr.warning('Vui lòng nhập Token trước khi đồng bộ!');
+            return;
+        }
+
+        this.isFetchingPages = true;
+        this.toastr.info('Đang lấy danh sách Fanpage từ Facebook...');
+        
+        this.http.get(`https://graph.facebook.com/v20.0/me/accounts?access_token=${this.fbTokenInput}`).subscribe({
+            next: (res: any) => {
+                if (res && res.data && res.data.length > 0) {
+                    this.fbPages = res.data;
+                    this.multiAccountService.setItem('fb_pages', this.fbPages);
+                    this.toastr.success(`Đã đồng bộ ${this.fbPages.length} Fanpage thành công!`);
+                    
+                    if (!this.shareForm.get('pageId').value) {
+                        this.shareForm.get('pageId').setValue(this.fbPages[0].id);
+                    }
+                    this.showTokenInput = false;
+                } else {
+                    this.toastr.warning('Không tìm thấy Fanpage nào hoặc Token không có quyền!');
+                }
+                this.isFetchingPages = false;
+                this._changeDetectorRef.markForCheck();
+            },
+            error: (err) => {
+                this.toastr.error('Lỗi khi lấy danh sách Fanpage! Vui lòng kiểm tra lại Token.');
+                console.error(err);
+                this.isFetchingPages = false;
+                this._changeDetectorRef.markForCheck();
+            }
+        });
+    }
+
+    toggleTokenInput(): void {
+        this.showTokenInput = !this.showTokenInput;
+        this._changeDetectorRef.markForCheck();
+    }
+
+    openN8n(): void {
+        window.open('http://localhost:5678/workflows', '_blank');
     }
 
     ngOnChanges(changes: SimpleChanges): void {
@@ -106,13 +187,19 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             data.thumbnail = [];
         }
 
+        // Đính kèm Page Access Token nếu có
+        const selectedPage = this.fbPages.find(p => p.id === data.pageId);
+        if (selectedPage && selectedPage.access_token) {
+            data.pageAccessToken = selectedPage.access_token;
+        }
+
         if (data.delay_minutes > 0) {
             this.toastr.info(`Đang lên lịch qua Python Scheduler (chờ ${data.delay_minutes} phút)...`);
             
             // Payload cho app.py (FastAPI)
             const schedulePayload = {
                 delay_minutes: data.delay_minutes,
-                target_url: 'https://n8n.type.vn/webhook/share-facebook',
+                target_url: this._n8nService.getWebhookUrl('share-facebook'),
                 forward_header_name: 'X-N8N-API-KEY',
                 forward_header_value: '' // Sẽ dùng mặc định trong .env của Python
             };
