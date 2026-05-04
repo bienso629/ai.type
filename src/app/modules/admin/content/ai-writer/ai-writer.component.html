@@ -138,6 +138,44 @@
                                 </mat-form-field>
                             </div>
 
+                            <div class="flex flex-col mt-2 mb-3">
+                                <div class="flex items-center justify-between mb-2">
+                                    <mat-label class="text-base font-semibold">Ảnh/Video</mat-label>
+                                    <button mat-icon-button (click)="fileInput.click()" type="button"
+                                        [color]="'primary'" matTooltip="Thêm file đa phương tiện">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
+                                    </button>
+                                    <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
+                                        accept="image/*,video/*" multiple>
+                                </div>
+
+                                <div class="flex flex-col gap-2 bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
+                                    [class.items-center]="thumbnailsList.length === 0"
+                                    [class.justify-center]="thumbnailsList.length === 0">
+
+                                    <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400 italic">
+                                        Chưa có file nào được chọn
+                                    </div>
+
+                                    <div *ngFor="let file of thumbnailsList; let i = index"
+                                        class="flex items-center justify-between px-3 py-1.5 bg-white border border-gray-200 rounded shadow-sm">
+                                        <div class="flex items-center space-x-2 overflow-hidden flex-1">
+                                            <mat-icon class="icon-size-4 text-gray-400 flex-shrink-0"
+                                                [svgIcon]="'feather:file'"></mat-icon>
+                                            <span class="truncate text-sm text-gray-700 font-medium" [title]="file">{{
+                                                file }}</span>
+                                        </div>
+                                        <button mat-icon-button (click)="removeThumbnail(i)"
+                                            class="text-red-500 flex-shrink-0 ml-2" type="button"
+                                            matTooltip="Xoá file này">
+                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                        </button>
+                                    </div>
+                                </div>
+                                <mat-hint class="text-xs text-secondary mt-1">Đường dẫn ảnh/video dưới local để chia sẻ
+                                    lên mạng xã hội</mat-hint>
+                            </div>
+
                             <mat-accordion MatAccordionDisplayMode="flat" multi *ngIf="arr_keyword.length > 0">
                                 <mat-expansion-panel [expanded]="true">
                                     <mat-expansion-panel-header #keywords>

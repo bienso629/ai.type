@@ -160,6 +160,14 @@
                                             [svgIcon]="'heroicons_outline:collection'"></mat-icon>
                                     </button>
 
+                                    <button *ngIf="permissionScriptCommentLike" mat-icon-button matTooltipPosition="above"
+                                        matTooltip="Chia sẻ bài viết '{{ row.title }}' lên các trang mạng xã hội cùng lúc"
+                                        [routerLink]="['/amxh']"
+                                        [queryParams]="{ tab: 'share', uuid: row.uuid, user: user.name }"
+                                        class="transition-colors">
+                                        <mat-icon class="icon-size-4 text-green-500" [svgIcon]="'feather:share-2'"></mat-icon>
+                                    </button>
+
                                     <button mat-icon-button matTooltipPosition="above" matTooltip="Gỡ khỏi tập"
                                         (click)="removeFromCollection(row)" class="transition-colors">
                                         <mat-icon class="icon-size-4 text-gray-500 hover:text-red-500"

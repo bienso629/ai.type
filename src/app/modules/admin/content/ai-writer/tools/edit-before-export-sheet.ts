@@ -1,4 +1,4 @@
-import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
+import { Component, Inject, OnDestroy, OnInit, ChangeDetectorRef } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MAT_BOTTOM_SHEET_DATA, MatBottomSheetRef } from "@angular/material/bottom-sheet";
 import { HelperService } from "app/helper.service";
@@ -12,8 +12,14 @@ declare var TurndownService: any;
 
 @Component({
     selector: 'edit-before-export-sheet',
-    template: `<div class="px-2 pb-4">
-        <div *ngIf="data.function === 'share'" class="text-xl my-4 font-normal text-gray-500 tracking-tight flex items-stretch">
+    styles: [`
+        ::ng-deep .edit-before-export-quill .ql-container {
+            max-height: 50vh !important;
+            min-height: 250px !important;
+        }
+    `],
+    template: `<div class="px-2 pb-4 pt-2">
+        <div *ngIf="data.function === 'share'" class="text-xl mt-4 mb-4 font-normal text-gray-500 tracking-tight flex items-stretch">
             <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:check-square'"></mat-icon>
             <mat-label class="self-center">{{this.data.title}}</mat-label>
         </div>
@@ -28,7 +34,7 @@ declare var TurndownService: any;
             <mat-label class="self-center">Thêm nội dung</mat-label>
         </div>
 
-        <div mat-dialog-content class="mt-6 p-0 overflow-hidden">
+        <div mat-dialog-content class="mt-6 p-0 overflow-hidden" style="max-height: none;">
             <form [formGroup]="editorForm">
                 <div class="flex flex-col p-0 bg-white rounded-md">
                     <div class="my-1 flex flex-row" *ngIf="data.function === 'share'">
@@ -52,8 +58,8 @@ declare var TurndownService: any;
                     <!-- <div class="my-1"><mat-label><b>Mô tả:</b> {{this.data.description || "Chưa có mô tả"}}</mat-label></div>
                     <div class="my-1"><mat-label><b>Khoá chính:</b> {{this.data.mainkey || "Chưa có khoá chính"}}</mat-label></div> -->
 
-                    <div class="my-1">
-                        <quill-editor class="w-full mt-2" theme="snow" format="html" [ngStyle]="{height: '200px'}" placeholder="Nhập nội dung" [formControlName]="'content'" (onEditorCreated)="getEditorInstance($event)"><div above-quill-editor-toolbar> above </div> <div quill-editor-toolbar> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <select class="ql-header hover:bg-slate-100"> <option value="1">Heading</option> <option value="2">Subheading</option> <option selected>Normal</option> </select> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-bold !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-italic !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-underline !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="ordered"></button> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="bullet"></button> <select class="ql-align !border !border-solid !border-slate-300 rounded hover:bg-slate-100"> <option label="left" selected></option> <option label="center" value="center"></option> <option label="right" value="right"></option> <option label="justify" value="justify"></option> </select> </span> <span class="ql-formats inline-flex gap-1 mb-1"> 
+                    <div class="my-1 flex flex-col">
+                        <quill-editor class="w-full mt-2 edit-before-export-quill" theme="snow" format="html" [ngStyle]="{'height': 'auto'}" placeholder="Nhập nội dung" [formControlName]="'content'" (onEditorCreated)="getEditorInstance($event)"><div above-quill-editor-toolbar> above </div> <div quill-editor-toolbar> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <select class="ql-header hover:bg-slate-100"> <option value="1">Heading</option> <option value="2">Subheading</option> <option selected>Normal</option> </select> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-bold !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-italic !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-underline !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="ordered"></button> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="bullet"></button> <select class="ql-align !border !border-solid !border-slate-300 rounded hover:bg-slate-100"> <option label="left" selected></option> <option label="center" value="center"></option> <option label="right" value="right"></option> <option label="justify" value="justify"></option> </select> </span> <span class="ql-formats inline-flex gap-1 mb-1"> 
                             <button class="ql-blockquote !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Quote"><mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'"></mat-icon></button>
                             <button class="ql-code-block !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Code"><mat-icon class="icon-size-4" [svgIcon]="'feather:code'"></mat-icon></button> 
                             <button class="ql-link !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Link"><mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon></button> 
@@ -403,6 +409,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         private _bottomSheetRef: MatBottomSheetRef<EditBeforeExportSheet>,
         private _formBuilder: UntypedFormBuilder,
         private clipboard: Clipboard,
+        private cdr: ChangeDetectorRef,
         @Inject(MAT_BOTTOM_SHEET_DATA) public data: any
     ) {
         if (data && data['domain'].domain && data['domain'].domain.indexOf('https') < 0) {
