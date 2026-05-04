@@ -856,19 +856,41 @@ async function facebookCrawl(args) {
             defaultViewport: null,
         });
 
-        const pages = await browser.pages();
-        let facebookPage = pages.find((p) => p.url().includes(`uniqueID=${uniqueID}`));
+        let facebookPage = null;
+        let retries = 15;
+        while (retries > 0 && !facebookPage) {
+            const targets = await browser.targets();
+            const target = targets.find((t) => t.url().includes(`uniqueID=${uniqueID}`) || (args.useWebview && t.url().includes('facebook.com')));
+            
+            if (target) {
+                facebookPage = await target.page();
+            }
+            
+            if (facebookPage) break;
+            
+            sendToRenderer("tools-log", `⏳ Đang đợi tab Facebook mở... (${retries}s)`);
+            await new Promise(r => setTimeout(r, 2000));
+            retries--;
+        }
 
         if (!facebookPage) {
             sendToRenderer("tools-log", "❌ Không tìm thấy tab Facebook.");
             return;
         }
 
-        await facebookPage.bringToFront();
+        try {
+            await facebookPage.bringToFront();
+        } catch (e) {
+            // Có thể bỏ qua nếu là webview không hỗ trợ bringToFront
+        }
+
+        let noNewPostLoops = 0;
+        let previousPostCount = 0;
 
         while (allPosts.length < maxPosts && count < 1000) {
             count++;
-            if (!targetWindow || targetWindow.isDestroyed()) break;
+            // If using targetWindow and it's closed, stop. But for webview, targetWindow might be null, so check !useWebview.
+            if (!args.useWebview && (!targetWindow || targetWindow.isDestroyed())) break;
 
             await facebookPage.mouse.wheel({ deltaY: 2000 });
             await new Promise(r => setTimeout(r, 3000));
@@ -905,8 +927,28 @@ async function facebookCrawl(args) {
                     seenIds.add(key);
                     allPosts.push(post);
                     sendToRenderer("tools-log", `[FB-Crawl] ✅ Đã lấy: ${post.author.name} (${post.images.length} ảnh)`);
+                    
+                    // Phát luồng trực tiếp về frontend
+                    sendToRenderer("tools-response", {
+                        action: "facebook-crawl-stream",
+                        success: true,
+                        posts: [post]
+                    });
                 }
                 if (allPosts.length >= maxPosts) break;
+            }
+
+            // Kiểm tra tiến độ để tránh vòng lặp vô hạn
+            if (allPosts.length === previousPostCount) {
+                noNewPostLoops++;
+            } else {
+                noNewPostLoops = 0;
+            }
+            previousPostCount = allPosts.length;
+
+            if (noNewPostLoops >= 5) {
+                sendToRenderer("tools-log", `[FB-Crawl] ⚠️ Không tìm thấy bài đăng mới sau nhiều lần cuộn. Dừng quét tại ${allPosts.length} bài.`);
+                break;
             }
 
             if (allPosts.length >= maxPosts) break;
@@ -919,8 +961,9 @@ async function facebookCrawl(args) {
         });
 
         if (browser) await browser.disconnect();
-        if (targetWindow && !targetWindow.isDestroyed()) targetWindow.close();
-
+        if (!args.useWebview && targetWindow && !targetWindow.isDestroyed()) {
+            targetWindow.close();
+        }
     } catch (err) {
         sendToRenderer("tools-log", `❌ Lỗi: ${err.message}`);
         if (browser) await browser.disconnect();
@@ -3127,7 +3170,13 @@ app.whenReady().then(async () => {
                 const maxPosts = data.maxPosts || 3;
                 const facegroup = data.facegroup || "";
 
-                if (data.cookiePath && fs.existsSync(data.cookiePath)) {
+                if (data.useWebview) {
+                    sendToRenderer(
+                        "tools-log",
+                        `[FB-Crawl] 🚀 Khởi chạy quét Facebook qua Web Tools...`
+                    );
+                    facebookCrawl(data);
+                } else if (data.cookiePath && fs.existsSync(data.cookiePath)) {
                     setFacebookCookiesFromFile(data.cookiePath).then(() => {
                         sendToRenderer(
                             "tools-log",
