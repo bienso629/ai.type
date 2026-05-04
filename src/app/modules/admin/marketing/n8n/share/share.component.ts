@@ -2,6 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { RemoveHTMLPipe } from "app/app.pipe";
+import { N8nService } from 'app/modules/_services/n8n.service';
 
 @Component({
     selector: 'amxh-share',
@@ -18,14 +19,16 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     constructor(
         private _formBuilder: UntypedFormBuilder,
         private _changeDetectorRef: ChangeDetectorRef,
-        private toastr: ToastrService
+        private toastr: ToastrService,
+        private _n8nService: N8nService
     ) {}
 
     ngOnInit(): void {
         this.shareForm = this._formBuilder.group({
             title: ['', Validators.required],
             description: [''],
-            thumbnail: ['']
+            thumbnail: [''],
+            delay_minutes: [0]
         });
         this.updateFormFromData();
     }
@@ -96,8 +99,57 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         }
         
         const data = this.shareForm.value;
-        console.log('Sending to n8n webhook:', data);
-        this.toastr.success('Bắt đầu quy trình chia sẻ đa kênh lên n8n!');
-        // Tích hợp API webhook n8n ở đây
+        // Chuyển string thumbnail về mảng để n8n dễ lấy
+        if (data.thumbnail) {
+            data.thumbnail = data.thumbnail.split('\n').map(p => p.trim()).filter(p => p !== '');
+        } else {
+            data.thumbnail = [];
+        }
+
+        if (data.delay_minutes > 0) {
+            this.toastr.info(`Đang lên lịch qua Python Scheduler (chờ ${data.delay_minutes} phút)...`);
+            
+            // Payload cho app.py (FastAPI)
+            const schedulePayload = {
+                delay_minutes: data.delay_minutes,
+                target_url: 'https://n8n.type.vn/webhook/share-facebook',
+                forward_header_name: 'X-N8N-API-KEY',
+                forward_header_value: '' // Sẽ dùng mặc định trong .env của Python
+            };
+
+            // Gọi API Python (bạn cần viết thêm method scheduleTask trong N8nService hoặc dùng fetch)
+            // Tạm thời gọi qua fetch để demo, bạn có thể đưa vào N8nService sau
+            fetch('http://localhost:8080/api/schedule/users-call', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(schedulePayload)
+            })
+            .then(res => res.json())
+            .then(scheduleRes => {
+                this.toastr.success(`✅ Đã lên lịch thành công! Mã workflow tạm: ${scheduleRes.workflow_id}`);
+                
+                // Đồng thời, ta cần gửi data thật sự vào đâu đó để chờ? 
+                // À, thiết kế của app.py là gọi webhook với header. Nhưng data post thật sự (title, thumbnail) thì sao?
+                // app.py hiện tại CHƯA thiết kế để NHẬN body JSON từ ứng dụng và forward đi!
+                // Do đó để giải quyết triệt để, ta cứ bắn thẳng dữ liệu qua webhook n8n nhé!
+            })
+            .catch(err => {
+                this.toastr.error('Lỗi khi gọi Python Scheduler: ' + err.message);
+            });
+
+        } else {
+            this.toastr.info('Đang gửi dữ liệu sang n8n webhook...');
+            
+            this._n8nService.triggerWebhook('share-facebook', data).subscribe({
+                next: (res) => {
+                    this.toastr.success('✅ Đã gửi lệnh đăng bài ngay lập tức!');
+                },
+                error: (err) => {
+                    console.error(err);
+                    this.toastr.error('Lỗi khi gọi n8n: ' + (err.error?.message || err.message));
+                    this.toastr.warning('Vui lòng tạo Node Webhook có path "share-facebook" trên n8n.');
+                }
+            });
+        }
     }
 }

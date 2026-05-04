@@ -40,6 +40,8 @@ if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
 }
 
+
+
 // =====================================================================
 // Google Ads Keyword Planner IPC (ads:keywordIdeas)
 // =====================================================================
@@ -2413,7 +2415,6 @@ function startSttServer() {
     });
 }
 
-// ==== APP EVENT ==== //
 app.whenReady().then(async () => {
     if (process.platform === 'win32') {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
