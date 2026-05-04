@@ -165,6 +165,36 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
     }
 
+    @HostListener('window:open-web-tool', ['$event'])
+    onOpenWebTool(event: CustomEvent): void {
+        const url = event.detail.url;
+        if (!url) return;
+        
+        // Cố gắng tìm tool cũ (cùng URL tĩnh hoặc cùng là Auto Tools)
+        let tool = this.tools.find(t => t.url === url || (t.name === 'Auto Tools' && url.includes('facebook.com')));
+        
+        if (!tool) {
+            tool = { id: Date.now().toString(), name: 'Auto Tools', url: url };
+            this.tools.unshift(tool);
+        } else {
+            // Cập nhật lại URL mới (vì có uniqueID thay đổi liên tục)
+            tool.url = url;
+            
+            // Cập nhật thẻ webview luôn nếu nó đã được render
+            const container = document.getElementById('webview-container-div');
+            if (container) {
+                const webview = container.querySelector(`webview[data-tool-id="${tool.id}"]`) as any;
+                if (webview && webview.src !== url) {
+                    webview.setAttribute('src', url);
+                }
+            }
+        }
+        
+        this.multiAccountService.setItem('tools_urls', this.tools);
+        this.open();
+        this.openTool(tool);
+    }
+
     ngAfterViewInit(): void {
         this._mutationObserver = new MutationObserver((mutations) => {
             mutations.forEach((mutation) => {

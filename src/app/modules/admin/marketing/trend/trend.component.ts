@@ -481,6 +481,10 @@ export class AIFacePostComponent
 
         // Tạo uniqueID mỗi lần chụp
         const uniqueID = Math.random().toString(36).substr(2, 9);
+        const urlWithId = url + (url.includes('?') ? '&' : '?') + 'uniqueID=' + uniqueID;
+
+        // Phát sự kiện mở trang trên Web Tools
+        window.dispatchEvent(new CustomEvent('open-web-tool', { detail: { url: urlWithId } }));
 
         // Các tham số selector truyền vào backend
         const storySelector = 'data-ad-rendering-role="story_message"';
@@ -491,8 +495,9 @@ export class AIFacePostComponent
         const profileNameSelector = 'data-ad-rendering-role="profile_name"';
 
         await (window as any).electron.tools({
-            url: url,
+            url: urlWithId,
             command: 'facebook-crawl',
+            useWebview: true, // Không tạo cửa sổ mới, chạy thẳng logic
             uniqueID,
             facegroup: collection['_id'],
             type: 'post',
@@ -943,32 +948,29 @@ export class AIFacePostComponent
         // Nhận phản hồi, theo dõi hoạt động từ main process
         this.unsubscribeRes = (window as any).electron.onToolsResponse(
             (data: { action: string; success: any; posts: any }) => {
-                if (data.action === 'facebook-crawl' && data.success) {
+                if (data.action === 'facebook-crawl-stream' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
-                        console.log(
-                            'Dữ liệu bài viết mới nhận được từ main:',
-                            data.posts,
-                        );
-
-                        // cập nhật bảng
+                        console.log('Realtime post:', data.posts[0]);
+                        
+                        // Cập nhật bảng
                         this.rows = [...data.posts, ...this.rows];
                         this.selected = [...data.posts, ...this.selected];
-
+                        
                         this.totalElements = this.rows.length;
                         this.totalDisplayCount = this.rows.filter(
                             (row) => !row.isHeader,
-                        ).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
+                        ).length;
 
-                        // lam moi lai giao dien
-                        this.loading = false;
-                        this.toastr.success(`Quét Facebook thành công!`);
+                        // Tự động lưu
+                        this.storePost([...data.posts]);
 
-                        // tự động lưu
-                        this.storePost(data.posts);
-
-                        // lam moi lai giao dien
                         this.cd.markForCheck();
                     }
+                }
+                else if (data.action === 'facebook-crawl' && data.success) {
+                    this.loading = false;
+                    this.toastr.success(`Hoàn tất quét Facebook! Đã lấy đủ số lượng hoặc cuộn hết trang.`);
+                    this.cd.markForCheck();
                 }
             },
         );
