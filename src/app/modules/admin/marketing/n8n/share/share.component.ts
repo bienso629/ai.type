@@ -4,8 +4,11 @@ import { ToastrService } from 'ngx-toastr';
 import { RemoveHTMLPipe } from "app/app.pipe";
 import { N8nService } from 'app/modules/_services/n8n.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { CrawlService } from 'app/modules/_services/crawl';
 
 import { HttpClient } from '@angular/common/http';
+import { UserService } from 'app/core/user/user.service';
 
 @Component({
     selector: 'amxh-share',
@@ -28,7 +31,10 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         private toastr: ToastrService,
         private _n8nService: N8nService,
         private http: HttpClient,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private sanitizer: DomSanitizer,
+        private _crawlService: CrawlService,
+        private _userService: UserService
     ) {}
 
     ngOnInit(): void {
@@ -36,8 +42,8 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             title: ['', Validators.required],
             description: [''],
             thumbnail: [''],
-            pageId: ['', Validators.required],
-            delay_minutes: [0]
+            pageIds: [[], Validators.required],
+            scheduleTime: [null]
         });
         
         // Load pages từ MultiAccountService nếu có
@@ -47,7 +53,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                 this.fbPages = typeof savedPages === 'string' ? JSON.parse(savedPages) : savedPages;
                 // Tự động chọn page đầu tiên nếu có
                 if (this.fbPages.length > 0) {
-                    this.shareForm.get('pageId').setValue(this.fbPages[0].id);
+                    this.shareForm.get('pageIds').setValue([this.fbPages[0].id]);
                 }
             } catch (e) {}
         }
@@ -69,6 +75,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
 
     showTokenInput: boolean = false;
     fbTokenInput: string = '';
+    private objectUrls: { [key: string]: string } = {};
 
     fetchFacebookPages(): void {
         if (!this.fbTokenInput) {
@@ -79,15 +86,15 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         this.isFetchingPages = true;
         this.toastr.info('Đang lấy danh sách Fanpage từ Facebook...');
         
-        this.http.get(`https://graph.facebook.com/v20.0/me/accounts?access_token=${this.fbTokenInput}`).subscribe({
+        this.http.get(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,category,picture{url}&access_token=${this.fbTokenInput}`).subscribe({
             next: (res: any) => {
                 if (res && res.data && res.data.length > 0) {
                     this.fbPages = res.data;
                     this.multiAccountService.setItem('fb_pages', this.fbPages);
                     this.toastr.success(`Đã đồng bộ ${this.fbPages.length} Fanpage thành công!`);
                     
-                    if (!this.shareForm.get('pageId').value) {
-                        this.shareForm.get('pageId').setValue(this.fbPages[0].id);
+                    if (!this.shareForm.get('pageIds').value || this.shareForm.get('pageIds').value.length === 0) {
+                        this.shareForm.get('pageIds').setValue([this.fbPages[0].id]);
                     }
                     this.showTokenInput = false;
                 } else {
@@ -131,45 +138,159 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             descriptionText = cleanParagraphs.join('\n\n');
         }
 
+        let thumbnailValue = this.data.thumbnail || '';
+        if (Array.isArray(thumbnailValue)) {
+            thumbnailValue = thumbnailValue.join('\n');
+        }
+
         this.shareForm.patchValue({
             title: this.data.title || '',
             description: descriptionText,
-            thumbnail: this.data.thumbnail || ''
+            thumbnail: thumbnailValue
         });
         
         this._changeDetectorRef.markForCheck();
     }
 
-    ngOnDestroy(): void {}
+    ngOnDestroy(): void {
+        // Giải phóng bộ nhớ của object URLs
+        Object.values(this.objectUrls).forEach(url => {
+            try { URL.revokeObjectURL(url); } catch (e) {}
+        });
+    }
 
     get thumbnailsList(): string[] {
         if (!this.shareForm) return [];
         const val = this.shareForm.get('thumbnail').value;
-        return val ? val.split('\n').filter((p: string) => p.trim() !== '') : [];
+        if (!val) return [];
+        if (Array.isArray(val)) return val;
+        return val.split('\n').filter((p: string) => p.trim() !== '');
+    }
+
+    private autoSave(thumbnailStr: string) {
+        if (this.data && this.data.uuid) {
+            // Must pass all fields and new_version: -1 because backend archiveUpdate expects it
+            let username = '';
+            this._userService.user$.subscribe(user => {
+                if (user && user.name) username = user.name;
+            }).unsubscribe();
+
+            this._crawlService.archiveUpdate({
+                uuid: this.data.uuid,
+                source: this.data.source,
+                done: this.data.done,
+                title: this.data.title,
+                url: this.data.url,
+                trash: this.data.trash,
+                seo: this.data.seo,
+                arr_keyword: this.data.arr_keyword,
+                domain: this.data.domain,
+                username: username,
+                thumbnail: thumbnailStr,
+                new_version: -1,
+                createdAt: this.data.createdAt
+            }).subscribe({
+                next: () => {
+                    // Cập nhật lại this.data.thumbnail để đồng bộ state
+                    this.data.thumbnail = thumbnailStr;
+                },
+                error: (err) => console.error('Lỗi auto save thumbnail:', err)
+            });
+        }
     }
 
     removeThumbnail(index: number) {
         const list = this.thumbnailsList;
         if (index >= 0 && index < list.length) {
             list.splice(index, 1);
-            this.shareForm.get('thumbnail').setValue(list.join('\n'));
+            const newValue = list.join('\n');
+            this.shareForm.get('thumbnail').setValue(newValue);
+            this.autoSave(newValue);
             this._changeDetectorRef.markForCheck();
         }
+    }
+
+    getFileName(fileStr: string): string {
+        if (!fileStr) return '';
+        if (fileStr.includes('data:')) {
+            const match = fileStr.match(/;name=([^;]+);base64,/);
+            if (match && match[1]) {
+                return decodeURIComponent(match[1]);
+            }
+            return 'Tệp đính kèm (Dữ liệu nội bộ)';
+        }
+        return fileStr;
+    }
+
+    isImage(file: string): boolean {
+        if (!file) return false;
+        const cleanFile = file.trim();
+        if (cleanFile.includes('data:image')) return true;
+        const lower = cleanFile.toLowerCase();
+        return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp');
+    }
+
+    getFileSrc(file: string): SafeUrl {
+        if (!file) return '';
+        const cleanFile = file.trim();
+        if (this.objectUrls[cleanFile]) {
+            return this.sanitizer.bypassSecurityTrustUrl(this.objectUrls[cleanFile]);
+        }
+        if (cleanFile.startsWith('http://') || cleanFile.startsWith('https://') || cleanFile.includes('data:image') || cleanFile.startsWith('blob:')) {
+            return this.sanitizer.bypassSecurityTrustUrl(cleanFile);
+        }
+        let safePath = cleanFile.replace(/\\/g, '/');
+        if (!safePath.startsWith('/')) {
+            safePath = '/' + safePath;
+        }
+        return this.sanitizer.bypassSecurityTrustUrl('file://' + safePath);
+    }
+
+    getSelectedPageNames(): string {
+        const selectedIds = this.shareForm?.get('pageIds')?.value || [];
+        if (!selectedIds.length) return '';
+        const selectedPages = this.fbPages.filter(p => selectedIds.includes(p.id));
+        return selectedPages.map(p => p.name).join(', ');
     }
 
     onThumbnailSelected(event: any) {
         if (event.target.files && event.target.files.length > 0) {
             const files = Array.from(event.target.files);
-            const paths = files.map((file: any) => file.path || file.name);
-            const existingValue = this.shareForm.get('thumbnail').value || '';
             
-            const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
-            
-            this.shareForm.get('thumbnail').setValue(newValue);
-            this.toastr.success(`Đã đính kèm ${files.length} tệp phương tiện local!`);
-            this._changeDetectorRef.markForCheck();
-            
-            event.target.value = '';
+            const processFile = (file: any): Promise<string> => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e: any) => {
+                        const result = e.target.result as string;
+                        // Inject original filename into base64 string
+                        const nameParam = `;name=${encodeURIComponent(file.name)}`;
+                        const modifiedResult = result.replace(';base64,', nameParam + ';base64,');
+                        resolve(modifiedResult);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            Promise.all(files.map(processFile)).then(base64Strings => {
+                const paths = base64Strings.map((b64: string, index: number) => {
+                    const file = files[index] as any;
+                    const b64Key = b64;
+                    if (this.isImage(file.name)) {
+                        this.objectUrls[b64Key] = b64; // Hiển thị base64
+                    }
+                    return b64Key;
+                });
+                
+                const existingValue = this.shareForm.get('thumbnail').value || '';
+                const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
+                
+                this.shareForm.get('thumbnail').setValue(newValue);
+                this.autoSave(newValue);
+                this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
+                this._changeDetectorRef.markForCheck();
+                
+                event.target.value = '';
+            });
         }
     }
 
@@ -182,23 +303,39 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         const data = this.shareForm.value;
         // Chuyển string thumbnail về mảng để n8n dễ lấy
         if (data.thumbnail) {
-            data.thumbnail = data.thumbnail.split('\n').map(p => p.trim()).filter(p => p !== '');
+            if (Array.isArray(data.thumbnail)) {
+                data.thumbnail = data.thumbnail.map((p: any) => p?.toString().trim()).filter((p: string) => p !== '');
+            } else {
+                data.thumbnail = data.thumbnail.split('\n').map((p: string) => p.trim()).filter((p: string) => p !== '');
+            }
         } else {
             data.thumbnail = [];
         }
 
-        // Đính kèm Page Access Token nếu có
-        const selectedPage = this.fbPages.find(p => p.id === data.pageId);
-        if (selectedPage && selectedPage.access_token) {
-            data.pageAccessToken = selectedPage.access_token;
+        // Đính kèm danh sách Page Access Token
+        const selectedPages = this.fbPages.filter(p => data.pageIds.includes(p.id));
+        if (selectedPages && selectedPages.length > 0) {
+            data.pages = selectedPages.map(p => ({
+                id: p.id,
+                name: p.name,
+                access_token: p.access_token
+            }));
         }
 
-        if (data.delay_minutes > 0) {
-            this.toastr.info(`Đang lên lịch qua Python Scheduler (chờ ${data.delay_minutes} phút)...`);
+        let delay_minutes = 0;
+        if (data.scheduleTime) {
+            const selectedTime = new Date(data.scheduleTime).getTime();
+            const now = new Date().getTime();
+            delay_minutes = Math.max(0, Math.floor((selectedTime - now) / 60000));
+        }
+        data.delay_minutes = delay_minutes;
+
+        if (delay_minutes > 0) {
+            this.toastr.info(`Đang lên lịch qua Python Scheduler (chờ ${delay_minutes} phút)...`);
             
             // Payload cho app.py (FastAPI)
             const schedulePayload = {
-                delay_minutes: data.delay_minutes,
+                delay_minutes: delay_minutes,
                 target_url: this._n8nService.getWebhookUrl('share-facebook'),
                 forward_header_name: 'X-N8N-API-KEY',
                 forward_header_value: '' // Sẽ dùng mặc định trong .env của Python

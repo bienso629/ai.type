@@ -1,26 +1,42 @@
 <div class="flex flex-col flex-auto h-full p-6 sm:p-10 overflow-y-auto">
     <div class="text-2xl font-semibold mb-6">Chia sẻ đa kênh lên mạng xã hội</div>
 
-    <fuse-alert class="mb-6 max-w-3xl" [type]="'warning'" [appearance]="'border'">
-        <span fuseAlertTitle>Cấp quyền đăng bài</span>
-        Nếu đây là lần đầu đăng bài, vui lòng bấm vào <a href="javascript:void(0)"
-            class="font-medium text-primary hover:underline" (click)="openN8n()">đây</a> để mở n8n và Cấp quyền đăng
-        nhập tài khoản Facebook.
-    </fuse-alert>
 
-    <form [formGroup]="shareForm" class="flex flex-col bg-card p-6 shadow rounded-2xl max-w-3xl">
+    <form [formGroup]="shareForm" class="flex flex-col max-w-4xl">
         <div class="text-lg font-medium mb-4">Thông tin bài viết</div>
 
         <div class="flex gap-4 mb-4">
             <mat-form-field class="w-1/2 fuse-mat-dense">
                 <mat-label>Chọn Fanpage đích</mat-label>
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:facebook'"></mat-icon>
-                <mat-select [formControlName]="'pageId'" required>
+                <ng-container *ngIf="shareForm.get('pageIds').value?.length > 0; else defaultFbIcon">
+                    <img matPrefix
+                        [src]="'https://graph.facebook.com/' + shareForm.get('pageIds').value[0] + '/picture?type=normal'"
+                        class="w-5 h-5 rounded-full mr-2 object-cover shadow-sm bg-gray-100"
+                        onerror="this.src='assets/images/logo/facebook.png'; this.onerror=null;">
+                </ng-container>
+                <ng-template #defaultFbIcon>
+                    <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:facebook'"></mat-icon>
+                </ng-template>
+
+                <mat-select [formControlName]="'pageIds'" multiple required>
+                    <mat-select-trigger>
+                        <span class="truncate block w-full pr-2">
+                            {{ shareForm.get('pageIds').value ? getSelectedPageNames() : '' }}
+                        </span>
+                    </mat-select-trigger>
                     <mat-option *ngIf="fbPages.length === 0" disabled>Chưa có Fanpage nào</mat-option>
-                    <mat-option *ngFor="let page of fbPages" [value]="page.id">
-                        {{ page.name }} ({{ page.id }})
+                    <mat-option *ngFor="let page of fbPages" [value]="page.id" class="h-auto py-2">
+                        <div class="flex items-center gap-3 w-full min-w-0">
+                            <img [src]="'https://graph.facebook.com/' + page.id + '/picture?type=normal'"
+                                class="w-8 h-8 rounded-full shadow-sm object-cover flex-shrink-0 bg-gray-100"
+                                onerror="this.src='assets/images/logo/facebook.png'; this.onerror=null;">
+                            <span class="truncate flex-1" [title]="page.name + ' (' + page.id + ')'">
+                                {{ page.name }} <span class="text-xs text-secondary">({{ page.id }})</span>
+                            </span>
+                        </div>
                     </mat-option>
                 </mat-select>
+
                 <button matSuffix mat-icon-button type="button" matTooltip="Đồng bộ Fanpage từ Facebook"
                     (click)="toggleTokenInput()" [disabled]="isFetchingPages">
                     <mat-icon *ngIf="!isFetchingPages" class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
@@ -36,10 +52,10 @@
         </div>
 
         <div *ngIf="showTokenInput"
-            class="flex flex-col gap-3 mb-6 p-5 rounded bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-indigo-900/20 dark:to-blue-900/20 border border-blue-200 dark:border-blue-800 shadow-sm transition-all">
+            class="flex flex-col gap-3 mb-4 p-5 rounded-md border border-blue-200 dark:border-blue-800 bg-gray-50">
             <div class="flex items-center gap-3">
                 <div
-                    class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-800 text-blue-600 dark:text-blue-200">
+                    class="flex items-center justify-center w-10 h-10 rounded-full bg-blue-50 dark:bg-blue-800 text-blue-600 dark:text-blue-200">
                     <mat-icon class="icon-size-5" [svgIcon]="'feather:facebook'"></mat-icon>
                 </div>
                 <div>
@@ -50,72 +66,82 @@
                 </div>
             </div>
 
-            <div class="flex items-center gap-3 mt-2">
-                <div class="relative flex-auto">
-                    <input matInput [value]="fbTokenInput" (input)="fbTokenInput = $event.target.value"
-                        placeholder="Bắt đầu bằng EAACRa9TjS...">
+            <div class="flex items-center gap-2 mt-2">
+                <div class="flex flex-row gap-2 relative flex-auto">
+                    <input matInput [value]="fbTokenInput" class="flex-1 fuse-mat-dense px-3 bg-white border rounded-md"
+                        (input)="fbTokenInput = $event.target.value" placeholder="Bắt đầu bằng EAACRa9TjS...">
                     <button mat-flat-button [color]="'primary'" type="button" (click)="fetchFacebookPages()"
                         [disabled]="isFetchingPages">
                         Đồng bộ ngay
                     </button>
                 </div>
             </div>
+        </div>
 
-            <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-4">
-                <mat-label>Nội dung bài viết</mat-label>
-                <textarea matInput cdkTextareaAutosize [cdkAutosizeMinRows]="5" [formControlName]="'description'"
-                    placeholder="Nội dung chi tiết..."></textarea>
-            </mat-form-field>
+        <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-2">
+            <mat-label>Nội dung bài viết</mat-label>
+            <textarea matInput cdkTextareaAutosize [cdkAutosizeMinRows]="5" [formControlName]="'description'"
+                placeholder="Nội dung chi tiết..."></textarea>
+        </mat-form-field>
 
-            <div class="flex flex-col mt-2 mb-6">
-                <div class="flex items-center justify-between mb-2">
-                    <mat-label class="text-secondary font-medium">Các tệp đa phương tiện (Ảnh/Video)</mat-label>
-                    <button mat-icon-button (click)="fileInput.click()" type="button" [color]="'primary'"
-                        matTooltip="Thêm file đa phương tiện">
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
-                    </button>
-                    <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
-                        accept="image/*,video/*" multiple>
+        <div class="flex flex-col mt-2 mb-6">
+            <div class="flex items-center justify-between mb-2">
+                <mat-label class="text-secondary font-medium">Các tệp đa phương tiện (Ảnh/Video)</mat-label>
+                <button mat-icon-button (click)="fileInput.click()" type="button" [color]="'primary'"
+                    matTooltip="Thêm file đa phương tiện">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
+                </button>
+                <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
+                    accept="image/*,video/*" multiple>
+            </div>
+
+            <div class="flex flex-col gap-2 bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
+                [class.items-center]="thumbnailsList.length === 0" [class.justify-center]="thumbnailsList.length === 0">
+
+                <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400 italic">
+                    Chưa có file nào được chọn
                 </div>
 
-                <div class="flex flex-col gap-2 bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
-                    [class.items-center]="thumbnailsList.length === 0"
-                    [class.justify-center]="thumbnailsList.length === 0">
+                <div *ngFor="let file of thumbnailsList; let i = index" class="flex items-center justify-between">
+                    <div class="flex items-center space-x-2 overflow-hidden flex-1">
+                        <ng-container *ngIf="isImage(file); else fileIcon">
+                            <img [src]="getFileSrc(file)" class="w-8 h-8 object-cover rounded shadow-sm flex-shrink-0">
+                        </ng-container>
 
-                    <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400 italic">
-                        Chưa có file nào được chọn
-                    </div>
-
-                    <div *ngFor="let file of thumbnailsList; let i = index"
-                        class="flex items-center justify-between px-3 py-1.5 bg-white border border-gray-200 rounded shadow-sm">
-                        <div class="flex items-center space-x-2 overflow-hidden flex-1">
+                        <ng-template #fileIcon>
                             <mat-icon class="icon-size-4 text-gray-400 flex-shrink-0"
                                 [svgIcon]="'feather:file'"></mat-icon>
-                            <span class="truncate text-sm text-gray-700 font-medium" [title]="file">{{ file }}</span>
-                        </div>
-                        <button mat-icon-button (click)="removeThumbnail(i)" class="text-red-500 flex-shrink-0 ml-2"
-                            type="button" matTooltip="Xoá file này">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                        </button>
+                        </ng-template>
+
+                        <span class="truncate text-sm text-gray-700 font-medium"
+                            [title]="getFileName(file)">
+                            {{ getFileName(file) }}
+                        </span>
                     </div>
+                    <button mat-icon-button (click)="removeThumbnail(i)" class="text-red-500 flex-shrink-0 ml-2"
+                        type="button" matTooltip="Xoá file này">
+                        <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                    </button>
                 </div>
-                <mat-hint class="text-xs text-secondary mt-1">Đường dẫn ảnh/video dưới local để chia sẻ lên các fanpage
-                    hoặc
-                    group</mat-hint>
             </div>
+            <mat-hint class="text-xs text-secondary mt-1">Đường dẫn ảnh/video dưới local để chia sẻ lên các fanpage hoặc
+                group</mat-hint>
+        </div>
 
-            <mat-form-field class="w-full fuse-mat-dense mb-4">
-                <mat-label>Hẹn giờ đăng bài (Phút)</mat-label>
-                <input matInput type="number" [formControlName]="'delay_minutes'" placeholder="0 để đăng ngay" min="0">
-                <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
-                <mat-hint>Nhập 0 để đăng ngay lập tức, hoặc số phút để lên lịch (ví dụ: 60 = 1 tiếng).</mat-hint>
-            </mat-form-field>
+        <mat-form-field class="w-full fuse-mat-dense mb-2">
+            <mat-label>Hẹn giờ đăng bài</mat-label>
+            <input #scheduleInput matInput type="datetime-local" [formControlName]="'scheduleTime'"
+                (click)="scheduleInput.showPicker()">
+            <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
+            <mat-hint>Để trống hoặc chọn giờ trong quá khứ/hiện tại để đăng ngay lập tức. Chọn giờ tương lai để lên
+                lịch.</mat-hint>
+        </mat-form-field>
 
-            <div class="flex justify-end mt-4">
-                <button mat-flat-button color="primary" (click)="submitShare()">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
-                    <mat-label class="ml-2">{{ 'Đăng bài ngay' }}</mat-label>
-                </button>
-            </div>
+        <div class="flex justify-end mt-2">
+            <button mat-flat-button color="primary" (click)="submitShare()">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
+                <mat-label class="ml-2">{{ 'Đăng bài ngay' }}</mat-label>
+            </button>
+        </div>
     </form>
 </div>
