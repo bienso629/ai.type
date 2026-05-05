@@ -12,14 +12,24 @@ export interface AccountSession {
     encryptedData: string; // Dữ liệu đã mã hóa
 }
 
+export interface MediaFile {
+    id: string; // Tên file
+    file: File;
+}
+
 // 1. Khởi tạo IndexedDB với Dexie
 export class AppDB extends Dexie {
     sessions!: Table<AccountSession, string>;
+    mediaFiles!: Table<MediaFile, string>;
 
     constructor() {
         super('AiTypeMultiAccountDB');
         this.version(1).stores({
             sessions: 'id, isActive'
+        });
+        this.version(2).stores({
+            sessions: 'id, isActive',
+            mediaFiles: 'id'
         });
     }
 }
@@ -40,6 +50,17 @@ export class MultiAccountService {
 
     // Cờ báo hiệu DB đã load xong (dành cho những lúc cần await lúc khởi động app)
     public isReady: Promise<boolean>;
+
+    // Cache RAM cho các file Video/Media dung lượng lớn
+    // Bây giờ sẽ được đồng bộ với IndexedDB để sống sót qua F5
+    public memoryVideoFiles: { [key: string]: File } = {};
+
+    async saveMemoryFile(name: string, file: File): Promise<void> {
+        this.memoryVideoFiles[name] = file;
+        await this.safeDbCall(async () => {
+            await db.mediaFiles.put({ id: name, file: file });
+        }, undefined);
+    }
 
     constructor() {
         // Tải dữ liệu lên Cache ngay khi Service khởi tạo
@@ -130,6 +151,16 @@ export class MultiAccountService {
      */
     async loadActiveAccount(): Promise<any> {
         return this.safeDbCall(async () => {
+            try {
+                // Khôi phục tất cả Media File từ IndexedDB vào RAM sau khi F5
+                const allMedia = await db.mediaFiles.toArray();
+                for (const m of allMedia) {
+                    this.memoryVideoFiles[m.id] = m.file;
+                }
+            } catch (e) {
+                console.warn('Could not load media files', e);
+            }
+
             const activeRecord = await db.sessions.where('isActive').equals(1).first();
             
             if (activeRecord && activeRecord.encryptedData) {

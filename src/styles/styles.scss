@@ -651,6 +651,11 @@ mat-icon {
     margin: 0;
 }
 
+.mat-mdc-select-panel {
+    padding: 0 !important;
+    margin: 0 !important;
+}
+
 .fuse-vertical-navigation-content-header {
     margin-bottom: 16px;
 }
@@ -991,9 +996,11 @@ input[type=checkbox]:checked:after {
 }
 
 .hover-scroll:hover::-webkit-scrollbar-thumb {
-    background: #cbd5e1 !important; /* Lighter color when just hovering the container */
+    background: #cbd5e1 !important;
+    /* Lighter color when just hovering the container */
 }
 
 .hover-scroll::-webkit-scrollbar-thumb:hover {
-    background: #94a3b8 !important; /* Darker when hovering the scrollbar itself */
+    background: #94a3b8 !important;
+    /* Darker when hovering the scrollbar itself */
 }

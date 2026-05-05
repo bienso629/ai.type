@@ -91,24 +91,33 @@ export class N8nService {
                                     name: "Webhook",
                                     type: "n8n-nodes-base.webhook",
                                     typeVersion: 1.1,
-                                    position: [200, 300],
+                                    position: [0, 300],
                                     webhookId: "share-facebook"
                                 },
                                 {
                                     parameters: {
                                         mode: "runOnceForAllItems",
-                                        jsCode: "const items = [];\nfor (const item of $input.all()) {\n  const data = item.json.body;\n  const pages = data.pages || [];\n  if (pages.length === 0) continue;\n  for (const page of pages) {\n    if (data.thumbnail && data.thumbnail.length > 0) {\n      data.thumbnail.forEach((b64Str, index) => {\n        if(b64Str.startsWith('data:')) {\n          const mimeType = b64Str.split(';')[0].split(':')[1];\n          const ext = mimeType.split('/')[1];\n          const base64Data = b64Str.split(',')[1];\n          const isVideo = mimeType.startsWith('video/');\n          items.push({\n            json: { title: data.title, description: data.description, hasFile: true, isVideo: isVideo, pageId: page.id, pageAccessToken: page.access_token },\n            binary: {\n              source: {\n                data: base64Data,\n                mimeType: mimeType,\n                fileName: (isVideo ? 'video_' : 'image_') + index + '.' + ext\n              }\n            }\n          });\n        } else {\n          items.push({ json: { title: data.title, description: data.description, hasFile: false, isVideo: false, pageId: page.id, pageAccessToken: page.access_token } });\n        }\n      });\n    } else {\n      items.push({ json: { title: data.title, description: data.description, hasFile: false, isVideo: false, pageId: page.id, pageAccessToken: page.access_token } });\n    }\n  }\n}\nreturn items;"
+                                        jsCode: "const items = [];\nfor (const item of $input.all()) {\n  const data = item.json.body || item.json;\n  let pages = [];\n  if (data.pages) {\n    if (typeof data.pages === 'string') {\n      try { pages = JSON.parse(data.pages); } catch(e){}\n    } else {\n      pages = data.pages;\n    }\n  }\n  if (pages.length === 0) continue;\n\n  for (const page of pages) {\n    if (item.binary && Object.keys(item.binary).length > 0) {\n      for (const key of Object.keys(item.binary)) {\n        const binData = item.binary[key];\n        const isVideo = binData.mimeType ? binData.mimeType.startsWith('video/') : false;\n        items.push({\n          json: { title: data.title, description: data.description, hasFile: true, isVideo: isVideo, pageId: page.id, pageAccessToken: page.access_token },\n          binary: { source: binData }\n        });\n      }\n    } else {\n      items.push({ json: { title: data.title, description: data.description, hasFile: false, isVideo: false, pageId: page.id, pageAccessToken: page.access_token } });\n    }\n  }\n}\nreturn items;"
                                     },
                                     name: "Split Images",
                                     type: "n8n-nodes-base.code",
                                     typeVersion: 2,
+                                    position: [200, 300]
+                                },
+                                {
+                                    parameters: {
+                                        conditions: { boolean: [ { value1: "={{ $json.hasFile }}", value2: true } ] }
+                                    },
+                                    name: "Has File?",
+                                    type: "n8n-nodes-base.if",
+                                    typeVersion: 1,
                                     position: [400, 300]
                                 },
                                 {
                                     parameters: {
                                         authentication: "none",
                                         method: "POST",
-                                        url: "={{ $json.hasFile ? ($json.isVideo ? 'https://graph.facebook.com/v23.0/' + $json.pageId + '/videos' : 'https://graph.facebook.com/v23.0/' + $json.pageId + '/photos') : 'https://graph.facebook.com/v23.0/' + $json.pageId + '/feed' }}",
+                                        url: "={{ $json.isVideo ? 'https://graph.facebook.com/v23.0/' + $json.pageId + '/videos' : 'https://graph.facebook.com/v23.0/' + $json.pageId + '/photos' }}",
                                         sendBody: true,
                                         contentType: "multipart-form-data",
                                         bodyParameters: {
@@ -119,15 +128,35 @@ export class N8nService {
                                             ]
                                         }
                                     },
-                                    name: "Facebook Post",
+                                    name: "Facebook Post Media",
                                     type: "n8n-nodes-base.httpRequest",
                                     typeVersion: 4.1,
-                                    position: [600, 300]
+                                    position: [600, 200]
+                                },
+                                {
+                                    parameters: {
+                                        authentication: "none",
+                                        method: "POST",
+                                        url: "=https://graph.facebook.com/v23.0/{{ $json.pageId }}/feed",
+                                        sendBody: true,
+                                        contentType: "multipart-form-data",
+                                        bodyParameters: {
+                                            parameters: [
+                                                { name: "message", value: "={{ $json.description }}" },
+                                                { name: "access_token", value: "={{ $json.pageAccessToken }}" }
+                                            ]
+                                        }
+                                    },
+                                    name: "Facebook Post Text",
+                                    type: "n8n-nodes-base.httpRequest",
+                                    typeVersion: 4.1,
+                                    position: [600, 400]
                                 }
                             ],
                             connections: {
                                 "Webhook": { main: [ [ { node: "Split Images", type: "main", index: 0 } ] ] },
-                                "Split Images": { main: [ [ { node: "Facebook Post", type: "main", index: 0 } ] ] }
+                                "Split Images": { main: [ [ { node: "Has File?", type: "main", index: 0 } ] ] },
+                                "Has File?": { main: [ [ { node: "Facebook Post Media", type: "main", index: 0 } ], [ { node: "Facebook Post Text", type: "main", index: 0 } ] ] }
                             }
                         };
                         
