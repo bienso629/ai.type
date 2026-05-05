@@ -76,6 +76,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     showTokenInput: boolean = false;
     fbTokenInput: string = '';
     private objectUrls: { [key: string]: string } = {};
+    private memoryVideoFiles: { [key: string]: File } = {};
 
     fetchFacebookPages(): void {
         if (!this.fbTokenInput) {
@@ -212,11 +213,20 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
 
     getFileName(fileStr: string): string {
         if (!fileStr) return '';
+        if (fileStr.startsWith('local-video:')) {
+            const path = fileStr.substring('local-video:'.length);
+            return path.split(/[/\\]/).pop();
+        }
+        if (fileStr.startsWith('memory-video:')) {
+            return fileStr.substring('memory-video:'.length);
+        }
         if (fileStr.includes('data:')) {
             const match = fileStr.match(/;name=([^;]+);base64,/);
             if (match && match[1]) {
                 return decodeURIComponent(match[1]);
             }
+            if (fileStr.includes('data:image')) return 'Ảnh đính kèm (Dữ liệu nội bộ)';
+            if (fileStr.includes('data:video')) return 'Video đính kèm (Dữ liệu nội bộ)';
             return 'Tệp đính kèm (Dữ liệu nội bộ)';
         }
         return fileStr;
@@ -226,8 +236,17 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         if (!file) return false;
         const cleanFile = file.trim();
         if (cleanFile.includes('data:image')) return true;
+        if (cleanFile.startsWith('local-video:') || cleanFile.startsWith('memory-video:')) return false;
         const lower = cleanFile.toLowerCase();
         return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp');
+    }
+
+    isVideo(file: string): boolean {
+        if (!file) return false;
+        const cleanFile = file.trim();
+        if (cleanFile.includes('data:video') || cleanFile.startsWith('local-video:') || cleanFile.startsWith('memory-video:')) return true;
+        const lower = cleanFile.toLowerCase();
+        return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.mkv') || lower.endsWith('.webm');
     }
 
     getFileSrc(file: string): SafeUrl {
@@ -235,6 +254,14 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         const cleanFile = file.trim();
         if (this.objectUrls[cleanFile]) {
             return this.sanitizer.bypassSecurityTrustUrl(this.objectUrls[cleanFile]);
+        }
+        if (cleanFile.startsWith('local-video:')) {
+            const path = cleanFile.substring('local-video:'.length);
+            let safePath = path.replace(/\\/g, '/');
+            if (!safePath.startsWith('/')) {
+                safePath = '/' + safePath;
+            }
+            return this.sanitizer.bypassSecurityTrustUrl('file://' + safePath);
         }
         if (cleanFile.startsWith('http://') || cleanFile.startsWith('https://') || cleanFile.includes('data:image') || cleanFile.startsWith('blob:')) {
             return this.sanitizer.bypassSecurityTrustUrl(cleanFile);
@@ -259,15 +286,24 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             
             const processFile = (file: any): Promise<string> => {
                 return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e: any) => {
-                        const result = e.target.result as string;
-                        // Inject original filename into base64 string
-                        const nameParam = `;name=${encodeURIComponent(file.name)}`;
-                        const modifiedResult = result.replace(';base64,', nameParam + ';base64,');
-                        resolve(modifiedResult);
-                    };
-                    reader.readAsDataURL(file);
+                    if (file.type && file.type.startsWith('video/')) {
+                        // Tránh lưu Base64 của video vào CSDL
+                        if (file.path) {
+                            resolve(`local-video:${file.path}`);
+                        } else {
+                            this.memoryVideoFiles[file.name] = file;
+                            resolve(`memory-video:${file.name}`);
+                        }
+                    } else {
+                        const reader = new FileReader();
+                        reader.onload = (e: any) => {
+                            const result = e.target.result as string;
+                            const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
+                            const modifiedResult = result.replace(/;?base64,/, nameParam);
+                            resolve(modifiedResult);
+                        };
+                        reader.readAsDataURL(file);
+                    }
                 });
             };
 
@@ -275,7 +311,9 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                 const paths = base64Strings.map((b64: string, index: number) => {
                     const file = files[index] as any;
                     const b64Key = b64;
-                    if (this.isImage(file.name)) {
+                    if (b64Key.startsWith('memory-video:')) {
+                        this.objectUrls[b64Key] = URL.createObjectURL(file);
+                    } else if (this.isImage(file.name) || this.isVideo(file.name) || (b64Key.includes('data:video')) || b64Key.startsWith('local-video:')) {
                         this.objectUrls[b64Key] = b64; // Hiển thị base64
                     }
                     return b64Key;
@@ -294,7 +332,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         }
     }
 
-    submitShare() {
+    async submitShare() {
         if (this.shareForm.invalid) {
             this.toastr.warning('Vui lòng điền đủ thông tin bài viết!');
             return;
@@ -310,6 +348,70 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             }
         } else {
             data.thumbnail = [];
+        }
+
+        // Đọc các file video dưới local (đang lưu là local-video:path hoặc memory-video:) để lấy Base64 gửi sang N8N on-the-fly
+        if (data.thumbnail.some((t: string) => t.startsWith('local-video:') || t.startsWith('memory-video:'))) {
+            this.toastr.info('Đang đọc dữ liệu video nội bộ...');
+            const processedThumbnails = [];
+            for (const thumb of data.thumbnail) {
+                if (thumb.startsWith('local-video:')) {
+                    const filePath = thumb.substring('local-video:'.length);
+                    try {
+                        let safePath = filePath.replace(/\\/g, '/');
+                        if (!safePath.startsWith('/')) {
+                            safePath = '/' + safePath;
+                        }
+                        
+                        // Sử dụng fetch API thay vì fs vì contextIsolation: true không cho phép window.require
+                        const response = await fetch('file://' + safePath);
+                        if (!response.ok) throw new Error('Failed to fetch file');
+                        const blob = await response.blob();
+                        
+                        const base64Data = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const result = reader.result as string;
+                                resolve(result);
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(blob);
+                        });
+                        
+                        const fileName = filePath.split(/[/\\]/).pop();
+                        // base64Data đã có dạng data:video/mp4;base64,...
+                        // Ta chèn thêm tham số name vào
+                        const finalBase64 = base64Data.replace(/;?base64,/, `;name=${encodeURIComponent(fileName)};base64,`);
+                        processedThumbnails.push(finalBase64);
+                    } catch (e) {
+                        console.error('Lỗi đọc file video local:', e);
+                        this.toastr.error('Không thể đọc file video: ' + filePath);
+                    }
+                } else if (thumb.startsWith('memory-video:')) {
+                    const fileName = thumb.substring('memory-video:'.length);
+                    const file = this.memoryVideoFiles[fileName];
+                    if (!file) {
+                        this.toastr.error(`File video "${fileName}" đã bị mất khỏi bộ nhớ tạm do tải lại trang. Vui lòng chọn lại!`);
+                        continue;
+                    }
+                    try {
+                        const base64Data = await new Promise<string>((resolve, reject) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => resolve(reader.result as string);
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        });
+                        const finalBase64 = base64Data.replace(/;?base64,/, `;name=${encodeURIComponent(fileName)};base64,`);
+                        processedThumbnails.push(finalBase64);
+                    } catch(e) {
+                        console.error('Lỗi convert memory video:', e);
+                        this.toastr.error('Lỗi xử lý file video bộ nhớ: ' + fileName);
+                    }
+                } else {
+                    processedThumbnails.push(thumb);
+                }
+            }
+            data.thumbnail = processedThumbnails;
         }
 
         // Đính kèm danh sách Page Access Token

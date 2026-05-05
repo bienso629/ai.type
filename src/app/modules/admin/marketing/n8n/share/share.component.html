@@ -109,8 +109,10 @@
                         </ng-container>
 
                         <ng-template #fileIcon>
-                            <mat-icon class="icon-size-4 text-gray-400 flex-shrink-0"
-                                [svgIcon]="'feather:file'"></mat-icon>
+                            <div class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0">
+                                <mat-icon class="icon-size-5 text-gray-500"
+                                    [svgIcon]="isVideo(file) ? 'feather:film' : 'feather:file'"></mat-icon>
+                            </div>
                         </ng-template>
 
                         <span class="truncate text-sm text-gray-700 font-medium"
