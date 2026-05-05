@@ -3431,26 +3431,46 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         if (index >= 0 && index < list.length) {
             list.splice(index, 1);
             this.detectForm.get('step1').get('thumbnail').setValue(list.join('\n'));
+            this.update(false); // Lưu ngay lập tức
             this.cd.markForCheck();
         }
     }
     private objectUrls: { [key: string]: string } = {};
+    private memoryVideoFiles: { [key: string]: File } = {};
 
     isImage(file: string): boolean {
         if (!file) return false;
         const cleanFile = file.trim();
         if (cleanFile.includes('data:image')) return true;
+        if (cleanFile.startsWith('local-video:') || cleanFile.startsWith('memory-video:')) return false;
         const lower = cleanFile.toLowerCase();
         return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp');
     }
 
+    isVideo(file: string): boolean {
+        if (!file) return false;
+        const cleanFile = file.trim();
+        if (cleanFile.includes('data:video') || cleanFile.startsWith('local-video:') || cleanFile.startsWith('memory-video:')) return true;
+        const lower = cleanFile.toLowerCase();
+        return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.avi') || lower.endsWith('.mkv') || lower.endsWith('.webm');
+    }
+
     getFileName(fileStr: string): string {
         if (!fileStr) return '';
+        if (fileStr.startsWith('local-video:')) {
+            const path = fileStr.substring('local-video:'.length);
+            return path.split(/[/\\]/).pop();
+        }
+        if (fileStr.startsWith('memory-video:')) {
+            return fileStr.substring('memory-video:'.length);
+        }
         if (fileStr.includes('data:')) {
             const match = fileStr.match(/;name=([^;]+);base64,/);
             if (match && match[1]) {
                 return decodeURIComponent(match[1]);
             }
+            if (fileStr.includes('data:image')) return 'Ảnh đính kèm (Dữ liệu nội bộ)';
+            if (fileStr.includes('data:video')) return 'Video đính kèm (Dữ liệu nội bộ)';
             return 'Tệp đính kèm (Dữ liệu nội bộ)';
         }
         return fileStr;
@@ -3461,6 +3481,14 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         const cleanFile = file.trim();
         if (this.objectUrls[cleanFile]) {
             return this.sanitizer.bypassSecurityTrustUrl(this.objectUrls[cleanFile]);
+        }
+        if (cleanFile.startsWith('local-video:')) {
+            const path = cleanFile.substring('local-video:'.length);
+            let safePath = path.replace(/\\/g, '/');
+            if (!safePath.startsWith('/')) {
+                safePath = '/' + safePath;
+            }
+            return this.sanitizer.bypassSecurityTrustUrl('file://' + safePath);
         }
         if (cleanFile.startsWith('http://') || cleanFile.startsWith('https://') || cleanFile.includes('data:image') || cleanFile.startsWith('blob:')) {
             return this.sanitizer.bypassSecurityTrustUrl(cleanFile);
@@ -3478,15 +3506,24 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             
             const processFile = (file: any): Promise<string> => {
                 return new Promise((resolve) => {
-                    const reader = new FileReader();
-                    reader.onload = (e: any) => {
-                        const result = e.target.result as string;
-                        // Inject original filename into base64 string
-                        const nameParam = `;name=${encodeURIComponent(file.name)}`;
-                        const modifiedResult = result.replace(';base64,', nameParam + ';base64,');
-                        resolve(modifiedResult);
-                    };
-                    reader.readAsDataURL(file);
+                    if (file.type && file.type.startsWith('video/')) {
+                        // Tránh lưu Base64 của video lớn vào DB CouchDB
+                        if (file.path) {
+                            resolve(`local-video:${file.path}`);
+                        } else {
+                            this.memoryVideoFiles[file.name] = file;
+                            resolve(`memory-video:${file.name}`);
+                        }
+                    } else {
+                        const reader = new FileReader();
+                        reader.onload = (e: any) => {
+                            const result = e.target.result as string;
+                            const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
+                            const modifiedResult = result.replace(/;?base64,/, nameParam);
+                            resolve(modifiedResult);
+                        };
+                        reader.readAsDataURL(file);
+                    }
                 });
             };
 
@@ -3494,7 +3531,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 const paths = base64Strings.map((b64: string, index: number) => {
                     const file = files[index] as any;
                     const b64Key = b64;
-                    if (this.isImage(file.name) || (b64Key.includes('data:video'))) {
+                    if (b64Key.startsWith('memory-video:')) {
+                        this.objectUrls[b64Key] = URL.createObjectURL(file);
+                    } else if (this.isImage(file.name) || (b64Key.includes('data:video')) || b64Key.startsWith('local-video:')) {
                         this.objectUrls[b64Key] = b64; // Hiển thị base64
                     }
                     return b64Key;
@@ -3504,6 +3543,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
                 
                 this.detectForm.get('step1').get('thumbnail').setValue(newValue);
+                this.update(false); // Lưu ngay lập tức
                 this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
                 this.cd.markForCheck();
                 
