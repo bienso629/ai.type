@@ -34,20 +34,20 @@ export class AMXHComponent implements OnInit, OnDestroy {
         {
             id: 'profiles',
             icon: 'feather:smartphone',
-            title: 'Acc Clone',
+            title: 'Tài khoản',
             description: 'Quản lý tài khoản Tiktok, Facebook của bạn',
         },
         {
             id: 'script',
             icon: 'feather:sliders',
-            title: 'Kịch bản Tiktok',
+            title: 'Tiktok',
             description: 'Xem livstream, bấm like, viết comment tự động',
         },
         {
             id: 'share',
             icon: 'feather:share-2',
-            title: 'Chia sẻ đa kênh',
-            description: 'Chia sẻ bài viết lên các trang mạng xã hội',
+            title: 'Facebook',
+            description: 'Tải video về và chia sẻ lên Facebook',
         }
     ];
 
@@ -62,11 +62,11 @@ export class AMXHComponent implements OnInit, OnDestroy {
             next: async (result: any) => {
                 if (result && result.data) {
                     this.articleData = result.data;
-                    
+
                     if (result.data.done) {
                         this.captions = result.data.done.map((htmlItem: any, index: number) => {
                             const cleanText = this.removeHTML.transform(htmlItem);
-    
+
                             return {
                                 index: index,
                                 text: cleanText,

@@ -13,7 +13,7 @@ import {
     UntypedFormGroup,
     Validators,
 } from '@angular/forms';
-import { Title } from '@angular/platform-browser';
+import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { BlogService } from 'app/modules/_services/blog';
@@ -3262,7 +3262,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         private route: ActivatedRoute,
         private router: Router,
         private _bottomSheet: MatBottomSheet,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private sanitizer: DomSanitizer
     ) {
         this.route.params.subscribe((params: Params) => {
             if (params['uuid']) {
@@ -3433,22 +3434,81 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             this.cd.markForCheck();
         }
     }
+    private objectUrls: { [key: string]: string } = {};
+
+    isImage(file: string): boolean {
+        if (!file) return false;
+        const cleanFile = file.trim();
+        if (cleanFile.includes('data:image')) return true;
+        const lower = cleanFile.toLowerCase();
+        return lower.endsWith('.jpg') || lower.endsWith('.jpeg') || lower.endsWith('.png') || lower.endsWith('.gif') || lower.endsWith('.webp');
+    }
+
+    getFileName(fileStr: string): string {
+        if (!fileStr) return '';
+        if (fileStr.includes('data:')) {
+            const match = fileStr.match(/;name=([^;]+);base64,/);
+            if (match && match[1]) {
+                return decodeURIComponent(match[1]);
+            }
+            return 'Tệp đính kèm (Dữ liệu nội bộ)';
+        }
+        return fileStr;
+    }
+
+    getFileSrc(file: string): SafeUrl {
+        if (!file) return '';
+        const cleanFile = file.trim();
+        if (this.objectUrls[cleanFile]) {
+            return this.sanitizer.bypassSecurityTrustUrl(this.objectUrls[cleanFile]);
+        }
+        if (cleanFile.startsWith('http://') || cleanFile.startsWith('https://') || cleanFile.includes('data:image') || cleanFile.startsWith('blob:')) {
+            return this.sanitizer.bypassSecurityTrustUrl(cleanFile);
+        }
+        let safePath = cleanFile.replace(/\\/g, '/');
+        if (!safePath.startsWith('/')) {
+            safePath = '/' + safePath;
+        }
+        return this.sanitizer.bypassSecurityTrustUrl('file://' + safePath);
+    }
 
     onThumbnailSelected(event: any) {
         if (event.target.files && event.target.files.length > 0) {
             const files = Array.from(event.target.files);
-            const paths = files.map((file: any) => file.path || file.name);
-            const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
             
-            // Xử lý xuống dòng nếu đã có dữ liệu trước đó
-            const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
-            
-            this.detectForm.get('step1').get('thumbnail').setValue(newValue);
-            this.toastr.success(`Đã đính kèm ${files.length} tệp phương tiện local!`);
-            this.cd.markForCheck();
-            
-            // Xoá value của input file để có thể chọn lại file cũ nếu muốn
-            event.target.value = '';
+            const processFile = (file: any): Promise<string> => {
+                return new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onload = (e: any) => {
+                        const result = e.target.result as string;
+                        // Inject original filename into base64 string
+                        const nameParam = `;name=${encodeURIComponent(file.name)}`;
+                        const modifiedResult = result.replace(';base64,', nameParam + ';base64,');
+                        resolve(modifiedResult);
+                    };
+                    reader.readAsDataURL(file);
+                });
+            };
+
+            Promise.all(files.map(processFile)).then(base64Strings => {
+                const paths = base64Strings.map((b64: string, index: number) => {
+                    const file = files[index] as any;
+                    const b64Key = b64;
+                    if (this.isImage(file.name) || (b64Key.includes('data:video'))) {
+                        this.objectUrls[b64Key] = b64; // Hiển thị base64
+                    }
+                    return b64Key;
+                });
+                
+                const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
+                const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
+                
+                this.detectForm.get('step1').get('thumbnail').setValue(newValue);
+                this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
+                this.cd.markForCheck();
+                
+                event.target.value = '';
+            });
         }
     }
 
@@ -3458,6 +3518,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     ngOnDestroy(): void {
         window.removeEventListener('stt-transcribed', this.onSttTranscribed);
         clearInterval(this.intervalAutoSave);
+
+        // Giải phóng bộ nhớ của object URLs
+        Object.values(this.objectUrls).forEach(url => {
+            try { URL.revokeObjectURL(url); } catch (e) {}
+        });
 
         this.jobSubscriptions.forEach((sub) => sub.unsubscribe());
         this.jobSubscriptions.clear();

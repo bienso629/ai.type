@@ -81,10 +81,7 @@ export class N8nService {
                     const workflows = res.data || res || [];
                     const exists = workflows.find((w: any) => w.name === 'Auto-Generated: Đăng bài Facebook');
                     
-                    if (exists) {
-                        observer.next({ status: 'exists', workflow: exists });
-                        observer.complete();
-                    } else {
+                    const createNew = () => {
                         const template = {
                             name: "Auto-Generated: Đăng bài Facebook",
                             settings: {},
@@ -99,8 +96,8 @@ export class N8nService {
                                 },
                                 {
                                     parameters: {
-                                        mode: "runOnceForEachItem",
-                                        jsCode: "const data = $input.item.json.body;\nconst items = [];\nif (data.thumbnail && data.thumbnail.length > 0) {\n  data.thumbnail.forEach((path, index) => {\n    items.push({ json: { title: data.title, description: data.description, filePath: path } });\n  });\n} else {\n  items.push({ json: { title: data.title, description: data.description, filePath: null } });\n}\nreturn items;"
+                                        mode: "runOnceForAllItems",
+                                        jsCode: "const items = [];\nfor (const item of $input.all()) {\n  const data = item.json.body;\n  const pages = data.pages || [];\n  if (pages.length === 0) continue;\n  for (const page of pages) {\n    if (data.thumbnail && data.thumbnail.length > 0) {\n      data.thumbnail.forEach((b64Str, index) => {\n        if(b64Str.startsWith('data:')) {\n          const mimeType = b64Str.split(';')[0].split(':')[1];\n          const ext = mimeType.split('/')[1];\n          const base64Data = b64Str.split(',')[1];\n          const isVideo = mimeType.startsWith('video/');\n          items.push({\n            json: { title: data.title, description: data.description, hasFile: true, isVideo: isVideo, pageId: page.id, pageAccessToken: page.access_token },\n            binary: {\n              source: {\n                data: base64Data,\n                mimeType: mimeType,\n                fileName: (isVideo ? 'video_' : 'image_') + index + '.' + ext\n              }\n            }\n          });\n        } else {\n          items.push({ json: { title: data.title, description: data.description, hasFile: false, isVideo: false, pageId: page.id, pageAccessToken: page.access_token } });\n        }\n      });\n    } else {\n      items.push({ json: { title: data.title, description: data.description, hasFile: false, isVideo: false, pageId: page.id, pageAccessToken: page.access_token } });\n    }\n  }\n}\nreturn items;"
                                     },
                                     name: "Split Images",
                                     type: "n8n-nodes-base.code",
@@ -108,36 +105,34 @@ export class N8nService {
                                     position: [400, 300]
                                 },
                                 {
-                                    parameters: { fileSelector: "={{ $json.filePath }}" },
-                                    name: "Read Local File",
-                                    type: "n8n-nodes-base.readWriteFile",
-                                    typeVersion: 1,
-                                    position: [600, 300]
-                                },
-                                {
                                     parameters: {
-                                        node: "Facebook Graph API",
-                                        operation: "create",
-                                        resource: "post",
-                                        message: "={{ $json.description }}",
-                                        attachments: "data"
+                                        authentication: "none",
+                                        method: "POST",
+                                        url: "={{ $json.hasFile ? ($json.isVideo ? 'https://graph.facebook.com/v23.0/' + $json.pageId + '/videos' : 'https://graph.facebook.com/v23.0/' + $json.pageId + '/photos') : 'https://graph.facebook.com/v23.0/' + $json.pageId + '/feed' }}",
+                                        sendBody: true,
+                                        contentType: "multipart-form-data",
+                                        bodyParameters: {
+                                            parameters: [
+                                                { name: "message", value: "={{ $json.description }}" },
+                                                { name: "access_token", value: "={{ $json.pageAccessToken }}" },
+                                                { parameterType: "formBinaryData", name: "source", inputDataFieldName: "source" }
+                                            ]
+                                        }
                                     },
                                     name: "Facebook Post",
-                                    type: "n8n-nodes-base.facebookGraphApi",
-                                    typeVersion: 1,
-                                    position: [800, 300]
+                                    type: "n8n-nodes-base.httpRequest",
+                                    typeVersion: 4.1,
+                                    position: [600, 300]
                                 }
                             ],
                             connections: {
                                 "Webhook": { main: [ [ { node: "Split Images", type: "main", index: 0 } ] ] },
-                                "Split Images": { main: [ [ { node: "Read Local File", type: "main", index: 0 } ] ] },
-                                "Read Local File": { main: [ [ { node: "Facebook Post", type: "main", index: 0 } ] ] }
+                                "Split Images": { main: [ [ { node: "Facebook Post", type: "main", index: 0 } ] ] }
                             }
                         };
                         
                         this.createWorkflow(template).subscribe({
                             next: (created) => {
-                                // Sau khi tạo xong, phải kích hoạt workflow
                                 if (created && created.id) {
                                     this.activateWorkflow(created.id).subscribe();
                                 }
@@ -146,6 +141,15 @@ export class N8nService {
                             },
                             error: (err) => observer.error(err)
                         });
+                    };
+
+                    if (exists) {
+                        this.http.delete(`${this.API_BASE_URL}/workflows/${exists.id}`, { headers: this.getHeaders() }).subscribe({
+                            next: () => createNew(),
+                            error: () => createNew() // Try creating anyway if delete fails
+                        });
+                    } else {
+                        createNew();
                     }
                 },
                 error: (err) => observer.error(err)

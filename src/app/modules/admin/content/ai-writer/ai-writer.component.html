@@ -149,21 +149,31 @@
                                         accept="image/*,video/*" multiple>
                                 </div>
 
-                                <div class="flex flex-col gap-2 bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
+                                <div class="flex flex-col bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
                                     [class.items-center]="thumbnailsList.length === 0"
                                     [class.justify-center]="thumbnailsList.length === 0">
 
-                                    <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400 italic">
+                                    <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400">
                                         Chưa có file nào được chọn
                                     </div>
 
                                     <div *ngFor="let file of thumbnailsList; let i = index"
-                                        class="flex items-center justify-between px-3 py-1.5 bg-white border border-gray-200 rounded shadow-sm">
+                                        class="flex items-center justify-between">
                                         <div class="flex items-center space-x-2 overflow-hidden flex-1">
-                                            <mat-icon class="icon-size-4 text-gray-400 flex-shrink-0"
-                                                [svgIcon]="'feather:file'"></mat-icon>
-                                            <span class="truncate text-sm text-gray-700 font-medium" [title]="file">{{
-                                                file }}</span>
+                                            <ng-container *ngIf="isImage(file); else fileIcon">
+                                                <img [src]="getFileSrc(file)"
+                                                    class="w-8 h-8 object-cover rounded shadow-sm flex-shrink-0">
+                                            </ng-container>
+
+                                            <ng-template #fileIcon>
+                                                <mat-icon class="icon-size-4 text-gray-400 flex-shrink-0"
+                                                    [svgIcon]="'feather:file'"></mat-icon>
+                                            </ng-template>
+
+                                            <span class="truncate text-sm text-gray-700 font-medium"
+                                                [title]="getFileName(file)">
+                                                {{ getFileName(file) }}
+                                            </span>
                                         </div>
                                         <button mat-icon-button (click)="removeThumbnail(i)"
                                             class="text-red-500 flex-shrink-0 ml-2" type="button"
