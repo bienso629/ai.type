@@ -2,7 +2,7 @@
     <div class="text-2xl font-semibold mb-6">Chia sẻ đa kênh lên mạng xã hội</div>
 
 
-    <form [formGroup]="shareForm" class="flex flex-col max-w-4xl">
+    <form [formGroup]="shareForm" class="flex flex-col max-w-4xl relative">
         <div class="text-lg font-medium mb-4">Thông tin bài viết</div>
 
         <div class="flex gap-4 mb-4">
@@ -18,14 +18,60 @@
                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:facebook'"></mat-icon>
                 </ng-template>
 
-                <mat-select [formControlName]="'pageIds'" multiple required>
+                <mat-select #selectDropdown [formControlName]="'pageIds'" multiple required
+                    (opened)="searchPageTerm = ''">
                     <mat-select-trigger>
                         <span class="truncate block w-full pr-2">
                             {{ shareForm.get('pageIds').value ? getSelectedPageNames() : '' }}
                         </span>
                     </mat-select-trigger>
-                    <mat-option *ngIf="fbPages.length === 0" disabled>Chưa có Fanpage nào</mat-option>
-                    <mat-option *ngFor="let page of fbPages" [value]="page.id" class="h-auto py-2">
+
+                    <div class="sticky top-0 bg-white z-10 px-3 py-2 border-b border-gray-100 flex flex-row items-center gap-3 cursor-default"
+                        (click)="$event.stopPropagation(); $event.preventDefault()">
+                        <!-- Search Input -->
+                        <div
+                            class="flex flex-1 items-center bg-gray-50 border border-gray-200 rounded-md px-2 py-1 focus-within:ring-2 focus-within:ring-primary/20 focus-within:border-primary transition-all">
+                            <mat-icon class="icon-size-4 text-gray-400 mr-2" [svgIcon]="'feather:search'"></mat-icon>
+                            <input type="text"
+                                class="flex-1 outline-none text-sm bg-transparent placeholder-gray-400 min-w-0"
+                                placeholder="Tìm kiếm tên hoặc ID..." (input)="searchPageTerm = $event.target.value"
+                                [value]="searchPageTerm" (keydown)="$event.stopPropagation()" autofocus>
+                            <button *ngIf="searchPageTerm" mat-icon-button
+                                class="flex items-center justify-center leading-none"
+                                (click)="searchPageTerm = ''; $event.stopPropagation()">
+                                <mat-icon class="icon-size-4 text-gray-400 hover:text-gray-600"
+                                    [svgIcon]="'feather:x-circle'"></mat-icon>
+                            </button>
+                        </div>
+
+                        <!-- Quick Actions -->
+                        <div class="flex items-center gap-1 whitespace-nowrap">
+                            <div class="text-xs font-medium text-gray-500 mr-2">
+                                {{ shareForm.get('pageIds').value?.length ? shareForm.get('pageIds').value.length + '/'
+                                : '' }}{{ filteredFbPages.length }}
+                            </div>
+
+                            <button mat-icon-button *ngIf="shareForm.get('pageIds').value?.length > 0"
+                                class="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
+                                (click)="shareForm.get('pageIds').setValue([]); $event.stopPropagation()"
+                                matTooltip="Bỏ chọn tất cả">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                            </button>
+
+                            <button mat-icon-button
+                                class="text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
+                                (click)="toggleTokenInput(); selectDropdown.close(); $event.stopPropagation()"
+                                matTooltip="Đồng bộ Fanpage">
+                                <mat-icon *ngIf="!isFetchingPages" class="icon-size-4"
+                                    [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                <mat-spinner *ngIf="isFetchingPages" diameter="16"></mat-spinner>
+                            </button>
+                        </div>
+                    </div>
+
+                    <mat-option *ngIf="filteredFbPages.length === 0" disabled
+                        class="text-center italic text-gray-400 py-4">Không tìm thấy Fanpage nào</mat-option>
+                    <mat-option *ngFor="let page of filteredFbPages" [value]="page.id" class="h-auto py-2 !mt-0 !mb-0">
                         <div class="flex items-center gap-3 w-full min-w-0">
                             <img [src]="'https://graph.facebook.com/' + page.id + '/picture?type=normal'"
                                 class="w-8 h-8 rounded-full shadow-sm object-cover flex-shrink-0 bg-gray-100"
@@ -36,12 +82,6 @@
                         </div>
                     </mat-option>
                 </mat-select>
-
-                <button matSuffix mat-icon-button type="button" matTooltip="Đồng bộ Fanpage từ Facebook"
-                    (click)="toggleTokenInput()" [disabled]="isFetchingPages">
-                    <mat-icon *ngIf="!isFetchingPages" class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                    <mat-spinner *ngIf="isFetchingPages" diameter="20"></mat-spinner>
-                </button>
             </mat-form-field>
 
             <mat-form-field class="w-1/2 fuse-mat-dense">
@@ -109,15 +149,16 @@
                         </ng-container>
 
                         <ng-template #fileIcon>
-                            <div class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0">
+                            <div
+                                class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0">
                                 <mat-icon class="icon-size-5 text-gray-500"
                                     [svgIcon]="isVideo(file) ? 'feather:film' : 'feather:file'"></mat-icon>
                             </div>
                         </ng-template>
 
-                        <span class="truncate text-sm text-gray-700 font-medium"
-                            [title]="getFileName(file)">
+                        <span class="truncate text-sm font-medium flex-1" [class.text-red-500]="isMemoryFileMissing(file)" [class.text-gray-700]="!isMemoryFileMissing(file)" [title]="getFileName(file)">
                             {{ getFileName(file) }}
+                            <span *ngIf="isMemoryFileMissing(file)" class="text-xs text-red-500 ml-2 italic">(Lỗi: Không tìm thấy nội dung file. Vui lòng bấm xóa đi và tải lại file này!)</span>
                         </span>
                     </div>
                     <button mat-icon-button (click)="removeThumbnail(i)" class="text-red-500 flex-shrink-0 ml-2"

@@ -24,6 +24,13 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     
     fbPages: any[] = [];
     isFetchingPages: boolean = false;
+    searchPageTerm: string = '';
+
+    get filteredFbPages() {
+        if (!this.searchPageTerm) return this.fbPages;
+        const term = this.searchPageTerm.toLowerCase();
+        return this.fbPages.filter(p => p.name.toLowerCase().includes(term) || p.id.includes(term));
+    }
 
     constructor(
         private _formBuilder: UntypedFormBuilder,
@@ -46,13 +53,31 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             scheduleTime: [null]
         });
         
+        // Lắng nghe thay đổi pageIds để lưu lại
+        this.shareForm.get('pageIds').valueChanges.subscribe((selectedIds) => {
+            if (selectedIds && selectedIds.length > 0) {
+                this.multiAccountService.setItem('fb_selected_pages', selectedIds);
+            }
+        });
+        
         // Load pages từ MultiAccountService nếu có
         const savedPages = this.multiAccountService.getItem('fb_pages');
         if (savedPages) {
             try {
                 this.fbPages = typeof savedPages === 'string' ? JSON.parse(savedPages) : savedPages;
-                // Tự động chọn page đầu tiên nếu có
-                if (this.fbPages.length > 0) {
+                
+                // Khôi phục các page đã chọn trước đó
+                const savedSelectedPages = this.multiAccountService.getItem('fb_selected_pages');
+                if (savedSelectedPages) {
+                    const parsedSelected = typeof savedSelectedPages === 'string' ? JSON.parse(savedSelectedPages) : savedSelectedPages;
+                    // Lọc những ID có tồn tại trong danh sách fbPages hiện tại
+                    const validIds = parsedSelected.filter((id: string) => this.fbPages.some(p => p.id === id));
+                    if (validIds.length > 0) {
+                        this.shareForm.get('pageIds').setValue(validIds);
+                    } else if (this.fbPages.length > 0) {
+                        this.shareForm.get('pageIds').setValue([this.fbPages[0].id]);
+                    }
+                } else if (this.fbPages.length > 0) {
                     this.shareForm.get('pageIds').setValue([this.fbPages[0].id]);
                 }
             } catch (e) {}
@@ -76,7 +101,6 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     showTokenInput: boolean = false;
     fbTokenInput: string = '';
     private objectUrls: { [key: string]: string } = {};
-    private memoryVideoFiles: { [key: string]: File } = {};
 
     fetchFacebookPages(): void {
         if (!this.fbTokenInput) {
@@ -273,6 +297,15 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         return this.sanitizer.bypassSecurityTrustUrl('file://' + safePath);
     }
 
+    isMemoryFileMissing(fileStr: string): boolean {
+        if (!fileStr) return false;
+        if (fileStr.startsWith('memory-video:')) {
+            const fileName = fileStr.substring('memory-video:'.length);
+            return !this.multiAccountService.memoryVideoFiles[fileName];
+        }
+        return false;
+    }
+
     getSelectedPageNames(): string {
         const selectedIds = this.shareForm?.get('pageIds')?.value || [];
         if (!selectedIds.length) return '';
@@ -291,7 +324,8 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                         if (file.path) {
                             resolve(`local-video:${file.path}`);
                         } else {
-                            this.memoryVideoFiles[file.name] = file;
+                            this.multiAccountService.saveMemoryFile(file.name, file);
+                            console.log('SAVED MEMORY VIDEO:', file.name, file);
                             resolve(`memory-video:${file.name}`);
                         }
                     } else {
@@ -350,78 +384,74 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             data.thumbnail = [];
         }
 
-        // Đọc các file video dưới local (đang lưu là local-video:path hoặc memory-video:) để lấy Base64 gửi sang N8N on-the-fly
-        if (data.thumbnail.some((t: string) => t.startsWith('local-video:') || t.startsWith('memory-video:'))) {
-            this.toastr.info('Đang đọc dữ liệu video nội bộ...');
-            const processedThumbnails = [];
+        // Convert everything to FormData to support large video files without base64 memory crash
+        const formData = new FormData();
+        formData.append('title', data.title || '');
+        formData.append('description', data.description || '');
+
+        const selectedPages = this.fbPages.filter(p => data.pageIds.includes(p.id));
+        if (selectedPages && selectedPages.length > 0) {
+            const pagesPayload = selectedPages.map(p => ({
+                id: p.id,
+                name: p.name,
+                access_token: p.access_token
+            }));
+            formData.append('pages', JSON.stringify(pagesPayload));
+        } else {
+            formData.append('pages', '[]');
+        }
+
+        let fileIndex = 0;
+        if (data.thumbnail && data.thumbnail.length > 0) {
+            this.toastr.info('Đang xử lý tệp đính kèm...');
             for (const thumb of data.thumbnail) {
                 if (thumb.startsWith('local-video:')) {
                     const filePath = thumb.substring('local-video:'.length);
                     try {
                         let safePath = filePath.replace(/\\/g, '/');
-                        if (!safePath.startsWith('/')) {
-                            safePath = '/' + safePath;
-                        }
-                        
-                        // Sử dụng fetch API thay vì fs vì contextIsolation: true không cho phép window.require
+                        if (!safePath.startsWith('/')) safePath = '/' + safePath;
                         const response = await fetch('file://' + safePath);
-                        if (!response.ok) throw new Error('Failed to fetch file');
+                        if (!response.ok) throw new Error('Failed to fetch');
                         const blob = await response.blob();
-                        
-                        const base64Data = await new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => {
-                                const result = reader.result as string;
-                                resolve(result);
-                            };
-                            reader.onerror = reject;
-                            reader.readAsDataURL(blob);
-                        });
-                        
                         const fileName = filePath.split(/[/\\]/).pop();
-                        // base64Data đã có dạng data:video/mp4;base64,...
-                        // Ta chèn thêm tham số name vào
-                        const finalBase64 = base64Data.replace(/;?base64,/, `;name=${encodeURIComponent(fileName)};base64,`);
-                        processedThumbnails.push(finalBase64);
+                        formData.append(`file_${fileIndex}`, blob, fileName);
+                        fileIndex++;
                     } catch (e) {
-                        console.error('Lỗi đọc file video local:', e);
                         this.toastr.error('Không thể đọc file video: ' + filePath);
                     }
                 } else if (thumb.startsWith('memory-video:')) {
                     const fileName = thumb.substring('memory-video:'.length);
-                    const file = this.memoryVideoFiles[fileName];
+                    const file = this.multiAccountService.memoryVideoFiles[fileName];
+                    console.log('LOOKING UP MEMORY VIDEO:', fileName, 'FOUND:', file);
+                    console.log('ALL MEMORY FILES:', this.multiAccountService.memoryVideoFiles);
                     if (!file) {
                         this.toastr.error(`File video "${fileName}" đã bị mất khỏi bộ nhớ tạm do tải lại trang. Vui lòng chọn lại!`);
-                        continue;
+                        return; // Ngăn chặn tiếp tục submit nếu thiếu file
                     }
+                    formData.append(`file_${fileIndex}`, file, fileName);
+                    fileIndex++;
+                } else if (thumb.startsWith('data:')) {
                     try {
-                        const base64Data = await new Promise<string>((resolve, reject) => {
-                            const reader = new FileReader();
-                            reader.onloadend = () => resolve(reader.result as string);
-                            reader.onerror = reject;
-                            reader.readAsDataURL(file);
-                        });
-                        const finalBase64 = base64Data.replace(/;?base64,/, `;name=${encodeURIComponent(fileName)};base64,`);
-                        processedThumbnails.push(finalBase64);
-                    } catch(e) {
-                        console.error('Lỗi convert memory video:', e);
-                        this.toastr.error('Lỗi xử lý file video bộ nhớ: ' + fileName);
+                        const arr = thumb.split(',');
+                        const match = arr[0].match(/:(.*?);/);
+                        const mime = match ? match[1] : '';
+                        const bstr = atob(arr[1]);
+                        let n = bstr.length;
+                        const u8arr = new Uint8Array(n);
+                        while(n--) { u8arr[n] = bstr.charCodeAt(n); }
+                        const blob = new Blob([u8arr], {type: mime});
+                        
+                        let fileName = mime.startsWith('video/') ? `video_${fileIndex}.mp4` : `image_${fileIndex}.png`;
+                        const nameMatch = thumb.match(/name=([^;]+)/);
+                        if (nameMatch) fileName = decodeURIComponent(nameMatch[1]);
+                        
+                        formData.append(`file_${fileIndex}`, blob, fileName);
+                        fileIndex++;
+                    } catch (e) {
+                        console.error('Lỗi parse data URI', e);
                     }
-                } else {
-                    processedThumbnails.push(thumb);
                 }
             }
-            data.thumbnail = processedThumbnails;
-        }
-
-        // Đính kèm danh sách Page Access Token
-        const selectedPages = this.fbPages.filter(p => data.pageIds.includes(p.id));
-        if (selectedPages && selectedPages.length > 0) {
-            data.pages = selectedPages.map(p => ({
-                id: p.id,
-                name: p.name,
-                access_token: p.access_token
-            }));
         }
 
         let delay_minutes = 0;
@@ -434,7 +464,6 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
 
         if (delay_minutes > 0) {
             this.toastr.info(`Đang lên lịch qua Python Scheduler (chờ ${delay_minutes} phút)...`);
-            
             // Payload cho app.py (FastAPI)
             const schedulePayload = {
                 delay_minutes: delay_minutes,
@@ -443,8 +472,6 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                 forward_header_value: '' // Sẽ dùng mặc định trong .env của Python
             };
 
-            // Gọi API Python (bạn cần viết thêm method scheduleTask trong N8nService hoặc dùng fetch)
-            // Tạm thời gọi qua fetch để demo, bạn có thể đưa vào N8nService sau
             fetch('http://localhost:8080/api/schedule/users-call', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -453,11 +480,6 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             .then(res => res.json())
             .then(scheduleRes => {
                 this.toastr.success(`✅ Đã lên lịch thành công! Mã workflow tạm: ${scheduleRes.workflow_id}`);
-                
-                // Đồng thời, ta cần gửi data thật sự vào đâu đó để chờ? 
-                // À, thiết kế của app.py là gọi webhook với header. Nhưng data post thật sự (title, thumbnail) thì sao?
-                // app.py hiện tại CHƯA thiết kế để NHẬN body JSON từ ứng dụng và forward đi!
-                // Do đó để giải quyết triệt để, ta cứ bắn thẳng dữ liệu qua webhook n8n nhé!
             })
             .catch(err => {
                 this.toastr.error('Lỗi khi gọi Python Scheduler: ' + err.message);
@@ -466,7 +488,8 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         } else {
             this.toastr.info('Đang gửi dữ liệu sang n8n webhook...');
             
-            this._n8nService.triggerWebhook('share-facebook', data).subscribe({
+            // Gửi FormData thay vì data JSON
+            this._n8nService.triggerWebhook('share-facebook', formData).subscribe({
                 next: (res) => {
                     this.toastr.success('✅ Đã gửi lệnh đăng bài ngay lập tức!');
                 },

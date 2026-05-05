@@ -3436,7 +3436,6 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
     private objectUrls: { [key: string]: string } = {};
-    private memoryVideoFiles: { [key: string]: File } = {};
 
     isImage(file: string): boolean {
         if (!file) return false;
@@ -3511,7 +3510,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         if (file.path) {
                             resolve(`local-video:${file.path}`);
                         } else {
-                            this.memoryVideoFiles[file.name] = file;
+                            this.multiAccountService.saveMemoryFile(file.name, file);
                             resolve(`memory-video:${file.name}`);
                         }
                     } else {
