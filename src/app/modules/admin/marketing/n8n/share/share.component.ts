@@ -21,7 +21,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     @Input() data: any;
     shareForm: UntypedFormGroup;
     private removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
-    
+
     fbPages: any[] = [];
     isFetchingPages: boolean = false;
     searchPageTerm: string = '';
@@ -42,7 +42,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         private sanitizer: DomSanitizer,
         private _crawlService: CrawlService,
         private _userService: UserService
-    ) {}
+    ) { }
 
     ngOnInit(): void {
         this.shareForm = this._formBuilder.group({
@@ -52,20 +52,20 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             pageIds: [[], Validators.required],
             scheduleTime: [null]
         });
-        
+
         // Lắng nghe thay đổi pageIds để lưu lại
         this.shareForm.get('pageIds').valueChanges.subscribe((selectedIds) => {
             if (selectedIds && selectedIds.length > 0) {
                 this.multiAccountService.setItem('fb_selected_pages', selectedIds);
             }
         });
-        
+
         // Load pages từ MultiAccountService nếu có
         const savedPages = this.multiAccountService.getItem('fb_pages');
         if (savedPages) {
             try {
                 this.fbPages = typeof savedPages === 'string' ? JSON.parse(savedPages) : savedPages;
-                
+
                 // Khôi phục các page đã chọn trước đó
                 const savedSelectedPages = this.multiAccountService.getItem('fb_selected_pages');
                 if (savedSelectedPages) {
@@ -80,20 +80,20 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                 } else if (this.fbPages.length > 0) {
                     this.shareForm.get('pageIds').setValue([this.fbPages[0].id]);
                 }
-            } catch (e) {}
+            } catch (e) { }
         }
-        
+
         this.updateFormFromData();
 
         // Tự động kiểm tra và tạo Workflow trên n8n nếu chưa có
         this._n8nService.setupFacebookWorkflow().subscribe({
             next: (res) => {
                 if (res.status === 'created') {
-                    this.toastr.success('Đã tự động khởi tạo Workflow Đăng bài Facebook trên n8n!');
+                    this.toastr.success('Khởi tạo Workflow thành công!');
                 }
             },
             error: (err) => {
-                console.warn('Không thể tự động tạo workflow n8n:', err);
+                console.warn('Không thể tự động tạo Workflow');
             }
         });
     }
@@ -104,20 +104,20 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
 
     fetchFacebookPages(): void {
         if (!this.fbTokenInput) {
-            this.toastr.warning('Vui lòng nhập Token trước khi đồng bộ!');
+            this.toastr.warning('Vui lòng nhập Token trước khi đồng bộ');
             return;
         }
 
         this.isFetchingPages = true;
-        this.toastr.info('Đang lấy danh sách Fanpage từ Facebook...');
-        
+        this.toastr.info('Đang lấy danh sách Fanpage từ Facebook');
+
         this.http.get(`https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,category,picture{url}&access_token=${this.fbTokenInput}`).subscribe({
             next: (res: any) => {
                 if (res && res.data && res.data.length > 0) {
                     this.fbPages = res.data;
                     this.multiAccountService.setItem('fb_pages', this.fbPages);
                     this.toastr.success(`Đã đồng bộ ${this.fbPages.length} Fanpage thành công!`);
-                    
+
                     if (!this.shareForm.get('pageIds').value || this.shareForm.get('pageIds').value.length === 0) {
                         this.shareForm.get('pageIds').setValue([this.fbPages[0].id]);
                     }
@@ -143,7 +143,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     }
 
     openN8n(): void {
-        window.open('http://localhost:5678/workflows', '_blank');
+        window.open('https://n8n.type.vn/workflows', '_blank');
     }
 
     ngOnChanges(changes: SimpleChanges): void {
@@ -156,7 +156,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
         if (!this.data || !this.shareForm) return;
 
         let descriptionText = this.data.description || '';
-        
+
         // Nếu bài viết có mảng content (done), nối lại thành text sạch
         if (this.data.done && Array.isArray(this.data.done)) {
             const cleanParagraphs = this.data.done.map((p: string) => this.removeHTML.transform(p));
@@ -173,14 +173,14 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             description: descriptionText,
             thumbnail: thumbnailValue
         });
-        
+
         this._changeDetectorRef.markForCheck();
     }
 
     ngOnDestroy(): void {
         // Giải phóng bộ nhớ của object URLs
         Object.values(this.objectUrls).forEach(url => {
-            try { URL.revokeObjectURL(url); } catch (e) {}
+            try { URL.revokeObjectURL(url); } catch (e) { }
         });
     }
 
@@ -249,9 +249,9 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             if (match && match[1]) {
                 return decodeURIComponent(match[1]);
             }
-            if (fileStr.includes('data:image')) return 'Ảnh đính kèm (Dữ liệu nội bộ)';
-            if (fileStr.includes('data:video')) return 'Video đính kèm (Dữ liệu nội bộ)';
-            return 'Tệp đính kèm (Dữ liệu nội bộ)';
+            if (fileStr.includes('data:image')) return 'Ảnh đính kèm';
+            if (fileStr.includes('data:video')) return 'Video đính kèm';
+            return 'Tệp đính kèm';
         }
         return fileStr;
     }
@@ -316,7 +316,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
     onThumbnailSelected(event: any) {
         if (event.target.files && event.target.files.length > 0) {
             const files = Array.from(event.target.files);
-            
+
             const processFile = (file: any): Promise<string> => {
                 return new Promise((resolve) => {
                     if (file.type && file.type.startsWith('video/')) {
@@ -352,15 +352,15 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                     }
                     return b64Key;
                 });
-                
+
                 const existingValue = this.shareForm.get('thumbnail').value || '';
                 const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
-                
+
                 this.shareForm.get('thumbnail').setValue(newValue);
                 this.autoSave(newValue);
-                this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
+                this.toastr.success(`Đã đính kèm ${files.length} tệp`);
                 this._changeDetectorRef.markForCheck();
-                
+
                 event.target.value = '';
             });
         }
@@ -371,7 +371,7 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             this.toastr.warning('Vui lòng điền đủ thông tin bài viết!');
             return;
         }
-        
+
         const data = this.shareForm.value;
         // Chuyển string thumbnail về mảng để n8n dễ lấy
         if (data.thumbnail) {
@@ -403,7 +403,8 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
 
         let fileIndex = 0;
         if (data.thumbnail && data.thumbnail.length > 0) {
-            this.toastr.info('Đang xử lý tệp đính kèm...');
+            this.toastr.info('Đang xử lý tệp đính kèm');
+
             for (const thumb of data.thumbnail) {
                 if (thumb.startsWith('local-video:')) {
                     const filePath = thumb.substring('local-video:'.length);
@@ -438,13 +439,13 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
                         const bstr = atob(arr[1]);
                         let n = bstr.length;
                         const u8arr = new Uint8Array(n);
-                        while(n--) { u8arr[n] = bstr.charCodeAt(n); }
-                        const blob = new Blob([u8arr], {type: mime});
-                        
+                        while (n--) { u8arr[n] = bstr.charCodeAt(n); }
+                        const blob = new Blob([u8arr], { type: mime });
+
                         let fileName = mime.startsWith('video/') ? `video_${fileIndex}.mp4` : `image_${fileIndex}.png`;
                         const nameMatch = thumb.match(/name=([^;]+)/);
                         if (nameMatch) fileName = decodeURIComponent(nameMatch[1]);
-                        
+
                         formData.append(`file_${fileIndex}`, blob, fileName);
                         fileIndex++;
                     } catch (e) {
@@ -460,45 +461,29 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
             const now = new Date().getTime();
             delay_minutes = Math.max(0, Math.floor((selectedTime - now) / 60000));
         }
-        data.delay_minutes = delay_minutes;
-
-        if (delay_minutes > 0) {
-            this.toastr.info(`Đang lên lịch qua Python Scheduler (chờ ${delay_minutes} phút)...`);
-            // Payload cho app.py (FastAPI)
-            const schedulePayload = {
-                delay_minutes: delay_minutes,
-                target_url: this._n8nService.getWebhookUrl('share-facebook'),
-                forward_header_name: 'X-N8N-API-KEY',
-                forward_header_value: '' // Sẽ dùng mặc định trong .env của Python
-            };
-
-            fetch('http://localhost:8080/api/schedule/users-call', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(schedulePayload)
-            })
-            .then(res => res.json())
-            .then(scheduleRes => {
-                this.toastr.success(`✅ Đã lên lịch thành công! Mã workflow tạm: ${scheduleRes.workflow_id}`);
-            })
-            .catch(err => {
-                this.toastr.error('Lỗi khi gọi Python Scheduler: ' + err.message);
-            });
-
-        } else {
-            this.toastr.info('Đang gửi dữ liệu sang n8n webhook...');
-            
-            // Gửi FormData thay vì data JSON
-            this._n8nService.triggerWebhook('share-facebook', formData).subscribe({
-                next: (res) => {
-                    this.toastr.success('✅ Đã gửi lệnh đăng bài ngay lập tức!');
-                },
-                error: (err) => {
-                    console.error(err);
-                    this.toastr.error('Lỗi khi gọi n8n: ' + (err.error?.message || err.message));
-                    this.toastr.warning('Vui lòng tạo Node Webhook có path "share-facebook" trên n8n.');
-                }
-            });
+        
+        formData.append('delay_minutes', delay_minutes.toString());
+        if (data.scheduleTime) {
+            formData.append('scheduleTime', data.scheduleTime.toString());
         }
+
+        const infoMsg = delay_minutes > 0 
+            ? `Đang gửi dữ liệu webhook (hẹn giờ ${delay_minutes} phút)` 
+            : 'Đang gửi dữ liệu webhook';
+        this.toastr.info(infoMsg);
+
+        // Gửi FormData thay vì data JSON
+        this._n8nService.triggerWebhook('share-facebook', formData).subscribe({
+            next: (res) => {
+                const successMsg = delay_minutes > 0 
+                    ? `Đã gửi bài lên n8n thành công (hẹn đăng sau ${delay_minutes} phút)!` 
+                    : 'Đã gửi lệnh đăng bài ngay lập tức!';
+                this.toastr.success(successMsg);
+            },
+            error: (err) => {
+                console.error(err);
+                this.toastr.warning('Lỗi khi gửi webhook, vui lòng kiểm tra lại cấu hình trên n8n.');
+            }
+        });
     }
 }

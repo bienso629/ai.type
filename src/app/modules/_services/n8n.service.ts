@@ -8,18 +8,16 @@ import { Observable } from 'rxjs';
 export class N8nService {
     // URL API quản lý (Create/Delete/Activate Workflow)
     private get API_BASE_URL(): string {
-        return isDevMode() ? 'http://localhost:5678/api/v1' : 'https://n8n.type.vn/api/v1';
+        return 'https://n8n.type.vn/api/v1';
     }
     
     // URL Webhook để kích hoạt luồng chạy (Trigger)
     private get WEBHOOK_BASE_URL(): string {
-        return isDevMode() ? 'http://localhost:5678/webhook' : 'https://n8n.type.vn/webhook';
+        return 'https://n8n.type.vn/webhook';
     }
 
     private get N8N_TOKEN(): string {
-        return isDevMode() 
-            ? 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI4N2UwOTgyYy05ZTJlLTQwZGUtYjQxMy1jNzFkMTIzODhlNDIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiN2QxMDQ0M2ItZGFiNC00ZDlhLWI1MGMtYWJlZGRhNjMwZjhmIiwiaWF0IjoxNzc3ODk3NTU2fQ.CUOicULV-KeWTxpiTSq9cG-xfMazR1Xzxd2xUqzvA-s' // Local Token
-            : 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3Y2Y3OWVhZC04OGIwLTQxNzQtYjBkYi1lODhkODUyYjBmNzUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4MDkyNzY5fQ.AdTT-g032JrVFlQPs0mX8TqbXt9M1NaPhe5E19TB9iE'; // Production Token
+        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3Y2Y3OWVhZC04OGIwLTQxNzQtYjBkYi1lODhkODUyYjBmNzUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4MDkyNzY5fQ.AdTT-g032JrVFlQPs0mX8TqbXt9M1NaPhe5E19TB9iE'; // Production Token
     }
 
     constructor(private http: HttpClient) { }

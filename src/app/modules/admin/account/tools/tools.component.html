@@ -18,7 +18,8 @@
                                     <div class="flex flex-col items-center">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
                                         <mat-label class="mt-3 text-md">Công việc</mat-label>
-                                        <p class="mt-3 text-md px-4 line-clamp-3">Lên kịch bản, viết bài nhanh, tóm tắt nội dung, ghi chú...
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Lên kịch bản, viết bài nhanh, tóm tắt
+                                            nội dung, ghi chú...
                                         </p>
                                     </div>
                                     <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
@@ -41,7 +42,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 0 && user.groups?.includes('nhóm-quét-sitemap')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 0 && user.groups?.includes('nhóm-quét-sitemap')"
                                     class="rounded-lg border-b hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/import']">
                                     <div class="flex flex-col items-center">
@@ -100,7 +102,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile> -->
 
-                                <mat-grid-tile *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-image']">
                                     <div class="flex flex-col items-center">
@@ -131,7 +134,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile> -->
 
-                                <mat-grid-tile *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-download-video-từ-youtube-facebook')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-download-video-từ-youtube-facebook')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/all-tube']">
                                     <div class="flex flex-col items-center">
@@ -146,7 +150,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/face2node']">
                                     <div class="flex flex-col items-center">
@@ -160,7 +165,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-crawl']">
                                     <div class="flex flex-col items-center">
@@ -175,7 +181,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 50000 && user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 50000 && user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-text2speech']">
                                     <div class="flex flex-col items-center">
@@ -191,7 +198,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 100000 && user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 100000 && user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/data']">
                                     <div class="flex flex-col items-center">
@@ -220,7 +228,8 @@
 
                             <mat-grid-list class="min-w-160 sm:min-w-160 md:min-w-200 lg:min-w-200" [cols]="cols"
                                 gutterSize="20px" rowHeight="1:1">
-                                <mat-grid-tile *ngIf="user.reputation >= 1000000 && user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 1000000 && user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/chatbot']">
                                     <div class="flex flex-col items-center">
@@ -235,7 +244,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 2000000 && user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 2000000 && user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/profiles']">
                                     <div class="flex flex-col items-center">
@@ -250,7 +260,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/links']">
                                     <div class="flex flex-col items-center">
@@ -265,7 +276,8 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/gscr']">
                                     <div class="flex flex-col items-center">
@@ -281,15 +293,15 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <mat-grid-tile *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-lên-kịch-bản-comment-like')"
+                                <mat-grid-tile
+                                    *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-lên-kịch-bản-comment-like')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/amxh']">
                                     <div class="flex flex-col items-center">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:tablet'"></mat-icon>
-                                        <mat-label class="mt-3 text-md">Kịch bản</mat-label>
-                                        <p class="mt-3 text-md px-4 line-clamp-3">Tự động chơi MXH như xem video, bấm
-                                            like và viết
-                                            comment</p>
+                                        <mat-label class="mt-3 text-md">Tăng tương tác</mat-label>
+                                        <p class="mt-3 text-md px-4 line-clamp-3">Tự động bình luận, thích hoặc đăng bài
+                                            lên MXH</p>
                                     </div>
                                     <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
                                         [ngClass]="{'text-green-600': user.reputation >= 4000000, 'text-red-600': user.reputation < 4000000}">

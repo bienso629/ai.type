@@ -692,77 +692,31 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                 };
             }
 
-            const webhookPath = `n8n-${item.type.toLowerCase()}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-            const workflowJson = this.createN8nWorkflowJson(`[${item.type}] ${item.profileName}`, webhookPath, delaySeconds, apiUrl, payload);
+            // Gửi thẳng dữ liệu lên n8n webhook (thay vì tạo workflow mới mỗi lần)
+            const webhookPayload = {
+                profileName: item.profileName,
+                type: item.type,
+                delay_seconds: delaySeconds,
+                apiUrl: apiUrl,
+                payload: payload
+            };
 
-            requests.push(this.processN8nWorkflow(workflowJson, webhookPath));
+            requests.push(this._n8nService.triggerWebhook('tiktok-automation', webhookPayload));
         });
 
         forkJoin(requests).subscribe({
             next: (results) => {
-                const success = results.filter(r => r !== null).length;
-                this.toastr.success(`Đã lên lịch thành công ${success} tác vụ!`);
+                const success = results.length;
+                this.toastr.success(`Đã gửi thành công ${success} tác vụ lên n8n!`);
                 this.removeSentItems(selectedItems); // Tự động xóa items đã gửi khỏi Timeline/Bảng
                 if (this.commentGroups.length === 0) this._matDialog.closeAll();
                 this.cd.markForCheck();
+            },
+            error: (err) => {
+                console.error(err);
+                this.toastr.error('Có lỗi xảy ra khi gửi dữ liệu lên n8n.');
             }
         });
-    }
-
-    /**
-     * Helper: Tạo cấu trúc Workflow JSON cho n8n
-     */
-    private createN8nWorkflowJson(name: string, webhookPath: string, delay: number, apiUrl: string, payload: any) {
-        return {
-            name: name,
-            nodes: [
-                {
-                    parameters: { httpMethod: "POST", path: webhookPath, responseMode: "onReceived" },
-                    name: "Webhook Trigger", type: "n8n-nodes-base.webhook", typeVersion: 1, position: [100, 200], webhookId: webhookPath
-                },
-                {
-                    parameters: { amount: delay, unit: "seconds" },
-                    name: "Wait", type: "n8n-nodes-base.wait", typeVersion: 1, position: [350, 200]
-                },
-                {
-                    parameters: {
-                        method: "POST",
-                        url: apiUrl,
-                        sendBody: true,
-                        contentType: "raw",
-                        rawContentType: "application/json",
-                        body: JSON.stringify(payload)
-                    },
-                    name: "HTTP Request", type: "n8n-nodes-base.httpRequest", typeVersion: 4.1, position: [600, 200]
-                }
-            ],
-            connections: {
-                "Webhook Trigger": { "main": [[{ "node": "Wait", "type": "main", "index": 0 }]] },
-                "Wait": { "main": [[{ "node": "HTTP Request", "type": "main", "index": 0 }]] }
-            },
-            settings: { executionOrder: "v1" }
-        };
-    }
-
-    /**
-     * Helper: Thực hiện chuỗi Create -> Activate -> Trigger Webhook
-     */
-    private processN8nWorkflow(workflowJson: any, webhookPath: string): Observable<any> {
-        return this._n8nService.createWorkflow(workflowJson).pipe(
-            switchMap(created => {
-                if (created && created.id) {
-                    return this._n8nService.activateWorkflow(created.id).pipe(
-                        switchMap(() => this._n8nService.triggerWebhook(webhookPath)),
-                        map(() => created)
-                    );
-                }
-                return of(null);
-            }),
-            catchError(err => {
-                console.error('Workflow Error:', err);
-                return of(null);
-            })
-        );
     }
 
     /**
