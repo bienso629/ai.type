@@ -10,14 +10,14 @@ export class N8nService {
     private get API_BASE_URL(): string {
         return 'https://n8n.type.vn/api/v1';
     }
-    
+
     // URL Webhook để kích hoạt luồng chạy (Trigger)
     private get WEBHOOK_BASE_URL(): string {
         return 'https://n8n.type.vn/webhook';
     }
 
     private get N8N_TOKEN(): string {
-        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3Y2Y3OWVhZC04OGIwLTQxNzQtYjBkYi1lODhkODUyYjBmNzUiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzY4MDkyNzY5fQ.AdTT-g032JrVFlQPs0mX8TqbXt9M1NaPhe5E19TB9iE'; // Production Token
+        return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYTEwNDEyZC00OGMxLTQ2ZjQtYTU0Yy0xODFjNzRhNjU2NWIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNGVlNDRhNjktMTFhYS00ODk1LWE4MWItM2RiNDllMDczZmQzIiwiaWF0IjoxNzc4MDc3Mzg0fQ.TUAw1E5_KveZOdAj_NDpJgoOkNmaHQrA2hew-BpkdT4'; // Production Token
     }
 
     constructor(private http: HttpClient) { }
@@ -65,7 +65,7 @@ export class N8nService {
         // (trừ khi bạn cấu hình Webhook node yêu cầu Auth, nhưng ở đây ta để 'none')
         return this.http.post(this.getWebhookUrl(path), payload);
     }
-    
+
     // --- HELPER: Lấy URL Webhook đầy đủ ---
     getWebhookUrl(path: string): string {
         return `${this.WEBHOOK_BASE_URL}/${path}`;
@@ -78,7 +78,7 @@ export class N8nService {
                 next: (res) => {
                     const workflows = res.data || res || [];
                     const exists = workflows.find((w: any) => w.name === 'Auto-Generated: Đăng bài Facebook');
-                    
+
                     const createNew = () => {
                         const template = {
                             name: "Auto-Generated: Đăng bài Facebook",
@@ -104,7 +104,7 @@ export class N8nService {
                                 },
                                 {
                                     parameters: {
-                                        conditions: { boolean: [ { value1: "={{ $json.hasFile }}", value2: true } ] }
+                                        conditions: { boolean: [{ value1: "={{ $json.hasFile }}", value2: true }] }
                                     },
                                     name: "Has File?",
                                     type: "n8n-nodes-base.if",
@@ -152,12 +152,12 @@ export class N8nService {
                                 }
                             ],
                             connections: {
-                                "Webhook": { main: [ [ { node: "Split Images", type: "main", index: 0 } ] ] },
-                                "Split Images": { main: [ [ { node: "Has File?", type: "main", index: 0 } ] ] },
-                                "Has File?": { main: [ [ { node: "Facebook Post Media", type: "main", index: 0 } ], [ { node: "Facebook Post Text", type: "main", index: 0 } ] ] }
+                                "Webhook": { main: [[{ node: "Split Images", type: "main", index: 0 }]] },
+                                "Split Images": { main: [[{ node: "Has File?", type: "main", index: 0 }]] },
+                                "Has File?": { main: [[{ node: "Facebook Post Media", type: "main", index: 0 }], [{ node: "Facebook Post Text", type: "main", index: 0 }]] }
                             }
                         };
-                        
+
                         this.createWorkflow(template).subscribe({
                             next: (created) => {
                                 if (created && created.id) {
