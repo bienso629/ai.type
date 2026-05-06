@@ -157,10 +157,25 @@ export class AMXHShareAppComponent implements OnInit, OnDestroy, OnChanges {
 
         let descriptionText = this.data.description || '';
 
-        // Nếu bài viết có mảng content (done), nối lại thành text sạch
-        if (this.data.done && Array.isArray(this.data.done)) {
-            const cleanParagraphs = this.data.done.map((p: string) => this.removeHTML.transform(p));
-            descriptionText = cleanParagraphs.join('\n\n');
+        // Nối lại text từ mảng hoặc xử lý HTML string thành text sạch có xuống dòng
+        if (this.data.done) {
+            let htmlString = '';
+            if (Array.isArray(this.data.done)) {
+                htmlString = this.data.done.join('\n\n');
+            } else if (typeof this.data.done === 'string') {
+                htmlString = this.data.done;
+            }
+
+            let tempText = htmlString
+                .replace(/<br\s*\/?>/gi, '\n')
+                .replace(/<\/p>/gi, '\n\n')
+                .replace(/<\/h[1-6]>/gi, '\n\n')
+                .replace(/<\/div>/gi, '\n')
+                .replace(/<li>/gi, '• ');
+            
+            descriptionText = this.removeHTML.transform(tempText).trim();
+            // Gộp các dòng trống liên tiếp quá nhiều thành tối đa 2 dòng
+            descriptionText = descriptionText.replace(/\n\s*\n\s*\n+/g, '\n\n');
         }
 
         let thumbnailValue = this.data.thumbnail || '';
