@@ -149,7 +149,7 @@
                                         accept="image/*,video/*" multiple>
                                 </div>
 
-                                <div class="flex flex-col bg-gray-50 p-2 rounded-md border border-gray-200 border-dashed min-h-[60px]"
+                                <div class="flex flex-col bg-gray-50 p-2 rounded border border-gray-10 min-h-[60px]"
                                     [class.items-center]="thumbnailsList.length === 0"
                                     [class.justify-center]="thumbnailsList.length === 0">
 
@@ -159,14 +159,15 @@
 
                                     <div *ngFor="let file of thumbnailsList; let i = index"
                                         class="flex items-center justify-between">
-                                        <div class="flex items-center space-x-2 overflow-hidden flex-1">
+                                        <div class="flex items-center space-x-2 pl-1 overflow-hidden flex-1">
                                             <ng-container *ngIf="isImage(file); else fileIcon">
                                                 <img [src]="getFileSrc(file)"
                                                     class="w-8 h-8 object-cover rounded shadow-sm flex-shrink-0">
                                             </ng-container>
 
                                             <ng-template #fileIcon>
-                                                <div class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0">
+                                                <div
+                                                    class="w-8 h-8 flex items-center justify-center bg-gray-100 rounded shadow-sm flex-shrink-0">
                                                     <mat-icon class="icon-size-5 text-gray-500"
                                                         [svgIcon]="isVideo(file) ? 'feather:film' : 'feather:file'"></mat-icon>
                                                 </div>
@@ -184,12 +185,12 @@
                                         </button>
                                     </div>
                                 </div>
-                                <mat-hint class="text-xs text-secondary mt-1">Đường dẫn ảnh/video dưới local để chia sẻ
-                                    lên mạng xã hội</mat-hint>
+                                <mat-hint class="text-xs text-gray-500">Mẹo: Chỉ tải lên ảnh/video có liên
+                                    quan</mat-hint>
                             </div>
 
                             <mat-accordion MatAccordionDisplayMode="flat" multi *ngIf="arr_keyword.length > 0">
-                                <mat-expansion-panel [expanded]="true">
+                                <mat-expansion-panel [expanded]="false">
                                     <mat-expansion-panel-header #keywords>
                                         <mat-panel-title (click)="keywords._toggle()" class="flex items-center">
                                             <mat-label>Tìm thấy {{arr_keyword.length}} từ khoá trong bài.</mat-label>
@@ -197,7 +198,7 @@
                                     </mat-expansion-panel-header>
 
                                     <div class="flex flex-col gt-sm:flex-row" *ngIf="arr_keyword.length > 0">
-                                        <div class="flex flex-row items-center mt-0 pl-4 pr-1 py-0 border-b border-b-gray-50 last:border-none"
+                                        <div class="flex flex-row items-center mt-0 px-4 pr-0 py-1 border-b border-b-gray-50 last:border-none"
                                             *ngFor="let item of arr_keyword">
                                             <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:hash'"></mat-icon> -->
                                             <div class="flex-1 line-clamp-1">{{item}}</div>

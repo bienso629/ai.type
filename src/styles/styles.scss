@@ -789,6 +789,11 @@ fuse-alert.fuse-alert-appearance-soft .fuse-alert-container {
     background-position: -11px -38px;
 }
 
+table {
+    width: 100%;
+    text-align: left;
+}
+
 .ngx-datatable.material.single-selection .datatable-body-row.active,
 .ngx-datatable.material.single-selection .datatable-body-row.active .datatable-row-group,
 .ngx-datatable.material.multi-selection .datatable-body-row.active,
