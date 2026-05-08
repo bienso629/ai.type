@@ -355,13 +355,13 @@ export class VideoTimelineDialogComponent implements OnInit {
         });
     }
 
-    async prepareForVideoGeneration() {
+    async prepareForVideoGeneration(silent: boolean = false) {
         if (!this.projectData || !this.projectData.scenes) {
-            this.toastr.warning('Không có dữ liệu để rà soát!');
+            if (!silent) this.toastr.warning('Không có dữ liệu để rà soát!');
             return;
         }
 
-        this.toastr.info('Đang rà soát và cập nhật thời lượng các file audio...', 'Hệ thống');
+        if (!silent) this.toastr.info('Đang rà soát và cập nhật thời lượng các file audio...', 'Hệ thống');
 
         if (!(window as any).electron) {
             this.toastr.warning('Tính năng scan file chỉ hoạt động trên App Desktop.');
@@ -418,6 +418,9 @@ export class VideoTimelineDialogComponent implements OnInit {
                         });
                         audioObj.addEventListener('error', () => {
                             console.error('Không thể load audio:', sub.audioUrl);
+                            // Xóa URL nếu file không tồn tại
+                            sub.audioUrl = null;
+                            sub.duration = 0;
                             resolve();
                         });
                     });
@@ -429,9 +432,9 @@ export class VideoTimelineDialogComponent implements OnInit {
         if (promises.length > 0) {
             await Promise.all(promises);
             this.saveData();
-            this.toastr.success(`Đã quét và cập nhật thời lượng cho ${updatedCount} file audio thành công!`);
+            if (!silent) this.toastr.success(`Đã quét và cập nhật thời lượng cho ${updatedCount} file audio thành công!`);
         } else {
-            this.toastr.warning('Không tìm thấy file audio nào để rà soát.');
+            if (!silent) this.toastr.warning('Không tìm thấy file audio nào để rà soát.');
             this.saveData();
         }
     }
@@ -618,6 +621,9 @@ export class VideoTimelineDialogComponent implements OnInit {
     ngOnInit() {
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
+
+        // Tự động kiểm tra file audio ngay khi mở màn hình
+        this.prepareForVideoGeneration(true);
 
         // Lắng nghe sự kiện tải ảnh từ webview (Gemini/Labs)
         const electron = (window as any).electron;
