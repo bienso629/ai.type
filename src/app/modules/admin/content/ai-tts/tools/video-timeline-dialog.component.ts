@@ -631,6 +631,10 @@ export class VideoTimelineDialogComponent implements OnInit {
                     // Lưu lại và báo thành công
                     this.saveData();
                     this.toastr.success(`Đã gán ảnh vừa tải ảnh vào Phân cảnh!`, "Tải ảnh thành công!");
+                    
+                    // Xóa scene đang được chọn để tránh gắn nhầm cho các lần tải sau
+                    // và ngăn chặn lỗi hiển thị nhiều thông báo do event listener bị trùng lặp
+                    this.activeDownloadScene = null;
                 }
             });
         }

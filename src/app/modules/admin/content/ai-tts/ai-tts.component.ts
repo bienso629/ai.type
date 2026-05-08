@@ -704,6 +704,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const offlineVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
 
         this.audioList = clips.map((item: any) => {
+            if (item.description) {
+                const doc = new DOMParser().parseFromString(item.description, 'text/html');
+                item.description = doc.documentElement.textContent || item.description;
+            }
+            if (item.name) {
+                const doc = new DOMParser().parseFromString(item.name, 'text/html');
+                item.name = doc.documentElement.textContent || item.name;
+            }
+
             let restoredUrl = null;
             let restoredRawUrl = null;
 
@@ -1646,7 +1655,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         this.audioList = result.data.done.map(
                             (htmlItem: any, index: number) => {
-                                const cleanText = this.removeHTML.transform(htmlItem);
+                                let cleanText = this.removeHTML.transform(htmlItem);
+                                if (cleanText) {
+                                    const doc = new DOMParser().parseFromString(cleanText, 'text/html');
+                                    cleanText = doc.documentElement.textContent || cleanText;
+                                }
+
                                 const shortName = cleanText.length > 50
                                     ? cleanText.substring(0, 50) + '...'
                                     : cleanText;
