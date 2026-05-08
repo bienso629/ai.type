@@ -77,6 +77,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     projectTitle: string = 'Dự án mới';
     videoProject: any = null; // [MỚI] Biến lưu trữ kịch bản phân cảnh (scenes)
     extraPrompt: string = ''; // [MỚI] Biến lưu trữ prompt người dùng nhập thêm
+    attachedVideoFiles: { file: File, base64: string, mimeType: string }[] = [];
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
     currentUuid: string | null = null;
@@ -193,8 +194,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isCancelled = false;
         this.cd.markForCheck();
 
-        // Chạy 10 luồng đồng thời theo yêu cầu
-        const concurrencyLimit = 10;
+        // Chạy 3 luồng đồng thời theo yêu cầu
+        const concurrencyLimit = 3;
         this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Số luồng đồng thời: ${concurrencyLimit})...`, 'System');
 
         try {
@@ -274,9 +275,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let res: any;
 
             try {
-                const timestamp = Date.now();
+                const fileSuffix = this.uuid;
                 if (isEdgeVoice) {
-                    const niceFilename = `${prefix}_${slug}_${timestamp}`;
+                    const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
                     const payload = {
                         text: clip.description,
                         voice: clipVoice,
@@ -291,7 +292,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     const voice_id = selectedVoiceSplit[0];
 
                     if (clipVoice.indexOf('tts.type.vn') !== -1) {
-                        const niceFilename = `${prefix}_${slug}_${timestamp}`;
+                        const niceFilename = `${prefix}_${slug}_${fileSuffix}`;
                         const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
 
                         if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
@@ -309,7 +310,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         };
                         res = await (window as any).electron.invoke('tts-type-generate', payload);
                     } else {
-                        const niceFilename = `${prefix}_${slug}_ausync_${timestamp}`;
+                        const niceFilename = `${prefix}_${slug}_ausync_${fileSuffix}`;
                         const voiceInfo = this.myvoices.filter((v: any) => (v['id'] === voice_id));
 
                         if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
@@ -499,7 +500,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         try {
             // 1. NẾU CHƯA CÓ FILE GỐC -> Gọi AI sinh Audio nháp trước
             if (!clip['localFilePath'] || !clip.url) {
-                this.toastr.info(`Đang tạo audio gốc (đọc nháp) cho: ${clip.name}...`);
+                this.toastr.info(`Đang tạo audio cho: ${clip.name}...`);
                 await this.generateAudio(clip);
 
                 // Nếu gọi xong mà vẫn không sinh ra được file (do lỗi mạng/API) thì dừng
@@ -700,9 +701,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     restoreClips(clips: any[]) {
-        const offlineKeywords = ['NamMinhNeural', 'HoaiMyNeural'];
-        const offlineVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-
         this.audioList = clips.map((item: any) => {
             if (item.description) {
                 const doc = new DOMParser().parseFromString(item.description, 'text/html');
@@ -716,13 +714,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let restoredUrl = null;
             let restoredRawUrl = null;
 
-            // Vẫn giữ check cũ để phòng hờ các project cũ chưa có localFilePath
+            const offlineVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+            const offlineKeywords = ['ausync', 'tts.type.vn'];
             const isOfflineVoice =
                 (item.voice && offlineVoices.includes(item.voice)) ||
                 (item.audioFileName &&
                     offlineKeywords.some((k) =>
                         item.audioFileName.includes(k),
                     ));
+
+            // Khởi tạo đối tượng mới trước để có thể truyền vào loadLocalAudioContent
+            const newItem = {
+                ...item,
+                file: null,
+                url: null,
+                rawUrl: null,
+                isProcessing: false,
+            };
 
             if (item.audioFileName) {
                 // [CẬP NHẬT TRỌNG TÂM]: Kiểm tra localFilePath ĐẦU TIÊN
@@ -732,7 +740,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // => ĐÂY LÀ FILE ĐANG NẰM Ở Ổ CỨNG, BẮT BUỘC ĐỌC TỪ LOCAL
 
                     setTimeout(() => {
-                        this.loadLocalAudioContent(item);
+                        this.loadLocalAudioContent(newItem);
                     }, 100);
 
                 } else {
@@ -827,6 +835,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     clip.duration = 0;
                     this.calculateTotalDuration();
                     this.cd.markForCheck();
+                    this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local để không bị lặp lại lỗi khi F5
                     this.toastr.warning(`File audio của đoạn "${clip.name}" không tồn tại trên máy. Vui lòng tạo lại!`, 'Lỗi File');
                 }
             }
@@ -845,6 +854,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 clip.duration = 0;
                 this.calculateTotalDuration();
                 this.cd.markForCheck();
+                this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local
                 this.toastr.warning(`File audio của đoạn "${clip.name}" bị lỗi hoặc không tồn tại.`, 'Lỗi File');
             }
         }
@@ -931,6 +941,27 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    onVideoAttachmentSelected(event: any) {
+        const files: FileList = event.target.files;
+        if (!files || files.length === 0) return;
+
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64String = (reader.result as string).split(',')[1];
+                this.attachedVideoFiles.push({
+                    file: file,
+                    base64: base64String,
+                    mimeType: file.type
+                });
+            };
+            reader.readAsDataURL(file);
+        }
+        this.toastr.success(`Đã đính kèm ${files.length} tệp tài liệu.`, 'Thành công');
+        event.target.value = ''; // Reset input
+    }
+
     async createVideo() {
         this.isAnalyzing = true;
 
@@ -1004,7 +1035,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             maxDurationRule = `
             - GIỚI HẠN THỜI GIAN: Tối đa 8 GIÂY cho mỗi Phân cảnh.
-            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn 8 giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene.`;
+            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn 8 giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. VÀ BẮT BUỘC trong nội dung "prompt" của scene đó, bạn phải chủ động chia thành nhiều câu prompt nhỏ (mỗi prompt đại diện cho tối đa 8s, kết hợp thay đổi góc máy để sinh động) để người dùng có thể tạo nhiều video nối tiếp. 
+              (Ví dụ: "Prompt 1 (8s): Góc máy rộng... \\nPrompt 2 (6s): Góc máy cận cảnh..."). 
+            TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene riêng biệt trong JSON.`;
 
             if (isVertical) {
                 formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
@@ -1084,11 +1117,30 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let delay = 2000;
             let response = null;
 
+            let finalContents: any = promptText;
+
+            if (this.attachedVideoFiles.length > 0) {
+                finalContents = [
+                    {
+                        role: 'user',
+                        parts: [
+                            ...this.attachedVideoFiles.map(f => ({
+                                inlineData: {
+                                    data: f.base64,
+                                    mimeType: f.mimeType
+                                }
+                            })),
+                            { text: promptText }
+                        ]
+                    }
+                ];
+            }
+
             for (let i = 0; i < retries; i++) {
                 try {
                     response = await this.ai.models.generateContent({
                         model: 'gemini-3-flash-preview',
-                        contents: promptText,
+                        contents: finalContents,
                     });
                     break;
                 } catch (apiError: any) {
@@ -1146,15 +1198,46 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 finalScenePrompt += `\n\n(Constraints: ${constraintStr})`;
 
+                let videos = [];
+                const maxVideoLength = 8;
+
                 // Chỉ gắn thời lượng chính xác nếu định dạng là VIDEO
-                if (isVideo) {
-                    finalScenePrompt += `\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
+                if (isVideo && roundedDuration > maxVideoLength) {
+                    const parts = Math.ceil(roundedDuration / maxVideoLength);
+
+                    for (let i = 0; i < parts; i++) {
+                        let partDuration = maxVideoLength;
+                        if (i === parts - 1) {
+                            partDuration = Math.round((roundedDuration - (i * maxVideoLength)) * 10) / 10;
+                            if (partDuration <= 0) partDuration = maxVideoLength;
+                        }
+
+                        videos.push({
+                            id: i + 1,
+                            prompt: `${finalScenePrompt}\n[LƯU Ý: Phân cảnh này dài ${partDuration} giây. Tạo video nối tiếp Part ${i + 1}/${parts}]`,
+                            imageUrl: null,
+                            duration: partDuration
+                        });
+                    }
+                } else {
+                    let singlePrompt = finalScenePrompt;
+                    if (isVideo) {
+                        singlePrompt += `\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
+                    }
+                    videos.push({
+                        id: 1,
+                        prompt: singlePrompt,
+                        imageUrl: null,
+                        duration: roundedDuration
+                    });
                 }
 
                 return {
                     prompt: finalScenePrompt,
                     imageUrl: null,
-                    subtitles: mappedSubtitles
+                    subtitles: mappedSubtitles,
+                    videos: videos,
+                    forcedDuration: roundedDuration
                 };
             });
 

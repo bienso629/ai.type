@@ -148,45 +148,54 @@
                     <mat-icon class="icon-size-4">delete</mat-icon>
                 </button>
 
-                <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group"
-                    [ngClass]="scene.imageUrl ? 'h-auto overflow-visible' : 'min-h-60 max-h-60 h-60 overflow-hidden'">
-                    @if (scene.imageUrl) {
-                    <ng-container *ngIf="isImageType(scene.imageUrl); else videoPlayer">
-                        <img [src]="scene.imageUrl" class="w-full h-auto object-contain pointer-events-none block">
-                    </ng-container>
-                    <ng-template #videoPlayer>
-                        <video [src]="scene.imageUrl" class="w-full h-auto block" controls muted
-                            [id]="'video_' + sceneIdx"></video>
-                    </ng-template>
-                    } @else {
-                    <div class="flex flex-col text-center p-4 w-full h-full items-center justify-center">
-                        <mat-icon class="text-gray-400 text-5xl">image</mat-icon>
-                        <p class="text-xs text-gray-500 mt-2">No image selected</p>
+                <div class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
+                    @for (video of scene.videos; track video; let vIdx = $index) {
+                    <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded overflow-hidden"
+                        [ngClass]="video.imageUrl ? 'h-auto overflow-visible' : 'min-h-32 max-h-40 h-32 overflow-hidden'">
+                        
+                        <!-- Header hiển thị part -->
+                        <div class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br">
+                            Phần {{vIdx + 1}} • {{video.duration}}s
+                        </div>
+
+                        @if (video.imageUrl) {
+                        <ng-container *ngIf="isImageType(video.imageUrl); else videoPlayer">
+                            <img [src]="video.imageUrl" class="w-full h-auto object-contain pointer-events-none block">
+                        </ng-container>
+                        <ng-template #videoPlayer>
+                            <video [src]="video.imageUrl" class="w-full h-auto block" controls muted
+                                [id]="'video_' + sceneIdx + '_' + vIdx"></video>
+                        </ng-template>
+                        } @else {
+                        <div class="flex flex-col text-center p-2 w-full h-full items-center justify-center">
+                            <mat-icon class="text-gray-400 text-3xl">image</mat-icon>
+                            <p class="text-[10px] text-gray-500 mt-1">No media</p>
+                        </div>
+                        }
+
+                        <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
+                            <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
+                                matTooltip="Copy Prompt phần này"
+                                (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
+                                <mat-icon class="icon-size-4 text-white">content_copy</mat-icon>
+                            </button>
+
+                            <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
+                                matTooltip="Chọn media" (click)="$event.stopPropagation(); fileInput.click()">
+                                <mat-icon class="icon-size-4 text-white">upload</mat-icon>
+                            </button>
+
+                            <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
+                                matTooltip="Sửa Prompt phần này"
+                                (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
+                                <mat-icon class="icon-size-4 text-white">edit_note</mat-icon>
+                            </button>
+
+                            <input #fileInput type="file" (change)="onFileSelected($event, scene, video)" accept="image/*,video/*"
+                                class="hidden">
+                        </div>
                     </div>
                     }
-
-                    <div
-                        class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-0">
-                        <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
-                            matTooltip="Copy Prompt hay"
-                            (click)="$event.stopPropagation(); generateImage(scene, sceneIdx)">
-                            <mat-icon class="icon-size-4 text-white">content_copy</mat-icon>
-                        </button>
-
-                        <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
-                            matTooltip="Chọn media" (click)="$event.stopPropagation(); fileInput.click()">
-                            <mat-icon class="icon-size-4 text-white">upload</mat-icon>
-                        </button>
-
-                        <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
-                            matTooltip="Sửa Prompt cảnh này"
-                            (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, sceneIdx)">
-                            <mat-icon class="icon-size-4 text-white">edit_note</mat-icon>
-                        </button>
-
-                        <input #fileInput type="file" (change)="onFileSelected($event, scene)" accept="image/*,video/*"
-                            class="hidden">
-                    </div>
                 </div>
 
                 <div class="p-4 flex-1 min-h-[150px] overflow-auto scrollbar-hide rounded-lg">
