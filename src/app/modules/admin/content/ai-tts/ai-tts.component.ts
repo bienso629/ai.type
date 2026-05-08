@@ -818,10 +818,35 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     console.warn(`Chưa thấy file, thử lại sau 500ms...`);
                     await new Promise((r) => setTimeout(r, 500));
                     return this.loadLocalAudioContent(clip, retryCount + 1);
+                } else {
+                    // Báo lỗi cho người dùng và reset trạng thái file để có thể tạo lại
+                    clip['localFilePath'] = null;
+                    clip.audioFileName = null;
+                    clip.url = null;
+                    clip.rawUrl = null;
+                    clip.duration = 0;
+                    this.calculateTotalDuration();
+                    this.cd.markForCheck();
+                    this.toastr.warning(`File audio của đoạn "${clip.name}" không tồn tại trên máy. Vui lòng tạo lại!`, 'Lỗi File');
                 }
             }
         } catch (e) {
             console.error('Lỗi load local file:', e);
+            if (retryCount < 3) {
+                console.warn(`Lỗi đọc file, thử lại sau 500ms...`);
+                await new Promise((r) => setTimeout(r, 500));
+                return this.loadLocalAudioContent(clip, retryCount + 1);
+            } else {
+                // Xử lý lỗi catch tương tự để người dùng biết
+                clip['localFilePath'] = null;
+                clip.audioFileName = null;
+                clip.url = null;
+                clip.rawUrl = null;
+                clip.duration = 0;
+                this.calculateTotalDuration();
+                this.cd.markForCheck();
+                this.toastr.warning(`File audio của đoạn "${clip.name}" bị lỗi hoặc không tồn tại.`, 'Lỗi File');
+            }
         }
         return false;
     }
