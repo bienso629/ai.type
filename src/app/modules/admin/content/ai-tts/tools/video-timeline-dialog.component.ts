@@ -197,19 +197,19 @@ export class VideoTimelineDialogComponent implements OnInit {
     }
     // ---------------------------------
 
-    async generateImage(scene: any, index: number) {
+    async generateImage(scene: any, video: any, index: number) {
         // 1. Lấy Master Prompt từ dữ liệu tổng của Project
         const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
         // 2. Không tự động nối Master Prompt nữa, dùng nguyên văn Scene Prompt
-        const finalPrompt = scene.prompt;
+        const finalPrompt = video.prompt || scene.prompt;
 
         // 3. Copy vào Clipboard
         this.clipboard.copy(finalPrompt);
         this.toastr.info(`Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`, 'Thành công');
 
         // 4. Lưu lại scene để nếu có ảnh download về thì tự động gán vào
-        this.activeDownloadScene = scene;
+        this.activeDownloadScene = video;
     }
 
     copyCharacterPrompt(char: any) {
@@ -285,19 +285,20 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.toastr.success(`Đã nhân bản nhân vật: ${char.name || char.role}`);
     }
 
-    openEditScenePromptDialog(scene: any, index: number) {
+    openEditScenePromptDialog(scene: any, video: any, index: number) {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             width: '700px',
             maxWidth: '95vw',
             disableClose: true,
-            data: { scene: scene, index: index, characters: this.projectData?.characters || [], masterPrompt: this.projectData?.masterPrompt || '' }
+            data: { scene: video, index: index, characters: this.projectData?.characters || [], masterPrompt: this.projectData?.masterPrompt || '' }
         });
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
                 if (!this.projectData || !this.projectData.scenes) return;
                 if (index >= 0 && index < this.projectData.scenes.length) {
-                    this.projectData.scenes[index] = result;
+                    video.prompt = result.prompt;
+                    if (result.imageUrl) video.imageUrl = result.imageUrl;
                     this.saveData();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
                 }
@@ -459,7 +460,7 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.dialogRef.close();
     }
 
-    async onFileSelected(event: any, scene: any) {
+    async onFileSelected(event: any, scene: any, video: any) {
         const fileInput = event.target as HTMLInputElement;
         if (fileInput.files && fileInput.files.length > 0) {
             const file = fileInput.files[0];
@@ -481,7 +482,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
                 const localFilePath = await electron.selectLocalFile(originalPath);
 
-                scene.imageUrl = localFilePath;
+                video.imageUrl = localFilePath;
                 this.saveData();
                 this.toastr.success('Đã tải file thành công!');
             } catch (error) {
@@ -524,6 +525,12 @@ export class VideoTimelineDialogComponent implements OnInit {
                     subtitles: formattedSubtitles,
                     prompt: result.prompt.trim(),
                     imageUrl: null,
+                    videos: [{
+                        id: 1,
+                        prompt: result.prompt.trim(),
+                        imageUrl: null,
+                        duration: 8
+                    }]
                 };
 
                 if (!this.projectData) this.projectData = { scenes: [] };
@@ -582,6 +589,10 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     // Thêm hàm này vào trong class VideoTimelineDialogComponent
     getSceneDuration(scene: any): string {
+        if (scene.forcedDuration) {
+            return `${scene.forcedDuration}s`;
+        }
+
         if (!scene || !scene.subtitles || scene.subtitles.length === 0) return '0s';
 
         let totalSeconds = 0;
@@ -621,6 +632,20 @@ export class VideoTimelineDialogComponent implements OnInit {
     ngOnInit() {
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
+
+        // Backward compatibility: Convert old scenes to grouped videos format
+        if (this.projectData && this.projectData.scenes) {
+            this.projectData.scenes.forEach((scene: any) => {
+                if (!scene.videos) {
+                    scene.videos = [{
+                        id: 1,
+                        prompt: scene.prompt,
+                        imageUrl: scene.imageUrl || null,
+                        duration: scene.forcedDuration || parseFloat(this.getSceneDuration(scene)) || 0
+                    }];
+                }
+            });
+        }
 
         // Tự động kiểm tra file audio ngay khi mở màn hình
         this.prepareForVideoGeneration(true);

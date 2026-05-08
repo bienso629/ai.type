@@ -37,11 +37,11 @@
             </button> -->
 
             <button mat-icon-button (click)="clear()" *ngIf="audioList.length > 0">
-                <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
+                <mat-icon class="icon-size-5 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
             </button>
 
             <button mat-icon-button color="primary">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'"></mat-icon>
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:mic'"></mat-icon>
                 <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Thêm audio">
             </button>
@@ -51,6 +51,26 @@
             <input type="text" [(ngModel)]="extraPrompt"
                 class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 w-48 sm:w-64 dark:bg-gray-800 bg-white placeholder-gray-400"
                 placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
+
+            <div class="relative flex items-center">
+                <button mat-icon-button class="bg-gray-100 hover:bg-gray-200 text-gray-700 mx-1 relative"
+                    matTooltip="Đính kèm hình ảnh/tài liệu tham khảo" (click)="videoAttachment.click()"
+                    [disabled]="isAnalyzing">
+                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
+                    <span *ngIf="attachedVideoFiles.length > 0"
+                        class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
+                        {{ attachedVideoFiles.length }}
+                    </span>
+                    <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md"
+                        (change)="onVideoAttachmentSelected($event)" class="hidden" title="Đính kèm tài liệu">
+                </button>
+
+                <button *ngIf="attachedVideoFiles.length > 0" mat-icon-button
+                    class="text-red-500 hover:bg-red-50 icon-size-6" (click)="attachedVideoFiles = []"
+                    matTooltip="Xóa file đính kèm">
+                    <mat-icon class="icon-size-4">close</mat-icon>
+                </button>
+            </div>
 
             <button class="bg-green-500 text-white" (click)="createVideo()" mat-flat-button [disabled]="isAnalyzing">
                 <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
@@ -226,7 +246,8 @@
                                     </button>
 
                                     <button mat-icon-button [disabled]="clip.isProcessing" (click)="generateAudio(clip)"
-                                        class="transition-colors" matTooltip="Tạo Audio gốc">
+                                        class="transition-colors"
+                                        [matTooltip]="clip.localFilePath ? 'Tạo lại Audio' : 'Tạo Audio'">
                                         <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
                                             [svgIcon]="'feather:loader'"></mat-icon>
                                         <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
