@@ -193,14 +193,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isCancelled = false;
         this.cd.markForCheck();
 
-        // Lấy thông tin voice của clip đầu tiên để quyết định số luồng
-        const sampleVoice = pendingClips[0].voice || this.selectedVoice;
-        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-        const isEdgeVoice = edgeVoices.includes(sampleVoice);
-        const isTTSTypeVoice = sampleVoice.indexOf('tts.type.vn') !== -1;
-
-        // Xác định số luồng chạy song song
-        const concurrencyLimit = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
+        // Chạy 10 luồng đồng thời theo yêu cầu
+        const concurrencyLimit = 10;
         this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Số luồng đồng thời: ${concurrencyLimit})...`, 'System');
 
         try {
@@ -1436,7 +1430,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // Cập nhật lại clip.name để hiển thị bản tóm tắt
         clip.name = clip.description.length > 50 ? clip.description.substring(0, 50) + '...' : clip.description;
         clip.isEditing = false;
-        
+
         // Cập nhật subtitle trong videoProject nếu có liên kết
         if (this.videoProject && this.videoProject.scenes) {
             for (let scene of this.videoProject.scenes) {
@@ -1448,7 +1442,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
         }
-        
+
         this.saveToLocal();
         this.update(); // Đồng bộ thay đổi lên Server!
         this.cd.markForCheck();
@@ -1646,7 +1640,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         // Lưu lại danh sách cũ để đối chiếu
                         const oldAudioList = this.audioList || [];
-                        
+
                         // Lưu lại bản gốc từ server để có thể update() lên lại
                         this.originalArchiveData = JSON.parse(JSON.stringify(result.data));
 

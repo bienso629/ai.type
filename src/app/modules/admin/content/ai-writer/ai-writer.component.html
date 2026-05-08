@@ -2584,6 +2584,26 @@
                                     </div>
                                 </mat-menu>
                             </ng-container>
+
+                            <!-- Tuyển tập -->
+                            <div class="flex items-center ml-4 flex-1 self-center min-w-0">
+                                <mat-label class="text-base mr-3 whitespace-nowrap hidden xl:block">Tuyển tập của bạn:</mat-label>
+                                <div class="w-full max-w-sm">
+                                    <ng-select class="custom-select-ai-writer"
+                                        placeholder="Chọn 1 tập có sẵn hoặc tạo tập mới" [items]="collections"
+                                        [addTag]="addCollection" [readonly]="(name !== user.name)"
+                                        (clear)="onClearCollection()" (add)="onAddCollection($event)"
+                                        (remove)="onRemoveCollection($event)" (change)="onChangeCollection($event)"
+                                        multiple="true" bindLabel="title" [clearable]="false" [loading]="loading"
+                                        [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'"
+                                        appendTo="body">
+                                        <ng-template ng-tag-tmp let-search="searchTerm">
+                                            <mat-label class="text-base">Click để tạo tập mới:
+                                                {{search}}</mat-label>
+                                        </ng-template>
+                                    </ng-select>
+                                </div>
+                            </div>
                         </div>
 
                         <div class="pb-3">
@@ -2688,25 +2708,6 @@
                                         </mat-expansion-panel>
                                     </mat-accordion>
 
-                                    <div class="relative mt-4 w-full">
-                                        <mat-label class=" text-base">Tuyển tập của bạn:</mat-label>
-                                    </div>
-
-                                    <div class="relative mt-2 w-full">
-                                        <ng-select class="custom-select-ai-writer"
-                                            placeholder="Chọn 1 tập có sẵn hoặc tạo tập mới" [items]="collections"
-                                            [addTag]="addCollection" [readonly]="(name !== user.name)"
-                                            (clear)="onClearCollection()" (add)="onAddCollection($event)"
-                                            (remove)="onRemoveCollection($event)" (change)="onChangeCollection($event)"
-                                            multiple="true" bindLabel="title" [clearable]="false" [loading]="loading"
-                                            [(ngModel)]="selectedCollections" [dropdownPosition]="'top'"
-                                            appendTo="body">
-                                            <ng-template ng-tag-tmp let-search="searchTerm">
-                                                <mat-label class="text-base">Click để tạo tập mới:
-                                                    {{search}}</mat-label>
-                                            </ng-template>
-                                        </ng-select>
-                                    </div>
                                 </mat-tab>
 
                                 <!-- xoá -->

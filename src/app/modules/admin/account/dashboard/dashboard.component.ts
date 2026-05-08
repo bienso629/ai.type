@@ -68,6 +68,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     /**
+     * Lấy statistic
+     */
+    statistic() {
+        this._crawlService
+            .statistics({
+                username: this.user.name
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success) {
+                        localStorage.setItem('statistics', JSON.stringify(result.data));
+                    }
+                },
+                error: () => { },
+                complete: () => { },
+            });
+    }
+
+    /**
      * Constructor
      */
     constructor(
@@ -105,9 +125,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.account();
 
                 this.collection();
+                this.statistic();
             });
-
-
     }
 
     ngOnInit(): void {
