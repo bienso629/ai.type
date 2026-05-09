@@ -44,6 +44,9 @@ export interface AudioClip {
     rate?: number;  // Thêm mới: Tốc độ (0.5 đến 2.0)
     pitch?: number; // Thêm mới: Cao độ (-20 đến 20)
     prompt?: string;
+    localFilePath?: string | null;
+    isEditing?: boolean;
+    tempDescription?: string;
 }
 
 @Component({
@@ -995,6 +998,28 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         const allClips = data.clips;
 
+        // KIỂM TRA FILE TRÊN Ổ CỨNG TRƯỚC KHI TIẾN HÀNH
+        for (const clip of allClips) {
+            if (clip.localFilePath) {
+                try {
+                    const result = await (window as any).electron.invoke('check-local-file-exists', { path: clip.localFilePath });
+                    if (!result || !result.exists) {
+                        clip.localFilePath = null;
+                    }
+                } catch (e) {
+                    clip.localFilePath = null;
+                }
+            }
+        }
+
+        const missingAudio = allClips.find((c: any) => !c.localFilePath);
+        if (missingAudio) {
+            this.toastr.warning('Vui lòng tạo Audio cho tất cả các đoạn thoại trước khi Dựng Video!', 'Thiếu Audio');
+            this.isAnalyzing = false;
+            this.cd.markForCheck();
+            return;
+        }
+
         // Rút gọn format đầu vào để AI dễ đọc
         const continuousText = allClips
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
@@ -1298,8 +1323,42 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     // Hàm bổ trợ để mở Dialog
-    openTimelineDialog(data: any) {
+    async openTimelineDialog(data: any) {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
+
+        // Đồng bộ và kiểm tra file audio thực sự tồn tại trước khi gắn vào kịch bản
+        if (data.scenes && data.scenes.length > 0) {
+            for (const scene of data.scenes) {
+                if (scene.subtitles && scene.subtitles.length > 0) {
+                    for (const sub of scene.subtitles) {
+                        const originalClip = this.audioList.find((c: any) => c.id === sub.id);
+                        if (originalClip) {
+                            sub.duration = originalClip.duration || sub.duration;
+                            if (originalClip.localFilePath) {
+                                try {
+                                    const result = await (window as any).electron.invoke('check-local-file-exists', { path: originalClip.localFilePath });
+                                    if (result && result.exists) {
+                                        const safePath = originalClip.localFilePath.replace(/\\/g, '/');
+                                        sub.audioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
+                                    } else {
+                                        sub.audioUrl = null;
+                                        originalClip.localFilePath = null; // Xóa đường dẫn hỏng khỏi clip gốc
+                                    }
+                                } catch (e) {
+                                    sub.audioUrl = null;
+                                }
+                            } else {
+                                sub.audioUrl = null;
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Cập nhật lại vào bộ nhớ
+            this.videoProject = data;
+            this.saveToLocal();
+        }
 
         this.dialog.open(VideoTimelineDialogComponent, {
             width: '100vw',
