@@ -1098,8 +1098,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
-            - SỬ DỤNG 100% TIẾNG VIỆT cho toàn bộ kết quả trả về.
-            - TUYỆT ĐỐI KHÔNG chèn tiếng Anh vào mô tả.
+            - SỬ DỤNG 100% TIẾNG ANH CHUẨN (ENGLISH) cho toàn bộ kết quả JSON trả về. Mọi trường dữ liệu đều phải là Tiếng Anh.
+            - TUYỆT ĐỐI KHÔNG SỬ DỤNG TIẾNG VIỆT TRONG KẾT QUẢ TRẢ VỀ.
 
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
@@ -1108,7 +1108,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: Trong "prompt" từng scene, TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật. Chỉ cần gọi TÊN hoặc VAI TRÒ (VD: "Người cha", "Cô gái"). Việc tạo hình sẽ do hệ thống quản lý ở phần Characters riêng.
-            - 🎨 TỐI ƯU PHONG CÁCH: TUYỆT ĐỐI KHÔNG lặp lại phong cách nghệ thuật (art style) trong prompt của từng scene. Scene prompt CHỈ tập trung mô tả hành động, biểu cảm, và không gian bối cảnh.
+            - 🎨 TỐI ƯU PHONG CÁCH: Trong "prompt" của từng scene, bạn CHỈ ĐƯỢC PHÉP miêu tả hành động, biểu cảm của nhân vật và bối cảnh không gian. TUYỆT ĐỐI KHÔNG miêu tả phong cách nghệ thuật (Art style/Lighting/Camera) ở đây, vì hệ thống giao diện sẽ tự động ghép Master Prompt vào sau.
+            - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1).
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
@@ -1118,19 +1119,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY:
             {
-              "masterPrompt": "Viết Master Prompt chi tiết bằng Tiếng Việt...",
+              "masterPrompt": "Write the Master Prompt in ENGLISH detailing the art style, lighting, and camera...",
               "characters": [
                 {
-                  "name": "Tên nhân vật (nếu có)",
-                  "role": "Vai trò trong truyện",
-                  "appearance": "Đặc điểm ngoại hình chi tiết và cố định (tóc, mắt, khuôn mặt, trang phục đặc trưng)...",
-                  "personality": "Tính cách",
+                  "name": "Character Name",
+                  "role": "Role in the story",
+                  "appearance": "Detailed physical appearance in ENGLISH...",
+                  "personality": "Personality in ENGLISH",
                   "prompt": "Câu prompt độc lập bằng tiếng Anh chuẩn Midjourney/Stable Diffusion để tạo hình (casting) chân dung nhân vật này..."
                 }
               ],
               "scenes": [
                 {
-                  "prompt": "Mô tả chi tiết hình ảnh bằng Tiếng Việt (Chứa mô tả nhân vật và khung viền nếu có)...",
+                  "prompt": "Write ONLY the action, expression, and environment in ENGLISH (DO NOT write art style)...",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
@@ -1213,8 +1214,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
 
-                // [XỬ LÝ HẬU KỲ PROMPT]: Gắn cứng thần chú cấm chữ và ép khung truyện bằng tiếng Anh
-                let originalScenePrompt = scene.prompt.trim();
+                // KHÔNG TỰ ĐỘNG DÁN MASTER PROMPT VÀO ĐÂY vì ở VideoTimelineDialogComponent (khi bấm Copy) đã có logic tự dán masterPrompt rồi!
+                // Nếu dán ở đây sẽ bị nhân đôi. Chỉ lấy đúng prompt của scene do AI tạo ra.
+                let originalScenePrompt = scene.prompt ? scene.prompt.trim() : '';
+                let masterText = aiResponse.masterPrompt ? aiResponse.masterPrompt.trim() : '';
+
+                // Lọc bỏ masterText khỏi originalScenePrompt nếu AI lỡ tay lặp lại do không có hành động
+                if (masterText && originalScenePrompt.includes(masterText)) {
+                    originalScenePrompt = originalScenePrompt.replace(masterText, '').trim();
+                }
 
                 let constraintStr = "completely textless, no text, no watermark, no signature, clean background";
                 if (isComic) {
@@ -1273,7 +1281,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         videos.push({
                             id: i + 1,
-                            prompt: `${basePrompt}\n[LƯU Ý: Phân cảnh này dài ${partDuration} giây. Tạo video nối tiếp Part ${i + 1}/${parts}]`,
+                            prompt: `${basePrompt}\n[NOTE: This scene is ${partDuration} seconds long. Generate video continuation Part ${i + 1}/${parts}]`,
                             imageUrl: null,
                             duration: partDuration
                         });
@@ -1281,7 +1289,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 } else {
                     let singlePrompt = finalScenePrompt;
                     if (isVideo) {
-                        singlePrompt += `\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
+                        singlePrompt += `\n[MANDATORY: Generate video with exact duration of ${roundedDuration} seconds]`;
                     }
                     
                     // Gắn nhân vật vào
