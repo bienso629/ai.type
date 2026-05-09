@@ -201,8 +201,9 @@ export class VideoTimelineDialogComponent implements OnInit {
         // 1. Lấy Master Prompt từ dữ liệu tổng của Project
         const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
-        // 2. Không tự động nối Master Prompt nữa, dùng nguyên văn Scene Prompt
-        const finalPrompt = video.prompt || scene.prompt;
+        // 2. Tự động nối Master Prompt vào Scene Prompt để giữ phong cách xuyên suốt
+        const scenePrompt = video.prompt || scene.prompt;
+        const finalPrompt = master ? `${master}\n\n${scenePrompt}` : scenePrompt;
 
         // 3. Copy vào Clipboard
         this.clipboard.copy(finalPrompt);
@@ -217,8 +218,13 @@ export class VideoTimelineDialogComponent implements OnInit {
             this.toastr.warning('Nhân vật này chưa có câu prompt tạo hình.');
             return;
         }
-        this.clipboard.copy(char.prompt);
-        this.toastr.success(`Đã copy prompt của nhân vật: ${char.name || char.role}`, 'Thành công');
+        
+        // Nối Master Prompt vào để nhân vật cũng giữ đúng phong cách (VD: hoạt hình 3D)
+        const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+        const finalPrompt = master ? `${master}\n\n${char.prompt}` : char.prompt;
+
+        this.clipboard.copy(finalPrompt);
+        this.toastr.success(`Đã copy Master Prompt + Nhân vật: ${char.name || char.role}`, 'Thành công');
     }
 
     addCharacterToMasterPrompt(char: any) {
@@ -312,6 +318,11 @@ export class VideoTimelineDialogComponent implements OnInit {
             this.toastr.success('Đã lưu Master Prompt!');
         }
         this.isEditingMasterPrompt = !this.isEditingMasterPrompt;
+    }
+
+    toggleVideoCompleted(video: any) {
+        video.isCompleted = !video.isCompleted;
+        this.saveData();
     }
 
     removeCharacter(index: number) {
