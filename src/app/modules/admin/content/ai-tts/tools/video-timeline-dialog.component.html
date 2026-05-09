@@ -33,8 +33,7 @@
                     <div class="flex items-center gap-0">
                         <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt"
                             (click)="toggleEditMasterPrompt()">
-                            <mat-icon class="icon-size-4">{{ isEditingMasterPrompt ? 'check_circle' : 'edit'
-                                }}</mat-icon>
+                            <mat-icon class="icon-size-4">{{ isEditingMasterPrompt ? 'check' : 'edit' }}</mat-icon>
                         </button>
                         <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode"
                             (click)="openDirectorMode()">
@@ -69,7 +68,7 @@
 
                 <div class="flex flex-col gap-3">
                     @for (char of projectData?.characters; track char; let charIdx = $index) {
-                    <div class="bg-white p-3 rounded-xl group relative">
+                    <div class="bg-white p-3 rounded-lg group relative">
                         <div class="flex justify-between items-start mb-2">
                             <span class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
                                 {{ char.name || char.role }}
@@ -148,15 +147,25 @@
                     <mat-icon class="icon-size-4">delete</mat-icon>
                 </button>
 
-                <div class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
+                <div
+                    class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
                     @for (video of scene.videos; track video; let vIdx = $index) {
                     <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded overflow-hidden"
                         [ngClass]="video.imageUrl ? 'h-auto overflow-visible' : 'min-h-32 max-h-40 h-32 overflow-hidden'">
-                        
+
                         <!-- Header hiển thị part -->
-                        <div class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br">
+                        <div
+                            class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br">
                             Phần {{vIdx + 1}} • {{video.duration}}s
                         </div>
+
+                        <!-- Dấu tick xanh nếu đã hoàn thành -->
+                        @if (video.isCompleted) {
+                        <div class="absolute top-0 right-0 bg-green-500 text-white p-1 z-10 rounded-bl flex items-center justify-center"
+                            matTooltip="Đã tạo video">
+                            <mat-icon class="icon-size-4 text-white">check</mat-icon>
+                        </div>
+                        }
 
                         @if (video.imageUrl) {
                         <ng-container *ngIf="isImageType(video.imageUrl); else videoPlayer">
@@ -173,26 +182,34 @@
                         </div>
                         }
 
-                        <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
+                        <div
+                            class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
+                            <button mat-icon-button class="transition-colors"
+                                [ngClass]="video.isCompleted ? 'bg-green-500 hover:bg-gray-500' : 'bg-white/20 hover:bg-green-500'"
+                                matTooltip="{{ video.isCompleted ? 'Đánh dấu chưa làm' : 'Đánh dấu đã xong' }}"
+                                (click)="$event.stopPropagation(); toggleVideoCompleted(video)">
+                                <mat-icon class="icon-size-4 text-white">check</mat-icon>
+                            </button>
+
                             <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
                                 matTooltip="Copy Prompt phần này"
                                 (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
-                                <mat-icon class="icon-size-4 text-white">content_copy</mat-icon>
+                                <mat-icon class="icon-size-4 text-white">code</mat-icon>
                             </button>
 
                             <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
                                 matTooltip="Chọn media" (click)="$event.stopPropagation(); fileInput.click()">
-                                <mat-icon class="icon-size-4 text-white">upload</mat-icon>
+                                <mat-icon class="icon-size-4 text-white">cloud</mat-icon>
                             </button>
 
                             <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
                                 matTooltip="Sửa Prompt phần này"
                                 (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
-                                <mat-icon class="icon-size-4 text-white">edit_note</mat-icon>
+                                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:edit-3'"></mat-icon>
                             </button>
 
-                            <input #fileInput type="file" (change)="onFileSelected($event, scene, video)" accept="image/*,video/*"
-                                class="hidden">
+                            <input #fileInput type="file" (change)="onFileSelected($event, scene, video)"
+                                accept="image/*,video/*" class="hidden">
                         </div>
                     </div>
                     }

@@ -1214,17 +1214,43 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
 
                 // [XỬ LÝ HẬU KỲ PROMPT]: Gắn cứng thần chú cấm chữ và ép khung truyện bằng tiếng Anh
-                let finalScenePrompt = scene.prompt.trim();
+                let originalScenePrompt = scene.prompt.trim();
 
                 let constraintStr = "completely textless, no text, no watermark, no signature, clean background";
                 if (isComic) {
                     constraintStr += ", distinct comic panel layout, clear white gutters, split frames, strict panel borders";
                 }
 
-                finalScenePrompt += `\n\n(Constraints: ${constraintStr})`;
+                let finalScenePrompt = originalScenePrompt + `\n\n(Constraints: ${constraintStr})`;
+
+                // Tự động nhận diện nhân vật và gắn mô tả (appearance/prompt) vào
+                const characters = aiResponse.characters || [];
+                const injectCharacters = (text: string) => {
+                    let injectedText = text;
+                    let addedChars = [];
+                    for (const char of characters) {
+                        if (char.name && text.toLowerCase().includes(char.name.toLowerCase())) {
+                            const charDesc = char.prompt || char.appearance || '';
+                            if (charDesc) {
+                                addedChars.push(`[Character '${char.name}': ${charDesc}]`);
+                            }
+                        }
+                    }
+                    if (addedChars.length > 0) {
+                        injectedText = addedChars.join('\n') + '\n\n' + injectedText;
+                    }
+                    return injectedText;
+                };
 
                 let videos = [];
                 const maxVideoLength = 8;
+
+                // Cố gắng tách các "Prompt 1:", "Prompt 2:" ra nếu AI có sinh ra
+                let individualPrompts: string[] = [];
+                const splitRegex = /Prompt\s*\d+[^:]*:/gi;
+                if (splitRegex.test(originalScenePrompt)) {
+                    individualPrompts = originalScenePrompt.split(splitRegex).map(s => s.trim()).filter(s => s.length > 0);
+                }
 
                 // Chỉ gắn thời lượng chính xác nếu định dạng là VIDEO
                 if (isVideo && roundedDuration > maxVideoLength) {
@@ -1237,9 +1263,17 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             if (partDuration <= 0) partDuration = maxVideoLength;
                         }
 
+                        let basePrompt = finalScenePrompt;
+                        if (individualPrompts.length > 0) {
+                            basePrompt = individualPrompts[Math.min(i, individualPrompts.length - 1)] + `\n\n(Constraints: ${constraintStr})`;
+                        }
+
+                        // Gắn nhân vật vào
+                        basePrompt = injectCharacters(basePrompt);
+
                         videos.push({
                             id: i + 1,
-                            prompt: `${finalScenePrompt}\n[LƯU Ý: Phân cảnh này dài ${partDuration} giây. Tạo video nối tiếp Part ${i + 1}/${parts}]`,
+                            prompt: `${basePrompt}\n[LƯU Ý: Phân cảnh này dài ${partDuration} giây. Tạo video nối tiếp Part ${i + 1}/${parts}]`,
                             imageUrl: null,
                             duration: partDuration
                         });
@@ -1249,6 +1283,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     if (isVideo) {
                         singlePrompt += `\n[BẮT BUỘC: Tạo video có độ dài chính xác ${roundedDuration} giây]`;
                     }
+                    
+                    // Gắn nhân vật vào
+                    singlePrompt = injectCharacters(singlePrompt);
+
                     videos.push({
                         id: 1,
                         prompt: singlePrompt,
