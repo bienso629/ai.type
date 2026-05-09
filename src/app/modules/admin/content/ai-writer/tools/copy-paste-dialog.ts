@@ -9,7 +9,7 @@ import * as uuid from 'uuid';
     selector: 'chatgpt-paste-dialog',
     template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
         <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:copy'"></mat-icon>
-        <mat-label class="self-center">Paste nội dung</mat-label>
+        <mat-label class="self-center">Paste nội dung đã copp</mat-label>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
@@ -17,23 +17,21 @@ import * as uuid from 'uuid';
             <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
                 <textarea class="max-h-80 min-h-40 px-2" [formControlName]="'chatgpt'" [placeholder]="'Chỉ cần copy và paste nội dung mong muốn vào đây.'" type="text" required matInput cdkTextareaAutosize></textarea>
 
-                <!-- <button mat-icon-button type="button" matSuffix>
+                <button mat-icon-button type="button" matSuffix>
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:clipboard'"></mat-icon>
-                </button> -->
+                </button>
             </mat-form-field>
         </form>
     </div>
 
     <div mat-dialog-actions class="p-0 mt-4">
         <button mat-flat-button (click)="sendTxt()" color="primary" class="float-right">
-            Sử dụng Text
+            Định dạng Plain Text
         </button>
 
         <button mat-flat-button (click)="sendMarkdown()" color="warn" class="float-right">
-            Sử dụng Markdown
+            Định dạng Markdown
         </button>
-        
-        <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
     </div>`,
 })
 export class CopyPasteDialog implements OnInit {
