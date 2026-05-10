@@ -68,49 +68,64 @@
 
                 <div class="flex flex-col gap-3">
                     @for (char of projectData?.characters; track char; let charIdx = $index) {
-                    <div class="bg-white p-3 rounded-lg group relative">
-                        <div class="flex justify-between items-start mb-2">
-                            <span class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
-                                {{ char.name || char.role }}
-                                @if (char.variant) {
-                                <span class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0 rounded-full">{{
-                                    char.variant }}</span>
-                                }
-                            </span>
-
-                            <div class="flex gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button mat-icon-button
-                                    class="icon-size-8 text-gray-400 hover:text-green-600 hover:bg-green-50"
-                                    matTooltip="Nhân bản (Tạo phiên bản mới)" (click)="duplicateCharacter(char)">
-                                    <mat-icon class="icon-size-4">content_copy</mat-icon>
-                                </button>
-
-                                <!-- <button mat-icon-button
-                                    class="icon-size-8 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
-                                    matTooltip="Copy Prompt" (click)="copyCharacterPrompt(char)">
-                                    <mat-icon class="icon-size-4">terminal</mat-icon>
-                                </button> -->
-
-                                <button mat-icon-button
-                                    class="icon-size-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                    matTooltip="Sửa nhân vật" (click)="openCharacterDialog(char, charIdx)">
-                                    <mat-icon class="icon-size-4">edit</mat-icon>
-                                </button>
-
-                                <button mat-icon-button
-                                    class="icon-size-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                    matTooltip="Xoá nhân vật" (click)="removeCharacter(charIdx)">
-                                    <mat-icon class="icon-size-4">delete</mat-icon>
-                                </button>
+                    <div class="bg-white p-3 rounded-lg group relative flex flex-row gap-3 items-start">
+                        @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
+                        <div
+                            class="flex flex-col gap-1.5 shrink-0 mt-1 max-h-48 overflow-y-auto scrollbar-hide pr-1 w-14">
+                            @for (url of (char.avatarUrls?.length ? char.avatarUrls : [char.avatarUrl]); track url) {
+                            <div class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50">
+                                <img [src]="url" class="w-full h-full object-cover">
                             </div>
+                            }
                         </div>
+                        }
 
-                        <div class="text-xs text-gray-700 leading-relaxed space-y-1">
-                            <div><span class="font-semibold text-gray-900">Vai trò:</span> {{ char.role }}</div>
-                            <div><span class="font-semibold text-gray-900">Ngoại hình:</span> {{ char.appearance ||
-                                'Đang
-                                cập nhật' }}</div>
-                            <div><span class="font-semibold text-gray-900">Tính cách:</span> {{ char.personality }}
+                        <div class="flex-1 min-w-0">
+                            <div class="flex justify-between items-start mb-2">
+                                <span
+                                    class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
+                                    {{ char.name || char.role }}
+                                    @if (char.variant) {
+                                    <span
+                                        class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0 rounded-full">{{
+                                        char.variant }}</span>
+                                    }
+                                </span>
+
+                                <div class="flex gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button mat-icon-button
+                                        class="icon-size-8 text-gray-400 hover:text-green-600 hover:bg-green-50"
+                                        matTooltip="Nhân bản (Tạo phiên bản mới)" (click)="duplicateCharacter(char)">
+                                        <mat-icon class="icon-size-4">content_copy</mat-icon>
+                                    </button>
+
+                                    <!-- <button mat-icon-button
+                                        class="icon-size-8 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
+                                        matTooltip="Copy Prompt" (click)="copyCharacterPrompt(char)">
+                                        <mat-icon class="icon-size-4">terminal</mat-icon>
+                                    </button> -->
+
+                                    <button mat-icon-button
+                                        class="icon-size-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                        matTooltip="Sửa nhân vật" (click)="openCharacterDialog(char, charIdx)">
+                                        <mat-icon class="icon-size-4">edit</mat-icon>
+                                    </button>
+
+                                    <button mat-icon-button
+                                        class="icon-size-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                        matTooltip="Xoá nhân vật" (click)="removeCharacter(charIdx)">
+                                        <mat-icon class="icon-size-4">delete</mat-icon>
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="text-xs text-gray-700 leading-relaxed space-y-1">
+                                <div><span class="font-semibold text-gray-900">Vai trò:</span> {{ char.role }}</div>
+                                <div><span class="font-semibold text-gray-900">Ngoại hình:</span> {{ char.appearance ||
+                                    'Đang
+                                    cập nhật' }}</div>
+                                <div><span class="font-semibold text-gray-900">Tính cách:</span> {{ char.personality }}
+                                </div>
                             </div>
                         </div>
                     </div>
