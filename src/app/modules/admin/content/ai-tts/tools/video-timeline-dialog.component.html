@@ -68,19 +68,8 @@
 
                 <div class="flex flex-col gap-3">
                     @for (char of projectData?.characters; track char; let charIdx = $index) {
-                    <div class="bg-white p-3 rounded-lg group relative flex flex-row gap-3 items-start">
-                        @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
-                        <div
-                            class="flex flex-col gap-1.5 shrink-0 mt-1 max-h-48 overflow-y-auto scrollbar-hide pr-1 w-14">
-                            @for (url of (char.avatarUrls?.length ? char.avatarUrls : [char.avatarUrl]); track url) {
-                            <div class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50">
-                                <img [src]="url" class="w-full h-full object-cover">
-                            </div>
-                            }
-                        </div>
-                        }
-
-                        <div class="flex-1 min-w-0">
+                    <div class="bg-white p-3 rounded-lg group relative flex flex-col gap-2">
+                        <div class="flex-1 min-w-0 w-full">
                             <div class="flex justify-between items-start mb-2">
                                 <span
                                     class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
@@ -128,6 +117,16 @@
                                 </div>
                             </div>
                         </div>
+
+                        @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
+                        <div class="flex flex-row flex-wrap gap-1.5 w-full mt-1">
+                            @for (url of (char.avatarUrls?.length ? char.avatarUrls : [char.avatarUrl]); track url) {
+                            <div class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
+                                <img [src]="url" class="w-full h-full object-cover">
+                            </div>
+                            }
+                        </div>
+                        }
                     </div>
                     }
                     @if (!projectData?.characters || projectData?.characters.length === 0) {
