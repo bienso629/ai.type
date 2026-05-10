@@ -45,11 +45,11 @@
 			</div>
 
 			<ng-container *ngIf="hasStarted && currentScene">
-				<video *ngIf="isVideo(currentScene.imageUrl)" [src]="currentScene.imageUrl" autoplay loop [muted]="true"
+				<video *ngIf="isVideo(currentMediaUrl)" [src]="currentMediaUrl" autoplay loop [muted]="true"
 					playsinline class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500">
 				</video>
 
-				<img *ngIf="isImage(currentScene.imageUrl)" [src]="currentScene.imageUrl"
+				<img *ngIf="isImage(currentMediaUrl)" [src]="currentMediaUrl"
 					class="absolute inset-0 w-full h-full object-contain transition-opacity duration-500"
 					alt="Scene Background">
 			</ng-container>

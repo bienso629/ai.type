@@ -26,6 +26,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     currentSubtitleIndex: number = 0;
 
     currentDisplayedText: string = '';
+    currentMediaUrl: string | null = null;
     textChunks: { text: string, weight: number }[] = [];
     fallbackInterval: any;
 
@@ -211,7 +212,51 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
         // 3. Ép trạng thái thành đang phát và chạy Audio mới
         this.isPlaying = true;
+        this.updateCurrentMediaUrl();
         this.playCurrent();
+    }
+
+    updateCurrentMediaUrl() {
+        if (!this.currentScene) {
+            this.currentMediaUrl = null;
+            return;
+        }
+
+        let newMediaUrl = this.currentScene.imageUrl;
+
+        if (this.currentScene.videos && this.currentScene.videos.length > 0) {
+            let elapsedAudioTime = 0;
+            if (this.currentScene.subtitles) {
+                for (let i = 0; i < this.currentSubtitleIndex; i++) {
+                    const sub = this.currentScene.subtitles[i];
+                    elapsedAudioTime += sub.duration || 3;
+                }
+            }
+            
+            if (this.audioPlayer && this.isPlaying) {
+                elapsedAudioTime += this.audioPlayer.currentTime || 0;
+            }
+            
+            let accumulatedVideoTime = 0;
+            let found = false;
+            for (let i = 0; i < this.currentScene.videos.length; i++) {
+                const video = this.currentScene.videos[i];
+                accumulatedVideoTime += video.duration || 8;
+                if (elapsedAudioTime <= accumulatedVideoTime) {
+                    newMediaUrl = video.imageUrl || this.currentScene.imageUrl;
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                newMediaUrl = this.currentScene.videos[this.currentScene.videos.length - 1].imageUrl || this.currentScene.imageUrl;
+            }
+        }
+
+        if (this.currentMediaUrl !== newMediaUrl) {
+            this.currentMediaUrl = newMediaUrl;
+            this.cd.markForCheck();
+        }
     }
 
     // --- HÀM MỚI: Cắt chữ ---
@@ -248,6 +293,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         if (!this.currentScene.subtitles || this.currentScene.subtitles.length === 0 || !this.currentSubtitle) {
             this.currentDisplayedText = ''; // Xóa chữ trên màn hình
             this.isPlaying = true;
+            this.updateCurrentMediaUrl();
             this.cd.markForCheck();
 
             // Cho hiển thị hình ảnh/video không lời trong 5 giây rồi tự qua Scene tiếp theo
@@ -270,6 +316,7 @@ export class LivestreamComponent implements OnInit, OnDestroy {
             this.audioPlayer.load();
 
             this.audioPlayer.ontimeupdate = () => {
+                this.updateCurrentMediaUrl();
                 if (this.audioPlayer.duration && this.textChunks.length > 1) {
                     const currentTime = this.audioPlayer.currentTime;
                     const totalDuration = this.audioPlayer.duration;
@@ -297,19 +344,23 @@ export class LivestreamComponent implements OnInit, OnDestroy {
 
             this.audioPlayer.play().then(() => {
                 this.isPlaying = true;
+                this.updateCurrentMediaUrl();
                 this.cd.markForCheck();
             }).catch(err => {
                 console.error("Autoplay bị chặn hoặc file lỗi:", err);
                 this.isPlaying = false;
+                this.updateCurrentMediaUrl();
                 this.cd.markForCheck();
             });
         } else {
             // Nếu có chữ nhưng chưa tạo file Audio, giả lập đọc 3 giây/đoạn
             this.isPlaying = true;
+            this.updateCurrentMediaUrl();
             this.cd.markForCheck();
 
             let chunkIdx = 0;
             this.fallbackInterval = setInterval(() => {
+                this.updateCurrentMediaUrl();
                 chunkIdx++;
                 if (chunkIdx < this.textChunks.length) {
                     this.currentDisplayedText = this.textChunks[chunkIdx].text;
@@ -373,14 +424,14 @@ export class LivestreamComponent implements OnInit, OnDestroy {
     }
 
     // --- TIỆN ÍCH KIỂM TRA ĐUÔI FILE ---
-    isVideo(url: string): boolean {
+    isVideo(url: string | null): boolean {
         if (!url) return false;
         const cleanUrl = url.replace('file://', '').split('?')[0];
         const ext = cleanUrl.split('.').pop()?.toLowerCase();
         return ['mp4', 'webm', 'ogg', 'mov'].includes(ext || '');
     }
 
-    isImage(url: string): boolean {
+    isImage(url: string | null): boolean {
         if (!url) return false;
         return !this.isVideo(url);
     }
