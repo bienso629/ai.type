@@ -1673,6 +1673,11 @@ function createMainWindow() {
             typeProcess.kill("SIGTERM");
             killPort(12345);
         }
+
+        if (pdfApiProcess) {
+            pdfApiProcess.kill("SIGTERM");
+        }
+        killPort(48921);
     });
 
     mainWindow.webContents.on(
@@ -2011,6 +2016,26 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 // Thử kết nối
                 const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
                 await fetch('http://127.0.0.1:48921/openapi.json', { timeout: 1000 });
+                
+                if (!pdfApiProcess) {
+                    // Nếu server đang chạy nhưng không phải do instance hiện tại tạo ra -> Đây là process zombie (thường do nodemon khởi động lại).
+                    // Process này sẽ bị kẹt stdout khiến progress không hiển thị trên UI. Phải kill nó đi để tạo lại!
+                    console.log("[PDF] Phát hiện zombie process, đang tiến hành kill...");
+                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang dọn dẹp tiến trình cũ...');
+                    
+                    const { execSync } = require('child_process');
+                    try {
+                        if (process.platform === 'win32') {
+                            execSync(`FOR /F "tokens=5" %P IN ('netstat -ano ^| findstr :48921') DO taskkill /F /PID %P`);
+                        } else {
+                            execSync(`lsof -i :48921 -t | xargs kill -9`);
+                        }
+                    } catch (e) {} // Bỏ qua lỗi nếu không tìm thấy
+                    
+                    await new Promise(r => setTimeout(r, 1000));
+                    throw new Error("Killed zombie process");
+                }
+                
                 return true;
             } catch (e) {
                 // Chưa chạy -> Start

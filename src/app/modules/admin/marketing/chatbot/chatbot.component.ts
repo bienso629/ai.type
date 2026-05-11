@@ -618,9 +618,28 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     try {
                         const result = await electron.invoke('run-pdf-analysis', filePath);
                         
-                        this.taskProgress.done('Phân tích hoàn tất!');
+                        this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
                         console.log("Kết quả phân tích từ minerU:", result);
-                        // Có thể lưu result hoặc hiển thị lên giao diện ở đây
+                        
+                        // Đẩy kết quả phân tích JSON về Server
+                        this._chatbotService.uploadMinerUResult({
+                            username: this.user.name,
+                            filename: file.name,
+                            doc_type: this.currentDocType,
+                            content_json: result.data // result trả về có dạng { status: "success", data: "..." }
+                        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                            next: (res) => {
+                                if (res && res.success) {
+                                    this.toastr.success('Đã lưu kết quả thông minh vào máy chủ!');
+                                } else {
+                                    this.toastr.error('Lỗi khi lưu kết quả lên máy chủ');
+                                }
+                            },
+                            error: (err) => {
+                                console.error("Lỗi gửi server:", err);
+                                this.toastr.error('Không kết nối được với máy chủ để lưu file');
+                            }
+                        });
                         
                     } catch (error: any) {
                         console.error("Lỗi phân tích:", error);
