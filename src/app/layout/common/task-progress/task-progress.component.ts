@@ -10,7 +10,7 @@ import { TaskProgressService, TaskProgressState } from './task-progress.service'
     imports: [CommonModule, MatIconModule],
     encapsulation: ViewEncapsulation.None,
     template: `
-        <div class="min-w-[350px] max-w-[500px] bg-white rounded border border-gray-100 overflow-hidden pointer-events-auto">
+        <div class="min-w-[350px] max-w-[500px] bg-white rounded shadow-xl overflow-hidden pointer-events-auto">
             <!-- Header bar with loading gradient -->
             <div *ngIf="!state.isError && !state.isDone" class="h-1 w-full bg-blue-100 overflow-hidden relative">
                 <div class="h-full bg-blue-500 absolute w-1/3 progress-bar"></div>

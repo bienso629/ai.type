@@ -307,6 +307,27 @@ export class ChatbotService {
         );
     }
 
+    public uploadMinerUResult(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.chatbot}/upload-mineru-result`;
+
+        return this.http.post<any>(url, dataForm, {
+            headers: new HttpHeaders({
+                'content-type': 'application/json',
+                'x-api-key': dataForm.appToken,
+            })
+        }).pipe(
+            map(data => data),
+            catchError(this.handleError('server', []))
+        );
+    }
+
     public listFiles(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
