@@ -1879,6 +1879,221 @@ async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pi
     });
 }
 
+let pdfApiProcess = null;
+let currentPdfSender = null;
+let currentAbortController = null;
+
+const getMinerUModelPath = () => {
+    return path.join(app.getPath('userData'), 'models', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B', 'snapshots', 'd3f5e08d073c21466bbabe21c71bb1e9c2e595da');
+};
+
+ipcMain.handle('check-mineru-model', async () => {
+    const configPath = path.join(getMinerUModelPath(), 'config.json');
+    return fs.existsSync(configPath);
+});
+
+ipcMain.handle('setup-mineru-model', async (event) => {
+    return new Promise(async (resolve, reject) => {
+        const modelPath = getMinerUModelPath();
+        const configPath = path.join(modelPath, 'config.json');
+        
+        if (fs.existsSync(configPath)) {
+            event.sender.send('pdf-analysis-progress', 'Mô hình AI đã sẵn sàng.');
+            resolve();
+            return;
+        }
+
+        // Kiểm tra xem user có sẵn model ở thư mục cũ không (apps/minerU)
+        const oldModelPath = path.join('C:', 'Users', 'Wing386', 'apps', 'minerU', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B');
+        if (fs.existsSync(oldModelPath)) {
+            event.sender.send('pdf-analysis-progress', 'Đang chuyển model cũ vào thư mục App...');
+            try {
+                const targetModelsDir = path.join(app.getPath('userData'), 'models', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B');
+                fs.mkdirSync(targetModelsDir, { recursive: true });
+                
+                // Copy folder (sử dụng xcopy trên windows cho nhanh và đệ quy)
+                const { exec } = require('child_process');
+                exec(`xcopy "${oldModelPath}" "${targetModelsDir}" /E /I /Y`, (error, stdout, stderr) => {
+                    if (error) {
+                        reject(new Error("Lỗi khi copy model cũ: " + error.message));
+                    } else {
+                        event.sender.send('pdf-analysis-progress', 'Đã chuyển xong model cũ!');
+                        resolve();
+                    }
+                });
+                return;
+            } catch (err) {
+                console.error("Copy failed, falling back to download", err);
+            }
+        }
+
+        event.sender.send('pdf-analysis-progress', 'Đang kết nối để tải mô hình AI...');
+        const modelsDir = path.join(app.getPath('userData'), 'models');
+        const zipFile = path.join(modelsDir, 'model.zip');
+        const url = 'https://ai.type.vn/phan-mem/models/models--opendatalab--MinerU2.5-Pro-2604-1.2B.zip';
+        
+        // Lấy đường dẫn file chạy AI (Ưu tiên file .exe đóng gói sẵn trong thư mục app/bin, nếu không có thì chạy python script)
+        const getMinerUExecutableInfo = () => {
+            const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
+            if (fs.existsSync(exePath)) {
+                return { cmd: exePath, args: [] };
+            }
+            // Fallback cho môi trường dev
+            const scriptPath = path.join(require('os').homedir(), 'apps', 'minerU', 'pdf.py');
+            return { cmd: 'python', args: ['-u', scriptPath] };
+        };
+
+        const exeInfo = getMinerUExecutableInfo();
+        const spawnArgs = [...exeInfo.args, 'download', url, zipFile, modelsDir];
+        const pyProcess = spawn(exeInfo.cmd, spawnArgs, {
+            env: { ...process.env, PYTHONIOENCODING: 'utf8' }
+        });
+
+        pyProcess.stdout.on('data', (data) => {
+            const lines = data.toString('utf8').split(/[\r\n]+/);
+            for (let line of lines) {
+                if (line.trim()) event.sender.send('pdf-analysis-progress', line.trim());
+            }
+        });
+
+        pyProcess.stderr.on('data', (data) => {
+            console.error("Lỗi download:", data.toString());
+        });
+
+        pyProcess.on('close', (code) => {
+            if (code === 0) resolve();
+            else reject(new Error(`Tải model thất bại với mã lỗi ${code}`));
+        });
+    });
+});
+
+ipcMain.handle('cancel-pdf-analysis', async () => {
+    if (currentAbortController) {
+        currentAbortController.abort();
+        currentAbortController = null;
+    }
+    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+    try {
+        await fetch('http://127.0.0.1:48921/cancel', { method: 'POST' });
+    } catch (e) {}
+});
+
+ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
+    return new Promise(async (resolve, reject) => {
+        currentPdfSender = event.sender;
+        currentPdfSender.send('pdf-analysis-progress', 'Đang kiểm tra API AI cục bộ...');
+        
+        currentAbortController = new AbortController();
+        const signal = currentAbortController.signal;
+
+        // Hàm gọi API
+        const fetchApi = async (url, body = null) => {
+            const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+            try {
+                const res = await fetch(`http://127.0.0.1:48921${url}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body ? JSON.stringify(body) : null,
+                    timeout: 0, // No timeout cho việc analyze
+                    signal
+                });
+                if (!res.ok) throw new Error(await res.text());
+                return await res.json();
+            } catch (err) {
+                if (err.name === 'AbortError') throw new Error('cancelled');
+                throw err;
+            }
+        };
+
+        // Hàm kiểm tra và khởi động server nếu cần
+        const ensureApiRunning = async () => {
+            try {
+                // Thử kết nối
+                const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+                await fetch('http://127.0.0.1:48921/openapi.json', { timeout: 1000 });
+                return true;
+            } catch (e) {
+                // Chưa chạy -> Start
+                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang khởi động AI Server trong nền...');
+                
+                const getMinerUExecutableInfo = () => {
+                    const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
+                    if (fs.existsSync(exePath)) {
+                        return { cmd: exePath, args: [], cwd: path.dirname(exePath) };
+                    }
+                    // Fallback cho môi trường dev
+                    const scriptPath = path.join(require('os').homedir(), 'apps', 'minerU', 'pdf.py');
+                    return { cmd: 'python', args: ['-u', scriptPath], cwd: path.dirname(scriptPath) };
+                };
+                
+                const exeInfo = getMinerUExecutableInfo();
+                pdfApiProcess = spawn(exeInfo.cmd, exeInfo.args, {
+                    cwd: exeInfo.cwd,
+                    env: { ...process.env, PYTHONIOENCODING: 'utf8', MINERU_MODEL_PATH: getMinerUModelPath() }
+                });
+
+                pdfApiProcess.stdout.on('data', (data) => {
+                    const lines = data.toString('utf8');
+                    // Forward print() tới UI
+                    if (lines.trim() && currentPdfSender) {
+                        currentPdfSender.send('pdf-analysis-progress', lines.trim());
+                    }
+                });
+
+                pdfApiProcess.stderr.on('data', (data) => {
+                    const errLine = data.toString('utf8');
+                    if (errLine.includes('%') || errLine.includes('it/s')) {
+                        // Tách bằng \r hoặc \n để lấy dòng trạng thái cuối cùng
+                        const parts = errLine.split(/[\r\n]+/);
+                        let lastPart = parts[parts.length - 1].trim();
+                        if (!lastPart && parts.length > 1) {
+                            lastPart = parts[parts.length - 2].trim();
+                        }
+                        if (lastPart && currentPdfSender) {
+                            currentPdfSender.send('pdf-analysis-progress', lastPart);
+                        }
+                    } else {
+                        console.error("Lỗi từ pdf API:", errLine);
+                    }
+                });
+
+                // Chờ server boot (tối đa 30 giây vì import torch/transformers khá nặng)
+                let isReady = false;
+                for (let i = 0; i < 30; i++) {
+                    await new Promise(r => setTimeout(r, 1000));
+                    try {
+                        const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+                        await fetch('http://127.0.0.1:48921/openapi.json', { timeout: 1000 });
+                        isReady = true;
+                        break;
+                    } catch (e) {}
+                }
+                
+                if (!isReady) {
+                    throw new Error("Không thể kết nối đến AI Server, vui lòng thử lại!");
+                }
+                
+                return true;
+            }
+        };
+
+        try {
+            await ensureApiRunning();
+            
+            event.sender.send('pdf-analysis-progress', 'Đang nạp AI Model vào bộ nhớ (lần đầu có thể mất vài phút)...');
+            await fetchApi('/load_model');
+            
+            event.sender.send('pdf-analysis-progress', 'Bắt đầu phân tích PDF...');
+            const result = await fetchApi('/analyze', { file_path: filePath });
+            
+            resolve(result.data);
+        } catch (error) {
+            console.error("Lỗi chạy pdf API:", error);
+            reject(error.message || error);
+        }
+    });
+});
+
 // --- IPC HANDLER: Xử lý việc copy file ---
 // Lắng nghe sự kiện 'select-local-file' từ Renderer process
 ipcMain.handle('select-local-file', async (event, { filePath }) => {

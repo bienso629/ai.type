@@ -64,7 +64,12 @@ contextBridge.exposeInMainWorld('electron', {
     },
     selectLocalFile: (filePath) => ipcRenderer.invoke('select-local-file', { filePath }),
     resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
-    onWebviewDownloadComplete: (callback) => ipcRenderer.on('webview-download-complete', (event, data) => callback(data))
+    onWebviewDownloadComplete: (callback) => ipcRenderer.on('webview-download-complete', (event, data) => callback(data)),
+    onPdfProgress: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('pdf-analysis-progress', listener);
+        return () => ipcRenderer.removeListener('pdf-analysis-progress', listener);
+    }
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...

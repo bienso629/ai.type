@@ -60,6 +60,14 @@
         </textarea>
 </div>
 
+<div class="mb-4 flex items-center justify-between border-t pt-4">
+    <div>
+        <label class="block text-sm font-semibold">Bật MinerU AI (Mô hình phân tích nâng cao)</label>
+        <p class="text-xs text-gray-400 mt-1">Sử dụng mô hình AI chạy trực tiếp trên máy tính của bạn (cần 1.2GB dung lượng ổ đĩa).</p>
+    </div>
+    <mat-slide-toggle color="primary" [checked]="isMinerUEnabled" (change)="toggleMinerU($event)"></mat-slide-toggle>
+</div>
+
 <div class="flex justify-end gap-2 mt-5">
     <button mat-flat-button color="medium" (click)="onClose()">
         Đóng
