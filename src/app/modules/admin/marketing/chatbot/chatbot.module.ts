@@ -17,6 +17,9 @@ import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { SharedModule } from 'app/shared.module';
 import { ChatBotComponent } from 'app/modules/admin/marketing/chatbot/chatbot.component';
 import { FileListDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/file-list-dialog.component';
+import { DocTypeDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/doc-type-dialog.component';
+import { IndexDomainsDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/index-domains-dialog.component';
+import { SettingChatbotDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/setting-chatbot-dialog.component';
 
 const Routes: Route[] = [
     {
@@ -28,7 +31,10 @@ const Routes: Route[] = [
 @NgModule({
     declarations: [
         ChatBotComponent,
-        FileListDialogComponent
+        FileListDialogComponent,
+        DocTypeDialogComponent,
+        IndexDomainsDialogComponent,
+        SettingChatbotDialogComponent
     ],
     imports: [
         RouterModule.forChild(Routes),

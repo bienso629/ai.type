@@ -1,97 +1,94 @@
-<div class="w-full h-full">
-    <ngx-datatable class="material fullscreen w-full shadow-none absolute inset-0" [virtualization]="true" [rows]="rows"
-        [columnMode]="'force'" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
-        [scrollbarH]="false">
+<ngx-datatable class="material fullscreen w-full shadow-none absolute inset-0" [virtualization]="true" [rows]="rows"
+    [columnMode]="'force'" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
+    [scrollbarH]="false">
 
-        <ngx-datatable-column name="Tên tài liệu" prop="filename" [width]="280" [sortable]="false"
-            [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-            <ng-template let-row="row" ngx-datatable-cell-template>
-                <mat-label class="text-primary font-medium truncate" [title]="row.filename">{{ row.filename
-                    }}</mat-label>
-            </ng-template>
-        </ngx-datatable-column>
+    <ngx-datatable-column name="Tên tài liệu" prop="filename" [width]="280" [sortable]="false" [canAutoResize]="false"
+        [draggable]="false" [resizeable]="false">
+        <ng-template let-row="row" ngx-datatable-cell-template>
+            <mat-label class="text-primary font-medium truncate" [title]="row.filename">{{ row.filename
+                }}</mat-label>
+        </ng-template>
+    </ngx-datatable-column>
 
-        <ngx-datatable-column name="Trạng thái" prop="is_indexed" [width]="200" [sortable]="false"
-            [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-            <ng-template let-row="row" ngx-datatable-cell-template>
+    <ngx-datatable-column name="Trạng thái" prop="is_indexed" [width]="200" [sortable]="false" [canAutoResize]="false"
+        [draggable]="false" [resizeable]="false">
+        <ng-template let-row="row" ngx-datatable-cell-template>
 
-                <div *ngIf="indexingFilename !== row.filename" class="flex items-center h-full">
-                    <span *ngIf="row.is_indexed"
-                        class="px-2 py-1 text-xs rounded-md bg-green-100 text-green-700 font-semibold border border-green-200">
-                        ✅ Đã học
+            <div *ngIf="indexingFilename !== row.filename" class="flex items-center h-full">
+                <span *ngIf="row.is_indexed"
+                    class="px-2 py-1 text-xs rounded-md bg-green-100 text-green-700 font-semibold border border-green-200">
+                    ✅ Đã học
+                </span>
+                <span *ngIf="!row.is_indexed"
+                    class="px-2 py-1 text-xs rounded-md bg-yellow-100 text-yellow-700 font-semibold border border-yellow-200">
+                    ⏳ Chưa học
+                </span>
+            </div>
+
+            <div *ngIf="indexingFilename === row.filename" class="w-full flex flex-col justify-center h-full">
+                <div class="flex justify-between items-center mb-1">
+                    <span class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
+                        <mat-icon class="animate-spin icon-size-3" svgIcon="feather:loader"></mat-icon>
+                        Đang xử lý...
                     </span>
-                    <span *ngIf="!row.is_indexed"
-                        class="px-2 py-1 text-xs rounded-md bg-yellow-100 text-yellow-700 font-semibold border border-yellow-200">
-                        ⏳ Chưa học
-                    </span>
+                    <span class="text-blue-600 text-[11px] font-bold">{{ progressPercent }}%</span>
                 </div>
-
-                <div *ngIf="indexingFilename === row.filename" class="w-full flex flex-col justify-center h-full">
-                    <div class="flex justify-between items-center mb-1">
-                        <span class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
-                            <mat-icon class="animate-spin icon-size-3" svgIcon="feather:loader"></mat-icon>
-                            Đang xử lý...
-                        </span>
-                        <span class="text-blue-600 text-[11px] font-bold">{{ progressPercent }}%</span>
+                <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
+                    <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
+                        [style.width.%]="progressPercent">
                     </div>
-                    <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
-                        <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
-                            [style.width.%]="progressPercent">
-                        </div>
-                    </div>
-                    <span class="text-[10px] text-gray-500 truncate mt-0.5" [title]="progressStatus">
-                        {{ progressStatus }}
-                    </span>
                 </div>
+                <span class="text-[10px] text-gray-500 truncate mt-0.5" [title]="progressStatus">
+                    {{ progressStatus }}
+                </span>
+            </div>
 
-            </ng-template>
-        </ngx-datatable-column>
+        </ng-template>
+    </ngx-datatable-column>
 
-        <ngx-datatable-column name="Phân loại" prop="doc_type" [width]="130" [sortable]="false" [canAutoResize]="false"
-            [draggable]="false" [resizeable]="false">
-            <ng-template let-row="row" ngx-datatable-cell-template>
-                <mat-label class="text-gray-500">{{ row.doc_type === 'None' ? 'Mặc định' : row.doc_type
-                    }}</mat-label>
-            </ng-template>
-        </ngx-datatable-column>
+    <ngx-datatable-column name="Phân loại" prop="doc_type" [width]="130" [sortable]="false" [canAutoResize]="false"
+        [draggable]="false" [resizeable]="false">
+        <ng-template let-row="row" ngx-datatable-cell-template>
+            <mat-label class="text-gray-500">{{ row.doc_type === 'None' ? 'Mặc định' : row.doc_type
+                }}</mat-label>
+        </ng-template>
+    </ngx-datatable-column>
 
-        <ngx-datatable-column name="Dung lượng" prop="size_mb" [width]="100" [sortable]="false" [canAutoResize]="false"
-            [draggable]="false" [resizeable]="false">
-            <ng-template let-row="row" ngx-datatable-cell-template>
-                <mat-label class="text-gray-500">{{ row.size_mb ? row.size_mb + ' MB' : '--' }}</mat-label>
-            </ng-template>
-        </ngx-datatable-column>
+    <ngx-datatable-column name="Dung lượng" prop="size_mb" [width]="100" [sortable]="false" [canAutoResize]="false"
+        [draggable]="false" [resizeable]="false">
+        <ng-template let-row="row" ngx-datatable-cell-template>
+            <mat-label class="text-gray-500">{{ row.size_mb ? row.size_mb + ' MB' : '--' }}</mat-label>
+        </ng-template>
+    </ngx-datatable-column>
 
-        <ngx-datatable-column name="Cập nhật lúc" prop="updated_at" [width]="180" [sortable]="false"
-            [canAutoResize]="false" [draggable]="false" [resizeable]="false">
-            <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-                <mat-label class="font-normal truncate text-gray-500 flex items-center justify-self-stretch">
-                    {{ row.updated_at }}
-                </mat-label>
-            </ng-template>
-        </ngx-datatable-column>
+    <ngx-datatable-column name="Cập nhật lúc" prop="updated_at" [width]="180" [sortable]="false" [canAutoResize]="false"
+        [draggable]="false" [resizeable]="false">
+        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+            <mat-label class="font-normal truncate text-gray-500 flex items-center justify-self-stretch">
+                {{ row.updated_at }}
+            </mat-label>
+        </ng-template>
+    </ngx-datatable-column>
 
-        <ngx-datatable-column name="Thao tác" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-            [resizeable]="true">
-            <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
-                <div class="flex items-center gap-1">
-                    <button mat-icon-button (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
-                        matTooltipPosition="above" [matTooltip]="'Học lại (Re-index) tài liệu này'"
-                        [disabled]="indexingFilename === row.filename">
-                        <mat-icon class="icon-size-4 text-green-600"
-                            [class.opacity-40]="indexingFilename === row.filename"
-                            svgIcon="feather:refresh-ccw"></mat-icon>
-                    </button>
+    <ngx-datatable-column name="Thao tác" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+        [resizeable]="true">
+        <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
+            <div class="flex items-center gap-1">
+                <button mat-icon-button (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
+                    matTooltipPosition="above" [matTooltip]="'Học lại (Re-index) tài liệu này'"
+                    [disabled]="indexingFilename === row.filename">
+                    <mat-icon class="icon-size-4 text-green-600" [class.opacity-40]="indexingFilename === row.filename"
+                        svgIcon="feather:refresh-ccw"></mat-icon>
+                </button>
 
-                    <button mat-icon-button (click)="deletePdf(row.doc_type, row.filename, rowIndex)"
-                        matTooltipPosition="above" [matTooltip]="'Xóa tài liệu này'"
-                        [disabled]="indexingFilename === row.filename">
-                        <mat-icon class="icon-size-4 text-red-500"
-                            [class.opacity-40]="indexingFilename === row.filename" svgIcon="feather:trash-2"></mat-icon>
-                    </button>
-                </div>
-            </ng-template>
-        </ngx-datatable-column>
+                <button mat-icon-button (click)="deletePdf(row.doc_type, row.filename, rowIndex)"
+                    matTooltipPosition="above" [matTooltip]="'Xóa tài liệu này'"
+                    [disabled]="indexingFilename === row.filename">
+                    <mat-icon class="icon-size-4 text-red-500" [class.opacity-40]="indexingFilename === row.filename"
+                        svgIcon="feather:trash-2"></mat-icon>
+                </button>
+            </div>
+        </ng-template>
+    </ngx-datatable-column>
 
-    </ngx-datatable>
-</div>
+</ngx-datatable>
