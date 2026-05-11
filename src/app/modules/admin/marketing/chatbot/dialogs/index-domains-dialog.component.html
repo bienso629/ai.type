@@ -1,0 +1,36 @@
+<h2 class="text-xl font-normal text-gray-500 flex items-center justify-self-stretch mb-4">
+    <mat-icon class="icon-size-4" svgIcon="feather:globe"></mat-icon>
+    <mat-label class="ml-2">Bot học nội dung Website</mat-label>
+</h2>
+
+<div class="mb-2">
+    <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+        <mat-label>Chọn domain</mat-label>
+        <mat-select class="w-full" (selectionChange)="getSitemap()" [(ngModel)]="selectedDomain">
+            <ng-container *ngFor="let d of domainOptions">
+                <mat-option [value]="d.domain">{{d.domain}}</mat-option>
+            </ng-container>
+        </mat-select>
+    </mat-form-field>
+</div>
+
+<div class="mb-2">
+    <mat-form-field class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+        [subscriptSizing]="'dynamic'">
+        <mat-label>Nhập link sitemap (mỗi dòng 1 link)</mat-label>
+        <textarea class="px-2" [(ngModel)]="sitemapsText"
+            placeholder="https://example.com/post-sitemap.xml&#10;https://example.com/page-sitemap.xml" required
+            matInput cdkTextareaAutosize></textarea>
+    </mat-form-field>
+</div>
+
+<div class="flex justify-end gap-2">
+    <button mat-flat-button color="medium" (click)="onClose()">
+        Đóng
+    </button>
+
+    <button mat-flat-button color="primary" (click)="onConfirm()">
+        <mat-icon class="icon-size-4" svgIcon="feather:arrow-right"></mat-icon>
+        <mat-label class="ml-2">Tiếp tục</mat-label>
+    </button>
+</div>

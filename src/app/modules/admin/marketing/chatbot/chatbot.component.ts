@@ -17,6 +17,9 @@ import { ChatbotService } from 'app/modules/_services/chatbot';
 
 import { MatDialog } from '@angular/material/dialog';
 import { FileListDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/file-list-dialog.component';
+import { DocTypeDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/doc-type-dialog.component';
+import { IndexDomainsDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/index-domains-dialog.component';
+import { SettingChatbotDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/setting-chatbot-dialog.component';
 
 import DOMPurify from 'dompurify';
 import { DomainService } from 'app/modules/_services/domain';
@@ -36,11 +39,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     user: User;
     settings: any;
 
-    // Popup state
-    showDocTypePopup = false;
-
     // Giá trị user chọn trong radio
-    selectedDocType: string | null = null;
+    selectedDocType: string | null = 'analysis';
 
     // ✅ BIẾN NÀY (doc_type thực tế dùng để upload)
     currentDocType: string | null = null;
@@ -59,11 +59,6 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         { value: 'academic_article', label: 'Bài báo học thuật' },
     ];
 
-    // Popup state
-    showIndexDomainsPopup = false;
-
-    // Popup state: settings chatbot
-    showSettingPopup = false;
     selectedDataSource: 'documents' | 'website' | 'all' = 'documents';
 
     // Danh sách docTypes đã chọn trong Settings
@@ -553,7 +548,19 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     }
 
     triggerPdfUpload(): void {
-        this.showDocTypePopup = true;
+        const dialogRef = this.dialog.open(DocTypeDialogComponent, {
+            data: {
+                docTypes: this.docTypes,
+                selectedDocType: this.selectedDocType
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.selectedDocType = result;
+                this.confirmDocType();
+            }
+        });
     }
 
     confirmDocType() {
@@ -565,8 +572,6 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         // Lưu doc_type để dùng khi upload
         this.currentDocType = this.selectedDocType;
         localStorage.setItem('last_doc_type', this.currentDocType!);
-
-        this.showDocTypePopup = false;
 
         setTimeout(() => {
             document.getElementById('pdfInput')?.click();
@@ -735,26 +740,22 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             return;
         }
 
-        // mở popup
-        this.showIndexDomainsPopup = true;
+        const dialogRef = this.dialog.open(IndexDomainsDialogComponent, {
+            width: '500px',
+            height: 'auto',
+            data: {
+                domainOptions: this.domainOptions,
+                selectedDomain: this.selectedDomain
+            }
+        });
 
-        // set default cho tiện (optional)
-        if (!this.selectedDomain && this.domainOptions?.length) {
-            this.selectedDomain = this.domainOptions[0]['domain'];
-        }
-
-        // gợi ý sitemaps mẫu (optional) nếu textarea đang trống
-        this.getSitemap();
-    }
-
-    getSitemap() {
-        if (this.selectedDomain) {
-            this.sitemapsText =
-                `${this.selectedDomain.replace(/\/$/, '')}/post-sitemap.xml\n` +
-                `${this.selectedDomain.replace(/\/$/, '')}/page-sitemap.xml\n` +
-                `${this.selectedDomain.replace(/\/$/, '')}/category-sitemap.xml\n` +
-                `${this.selectedDomain.replace(/\/$/, '')}/author-sitemap.xml\n`;
-        }
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.selectedDomain = result.selectedDomain;
+                this.sitemapsText = result.sitemapsText;
+                this.confirmIndexDomains();
+            }
+        });
     }
 
     confirmIndexDomains() {
@@ -783,8 +784,6 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             domains: [domain],
             sitemaps,
         };
-
-        this.showIndexDomainsPopup = false;
 
         this._chatbotService.indexDomains(payload)
             .pipe(takeUntil(this._unsubscribeAll))
@@ -1008,7 +1007,6 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     this.customPrompt = cfg?.custom_prompt || ''; // update lại biến
 
                     this.toastr.success('Lưu cấu hình thành công!');
-                    this.showSettingPopup = false;
                     this.cd.markForCheck();
                 },
                 error: (err: any) => {
@@ -1041,7 +1039,31 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     settingChatbot() {
         // Load lại settings mới nhất mỗi khi mở popup
         this.loadChatbotSettings();
-        this.showSettingPopup = true;
+
+        // Wait for config to load or just open with what we have
+        // Actually better to open the dialog inside the loadChatbotSettings or just pass current state
+        const dialogRef = this.dialog.open(SettingChatbotDialogComponent, {
+            width: '500px',
+            height: 'auto',
+            data: {
+                selectedDataSource: this.selectedDataSource,
+                docTypes: this.docTypes,
+                selectedDocTypes: this.selectedDocTypes,
+                domainOptions: this.domainOptions,
+                selectedSettingsDomains: this.selectedSettingsDomains,
+                customPrompt: this.customPrompt
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.selectedDataSource = result.selectedDataSource;
+                this.selectedDocTypes = result.selectedDocTypes;
+                this.selectedSettingsDomains = result.selectedSettingsDomains;
+                this.customPrompt = result.customPrompt;
+                this.confirmChatbotSettings();
+            }
+        });
     }
 
     /**
