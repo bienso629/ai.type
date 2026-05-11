@@ -20,6 +20,7 @@ import { FileListDialogComponent } from 'app/modules/admin/marketing/chatbot/dia
 import { DocTypeDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/doc-type-dialog.component';
 import { IndexDomainsDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/index-domains-dialog.component';
 import { SettingChatbotDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/setting-chatbot-dialog.component';
+import { TaskProgressService } from 'app/layout/common/task-progress/task-progress.service';
 
 import DOMPurify from 'dompurify';
 import { DomainService } from 'app/modules/_services/domain';
@@ -578,9 +579,72 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }, 0);
     }
 
-    onPdfSelected(event: any): void {
+    async onPdfSelected(event: any): Promise<void> {
         const file = (event.target as HTMLInputElement)?.files?.[0];
         if (!file) return;
+
+        // Nếu là loại "Phân tích" (analysis) thì dùng app local thay vì upload lên server
+        // Nếu là loại "Phân tích" (analysis) thì dùng app local thay vì upload lên server
+        if (this.currentDocType === 'analysis') {
+            const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+            
+            if (isMinerUEnabled) {
+                try {
+                    const electron = (window as any).electron;
+                    if (!electron) {
+                        this.toastr.error('Chức năng phân tích chỉ khả dụng trên ứng dụng máy tính (Desktop).');
+                        return;
+                    }
+
+                    const filePath = electron.getPathForFile(file);
+                    if (!filePath) {
+                        this.toastr.error('Không thể xác định đường dẫn file cục bộ.');
+                        return;
+                    }
+
+                    // Hiển thị component Task Progress ở giữa trên cùng
+                    this.taskProgress.show(`Phân tích: ${file.name}`, 'Đang chuẩn bị dữ liệu...');
+
+                    // Đăng ký nhận luồng dữ liệu tiến trình từ Electron
+                    const cleanup = electron.onPdfProgress((data: string) => {
+                        this.taskProgress.updateMessage(data);
+                    });
+
+                    // Xử lý khi user bấm nút Cancel trên popup
+                    const cancelSub = this.taskProgress.cancel$.subscribe(() => {
+                        electron.invoke('cancel-pdf-analysis').catch(console.error);
+                    });
+
+                    try {
+                        const result = await electron.invoke('run-pdf-analysis', filePath);
+                        
+                        this.taskProgress.done('Phân tích hoàn tất!');
+                        console.log("Kết quả phân tích từ minerU:", result);
+                        // Có thể lưu result hoặc hiển thị lên giao diện ở đây
+                        
+                    } catch (error: any) {
+                        console.error("Lỗi phân tích:", error);
+                        // Nếu lỗi do user cancel (ví dụ API trả về 499) thì không hiển thị lỗi đỏ
+                        if (error?.message?.includes('cancelled')) {
+                            return;
+                        }
+                        this.taskProgress.error('Có lỗi xảy ra: ' + (error?.message || error));
+                    } finally {
+                        cleanup(); // Hủy lắng nghe event để tránh leak memory
+                        cancelSub.unsubscribe();
+                    }
+
+                } catch (error: any) {
+                    console.error(error);
+                    this.toastr.error('Có lỗi xảy ra: ' + (error?.message || error));
+                } finally {
+                    // Clear input
+                    (event.target as HTMLInputElement).value = '';
+                }
+                return;
+            }
+            // Nếu không bật MinerU, sẽ đi tiếp upload như bình thường
+        }
 
         const formData = new FormData();
         formData.append('file', file);
@@ -601,6 +665,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     this.toastr.error('Upload thất bại.');
                 },
                 complete: () => {
+                    (event.target as HTMLInputElement).value = '';
                 }
             });
     }
@@ -1083,7 +1148,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
         private router: Router,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private taskProgress: TaskProgressService
     ) {
         this.titleService.setTitle(`hỏi chatgpt | ai.type - công cụ tạo content`);
     }

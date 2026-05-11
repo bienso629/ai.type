@@ -12,6 +12,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDialogModule } from '@angular/material/dialog';
 import { MatInputModule } from '@angular/material/input';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { TimeagoModule } from 'ngx-timeago';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { SharedModule } from 'app/shared.module';
@@ -52,6 +53,7 @@ const Routes: Route[] = [
         MatTooltipModule,
         MatListModule,
         MatSidenavModule,
+        MatSlideToggleModule,
         NgxDatatableModule,
         TimeagoModule.forRoot(),
         SharedModule
