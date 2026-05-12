@@ -58,10 +58,18 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     loadTools(): void {
         let savedTools = this.multiAccountService.getItem('tools_urls');
+        
+        // Remove Google Labs from existing cached tools
+        if (savedTools && savedTools.length > 0) {
+            const hasLabs = savedTools.find((t: any) => t.name === 'Google Labs');
+            if (hasLabs) {
+                savedTools = savedTools.filter((t: any) => t.name !== 'Google Labs');
+                this.multiAccountService.setItem('tools_urls', savedTools);
+            }
+        }
         if (!savedTools || savedTools.length === 0) {
             savedTools = [
                 { id: '1', name: 'Gemini', url: 'https://gemini.google.com/app?hl=vi' },
-                { id: '2', name: 'Google Labs', url: 'https://labs.google/fx/vi/tools/flow' },
                 { id: '3', name: 'Facebook', url: 'https://facebook.com' },
                 { id: '4', name: 'Tiktok', url: 'https://www.tiktok.com' },
                 { id: '5', name: 'Instagram', url: 'https://instagram.com' },

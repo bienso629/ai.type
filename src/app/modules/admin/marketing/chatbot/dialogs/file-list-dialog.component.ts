@@ -102,7 +102,7 @@ export class FileListDialogComponent implements AfterViewInit {
         this.toastr.success('Học tài liệu hoàn tất!');
 
         // Cập nhật lại trạng thái file trên bảng ngx-datatable
-        
+
         // 1. Force update local array immediately
         const idx = this.rows.findIndex(r => r.filename === this.indexingFilename);
         if (idx > -1) {
@@ -114,7 +114,6 @@ export class FileListDialogComponent implements AfterViewInit {
         // 2. Fetch from server to get accurate size_mb
         this._chatbotService.listFiles({ username: this.username }).subscribe({
             next: (res: any) => {
-                console.log('listFiles response:', res);
                 if (res && res.files) {
                     this.rows = [...res.files];
                     this.cdr.markForCheck();

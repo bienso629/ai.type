@@ -85,8 +85,8 @@
                 <span>tài khoản đã xác thực.</span>
             </ng-container>
             <ng-template #elseTemplate>
-                <span>tài khoản chưa xác thực.</span> <a class="underline" [routerLink]="['/settings']"
-                    [queryParams]="{ tab: 'active' }">Xác thực ngay</a>.
+                <span>tài khoản chưa xác thực [<a class="underline" [routerLink]="['/settings']"
+                        [queryParams]="{ tab: 'active' }">Xác thực ngay</a>].</span>
             </ng-template></span>
     </div>
 
