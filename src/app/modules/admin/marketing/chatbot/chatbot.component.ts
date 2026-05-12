@@ -583,87 +583,83 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const file = (event.target as HTMLInputElement)?.files?.[0];
         if (!file) return;
 
-        // Nếu là loại "Phân tích" (analysis) thì dùng app local thay vì upload lên server
-        // Nếu là loại "Phân tích" (analysis) thì dùng app local thay vì upload lên server
-        if (this.currentDocType === 'analysis') {
-            const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
-            
-            if (isMinerUEnabled) {
-                try {
-                    const electron = (window as any).electron;
-                    if (!electron) {
-                        this.toastr.error('Chức năng phân tích chỉ khả dụng trên ứng dụng máy tính (Desktop).');
-                        return;
-                    }
-
-                    const filePath = electron.getPathForFile(file);
-                    if (!filePath) {
-                        this.toastr.error('Không thể xác định đường dẫn file cục bộ.');
-                        return;
-                    }
-
-                    // Hiển thị component Task Progress ở giữa trên cùng
-                    this.taskProgress.show(`Phân tích: ${file.name}`, 'Đang chuẩn bị dữ liệu...');
-
-                    // Đăng ký nhận luồng dữ liệu tiến trình từ Electron
-                    const cleanup = electron.onPdfProgress((data: string) => {
-                        this.taskProgress.updateMessage(data);
-                    });
-
-                    // Xử lý khi user bấm nút Cancel trên popup
-                    const cancelSub = this.taskProgress.cancel$.subscribe(() => {
-                        electron.invoke('cancel-pdf-analysis').catch(console.error);
-                    });
-
-                    try {
-                        const result = await electron.invoke('run-pdf-analysis', filePath);
-                        
-                        this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
-                        console.log("Kết quả phân tích từ minerU:", result);
-                        
-                        // Đẩy kết quả phân tích JSON về Server
-                        this._chatbotService.uploadMinerUResult({
-                            username: this.user.name,
-                            filename: file.name,
-                            doc_type: this.currentDocType,
-                            content_json: result.data // result trả về có dạng { status: "success", data: "..." }
-                        }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                            next: (res) => {
-                                if (res && res.success) {
-                                    this.toastr.success('Đã lưu kết quả thông minh vào máy chủ!');
-                                } else {
-                                    this.toastr.error('Lỗi khi lưu kết quả lên máy chủ');
-                                }
-                            },
-                            error: (err) => {
-                                console.error("Lỗi gửi server:", err);
-                                this.toastr.error('Không kết nối được với máy chủ để lưu file');
-                            }
-                        });
-                        
-                    } catch (error: any) {
-                        console.error("Lỗi phân tích:", error);
-                        // Nếu lỗi do user cancel (ví dụ API trả về 499) thì không hiển thị lỗi đỏ
-                        if (error?.message?.includes('cancelled')) {
-                            return;
-                        }
-                        this.taskProgress.error('Có lỗi xảy ra: ' + (error?.message || error));
-                    } finally {
-                        cleanup(); // Hủy lắng nghe event để tránh leak memory
-                        cancelSub.unsubscribe();
-                    }
-
-                } catch (error: any) {
-                    console.error(error);
-                    this.toastr.error('Có lỗi xảy ra: ' + (error?.message || error));
-                } finally {
-                    // Clear input
-                    (event.target as HTMLInputElement).value = '';
+        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+        
+        if (isMinerUEnabled) {
+            try {
+                const electron = (window as any).electron;
+                if (!electron) {
+                    this.toastr.error('Chức năng phân tích chỉ khả dụng trên ứng dụng máy tính (Desktop).');
+                    return;
                 }
-                return;
+
+                const filePath = electron.getPathForFile(file);
+                if (!filePath) {
+                    this.toastr.error('Không thể xác định đường dẫn file cục bộ.');
+                    return;
+                }
+
+                // Hiển thị component Task Progress ở giữa trên cùng
+                this.taskProgress.show(`Phân tích: ${file.name}`, 'Đang chuẩn bị dữ liệu...');
+
+                // Đăng ký nhận luồng dữ liệu tiến trình từ Electron
+                const cleanup = electron.onPdfProgress((data: string) => {
+                    this.taskProgress.updateMessage(data);
+                });
+
+                // Xử lý khi user bấm nút Cancel trên popup
+                const cancelSub = this.taskProgress.cancel$.subscribe(() => {
+                    electron.invoke('cancel-pdf-analysis').catch(console.error);
+                });
+
+                try {
+                    const result = await electron.invoke('run-pdf-analysis', filePath);
+                    
+                    this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
+                    console.log("Kết quả phân tích từ minerU:", result);
+                    
+                    // Đẩy kết quả phân tích JSON về Server
+                    this._chatbotService.uploadMinerUResult({
+                        username: this.user.name,
+                        filename: file.name,
+                        doc_type: this.currentDocType,
+                        content_json: result // result đã được main.js trích xuất phần data
+                    }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                        next: (res) => {
+                            if (res && res.success) {
+                                this.toastr.success('Đã lưu kết quả thông minh vào máy chủ!');
+                            } else {
+                                this.toastr.error('Lỗi khi lưu kết quả lên máy chủ');
+                            }
+                        },
+                        error: (err) => {
+                            console.error("Lỗi gửi server:", err);
+                            this.toastr.error('Không kết nối được với máy chủ để lưu file');
+                        }
+                    });
+                    
+                } catch (error: any) {
+                    console.error("Lỗi phân tích:", error);
+                    // Nếu lỗi do user cancel (ví dụ API trả về 499) thì không hiển thị lỗi đỏ
+                    if (error?.message?.includes('cancelled')) {
+                        return;
+                    }
+                    this.taskProgress.error('Có lỗi xảy ra: ' + (error?.message || error));
+                } finally {
+                    cleanup(); // Hủy lắng nghe event để tránh leak memory
+                    cancelSub.unsubscribe();
+                }
+
+            } catch (error: any) {
+                console.error(error);
+                this.toastr.error('Có lỗi xảy ra: ' + (error?.message || error));
+            } finally {
+                // Clear input
+                (event.target as HTMLInputElement).value = '';
             }
-            // Nếu không bật MinerU, sẽ đi tiếp upload như bình thường
+            return;
         }
+        // Nếu không bật MinerU, sẽ đi tiếp upload như bình thường
 
         const formData = new FormData();
         formData.append('file', file);
