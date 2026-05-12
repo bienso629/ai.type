@@ -115,6 +115,30 @@ export class FileListDialogComponent implements AfterViewInit {
         }
     }
 
+    indexAll(): void {
+        const payload = {
+            username: this.username,
+            google_api_key: this.google_api_key,
+            llm_model: this.llm_model,
+            index_dir: this.index_dir
+        };
+
+        this._chatbotService.indexFiles(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: (res: any) => {
+                if (res && res.success) {
+                    this.toastr.info('Đang tiến hành học tất cả tài liệu...');
+                    this.indexingFilename = null; // Đánh dấu là đang học tất cả
+                    this.startProgressPolling();
+                } else {
+                    this.toastr.error('Khởi tạo học tài liệu thất bại.');
+                }
+            },
+            error: () => {
+                this.toastr.error('Lỗi kết nối đến máy chủ.');
+            }
+        });
+    }
+
     deletePdf(doc_type: string, filename: string, rowIndex: number): void {
         this._chatbotService.deleteFile({
             username: this.user.name,

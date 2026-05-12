@@ -726,41 +726,6 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         }
     }
 
-    indexFiles() {
-        let secretKey = this.settings.secretKey;
-        if (secretKey) {
-            secretKey = secretKey.split(';');
-            let geminiKey = secretKey[0];
-
-            if (secretKey[3]) {
-                geminiKey = secretKey[3];
-            }
-
-            this._chatbotService.indexFiles({
-                username: this.user.name,
-                google_api_key: geminiKey,
-                llm_model: "gemini-3-flash-preview",
-                index_dir: `faiss_pdf_index`,
-                enable_ocr: false
-            }).pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (result) => {
-                        if (result && result.success) {
-                            localStorage.setItem('index_files', result.job_id);
-                            this.toastr.success('Đang cập nhật chatbot của bạn.');
-                        } else {
-                            this.toastr.error('Lỗi trong quá trình cập nhật.');
-                        }
-                    },
-                    error: () => {
-                        this.toastr.error('Lỗi trong quá trình cập nhật.');
-                    },
-                    complete: () => {
-                    }
-                });
-        }
-    }
-
     // Lưu trạng thái hiện tại vào localStorage
     saveProcessState() {
         const state = {
