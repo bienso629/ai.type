@@ -108,7 +108,6 @@ function loadBinaries() {
     binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "FFmpeg");
     binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "Youtube-DL");
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
-    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
 
     if (hasError) {
         dialog.showMessageBox({
@@ -863,13 +862,13 @@ async function facebookCrawl(args) {
         while (retries > 0 && !facebookPage) {
             const targets = await browser.targets();
             const target = targets.find((t) => t.url().includes(`uniqueID=${uniqueID}`) || (args.useWebview && t.url().includes('facebook.com')));
-            
+
             if (target) {
                 facebookPage = await target.page();
             }
-            
+
             if (facebookPage) break;
-            
+
             sendToRenderer("tools-log", `⏳ Đang đợi tab Facebook mở... (${retries}s)`);
             await new Promise(r => setTimeout(r, 2000));
             retries--;
@@ -929,7 +928,7 @@ async function facebookCrawl(args) {
                     seenIds.add(key);
                     allPosts.push(post);
                     sendToRenderer("tools-log", `[FB-Crawl] ✅ Đã lấy: ${post.author.name} (${post.images.length} ảnh)`);
-                    
+
                     // Phát luồng trực tiếp về frontend
                     sendToRenderer("tools-response", {
                         action: "facebook-crawl-stream",
@@ -1294,11 +1293,11 @@ ipcMain.handle('save-system-audio', (event, uint8ArrayData) => {
     if (!fs.existsSync(notesDir)) {
         fs.mkdirSync(notesDir, { recursive: true });
     }
-    
+
     // Tên file có chứa mốc thời gian riêng biệt
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const audioPath = path.join(notesDir, `recording_${timestamp}.webm`);
-    
+
     const buffer = Buffer.from(uint8ArrayData);
     fs.writeFileSync(audioPath, buffer);
     console.log(`[Audio Recording] Đã lưu file âm thanh hoàn chỉnh tại: ${audioPath}`);
@@ -1307,13 +1306,13 @@ ipcMain.handle('save-system-audio', (event, uint8ArrayData) => {
 
 ipcMain.handle('transcribe-system-audio', async (event, payload) => {
     const { apiKey, audioPath } = payload;
-    
+
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
         const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
 
         const base64Data = fs.readFileSync(audioPath).toString("base64");
-        
+
         const result = await model.generateContent([
             {
                 inlineData: {
@@ -1323,7 +1322,7 @@ ipcMain.handle('transcribe-system-audio', async (event, payload) => {
             },
             { text: "Hãy nghe và viết lại chính xác nội dung văn bản tiếng Việt của đoạn âm thanh này. Chỉ cần trả về nội dung, không giải thích." }
         ]);
-        
+
         return result.response.text();
     } catch (e) {
         console.error('Lỗi khi gọi Gemini dịch âm thanh:', e);
@@ -1901,7 +1900,7 @@ ipcMain.handle('setup-mineru-model', async (event) => {
     return new Promise(async (resolve, reject) => {
         const modelPath = getMinerUModelPath();
         const configPath = path.join(modelPath, 'config.json');
-        
+
         if (fs.existsSync(configPath)) {
             event.sender.send('pdf-analysis-progress', 'Mô hình AI đã sẵn sàng.');
             resolve();
@@ -1915,7 +1914,7 @@ ipcMain.handle('setup-mineru-model', async (event) => {
             try {
                 const targetModelsDir = path.join(app.getPath('userData'), 'models', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B');
                 fs.mkdirSync(targetModelsDir, { recursive: true });
-                
+
                 // Copy folder (sử dụng xcopy trên windows cho nhanh và đệ quy)
                 const { exec } = require('child_process');
                 exec(`xcopy "${oldModelPath}" "${targetModelsDir}" /E /I /Y`, (error, stdout, stderr) => {
@@ -1936,7 +1935,7 @@ ipcMain.handle('setup-mineru-model', async (event) => {
         const modelsDir = path.join(app.getPath('userData'), 'models');
         const zipFile = path.join(modelsDir, 'model.zip');
         const url = 'https://ai.type.vn/phan-mem/models/models--opendatalab--MinerU2.5-Pro-2604-1.2B.zip';
-        
+
         // Lấy đường dẫn file chạy AI (Ưu tiên file .exe đóng gói sẵn trong thư mục app/bin, nếu không có thì chạy python script)
         const getMinerUExecutableInfo = () => {
             const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
@@ -1978,23 +1977,23 @@ ipcMain.handle('cancel-pdf-analysis', async () => {
         currentAbortController.abort();
         currentAbortController = null;
     }
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+    const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
     try {
         await fetch('http://127.0.0.1:48921/cancel', { method: 'POST' });
-    } catch (e) {}
+    } catch (e) { }
 });
 
 ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
     return new Promise(async (resolve, reject) => {
         currentPdfSender = event.sender;
         currentPdfSender.send('pdf-analysis-progress', 'Đang kiểm tra API AI cục bộ...');
-        
+
         currentAbortController = new AbortController();
         const signal = currentAbortController.signal;
 
         // Hàm gọi API
         const fetchApi = async (url, body = null) => {
-            const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+            const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
             try {
                 const res = await fetch(`http://127.0.0.1:48921${url}`, {
                     method: 'POST',
@@ -2015,15 +2014,15 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
         const ensureApiRunning = async () => {
             try {
                 // Thử kết nối
-                const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+                const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
                 await fetch('http://127.0.0.1:48921/openapi.json', { timeout: 1000 });
-                
+
                 if (!pdfApiProcess) {
                     // Nếu server đang chạy nhưng không phải do instance hiện tại tạo ra -> Đây là process zombie (thường do nodemon khởi động lại).
                     // Process này sẽ bị kẹt stdout khiến progress không hiển thị trên UI. Phải kill nó đi để tạo lại!
                     console.log("[PDF] Phát hiện zombie process, đang tiến hành kill...");
                     if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang dọn dẹp tiến trình cũ...');
-                    
+
                     const { execSync } = require('child_process');
                     try {
                         if (process.platform === 'win32') {
@@ -2031,17 +2030,17 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                         } else {
                             execSync(`lsof -i :48921 -t | xargs kill -9`);
                         }
-                    } catch (e) {} // Bỏ qua lỗi nếu không tìm thấy
-                    
+                    } catch (e) { } // Bỏ qua lỗi nếu không tìm thấy
+
                     await new Promise(r => setTimeout(r, 1000));
                     throw new Error("Killed zombie process");
                 }
-                
+
                 return true;
             } catch (e) {
                 // Chưa chạy -> Start
                 if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang khởi động mô hình AI...');
-                
+
                 const getMinerUExecutableInfo = () => {
                     const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
                     if (fs.existsSync(exePath)) {
@@ -2052,7 +2051,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                     const scriptPath = path.join(basePath, 'scripts', 'pdf.py');
                     return { cmd: 'python', args: ['-u', scriptPath], cwd: path.dirname(scriptPath) };
                 };
-                
+
                 const exeInfo = getMinerUExecutableInfo();
                 pdfApiProcess = spawn(exeInfo.cmd, exeInfo.args, {
                     cwd: exeInfo.cwd,
@@ -2089,30 +2088,30 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 for (let i = 0; i < 30; i++) {
                     await new Promise(r => setTimeout(r, 1000));
                     try {
-                        const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+                        const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
                         await fetch('http://127.0.0.1:48921/openapi.json', { timeout: 1000 });
                         isReady = true;
                         break;
-                    } catch (e) {}
+                    } catch (e) { }
                 }
-                
+
                 if (!isReady) {
                     throw new Error("Không thể kết nối đến AI Server, vui lòng thử lại!");
                 }
-                
+
                 return true;
             }
         };
 
         try {
             await ensureApiRunning();
-            
+
             event.sender.send('pdf-analysis-progress', 'Đang nạp AI Model vào bộ nhớ (lần đầu có thể mất vài phút)...');
             await fetchApi('/load_model');
-            
+
             event.sender.send('pdf-analysis-progress', 'Bắt đầu phân tích PDF...');
             const result = await fetchApi('/analyze', { file_path: filePath });
-            
+
             resolve(result.data);
         } catch (error) {
             console.error("Lỗi chạy pdf API:", error);
@@ -2677,7 +2676,7 @@ app.whenReady().then(async () => {
                 trueAgent = savedUa;
             }
         }
-    } catch(e) {}
+    } catch (e) { }
 
     // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
     app.userAgentFallback = trueAgent;
@@ -2703,7 +2702,7 @@ app.whenReady().then(async () => {
         if (chUa) {
             let newChUa = chUa.replace(/,?\s*"Electron";\s*v="[^"]+"/, '').replace(/"Electron";\s*v="[^"]+"\s*,?/, '');
             newChUa = newChUa.replace(/,?\s*"ai\.type";\s*v="[^"]+"/, '').replace(/"ai\.type";\s*v="[^"]+"\s*,?/, '');
-            
+
             if (details.requestHeaders['Sec-CH-UA']) details.requestHeaders['Sec-CH-UA'] = newChUa;
             if (details.requestHeaders['sec-ch-ua']) details.requestHeaders['sec-ch-ua'] = newChUa;
         }
@@ -2850,14 +2849,14 @@ app.whenReady().then(async () => {
                 if (template.length > 0) {
                     template.push({ type: 'separator' });
                 }
-                
-                template.push({ 
-                    label: 'Reload', 
-                    click: () => { contents.reload(); } 
+
+                template.push({
+                    label: 'Reload',
+                    click: () => { contents.reload(); }
                 });
-                template.push({ 
-                    label: 'Inspect Element', 
-                    click: () => { contents.inspectElement(params.x, params.y); } 
+                template.push({
+                    label: 'Inspect Element',
+                    click: () => { contents.inspectElement(params.x, params.y); }
                 });
 
                 const menu = Menu.buildFromTemplate(template);
@@ -2998,7 +2997,7 @@ app.whenReady().then(async () => {
                             checkCount++;
                             const pages = await stealthBrowser.pages();
                             if (pages.length === 0) throw new Error("All pages closed");
-                            
+
                             for (const p of pages) {
                                 try {
                                     const url = p.url();
@@ -3006,14 +3005,14 @@ app.whenReady().then(async () => {
                                         isLoggedIn = true;
                                         break;
                                     }
-                                } catch(e) {}
+                                } catch (e) { }
                             }
                         }
                         if (!isLoggedIn) throw new Error("Timeout waiting for login");
                     } catch (waitErr) {
                         sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết giờ!");
                         if (syncInterval) clearInterval(syncInterval);
-                        try { await stealthBrowser.close(); } catch(e){}
+                        try { await stealthBrowser.close(); } catch (e) { }
                         try { chromeProcess.kill(); } catch (e) { }
                         isGeminiAuthRunning = false;
 
@@ -3053,12 +3052,12 @@ app.whenReady().then(async () => {
                         const chromeUA = await stealthBrowser.userAgent();
                         webviewContents.setUserAgent(chromeUA);
                         sendToRenderer("tools-log", `[Gemini-Auth] Đã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
-                        
+
                         try {
                             const fs = require('fs');
                             const uaPath = require('path').join(app.getPath('userData'), 'chrome_ua.txt');
                             fs.writeFileSync(uaPath, chromeUA, 'utf-8');
-                        } catch(e) {}
+                        } catch (e) { }
                     } catch (e) {
                         sendToRenderer("tools-log", `[Gemini-Auth] Lỗi đồng bộ UA: ${e.message}`);
                     }
@@ -3226,14 +3225,6 @@ app.whenReady().then(async () => {
         });
     }
 
-    if (binaries.typeLite) {
-        typeProcess = execFile(binaries.typeLite, [], (err, stdout, stderr) => {
-            if (err) sendToRenderer("tools-log", `❌ Type lỗi: ${err}`);
-            if (stdout) sendToRenderer("tools-log", `📥 Type: ${stdout}`);
-            if (stderr) sendToRenderer("tools-log", `⚠️ Type stderr: ${stderr}`);
-        });
-    }
-
     // ===== GOOGLE SEARCH CONSOLE IPC =====
     ipcMain.handle("gsc:query", async (_event, args) => {
         const {
@@ -3302,277 +3293,277 @@ app.whenReady().then(async () => {
     ipcMain.on("tools-command", (event, data) => {
         try {
             if (!data || !data.command) {
-            event.reply("tools-response", {
-                error: "Không có lệnh nào được gửi",
-            });
-            return;
-        }
-
-        if (!data.url) data.url = "https://google.com.vn";
-
-        sendToRenderer(
-            "tools-log",
-            `Received tools command: ${data.command} (URL: ${data.url})`,
-        );
-
-        switch (data.command) {
-            case "chupchupchup": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                createTargetWindow(data.url, captureOnlyTargetWindow, uniqueID);
-                break;
+                event.reply("tools-response", {
+                    error: "Không có lệnh nào được gửi",
+                });
+                return;
             }
-            case "dreamina.capcut": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                const defaultOutDir = path.join(
-                    documentsDir,
-                    "ai.type",
-                    "data",
-                    "uploads",
-                    "thumbnails",
-                    data.username,
-                );
 
-                if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview) {
-                    // Nếu Webview đã mở, chạy script trực tiếp lên đó luôn
-                    createImageByDreamina(data.url, uniqueID, {
-                        outDir: data.outDir || defaultOutDir,
-                        maxImages: data.maxImages || 100,
-                        filenamePrefix: data.filenamePrefix || "dream_",
-                        prompt: data.prompt,
-                    });
-                } else {
-                    // Nếu chưa mở (chạy nền), gọi popup như cũ
-                    createTargetWindow(
-                        data.url,
-                        () => {
-                            createImageByDreamina(data.url, uniqueID, {
-                                outDir: data.outDir || defaultOutDir,
-                                maxImages: data.maxImages || 100,
-                                filenamePrefix: data.filenamePrefix || "dream_",
-                                prompt: data.prompt,
-                            });
-                        },
-                        uniqueID,
-                        data.width || 1000,
-                        data.height || 1100,
-                    );
+            if (!data.url) data.url = "https://google.com.vn";
+
+            sendToRenderer(
+                "tools-log",
+                `Received tools command: ${data.command} (URL: ${data.url})`,
+            );
+
+            switch (data.command) {
+                case "chupchupchup": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    createTargetWindow(data.url, captureOnlyTargetWindow, uniqueID);
+                    break;
                 }
-                break;
-            }
-            case "facebook-login": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                if (data.cookiePath && fs.existsSync(data.cookiePath)) {
-                    setFacebookCookiesFromFile(data.cookiePath).then(() => {
-                        sendToRenderer(
-                            "tools-log",
-                            `[FB-Login] Đã set cookies từ file: ${data.cookiePath}`,
+                case "dreamina.capcut": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    const defaultOutDir = path.join(
+                        documentsDir,
+                        "ai.type",
+                        "data",
+                        "uploads",
+                        "thumbnails",
+                        data.username,
+                    );
+
+                    if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview) {
+                        // Nếu Webview đã mở, chạy script trực tiếp lên đó luôn
+                        createImageByDreamina(data.url, uniqueID, {
+                            outDir: data.outDir || defaultOutDir,
+                            maxImages: data.maxImages || 100,
+                            filenamePrefix: data.filenamePrefix || "dream_",
+                            prompt: data.prompt,
+                        });
+                    } else {
+                        // Nếu chưa mở (chạy nền), gọi popup như cũ
+                        createTargetWindow(
+                            data.url,
+                            () => {
+                                createImageByDreamina(data.url, uniqueID, {
+                                    outDir: data.outDir || defaultOutDir,
+                                    maxImages: data.maxImages || 100,
+                                    filenamePrefix: data.filenamePrefix || "dream_",
+                                    prompt: data.prompt,
+                                });
+                            },
+                            uniqueID,
+                            data.width || 1000,
+                            data.height || 1100,
                         );
+                    }
+                    break;
+                }
+                case "facebook-login": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    if (data.cookiePath && fs.existsSync(data.cookiePath)) {
+                        setFacebookCookiesFromFile(data.cookiePath).then(() => {
+                            sendToRenderer(
+                                "tools-log",
+                                `[FB-Login] Đã set cookies từ file: ${data.cookiePath}`,
+                            );
+                            createTargetWindow(data.url, connectApps, uniqueID);
+                            event.reply("tools-response", {
+                                success: true,
+                                action: "facebook-login",
+                                uniqueID,
+                            });
+                        });
+                    } else {
                         createTargetWindow(data.url, connectApps, uniqueID);
                         event.reply("tools-response", {
                             success: true,
                             action: "facebook-login",
                             uniqueID,
                         });
+                    }
+                    break;
+                }
+                case "website-crawl": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
+                    const genAI = new GoogleGenerativeAI(apiKey);
+                    const model = genAI.getGenerativeModel({
+                        model: "gemini-2.0-flash",
                     });
-                } else {
-                    createTargetWindow(data.url, connectApps, uniqueID);
-                    event.reply("tools-response", {
-                        success: true,
-                        action: "facebook-login",
+
+                    createTargetWindow(
+                        data.url,
+                        (url, id) =>
+                            websiteCrawl(url, id, data.selector || [], model),
                         uniqueID,
-                    });
-                }
-                break;
-            }
-            case "website-crawl": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
-                const genAI = new GoogleGenerativeAI(apiKey);
-                const model = genAI.getGenerativeModel({
-                    model: "gemini-2.0-flash",
-                });
-
-                createTargetWindow(
-                    data.url,
-                    (url, id) =>
-                        websiteCrawl(url, id, data.selector || [], model),
-                    uniqueID,
-                );
-                break;
-            }
-            case "get-facebook-cookies": {
-                if (!data.uniqueID) {
-                    event.reply("tools-response", { error: "Thiếu uniqueID!" });
-                    return;
-                }
-                getFacebookCookies(data.uniqueID, event);
-                break;
-            }
-            case "facebook-crawl": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                const maxPosts = data.maxPosts || 3;
-                const facegroup = data.facegroup || "";
-
-                if (data.useWebview) {
-                    sendToRenderer(
-                        "tools-log",
-                        `[FB-Crawl] 🚀 Khởi chạy quét Facebook qua Web Tools...`
                     );
-                    facebookCrawl(data);
-                } else if (data.cookiePath && fs.existsSync(data.cookiePath)) {
-                    setFacebookCookiesFromFile(data.cookiePath).then(() => {
+                    break;
+                }
+                case "get-facebook-cookies": {
+                    if (!data.uniqueID) {
+                        event.reply("tools-response", { error: "Thiếu uniqueID!" });
+                        return;
+                    }
+                    getFacebookCookies(data.uniqueID, event);
+                    break;
+                }
+                case "facebook-crawl": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    const maxPosts = data.maxPosts || 3;
+                    const facegroup = data.facegroup || "";
+
+                    if (data.useWebview) {
                         sendToRenderer(
                             "tools-log",
-                            `[FB-Crawl] Đã set cookies từ file: ${data.cookiePath}`,
+                            `[FB-Crawl] 🚀 Khởi chạy quét Facebook qua Web Tools...`
                         );
+                        facebookCrawl(data);
+                    } else if (data.cookiePath && fs.existsSync(data.cookiePath)) {
+                        setFacebookCookiesFromFile(data.cookiePath).then(() => {
+                            sendToRenderer(
+                                "tools-log",
+                                `[FB-Crawl] Đã set cookies từ file: ${data.cookiePath}`,
+                            );
+                            createTargetWindow(
+                                data.url,
+                                (url, id) =>
+                                    facebookCrawl(data),
+                                uniqueID,
+                            );
+                        });
+                    } else {
                         createTargetWindow(
                             data.url,
                             (url, id) =>
                                 facebookCrawl(data),
                             uniqueID,
                         );
-                    });
-                } else {
-                    createTargetWindow(
-                        data.url,
-                        (url, id) =>
-                            facebookCrawl(data),
-                        uniqueID,
-                    );
+                    }
+                    break;
                 }
-                break;
-            }
-            case "tiktok-crawl": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                const username = data.tiktoker;
-                const url = `https://www.tiktok.com/@${username}`;
+                case "tiktok-crawl": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    const username = data.tiktoker;
+                    const url = `https://www.tiktok.com/@${username}`;
 
-                createTargetWindow(
-                    url,
-                    async (targetUrl, id) => {
-                        let browser;
-                        try {
-                            sendToRenderer(
-                                "tools-log",
-                                `[TikTok] 🚀 Chế độ quét hình ảnh kích hoạt cho @${username}`,
-                            );
-                            const res = await fetch(
-                                "http://localhost:9999/json/version",
-                            );
-                            const json = await res.json();
-                            browser = await puppeteer.connect({
-                                browserWSEndpoint: json.webSocketDebuggerUrl,
-                                defaultViewport: null,
-                            });
+                    createTargetWindow(
+                        url,
+                        async (targetUrl, id) => {
+                            let browser;
+                            try {
+                                sendToRenderer(
+                                    "tools-log",
+                                    `[TikTok] 🚀 Chế độ quét hình ảnh kích hoạt cho @${username}`,
+                                );
+                                const res = await fetch(
+                                    "http://localhost:9999/json/version",
+                                );
+                                const json = await res.json();
+                                browser = await puppeteer.connect({
+                                    browserWSEndpoint: json.webSocketDebuggerUrl,
+                                    defaultViewport: null,
+                                });
 
-                            const pages = await browser.pages();
-                            const page = pages.find((p) =>
-                                p.url().includes(id),
-                            );
-                            if (!page) return;
+                                const pages = await browser.pages();
+                                const page = pages.find((p) =>
+                                    p.url().includes(id),
+                                );
+                                if (!page) return;
 
-                            // LẮNG NGHE DỮ LIỆU TỪ PRELOAD
-                            const linkHandler = (_evt, payload) => {
-                                if (payload && payload.url) {
-                                    sendToRenderer("tools-response", {
-                                        action: "tiktok-crawl-stream",
-                                        success: true,
-                                        videos: [
-                                            {
-                                                url: payload.url,
-                                                thumbnail: payload.thumbnail,
-                                                title: payload.title,
-                                            },
-                                        ],
-                                    });
+                                // LẮNG NGHE DỮ LIỆU TỪ PRELOAD
+                                const linkHandler = (_evt, payload) => {
+                                    if (payload && payload.url) {
+                                        sendToRenderer("tools-response", {
+                                            action: "tiktok-crawl-stream",
+                                            success: true,
+                                            videos: [
+                                                {
+                                                    url: payload.url,
+                                                    thumbnail: payload.thumbnail,
+                                                    title: payload.title,
+                                                },
+                                            ],
+                                        });
+                                    }
+                                };
+                                ipcMain.on("tiktok:link-found", linkHandler);
+
+                                let noChangeCount = 0;
+                                let lastHeight = 0;
+
+                                while (noChangeCount < 15) {
+                                    const currentHeight = await page
+                                        .evaluate(
+                                            () =>
+                                                document.documentElement
+                                                    .scrollHeight,
+                                        )
+                                        .catch(() => 0);
+
+                                    await page.keyboard.press("End");
+                                    await new Promise((r) => setTimeout(r, 3500)); // Đợi lâu chút để ảnh kịp load
+
+                                    if (currentHeight > lastHeight) {
+                                        lastHeight = currentHeight;
+                                        noChangeCount = 0;
+                                    } else {
+                                        noChangeCount++;
+                                    }
+
+                                    if (page.isClosed()) break;
                                 }
-                            };
-                            ipcMain.on("tiktok:link-found", linkHandler);
 
-                            let noChangeCount = 0;
-                            let lastHeight = 0;
+                                ipcMain.removeListener(
+                                    "tiktok:link-found",
+                                    linkHandler,
+                                );
+                                sendToRenderer(
+                                    "tools-log",
+                                    `[TikTok] ✅ Hoàn tất quét kênh.`,
+                                );
+                                sendToRenderer("tools-response", {
+                                    action: "tiktok-crawl-finished",
+                                });
 
-                            while (noChangeCount < 15) {
-                                const currentHeight = await page
-                                    .evaluate(
-                                        () =>
-                                            document.documentElement
-                                                .scrollHeight,
-                                    )
-                                    .catch(() => 0);
-
-                                await page.keyboard.press("End");
-                                await new Promise((r) => setTimeout(r, 3500)); // Đợi lâu chút để ảnh kịp load
-
-                                if (currentHeight > lastHeight) {
-                                    lastHeight = currentHeight;
-                                    noChangeCount = 0;
-                                } else {
-                                    noChangeCount++;
-                                }
-
-                                if (page.isClosed()) break;
+                                if (browser) await browser.disconnect();
+                                if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview)
+                                    targetWindow.close();
+                            } catch (err) {
+                                sendToRenderer(
+                                    "tools-log",
+                                    `[TikTok] ❌ Lỗi: ${err.message}`,
+                                );
                             }
+                        },
+                        uniqueID,
+                        1280,
+                        800,
+                    );
+                    break;
+                }
+                case "open-chrome-app": {
+                    // Lấy width, height từ data (nếu UI không gửi thì dùng mặc định của hàm)
+                    const w = data.width || 1200;
+                    const h = data.height || 800;
 
-                            ipcMain.removeListener(
-                                "tiktok:link-found",
-                                linkHandler,
-                            );
-                            sendToRenderer(
-                                "tools-log",
-                                `[TikTok] ✅ Hoàn tất quét kênh.`,
-                            );
-                            sendToRenderer("tools-response", {
-                                action: "tiktok-crawl-finished",
-                            });
+                    // Gọi hàm với tham số mới
+                    openChromeApp(data.url, w, h);
 
-                            if (browser) await browser.disconnect();
-                            if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview)
-                                targetWindow.close();
-                        } catch (err) {
-                            sendToRenderer(
-                                "tools-log",
-                                `[TikTok] ❌ Lỗi: ${err.message}`,
-                            );
-                        }
-                    },
-                    uniqueID,
-                    1280,
-                    800,
-                );
-                break;
+                    event.reply("tools-response", {
+                        success: true,
+                        action: "open-chrome-app",
+                        url: data.url,
+                        size: `${w}x${h}`,
+                    });
+                    break;
+                }
+                case "zalo-crawl": {
+                    const uniqueID = data.uniqueID || createUniqueID();
+                    // createTargetWindow của bạn đã có cơ chế callback(url, id) khi 'did-finish-load'
+                    // Chúng ta sẽ gọi zaloCrawlDirect ngay tại đó.
+                    createTargetWindow(data.url, () => {
+                        // targetWindow lúc này đã được khởi tạo trong scope của main.js
+                        zaloCrawlDirect(targetWindow, uniqueID);
+                    }, uniqueID);
+                    break;
+                }
+                default:
+                    event.reply("tools-response", {
+                        error: "Command không hỗ trợ!",
+                    });
             }
-            case "open-chrome-app": {
-                // Lấy width, height từ data (nếu UI không gửi thì dùng mặc định của hàm)
-                const w = data.width || 1200;
-                const h = data.height || 800;
-
-                // Gọi hàm với tham số mới
-                openChromeApp(data.url, w, h);
-
-                event.reply("tools-response", {
-                    success: true,
-                    action: "open-chrome-app",
-                    url: data.url,
-                    size: `${w}x${h}`,
-                });
-                break;
-            }
-            case "zalo-crawl": {
-                const uniqueID = data.uniqueID || createUniqueID();
-                // createTargetWindow của bạn đã có cơ chế callback(url, id) khi 'did-finish-load'
-                // Chúng ta sẽ gọi zaloCrawlDirect ngay tại đó.
-                createTargetWindow(data.url, () => {
-                    // targetWindow lúc này đã được khởi tạo trong scope của main.js
-                    zaloCrawlDirect(targetWindow, uniqueID);
-                }, uniqueID);
-                break;
-            }
-            default:
-                event.reply("tools-response", {
-                    error: "Command không hỗ trợ!",
-                });
-        }
         } catch (error) {
             console.error("tools-command error:", error);
             event.reply("tools-response", { error: error.message });
@@ -4445,7 +4436,7 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
         const { siteUrl, startDate, endDate } = payload || {};
         let safeDomain = "SEO_Report";
         if (siteUrl) safeDomain = siteUrl.replace(/https?:\/\//, '').replace(/[\/\\]/g, '_');
-        
+
         const defaultName = `[AI.TYPE] ${safeDomain} (${startDate} to ${endDate}).pdf`;
         const defaultPath = path.join(app.getPath('downloads'), defaultName);
 
@@ -4461,7 +4452,7 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
         // Nếu người dùng chọn chỗ lưu
         if (filePath) {
             sendToRenderer("tools-log", `[PDF] Đang kết xuất trang web SEO Report thành PDF... vui lòng chờ.`);
-            
+
             // Xử lý dứt điểm Bug kinh điển: PrintToPDF luôn rò rỉ màu nền #212121 của BrowserWindow ra thành màu PDF Page
             const win = BrowserWindow.fromWebContents(event.sender);
             const originalColor = win.getBackgroundColor();
@@ -4478,15 +4469,15 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
                 headerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: left; padding-left: ${marginInches * 96}px;">Báo cáo đề xuất chỉnh sửa SEO cho ${safeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')} (${startDate} to ${endDate})</div>`,
                 footerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: right; padding-right: ${marginInches * 96}px;">Trang <span class="pageNumber"></span> / <span class="totalPages"></span></div>`
             });
-            
+
             // Phục hồi lại màu nền tối của cửa sổ App
             win.setBackgroundColor(originalColor || '#212121');
-            
+
             // Ghi file
             fs.writeFileSync(filePath, pdfData);
             sendToRenderer("tools-log", `✅ Đã lưu PDF Báo Cáo thành công tại: ${filePath}`);
             sendNotification("Báo cáo SEO", "Xuất file PDF thành công!");
-            
+
             return { success: true, filePath };
         } else {
             return { success: false, error: "Đã hủy lưu file" }; // Người dùng ấn Cancel
