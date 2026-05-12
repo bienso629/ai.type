@@ -197,9 +197,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isCancelled = false;
         this.cd.markForCheck();
 
-        // Đặt giới hạn luồng = 1 để chạy nối tiếp tuần tự, tránh tình trạng Request bị Timeout do phải chờ lâu trong Queue của Server
-        const concurrencyLimit = 1;
-        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy tuần tự từng mục để đảm bảo an toàn)...`, 'System');
+        // Đặt giới hạn luồng = 3 để chạy song song 3 audio cùng lúc
+        const concurrencyLimit = 3;
+        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy song song 3 mục cùng lúc)...`, 'System');
 
         try {
             let currentIndex = 0;
@@ -571,7 +571,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     ) {
         clip.isProcessing = false;
         this.cd.markForCheck();
-        
+
         // Hiển thị thông báo lỗi lên góc phải màn hình cho người dùng biết
         this.toastr.error(`Lỗi khi tạo "${clip.name}": ${errorMessage}`, 'Thất bại');
 
@@ -1291,7 +1291,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     if (isVideo) {
                         singlePrompt += `\n[MANDATORY: Generate video with exact duration of ${roundedDuration} seconds]`;
                     }
-                    
+
                     // Gắn nhân vật vào
                     singlePrompt = injectCharacters(singlePrompt);
 
@@ -1400,7 +1400,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                 }
             }
-            
+
             // Cập nhật lại vào bộ nhớ
             this.videoProject = data;
             this.saveToLocal();
