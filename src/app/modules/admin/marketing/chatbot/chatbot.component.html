@@ -164,9 +164,7 @@
                             Website <mat-label
                                 *ngIf="statusIndex.status === 'running' || statusIndex.status === 'done'">
                                 ({{ statusIndex.completed }}/{{ statusIndex.total }} {{ statusIndex.status }})</mat-label></mat-label>
-                        <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
-                            (click)="indexFiles()">Bot học
-                            Tài liệu</mat-label>
+
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
                             (click)="settingChatbot()">Cài đặt chatbot</mat-label>
                     </div>
