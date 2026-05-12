@@ -2041,18 +2041,98 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 // Chưa chạy -> Start
                 if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang khởi động mô hình AI...');
 
-                const getMinerUExecutableInfo = () => {
-                    const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
+                const getMinerUExecutableInfoAsync = async () => {
+                    const isWin = process.platform === 'win32';
+                    const exeName = isWin ? 'mineru_api.exe' : 'mineru_api';
+                    
+                    // 1. Kiểm tra file trong resources (trường hợp app đóng gói có nhúng sẵn)
+                    const exePath = path.join(__dirname, '..', 'bin', exeName);
                     if (fs.existsSync(exePath)) {
                         return { cmd: exePath, args: [], cwd: path.dirname(exePath) };
                     }
-                    // Chạy môi trường dev hoặc app đã đóng gói
+
+                    // 2. Kiểm tra trong userData (app tải về)
+                    const mineruDir = path.join(app.getPath('userData'), 'mineru_api_bin');
+                    const downloadedExe = path.join(mineruDir, exeName);
+                    if (fs.existsSync(downloadedExe)) {
+                        return { cmd: downloadedExe, args: [], cwd: mineruDir };
+                    }
+
+                    // 3. Nếu đang chạy DEV mode với pdf.py, trả về luôn để dev
                     const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
                     const scriptPath = path.join(basePath, 'scripts', 'pdf.py');
-                    return { cmd: 'python', args: ['-u', scriptPath], cwd: path.dirname(scriptPath) };
+                    if (!app.isPackaged && fs.existsSync(scriptPath)) {
+                        return { cmd: 'python', args: ['-u', scriptPath], cwd: path.dirname(scriptPath) };
+                    }
+
+                    // 4. Nếu không có ở bất kì đâu, tiến hành TẢI VỀ
+                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang tải tệp mô hình AI (Chỉ tải 1 lần đầu tiên)... 0%');
+
+                    return new Promise(async (resolve, reject) => {
+                        const zipUrl = isWin ? 'https://ai.type.vn/phan-mem/models/mineru_api_win.zip' : 'https://ai.type.vn/phan-mem/models/mineru_api_mac.zip';
+                        const zipPath = path.join(app.getPath('userData'), 'mineru_api.zip');
+
+                        try {
+                            const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+                            const res = await fetch(zipUrl);
+                            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+                            
+                            const total = parseInt(res.headers.get('content-length'), 10);
+                            let downloaded = 0;
+                            let lastPercent = 0;
+                            
+                            const fileStream = fs.createWriteStream(zipPath);
+                            res.body.on('data', (chunk) => {
+                                downloaded += chunk.length;
+                                if (total) {
+                                    const percent = Math.floor((downloaded / total) * 100);
+                                    if (percent > lastPercent) {
+                                        lastPercent = percent;
+                                        if (percent % 5 === 0 || percent === 100) {
+                                            if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', `Đang tải tệp mô hình AI... ${percent}%`);
+                                        }
+                                    }
+                                }
+                            });
+                            
+                            res.body.pipe(fileStream);
+                            
+                            fileStream.on('finish', () => {
+                                fileStream.close();
+                                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang giải nén mô hình AI (Vui lòng đợi vài phút)...');
+                                
+                                if (!fs.existsSync(mineruDir)) fs.mkdirSync(mineruDir, { recursive: true });
+
+                                const { exec } = require('child_process');
+                                let extractCmd = isWin 
+                                    ? `powershell -command "Expand-Archive -Force -Path '${zipPath}' -DestinationPath '${mineruDir}'"`
+                                    : `unzip -o '${zipPath}' -d '${mineruDir}'`;
+
+                                exec(extractCmd, (error) => {
+                                    try { fs.unlinkSync(zipPath); } catch(e){} // Dọn rác
+                                    if (error) {
+                                        return reject(new Error('Lỗi giải nén: ' + error.message));
+                                    }
+                                    if (!isWin) {
+                                        try { fs.chmodSync(downloadedExe, '755'); } catch(e){}
+                                    }
+                                    resolve({ cmd: downloadedExe, args: [], cwd: mineruDir });
+                                });
+                            });
+                            
+                            fileStream.on('error', (err) => {
+                                try { fs.unlinkSync(zipPath); } catch(e){}
+                                reject(err);
+                            });
+                            
+                        } catch (err) {
+                            try { fs.unlinkSync(zipPath); } catch(e){}
+                            reject(err);
+                        }
+                    });
                 };
 
-                const exeInfo = getMinerUExecutableInfo();
+                const exeInfo = await getMinerUExecutableInfoAsync();
                 pdfApiProcess = spawn(exeInfo.cmd, exeInfo.args, {
                     cwd: exeInfo.cwd,
                     env: { ...process.env, PYTHONIOENCODING: 'utf8', MINERU_MODEL_PATH: getMinerUModelPath() }
