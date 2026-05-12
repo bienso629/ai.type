@@ -1,4 +1,4 @@
-import { Component, Inject, AfterViewInit, ViewChild } from '@angular/core';
+import { Component, Inject, AfterViewInit, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { DatatableComponent } from '@swimlane/ngx-datatable';
 import { AppConfig } from 'app/core/config/app.config';
@@ -78,7 +78,7 @@ export class FileListDialogComponent implements AfterViewInit {
         this.progressStatus = 'Đang khởi tạo AI...';
 
         this.indexingSubscription = interval(2000).pipe(
-            switchMap(() => this._chatbotService.getIndexProgress(this.username)),
+            switchMap(() => this._chatbotService.getIndexProgress({ username: this.username })),
             // Thêm catchError để lỡ gọi API xịt thì không bị đứng form
             catchError(() => of({ is_running: false, percent: 100, status: 'Lỗi lấy tiến độ' })),
             takeWhile((resp: any) => resp.is_running, true)
@@ -87,6 +87,7 @@ export class FileListDialogComponent implements AfterViewInit {
                 if (resp.is_running) {
                     this.progressPercent = resp.percent || 0;
                     this.progressStatus = `${resp.status} (${resp.current || 0}/${resp.total || 0})`;
+                    this.cdr.markForCheck();
                 } else if (this.isIndexing) {
                     this.handleIndexingComplete();
                 }
@@ -101,7 +102,31 @@ export class FileListDialogComponent implements AfterViewInit {
         this.toastr.success('Học tài liệu hoàn tất!');
 
         // Cập nhật lại trạng thái file trên bảng ngx-datatable
-        // (Hoặc bạn có thể gọi lại API list-files ở đây để load lại this.rows)
+        
+        // 1. Force update local array immediately
+        const idx = this.rows.findIndex(r => r.filename === this.indexingFilename);
+        if (idx > -1) {
+            this.rows[idx] = { ...this.rows[idx], is_indexed: true };
+            this.rows = [...this.rows];
+            this.cdr.markForCheck();
+        }
+
+        // 2. Fetch from server to get accurate size_mb
+        this._chatbotService.listFiles({ username: this.username }).subscribe({
+            next: (res: any) => {
+                console.log('listFiles response:', res);
+                if (res && res.files) {
+                    this.rows = [...res.files];
+                    this.cdr.markForCheck();
+                } else if (res && res.data) {
+                    this.rows = [...res.data];
+                    this.cdr.markForCheck();
+                } else if (Array.isArray(res)) {
+                    this.rows = [...res];
+                    this.cdr.markForCheck();
+                }
+            }
+        });
 
         setTimeout(() => this.stopProgressPolling(), 2000);
     }
@@ -109,6 +134,7 @@ export class FileListDialogComponent implements AfterViewInit {
     stopProgressPolling(): void {
         this.isIndexing = false;
         this.progressPercent = 0;
+        this.indexingFilename = null;
         if (this.indexingSubscription) {
             this.indexingSubscription.unsubscribe();
             this.indexingSubscription = null;
@@ -169,6 +195,7 @@ export class FileListDialogComponent implements AfterViewInit {
         private _userService: UserService,
         private toastr: ToastrService,
         private _chatbotService: ChatbotService,
+        private cdr: ChangeDetectorRef
     ) {
         this.rows = data.rows;
 
