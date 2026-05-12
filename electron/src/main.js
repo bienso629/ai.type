@@ -1943,8 +1943,9 @@ ipcMain.handle('setup-mineru-model', async (event) => {
             if (fs.existsSync(exePath)) {
                 return { cmd: exePath, args: [] };
             }
-            // Fallback cho môi trường dev
-            const scriptPath = path.join(require('os').homedir(), 'apps', 'minerU', 'pdf.py');
+            // Chạy môi trường dev hoặc app đã đóng gói
+            const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
+            const scriptPath = path.join(basePath, 'scripts', 'pdf.py');
             return { cmd: 'python', args: ['-u', scriptPath] };
         };
 
@@ -2039,15 +2040,16 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 return true;
             } catch (e) {
                 // Chưa chạy -> Start
-                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang khởi động AI Server trong nền...');
+                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang khởi động mô hình AI...');
                 
                 const getMinerUExecutableInfo = () => {
                     const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
                     if (fs.existsSync(exePath)) {
                         return { cmd: exePath, args: [], cwd: path.dirname(exePath) };
                     }
-                    // Fallback cho môi trường dev
-                    const scriptPath = path.join(require('os').homedir(), 'apps', 'minerU', 'pdf.py');
+                    // Chạy môi trường dev hoặc app đã đóng gói
+                    const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
+                    const scriptPath = path.join(basePath, 'scripts', 'pdf.py');
                     return { cmd: 'python', args: ['-u', scriptPath], cwd: path.dirname(scriptPath) };
                 };
                 
