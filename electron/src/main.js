@@ -1887,6 +1887,66 @@ let pdfApiProcess = null;
 let currentPdfSender = null;
 let currentAbortController = null;
 
+const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, sender) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+            
+            const total = parseInt(res.headers.get('content-length'), 10) || 0;
+            let downloaded = 0;
+            let lastPercent = 0;
+            
+            const fileStream = fs.createWriteStream(zipPath);
+            res.body.on('data', (chunk) => {
+                downloaded += chunk.length;
+                if (total) {
+                    const percent = Math.floor((downloaded / total) * 100);
+                    if (percent > lastPercent) {
+                        lastPercent = percent;
+                        if (percent % 5 === 0 || percent === 100) {
+                            if (sender) sender.send('pdf-analysis-progress', `${progressMsgPrefix}... ${percent}%`);
+                        }
+                    }
+                }
+            });
+            
+            res.body.pipe(fileStream);
+            
+            fileStream.on('finish', () => {
+                fileStream.close();
+                if (sender) sender.send('pdf-analysis-progress', 'Đang giải nén dữ liệu (Vui lòng đợi vài phút)...');
+                
+                if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
+
+                const { exec } = require('child_process');
+                const isWin = process.platform === 'win32';
+                let extractCmd = isWin 
+                    ? `powershell -command "Expand-Archive -Force -Path '${zipPath}' -DestinationPath '${destDir}'"`
+                    : `unzip -o '${zipPath}' -d '${destDir}'`;
+
+                exec(extractCmd, (error) => {
+                    try { fs.unlinkSync(zipPath); } catch(e){} // Dọn rác
+                    if (error) {
+                        return reject(new Error('Lỗi giải nén: ' + error.message));
+                    }
+                    resolve();
+                });
+            });
+            
+            fileStream.on('error', (err) => {
+                try { fs.unlinkSync(zipPath); } catch(e){}
+                reject(err);
+            });
+            
+        } catch (err) {
+            try { fs.unlinkSync(zipPath); } catch(e){}
+            reject(err);
+        }
+    });
+};
+
 const getMinerUModelPath = () => {
     return path.join(app.getPath('userData'), 'models', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B', 'snapshots', 'd3f5e08d073c21466bbabe21c71bb1e9c2e595da');
 };
@@ -1936,39 +1996,13 @@ ipcMain.handle('setup-mineru-model', async (event) => {
         const zipFile = path.join(modelsDir, 'model.zip');
         const url = 'https://ai.type.vn/phan-mem/models/models--opendatalab--MinerU2.5-Pro-2604-1.2B.zip';
 
-        // Lấy đường dẫn file chạy AI (Ưu tiên file .exe đóng gói sẵn trong thư mục app/bin, nếu không có thì chạy python script)
-        const getMinerUExecutableInfo = () => {
-            const exePath = path.join(__dirname, '..', 'bin', process.platform === 'win32' ? 'mineru_api.exe' : 'mineru_api');
-            if (fs.existsSync(exePath)) {
-                return { cmd: exePath, args: [] };
-            }
-            // Chạy môi trường dev hoặc app đã đóng gói
-            const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
-            const scriptPath = path.join(basePath, 'scripts', 'pdf.py');
-            return { cmd: 'python', args: ['-u', scriptPath] };
-        };
-
-        const exeInfo = getMinerUExecutableInfo();
-        const spawnArgs = [...exeInfo.args, 'download', url, zipFile, modelsDir];
-        const pyProcess = spawn(exeInfo.cmd, spawnArgs, {
-            env: { ...process.env, PYTHONIOENCODING: 'utf8' }
-        });
-
-        pyProcess.stdout.on('data', (data) => {
-            const lines = data.toString('utf8').split(/[\r\n]+/);
-            for (let line of lines) {
-                if (line.trim()) event.sender.send('pdf-analysis-progress', line.trim());
-            }
-        });
-
-        pyProcess.stderr.on('data', (data) => {
-            console.error("Lỗi download:", data.toString());
-        });
-
-        pyProcess.on('close', (code) => {
-            if (code === 0) resolve();
-            else reject(new Error(`Tải model thất bại với mã lỗi ${code}`));
-        });
+        try {
+            await downloadAndExtractZip(url, modelsDir, zipFile, 'Đang tải Mô hình AI (~1.7GB)', event.sender);
+            event.sender.send('pdf-analysis-progress', 'Mô hình AI đã sẵn sàng.');
+            resolve();
+        } catch(e) {
+            reject(new Error(`Tải model thất bại: ${e.message}`));
+        }
     });
 });
 
@@ -2066,70 +2100,20 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                     }
 
                     // 4. Nếu không có ở bất kì đâu, tiến hành TẢI VỀ
-                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang tải tệp mô hình AI (Chỉ tải 1 lần đầu tiên)... 0%');
+                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang tải tệp Engine AI (Chỉ tải 1 lần đầu tiên)... 0%');
 
-                    return new Promise(async (resolve, reject) => {
-                        const zipUrl = isWin ? 'https://ai.type.vn/phan-mem/models/mineru_api_win.zip' : 'https://ai.type.vn/phan-mem/models/mineru_api_mac.zip';
-                        const zipPath = path.join(app.getPath('userData'), 'mineru_api.zip');
+                    const zipUrl = isWin ? 'https://ai.type.vn/phan-mem/models/mineru_api_win.zip' : 'https://ai.type.vn/phan-mem/models/mineru_api_mac.zip';
+                    const zipPath = path.join(app.getPath('userData'), 'mineru_api.zip');
 
-                        try {
-                            const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
-                            const res = await fetch(zipUrl);
-                            if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-                            
-                            const total = parseInt(res.headers.get('content-length'), 10);
-                            let downloaded = 0;
-                            let lastPercent = 0;
-                            
-                            const fileStream = fs.createWriteStream(zipPath);
-                            res.body.on('data', (chunk) => {
-                                downloaded += chunk.length;
-                                if (total) {
-                                    const percent = Math.floor((downloaded / total) * 100);
-                                    if (percent > lastPercent) {
-                                        lastPercent = percent;
-                                        if (percent % 5 === 0 || percent === 100) {
-                                            if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', `Đang tải tệp mô hình AI... ${percent}%`);
-                                        }
-                                    }
-                                }
-                            });
-                            
-                            res.body.pipe(fileStream);
-                            
-                            fileStream.on('finish', () => {
-                                fileStream.close();
-                                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang giải nén mô hình AI (Vui lòng đợi vài phút)...');
-                                
-                                if (!fs.existsSync(mineruDir)) fs.mkdirSync(mineruDir, { recursive: true });
-
-                                const { exec } = require('child_process');
-                                let extractCmd = isWin 
-                                    ? `powershell -command "Expand-Archive -Force -Path '${zipPath}' -DestinationPath '${mineruDir}'"`
-                                    : `unzip -o '${zipPath}' -d '${mineruDir}'`;
-
-                                exec(extractCmd, (error) => {
-                                    try { fs.unlinkSync(zipPath); } catch(e){} // Dọn rác
-                                    if (error) {
-                                        return reject(new Error('Lỗi giải nén: ' + error.message));
-                                    }
-                                    if (!isWin) {
-                                        try { fs.chmodSync(downloadedExe, '755'); } catch(e){}
-                                    }
-                                    resolve({ cmd: downloadedExe, args: [], cwd: mineruDir });
-                                });
-                            });
-                            
-                            fileStream.on('error', (err) => {
-                                try { fs.unlinkSync(zipPath); } catch(e){}
-                                reject(err);
-                            });
-                            
-                        } catch (err) {
-                            try { fs.unlinkSync(zipPath); } catch(e){}
-                            reject(err);
+                    try {
+                        await downloadAndExtractZip(zipUrl, mineruDir, zipPath, 'Đang tải tệp Engine AI (~3.3GB)', currentPdfSender);
+                        if (!isWin) {
+                            try { fs.chmodSync(downloadedExe, '755'); } catch(e){}
                         }
-                    });
+                        return { cmd: downloadedExe, args: [], cwd: mineruDir };
+                    } catch (err) {
+                        throw new Error('Lỗi tải tệp Engine: ' + err.message);
+                    }
                 };
 
                 const exeInfo = await getMinerUExecutableInfoAsync();
@@ -4358,8 +4342,8 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
 
         let downloadPath = "";
         let attempts = 0;
-
-        while (attempts < 200) { // Timeout khoảng 400 giây
+        
+        while (attempts < 900) { // Tăng Timeout lên 30 phút (1800 giây) để cho máy chủ thảnh thơi xử lý
             // === THÊM ĐOẠN NÀY ===
             // Nếu taskId đã bị hàm cancel-tts xóa khỏi sổ, lập tức dừng vòng lặp
             if (!activeTtsTasks.has(taskId)) {

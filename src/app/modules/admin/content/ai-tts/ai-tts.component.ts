@@ -197,9 +197,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isCancelled = false;
         this.cd.markForCheck();
 
-        // Chạy 3 luồng đồng thời theo yêu cầu
-        const concurrencyLimit = 3;
-        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Số luồng đồng thời: ${concurrencyLimit})...`, 'System');
+        // Đặt giới hạn luồng = 1 để chạy nối tiếp tuần tự, tránh tình trạng Request bị Timeout do phải chờ lâu trong Queue của Server
+        const concurrencyLimit = 1;
+        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy tuần tự từng mục để đảm bảo an toàn)...`, 'System');
 
         try {
             let currentIndex = 0;
@@ -564,7 +564,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     }
 
-    // [RETRY] Hàm xử lý lỗi: Bật Dialog Confirm
     private handleTTSError(
         clip: AudioClip,
         errorMessage: string,
@@ -572,8 +571,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     ) {
         clip.isProcessing = false;
         this.cd.markForCheck();
-
-        // console.error(`Error processing clip ${clip.name}:`, errorMessage);
+        
+        // Hiển thị thông báo lỗi lên góc phải màn hình cho người dùng biết
+        this.toastr.error(`Lỗi khi tạo "${clip.name}": ${errorMessage}`, 'Thất bại');
 
         // // Mở dialog hỏi người dùng
         // const dialogRef = this._fuseConfirmationService.open({
