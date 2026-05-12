@@ -198,12 +198,12 @@
                         </button>
                     </div>
 
-                    <div cdkDropList (cdkDropListDropped)="dropGeminiKey($event)" class="flex flex-col w-1/2 mt-4">
-                        <div *ngFor="let key of geminiKeys; let i = index" cdkDrag
+                    <div class="flex flex-col w-1/2 mt-4">
+                        <div *ngFor="let key of geminiKeys; let i = index"
                             class="flex mt-2 items-center p-1 rounded-lg bg-gray-50 overflow-hidden">
-                            <mat-form-field cdkDragHandle class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
+                            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-icon class="icon-size-4 cursor-move" [svgIcon]="'heroicons_outline:key'"
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'"
                                     matPrefix></mat-icon>
                                 <input type="text" matInput [value]="key" (input)="onGeminiKeyChange(i, $event)"
                                     placeholder="Nhập Secret Key">
