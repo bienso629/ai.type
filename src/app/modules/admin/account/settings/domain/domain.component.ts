@@ -29,10 +29,18 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
 
     // Trộn ký tự mật khẩu
     maskPassword(password: string): string {
+        if (!password) return '';
         const chars = '*#@!$&?';
-        let masked = '';
+        let seed = 0;
         for (let i = 0; i < password.length; i++) {
-            const randIndex = Math.floor(Math.random() * chars.length);
+            seed += password.charCodeAt(i);
+        }
+        
+        // Độ dài ngẫu nhiên từ 10 đến 25 ký tự để che giấu độ dài thực
+        const length = (seed % 16) + 10;
+        let masked = '';
+        for (let i = 0; i < length; i++) {
+            const randIndex = (seed + i * 13) % chars.length;
             masked += chars[randIndex];
         }
         return masked;

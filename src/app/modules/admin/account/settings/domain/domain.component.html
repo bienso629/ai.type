@@ -41,16 +41,16 @@
                     <span matTooltipPosition="above" [matTooltip]="'Bấm 2 lần để sửa'"
                         (dblclick)="editing[rowIndex + '-username'] = true"
                         *ngIf="!editing[rowIndex + '-username'] && !rows[rowIndex].addnew">
-                        {{ row.username }}
+                        {{ showPassword ? row.username : maskPassword(row.username) }}
                     </span>
 
                     <input placeholder="tên đăng nhập" *ngIf="editing[rowIndex + '-username'] && !rows[rowIndex].addnew"
                         (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded p-2"
-                        type="text" [value]="row.username" />
+                        type="password" [value]="row.username" />
 
                     <input placeholder="tên đăng nhập" *ngIf="rows[rowIndex].addnew"
                         (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded p-2"
-                        type="text" [value]="row.username" />
+                        type="password" [value]="row.username" />
                 </ng-template>
             </ngx-datatable-column>
 
