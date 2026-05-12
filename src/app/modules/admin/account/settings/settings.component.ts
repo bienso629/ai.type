@@ -34,7 +34,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
             id: 'domain',
             icon: 'feather:globe',
             title: 'Tên miền',
-            description: 'Kết nối Website có sẵn'
+            description: 'Kết nối Website của bạn'
         },
         {
             id: 'style',

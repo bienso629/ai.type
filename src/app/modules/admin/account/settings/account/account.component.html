@@ -1,8 +1,7 @@
 <div class="w-full">
     <!-- Form -->
     <form [formGroup]="accountForm" (ngSubmit)="save()">
-        <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false"
-            mat-align-tabs="start">
+        <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start">
             <mat-tab label="Cá nhân">
                 <div class="w-full">
                     <!-- Divider -->
@@ -12,8 +11,7 @@
 
                 <div class="w-full mt-4">
                     <!-- Secret Key -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Link QR nhận tiền</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'mat_solid:qr_code_scanner'" matPrefix></mat-icon>
                         <input [formControlName]="'linkDonate'" type="text" matInput>
@@ -27,8 +25,7 @@
                 <div class="w-full mt-4">
                     <!-- Hoạt động -->
                     <div class="full-width-toggle mb-4">
-                        <mat-slide-toggle [formControlName]="'autosave'"
-                            class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
+                        <mat-slide-toggle [formControlName]="'autosave'" class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
                             <mat-label class="toggle-label text-md">
                                 Tự động lưu bài viết
                                 <span class="text-gray-400">(tránh việc mất bài viết)</span>
@@ -39,8 +36,7 @@
 
                 <div class="w-full mt-2 mb-4">
                     <!-- Ngôn ngữ -->
-                    <mat-form-field class="w-50 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-50 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Ngôn ngữ</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'" matPrefix></mat-icon>
                         <mat-select [formControlName]="'language'">
@@ -58,13 +54,10 @@
                 <div class="mt-2 mb-2 border-t"></div>
 
                 <div class="flex flex-col mt-4">
-                    <mat-form-field
-                        class="flex-auto w-1/2 mt-2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="flex-auto w-1/2 mt-2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label class="">Thực thi câu lệnh hệ thống <span class="text-gray-400">(powershell,
                                 git,...)</span></mat-label>
-                        <textarea class="px-2" [formControlName]="'defaultlinks'"
-                            [placeholder]="'Câu lệnh chạy hệ thống'" matInput cdkTextareaAutosize></textarea>
+                        <textarea class="px-2" [formControlName]="'defaultlinks'" [placeholder]="'Câu lệnh chạy hệ thống'" matInput cdkTextareaAutosize></textarea>
                         <mat-hint>Mỗi câu lệnh được phân tách bởi Enter</mat-hint>
                     </mat-form-field>
 
@@ -108,34 +101,31 @@
 
                 <div class="w-full mt-4" *ngIf="user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot')">
                     <!-- Chatbot Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Tích hợp Chatbot</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'" matPrefix></mat-icon>
                         <input [formControlName]="'chatbot'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tích hợp chatbot phục vụ công việc của bạn <a
-                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên hệ</a> nhận
+                    <div class="mt-1 text-md text-hint">Tích hợp chatbot phục vụ công việc của bạn <a href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên
+                            hệ</a> nhận
                         API.</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-zms')">
                     <!-- Device Token Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Tích hợp Zalo CRM</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:database'" matPrefix></mat-icon>
                         <input [formControlName]="'customer'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tích hợp Zalo CRM phục vụ công việc của bạn <a
-                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên hệ</a> nhận
+                    <div class="mt-1 text-md text-hint">Tích hợp Zalo CRM phục vụ công việc của bạn <a href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên
+                            hệ</a> nhận
                         API.</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')">
                     <!-- Device Token Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Công cụ cào dữ liệu</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:link-2'" matPrefix></mat-icon>
                         <input [formControlName]="'bigdata'" type="text" matInput>
@@ -143,11 +133,9 @@
                     <div class="mt-1 text-md text-hint">Công cụ cào và phân tích dữ liệu cho bạn.</div>
                 </div>
 
-                <div class="w-full mt-2"
-                    *ngIf="user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')">
+                <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')">
                     <!-- Text2Speech Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Chuyển đổi văn bản thành giọng nói</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'" matPrefix></mat-icon>
                         <input [formControlName]="'tts'" type="text" matInput>
@@ -157,8 +145,7 @@
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-chuyển-video-thành-bài-viết')">
                     <!-- Text2Speech Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Chuyển đổi video thành bài viết</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:film'" matPrefix></mat-icon>
                         <input [formControlName]="'sst'" type="text" matInput>
@@ -168,8 +155,7 @@
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-lên-kịch-bản-comment-like')">
                     <!-- Text2Speech Api -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
+                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                         <mat-label>Tự động hóa công việc</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:target'" matPrefix></mat-icon>
                         <input [formControlName]="'mxhauto'" type="text" matInput>
@@ -189,62 +175,63 @@
                 </div>
 
                 <div class="w-full mt-4">
-                    <!-- Secret Key -->
-                    <div class="flex items-center mb-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')">
-                        <mat-label class="text-secondary text-base mr-4">Keys của Gemini AI Studio</mat-label>
-                        <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
-                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                            <mat-label class="ml-2">Thêm Key</mat-label>
-                        </button>
-                    </div>
+                    <div class="mt-2 text-md text-hint">Bạn có tài khoản Gemini AI Studio. Lấy mã <a href="https://aistudio.google.com/apikey" target="_blank"
+                            class="font-semibold">Secret
+                            Key</a> tại đây. Xin lưu ý từ model gemini-2.0 trở lên tài khoản Google của bạn cần liên kết
+                        tài
+                        khoản thanh toán (Billing).</div>
 
-                    <div class="flex flex-col w-1/2 mt-4">
-                        <div *ngFor="let key of geminiKeys; let i = index"
-                            class="flex mt-2 items-center p-1 rounded-lg bg-gray-50 overflow-hidden">
-                            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
-                                [subscriptSizing]="'dynamic'">
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'"
-                                    matPrefix></mat-icon>
-                                <input type="text" matInput [value]="key" (input)="onGeminiKeyChange(i, $event)"
-                                    placeholder="Nhập Secret Key">
+                    <div class="flex flex-col w-1/2 mt-2">
+                        <div *ngFor="let key of geminiKeys; let i = index" class="flex mt-2">
+                            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0" [subscriptSizing]="'dynamic'">
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
+                                <input type="text" matInput [value]="key" (input)="onGeminiKeyChange(i, $event)" placeholder="Nhập Secret Key">
 
-                                <button mat-icon-button type="button" color="warn" matSuffix
-                                    (click)="removeGeminiKey(i)">
+                                <button mat-icon-button type="button" color="warn" matSuffix (click)="removeGeminiKey(i)">
                                     <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                                 </button>
                             </mat-form-field>
                         </div>
                     </div>
 
-                    <div class="mt-2 text-md text-hint">Bạn có tài khoản Gemini AI Studio. Lấy mã <a
-                            href="https://aistudio.google.com/apikey" target="_blank" class="font-semibold">Secret
-                            Key</a> tại đây. Xin lưu ý từ model gemini-2.0 trở lên tài khoản Google của bạn cần liên kết
-                        tài
-                        khoản thanh toán (Billing).</div>
+                    <div class="flex items-center mt-2" *ngIf="user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')">
+                        <!-- <mat-label class="text-secondary text-base mr-4">Keys của Gemini AI Studio</mat-label> -->
+                        <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
+                            <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                            <mat-label class="ml-2">Thêm Key</mat-label>
+                        </button>
+                    </div>
                 </div>
 
-                <div class="w-full mt-2" *ngIf="user.reputation >= 100000000">
-                    <!-- Search API Key -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>Search Engine</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
-                        <input [formControlName]="'searchAPIKey'" type="text" matInput>
-                    </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Bạn chưa có Search Api Key của Google Search? Tạo <a
-                            href="https://programmablesearchengine.google.com/controlpanel/all" target="_blank"
-                            class="font-semibold">Search Api Key</a> tại đây.</div>
-                </div>
+                <ng-container *ngIf="user.reputation >= 100000000">
+                    <!-- Section -->
+                    <div class="w-full mt-10">
+                        <div class="text-secondary">Cấu hình tự động hoá</div>
+                    </div>
 
-                <div class="w-full mt-2" *ngIf="user.reputation >= 4000000">
-                    <!-- Search API Key -->
-                    <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                        [subscriptSizing]="'dynamic'">
-                        <mat-label>N8N</mat-label>
-                        <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
-                        <input [formControlName]="'n8n'" type="text" matInput>
-                    </mat-form-field>
-                </div>
+                    <!-- Divider -->
+                    <div class="mt-2 mb-2 border-t"></div>
+
+                    <div class="w-full mt-4">
+                        <!-- Search API Key -->
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Search Engine</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
+                            <input [formControlName]="'searchAPIKey'" type="text" matInput>
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">Bạn chưa có Search Api Key của Google Search? Tạo <a href="https://programmablesearchengine.google.com/controlpanel/all"
+                                target="_blank" class="font-semibold">Search Api Key</a> tại đây.</div>
+                    </div>
+
+                    <div class="w-full mt-2" *ngIf="user.reputation >= 4000000">
+                        <!-- Search API Key -->
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>N8N</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
+                            <input [formControlName]="'n8n'" type="text" matInput>
+                        </mat-form-field>
+                    </div>
+                </ng-container>
             </mat-tab>
         </mat-tab-group>
 
