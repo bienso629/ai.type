@@ -15,7 +15,6 @@ import { DeviceUUID } from "device-uuid";
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-
 @Component({
     selector: 'settings-active',
     templateUrl: './active.component.html',
