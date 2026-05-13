@@ -1899,6 +1899,7 @@ const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, s
             let downloaded = 0;
             let lastPercent = 0;
             
+            if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
             const fileStream = fs.createWriteStream(zipPath);
             res.body.on('data', (chunk) => {
                 downloaded += chunk.length;
@@ -1919,7 +1920,6 @@ const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, s
                 fileStream.close();
                 if (sender) sender.send('pdf-analysis-progress', 'Đang giải nén dữ liệu (Vui lòng đợi vài phút)...');
                 
-                if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
 
                 const { exec } = require('child_process');
                 const isWin = process.platform === 'win32';
@@ -1968,34 +1968,12 @@ ipcMain.handle('setup-mineru-model', async (event) => {
             return;
         }
 
-        // Kiểm tra xem user có sẵn model ở thư mục cũ không (apps/minerU)
-        const oldModelPath = path.join('C:', 'Users', 'Wing386', 'apps', 'minerU', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B');
-        if (fs.existsSync(oldModelPath)) {
-            event.sender.send('pdf-analysis-progress', 'Đang chuyển model cũ vào thư mục App...');
-            try {
-                const targetModelsDir = path.join(app.getPath('userData'), 'models', 'models--opendatalab--MinerU2.5-Pro-2604-1.2B');
-                fs.mkdirSync(targetModelsDir, { recursive: true });
 
-                // Copy folder (sử dụng xcopy trên windows cho nhanh và đệ quy)
-                const { exec } = require('child_process');
-                exec(`xcopy "${oldModelPath}" "${targetModelsDir}" /E /I /Y`, (error, stdout, stderr) => {
-                    if (error) {
-                        reject(new Error("Lỗi khi copy model cũ: " + error.message));
-                    } else {
-                        event.sender.send('pdf-analysis-progress', 'Đã chuyển xong model cũ!');
-                        resolve();
-                    }
-                });
-                return;
-            } catch (err) {
-                console.error("Copy failed, falling back to download", err);
-            }
-        }
 
         event.sender.send('pdf-analysis-progress', 'Đang kết nối để tải mô hình AI...');
         const modelsDir = path.join(app.getPath('userData'), 'models');
         const zipFile = path.join(modelsDir, 'model.zip');
-        const url = 'https://ai.type.vn/phan-mem/models/models--opendatalab--MinerU2.5-Pro-2604-1.2B.zip';
+        const url = 'https://cdn1.type.vn/assets/models--opendatalab--MinerU2.5-Pro-2604-1.2B.zip';
 
         try {
             await downloadAndExtractZip(url, modelsDir, zipFile, 'Đang tải Mô hình AI (~1.7GB)', event.sender);
@@ -2103,7 +2081,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                     // 4. Nếu không có ở bất kì đâu, tiến hành TẢI VỀ
                     if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Đang tải tệp Engine AI (Chỉ tải 1 lần đầu tiên)... 0%');
 
-                    const zipUrl = isWin ? 'https://ai.type.vn/phan-mem/models/mineru_api_win.zip' : 'https://ai.type.vn/phan-mem/models/mineru_api_mac.zip';
+                    const zipUrl = isWin ? 'https://cdn1.type.vn/assets/mineru_api_win.zip' : 'https://cdn1.type.vn/assets/mineru_api_mac.zip';
                     const zipPath = path.join(app.getPath('userData'), 'mineru_api.zip');
 
                     try {
