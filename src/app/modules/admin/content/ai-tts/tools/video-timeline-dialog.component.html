@@ -121,7 +121,8 @@
                         @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
                         <div class="flex flex-row flex-wrap gap-1.5 w-full mt-1">
                             @for (url of (char.avatarUrls?.length ? char.avatarUrls : [char.avatarUrl]); track url) {
-                            <div class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
+                            <div
+                                class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
                                 <img [src]="url" class="w-full h-full object-cover">
                             </div>
                             }
@@ -146,30 +147,31 @@
             @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
             <div class="flex-none flex flex-col w-80 max-h-full h-full rounded-lg overflow-hidden select-none relative transition-all duration-300"
                 [ngClass]="activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50'" cdkDrag>
-                <div class="cdk-drag-handle absolute top-2 left-2 z-10 flex items-center justify-center cursor-move"
-                    cdkDragHandle>
-                    <mat-icon class="text-white icon-size-5 drop-shadow-md">drag_indicator</mat-icon>
+                <div class="flex items-center justify-between p-2">
+                    <div class="flex items-center cursor-move text-gray-500 hover:text-gray-800 transition-colors flex-1"
+                        cdkDragHandle>
+                        <mat-icon class="icon-size-5 mr-1">drag_indicator</mat-icon>
+                        <span class="text-xs font-bold">
+                            Scene #{{ sceneIdx + 1 }} • {{ getSceneDuration(scene) }}
+                        </span>
+                    </div>
 
-                    <span class="text-white text-xs px-2.5 py-0 drop-shadow-md font-bold">
-                        Scene #{{ sceneIdx + 1 }} • {{ getSceneDuration(scene) }}
-                    </span>
+                    <button mat-icon-button color="warn"
+                        class="icon-size-6 flex items-center justify-center rounded-full flex-shrink-0"
+                        (click)="$event.stopPropagation(); removeScene(sceneIdx)" size="small">
+                        <mat-icon class="icon-size-4">delete</mat-icon>
+                    </button>
                 </div>
-
-                <button mat-icon-button color="warn"
-                    class="absolute icon-size-6 top-2 right-2 z-10 flex items-center justify-center rounded-full drop-shadow-md"
-                    (click)="$event.stopPropagation(); removeScene(sceneIdx)" size="small">
-                    <mat-icon class="icon-size-4">delete</mat-icon>
-                </button>
 
                 <div
                     class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
                     @for (video of scene.videos; track video; let vIdx = $index) {
-                    <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded overflow-hidden"
+                    <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded-lg overflow-hidden"
                         [ngClass]="video.imageUrl ? 'h-auto overflow-visible' : 'min-h-32 max-h-40 h-32 overflow-hidden'">
 
                         <!-- Header hiển thị part -->
                         <div
-                            class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br">
+                            class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br-lg">
                             Phần {{vIdx + 1}} • {{video.duration}}s
                         </div>
 

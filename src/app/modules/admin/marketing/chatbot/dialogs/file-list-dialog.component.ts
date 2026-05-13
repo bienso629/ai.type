@@ -35,14 +35,101 @@ export class FileListDialogComponent implements AfterViewInit {
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    // CẬP NHẬT: Hàm reIndexPdf gọi API và kích hoạt Polling
-    reIndexPdf(doc_type: string, filename: string, rowIndex: number): void {
+    async reIndexPdf(doc_type: string, filename: string, rowIndex: number): Promise<void> {
         if (!this.google_api_key) {
             this.toastr.warning('Chưa có Google API Key');
             return;
         }
 
-        // Tạo object payload dựa trên các biến đã nhận
+        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+
+        if (isMinerUEnabled && filename.toLowerCase().endsWith('.pdf')) {
+            const electron = (window as any).electron;
+            if (electron) {
+                this.isIndexing = true;
+                this.indexingFilename = filename;
+                this.progressPercent = 10;
+                this.progressStatus = 'Đang kiểm tra dữ liệu...';
+                this.cdr.markForCheck();
+
+                const dType = doc_type === 'None' ? 'default' : doc_type;
+                const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
+                const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}.mineru.json`;
+                
+                try {
+                    // Bước 1: Kiểm tra xem file json đã tồn tại trên server chưa
+                    const checkRes = await fetch(jsonUrl, { method: 'HEAD' });
+                    if (!checkRes.ok) {
+                        // Chưa có .mineru.json -> Tải PDF về và phân tích
+                        this.progressStatus = 'Đang tải PDF từ Server...';
+                        this.progressPercent = 30;
+                        this.cdr.markForCheck();
+
+                        const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
+                        
+                        // Gọi main.js tải file PDF về thư mục temp
+                        const tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
+                        
+                        this.progressStatus = 'Đang chuẩn bị phân tích bằng MinerU...';
+                        this.progressPercent = 50;
+                        this.cdr.markForCheck();
+
+                        // Lắng nghe tiến trình MinerU
+                        const cleanup = electron.onPdfProgress((data: string) => {
+                            this.progressStatus = data;
+                            this.cdr.markForCheck();
+                        });
+
+                        try {
+                            const result = await electron.invoke('run-pdf-analysis', tempPdfPath);
+                            
+                            this.progressStatus = 'Đang lưu kết quả AI lên Server...';
+                            this.progressPercent = 90;
+                            this.cdr.markForCheck();
+
+                            // Upload file json lên server
+                            await new Promise((resolve, reject) => {
+                                this._chatbotService.uploadMinerUResult({
+                                    username: this.username,
+                                    filename: filename,
+                                    doc_type: doc_type,
+                                    content_json: result
+                                }).subscribe({
+                                    next: (res) => {
+                                        if (res && res.success) resolve(res);
+                                        else reject('Tải kết quả lên Server thất bại');
+                                    },
+                                    error: reject
+                                });
+                            });
+                        } finally {
+                            cleanup();
+                            // Không cần thiết phải gọi cancel-pdf-analysis vì đã chạy xong hoặc lỗi
+                        }
+                    } else {
+                        // Đã có JSON -> Chỉ cần Re-index
+                        this.progressStatus = 'Đã có dữ liệu AI...';
+                        this.progressPercent = 95;
+                        this.cdr.markForCheck();
+                    }
+
+                    // Bước cuối: Gọi API Re-index bình thường
+                    this.triggerNormalReindex(doc_type, filename);
+                    return;
+
+                } catch (err: any) {
+                    this.stopProgressPolling();
+                    this.toastr.error('Lỗi MinerU: ' + (err.message || err));
+                    return;
+                }
+            }
+        }
+
+        // Nếu không bật MinerU hoặc không phải file PDF thì reindex bình thường
+        this.triggerNormalReindex(doc_type, filename);
+    }
+
+    triggerNormalReindex(doc_type: string, filename: string): void {
         const payload = {
             username: this.username,
             doc_type: doc_type === 'None' ? null : doc_type, // Xử lý doc_type rỗng
@@ -55,7 +142,6 @@ export class FileListDialogComponent implements AfterViewInit {
 
         this.indexingFilename = filename;
 
-        // Giả sử service của bạn có hàm này (Bạn cần định nghĩa POST /reindex-file trong chatbot.ts)
         this._chatbotService.reindexSpecificFile(payload).subscribe({
             next: (res: any) => {
                 if (res.success) {
@@ -63,9 +149,13 @@ export class FileListDialogComponent implements AfterViewInit {
                     this.startProgressPolling(); // Kích hoạt thanh tiến trình
                 } else {
                     this.toastr.error(res.message || 'Lỗi gửi yêu cầu');
+                    this.stopProgressPolling();
                 }
             },
-            error: (err) => this.toastr.error('Lỗi kết nối đến máy chủ.')
+            error: (err) => {
+                this.toastr.error('Lỗi kết nối đến máy chủ.');
+                this.stopProgressPolling();
+            }
         });
     }
 

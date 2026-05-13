@@ -65,6 +65,8 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     isEditingMasterPrompt: boolean = false;
 
+    allClips: any[] = []; // Chứa danh sách tất cả các câu thoại có trong project
+
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
     @ViewChild('editScenePromptTemplate') editScenePromptTemplate!: any;
 
@@ -103,16 +105,10 @@ export class VideoTimelineDialogComponent implements OnInit {
     }
 
     onSceneDropped(event: CdkDragDrop<any[]>) {
-        if (event.previousIndex === event.currentIndex) {
-            return;
-        }
-        moveItemInArray(
-            this.projectData.scenes,
-            event.previousIndex,
-            event.currentIndex,
-        );
+        if (!this.projectData || !this.projectData.scenes) return;
+        moveItemInArray(this.projectData.scenes, event.previousIndex, event.currentIndex);
         this.saveData();
-        console.log('New scene order saved.');
+        this.toastr.success('Đã thay đổi vị trí Scene');
     }
 
     getGlobalIndex(sceneIdx: number, subIdx: number): number {
@@ -514,22 +510,30 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     addNewScene() {
         const dialogRef = this.dialog.open(AddSceneComponent, {
-            width: '550px',
+            width: '650px',
             disableClose: true,
-            data: { subtitles: '', prompt: '' },
+            data: { 
+                selectedClip: null, 
+                prompt: '', 
+                characters: this.projectData?.characters || [], 
+                masterPrompt: this.projectData?.masterPrompt || '',
+                availableClips: this.allClips
+            },
         });
 
         dialogRef.afterClosed().subscribe((result) => {
-            if (result && result.subtitles && result.prompt) {
-                const subtitleTexts = result.subtitles
-                    .split('\n')
-                    .filter((s: string) => s.trim() !== '');
-                const formattedSubtitles = subtitleTexts.map(
-                    (text: string, index: number) => ({
-                        id: index + 1,
-                        text: text.trim(),
-                    }),
-                );
+            if (result && result.selectedClip && result.prompt) {
+                const clip = result.selectedClip;
+                const formattedSubtitles = [
+                    {
+                        id: clip.id,
+                        text: clip.description,
+                        duration: clip.duration || 0,
+                        audioUrl: clip.localFilePath ? `file://${clip.localFilePath.replace(/\\/g, '/')}` : null
+                    }
+                ];
+
+                const totalDuration = clip.duration || 8;
 
                 const newScene = {
                     id: `manual_${Date.now()}`,
@@ -540,7 +544,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                         id: 1,
                         prompt: result.prompt.trim(),
                         imageUrl: null,
-                        duration: 8
+                        duration: totalDuration
                     }]
                 };
 
@@ -643,6 +647,10 @@ export class VideoTimelineDialogComponent implements OnInit {
     ngOnInit() {
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
+
+        const audioStorageKey = `ai_type_audio_merger_data_${this.data.uuid}`;
+        const audioData = this.multiAccountService.getItem(audioStorageKey);
+        this.allClips = audioData && audioData.clips ? audioData.clips : [];
 
         // Backward compatibility: Convert old scenes to grouped videos format
         if (this.projectData && this.projectData.scenes) {
