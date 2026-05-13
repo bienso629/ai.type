@@ -30,6 +30,7 @@
             "ffmpeg-*",
             "yt-dlp-*",
             "edge-tts-*",
+            "type-lite-*",
             {
                 "from": "bin",
                 "to": "bin"
