@@ -108,6 +108,7 @@ function loadBinaries() {
     binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "FFmpeg");
     binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "Youtube-DL");
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
+    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
 
     if (hasError) {
         dialog.showMessageBox({
@@ -2792,6 +2793,14 @@ app.whenReady().then(async () => {
     startSttWebSocketServer();
     startSttServer(); // <--- [THÊM] Gọi hàm vừa tạo
     createMainWindow();
+
+    if (binaries.typeLite) {
+        typeProcess = execFile(binaries.typeLite, [], (err, stdout, stderr) => {
+            if (err) sendToRenderer("tools-log", `❌ Type lỗi: ${err}`);
+            if (stdout) sendToRenderer("tools-log", `📥 Type: ${stdout}`);
+            if (stderr) sendToRenderer("tools-log", `⚠️ Type stderr: ${stderr}`);
+        });
+    }
 
     // ===== IPC: Xoá toàn bộ cookie Google để đăng nhập lại =====
     ipcMain.handle('clear-google-cookies', async () => {
