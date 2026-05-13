@@ -5,6 +5,7 @@ import {
     ElementRef,
     Inject,
     CUSTOM_ELEMENTS_SCHEMA,
+    ChangeDetectorRef
 } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -34,6 +35,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { CharacterDialogComponent } from './character-dialog.component';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
+import { GoogleGenAI } from '@google/genai';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -59,6 +61,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
     showMasterPrompt: boolean = true;
+    isGeneratingCharacter: boolean = false;
 
     // Lưu lại Scene hiện tại đang được xử lý (khi bấm Prompt)
     activeDownloadScene: any = null;
@@ -246,12 +249,94 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
     }
 
+    async generateCharacterAndOpenDialog() {
+        if (!this.projectData?.masterPrompt) {
+            this.openCharacterDialog();
+            return;
+        }
+
+        const settings = this.multiAccountService.getItem('settings');
+        let secretKey;
+        try {
+            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
+        } catch { }
+
+        if (!secretKey) {
+            this.toastr.error('Thiếu API Key cho AI. Đang mở form mặc định...');
+            this.openCharacterDialog();
+            return;
+        }
+        
+        const randomKey = secretKey[Math.floor(Math.random() * secretKey.length)];
+
+        this.isGeneratingCharacter = true;
+        this.cd.markForCheck();
+        
+        const existingNames = (this.projectData.characters || []).map((c: any) => c.name || c.role).join(', ');
+        const ignoreInstruction = existingNames ? `DO NOT generate these characters because they already exist: ${existingNames}. Generate a NEW character from the story.` : 'Extract the main character or a significant character from the story.';
+
+        const systemPrompt = `
+            You are an expert Casting Director and Character Designer.
+            I will provide you with a story or video concept (Master Prompt).
+            Your task is to extract ONE character from this story and provide their details in JSON format.
+            
+            ${ignoreInstruction}
+            
+            Return ONLY a valid JSON object with the following structure:
+            {
+                "name": "Character's Name (or a descriptive title if unnamed)",
+                "role": "Their role in the story (e.g., Protagonist, Villain, Supporting)",
+                "appearance": "Detailed physical description (hair, eyes, clothes, age, etc.)",
+                "personality": "Their personality traits",
+                "prompt": "A highly detailed image generation prompt in ENGLISH for this character (e.g., 'A 25yo man, cinematic lighting, highly detailed face...')"
+            }
+        `;
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: randomKey });
+            
+            const response = await ai.models.generateContent({
+                model: 'gemini-2.5-flash',
+                contents: this.projectData.masterPrompt,
+                config: {
+                    systemInstruction: systemPrompt,
+                    temperature: 0.7,
+                }
+            });
+
+            const text = response.text;
+            if (text) {
+                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/{[\s\S]*}/);
+                if (jsonMatch) {
+                    const charData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+                    this.toastr.success('AI đã trích xuất thành công nhân vật mới!');
+                    this.openCharacterDialog(charData);
+                    return;
+                }
+            }
+            this.toastr.error('AI không trả về dữ liệu chuẩn, mở form trống...');
+            this.openCharacterDialog();
+        } catch (error: any) {
+            console.error('Error generating character:', error);
+            this.toastr.error('Lỗi AI, đang mở form trống...');
+            this.openCharacterDialog();
+        } finally {
+            this.isGeneratingCharacter = false;
+            this.cd.markForCheck();
+        }
+    }
+
     openCharacterDialog(char: any = null, index: number = -1) {
         const dialogRef = this.dialog.open(CharacterDialogComponent, {
             width: '600px',
             maxWidth: '95vw',
             disableClose: true,
-            data: { char: char, index: index }
+            data: { 
+                char: char, 
+                index: index, 
+                masterPrompt: this.projectData?.masterPrompt || '',
+                existingCharacters: this.projectData?.characters || []
+            }
         });
 
         dialogRef.afterClosed().subscribe(result => {
@@ -642,6 +727,7 @@ export class VideoTimelineDialogComponent implements OnInit {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private dialog: MatDialog,
+        private cd: ChangeDetectorRef
     ) { }
 
     ngOnInit() {
