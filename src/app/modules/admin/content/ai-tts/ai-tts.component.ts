@@ -197,9 +197,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.isCancelled = false;
         this.cd.markForCheck();
 
-        // Đặt giới hạn luồng = 3 để chạy song song 3 audio cùng lúc
-        const concurrencyLimit = 3;
-        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy song song 3 mục cùng lúc)...`, 'System');
+        // Kiểm tra xem có clip nào dùng giọng khác Nam Minh và Hoài My không
+        const fastVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+        const hasSlowVoice = pendingClips.some(clip => !fastVoices.includes(clip.voice));
+        
+        // Đặt giới hạn luồng = 3 cho Nam Minh/Hoài My, các giọng khác (như OmniVoice) = 1
+        const concurrencyLimit = hasSlowVoice ? 1 : 3;
+        this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy song song ${concurrencyLimit} mục cùng lúc)...`, 'System');
 
         try {
             let currentIndex = 0;

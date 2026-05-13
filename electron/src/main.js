@@ -1996,6 +1996,32 @@ ipcMain.handle('cancel-pdf-analysis', async () => {
     } catch (e) { }
 });
 
+ipcMain.handle('download-temp-pdf', async (event, url) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
+            const res = await fetch(url);
+            if (!res.ok) throw new Error(`Lỗi tải file: HTTP ${res.status}`);
+            
+            const tempDir = app.getPath('temp');
+            const tempFile = path.join(tempDir, `temp_mineru_${Date.now()}.pdf`);
+            const fileStream = fs.createWriteStream(tempFile);
+            
+            res.body.pipe(fileStream);
+            fileStream.on('finish', () => {
+                fileStream.close();
+                resolve(tempFile);
+            });
+            fileStream.on('error', (err) => {
+                try { fs.unlinkSync(tempFile); } catch(e){}
+                reject(err);
+            });
+        } catch (e) {
+            reject(e.message);
+        }
+    });
+});
+
 ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
     return new Promise(async (resolve, reject) => {
         currentPdfSender = event.sender;
