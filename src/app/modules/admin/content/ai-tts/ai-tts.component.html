@@ -40,42 +40,52 @@
                 <mat-icon class="icon-size-5 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
             </button>
 
-            <button mat-icon-button color="primary">
+            <button mat-icon-button color="primary" matTooltip="Thêm Audio từ máy tính">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:mic'"></mat-icon>
                 <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" title="Thêm audio">
             </button>
 
+            <button mat-icon-button color="primary" (click)="addEmptyClip()" matTooltip="Thêm câu thoại mới">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:type'"></mat-icon>
+            </button>
+
             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
-            <input type="text" [(ngModel)]="extraPrompt"
-                class="px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 w-48 sm:w-64 focus:w-80 md:focus:w-[400px] lg:focus:w-[600px] xl:focus:w-[800px] transition-all duration-300 ease-in-out dark:bg-gray-800 bg-white placeholder-gray-400"
-                placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
+            <div class="relative flex items-center w-48 sm:w-64 focus-within:w-80 md:focus-within:w-[400px] lg:focus-within:w-[600px] xl:focus-within:w-[800px] transition-all duration-300 ease-in-out">
+                <input type="text" [(ngModel)]="extraPrompt"
+                    [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
+                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 dark:bg-gray-800 bg-white placeholder-gray-400 transition-all duration-300"
+                    placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
 
-            <div class="relative flex items-center">
-                <button mat-icon-button class="bg-gray-100 hover:bg-gray-200 text-gray-700 mx-1 relative"
-                    matTooltip="Đính kèm hình ảnh/tài liệu tham khảo" (click)="videoAttachment.click()"
-                    [disabled]="isAnalyzing">
-                    <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
-                    <span *ngIf="attachedVideoFiles.length > 0"
-                        class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-                        {{ attachedVideoFiles.length }}
-                    </span>
-                    <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md"
-                        (change)="onVideoAttachmentSelected($event)" class="hidden" title="Đính kèm tài liệu">
-                </button>
+                <div class="absolute right-1 flex items-center">
+                    <button mat-icon-button class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 w-8 h-8 min-h-8 flex items-center justify-center relative"
+                        matTooltip="Đính kèm hình ảnh/tài liệu tham khảo" (click)="videoAttachment.click()"
+                        [disabled]="isAnalyzing">
+                        <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
+                        <span *ngIf="attachedVideoFiles.length > 0"
+                            class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold z-10">
+                            {{ attachedVideoFiles.length }}
+                        </span>
 
-                <button *ngIf="attachedVideoFiles.length > 0" mat-icon-button
-                    class="text-red-500 hover:bg-red-50 icon-size-6" (click)="attachedVideoFiles = []"
-                    matTooltip="Xóa file đính kèm">
-                    <mat-icon class="icon-size-4">close</mat-icon>
-                </button>
+                        <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md"
+                            (change)="onVideoAttachmentSelected($event)" class="hidden" title="Đính kèm tài liệu">
+                    </button>
+
+                    <button *ngIf="attachedVideoFiles.length > 0" mat-icon-button
+                        class="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 min-h-8 flex items-center justify-center ml-1" (click)="attachedVideoFiles = []"
+                        matTooltip="Xóa file đính kèm">
+                        <mat-icon class="icon-size-4">close</mat-icon>
+                    </button>
+                </div>
             </div>
 
             <button class="bg-green-500 text-white" (click)="createVideo()" mat-flat-button [disabled]="isAnalyzing">
                 <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
                     [svgIcon]="'feather:loader'"></mat-icon>
+
                 <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
+
                 <mat-label class="ml-2 text-white">
                     {{ isAnalyzing ? 'Đang phân tích...' : 'Dựng video' }}
                 </mat-label>
@@ -165,9 +175,10 @@
                             </div>
 
                             <div class="flex-1 min-w-0 w-full flex items-start gap-2" *ngIf="clip.isEditing">
-                                <textarea [(ngModel)]="clip.tempDescription" spellcheck="false"
-                                    class="flex-1 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-0 rounded-md focus:outline-none focus:ring-0 resize-y min-h-[60px] transition-colors"
-                                    rows="2"></textarea>
+                                <textarea [(ngModel)]="clip.tempDescription" spellcheck="false" cdkTextareaAutosize
+                                    cdkAutosizeMinRows="4" cdkAutosizeMaxRows="15"
+                                    class="flex-1 px-3 py-2 text-sm text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-0 rounded-md focus:outline-none focus:ring-0 resize-y min-h-[100px] transition-colors"
+                                    rows="4"></textarea>
                                 <div class="flex flex-col gap-1 flex-shrink-0">
                                     <button mat-icon-button
                                         class="w-6 h-6 min-h-6 bg-green-100 rounded hover:bg-green-200"

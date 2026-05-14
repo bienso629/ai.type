@@ -40,22 +40,18 @@ import { GoogleGenAI } from '@google/genai';
                 <mat-label>Chọn câu thoại có sẵn</mat-label>
                 <mat-select [(ngModel)]="data.selectedClip" placeholder="Tìm và chọn một câu thoại..." required (selectionChange)="generateAIPrompt()">
                     <mat-option *ngFor="let item of data.availableClips; let i = index" [value]="item" [title]="item.description">
-                        <span class="font-semibold text-gray-400 mr-2">#{{ i + 1 }}</span>
-                        <span>{{ item.description.length > 80 ? (item.description | slice:0:80) + '...' : item.description }}</span>
+                        <span class="line-clamp-1">#{{ i + 1 }} {{ item.description }}</span>
                     </mat-option>
                 </mat-select>
             </mat-form-field>
 
             <div class="relative w-full">
-                <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center mb-2">
                     <mat-label class="text-sm font-medium text-gray-700">Prompt (Mô tả hình ảnh bằng tiếng Anh)</mat-label>
-                    <button mat-stroked-button color="primary" class="h-8 leading-8 text-xs" 
-                            (click)="generateAIPrompt()" 
-                            [disabled]="isGenerating || !data.selectedClip">
-                        <mat-icon class="icon-size-4 mr-1" *ngIf="!isGenerating">auto_awesome</mat-icon>
-                        <mat-spinner diameter="16" class="mr-1 inline-block" *ngIf="isGenerating"></mat-spinner>
-                        Tạo bằng AI
-                    </button>
+                    <div *ngIf="isGenerating" class="flex items-center ml-3 text-primary">
+                        <mat-spinner diameter="16" class="mr-1 inline-block"></mat-spinner>
+                        <span class="text-xs font-medium">Đang tạo...</span>
+                    </div>
                 </div>
                 <mat-form-field appearance="outline" class="w-full">
                     <textarea matInput [(ngModel)]="data.prompt" rows="4" required 

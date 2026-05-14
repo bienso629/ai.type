@@ -2310,7 +2310,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     if (details && details.success && details.data) {
                         this.details = details.data;
 
-                        if (!details.data.source.backup) {
+                        if (!this.details.source) {
+                            this.details.source = { backup: this.source.backup };
+                        } else if (!this.details.source.backup) {
                             this.details.source.backup = this.source.backup;
                         }
 
@@ -2362,9 +2364,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                                 ) {
                                     this.details = details.data;
 
-                                    if (!details.data.source.backup) {
-                                        this.details.source.backup =
-                                            this.source.backup;
+                                    if (!this.details.source) {
+                                        this.details.source = { backup: this.source.backup };
+                                    } else if (!this.details.source.backup) {
+                                        this.details.source.backup = this.source.backup;
                                     }
 
                                     // if (this.details.domain) {
@@ -2818,7 +2821,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             });
         } else {
             // cài đặt ban đầu
-            this.source = editor.source ? editor.source : this.source;
+            if (editor.source) {
+                this.source = { ...this.source, ...editor.source };
+            }
             this.source.prompt = this.source.prompt ? this.source.prompt : [];
 
             if (!this.source.playlist) {
