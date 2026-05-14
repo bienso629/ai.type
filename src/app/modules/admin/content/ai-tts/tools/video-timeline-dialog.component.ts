@@ -217,7 +217,7 @@ export class VideoTimelineDialogComponent implements OnInit {
             this.toastr.warning('Nhân vật này chưa có câu prompt tạo hình.');
             return;
         }
-        
+
         // Nối Master Prompt vào để nhân vật cũng giữ đúng phong cách (VD: hoạt hình 3D)
         const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
         const finalPrompt = master ? `${master}\n\n${char.prompt}` : char.prompt;
@@ -266,12 +266,12 @@ export class VideoTimelineDialogComponent implements OnInit {
             this.openCharacterDialog();
             return;
         }
-        
+
         const randomKey = secretKey[Math.floor(Math.random() * secretKey.length)];
 
         this.isGeneratingCharacter = true;
         this.cd.markForCheck();
-        
+
         const existingNames = (this.projectData.characters || []).map((c: any) => c.name || c.role).join(', ');
         const ignoreInstruction = existingNames ? `DO NOT generate these characters because they already exist: ${existingNames}. Generate a NEW character from the story.` : 'Extract the main character or a significant character from the story.';
 
@@ -294,7 +294,7 @@ export class VideoTimelineDialogComponent implements OnInit {
 
         try {
             const ai = new GoogleGenAI({ apiKey: randomKey });
-            
+
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: this.projectData.masterPrompt,
@@ -330,10 +330,11 @@ export class VideoTimelineDialogComponent implements OnInit {
         const dialogRef = this.dialog.open(CharacterDialogComponent, {
             width: '600px',
             maxWidth: '95vw',
+            height: 'auto',
             disableClose: true,
-            data: { 
-                char: char, 
-                index: index, 
+            data: {
+                char: char,
+                index: index,
                 masterPrompt: this.projectData?.masterPrompt || '',
                 existingCharacters: this.projectData?.characters || []
             }
@@ -361,14 +362,14 @@ export class VideoTimelineDialogComponent implements OnInit {
     duplicateCharacter(char: any) {
         if (!this.projectData) this.projectData = {};
         if (!this.projectData.characters) this.projectData.characters = [];
-        
+
         const newChar = { ...char };
         newChar.variant = newChar.variant ? `${newChar.variant} (Copy)` : 'Phiên bản mới';
-        
+
         this.projectData.characters.push(newChar);
         this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
         this.saveData();
-        
+
         this.toastr.success(`Đã nhân bản nhân vật: ${char.name || char.role}`);
     }
 
@@ -386,6 +387,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 if (index >= 0 && index < this.projectData.scenes.length) {
                     video.prompt = result.prompt;
                     if (result.imageUrl) video.imageUrl = result.imageUrl;
+                    if (result.aspectRatio) video.aspectRatio = result.aspectRatio;
                     this.saveData();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
                 }
@@ -597,10 +599,10 @@ export class VideoTimelineDialogComponent implements OnInit {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '650px',
             disableClose: true,
-            data: { 
-                selectedClip: null, 
-                prompt: '', 
-                characters: this.projectData?.characters || [], 
+            data: {
+                selectedClip: null,
+                prompt: '',
+                characters: this.projectData?.characters || [],
                 masterPrompt: this.projectData?.masterPrompt || '',
                 availableClips: this.allClips
             },
@@ -675,7 +677,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 if (!this.projectData) this.projectData = {};
                 let currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
                 currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
-                
+
                 if (currentPrompt) {
                     this.projectData.masterPrompt = '[Cinematography: ' + result + ']\n\n' + currentPrompt;
                 } else {
@@ -767,7 +769,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                     // Lưu lại và báo thành công
                     this.saveData();
                     this.toastr.success(`Đã gán ảnh vừa tải ảnh vào Phân cảnh!`, "Tải ảnh thành công!");
-                    
+
                     // Xóa scene đang được chọn để tránh gắn nhầm cho các lần tải sau
                     // và ngăn chặn lỗi hiển thị nhiều thông báo do event listener bị trùng lặp
                     this.activeDownloadScene = null;

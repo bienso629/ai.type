@@ -3,7 +3,7 @@
         {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
     </h2>
 
-    <mat-dialog-content class="flex flex-col gap-2 p-0 py-4">
+    <mat-dialog-content class="flex flex-col gap-2 p-0">
         <div class="flex flex-col gap-4 items-start mb-2">
             <!-- Avatar Section -->
             <div class="flex flex-wrap gap-3 w-full items-start mt-2 px-1">
@@ -18,9 +18,23 @@
                     </button>
                 </div>
 
-                <div class="relative w-20 h-20 shrink-0 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors"
-                    (click)="avatarInput.click()">
-                    <mat-icon class="text-gray-400 icon-size-8">add_photo_alternate</mat-icon>
+                <div
+                    class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50">
+                    <button mat-icon-button
+                        class="bg-green-100 hover:bg-green-200 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
+                        (click)="avatarInput.click()" matTooltip="Tải ảnh lên">
+                        <mat-icon class="icon-size-4 text-green-600">upload_file</mat-icon>
+                    </button>
+
+                    <button mat-icon-button
+                        class="bg-blue-100 hover:bg-blue-200 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
+                        (click)="generateAvatar()" [disabled]="isGeneratingAvatar" matTooltip="Tạo hình AI">
+                        @if (isGeneratingAvatar) {
+                        <mat-spinner diameter="16"></mat-spinner>
+                        } @else {
+                        <mat-icon class="icon-size-4 text-blue-500">auto_awesome</mat-icon>
+                        }
+                    </button>
                 </div>
 
                 <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
