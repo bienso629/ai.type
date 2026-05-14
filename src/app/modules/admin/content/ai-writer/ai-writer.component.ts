@@ -2217,6 +2217,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Sửa archive
      */
     update(confirm: boolean = false) {
+        if (!this.uuid) {
+            this.archive();
+            return;
+        }
+
         this.checkseo();
 
         let data = {
@@ -2244,7 +2249,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 complete: () => {
                     // this.storelocal();
                     if (this.new_version === -2) {
-                        this.details['history'].push(data);
+                        if (this.details) {
+                            if (!this.details['history']) this.details['history'] = [];
+                            this.details['history'].push(data);
+                        }
 
                         const currentUrl = this.router.url;
                         this.router
@@ -2255,11 +2263,13 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         this.toastr.success(`Lưu trữ một phiên bản mới.`);
                     } else {
-                        let index = _.findIndex(this.details['history'], {
-                            createdAt: this.version_value,
-                        });
+                        if (this.details && this.details['history']) {
+                            let index = _.findIndex(this.details['history'], {
+                                createdAt: this.version_value,
+                            });
 
-                        if (index > -1) this.details['history'][index] = data;
+                            if (index > -1) this.details['history'][index] = data;
+                        }
 
                         this.toastr.success(`Văn bản đã được lưu trữ.`);
                     }

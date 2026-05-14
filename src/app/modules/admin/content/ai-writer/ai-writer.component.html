@@ -121,7 +121,7 @@
                                     <input matInput [formControlName]="'title'" [placeholder]="'Hôm nay bạn muốn viết gì?'" required>
                                     <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon> -->
                                     <button mat-icon-button matSuffix [color]="'primary'" matTooltipPosition="above" matTooltip="Lưu kết quả công việc của bạn"
-                                        (click)="(name !== user.name) ? alert('Vì bạn không phải là tác giả của bài viết này nên bạn không được lưu.') : update(true)">
+                                        (click)="(name && name !== user.name) ? alert('Vì bạn không phải là tác giả của bài viết này nên bạn không được lưu.') : (uuid ? update(true) : archive())">
                                         <mat-icon class="icon-size-4" [svgIcon]="(new_version >= -1) ? 'feather:check' : 'feather:plus'"></mat-icon>
                                     </button>
                                 </mat-form-field>
