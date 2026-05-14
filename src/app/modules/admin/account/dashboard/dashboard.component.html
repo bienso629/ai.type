@@ -14,21 +14,48 @@
                             <div class="text-lg font-medium tracking-tight truncate" [title]="item.title">
                                 {{item.title}}
                             </div>
-                            <div
-                                class="flex items-center justify-center min-w-8 h-8 px-2 rounded-full bg-primary-50 text-primary-600 font-normal text-base">
-                                {{item.count || 0}}
+                        </div>
+                        <div class="mt-4 flex items-center justify-between text-xs text-secondary">
+                            <span class="flex items-center" [title]="'Ngày chỉnh sửa gần nhất'">
+                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:clock'"></mat-icon>
+                                {{(item.lastItemUpdatedAt || item.lastUpdatedAt || item.lastUpdated || item.updatedAt) | timeago}}
+                            </span>
+                            <span
+                                class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">
+                                {{item.count || 0}} bản ghi • {{item.totalUsed || item.used || item.total_used || 0}} lần dùng
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Video Projects Section -->
+        <div class="p-6 md:p-8 pt-0">
+            <div class="text-2xl font-bold tracking-tight leading-8 mb-6">{{videoProjects?.length || 0}} kịch bản video đang xây dựng</div>
+            <div *ngIf="videoProjects && videoProjects.length > 0"
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div *ngFor="let project of videoProjects" [routerLink]="['/voice2video', user.name, project.uuid]"
+                    class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-blue-600 rounded-xl overflow-hidden cursor-pointer relative group">
+                    <div class="p-6 flex flex-col flex-auto">
+                        <div class="flex items-center justify-between mb-4">
+                            <div class="text-lg font-medium tracking-tight truncate" [title]="project.title">
+                                {{project.title || 'Dự án mới'}}
                             </div>
                         </div>
                         <div class="mt-4 flex items-center justify-between text-xs text-secondary">
                             <span class="flex items-center">
-                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:clock'"></mat-icon>
-                                {{item.updatedAt | timeago}}
+                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:video'"></mat-icon>
+                                {{project.clips?.length || 0}} cảnh quay
                             </span>
-                            <span
-                                class="bg-gray-100 text-gray-500 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{item.type}}</span>
+                            <span [ngClass]="project.statusClass" class="px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{project.statusLabel}}</span>
                         </div>
                     </div>
                 </div>
+            </div>
+            
+            <div *ngIf="!videoProjects || videoProjects.length === 0" class="text-gray-500 text-sm mt-2">
+                Chưa có kịch bản video nào đang làm.
             </div>
         </div>
 

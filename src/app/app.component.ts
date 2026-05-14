@@ -414,14 +414,42 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 webview.style.border = 'none';
                 webview.style.display = 'flex';
                 webview.style.flex = '1';
+                webview.style.opacity = '0';
+                webview.style.transition = 'opacity 0.2s ease-in-out';
+                
+                // Fallback hiển thị sau 1s nếu dom-ready quá lâu
+                setTimeout(() => { webview.style.opacity = '1'; }, 1000);
 
                 webview.addEventListener('console-message', (e: any) => {
                     console.log(`[Webview Console] level ${e.level}: ${e.message}`);
                 });
 
                 webview.addEventListener('dom-ready', () => {
-                    // Mở devtools để dễ debug lỗi Đang tải
-                    // webview.openDevTools();
+                    // Inject CSS để làm đẹp thanh cuộn cho webview (dark theme phù hợp với Gemini)
+                    const scrollbarCSS = `
+                        ::-webkit-scrollbar {
+                            width: 6px;
+                            height: 6px;
+                        }
+                        ::-webkit-scrollbar-track {
+                            background: transparent;
+                        }
+                        ::-webkit-scrollbar-thumb {
+                            background: rgba(255, 255, 255, 0.2);
+                            border-radius: 10px;
+                        }
+                        ::-webkit-scrollbar-thumb:hover {
+                            background: rgba(255, 255, 255, 0.4);
+                        }
+                    `;
+                    try {
+                        (webview as any).insertCSS(scrollbarCSS);
+                    } catch (e) {
+                        console.warn('Không thể inject CSS vào webview:', e);
+                    }
+                    
+                    // Hiện webview sau khi đã tiêm CSS
+                    setTimeout(() => { webview.style.opacity = '1'; }, 50);
                 });
 
                 container.appendChild(webview);

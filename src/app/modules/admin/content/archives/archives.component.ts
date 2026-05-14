@@ -25,6 +25,7 @@ import { FormControl } from '@angular/forms';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'archives',
@@ -369,12 +370,14 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
+                    console.log('following', result);
                     if (
                         result &&
                         result.counts &&
                         result.counts.following > 0
                     ) {
                         this.following_users = result.users;
+                        localStorage.following_users = JSON.stringify(this.following_users);
                     }
                 },
                 error: () => { },
@@ -429,8 +432,17 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private cd: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
+
+        // Subscribe to config changes
+        this._fuseConfigService.config$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((config: AppConfig) => {
+                // Store the config
+                this.config = config;
+            });
 
         // Subscribe to user changes
         this._userService.user$
@@ -451,27 +463,15 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                     return;
                 }
 
-                if (localStorage.following_users) {
-                    try {
-                        this.following_users = JSON.parse(localStorage.following_users);
-                    } catch (e) {
-                        this.following_users = [];
-                    }
+                // Load following users from multiAccountService
+                let following = this.multiAccountService.getItem('following_users');
+                if (following && Array.isArray(following) && following.length > 0) {
+                    this.following_users = following;
                 } else {
                     this.following();
                 }
 
                 this.collection();
-
-                // searchTotalArchive moved to ngOnInit to prioritize localStorage
-            });
-
-        // Subscribe to config changes
-        this._fuseConfigService.config$
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe((config: AppConfig) => {
-                // Store the config
-                this.config = config;
             });
     }
 

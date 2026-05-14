@@ -58,7 +58,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     loadTools(): void {
         let savedTools = this.multiAccountService.getItem('tools_urls');
-        
+
         // Remove Google Labs from existing cached tools
         if (savedTools && savedTools.length > 0) {
             const hasLabs = savedTools.find((t: any) => t.name === 'Google Labs');
@@ -153,11 +153,29 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 webview.style.border = 'none';
                 webview.style.display = 'flex';
                 webview.style.flex = '1';
+                webview.style.opacity = '0';
+                webview.style.transition = 'opacity 0.2s ease-in-out';
+
+                // Fallback hiển thị sau 1s nếu dom-ready quá lâu
+                setTimeout(() => { webview.style.opacity = '1'; }, 1000);
+
+                webview.addEventListener('dom-ready', () => {
+                    const scrollbarCSS = `
+                        ::-webkit-scrollbar { width: 4px; height: 4px; }
+                        ::-webkit-scrollbar-track { background: transparent; }
+                        ::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 10px; }
+                        ::-webkit-scrollbar-thumb:hover { background: rgba(255, 255, 255, 0.4); }
+                    `;
+                    try { (webview as any).insertCSS(scrollbarCSS); } catch (e) { }
+
+                    // Hiện webview sau khi đã tiêm CSS
+                    setTimeout(() => { webview.style.opacity = '1'; }, 50);
+                });
 
                 container.appendChild(webview);
             }
         }
-        
+
         // Cập nhật isWebviewVisible (phát sự kiện toggle)
         window.dispatchEvent(new CustomEvent('toggle-gemini', { detail: { forceOpen: true } }));
         // Đóng panel sau khi chọn
@@ -177,17 +195,17 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     onOpenWebTool(event: CustomEvent): void {
         const url = event.detail.url;
         if (!url) return;
-        
+
         // Cố gắng tìm tool cũ (cùng URL tĩnh hoặc cùng là Auto Tools)
         let tool = this.tools.find(t => t.url === url || (t.name === 'Auto Tools' && url.includes('facebook.com')));
-        
+
         if (!tool) {
             tool = { id: Date.now().toString(), name: 'Auto Tools', url: url };
             this.tools.unshift(tool);
         } else {
             // Cập nhật lại URL mới (vì có uniqueID thay đổi liên tục)
             tool.url = url;
-            
+
             // Cập nhật thẻ webview luôn nếu nó đã được render
             const container = document.getElementById('webview-container-div');
             if (container) {
@@ -197,7 +215,7 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 }
             }
         }
-        
+
         this.multiAccountService.setItem('tools_urls', this.tools);
         this.open();
         this.openTool(tool);

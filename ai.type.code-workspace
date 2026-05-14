@@ -5,6 +5,9 @@
 		},
 		{
 			"path": "../apps"
+		},
+		{
+			"path": "../api"
 		}
 	],
 	"settings": {}

@@ -23,6 +23,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     config: AppConfig;
 
     collections: any[] = [];
+    videoProjects: any[] = [];
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -33,13 +34,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .collections({
                 username: this.user.name,
                 page: { size: 100 },
-                includeUuid: false
+                includeUuid: true
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
                         this.collections = result.data;
+                        
+                        // Calculate real usage and max updated date for each collection
+                        for (let col of this.collections) {
+                            // Default values
+                            col.totalUsed = 0;
+                            col.lastItemUpdatedAt = col.updatedAt;
+                            
+                            let uuids = Array.isArray(col.uuid) ? col.uuid : (col.uuid ? [col.uuid] : []);
+                            if (uuids.length > 0) {
+                                this._crawlService.archive({
+                                    username: this.user.name,
+                                    keyword: '',
+                                    uuids: uuids,
+                                    page: { size: 1000, pageNumber: 0 },
+                                    bookmark: null
+                                }).subscribe((res: any) => {
+                                    if (res && res.data && res.data.docs) {
+                                        const docs = res.data.docs;
+                                        let totalUsed = 0;
+                                        let maxTime = new Date(col.updatedAt).getTime();
+                                        let maxDate = col.updatedAt;
+                                        
+                                        docs.forEach((doc: any) => {
+                                            if (doc.used && doc.used > 0) {
+                                                totalUsed += doc.used;
+                                            }
+                                            if (doc.updatedAt) {
+                                                const docTime = new Date(doc.updatedAt).getTime();
+                                                if (docTime > maxTime) {
+                                                    maxTime = docTime;
+                                                    maxDate = doc.updatedAt;
+                                                }
+                                            }
+                                        });
+                                        
+                                        col.totalUsed = totalUsed;
+                                        col.lastItemUpdatedAt = maxDate;
+                                    }
+                                });
+                            }
+                        }
                     }
                 },
                 error: () => { },
@@ -126,6 +168,34 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
                 this.collection();
                 this.statistic();
+                
+                // Get video projects being built
+                setTimeout(() => {
+                    let projects = this.multiAccountService.getItemsByPrefix('ai_type_audio_merger_data_') || [];
+                    this.videoProjects = projects.filter(p => p.uuid && p.title).map(p => {
+                        // Calculate dynamic status
+                        let statusLabel = 'Bản nháp';
+                        let statusClass = 'bg-blue-100 text-blue-600';
+                        
+                        if (!p.clips || p.clips.length === 0) {
+                            statusLabel = 'Trống';
+                            statusClass = 'bg-gray-100 text-gray-600';
+                        } else {
+                            const hasAudio = p.clips.some((c: any) => c.localFilePath || c.audioFileName);
+                            const allAudio = p.clips.every((c: any) => c.localFilePath || c.audioFileName);
+                            
+                            if (allAudio) {
+                                statusLabel = 'Sẵn sàng';
+                                statusClass = 'bg-green-100 text-green-600';
+                            } else if (hasAudio) {
+                                statusLabel = 'Đang làm';
+                                statusClass = 'bg-amber-100 text-amber-600';
+                            }
+                        }
+                        
+                        return { ...p, statusLabel, statusClass };
+                    });
+                }, 500); // wait a bit to ensure multiAccountService has loaded if needed
             });
     }
 

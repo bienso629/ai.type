@@ -110,6 +110,16 @@ export class MultiAccountService {
         }
     }
 
+    /**
+     * Lấy các items có key bắt đầu bằng prefix
+     */
+    getItemsByPrefix(prefix: string): any[] {
+        if (!this.currentSessionData) return [];
+        return Object.keys(this.currentSessionData)
+            .filter(key => key.startsWith(prefix))
+            .map(key => this.currentSessionData[key]);
+    }
+
     // ==========================================
     // 2. HÀM XỬ LÝ LỖI TOÀN CỤC CHO INDEXEDDB
     // ==========================================
