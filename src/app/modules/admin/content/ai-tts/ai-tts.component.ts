@@ -1614,6 +1614,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             event.currentIndex,
         );
         this.saveToLocal();
+        this.update(false);
     }
 
     removeClip(index: number) {
@@ -1637,6 +1638,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.audioList.splice(index, 1);
                 this.calculateTotalDuration();
                 this.saveToLocal();
+                this.update(false);
                 this.cd.markForCheck();
             }
         });
@@ -1695,6 +1697,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         data.done = this.audioList.map(clip => `<p>${clip.description}</p>`);
         data.confirm = confirm;
         data.username = this.user?.name;
+        
+        // Chỉ định new_version = -1 để ghi đè lên bản gốc
+        data.new_version = -1;
+        if (this.originalArchiveData && this.originalArchiveData.createdAt) {
+            data.createdAt = this.originalArchiveData.createdAt;
+        }
 
         this._crawlService
             .archiveUpdate(data)
@@ -1956,9 +1964,29 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.audioList = [...this.audioList, ...newClips];
             this.calculateTotalDuration();
             this.saveToLocal();
+            this.update(false);
             this.cd.markForCheck();
             this.toastr.success(`Đã thêm ${newClips.length} files.`);
         } catch (err) { }
+    }
+
+    addEmptyClip() {
+        const newClip: AudioClip = {
+            id: this.generateId(),
+            name: 'Đoạn thoại mới',
+            duration: 0,
+            description: '',
+            username: this.user?.name || '',
+            voice: 'vi-VN-Standard-A',
+            rate: 1.0,
+            pitch: 0,
+            isEditing: true, // Auto open edit mode
+            tempDescription: ''
+        };
+        this.audioList = [...this.audioList, newClip];
+        this.saveToLocal();
+        this.update(false);
+        this.cd.markForCheck();
     }
 
     private createAudioClipFromFile(file: File): Promise<AudioClip> {
