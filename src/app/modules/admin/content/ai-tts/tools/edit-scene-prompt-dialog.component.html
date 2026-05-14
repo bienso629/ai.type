@@ -3,18 +3,15 @@
         Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
     </h2>
 
-    <mat-dialog-content class="flex flex-col gap-4 p-0 py-4">
+    <mat-dialog-content class="flex flex-col gap-4 p-0">
         @if (characters && characters.length > 0) {
-        <div class="flex flex-col gap-2">
-            <span class="text-sm font-semibold text-indigo-800 flex items-center">
-                <mat-icon class="icon-size-4 mr-2">group_add</mat-icon> Đưa nhân vật vào phân cảnh:
-            </span>
+        <div class="flex flex-col mt-4">
             <div class="flex flex-wrap gap-2">
                 @for (char of characters; track char) {
                 <button mat-stroked-button
                     class="bg-green-500 border-0 hover:border-0 px-3 py-0 h-8 min-h-8 rounded-full text-white rounded-full"
                     (click)="addCharToScenePrompt(char)">
-                    <mat-icon class="icon-size-4 text-white">add</mat-icon>
+                    <mat-icon class="icon-size-4 text-white">person</mat-icon>
                     <span class="ml-2 text-white">{{ char.name || char.role }}{{ char.variant ? ' (' + char.variant +
                         ')' : '' }}</span>
                 </button>
@@ -23,18 +20,65 @@
         </div>
         }
 
-        <div class="flex justify-end mb-[-16px] z-10 relative px-1">
-            <button mat-stroked-button
-                class="text-indigo-600 bg-indigo-100 border-0 hover:border-0 hover:bg-indigo-200 px-3 py-0 h-8 min-h-8 rounded-full"
-                (click)="openDirectorModeForScene()">
-                <mat-icon class="icon-size-4 text-indigo-600">movie_creation</mat-icon>
-                <span class="ml-2">Director Mode</span>
-            </button>
+        <!-- Storyboard Area -->
+        <div class="flex items-start gap-4 mb-2 mt-2">
+            <div *ngIf="editingScenePrompt.imageUrl"
+                class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group shadow-sm border border-slate-200 transition-all duration-300"
+                [ngStyle]="getAspectRatioStyle()">
+                <img [src]="editingScenePrompt.imageUrl" class="w-full h-full object-cover rounded-lg">
+                <button mat-icon-button
+                    class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                    (click)="removeImage()">
+                    <mat-icon class="icon-size-4 text-white">close</mat-icon>
+                </button>
+            </div>
+
+            <div *ngIf="!editingScenePrompt.imageUrl"
+                class="relative shrink-0 rounded-lg border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
+                [ngStyle]="getAspectRatioStyle()">
+                <button mat-icon-button class="bg-green-100 hover:bg-green-200" (click)="imageInput.click()">
+                    <mat-icon class="icon-size-4 text-green-600">upload_file</mat-icon>
+                </button>
+
+                <button mat-icon-button class="bg-blue-100 hover:bg-blue-200" (click)="generateImage()">
+                    @if (isGeneratingImage) {
+                    <mat-spinner diameter="16"></mat-spinner>
+                    } @else {
+                    <mat-icon class="icon-size-4 text-blue-500">auto_awesome</mat-icon>
+                    }
+                </button>
+            </div>
+
+            <input #imageInput type="file" (change)="onImageSelected($event)" accept="image/*" class="hidden">
+
+            <div class="flex flex-col gap-1 text-sm text-slate-500 pt-1 flex-1">
+                <span class="font-bold text-slate-800 text-base">Hình ảnh Storyboard</span>
+                <span>
+                    Dùng làm ảnh đại diện cho phân cảnh này. Bạn có thể chọn ảnh có sẵn từ máy tính hoặc để AI tự vẽ dựa
+                    trên nội dung mô tả prompt.
+                </span>
+
+                <div class="mt-2 w-48">
+                    <mat-form-field class="fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+                        <mat-label>Tỉ lệ ảnh tạo ra</mat-label>
+                        <mat-select [(ngModel)]="selectedAspectRatio">
+                            <mat-option *ngFor="let ratio of aspectRatios" [value]="ratio.value">
+                                {{ ratio.label }}
+                            </mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                </div>
+            </div>
         </div>
 
-        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix w-full"
-            [subscriptSizing]="'dynamic'">
-            <mat-label>Prompt Chi Tiết Phân Cảnh</mat-label>
+        <div class="flex items-center justify-between mt-2">
+            <span class="font-semibold text-slate-800">Prompt Chi Tiết Phân Cảnh</span>
+            <a class="text-indigo-600 px-2 py-0 min-w-0" href="javascript:void(0)" (click)="openDirectorModeForScene()">
+                <span class="text-sm">Director Mode</span>
+            </a>
+        </div>
+
+        <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
             <textarea matInput class="px-2" [(ngModel)]="editingScenePrompt.prompt"
                 placeholder="Mô tả hành động, bối cảnh..." cdkTextareaAutosize cdkAutosizeMinRows="5"
                 cdkAutosizeMaxRows="10"></textarea>
@@ -43,10 +87,18 @@
         </mat-form-field>
     </mat-dialog-content>
 
-    <mat-dialog-actions align="end" class="pt-4 px-0 gap-1">
-        <button mat-flat-button color="accent" mat-dialog-close>Hủy</button>
-        <button mat-flat-button color="primary" (click)="save()">
-            Lưu thông tin
-        </button>
+    <mat-dialog-actions align="end" class="pt-4 px-0 gap-2">
+        <a href="javascript:void(0)" class="text-teak text-sm hover:text-teal-700" (click)="generateVideo()">
+            <span class="flex items-center">
+                @if (isGeneratingVideo) {
+                <mat-spinner diameter="16" class="mr-2 text-teal-600"></mat-spinner> Đang render...
+                } @else {
+                <mat-icon class="icon-size-4 mr-2 text-teal-600">movie</mat-icon> Render Video bằng AI
+                }
+            </span>
+        </a>
+
+        <button mat-flat-button color="accent" mat-dialog-close class="ml-auto">Hủy</button>
+        <button mat-flat-button color="primary" (click)="save()">Lưu thông tin</button>
     </mat-dialog-actions>
 </div>

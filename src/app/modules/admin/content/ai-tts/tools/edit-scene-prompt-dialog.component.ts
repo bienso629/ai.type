@@ -1,4 +1,4 @@
-import { Component, Inject } from '@angular/core';
+import { Component, Inject, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -8,11 +8,17 @@ import { MatInputModule } from '@angular/material/input';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { ToastrService } from 'ngx-toastr';
 import { DirectorModeComponent } from './director-mode.component';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { GoogleGenAI } from '@google/genai';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
+
+import { MatSelectModule } from '@angular/material/select';
 
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule],
+    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule, MatProgressSpinnerModule, MatTooltipModule, MatSelectModule],
     templateUrl: './edit-scene-prompt-dialog.component.html'
 })
 export class EditScenePromptDialogComponent {
@@ -20,15 +26,41 @@ export class EditScenePromptDialogComponent {
     editingSceneIndex: number;
     characters: any[] = [];
     masterPrompt: string = '';
+    
+    isGeneratingImage: boolean = false;
+    isGeneratingVideo: boolean = false;
+
+    selectedAspectRatio: string = '9:16';
+    aspectRatios = [
+        { value: '16:9', label: '16:9 (Ngang)' },
+        { value: '9:16', label: '9:16 (Dọc)' },
+        { value: '4:3', label: '4:3' },
+        { value: '3:4', label: '3:4' },
+        { value: '1:1', label: '1:1 (Vuông)' }
+    ];
+
+    getAspectRatioStyle() {
+        switch (this.selectedAspectRatio) {
+            case '16:9': return { 'width': '192px', 'height': '108px' };
+            case '9:16': return { 'width': '108px', 'height': '192px' };
+            case '4:3': return { 'width': '160px', 'height': '120px' };
+            case '3:4': return { 'width': '120px', 'height': '160px' };
+            case '1:1': return { 'width': '144px', 'height': '144px' };
+            default: return { 'width': '192px', 'height': '108px' };
+        }
+    }
 
     constructor(
         public dialogRef: MatDialogRef<EditScenePromptDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private dialog: MatDialog,
-        private toastr: ToastrService
+        private toastr: ToastrService,
+        private multiAccountService: MultiAccountService,
+        private cd: ChangeDetectorRef
     ) {
         this.editingSceneIndex = data.index;
         this.editingScenePrompt = { ...data.scene };
+        this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || '9:16';
         this.characters = data.characters || [];
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
 
@@ -45,6 +77,222 @@ export class EditScenePromptDialogComponent {
                 }
             }
         }
+    }
+
+    private getGeminiKey(): string | null {
+        const settings = this.multiAccountService.getItem('settings');
+        let secretKey;
+        try {
+            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
+        } catch { }
+
+        if (!secretKey) return null;
+        return secretKey[0];
+    }
+
+    async generateImage() {
+        if (!this.editingScenePrompt.prompt) {
+            this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo ảnh!');
+            return;
+        }
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.saveBase64) {
+            this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+            return;
+        }
+
+        const apiKey = this.getGeminiKey();
+        if (!apiKey) {
+            this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+            return;
+        }
+
+        this.isGeneratingImage = true;
+        this.cd.markForCheck();
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: apiKey });
+            const response = await ai.models.generateContent({
+                model: 'gemini-3.1-flash-image-preview',
+                contents: this.editingScenePrompt.prompt,
+                config: {
+                    aspectRatio: this.selectedAspectRatio
+                } as any
+            });
+
+            let base64Data = null;
+            if (response.candidates && response.candidates.length > 0) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        base64Data = part.inlineData.data;
+                        break;
+                    }
+                }
+            }
+
+            if (!base64Data) {
+                throw new Error('Không nhận được dữ liệu ảnh từ AI.');
+            }
+
+            const fileName = `scene_${Date.now()}.png`;
+            const result = await electron.saveBase64({
+                base64: base64Data,
+                fileName: fileName,
+                folder: 'scenes',
+                username: 'ai_type'
+            });
+
+            if (result && result.success) {
+                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                this.editingScenePrompt.imageUrl = finalPath;
+                this.toastr.success('Đã tạo Storyboard thành công!');
+            } else {
+                throw new Error(result.error || 'Lỗi lưu file.');
+            }
+        } catch (error: any) {
+            console.error('Error generating scene image:', error);
+            const errorMsg = this.formatGeminiError(error);
+            this.toastr.error('Lỗi tạo ảnh AI: ' + errorMsg);
+        } finally {
+            this.isGeneratingImage = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    async generateVideo() {
+        if (!this.editingScenePrompt.prompt) {
+            this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo video!');
+            return;
+        }
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.saveBase64) {
+            this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+            return;
+        }
+
+        const apiKey = this.getGeminiKey();
+        if (!apiKey) {
+            this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+            return;
+        }
+
+        this.isGeneratingVideo = true;
+        this.cd.markForCheck();
+
+        try {
+            const ai = new GoogleGenAI({ apiKey: apiKey });
+            let operation: any;
+            
+            // Generate using Reference Image if we already have imageUrl generated by Nano Banana
+            // Currently, using local images requires uploading them to Gemini Files API or converting to base64.
+            // Since Veo 3.1 SDK currently may not support base64 directly as easy as imageBytes in browser, 
+            // we will just pass the prompt directly for now to ensure stability.
+            
+            operation = await ai.models.generateVideos({
+                model: 'veo-3.1-generate-preview',
+                prompt: this.editingScenePrompt.prompt,
+            });
+
+            let pollCount = 0;
+            const MAX_POLLS = 60; // 10 minutes max
+            
+            while (!operation.done) {
+                if (pollCount >= MAX_POLLS) {
+                    throw new Error('Quá thời gian chờ tạo video (10 phút).');
+                }
+                await new Promise(resolve => setTimeout(resolve, 10000));
+                
+                // Refresh operation status
+                operation = await ai.operations.getVideosOperation({
+                    operation: operation,
+                });
+                pollCount++;
+            }
+
+            if (!operation.response || !operation.response.generatedVideos || operation.response.generatedVideos.length === 0) {
+                throw new Error('Không nhận được video từ AI.');
+            }
+
+            const videoInfo = operation.response.generatedVideos[0];
+            const videoUri = videoInfo.video.uri;
+
+            if (!videoUri) {
+                throw new Error('Không tìm thấy URI tải video.');
+            }
+
+            this.toastr.info('Đang tải video về máy...', 'Hệ thống');
+
+            // Download video using fetch with API key header
+            const res = await fetch(videoUri, { headers: { "x-goog-api-key": apiKey } });
+            if (!res.ok) throw new Error('Không thể tải file video từ Google.');
+            
+            const buffer = await res.arrayBuffer();
+            let base64 = '';
+            const bytes = new Uint8Array(buffer);
+            const len = bytes.byteLength;
+            
+            // Optimization for large base64 conversion
+            const chunkSize = 8192;
+            for (let i = 0; i < len; i += chunkSize) {
+                base64 += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+            }
+            base64 = btoa(base64);
+
+            const fileName = `scene_video_${Date.now()}.mp4`;
+            const result = await electron.saveBase64({
+                base64: base64,
+                fileName: fileName,
+                folder: 'scenes_videos',
+                username: 'ai_type'
+            });
+
+            if (result && result.success) {
+                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                this.editingScenePrompt.imageUrl = finalPath; // Save as imageUrl or videoUrl (system handles both)
+                this.editingScenePrompt.videoUrl = finalPath;
+                this.toastr.success('Đã tạo và tải Video phân cảnh thành công!');
+            } else {
+                throw new Error(result.error || 'Lỗi lưu file video.');
+            }
+        } catch (error: any) {
+            console.error('Error generating scene video:', error);
+            const errorMsg = this.formatGeminiError(error);
+            this.toastr.error('Lỗi tạo video AI: ' + errorMsg);
+        } finally {
+            this.isGeneratingVideo = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    private formatGeminiError(error: any): string {
+        let msg = error.message || error.toString() || 'Lỗi không xác định';
+        
+        try {
+            const match = msg.match(/\{"error":.*\}/);
+            if (match) {
+                const parsed = JSON.parse(match[0]);
+                if (parsed.error && parsed.error.message) {
+                    msg = parsed.error.message;
+                }
+            }
+        } catch {}
+
+        if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+            return 'Tài khoản API Key đã hết hạn mức (Quota Exceeded) hoặc bị giới hạn tốc độ. Vui lòng thiết lập thẻ thanh toán trên Google AI Studio hoặc thử lại sau.';
+        }
+        if (msg.includes('400') || msg.includes('INVALID_ARGUMENT')) {
+            return 'Lỗi cấu hình (400): Prompt không hợp lệ hoặc chứa nội dung bị cấm.';
+        }
+        if (msg.includes('500') || msg.includes('INTERNAL')) {
+            return 'Lỗi máy chủ Google (500). Hệ thống AI đang gặp sự cố, vui lòng thử lại sau.';
+        }
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+            return 'Lỗi mạng, không thể kết nối tới Google AI.';
+        }
+
+        return msg;
     }
 
     addCharToScenePrompt(char: any) {
@@ -111,7 +359,40 @@ export class EditScenePromptDialogComponent {
         });
     }
 
+    removeImage() {
+        this.editingScenePrompt.imageUrl = null;
+    }
+
+    async onImageSelected(event: any) {
+        const fileInput = event.target as HTMLInputElement;
+        if (fileInput.files && fileInput.files.length > 0) {
+            try {
+                const electron = (window as any).electron;
+
+                if (!electron || !electron.getPathForFile) {
+                    this.toastr.error('Lỗi cấu hình. Tính năng này yêu cầu App Desktop.');
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const originalPath = electron.getPathForFile(file);
+
+                if (originalPath) {
+                    const localFilePath = await electron.selectLocalFile(originalPath);
+                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
+                    this.editingScenePrompt.imageUrl = finalPath;
+                }
+
+                this.toastr.success('Đã tải ảnh Storyboard thành công!');
+            } catch (error) {
+                console.error('Process error:', error);
+                this.toastr.error('Có lỗi xảy ra: ' + error);
+            }
+        }
+    }
+
     save() {
+        this.editingScenePrompt.aspectRatio = this.selectedAspectRatio;
         this.dialogRef.close(this.editingScenePrompt);
     }
 }
