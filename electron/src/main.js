@@ -4158,12 +4158,20 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         fs.mkdirSync(workspaceDir, { recursive: true });
 
         const sceneVideos = [];
-        let finalAudioListContent = "";
+        let finalAudioListContent = "ffconcat version 1.0\n";
 
         // --- BƯỚC 1: XỬ LÝ TỪNG SCENE ---
         for (let i = 0; i < projectData.scenes.length; i++) {
             const scene = projectData.scenes[i];
-            const originalImgPath = cleanFilePath(scene.imageUrl);
+            
+            // Hỗ trợ cấu trúc mới: hình ảnh có thể nằm trong mảng videos
+            let sceneImg = scene.imageUrl;
+            if (!sceneImg && scene.videos && scene.videos.length > 0) {
+                const validVideo = scene.videos.find(v => v.imageUrl);
+                if (validVideo) sceneImg = validVideo.imageUrl;
+            }
+
+            const originalImgPath = cleanFilePath(sceneImg);
 
             if (!originalImgPath || !fs.existsSync(originalImgPath) || !scene.subtitles?.length) continue;
 
@@ -4220,11 +4228,15 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         }
 
         // --- BƯỚC 2: GỘP AUDIO TỔNG ---
+        if (finalAudioListContent.trim() === "ffconcat version 1.0" || sceneVideos.length === 0) {
+            throw new Error('Dữ liệu Render trống. Hãy đảm bảo bạn đã tải đầy đủ hình ảnh và file audio cho các phân cảnh (Không bị xóa mất file gốc dưới máy tính).');
+        }
+
         fs.writeFileSync(path.join(workspaceDir, 'audios.txt'), finalAudioListContent);
         await spawnFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'audios.txt', '-ar', '44100', '-ac', '2', 'final_audio.wav'], workspaceDir);
 
         // --- BƯỚC 3: GỘP VIDEO TỔNG ---
-        const videoListContent = sceneVideos.map(v => `file '${v}'`).join('\n');
+        const videoListContent = "ffconcat version 1.0\n" + sceneVideos.map(v => `file '${v}'`).join('\n') + '\n';
         fs.writeFileSync(path.join(workspaceDir, 'videos.txt'), videoListContent);
         await spawnFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'videos.txt', '-c', 'copy', 'final_video_muted.mp4'], workspaceDir);
 
