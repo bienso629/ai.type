@@ -585,7 +585,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
         
-        if (isMinerUEnabled) {
+        if (file.name.toLowerCase().endsWith('.pdf')) {
             try {
                 const electron = (window as any).electron;
                 if (!electron) {
@@ -613,10 +613,26 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 });
 
                 try {
-                    const result = await electron.invoke('run-pdf-analysis', filePath);
+                    const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
+                    
+                    let configData = undefined;
+                    if (!isMinerUEnabled) {
+                        try {
+                            const settingsStr = localStorage.getItem('settings');
+                            if (settingsStr) {
+                                const settings = JSON.parse(settingsStr);
+                                configData = {
+                                    url: settings.umodelverseUrl || '',
+                                    key: settings.umodelverseKey || ''
+                                };
+                            }
+                        } catch (e) {}
+                    }
+                    
+                    const result = await electron.invoke(ipcMethod, filePath, configData);
                     
                     this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
-                    console.log("Kết quả phân tích từ minerU:", result);
+                    console.log("Kết quả phân tích từ AI:", result);
                     
                     // Đẩy kết quả phân tích JSON về Server
                     this._chatbotService.uploadMinerUResult({
@@ -659,7 +675,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             }
             return;
         }
-        // Nếu không bật MinerU, sẽ đi tiếp upload như bình thường
+        // Nếu không phải file PDF, sẽ đi tiếp upload như bình thường
 
         const formData = new FormData();
         formData.append('file', file);

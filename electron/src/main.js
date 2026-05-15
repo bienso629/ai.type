@@ -1894,11 +1894,11 @@ const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, s
             const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
             const res = await fetch(url);
             if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-            
+
             const total = parseInt(res.headers.get('content-length'), 10) || 0;
             let downloaded = 0;
             let lastPercent = 0;
-            
+
             if (!fs.existsSync(destDir)) fs.mkdirSync(destDir, { recursive: true });
             const fileStream = fs.createWriteStream(zipPath);
             res.body.on('data', (chunk) => {
@@ -1913,36 +1913,36 @@ const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, s
                     }
                 }
             });
-            
+
             res.body.pipe(fileStream);
-            
+
             fileStream.on('finish', () => {
                 fileStream.close();
                 if (sender) sender.send('pdf-analysis-progress', 'Đang giải nén dữ liệu (Vui lòng đợi vài phút)...');
-                
+
 
                 const { exec } = require('child_process');
                 const isWin = process.platform === 'win32';
-                let extractCmd = isWin 
+                let extractCmd = isWin
                     ? `powershell -command "Expand-Archive -Force -Path '${zipPath}' -DestinationPath '${destDir}'"`
                     : `unzip -o '${zipPath}' -d '${destDir}'`;
 
                 exec(extractCmd, (error) => {
-                    try { fs.unlinkSync(zipPath); } catch(e){} // Dọn rác
+                    try { fs.unlinkSync(zipPath); } catch (e) { } // Dọn rác
                     if (error) {
                         return reject(new Error('Lỗi giải nén: ' + error.message));
                     }
                     resolve();
                 });
             });
-            
+
             fileStream.on('error', (err) => {
-                try { fs.unlinkSync(zipPath); } catch(e){}
+                try { fs.unlinkSync(zipPath); } catch (e) { }
                 reject(err);
             });
-            
+
         } catch (err) {
-            try { fs.unlinkSync(zipPath); } catch(e){}
+            try { fs.unlinkSync(zipPath); } catch (e) { }
             reject(err);
         }
     });
@@ -1979,7 +1979,7 @@ ipcMain.handle('setup-mineru-model', async (event) => {
             await downloadAndExtractZip(url, modelsDir, zipFile, 'Đang tải Mô hình AI (~1.7GB)', event.sender);
             event.sender.send('pdf-analysis-progress', 'Mô hình AI đã sẵn sàng.');
             resolve();
-        } catch(e) {
+        } catch (e) {
             reject(new Error(`Tải model thất bại: ${e.message}`));
         }
     });
@@ -2002,18 +2002,18 @@ ipcMain.handle('download-temp-pdf', async (event, url) => {
             const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
             const res = await fetch(url);
             if (!res.ok) throw new Error(`Lỗi tải file: HTTP ${res.status}`);
-            
+
             const tempDir = app.getPath('temp');
             const tempFile = path.join(tempDir, `temp_mineru_${Date.now()}.pdf`);
             const fileStream = fs.createWriteStream(tempFile);
-            
+
             res.body.pipe(fileStream);
             fileStream.on('finish', () => {
                 fileStream.close();
                 resolve(tempFile);
             });
             fileStream.on('error', (err) => {
-                try { fs.unlinkSync(tempFile); } catch(e){}
+                try { fs.unlinkSync(tempFile); } catch (e) { }
                 reject(err);
             });
         } catch (e) {
@@ -2083,7 +2083,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 const getMinerUExecutableInfoAsync = async () => {
                     const isWin = process.platform === 'win32';
                     const exeName = isWin ? 'mineru_api.exe' : 'mineru_api';
-                    
+
                     // 1. Kiểm tra file trong resources (trường hợp app đóng gói có nhúng sẵn)
                     const exePath = path.join(__dirname, '..', 'bin', exeName);
                     if (fs.existsSync(exePath)) {
@@ -2113,7 +2113,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                     try {
                         await downloadAndExtractZip(zipUrl, mineruDir, zipPath, 'Đang tải tệp Engine AI (~3.3GB)', currentPdfSender);
                         if (!isWin) {
-                            try { fs.chmodSync(downloadedExe, '755'); } catch(e){}
+                            try { fs.chmodSync(downloadedExe, '755'); } catch (e) { }
                         }
                         return { cmd: downloadedExe, args: [], cwd: mineruDir };
                     } catch (err) {
@@ -2187,6 +2187,67 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
             reject(error.message || error);
         }
     });
+});
+
+ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) => {
+    try {
+        const fs = require('fs');
+        const { OpenAI } = require('openai');
+
+        if (event.sender) {
+            event.sender.send('pdf-analysis-progress', 'Đang đọc nội dung file PDF...');
+        }
+
+        const dataBuffer = fs.readFileSync(filePath);
+        const pdfBase64 = dataBuffer.toString('base64');
+
+        if (event.sender) {
+            event.sender.send('pdf-analysis-progress', 'Đang gửi trực tiếp file PDF lên hệ thống AI...');
+        }
+
+        const openai = new OpenAI({
+            apiKey: configData?.key || '',
+            baseURL: configData?.url || '',
+        });
+
+        const completion = await openai.chat.completions.create({
+            model: "gemini-3-flash-preview",
+            messages: [
+                { role: "system", content: "You are a helpful assistant. Extract and format the content from the provided PDF document into a structured JSON array representing sections or paragraphs. Output ONLY valid JSON array. Do not include markdown tags like ```json" },
+                {
+                    role: "user",
+                    content: [
+                        { type: "text", text: "Please analyze this document and return a JSON array of strings containing the text chunks/paragraphs." },
+                        { type: "image_url", image_url: { url: `data:application/pdf;base64,${pdfBase64}` } }
+                    ]
+                }
+            ],
+        });
+
+        const resultText = completion.choices[0].message.content.trim();
+
+        if (event.sender) {
+            event.sender.send('pdf-analysis-progress', 'Hoàn tất phân tích AI!');
+        }
+
+        try {
+            // Loại bỏ markdown code block nếu có
+            let cleanJson = resultText;
+            if (cleanJson.startsWith('```json')) {
+                cleanJson = cleanJson.substring(7);
+            }
+            if (cleanJson.endsWith('```')) {
+                cleanJson = cleanJson.substring(0, cleanJson.length - 3);
+            }
+            // Parse rồi stringify lại để đảm bảo là chuỗi JSON hợp lệ, vì API upload bắt buộc là string
+            return JSON.stringify(JSON.parse(cleanJson.trim()));
+        } catch (e) {
+            return JSON.stringify({ raw_text: resultText }); // Fallback nếu không phải JSON, chuyển thành chuỗi JSON
+        }
+    } catch (error) {
+        console.error("Lỗi phân tích PDF bằng OpenAI:", error);
+        throw error;
+    }
 });
 
 // --- IPC HANDLER: Xử lý việc copy file ---
@@ -3457,7 +3518,7 @@ app.whenReady().then(async () => {
                     const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({
-                        model: "gemini-2.0-flash",
+                        model: "gemini-3-flash-preview",
                     });
 
                     createTargetWindow(
@@ -4355,7 +4416,7 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
 
         let downloadPath = "";
         let attempts = 0;
-        
+
         while (attempts < 900) { // Tăng Timeout lên 30 phút (1800 giây) để cho máy chủ thảnh thơi xử lý
             // === THÊM ĐOẠN NÀY ===
             // Nếu taskId đã bị hàm cancel-tts xóa khỏi sổ, lập tức dừng vòng lặp

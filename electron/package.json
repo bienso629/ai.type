@@ -1,6 +1,6 @@
 {
     "name": "typing",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
     "main": "dist/main.js",
     "scripts": {
@@ -111,7 +111,9 @@
         "minimist": "^1.2.8",
         "msedge-tts": "^2.0.3",
         "node-cache": "^5.1.2",
+        "openai": "^6.37.0",
         "os": "^0.1.2",
+        "pdf-parse": "^2.2.2",
         "puppeteer": "^22.15.0",
         "puppeteer-autoscroll-down": "^2.0.1",
         "puppeteer-cluster": "^0.24.0",
