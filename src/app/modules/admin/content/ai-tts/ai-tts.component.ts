@@ -200,7 +200,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // Kiểm tra xem có clip nào dùng giọng khác Nam Minh và Hoài My không
         const fastVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
         const hasSlowVoice = pendingClips.some(clip => !fastVoices.includes(clip.voice));
-        
+
         // Đặt giới hạn luồng = 3 cho Nam Minh/Hoài My, các giọng khác (như OmniVoice) = 1
         const concurrencyLimit = hasSlowVoice ? 1 : 3;
         this.toastr.info(`Bắt đầu xử lý ${pendingClips.length} mục (Chạy song song ${concurrencyLimit} mục cùng lúc)...`, 'System');
@@ -1102,8 +1102,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
-            - SỬ DỤNG 100% TIẾNG ANH CHUẨN (ENGLISH) cho toàn bộ kết quả JSON trả về. Mọi trường dữ liệu đều phải là Tiếng Anh.
-            - TUYỆT ĐỐI KHÔNG SỬ DỤNG TIẾNG VIỆT TRONG KẾT QUẢ TRẢ VỀ.
+            - Mặc định sử dụng TIẾNG VIỆT CHUẨN (VIETNAMESE) cho toàn bộ kết quả JSON trả về (kịch bản, nhân vật, prompt).
+            - TUY NHIÊN, nếu trong "ĐỊNH DẠNG TÁC PHẨM YÊU CẦU" ở trên có nhắc đến việc sử dụng ngôn ngữ khác (ví dụ: Tiếng Anh), hãy ƯU TIÊN SỬ DỤNG NGÔN NGỮ ĐÓ.
 
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
@@ -1112,7 +1112,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: Trong "prompt" từng scene, TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật. Chỉ cần gọi TÊN hoặc VAI TRÒ (VD: "Người cha", "Cô gái"). Việc tạo hình sẽ do hệ thống quản lý ở phần Characters riêng.
-            - 🎨 TỐI ƯU PHONG CÁCH: Trong "prompt" của từng scene, bạn CHỈ ĐƯỢC PHÉP miêu tả hành động, biểu cảm của nhân vật và bối cảnh không gian. TUYỆT ĐỐI KHÔNG miêu tả phong cách nghệ thuật (Art style/Lighting/Camera) ở đây, vì hệ thống giao diện sẽ tự động ghép Master Prompt vào sau.
+            - 🎨 TỐI ƯU PHONG CÁCH: Trong "prompt" của từng scene, bạn CHỈ ĐƯỢC PHÉP miêu tả góc máy (camera angle), ánh sáng (lighting), hành động, biểu cảm của nhân vật và bối cảnh không gian. TUYỆT ĐỐI KHÔNG miêu tả phong cách nghệ thuật (Art style) ở đây, vì hệ thống giao diện sẽ tự động ghép Master Prompt vào sau.
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1).
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
@@ -1123,19 +1123,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY:
             {
-              "masterPrompt": "Write the Master Prompt in ENGLISH detailing the art style, lighting, and camera...",
+              "masterPrompt": "Viết Master Prompt chi tiết về phong cách nghệ thuật và chất lượng render chung...",
               "characters": [
                 {
-                  "name": "Character Name",
-                  "role": "Role in the story",
-                  "appearance": "Detailed physical appearance in ENGLISH...",
-                  "personality": "Personality in ENGLISH",
-                  "prompt": "Câu prompt độc lập bằng tiếng Anh chuẩn Midjourney/Stable Diffusion để tạo hình (casting) chân dung nhân vật này..."
+                  "name": "Tên nhân vật",
+                  "role": "Vai trò trong câu chuyện",
+                  "appearance": "Mô tả chi tiết ngoại hình...",
+                  "personality": "Mô tả tính cách...",
+                  "prompt": "Câu prompt độc lập chuẩn Midjourney/Stable Diffusion để tạo hình (casting) chân dung nhân vật này..."
                 }
               ],
               "scenes": [
                 {
-                  "prompt": "Write ONLY the action, expression, and environment in ENGLISH (DO NOT write art style)...",
+                  "prompt": "Chỉ viết góc máy, ánh sáng, hành động, biểu cảm và bối cảnh (KHÔNG viết phong cách nghệ thuật chung)...",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
@@ -1697,7 +1697,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         data.done = this.audioList.map(clip => `<p>${clip.description}</p>`);
         data.confirm = confirm;
         data.username = this.user?.name;
-        
+
         // Chỉ định new_version = -1 để ghi đè lên bản gốc
         data.new_version = -1;
         if (this.originalArchiveData && this.originalArchiveData.createdAt) {

@@ -43,7 +43,7 @@ export class FileListDialogComponent implements AfterViewInit {
 
         const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
 
-        if (isMinerUEnabled && filename.toLowerCase().endsWith('.pdf')) {
+        if (filename.toLowerCase().endsWith('.pdf')) {
             const electron = (window as any).electron;
             if (electron) {
                 this.isIndexing = true;
@@ -70,18 +70,34 @@ export class FileListDialogComponent implements AfterViewInit {
                         // Gọi main.js tải file PDF về thư mục temp
                         const tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
                         
-                        this.progressStatus = 'Đang chuẩn bị phân tích bằng MinerU...';
+                        this.progressStatus = isMinerUEnabled ? 'Đang chuẩn bị phân tích bằng MinerU...' : 'Đang chuẩn bị phân tích bằng OpenAI (Local)...';
                         this.progressPercent = 50;
                         this.cdr.markForCheck();
 
-                        // Lắng nghe tiến trình MinerU
+                        // Lắng nghe tiến trình AI
                         const cleanup = electron.onPdfProgress((data: string) => {
                             this.progressStatus = data;
                             this.cdr.markForCheck();
                         });
 
                         try {
-                            const result = await electron.invoke('run-pdf-analysis', tempPdfPath);
+                            const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
+                            
+                            let configData = undefined;
+                            if (!isMinerUEnabled) {
+                                try {
+                                    const settingsStr = localStorage.getItem('settings');
+                                    if (settingsStr) {
+                                        const settings = JSON.parse(settingsStr);
+                                        configData = {
+                                            url: settings.umodelverseUrl || '',
+                                            key: settings.umodelverseKey || ''
+                                        };
+                                    }
+                                } catch (e) {}
+                            }
+                            
+                            const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
                             
                             this.progressStatus = 'Đang lưu kết quả AI lên Server...';
                             this.progressPercent = 90;
@@ -119,7 +135,7 @@ export class FileListDialogComponent implements AfterViewInit {
 
                 } catch (err: any) {
                     this.stopProgressPolling();
-                    this.toastr.error('Lỗi MinerU: ' + (err.message || err));
+                    this.toastr.error('Lỗi phân tích tài liệu AI: ' + (err.message || err));
                     return;
                 }
             }
