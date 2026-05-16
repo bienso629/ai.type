@@ -625,6 +625,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const dataToSave = {
             uuid: targetUuid,
             title: this.projectTitle,
+            extraPrompt: this.extraPrompt,
+            maxDuration: this.maxDuration,
             clips: this.audioList.map((clip) => ({
                 id: clip.id,
                 name: clip.name,
@@ -664,6 +666,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 if (parsed.uuid) {
                     this.uuid = parsed.uuid;
+                }
+
+                if (parsed.extraPrompt !== undefined) {
+                    this.extraPrompt = parsed.extraPrompt;
+                }
+
+                if (parsed.maxDuration !== undefined) {
+                    this.maxDuration = parsed.maxDuration;
                 }
 
                 const clips = parsed.clips || [];
@@ -1256,7 +1266,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 };
 
                 let videos = [];
-                const maxVideoLength = 8;
+                const maxVideoLength = this.maxDuration;
 
                 // Cố gắng tách các "Prompt 1:", "Prompt 2:" ra nếu AI có sinh ra
                 let individualPrompts: string[] = [];
