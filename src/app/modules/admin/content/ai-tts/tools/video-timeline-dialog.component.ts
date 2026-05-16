@@ -346,7 +346,45 @@ export class VideoTimelineDialogComponent implements OnInit {
                 if (!this.projectData.characters) this.projectData.characters = [];
 
                 if (index >= 0) {
+                    const oldChar = this.projectData.characters[index];
+                    const oldPrompt = oldChar?.prompt ? oldChar.prompt.trim() : '';
+                    const newPrompt = result.prompt ? result.prompt.trim() : '';
+
                     this.projectData.characters[index] = result;
+
+                    // Tự động tìm và thay thế (Replace) câu prompt cũ bằng câu mới ở tất cả mọi nơi
+                    if (oldPrompt && newPrompt && oldPrompt !== newPrompt) {
+                        let replacedCount = 0;
+
+                        // 1. Cập nhật Master Prompt
+                        if (this.projectData.masterPrompt && this.projectData.masterPrompt.includes(oldPrompt)) {
+                            this.projectData.masterPrompt = this.projectData.masterPrompt.split(oldPrompt).join(newPrompt);
+                            replacedCount++;
+                        }
+
+                        // 2. Cập nhật tất cả các Phân cảnh (Scenes & Videos)
+                        if (this.projectData.scenes) {
+                            this.projectData.scenes.forEach((scene: any) => {
+                                if (scene.prompt && scene.prompt.includes(oldPrompt)) {
+                                    scene.prompt = scene.prompt.split(oldPrompt).join(newPrompt);
+                                    replacedCount++;
+                                }
+                                if (scene.videos) {
+                                    scene.videos.forEach((video: any) => {
+                                        if (video.prompt && video.prompt.includes(oldPrompt)) {
+                                            video.prompt = video.prompt.split(oldPrompt).join(newPrompt);
+                                            replacedCount++;
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                        
+                        if (replacedCount > 0) {
+                            this.toastr.info(`Đã tự động cập nhật tạo hình nhân vật này cho ${replacedCount} đoạn Prompt!`);
+                        }
+                    }
+
                 } else {
                     this.projectData.characters.push(result);
                 }
