@@ -51,7 +51,7 @@
 
             <div
                 class="relative flex items-center w-48 sm:w-64 focus-within:w-80 md:focus-within:w-[400px] lg:focus-within:w-[600px] xl:focus-within:w-[800px] transition-all duration-300 ease-in-out">
-                <input type="text" [(ngModel)]="extraPrompt" [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
+                <input type="text" [(ngModel)]="extraPrompt" (ngModelChange)="saveToLocal()" [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
                     class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 dark:bg-gray-800 bg-white placeholder-gray-400 transition-all duration-300"
                     placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
 
@@ -78,7 +78,7 @@
             </div>
 
             <mat-form-field class="w-28 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="maxDuration" placeholder="Thời lượng">
+                <mat-select [(ngModel)]="maxDuration" (ngModelChange)="saveToLocal()" placeholder="Thời lượng">
                     <mat-option [value]="4">4s</mat-option>
                     <mat-option [value]="6">6s</mat-option>
                     <mat-option [value]="8">8s</mat-option>
