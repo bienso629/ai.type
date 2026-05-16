@@ -80,6 +80,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     projectTitle: string = 'Dự án mới';
     videoProject: any = null; // [MỚI] Biến lưu trữ kịch bản phân cảnh (scenes)
     extraPrompt: string = ''; // [MỚI] Biến lưu trữ prompt người dùng nhập thêm
+    videoFormat: string = 'video'; // Biến lưu định dạng tác phẩm
+    aspectRatio: string = '16:9'; // [MỚI] Tỉ lệ khung hình
     maxDuration: number = 8; // [MỚI] Thời lượng mặc định của mỗi cảnh
     attachedVideoFiles: { file: File, base64: string, mimeType: string }[] = [];
 
@@ -626,6 +628,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             uuid: targetUuid,
             title: this.projectTitle,
             extraPrompt: this.extraPrompt,
+            videoFormat: this.videoFormat,
+            aspectRatio: this.aspectRatio,
             maxDuration: this.maxDuration,
             clips: this.audioList.map((clip) => ({
                 id: clip.id,
@@ -670,6 +674,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 if (parsed.extraPrompt !== undefined) {
                     this.extraPrompt = parsed.extraPrompt;
+                }
+
+                if (parsed.videoFormat !== undefined) {
+                    this.videoFormat = parsed.videoFormat;
+                }
+
+                if (parsed.aspectRatio !== undefined) {
+                    this.aspectRatio = parsed.aspectRatio;
                 }
 
                 if (parsed.maxDuration !== undefined) {
@@ -1040,22 +1052,35 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
             .join('\n');
 
-        // Phân tích định dạng yêu cầu từ người dùng
-        const defaultFormat = "Video Cinematic chuyên nghiệp";
+        // Lấy định dạng từ select box
         const userFormat = this.extraPrompt && this.extraPrompt.trim() !== ''
             ? this.extraPrompt.trim()
-            : defaultFormat;
+            : "Cinematic chuyên nghiệp";
 
-        const userFormatLower = userFormat.toLowerCase();
+        const isComic = this.videoFormat === 'comic';
+        const isSlide = this.videoFormat === 'slide';
+        const isPodcast = this.videoFormat === 'podcast';
+        const isVideo = this.videoFormat === 'video';
+        
+        // Nhận diện tỉ lệ dọc để tinh chỉnh nhắc nhở AI
+        const isVertical = this.aspectRatio === '9:16' || this.aspectRatio === '3:4';
 
-        // Nhận diện các định dạng đặc thù
-        const isComic = userFormatLower.includes('truyện') || userFormatLower.includes('comic') || userFormatLower.includes('manga') || userFormatLower.includes('webtoon');
-        const isSlide = userFormatLower.includes('slide') || userFormatLower.includes('trình chiếu') || userFormatLower.includes('thuyết trình') || userFormatLower.includes('powerpoint');
-        const isPodcast = userFormatLower.includes('podcast') || userFormatLower.includes('radio') || userFormatLower.includes('kể chuyện audio');
+        let formatText = "Video";
+        switch (this.videoFormat) {
+            case 'video': formatText = "Video"; break;
+            case 'comic': formatText = "Truyện tranh"; break;
+            case 'slide': formatText = "Slide Thuyết trình / Khung hình tĩnh"; break;
+            case 'podcast': formatText = "Podcast / Kể chuyện Audio"; break;
+        }
 
-        // Mặc định là Video nếu không thuộc các loại trên
-        const isVideo = !isComic && !isSlide && !isPodcast;
-        const isVertical = userFormatLower.includes('9:16') || userFormatLower.includes('dọc') || userFormatLower.includes('tiktok') || userFormatLower.includes('shorts') || userFormatLower.includes('reels');
+        // Tự động giải thích tỉ lệ cho AI
+        let aspectDesc = `Tỉ lệ ${this.aspectRatio}`;
+        if (this.aspectRatio === '9:16') aspectDesc += " (Khung hình dọc mỏng - Tiktok/Shorts)";
+        if (this.aspectRatio === '16:9') aspectDesc += " (Khung hình ngang tiêu chuẩn)";
+        if (this.aspectRatio === '3:4') aspectDesc += " (Khung hình dọc vừa)";
+        if (this.aspectRatio === '4:3') aspectDesc += " (Khung hình ngang truyền thống)";
+
+        const finalFormatRequest = `${formatText} - ${aspectDesc}. Phong cách/Yêu cầu: ${userFormat}`;
 
         // Quy đổi tổng thời gian (Chỉ dùng thông báo cho Video)
         const totalSecs = Math.round(this.totalDuration || 0);
@@ -1110,7 +1135,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
             ${timeConstraintPrompt}
 
-            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${userFormat}"${formatInstruction}
+            🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${finalFormatRequest}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
             - Mặc định sử dụng TIẾNG VIỆT CHUẨN (VIETNAMESE) cho toàn bộ kết quả JSON trả về (kịch bản, nhân vật, prompt).
@@ -1335,6 +1360,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 totalOriginalClips: allClips.length,
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,
+                aspectRatio: this.aspectRatio // Lưu tỉ lệ khung hình để render sau này
             };
 
             // Lưu danh sách nhân vật dưới local
