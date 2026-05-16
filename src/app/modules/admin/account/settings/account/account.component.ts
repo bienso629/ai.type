@@ -60,6 +60,20 @@ export class SettingsAccountComponent implements OnInit {
                         if (result && result.success && result.data) {
                             // lưu cấu hình mới nhất về máy
                             this.multiAccountService.setItem('settings', settings);
+                            
+                            // Cập nhật giá trị cấu hình trực tiếp vào in-memory config để các component khác nhận ngay
+                            this._fuseConfigService.config = {
+                                settings: {
+                                    chatbot: settings.chatbot || this.config.settings.chatbot,
+                                    customer: settings.customer || this.config.settings.customer,
+                                    bigdata: settings.bigdata || this.config.settings.bigdata,
+                                    tts: settings.tts || this.config.settings.tts,
+                                    sst: settings.sst || this.config.settings.sst,
+                                    mxhauto: settings.mxhauto || this.config.settings.mxhauto,
+                                    puppeteer: settings.port ? `http://localhost:${settings.port}` : this.config.settings.puppeteer
+                                }
+                            };
+                            
                             this.toastr.success(`Lưu cấu hình!`);
                         } else {
                             this.toastr.error(`Không thể lưu cấu hình.`);

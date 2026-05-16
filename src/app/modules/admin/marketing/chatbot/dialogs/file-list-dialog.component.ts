@@ -7,6 +7,7 @@ import { User } from 'app/core/user/user.types';
 import { ChatbotService } from 'app/modules/_services/chatbot';
 import { ToastrService } from 'ngx-toastr';
 import { catchError, interval, of, Subject, Subscription, switchMap, takeUntil, takeWhile } from 'rxjs';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'app-file-list-dialog',
@@ -54,7 +55,8 @@ export class FileListDialogComponent implements AfterViewInit {
 
                 const dType = doc_type === 'None' ? 'default' : doc_type;
                 const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
-                const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}.mineru.json`;
+                const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
+                const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
                 
                 try {
                     // Bước 1: Kiểm tra xem file json đã tồn tại trên server chưa
@@ -86,15 +88,20 @@ export class FileListDialogComponent implements AfterViewInit {
                             let configData = undefined;
                             if (!isMinerUEnabled) {
                                 try {
-                                    const settingsStr = localStorage.getItem('settings');
-                                    if (settingsStr) {
-                                        const settings = JSON.parse(settingsStr);
+                                    const settings = this._multiAccountService.getItem('settings');
+                                    console.log("file-list-dialog loaded settings:", settings);
+                                    if (settings) {
                                         configData = {
                                             url: settings.umodelverseUrl || '',
                                             key: settings.umodelverseKey || ''
                                         };
+                                        console.log("Constructed configData:", configData);
+                                    } else {
+                                        console.log("settings is empty or null!");
                                     }
-                                } catch (e) {}
+                                } catch (e) {
+                                    console.error("Error loading settings:", e);
+                                }
                             }
                             
                             const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
@@ -300,7 +307,8 @@ export class FileListDialogComponent implements AfterViewInit {
         private _userService: UserService,
         private toastr: ToastrService,
         private _chatbotService: ChatbotService,
-        private cdr: ChangeDetectorRef
+        private cdr: ChangeDetectorRef,
+        private _multiAccountService: MultiAccountService
     ) {
         this.rows = data.rows;
 

@@ -2204,6 +2204,8 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         if (event.sender) {
             event.sender.send('pdf-analysis-progress', 'Đang gửi trực tiếp file PDF lên hệ thống AI...');
         }
+        
+        console.log("RECEIVED configData:", configData);
 
         const openai = new OpenAI({
             apiKey: configData?.key || '',
