@@ -6,7 +6,7 @@ contextBridge.exposeInMainWorld('electron', {
     tools: (data) => ipcRenderer.send('tools-command', data),
 
     // Thêm hàm invoke chung để dùng cho TTS và các tính năng async khác
-    invoke: (channel, data) => ipcRenderer.invoke(channel, data),
+    invoke: (channel, ...args) => ipcRenderer.invoke(channel, ...args),
 
     onToolsResponse: (callback) => {
         const listener = (_event, data) => callback(data);

@@ -585,6 +585,29 @@ export class ChatBotComponent implements OnInit, OnDestroy {
 
         const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
         
+        const triggerIndex = (filename: string) => {
+            let secretKey = this.settings?.secretKey?.split(';');
+            let geminiKey = secretKey?.[0] || '';
+            if (secretKey?.[3]) geminiKey = secretKey[3];
+
+            const payload = {
+                username: this.user.name,
+                google_api_key: geminiKey,
+                llm_model: "gemini-3-flash-preview",
+                index_dir: `faiss_pdf_index`,
+                filename: filename,
+                doc_type: this.currentDocType
+            };
+
+            this._chatbotService.indexFiles(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                next: (res: any) => {
+                    if (res && res.success) {
+                        this.toastr.info('AI đang bắt đầu học tài liệu này...');
+                    }
+                }
+            });
+        };
+
         if (file.name.toLowerCase().endsWith('.pdf')) {
             try {
                 const electron = (window as any).electron;
@@ -618,9 +641,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     let configData = undefined;
                     if (!isMinerUEnabled) {
                         try {
-                            const settingsStr = localStorage.getItem('settings');
-                            if (settingsStr) {
-                                const settings = JSON.parse(settingsStr);
+                            const settings = this.multiAccountService.getItem('settings');
+                            if (settings) {
                                 configData = {
                                     url: settings.umodelverseUrl || '',
                                     key: settings.umodelverseKey || ''
@@ -644,6 +666,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         next: (res) => {
                             if (res && res.success) {
                                 this.toastr.success('Đã lưu kết quả thông minh vào máy chủ!');
+                                triggerIndex(file.name);
                             } else {
                                 this.toastr.error('Lỗi khi lưu kết quả lên máy chủ');
                             }
@@ -688,6 +711,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 next: async (res) => {
                     if (res.success) {
                         this.toastr.success('Upload thành công!');
+                        triggerIndex(file.name);
                     } else {
                         this.toastr.error('Upload thất bại.');
                     }
