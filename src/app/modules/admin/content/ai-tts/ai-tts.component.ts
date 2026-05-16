@@ -80,6 +80,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     projectTitle: string = 'Dự án mới';
     videoProject: any = null; // [MỚI] Biến lưu trữ kịch bản phân cảnh (scenes)
     extraPrompt: string = ''; // [MỚI] Biến lưu trữ prompt người dùng nhập thêm
+    maxDuration: number = 8; // [MỚI] Thời lượng mặc định của mỗi cảnh
     attachedVideoFiles: { file: File, base64: string, mimeType: string }[] = [];
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
@@ -1063,9 +1064,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
 
             maxDurationRule = `
-            - GIỚI HẠN THỜI GIAN: Tối đa 8 GIÂY cho mỗi Phân cảnh.
-            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn 8 giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. VÀ BẮT BUỘC trong nội dung "prompt" của scene đó, bạn phải chủ động chia thành nhiều câu prompt nhỏ (mỗi prompt đại diện cho tối đa 8s, kết hợp thay đổi góc máy để sinh động) để người dùng có thể tạo nhiều video nối tiếp. 
-              (Ví dụ: "Prompt 1 (8s): Góc máy rộng... \\nPrompt 2 (6s): Góc máy cận cảnh..."). 
+            - GIỚI HẠN THỜI GIAN: Tối đa ${this.maxDuration} GIÂY cho mỗi Phân cảnh.
+            - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn ${this.maxDuration} giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. VÀ BẮT BUỘC trong nội dung "prompt" của scene đó, bạn phải chủ động chia thành nhiều câu prompt nhỏ (mỗi prompt đại diện cho tối đa ${this.maxDuration}s, kết hợp thay đổi góc máy để sinh động) để người dùng có thể tạo nhiều video nối tiếp. 
+              (Ví dụ: "Prompt 1 (${this.maxDuration}s): Góc máy rộng... \\nPrompt 2 (6s): Góc máy cận cảnh..."). 
             TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene riêng biệt trong JSON.`;
 
             if (isVertical) {
