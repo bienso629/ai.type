@@ -3,6 +3,8 @@
 *.exe
 *.mp3
 *.wav
+*.webm
+*.mp4
 
 # compiled output
 /dist
