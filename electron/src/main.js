@@ -4640,3 +4640,154 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
         return { success: false, error: err.message };
     }
 });
+
+// =====================================================================
+// IPC HANDLER: TẢI VÀ PHÂN TÍCH VIDEO OFFLINE BẰNG YT-DLP VÀ FFMPEG
+// =====================================================================
+ipcMain.handle('analyze-video-local', async (event, payload) => {
+    try {
+        const { url } = payload;
+        if (!url) {
+            return { success: false, error: 'Không có URL hợp lệ' };
+        }
+
+        const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            fs.mkdirSync(aiTypingDir, { recursive: true });
+        }
+
+        // Tạo một thư mục tạm thời riêng cho task này
+        const timestamp = Date.now();
+        const tempDir = path.join(aiTypingDir, `_temp_${timestamp}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        // Tải video độ phân giải vừa đủ để tăng tốc, KÈM THEO PHỤ ĐỀ
+        const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+
+        sendToRenderer("tools-log", `[AI Analyze] Đang tải video từ YouTube để phân tích...`);
+
+        const ytdlpArgs = [
+            '-o', outputTemplate,
+            '--newline',
+            '--ignore-errors',
+            '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+            '--write-auto-subs',
+            '--write-subs',
+            '--sub-lang', 'vi,en.*'
+        ];
+        if (binaries.ffmpeg) {
+            ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
+        }
+        ytdlpArgs.push(url);
+
+        await new Promise((resolve, reject) => {
+            const child = spawn(ytdlpPath, ytdlpArgs);
+            child.stdout.on('data', (data) => {
+                const line = data.toString().trim();
+                if (line && line.includes('[download]')) sendToRenderer("tools-log", `[AI Analyze] ${line}`);
+            });
+            child.stderr.on('data', (data) => {
+                const line = data.toString().trim();
+                if (line) sendToRenderer("tools-log", `[AI Analyze] ${line}`);
+            });
+            child.on('close', (code) => {
+                // Đôi khi yt-dlp thoát với mã 1 vì không tải được 1 ngôn ngữ phụ đề, nhưng video vẫn tải thành công.
+                // Do đó cứ resolve(), lỗi thực sự sẽ được ném ra nếu không tìm thấy file video.
+                resolve();
+            });
+        });
+
+        // Tìm file video và phụ đề vừa tải về trong thư mục tạm
+        const files = fs.readdirSync(tempDir);
+        const videoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.vtt'));
+        const subtitleFile = files.find(f => f.startsWith('video.') && f.endsWith('.vtt'));
+        
+        if (!videoFile) {
+            throw new Error('Không tìm thấy video tải về.');
+        }
+
+        const videoPath = path.join(tempDir, videoFile);
+        let subtitlesText = "";
+        if (subtitleFile) {
+            try {
+                const subPath = path.join(tempDir, subtitleFile);
+                subtitlesText = fs.readFileSync(subPath, 'utf8');
+                sendToRenderer("tools-log", `[AI Analyze] Đã lấy được phụ đề của video.`);
+            } catch (e) {}
+        }
+
+        sendToRenderer("tools-log", `[AI Analyze] Đã tải xong video. Bắt đầu trích xuất phân cảnh và âm thanh...`);
+
+        // Dùng ffmpeg cắt frame (mỗi 5 giây 1 frame, scale width=640 để AI đọc cho lẹ và giảm token)
+        const framePattern = path.join(tempDir, 'frame_%03d.jpg');
+        const audioPath = path.join(tempDir, 'audio.mp3');
+
+        // Lệnh FFmpeg: Cắt frame ảnh VÀ trích xuất một file audio dung lượng thấp (32k bitrate) cùng lúc
+        const ffmpegArgs = [
+            '-y',
+            '-i', videoPath,
+            // Trích xuất hình ảnh
+            '-vf', 'fps=1/5,scale=640:-1', '-q:v', '5', framePattern,
+            // Trích xuất âm thanh (siêu nhẹ)
+            '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', audioPath
+        ];
+
+        await new Promise((resolve, reject) => {
+            const child = spawn(ffmpegPath, ffmpegArgs);
+            child.on('close', (code) => {
+                if (code === 0) resolve();
+                else reject(new Error(`Trích xuất phân cảnh/âm thanh thất bại với mã thoát: ${code}`));
+            });
+        });
+
+        sendToRenderer("tools-log", `[AI Analyze] Trích xuất thành công. Đang đóng gói dữ liệu gửi cho AI...`);
+
+        // Đọc các frame
+        const allFiles = fs.readdirSync(tempDir);
+        const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
+        
+        // Giới hạn tối đa 20 frames để tránh vọt token Gemini
+        const selectedFrames = frameFiles.slice(0, 20);
+        
+        const base64Frames = [];
+        for (const frameFile of selectedFrames) {
+            const framePath = path.join(tempDir, frameFile);
+            const data = fs.readFileSync(framePath);
+            base64Frames.push(`data:image/jpeg;base64,${data.toString('base64')}`);
+        }
+
+        // Đọc audio
+        let audioBase64 = "";
+        if (fs.existsSync(audioPath)) {
+            const audioData = fs.readFileSync(audioPath);
+            audioBase64 = `data:audio/mp3;base64,${audioData.toString('base64')}`;
+        }
+
+        // Move video ra thư mục AI.TYPING chính và xóa thư mục tạm
+        const finalVideoPath = path.join(aiTypingDir, `analyze_video_${timestamp}${path.extname(videoFile)}`);
+        fs.renameSync(videoPath, finalVideoPath);
+        
+        // Xóa thư mục tạm (chứa các file jpg)
+        try {
+            fs.rmSync(tempDir, { recursive: true, force: true });
+        } catch(e) {}
+
+        sendToRenderer("tools-log", `[AI Analyze] Đã hoàn tất! Video gốc được lưu tại ${finalVideoPath}`);
+
+        return { 
+            success: true, 
+            frames: base64Frames, 
+            audio: audioBase64, 
+            subtitles: subtitlesText 
+        };
+
+    } catch (err) {
+        console.error("Analyze Video Local Error:", err);
+        sendToRenderer("tools-log", `[AI Analyze] Lỗi: ${err.message}`);
+        return { success: false, error: err.message };
+    }
+});

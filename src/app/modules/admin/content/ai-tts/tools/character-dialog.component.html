@@ -76,11 +76,11 @@
             <mat-label>Prompt Tạo hình (Tiếng Anh)</mat-label>
             <textarea matInput class="px-2" [(ngModel)]="editingChar.prompt" placeholder="A boy with blonde hair..."
                 cdkTextareaAutosize></textarea>
-            <mat-hint>Mô tả tiếng Anh chuẩn để dùng cho Midjourney/Stable Diffusion</mat-hint>
+            <!-- <mat-hint>Mô tả tiếng Anh chuẩn để dùng cho Midjourney/Stable Diffusion</mat-hint> -->
         </mat-form-field>
     </mat-dialog-content>
 
-    <mat-dialog-actions align="end" class="pt-4 px-0 gap-1">
+    <mat-dialog-actions align="end" class="flex pt-4 mt-0 px-0 gap-1">
         <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" [disabled]="!editingChar.name && !editingChar.role" (click)="save()">
             Lưu thông tin

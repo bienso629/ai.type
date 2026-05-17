@@ -331,6 +331,7 @@ export class VideoTimelineDialogComponent implements OnInit {
             width: '600px',
             maxWidth: '95vw',
             height: 'auto',
+            maxHeight: '90vh',
             disableClose: true,
             data: {
                 char: char,
@@ -379,7 +380,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                                 }
                             });
                         }
-                        
+
                         if (replacedCount > 0) {
                             this.toastr.info(`Đã tự động cập nhật tạo hình nhân vật này cho ${replacedCount} đoạn Prompt!`);
                         }
@@ -415,11 +416,12 @@ export class VideoTimelineDialogComponent implements OnInit {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             width: '700px',
             maxWidth: '95vw',
+            maxHeight: '90vh',
             disableClose: true,
-            data: { 
-                scene: video, 
-                index: index, 
-                characters: this.projectData?.characters || [], 
+            data: {
+                scene: video,
+                index: index,
+                characters: this.projectData?.characters || [],
                 masterPrompt: this.projectData?.masterPrompt || '',
                 projectAspectRatio: this.projectData?.aspectRatio || '16:9'
             }
@@ -642,6 +644,8 @@ export class VideoTimelineDialogComponent implements OnInit {
     addNewScene() {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '650px',
+            maxWidth: '95vw',
+            maxHeight: '90vh',
             disableClose: true,
             data: {
                 selectedClip: null,
@@ -712,6 +716,7 @@ export class VideoTimelineDialogComponent implements OnInit {
         const dialogRef = this.dialog.open(DirectorModeComponent, {
             width: '900px',
             maxWidth: '95vw',
+            maxHeight: '90vh',
             panelClass: 'dark-theme-dialog',
             data: { prompt: this.projectData?.masterPrompt || '', targetName: 'Apply to Master Prompt' }
         });

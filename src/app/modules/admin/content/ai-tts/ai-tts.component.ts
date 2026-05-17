@@ -1373,9 +1373,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.openTimelineDialog(this.videoProject);
             this.toastr.success(`Đã tối ưu thành ${finalScenes.length} phân cảnh!`);
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Lỗi logic gom nhóm:', error);
-            this.toastr.error('Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau.');
+            const msg = error?.message || 'Hệ thống AI hiện đang quá tải. Vui lòng thử lại sau.';
+            this.toastr.error(msg, 'Lỗi AI');
         } finally {
             this.isAnalyzing = false;
             this.cd.markForCheck();
