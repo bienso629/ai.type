@@ -27,6 +27,7 @@ export class EditScenePromptDialogComponent {
     editingSceneIndex: number;
     characters: any[] = [];
     masterPrompt: string = '';
+    selectedReferenceChars = new Set<any>();
     
     isGeneratingImage: boolean = false;
     isGeneratingVideo: boolean = false;
@@ -49,6 +50,60 @@ export class EditScenePromptDialogComponent {
             case '1:1': return { 'width': '144px', 'height': '144px' };
             default: return { 'width': '192px', 'height': '108px' };
         }
+    }
+
+    toggleReferenceChar(char: any) {
+        if (this.selectedReferenceChars.has(char)) {
+            this.selectedReferenceChars.delete(char);
+        } else {
+            this.selectedReferenceChars.add(char);
+            
+            // Tự động chèn thông tin nhân vật vào prompt nếu chưa có
+            const charName = char.name || char.role;
+            const charToken = `[Character '${charName}'`;
+            
+            if (this.editingScenePrompt.prompt) {
+                if (!this.editingScenePrompt.prompt.includes(charToken)) {
+                    let charPrompt = char.prompt || `Portrait of ${charName}, ${char.appearance || ''}`;
+                    this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charPrompt}]`;
+                }
+            } else {
+                let charPrompt = char.prompt || `Portrait of ${charName}, ${char.appearance || ''}`;
+                this.editingScenePrompt.prompt = `[Character '${charName}': ${charPrompt}]`;
+            }
+        }
+    }
+    
+    isReferenceCharSelected(char: any): boolean {
+        return this.selectedReferenceChars.has(char);
+    }
+
+    private getBase64FromImageUrl(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            if (!url) {
+                reject('Empty URL');
+                return;
+            }
+            // Nếu url đã là base64 thì trả về phần data
+            if (url.startsWith('data:image')) {
+                resolve(url.split(',')[1]);
+                return;
+            }
+
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL('image/png');
+                resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+            };
+            img.onerror = error => reject(error);
+            img.src = url;
+        });
     }
 
     constructor(
@@ -76,6 +131,16 @@ export class EditScenePromptDialogComponent {
                     this.editingScenePrompt.prompt = this.masterPrompt + '\n\n' + this.editingScenePrompt.prompt;
                 } else {
                     this.editingScenePrompt.prompt = this.masterPrompt;
+                }
+            }
+        }
+
+        // Tự động active các nhân vật đã có sẵn trong prompt
+        if (this.editingScenePrompt.prompt) {
+            for (const char of this.characters) {
+                const charName = char.name || char.role;
+                if (charName && this.editingScenePrompt.prompt.includes(`[Character '${charName}'`)) {
+                    this.selectedReferenceChars.add(char);
                 }
             }
         }
@@ -114,9 +179,29 @@ export class EditScenePromptDialogComponent {
         this.cd.markForCheck();
 
         try {
+            let requestParts: any[] = [{ text: this.editingScenePrompt.prompt }];
+
+            // Gắn thêm ảnh reference của nhân vật vào parts
+            for (const char of this.selectedReferenceChars) {
+                const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                if (imgUrl) {
+                    try {
+                        const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                        requestParts.push({
+                            inlineData: {
+                                data: base64Data,
+                                mimeType: 'image/png'
+                            }
+                        });
+                    } catch (e) {
+                        console.error('Không thể đọc ảnh reference cho', char.name, e);
+                    }
+                }
+            }
+
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-image-preview',
-                contents: [{ role: 'user', parts: [{ text: this.editingScenePrompt.prompt }] }],
+                model: 'gemini-3.1-flash-image-preview', // Thay thế bằng model phù hợp của Gemini
+                contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.selectedAspectRatio,
                     responseModalities: ['IMAGE']
