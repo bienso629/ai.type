@@ -416,7 +416,13 @@ export class VideoTimelineDialogComponent implements OnInit {
             width: '700px',
             maxWidth: '95vw',
             disableClose: true,
-            data: { scene: video, index: index, characters: this.projectData?.characters || [], masterPrompt: this.projectData?.masterPrompt || '' }
+            data: { 
+                scene: video, 
+                index: index, 
+                characters: this.projectData?.characters || [], 
+                masterPrompt: this.projectData?.masterPrompt || '',
+                projectAspectRatio: this.projectData?.aspectRatio || '16:9'
+            }
         });
 
         dialogRef.afterClosed().subscribe(result => {

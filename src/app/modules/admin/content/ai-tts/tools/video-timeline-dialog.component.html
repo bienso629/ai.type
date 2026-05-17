@@ -7,8 +7,7 @@
 
         <div class="flex items-center gap-1">
             <button mat-icon-button class="ml-2 transition-colors" (click)="showMasterPrompt = !showMasterPrompt">
-                <mat-icon class="icon-size-5"
-                    [ngClass]="showMasterPrompt ? 'text-gray-400 hover:text-gray-600' : 'text-blue-500'">
+                <mat-icon class="icon-size-5" [ngClass]="showMasterPrompt ? 'text-gray-400 hover:text-gray-600' : 'text-blue-500'">
                     {{ showMasterPrompt ? 'visibility_off' : 'visibility' }}
                 </mat-icon>
             </button>
@@ -26,17 +25,14 @@
             <div class="w-80 p-4">
                 <div class="flex items-center justify-between mb-2">
                     <div class="flex items-center">
-                        <mat-icon class="icon-size-5 text-indigo-600 mr-2"
-                            [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
+                        <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
                         <h3 class="font-bold text-indigo-800 text-sm">Master Prompt</h3>
                     </div>
                     <div class="flex items-center gap-0">
-                        <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt"
-                            (click)="toggleEditMasterPrompt()">
+                        <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt" (click)="toggleEditMasterPrompt()">
                             <mat-icon class="icon-size-4">{{ isEditingMasterPrompt ? 'check' : 'edit' }}</mat-icon>
                         </button>
-                        <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode"
-                            (click)="openDirectorMode()">
+                        <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode" (click)="openDirectorMode()">
                             <mat-icon class="icon-size-4">movie_creation</mat-icon>
                         </button>
                     </div>
@@ -46,22 +42,19 @@
                 <p class="text-gray-700 text-sm mb-4 italic" (dblclick)="toggleEditMasterPrompt()">"{{
                     projectData?.masterPrompt }}"</p>
                 } @else {
-                <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-4 bg-white rounded"
-                    [subscriptSizing]="'dynamic'">
-                    <textarea matInput class="px-2 py-1 text-sm text-gray-800" [(ngModel)]="projectData.masterPrompt"
-                        cdkTextareaAutosize></textarea>
+                <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-4 bg-white rounded" [subscriptSizing]="'dynamic'">
+                    <textarea matInput class="px-2 py-1 text-sm text-gray-800" [(ngModel)]="projectData.masterPrompt" cdkTextareaAutosize></textarea>
                 </mat-form-field>
                 }
 
                 <div class="flex items-center justify-between mb-2 mt-4">
                     <div class="flex items-center">
-                        <mat-icon class="icon-size-5 text-indigo-600 mr-2"
-                            [svgIcon]="'heroicons_outline:users'"></mat-icon>
+                        <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:users'"></mat-icon>
                         <h3 class="font-bold text-indigo-800 text-sm">Tạo hình Nhân vật (Casting)</h3>
                     </div>
 
-                    <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50" matTooltip="Thêm nhân vật"
-                        (click)="generateCharacterAndOpenDialog()" [disabled]="isGeneratingCharacter">
+                    <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50" matTooltip="Thêm nhân vật" (click)="generateCharacterAndOpenDialog()"
+                        [disabled]="isGeneratingCharacter">
                         <mat-icon class="icon-size-4" *ngIf="!isGeneratingCharacter">person_add</mat-icon>
                         <mat-icon class="icon-size-4 animate-spin" *ngIf="isGeneratingCharacter">autorenew</mat-icon>
                     </button>
@@ -72,20 +65,17 @@
                     <div class="bg-white p-3 rounded-lg group relative flex flex-col gap-2">
                         <div class="flex-1 min-w-0 w-full">
                             <div class="flex justify-between items-start mb-2">
-                                <span
-                                    class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
+                                <span class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
                                     {{ char.name || char.role }}
                                     @if (char.variant) {
-                                    <span
-                                        class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0 rounded-full">{{
+                                    <span class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0 rounded-full">{{
                                         char.variant }}</span>
                                     }
                                 </span>
 
                                 <div class="flex gap-0 opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <button mat-icon-button
-                                        class="icon-size-8 text-gray-400 hover:text-green-600 hover:bg-green-50"
-                                        matTooltip="Nhân bản (Tạo phiên bản mới)" (click)="duplicateCharacter(char)">
+                                    <button mat-icon-button class="icon-size-8 text-gray-400 hover:text-green-600 hover:bg-green-50" matTooltip="Nhân bản (Tạo phiên bản mới)"
+                                        (click)="duplicateCharacter(char)">
                                         <mat-icon class="icon-size-4">content_copy</mat-icon>
                                     </button>
 
@@ -95,15 +85,13 @@
                                         <mat-icon class="icon-size-4">terminal</mat-icon>
                                     </button> -->
 
-                                    <button mat-icon-button
-                                        class="icon-size-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                        matTooltip="Sửa nhân vật" (click)="openCharacterDialog(char, charIdx)">
+                                    <button mat-icon-button class="icon-size-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50" matTooltip="Sửa nhân vật"
+                                        (click)="openCharacterDialog(char, charIdx)">
                                         <mat-icon class="icon-size-4">edit</mat-icon>
                                     </button>
 
-                                    <button mat-icon-button
-                                        class="icon-size-8 text-gray-400 hover:text-red-600 hover:bg-red-50"
-                                        matTooltip="Xoá nhân vật" (click)="removeCharacter(charIdx)">
+                                    <button mat-icon-button class="icon-size-8 text-gray-400 hover:text-red-600 hover:bg-red-50" matTooltip="Xoá nhân vật"
+                                        (click)="removeCharacter(charIdx)">
                                         <mat-icon class="icon-size-4">delete</mat-icon>
                                     </button>
                                 </div>
@@ -122,8 +110,7 @@
                         @if (char.avatarUrls?.length > 0 || char.avatarUrl) {
                         <div class="flex flex-row flex-wrap gap-1.5 w-full mt-1">
                             @for (url of (char.avatarUrls?.length ? char.avatarUrls : [char.avatarUrl]); track url) {
-                            <div
-                                class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
+                            <div class="w-12 h-12 shrink-0 rounded-md overflow-hidden bg-gray-50 border border-gray-100 shadow-sm">
                                 <img [src]="url" class="w-full h-full object-cover">
                             </div>
                             }
@@ -132,54 +119,47 @@
                     </div>
                     }
                     @if (!projectData?.characters || projectData?.characters.length === 0) {
-                    <p
-                        class="text-xs text-gray-500 italic text-center py-4 bg-white/50 rounded border border-dashed border-gray-300">
+                    <p class="text-xs text-gray-500 italic text-center py-4 bg-white/50 rounded border border-dashed border-gray-300">
                         Chưa có nhân vật nào được tạo hình.</p>
                     }
                 </div>
             </div>
         </div>
 
-        <div class="flex overflow-x-hidden scrollbar-hide rounded-lg space-x-4 timeline-container cursor-grab active:cursor-grabbing"
-            #scrollContainer (mousedown)="startDragging($event)" (mouseleave)="stopDragging()"
-            (mouseup)="stopDragging()" (mousemove)="moveEvent($event)" cdkDropList cdkDropListOrientation="horizontal"
-            (cdkDropListDropped)="onSceneDropped($event)">
+        <div class="flex overflow-x-hidden scrollbar-hide rounded-lg space-x-4 timeline-container cursor-grab active:cursor-grabbing" #scrollContainer
+            (mousedown)="startDragging($event)" (mouseleave)="stopDragging()" (mouseup)="stopDragging()" (mousemove)="moveEvent($event)" cdkDropList
+            cdkDropListOrientation="horizontal" (cdkDropListDropped)="onSceneDropped($event)">
 
             @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
             <div class="flex-none flex flex-col w-80 max-h-full h-full rounded-lg overflow-hidden select-none relative transition-all duration-300"
                 [ngClass]="activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50'" cdkDrag>
                 <div class="flex items-center justify-between p-2">
-                    <div class="flex items-center cursor-move text-gray-500 hover:text-gray-800 transition-colors flex-1"
-                        cdkDragHandle>
+                    <div class="flex items-center cursor-move text-gray-500 hover:text-gray-800 transition-colors flex-1" cdkDragHandle>
                         <mat-icon class="icon-size-5 mr-1">drag_indicator</mat-icon>
                         <span class="text-xs font-bold">
                             Scene #{{ sceneIdx + 1 }} • {{ getSceneDuration(scene) }}
                         </span>
                     </div>
 
-                    <button mat-icon-button color="warn"
-                        class="icon-size-6 flex items-center justify-center rounded-full flex-shrink-0"
+                    <button mat-icon-button color="warn" class="icon-size-6 flex items-center justify-center rounded-full flex-shrink-0"
                         (click)="$event.stopPropagation(); removeScene(sceneIdx)" size="small">
                         <mat-icon class="icon-size-4">delete</mat-icon>
                     </button>
                 </div>
 
-                <div
-                    class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
+                <div class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
                     @for (video of scene.videos; track video; let vIdx = $index) {
                     <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded-lg overflow-hidden"
-                        [ngClass]="video.imageUrl ? 'h-auto overflow-visible' : 'min-h-32 max-h-40 h-32 overflow-hidden'">
+                        [ngClass]="video.imageUrl ? 'h-auto overflow-hidden' : 'min-h-32 max-h-40 h-32 overflow-hidden'">
 
                         <!-- Header hiển thị part -->
-                        <div
-                            class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br-lg">
+                        <div class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br-lg">
                             Phần {{vIdx + 1}} • {{video.duration}}s
                         </div>
 
                         <!-- Dấu tick xanh nếu đã hoàn thành -->
                         @if (video.isCompleted) {
-                        <div class="absolute top-0 right-0 bg-green-500 text-white p-1 z-10 rounded-bl flex items-center justify-center"
-                            matTooltip="Đã tạo video">
+                        <div class="absolute top-0 right-0 bg-green-500 text-white p-1 z-10 rounded-bl flex items-center justify-center" matTooltip="Đã tạo video">
                             <mat-icon class="icon-size-4 text-white">check</mat-icon>
                         </div>
                         }
@@ -189,8 +169,7 @@
                             <img [src]="video.imageUrl" class="w-full h-auto object-contain pointer-events-none block">
                         </ng-container>
                         <ng-template #videoPlayer>
-                            <video [src]="video.imageUrl" class="w-full h-auto block" controls muted
-                                [id]="'video_' + sceneIdx + '_' + vIdx"></video>
+                            <video [src]="video.imageUrl" class="w-full h-auto block" controls muted [id]="'video_' + sceneIdx + '_' + vIdx"></video>
                         </ng-template>
                         } @else {
                         <div class="flex flex-col text-center p-2 w-full h-full items-center justify-center">
@@ -199,34 +178,28 @@
                         </div>
                         }
 
-                        <div
-                            class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
-                            <button mat-icon-button class="transition-colors"
-                                [ngClass]="video.isCompleted ? 'bg-green-500 hover:bg-gray-500' : 'bg-white/20 hover:bg-green-500'"
-                                matTooltip="{{ video.isCompleted ? 'Đánh dấu chưa làm' : 'Đánh dấu đã xong' }}"
-                                (click)="$event.stopPropagation(); toggleVideoCompleted(video)">
+                        <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
+                            <button mat-icon-button class="transition-colors" [ngClass]="video.isCompleted ? 'bg-green-500 hover:bg-gray-500' : 'bg-white/20 hover:bg-green-500'"
+                                matTooltip="{{ video.isCompleted ? 'Đánh dấu chưa làm' : 'Đánh dấu đã xong' }}" (click)="$event.stopPropagation(); toggleVideoCompleted(video)">
                                 <mat-icon class="icon-size-4 text-white">check</mat-icon>
                             </button>
 
-                            <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
-                                matTooltip="Copy Prompt phần này"
+                            <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors" matTooltip="Copy Prompt phần này"
                                 (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:copy'"></mat-icon>
                             </button>
 
-                            <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
-                                matTooltip="Chọn media" (click)="$event.stopPropagation(); fileInput.click()">
+                            <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors" matTooltip="Chọn media"
+                                (click)="$event.stopPropagation(); fileInput.click()">
                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:link'"></mat-icon>
                             </button>
 
-                            <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
-                                matTooltip="Sửa Prompt phần này"
+                            <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors" matTooltip="Sửa Prompt phần này"
                                 (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:edit'"></mat-icon>
                             </button>
 
-                            <input #fileInput type="file" (change)="onFileSelected($event, scene, video)"
-                                accept="image/*,video/*" class="hidden">
+                            <input #fileInput type="file" (change)="onFileSelected($event, scene, video)" accept="image/*,video/*" class="hidden">
                         </div>
                     </div>
                     }
@@ -244,22 +217,18 @@
                             </p>
 
                             <div class="flex-shrink-0 flex flex-row items-center whitespace-nowrap">
-                                <button mat-icon-button class="icon-size-6"
-                                    (click)="$event.stopPropagation(); enableEditSub(sub)" matTooltip="Sửa câu thoại">
+                                <button mat-icon-button class="icon-size-6" (click)="$event.stopPropagation(); enableEditSub(sub)" matTooltip="Sửa câu thoại">
                                     <mat-icon class="icon-size-3.5 text-blue-400 hover:text-blue-600">edit</mat-icon>
                                 </button>
 
-                                <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)"
-                                    accept="audio/*" class="hidden">
+                                <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*" class="hidden">
                                 @if (sub.audioUrl) {
-                                <button mat-icon-button class="icon-size-6"
-                                    (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
+                                <button mat-icon-button class="icon-size-6" (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
                                     <mat-icon class="icon-size-4 text-red-500 hover:bg-red-50">delete_outline</mat-icon>
                                 </button>
                                 } @else {
                                 <button mat-icon-button class="icon-size-6" (click)="audioInput.click()">
-                                    <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl"
-                                        [class.text-gray-300]="!sub.audioUrl">
+                                    <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl" [class.text-gray-300]="!sub.audioUrl">
                                         {{ sub.audioUrl ? 'volume_up' : 'add_circle_outline' }}
                                     </mat-icon>
                                 </button>
@@ -268,15 +237,12 @@
                             }
                             @else {
                             <div class="flex-1 w-full bg-white rounded p-2 z-10">
-                                <textarea [(ngModel)]="sub.tempText"
-                                    class="w-full text-sm p-1 border-none outline-none scrollbar-hide resize-y min-h-[60px]"
+                                <textarea [(ngModel)]="sub.tempText" class="w-full text-sm p-1 border-none outline-none scrollbar-hide resize-y min-h-[60px]"
                                     placeholder="Nhập nội dung câu thoại..."></textarea>
 
                                 <div class="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
-                                    <button mat-button class="h-8 min-h-8 px-3" color="warn"
-                                        (click)="$event.stopPropagation(); cancelEditSub(sub)">Hủy</button>
-                                    <button mat-flat-button class="h-8 min-h-8 px-3" color="primary"
-                                        (click)="$event.stopPropagation(); saveEditSub(scene, sub)">Lưu</button>
+                                    <button mat-button class="h-8 min-h-8 px-3" color="warn" (click)="$event.stopPropagation(); cancelEditSub(sub)">Hủy</button>
+                                    <button mat-flat-button class="h-8 min-h-8 px-3" color="primary" (click)="$event.stopPropagation(); saveEditSub(scene, sub)">Lưu</button>
                                 </div>
                             </div>
                             }
@@ -289,8 +255,7 @@
         </div>
     </div>
 
-    <div mat-dialog-actions
-        class="flex flex-row justify-end gap-1 p-0 mt-6 pt-4 border-t border-gray-100 flex-shrink-0">
+    <div mat-dialog-actions class="flex flex-row justify-end gap-1 p-0 mt-6 pt-4 border-t border-gray-100 flex-shrink-0">
         <button mat-raised-button class="bg-green-500 text-white" (click)="addNewScene()">
             <mat-icon class="icon-size-4" [svgIcon]="'feather:dollar-sign'"></mat-icon>
             <mat-label class="ml-2">Chèn quảng cáo 5s</mat-label>
