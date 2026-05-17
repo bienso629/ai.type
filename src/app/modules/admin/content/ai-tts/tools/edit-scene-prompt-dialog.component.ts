@@ -60,7 +60,7 @@ export class EditScenePromptDialogComponent {
     ) {
         this.editingSceneIndex = data.index;
         this.editingScenePrompt = { ...data.scene };
-        this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || '9:16';
+        this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || data.projectAspectRatio || '16:9';
         this.characters = data.characters || [];
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
 
@@ -361,6 +361,16 @@ export class EditScenePromptDialogComponent {
 
     removeImage() {
         this.editingScenePrompt.imageUrl = null;
+    }
+
+    isImageType(url: string): boolean {
+        if (!url) return false;
+        const imageExtensions = [
+            'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
+        ];
+        const cleanUrl = url.replace('file://', '');
+        const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
+        return fileExtension ? imageExtensions.includes(fileExtension) : true;
     }
 
     async onImageSelected(event: any) {

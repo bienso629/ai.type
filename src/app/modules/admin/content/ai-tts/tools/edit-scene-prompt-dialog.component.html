@@ -22,7 +22,7 @@
 
         <!-- Storyboard Area -->
         <div class="flex items-start gap-4 mb-2 mt-2">
-            <div *ngIf="editingScenePrompt.imageUrl"
+            <div *ngIf="editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl)"
                 class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group shadow-sm border border-slate-200 transition-all duration-300"
                 [ngStyle]="getAspectRatioStyle()">
                 <img [src]="editingScenePrompt.imageUrl" class="w-full h-full object-cover rounded-lg">
@@ -33,7 +33,7 @@
                 </button>
             </div>
 
-            <div *ngIf="!editingScenePrompt.imageUrl"
+            <div *ngIf="!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl)"
                 class="relative shrink-0 rounded-lg border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
                 [ngStyle]="getAspectRatioStyle()">
                 <button mat-icon-button class="bg-green-100 hover:bg-green-200" (click)="imageInput.click()">
