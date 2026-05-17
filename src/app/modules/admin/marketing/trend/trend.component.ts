@@ -42,7 +42,7 @@ import * as _ from 'lodash';
 import * as uuid from 'uuid';
 import moment from 'moment';
 import { HelperService } from 'app/helper.service';
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
@@ -70,7 +70,7 @@ export class AIFacePostComponent
     secretKey: any;
     searchAPIKey: any;
 
-    ai: any;
+    // ai: any;
 
     uniqueID: String;
     fbCookiePath: String =
@@ -610,17 +610,11 @@ export class AIFacePostComponent
                 Lưu ý: image_prompt phải mô tả bối cảnh chuyên nghiệp, phong cách hiện đại phù hợp với tiêu đề.
             `;
 
-            let geminiKey = this.secretKey[0];
+            // this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
 
-            if (this.secretKey[6]) {
-                geminiKey = this.secretKey[6];
-            }
-
-            this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
-
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
             const data = this._h.safeJsonParseFromAI(response.text);
@@ -884,6 +878,7 @@ export class AIFacePostComponent
         private _router: Router,
         private titleService: Title,
         private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) {
         this.titleService.setTitle(
             `lấy post từ nhóm facebook | ai.type - công cụ tạo content`,

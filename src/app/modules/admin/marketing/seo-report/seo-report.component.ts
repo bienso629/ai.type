@@ -19,7 +19,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 
 import {
     ApexAxisChartSeries,
@@ -115,7 +115,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     settings: any;
     secretKey: any;
     searchAPIKey: any;
-    ai: any;
+    // ai: any;
 
     csvData: string[][] = [];
 
@@ -618,10 +618,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     }
 
     async generateAIAnalysis(): Promise<void> {
-        if (!this.ai) {
-            this.toastr.error('Bạn chưa cấu hình API Key cho Google Gemini trong phần Cài đặt.');
-            return;
-        }
+        // if (!this.ai) {
+        //     this.toastr.error('Bạn chưa cấu hình API Key cho Google Gemini trong phần Cài đặt.');
+        //     return;
+        // }
 
         if (!this.rows || this.rows.length === 0) {
             this.toastr.error('Chưa có dữ liệu từ khóa để phân tích. Hãy tải dữ liệu GSC trước.');
@@ -675,9 +675,9 @@ KHÔNG DÙNG danh sách <ul> <li> để liệt kê từ khóa nữa. Có thể d
 KHÔNG DÙNG MARKDOWN. KHÔNG ĐÓNG DẤU \`\`\`html hoặc \`\`\` quanh bài viết. Nếu một tiêu chí nào không có số liệu thỏa mãn thì có thể bỏ qua.
 Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạn".`;
 
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
             let responseText = response.text || '';
 
@@ -885,10 +885,10 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
     }
 
     async generateAiSuggestions(): Promise<void> {
-        if (!this.ai) {
-            this.toastr.error('Chưa cấu hình API key Gemini trong settings');
-            return;
-        }
+        // if (!this.ai) {
+        //     this.toastr.error('Chưa cấu hình API key Gemini trong settings');
+        //     return;
+        // }
 
         if (!this.rows.length) {
             this.toastr.error('Chưa có dữ liệu từ khóa để phân tích');
@@ -919,9 +919,9 @@ Với mỗi từ khóa, hãy:
 
 Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiểu cho marketer.`;
 
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
             this.aiSuggestions = response.text;
@@ -1242,7 +1242,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private _fuseConfigService: FuseConfigService,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) {
         this.titleService.setTitle(`báo cáo seo | ai.type - công cụ tạo content`);
 
@@ -1269,11 +1270,9 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
 
             if (this.secretKey) {
-                let geminiKey = this.secretKey[0];
-                if (this.secretKey[5]) {
-                    geminiKey = this.secretKey[5];
-                }
-                this.ai = new GoogleGenAI({ apiKey: geminiKey });
+                // let geminiKey = this.secretKey[0];
+                // if (this.secretKey[5]) { geminiKey = this.secretKey[5]; }
+                // this.ai = new GoogleGenAI({ apiKey: geminiKey });
             }
         }
 

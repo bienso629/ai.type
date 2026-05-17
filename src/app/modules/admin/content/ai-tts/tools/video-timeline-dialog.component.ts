@@ -35,7 +35,7 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { CharacterDialogComponent } from './character-dialog.component';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -293,11 +293,11 @@ export class VideoTimelineDialogComponent implements OnInit {
         `;
 
         try {
-            const ai = new GoogleGenAI({ apiKey: randomKey });
+            // const ai = new GoogleGenAI({ apiKey: randomKey });
 
-            const response = await ai.models.generateContent({
+            const response = await this._genaiService.generateContent({
                 model: 'gemini-2.5-flash',
-                contents: this.projectData.masterPrompt,
+                contents: [{ role: 'user', parts: [{ text: this.projectData.masterPrompt }] }],
                 config: {
                     systemInstruction: systemPrompt,
                     temperature: 0.7,
@@ -773,7 +773,8 @@ export class VideoTimelineDialogComponent implements OnInit {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private dialog: MatDialog,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
+        private _genaiService: GenaiService
     ) { }
 
     ngOnInit() {

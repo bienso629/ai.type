@@ -41,29 +41,39 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success) {
                         this.collections = result.data;
-                        
                         // Calculate real usage and max updated date for each collection
+                        let allUuids = new Set<string>();
                         for (let col of this.collections) {
                             // Default values
                             col.totalUsed = 0;
                             col.lastItemUpdatedAt = col.updatedAt;
                             
                             let uuids = Array.isArray(col.uuid) ? col.uuid : (col.uuid ? [col.uuid] : []);
-                            if (uuids.length > 0) {
-                                this._crawlService.archive({
-                                    username: this.user.name,
-                                    keyword: '',
-                                    uuids: uuids,
-                                    page: { size: 1000, pageNumber: 0 },
-                                    bookmark: null
-                                }).subscribe((res: any) => {
-                                    if (res && res.data && res.data.docs) {
-                                        const docs = res.data.docs;
+                            uuids.forEach(u => allUuids.add(u));
+                        }
+
+                        if (allUuids.size > 0) {
+                            this._crawlService.archive({
+                                username: this.user.name,
+                                keyword: '',
+                                uuids: Array.from(allUuids),
+                                page: { size: 10000, pageNumber: 0 },
+                                bookmark: null
+                            }).subscribe((res: any) => {
+                                if (res && res.data && res.data.docs) {
+                                    const allDocs = res.data.docs;
+                                    
+                                    for (let col of this.collections) {
+                                        let uuids = Array.isArray(col.uuid) ? col.uuid : (col.uuid ? [col.uuid] : []);
+                                        if (uuids.length === 0) continue;
+                                        
                                         let totalUsed = 0;
                                         let maxTime = new Date(col.updatedAt).getTime();
                                         let maxDate = col.updatedAt;
                                         
-                                        docs.forEach((doc: any) => {
+                                        const colDocs = allDocs.filter((doc: any) => uuids.includes(doc.uuid) || uuids.includes(doc._id));
+                                        
+                                        colDocs.forEach((doc: any) => {
                                             if (doc.used && doc.used > 0) {
                                                 totalUsed += doc.used;
                                             }
@@ -79,8 +89,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
                                         col.totalUsed = totalUsed;
                                         col.lastItemUpdatedAt = maxDate;
                                     }
-                                });
-                            }
+                                    
+                                    // Trigger change detection implicitly if needed or let Angular handle it
+                                }
+                            });
                         }
                     }
                 },

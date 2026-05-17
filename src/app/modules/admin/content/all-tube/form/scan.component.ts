@@ -10,7 +10,7 @@ import { YoutubeService } from 'app/modules/_services/youtube';
 import { ToastrService } from 'ngx-toastr';
 import { LogService } from 'app/modules/_services/link';
 
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
@@ -317,12 +317,12 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
     }
 
     async createPost(row: any) {
-        let settings = this.multiAccountService.getItem('settings');
+        // let settings = this.multiAccountService.getItem('settings');
 
-        const ai = new GoogleGenAI({ apiKey: settings['secretKey'] });
-        const response = await ai.models.generateContent({
-            model: 'gemini-3-flash-preview',
-            contents: 'Why is the sky blue?',
+        // const ai = new GoogleGenAI({ apiKey: settings['secretKey'] });
+        const response = await this._genaiService.generateContent({
+            model: 'gemini-3.1-flash-preview',
+            contents: [{ role: 'user', parts: [{ text: 'Why is the sky blue?' }] }],
         });
     }
 
@@ -380,7 +380,8 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
         private _youtubeService: YoutubeService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) {
         // Subscribe to user changes
         this._userService.user$

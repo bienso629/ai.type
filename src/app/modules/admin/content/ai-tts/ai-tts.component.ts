@@ -20,12 +20,13 @@ import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { RemoveHTMLPipe } from 'app/app.pipe';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { GoogleGenAI } from '@google/genai';
+
 import { HttpClient } from '@angular/common/http';
 import WaveSurfer from 'wavesurfer.js';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { GenaiService } from 'app/genai.service';
 import { MyKeysService } from 'app/modules/_services/mykey';
 
 export interface AudioClip {
@@ -1010,8 +1011,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        let geminiKey = this.secretKey[6] || this.secretKey[0];
-        this.ai = new GoogleGenAI({ apiKey: geminiKey });
+        // let geminiKey = this.secretKey[6] || this.secretKey[0];
+        // this.ai = new GoogleGenAI({ apiKey: geminiKey });
 
         // Lấy data từ MultiAccountService
         const storageKey = `${this.STORAGE_AUDIO_KEY}_${this.uuid}`;
@@ -1204,8 +1205,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             for (let i = 0; i < retries; i++) {
                 try {
-                    response = await this.ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
+                    response = await this._genaiService.generateContent({
+                        model: 'gemini-3.1-flash-preview',
                         contents: finalContents,
                     });
                     break;
@@ -2094,6 +2095,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         private _fuseConfigService: FuseConfigService,
         private http: HttpClient,
         private _fuseConfirmationService: FuseConfirmationService,
+        private _genaiService: GenaiService,
     ) {
         this.titleService.setTitle(`chương trình làm video | ai.type`);
 

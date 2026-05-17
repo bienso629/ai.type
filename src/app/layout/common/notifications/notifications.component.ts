@@ -14,7 +14,7 @@ import { BlogService } from 'app/modules/_services/blog';
 import { ToastrService } from 'ngx-toastr';
 import { DomainService } from 'app/modules/_services/domain';
 import { WordpressService } from 'app/modules/_services/wordpress';
-import { GoogleGenAI, createUserContent, Modality } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 
 import * as _ from 'lodash';
 import { Router } from '@angular/router';
@@ -537,11 +537,15 @@ export class NotificationsComponent implements OnInit, OnDestroy {
         // phải tạo được inlineData mới gen thành bài viết được
         if (imageParts.length > 1) {
             try {
-                const ai = new GoogleGenAI({ apiKey: this.secretKey[index] });
+                const parts = imageParts.map((p: any) => {
+                    if (typeof p === 'string') return { text: p };
+                    if (p.inlineData) return { inlineData: p.inlineData };
+                    return p;
+                });
 
-                return ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
-                    contents: createUserContent(imageParts)
+                return this._genaiService.generateContent({
+                    model: 'gemini-3.1-flash-preview',
+                    contents: [{ role: 'user', parts: parts }]
                 });
             } catch (error) {
                 return { text: null };
@@ -552,11 +556,9 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                 return { text: null };
             } else {
                 try {
-                    const ai = new GoogleGenAI({ apiKey: this.secretKey[index] });
-
-                    return ai.models.generateContent({
-                        model: 'gemini-3-flash-preview',
-                        contents: prompt,
+                    return this._genaiService.generateContent({
+                        model: 'gemini-3.1-flash-preview',
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
                 } catch (error) {
                     return { text: null };
@@ -566,13 +568,12 @@ export class NotificationsComponent implements OnInit, OnDestroy {
     }
 
     async createImage(prompt: string, index: number) {
-        const ai = new GoogleGenAI({ apiKey: this.secretKey[index] });
-        return ai.models.generateContent({
-            model: 'gemini-3-flash-preview-image',
-            contents: prompt,
+        return this._genaiService.generateContent({
+            model: 'gemini-3.1-flash-image-preview',
+            contents: [{ role: 'user', parts: [{ text: prompt }] }],
             config: {
-                responseModalities: [Modality.TEXT, Modality.IMAGE],
-            },
+                responseModalities: ['IMAGE'],
+            } as any,
         });
     }
 
@@ -651,7 +652,8 @@ export class NotificationsComponent implements OnInit, OnDestroy {
         private _router: Router,
         private _overlay: Overlay,
         private _viewContainerRef: ViewContainerRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) { }
 
     // -----------------------------------------------------------------------------------------------------

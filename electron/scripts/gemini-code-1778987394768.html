@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenAI Custom Endpoint Tester</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --bg: #f8fafc;
+            --surface: #ffffff;
+            --text: #0f172a;
+            --border: #cbd5e1;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
+
+        .container {
+            background: var(--surface);
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+            width: 100%;
+            max-width: 600px;
+        }
+
+        h2 {
+            margin-top: 0;
+            margin-bottom: 1.5rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        input,
+        textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+
+        input:focus,
+        textarea:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 100px;
+        }
+
+        button {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        button:hover {
+            background-color: var(--primary-hover);
+        }
+
+        button:disabled {
+            background-color: #94a3b8;
+            cursor: not-allowed;
+        }
+
+        #response-container {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background-color: #f1f5f9;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            min-height: 50px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+            font-size: 0.9rem;
+        }
+
+        .error {
+            color: #dc2626;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="container">
+        <h2>API Tester</h2>
+
+        <div class="form-group">
+            <label for="apiUrl">Base URL</label>
+            <input type="text" id="apiUrl" value="https://api.umodelverse.ai/v1" placeholder="https://your-custom-url.com">
+        </div>
+
+        <div class="form-group">
+            <label for="apiKey">API Key</label>
+            <input type="password" id="apiKey" placeholder="Nhập API Key của bạn">
+        </div>
+
+        <div class="form-group">
+            <label for="model">Model</label>
+            <input type="text" id="model" value="gpt-5" placeholder="VD: gpt-4o, gpt-3.5-turbo...">
+        </div>
+
+        <div class="form-group">
+            <label for="prompt">Tin nhắn (Prompt)</label>
+            <textarea id="prompt">Hello!</textarea>
+        </div>
+
+        <button id="sendBtn">Gửi yêu cầu</button>
+
+        <div id="response-container">Kết quả sẽ hiển thị ở đây...</div>
+    </div>
+
+    <!-- Sử dụng module để có thể import từ CDN -->
+    <script>
+        const sendBtn = document.getElementById('sendBtn');
+        const responseContainer = document.getElementById('response-container');
+
+        sendBtn.addEventListener('click', async () => {
+            const apiKey = document.getElementById('apiKey').value.trim();
+            let baseURL = document.getElementById('apiUrl').value.trim();
+            const modelName = document.getElementById('model').value.trim();
+            const promptText = document.getElementById('prompt').value.trim();
+
+            if (!apiKey) {
+                alert("Vui lòng nhập API Key!");
+                return;
+            }
+
+            // Đảm bảo baseURL không có dấu '/' ở cuối
+            if (baseURL.endsWith('/')) {
+                baseURL = baseURL.slice(0, -1);
+            }
+
+            // Cập nhật giao diện khi đang loading
+            sendBtn.disabled = true;
+            sendBtn.innerText = "Đang xử lý...";
+            responseContainer.innerText = "Đang gửi request...";
+            responseContainer.className = "";
+
+            try {
+                // Sử dụng fetch API thay vì OpenAI SDK để tránh lỗi header x-stainless
+                const response = await fetch(`${baseURL}/chat/completions`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${apiKey}`
+                    },
+                    body: JSON.stringify({
+                        model: modelName,
+                        messages: [{ role: "user", content: promptText }]
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    // Xử lý nếu API trả về lỗi (ví dụ: sai key, hết tiền...)
+                    throw new Error((data.error && data.error.message) || `HTTP Error: ${response.status}`);
+                }
+
+                // Hiển thị kết quả
+                const reply = data.choices[0].message.content;
+                responseContainer.innerText = reply;
+
+            } catch (error) {
+                console.error(error);
+                responseContainer.innerText = `Lỗi: ${error.message}`;
+                responseContainer.classList.add('error');
+            } finally {
+                // Khôi phục giao diện
+                sendBtn.disabled = false;
+                sendBtn.innerText = "Gửi yêu cầu";
+            }
+        });
+    </script>
+
+</body>
+
+</html>

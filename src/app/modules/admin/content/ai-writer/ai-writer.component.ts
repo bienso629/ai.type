@@ -37,11 +37,7 @@ import {
     transferArrayItem,
 } from '@angular/cdk/drag-drop';
 import { MatDialog } from '@angular/material/dialog';
-import {
-    GoogleGenAI,
-    createUserContent,
-    createPartFromUri,
-} from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
 import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech/ai-text2speech.component';
@@ -106,7 +102,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     wordPopup: any;
     loading: boolean = false;
 
-    ai: any;
+    // ai: any;
 
     uuid: string;
     name: string; // username của tác giả
@@ -614,9 +610,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
             const jsonText = response.text;
@@ -1131,17 +1127,17 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     .subscribe({
                         next: async (result) => {
                             if (result) {
-                                let images: any[] = [
-                                    `${prompt} dựa vào những hình ảnh đính kèm. Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
+                                let parts: any[] = [
+                                    { text: `${prompt} dựa vào những hình ảnh đính kèm. Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
                                     {
                                         "contents": ["Chi tiết 1", "Chi tiết 2"]
                                     }
                                     Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
-                                    Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`,
+                                    Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.` }
                                 ];
 
-                                // Wait for all uploads to finish
-                                images.push({
+                                // Thêm ảnh vừa upload dưới dạng inlineData
+                                parts.push({
                                     inlineData: {
                                         mimeType: result.mimeType,
                                         data: result.buffer,
@@ -1149,11 +1145,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                                 });
 
                                 // Call AI to generate content
-                                const response =
-                                    await this.ai.models.generateContent({
-                                        model: 'gemini-3-flash-preview',
-                                        contents: [createUserContent(images)],
-                                    });
+                                const response = await this._genaiService.generateContent({
+                                    model: 'gemini-3.1-flash-preview',
+                                    contents: [{ role: 'user', parts: parts }],
+                                });
 
                                 const jsonText = response.text;
                                 if (jsonText) {
@@ -1249,36 +1244,41 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     your_prompt += '. ';
                 }
 
-                let images: any[] = [
-                    `${your_prompt}Nội dung mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
+                let parts: any[] = [
+                    { text: `${your_prompt}Nội dung mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
                     {
                         "contents": ["Chi tiết 1", "Chi tiết 2"]
                     }
                     Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
-                    Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`,
+                    Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.` }
                 ];
 
-                // Convert FileList to array and upload all in parallel
+                // Convert FileList to Base64
                 const uploadPromises = Array.from(files).map(
-                    async (file: File) => {
-                        const image = await this.ai.files.upload({
-                            file: file,
-                        });
-
-                        return createPartFromUri(image.uri, image.mimeType);
-                    },
+                    (file: File) => new Promise<any>((resolve, reject) => {
+                        const reader = new FileReader();
+                        reader.onload = (e: any) => {
+                            const base64Data = e.target.result.split(',')[1];
+                            resolve({
+                                inlineData: {
+                                    mimeType: file.type,
+                                    data: base64Data
+                                }
+                            });
+                        };
+                        reader.onerror = reject;
+                        reader.readAsDataURL(file);
+                    })
                 );
 
-                // Wait for all uploads to finish
+                // Wait for all files to be read
                 const imageParts = await Promise.all(uploadPromises);
-
-                // Add all uploaded image parts to prompt
-                images.push(...imageParts);
+                parts.push(...imageParts);
 
                 // Call AI to generate content
-                const response = await this.ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
-                    contents: [createUserContent(images)],
+                const response = await this._genaiService.generateContent({
+                    model: 'gemini-3.1-flash-preview',
+                    contents: [{ role: 'user', parts: parts }],
                 });
 
                 const jsonText = response.text;
@@ -1522,9 +1522,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
-            const response = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: prompt,
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
             const jsonText = response.text;
@@ -3278,7 +3278,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         private router: Router,
         private _bottomSheet: MatBottomSheet,
         private multiAccountService: MultiAccountService,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
+        private _genaiService: GenaiService
     ) {
         this.route.params.subscribe((params: Params) => {
             if (params['uuid']) {
@@ -3305,13 +3306,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 : undefined;
 
             if (this.secretKey) {
-                let geminiKey = this.secretKey[0];
-
-                if (this.secretKey[1]) {
-                    geminiKey = this.secretKey[1];
-                }
-
-                this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
+                // let geminiKey = this.secretKey[0];
+                // if (this.secretKey[1]) { geminiKey = this.secretKey[1]; }
+                // this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
             }
         }
 
