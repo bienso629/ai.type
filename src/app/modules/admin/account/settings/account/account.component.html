@@ -248,6 +248,16 @@
                     <div class="w-full mt-2">
                         <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'">
+                            <mat-label>Model văn bản (Tùy chọn)</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'" matPrefix></mat-icon>
+                            <input [formControlName]="'umodelverseChatModel'" type="text" matInput placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng gpt-4o).</div>
+                    </div>
+
+                    <div class="w-full mt-2">
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
                             <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'" matPrefix></mat-icon>
                             <input [formControlName]="'umodelverseImageModel'" type="text" matInput placeholder="VD: flux, qwen-vl, dall-e-3">

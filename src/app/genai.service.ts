@@ -20,6 +20,7 @@ export class GenaiService {
 
     private _umodelverseUrl: string = '';
     private _umodelverseKey: string = '';
+    private _umodelverseChatModel: string = '';
     private _umodelverseImageModel: string = '';
 
     constructor(
@@ -48,6 +49,7 @@ export class GenaiService {
             // Cập nhật cấu hình Mì Tôm AI
             this._umodelverseUrl = settings.umodelverseUrl?.trim() || '';
             this._umodelverseKey = settings.umodelverseKey?.trim() || '';
+            this._umodelverseChatModel = settings.umodelverseChatModel?.trim() || '';
             this._umodelverseImageModel = settings.umodelverseImageModel?.trim() || '';
             
             // Nếu umodelverseUrl bị thiếu giao thức, thêm vào (mặc định https)
@@ -70,6 +72,8 @@ export class GenaiService {
             this._currentKey = '';
             this._umodelverseUrl = '';
             this._umodelverseKey = '';
+            this._umodelverseChatModel = '';
+            this._umodelverseImageModel = '';
         }
     }
 
@@ -172,30 +176,36 @@ export class GenaiService {
         }
 
         // Xử lý contents
-        if (params.contents && Array.isArray(params.contents)) {
-            for (const content of params.contents) {
-                const role = (content as any).role === 'model' ? 'assistant' : 'user';
-                const parts = (content as any).parts;
-                
-                if (parts && parts.length === 1 && parts[0].text && !parts[0].inlineData) {
-                    messages.push({ role, content: parts[0].text });
-                } else if (parts && parts.length > 0) {
-                    const mappedParts = parts.map((p: any) => {
-                        if (p.inlineData) {
-                            return {
-                                type: 'image_url',
-                                image_url: { url: `data:${p.inlineData.mimeType};base64,${p.inlineData.data}` }
-                            };
-                        }
-                        return { type: 'text', text: p.text || '' };
-                    });
-                    messages.push({ role, content: mappedParts });
+        if (params.contents) {
+            if (typeof params.contents === 'string') {
+                messages.push({ role: 'user', content: params.contents });
+            } else if (Array.isArray(params.contents)) {
+                for (const content of params.contents) {
+                    const role = (content as any).role === 'model' ? 'assistant' : 'user';
+                    const parts = (content as any).parts;
+                    
+                    if (parts && parts.length === 1 && parts[0].text && !parts[0].inlineData) {
+                        messages.push({ role, content: parts[0].text });
+                    } else if (parts && parts.length > 0) {
+                        const mappedParts = parts.map((p: any) => {
+                            if (p.inlineData) {
+                                return {
+                                    type: 'image_url',
+                                    image_url: { url: `data:${p.inlineData.mimeType};base64,${p.inlineData.data}` }
+                                };
+                            }
+                            return { type: 'text', text: p.text || '' };
+                        });
+                        messages.push({ role, content: mappedParts });
+                    }
                 }
             }
         }
 
+        const overrideModel = params.model === 'gemini-3-flash-preview' ? null : params.model;
+        
         const body = {
-            model: params.model || 'gpt-4o',
+            model: overrideModel || this._umodelverseChatModel || 'gpt-4o',
             messages: messages,
             temperature: params.config?.temperature,
             max_tokens: params.config?.maxOutputTokens,

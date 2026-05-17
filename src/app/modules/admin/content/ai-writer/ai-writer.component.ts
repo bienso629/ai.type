@@ -76,8 +76,8 @@ declare var window: any; // Needed on Angular 8+
 interface JobState {
     jobId: number;
     transcript_id: string;
-    status: 'waiting' | 'processing' | 'done';
-    status_step: 'waiting' | 'processing' | 'done';
+    status: 'waiting' | 'processing' | 'done' | 'error';
+    status_step: 'waiting' | 'processing' | 'done' | 'error';
     total_chunks: number;
     done_chunks: number;
 }
@@ -1421,7 +1421,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         return this.jobStateMap.get(jobId);
     }
 
-    convertVideo2Post(item: any, jobId: number) {
+    async convertVideo2Post(item: any, jobId: number) {
         if (!this._userService.permissionVideo(this.user)) {
             this.toastr.error('Đây là chức năng trả phí.');
             return;
@@ -1429,37 +1429,167 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
         let content = this.removeHTML.transform(item);
 
-        this._youtubeService
-            .video2Post({
-                urls: [content],
-                reprocess: true, // nếu chạy lại API này sẽ không tải lại video nữa
-                username: this.user.name,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (data) => {
-                    if (data && data.results && data.results.length > 0) {
-                        data.results.map((item: any) => {
-                            // Thêm job state
-                            this.jobStates.push({
-                                jobId: jobId,
-                                transcript_id: item.transcript_id,
-                                status: 'processing',
-                                done_chunks: 0,
-                                total_chunks: 0,
-                                status_step: 'processing',
-                            });
+        // Khởi tạo state cho job (giả lập giống cách cũ để UI không bị vỡ)
+        this.jobStates.push({
+            jobId: jobId,
+            transcript_id: 'ai-direct-' + jobId,
+            status: 'processing',
+            done_chunks: 0,
+            total_chunks: 1,
+            status_step: 'processing',
+        });
+        
+        this.updateJobState(jobId, {
+            status: 'processing',
+            transcript_id: 'ai-direct-' + jobId,
+            done_chunks: 0,
+            total_chunks: 1,
+            status_step: 'processing',
+        });
 
-                            this.startTracking(item.transcript_id, jobId);
+        this.loading = true;
+        this.cd.detectChanges();
+
+        try {
+            let your_prompt = '';
+
+            if (this.source.prompt.length > 0) {
+                your_prompt = this.source.prompt.join('.');
+                your_prompt = this.removeHTML.transform(your_prompt);
+                your_prompt += '. ';
+            }
+
+            const prompt = `${your_prompt}Dựa vào video tại đường dẫn sau: ${content}, hãy phân tích chi tiết hình ảnh, âm thanh, giọng điệu, chữ viết xuất hiện trên màn hình (OCR) và nội dung video để viết thành một bài blog hoàn chỉnh. (Hãy chú ý kĩ các văn bản hoặc phụ đề được ghép trực tiếp trên video).
+            Yêu cầu: Trả kết quả về định dạng JSON với key đầu tiên là title có value đúng định dạng viết hoa đầu câu và chứa một từ khoá chính.
+            Key thứ hai là content với value là nội dung của blog trả về dạng HTML, đoạn văn đầu tiên chứa một từ khoá chính, không gắn link vào bài viết. Lưu ý khi nội dung trong đoạn văn mà có chứa table thì phải bê nguyên xi cái table đó vào content.
+            Key thứ ba là long_keywords với value là liệt kê các từ khoá chính trong blog theo dạng array, các khoá chính phải trên 3 từ trở lên.
+            Key thứ tư là short_keywords với value là liệt kê các từ khoá chính trong blog theo dạng array, các khoá chính phải dưới 3 từ trở xuống.
+            Key thứ năm là description với value là bản tóm tắt ngắn gọn của blog, value dưới 160 từ chứa một khoá chính.
+            Key thứ sáu là image_prompt với value là gợi ý tạo hình ảnh từ nội dung blog.
+            Lưu ý: Viết theo phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}), trong key thứ hai content phải có ít nhất 1 thẻ h2 để làm SEO.
+            Tôi muốn bạn trả về dữ liệu dưới định dạng JSON. Ví dụ:
+            {
+                "title": "Tiêu đề",
+                "content": "Chi tiết",
+                "long_keywords": [],
+                "short_keywords": [],
+                "description": "Mô tả",
+                "image_prompt": "Mô tả"
+            }
+            Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
+            Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
+
+            let parts: any[] = [{ text: prompt }];
+
+            // Gọi IPC xuống Electron Backend để download & extract frames
+            let electronApi = null;
+            if (window && window.electron) {
+                electronApi = window.electron;
+            }
+
+            if (electronApi) {
+                this.toastr.info('Đang tải và cắt cảnh video ở dưới nền...');
+                const result = await electronApi.invoke('analyze-video-local', { url: content });
+                if (result.success && result.frames && result.frames.length > 0) {
+                    this.toastr.info(`Đã trích xuất ${result.frames.length} cảnh. Đang đưa cho AI phân tích...`);
+                    // Thêm từng frame vào Gemini
+                    for (const frameBase64 of result.frames) {
+                        const base64Data = frameBase64.split(',')[1] || frameBase64;
+                        parts.push({
+                            inlineData: {
+                                data: base64Data,
+                                mimeType: 'image/jpeg'
+                            }
                         });
                     }
-                },
-                error: (e: any) => {
-                    this.toastr.warning('Tải video thất bại.');
-                },
-                complete: () => { },
+                    
+                    // Thêm Âm thanh vào Gemini (nếu có)
+                    if (result.audio) {
+                        const audioData = result.audio.split(',')[1] || result.audio;
+                        parts.push({
+                            inlineData: {
+                                data: audioData,
+                                mimeType: 'audio/mp3'
+                            }
+                        });
+                        this.toastr.info('Đã tải thêm âm thanh đính kèm.');
+                    }
+
+                    // Chèn phụ đề text vào prompt (nếu có)
+                    if (result.subtitles) {
+                        parts[0].text += `\n\n=== Dưới đây là Phụ đề trích xuất từ Video ===\n${result.subtitles}`;
+                        this.toastr.info('Đã tải thêm phụ đề đính kèm.');
+                    }
+
+                } else {
+                    this.toastr.warning('Không lấy được hình ảnh từ video, AI sẽ chỉ dự đoán dựa trên đường link.');
+                }
+            }
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: parts }],
             });
+
+            const jsonText = response.text;
+            if (jsonText) {
+                const cleanedJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+                const data = JSON.parse(cleanedJson);
+
+                if (data) {
+                    this.seo.description.text = data.description;
+                    this.detectForm
+                        .get('step1')
+                        .get('title')
+                        .setValue(data.title);
+                    this.detectForm
+                        .get('step1')
+                        .get('description')
+                        .setValue(data.description);
+
+                    this.detectForm
+                        .get('step5')
+                        .get('mainkey')
+                        .setValue(
+                            data.long_keywords[0] ||
+                            data.short_keywords[0] ||
+                            '',
+                        );
+                    this.arr_keyword = data.long_keywords.concat(
+                        data.short_keywords,
+                    );
+
+                    this.source.pre.push(
+                        `<p id="source-pre-${uuid.v4()}">${data.image_prompt}</p>`,
+                    );
+
+                    this.done.push(`${data.content}`);
+                    this.toastr.success('Đã phân tích video và tạo nội dung thành công!');
+                    
+                    // Đánh dấu hoàn tất cho UI
+                    this.updateJobState(jobId, {
+                        status: 'done',
+                        done_chunks: 1,
+                        total_chunks: 1,
+                        status_step: 'done',
+                    });
+                }
+            }
+
+            this.loading = false;
+            this.cd.detectChanges();
+        } catch (error) {
+            this.loading = false;
+            this.toastr.error('Lỗi khi phân tích video. Vui lòng kiểm tra lại link hoặc AI Model.');
+            this.updateJobState(jobId, {
+                status: 'error',
+                status_step: 'error',
+            });
+            this.cd.detectChanges();
+        }
     }
+
+
 
     retryConvertVideo2Post(transcript_id: string, jobId: number) {
         this.stopTracking(jobId);
