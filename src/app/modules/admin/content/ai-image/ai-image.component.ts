@@ -21,7 +21,7 @@ import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { HttpClient } from '@angular/common/http';
 
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 
 import { MatDialog } from '@angular/material/dialog';
 import { ImageEditorDialogComponent } from './tools/image-editor.component';
@@ -55,7 +55,7 @@ export class AIImageComponent
 
     permissionDreamina: boolean = false;
 
-    ai: any;
+    // ai: any;
 
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
@@ -184,8 +184,8 @@ export class AIImageComponent
                             if (voice.base === 'aistudio.google.com') {
                                 if (this.secretKey) {
                                     let geminiKey = this.secretKey[0];
-                                    if (voice.api_key) geminiKey = voice.api_key;
-                                    this.ai = new GoogleGenAI({ apiKey: geminiKey });
+                                    // Không cần gán this.ai ở đây nữa vì GenaiService tự lo
+                                    // this.ai = new GoogleGenAI({ apiKey: geminiKey });
                                 }
                             }
                         });
@@ -385,8 +385,8 @@ export class AIImageComponent
                 });
             }
 
-            // 2. Gọi API Banana Pro
-            const response = await this.ai.models.generateContent(generateOptions);
+            // 2. Gọi API Banana Pro thông qua GenaiService
+            const response = await this._genaiService.generateContent(generateOptions);
 
             // 3. Rà soát Logic phản hồi
             const candidates = response.candidates;
@@ -572,7 +572,8 @@ export class AIImageComponent
         private http: HttpClient,
         private _voice: MyKeysService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) {
         this.titleService.setTitle(`tạo hình | ai.type - công cụ tạo content`);
 

@@ -8,7 +8,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatIconModule } from '@angular/material/icon';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 
 @Component({
@@ -28,7 +28,8 @@ export class CharacterDialogComponent {
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private multiAccountService: MultiAccountService,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
+        private _genaiService: GenaiService
     ) {
         this.isEditMode = data.index >= 0;
         this.editingChar = data.char ? { ...data.char } : { name: '', variant: '', role: '', appearance: '', personality: '', prompt: '', avatarUrl: null, avatarUrls: [] };
@@ -71,7 +72,7 @@ export class CharacterDialogComponent {
         this.cd.markForCheck();
 
         try {
-            const ai = new GoogleGenAI({ apiKey: apiKey });
+            // const ai = new GoogleGenAI({ apiKey: apiKey });
             
             // Build the prompt
             let finalPrompt = '';
@@ -84,9 +85,12 @@ export class CharacterDialogComponent {
                 finalPrompt = `${this.masterPrompt}\n\n${finalPrompt}`;
             }
 
-            const response = await ai.models.generateContent({
+            const response = await this._genaiService.generateContent({
                 model: 'gemini-3.1-flash-image-preview',
-                contents: finalPrompt
+                contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
+                config: {
+                    responseModalities: ['IMAGE']
+                } as any
             });
 
             let base64Data = null;

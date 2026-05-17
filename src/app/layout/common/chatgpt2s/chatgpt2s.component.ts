@@ -18,7 +18,7 @@ import { LogService } from 'app/modules/_services/link';
 import { BlogService } from 'app/modules/_services/blog';
 
 import moment from 'moment';
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
@@ -36,8 +36,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     settings: any;
     secretKey: any;
     searchAPIKey: any;
-
-    ai: any;
+    isLoading: boolean = false;
 
     @ViewChild('chatgptOrigin') private _chatgptOrigin: MatButton;
     @ViewChild('chatgptPanel') private _chatgptPanel: TemplateRef<any>;
@@ -50,10 +49,18 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     goiy: string = '';
 
     totalElements: number;
+    apiFetchedCount: number = 0;
     pageNumber: number;
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
+    currentBookmark: string = null;
     lastId: string;
+    page: Page = {
+        pageNumber: 0,
+        size: 10,
+        totalElements: 0,
+        totalPages: 0,
+    };
 
     ColumnMode = ColumnMode;
     private _overlayRef: OverlayRef;
@@ -166,117 +173,208 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     }
 
     /**
+     * Lấy statistic
+     */
+    statistic() {
+        if (!this.user) return;
+        
+        this._chatGPTService
+            .total({
+                username: this.user.name
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result: any) => {
+                    if (result && result.success && result.data !== undefined) {
+                        let total = 0;
+                        if (typeof result.data === 'number') {
+                            total = result.data;
+                        } else if (result.data && result.data.total !== undefined) {
+                            total = result.data.total;
+                        } else if (result.data && result.data.chatgpt !== undefined) {
+                            total = result.data.chatgpt;
+                        }
+
+                        this.totalElements = total;
+                        this.cdref.detectChanges();
+
+                        let statistics = localStorage.getItem('statistics');
+                        if (statistics) {
+                            let statObj = JSON.parse(statistics);
+                            statObj['chatgpt'] = this.totalElements;
+                            localStorage.setItem('statistics', JSON.stringify(statObj));
+                        }
+                    }
+                },
+                error: () => { },
+                complete: () => { },
+            });
+    }
+
+    /**
      * Populate the table with new data based on the page number
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
-        // Current page number is determined by last call to setPage
-        // This is the page the UI is currently displaying
-        // The current page is based on the UI pagesize and scroll position
-        // Pagesize can change depending on browser size
+        if (this.isLoading) return;
+        if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size || 10;
         this.pageNumber = pageInfo.offset;
-
-        // Calculate row offset in the UI using pageInfo
-        // This is the scroll position in rows
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
 
-        const page: Page = {
+        this.page = {
             pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
             size: pageInfo.pageSize,
             totalElements: 0,
-            totalPages: 0
+            totalPages: 0,
         };
 
-        // We keep a index of server loaded pages so we don't load same data twice
-        // This is based on the server page not the UI
-        if (this.cachePageSize !== page.size) {
-            this.cachePageSize = page.size;
-            this.cache = {};
-        }
-
-        if (this.cache[page.pageNumber]) {
+        // Ngăn chặn việc gọi API khi scroll lên
+        if (this.chatgpt2s && this.chatgpt2s[rowOffset]) {
             return;
         }
+        if (this.cache[this.page.pageNumber]) return;
+        this.cache[this.page.pageNumber] = true;
+        this.isLoading = true;
+        this.cdref.markForCheck();
 
-        this.cache[page.pageNumber] = true;
+        const payloadPage = {
+            ...this.page,
+            size: 25 // Fix cứng size
+        };
 
         this._chatGPTService.fetch({
             username: this.user.name,
-            page: page,
+            page: payloadPage,
+            bookmark: this.currentBookmark,
             lastId: this.lastId
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    if (result && result.success && result.data && result.data.length > 0) {
+                    const resData = result?.data;
+                    const isCouchDB = resData && !Array.isArray(resData) && resData.docs !== undefined;
+                    const docs = isCouchDB ? resData.docs : (Array.isArray(resData) ? resData : []);
+                    const bookmark = isCouchDB ? resData.bookmark : null;
+
+                    if (docs && docs.length > 0) {
                         if (!this.chatgpt2s) {
                             this.chatgpt2s = new Array<any>(this.totalElements || 0);
                         }
 
-                        // Calc starting row offset
-                        // This is the position to insert the new data
-                        const start = page.pageNumber * page.size;
+                        const start = this.apiFetchedCount;
+                        let newTotal = this.totalElements || 0;
+                        const apiPageSize = 25;
+                        
+                        if (docs.length < apiPageSize) {
+                            newTotal = start + docs.length;
+                        } else if (start + docs.length > newTotal) {
+                            newTotal = start + docs.length;
+                        }
 
-                        // Copy existing data
+                        if (this.totalElements !== newTotal) {
+                            this.totalElements = newTotal;
+                        }
+
+                        if (!this.chatgpt2s || this.chatgpt2s.length !== this.totalElements) {
+                            const oldRows = this.chatgpt2s || [];
+                            this.chatgpt2s = new Array<any>(this.totalElements);
+                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                this.chatgpt2s[i] = oldRows[i];
+                            }
+                        }
+
                         const rows = [...this.chatgpt2s];
-
-                        // Insert new rows into correct position
-                        rows.splice(start, page.size, ...result.data);
-
-                        // Set rows to our new rows for display
+                        rows.splice(start, docs.length, ...docs);
+                        
                         this.chatgpt2s = rows;
-                        this.lastId = this.chatgpt2s[this.chatgpt2s.length - 1]['_id'];
+                        this.apiFetchedCount += docs.length;
+                        
+                        if (isCouchDB) {
+                            this.currentBookmark = bookmark;
+                        } else if (docs.length > 0) {
+                            this.lastId = docs[docs.length - 1]['_id'];
+                        }
+                    } else if (docs && docs.length === 0 && isCouchDB && bookmark && bookmark !== this.currentBookmark) {
+                        this.currentBookmark = bookmark;
+                        this.isLoading = false;
+                        delete this.cache[this.page.pageNumber];
+                        this.cdref.detectChanges();
+                        this.setPage(pageInfo);
+                        return;
+                    } else if (!resData || result.success === false) {
+                        delete this.cache[this.page.pageNumber];
                     }
                 },
                 error: () => {
+                    delete this.cache[this.page.pageNumber];
+                    this.isLoading = false;
+                    this.cdref.markForCheck();
                 },
                 complete: () => {
+                    this.isLoading = false;
                     this.cdref.detectChanges();
                 }
             });
     }
 
     async chatgpt(question: string, index?: number) {
+        if (this.isLoading) return;
+
         if (question) {
             if (this.secretKey) {
-                let geminiKey = this.secretKey[0];
+                this.isLoading = true;
+                this.cdref.detectChanges();
 
-                if (this.secretKey[2]) {
-                    geminiKey = this.secretKey[2];
-                }
+                try {
+                    let geminiKey = this.secretKey[0];
 
-                this.ai = new GoogleGenAI({ apiKey: this.secretKey[0] });
-
-                const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
-
-                const result = await this.ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
-                    contents: prompt,
-                });
-
-                if (result && result.text) {
-                    result.q = question;
-
-                    if (result.imgs && result.imgs.length > 0) {
-                        let divImgs = '';
-
-                        result.imgs.map((img: string) => {
-                            divImgs = `${divImgs}<p><img src="${img}" class="chatgpt-img" /></p>`;
-                        });
-
-                        result.html = `${result.html}<div class="chatgpt-imgs">${divImgs}</div>`;
+                    if (this.secretKey[2]) {
+                        geminiKey = this.secretKey[2];
                     }
 
-                    this.chatgpt2s.unshift({
-                        question: question,
-                        answer: result.text,
-                        updatedAt: new Date()
+                    const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
+
+                    const result = await this._genaiService.generateContent({
+                        model: 'gemini-3.1-flash-preview',
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
 
+                    if (result && result.text) {
+                        (result as any).q = question;
+
+                        if ((result as any).imgs && (result as any).imgs.length > 0) {
+                            let divImgs = '';
+
+                            (result as any).imgs.map((img: string) => {
+                                divImgs = `${divImgs}<p><img src="${img}" class="chatgpt-img" /></p>`;
+                            });
+
+                            (result as any).html = `${(result as any).html}<div class="chatgpt-imgs">${divImgs}</div>`;
+                        }
+
+                        this.chatgpt2s.unshift({
+                            question: question,
+                            answer: result.text,
+                            updatedAt: new Date()
+                        });
+
+                        // Cập nhật tham chiếu mảng để ngx-datatable nhận diện sự thay đổi
+                        this.chatgpt2s = [...this.chatgpt2s];
+                        this.totalElements++;
+                        this.apiFetchedCount++;
+                        this.cache = {}; // Clear cache so pagination resets properly after shifting
+                        this.goiy = '';
+
+                        this.cdref.detectChanges();
+                        this.chatgptStore(result.text, question);
+                    } else {
+                        this.toastr.warning('Gemini của bạn chưa hoạt động.');
+                    }
+                } catch (error) {
+                    this.toastr.error('Có lỗi xảy ra khi gọi AI.');
+                } finally {
+                    this.isLoading = false;
                     this.cdref.detectChanges();
-                    this.chatgptStore(result.text, question);
-                } else {
-                    this.toastr.warning('Gemini của bạn chưa hoạt động.');
                 }
             } else {
                 this.toastr.warning('Bạn chưa kết nối Gemini.');
@@ -296,9 +394,13 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
-                        // cập nhật tính toán
-                        this.totalElements++;
-                        this._h.updateStatistics('chatgpt', 1);
+                        let statistics = localStorage.getItem('statistics');
+                        if (statistics) {
+                            let statObj = JSON.parse(statistics);
+                            statObj['chatgpt'] = this.totalElements;
+                            localStorage.setItem('statistics', JSON.stringify(statObj));
+                            this._h.updateStatistics('chatgpt', 1);
+                        }
                         this.cdref.detectChanges();
                         this.toastr.success('ChatGPT đã trả lời bạn.');
                     }
@@ -324,7 +426,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         private _h: HelperService,
         private cdref: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
-        private _viewContainerRef: ViewContainerRef
+        private _viewContainerRef: ViewContainerRef,
+        private _genaiService: GenaiService
     ) {
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');
@@ -391,6 +494,9 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
         // Attach the portal to the overlay
         this._overlayRef.attach(new TemplatePortal(this._chatgptPanel, this._viewContainerRef));
+
+        // Tính tổng lại mỗi lần mở popup
+        this.statistic();
     }
 
     /**

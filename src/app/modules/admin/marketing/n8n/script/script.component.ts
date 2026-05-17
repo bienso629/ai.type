@@ -35,7 +35,7 @@ import { MXHAutoService } from 'app/modules/_services/mxhauto';
 import { MatSelectionList } from "@angular/material/list";
 import { MatSlideToggleChange } from '@angular/material/slide-toggle';
 import { ColumnMode, SelectionType, DatatableComponent } from '@swimlane/ngx-datatable';
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { MatDialog } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 import Hls from 'hls.js';
@@ -77,8 +77,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     secretKey: any;
     searchAPIKey: any;
 
-    ai: any;
-    private chatSession: any = null;
+    // ai: any;
+    private chatHistory: any[] = [];
 
     private hls?: Hls;
     private videoEl?: HTMLVideoElement;
@@ -171,7 +171,8 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
         private zone: NgZone,
         private _matDialog: MatDialog,
         private _n8nService: N8nService, // Inject N8nService
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -181,11 +182,9 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
 
             if (this.secretKey) {
-                let geminiKey = this.secretKey[0];
-                if (this.secretKey[4]) {
-                    geminiKey = this.secretKey[4];
-                }
-                this.ai = new GoogleGenAI({ apiKey: geminiKey });
+                // let geminiKey = this.secretKey[0];
+                // if (this.secretKey[4]) { geminiKey = this.secretKey[4]; }
+                // this.ai = new GoogleGenAI({ apiKey: geminiKey });
             }
         }
 
@@ -429,7 +428,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             let messageToSend = '';
             const userPromptBlock = this.customPromptInput ? `\nCHỈ ĐẠO CỦA ĐẠO DIỄN (Yêu cầu thời gian, nội dung & LINK VIDEO): "${this.customPromptInput}"\n` : '';
 
-            if (!this.chatSession) {
+            if (this.chatHistory.length === 0) {
                 console.log('Khởi tạo Chat Session mới...');
                 const systemInstruction = `
                     Bạn là đạo diễn kịch bản livestream chuyên nghiệp.
@@ -443,15 +442,24 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
                        - Nếu người dùng cung cấp link video trong "CHỈ ĐẠO CỦA ĐẠO DIỄN", trích xuất vào "videoUrl".
                     OUTPUT JSON: { "data": [ { "id": <ID>, "comment": "...", "result": "...", "target_time": "...", "delay": 120, "videoUrl": "..." } ] }
                 `;
-                this.chatSession = this.ai.chats.create({ model: 'gemini-3-flash-preview', history: [{ role: "user", parts: [{ text: systemInstruction }] }, { role: "model", parts: [{ text: "Đã hiểu." }] }] });
+                this.chatHistory = [
+                    { role: "user", parts: [{ text: systemInstruction }] },
+                    { role: "model", parts: [{ text: "Đã hiểu." }] }
+                ];
                 messageToSend = `Nội dung live: "${texts || 'Đang giới thiệu chung'}". ${userPromptBlock} DANH SÁCH DIỄN VIÊN: ${castList} Tạo kịch bản JSON ngay.`;
             } else {
                 messageToSend = `Diễn biến mới: "${texts || 'Vẫn đang tiếp tục'}". ${userPromptBlock} DANH SÁCH DIỄN VIÊN: ${castList} Tiếp tục tạo kịch bản.`;
             }
 
-            const result = await this.chatSession.sendMessage({ message: messageToSend });
+            this.chatHistory.push({ role: "user", parts: [{ text: messageToSend }] });
+
+            const result = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: this.chatHistory
+            });
             const jsonMatch = result.text;
             if (jsonMatch) {
+                this.chatHistory.push({ role: "model", parts: [{ text: jsonMatch }] });
                 try {
                     this.comments = JSON.parse(jsonMatch);
                     this.generateRandomComment();
@@ -881,7 +889,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
     }
 
     resetScriptContext() {
-        this.chatSession = null;
+        this.chatHistory = [];
         this.selected = [];
         this.captions.forEach(c => c.selected = false);
         localStorage.removeItem(this.STORAGE_KEY);

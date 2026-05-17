@@ -3,7 +3,7 @@ import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { BlogService } from "app/modules/_services/blog";
 import { Subject, takeUntil } from "rxjs";
 
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 import { UserService } from "app/core/user/user.service";
 import { FuseConfigService } from "@fuse/services/config";
 import { User } from "app/core/user/user.types";
@@ -85,7 +85,7 @@ export class GeminiMatrixDialog {
     secretKey: any;
     searchAPIKey: any;
 
-    ai: any;
+    // ai: any;
 
     styles: any = [];
     domain: any;
@@ -194,12 +194,11 @@ export class GeminiMatrixDialog {
             let index = 0;
 
             this.data['selectedItems'].forEach(async (text: string) => {
-                if (this.secretKey) {
-                    let geminiKey = this.secretKey[index % this.secretKey.length];
-                    index++;
-
-                    this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
-                }
+                // if (this.secretKey) {
+                //     let geminiKey = this.secretKey[index % this.secretKey.length];
+                //     index++;
+                //     this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
+                // }
 
                 const title = $(text).text();
 
@@ -227,9 +226,9 @@ export class GeminiMatrixDialog {
                         Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown, không có giải thích.
                         Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
-                const response = await this.ai.models.generateContent({
-                    model: 'gemini-3-flash-preview',
-                    contents: prompt,
+                const response = await this._genaiService.generateContent({
+                    model: 'gemini-3.1-flash-preview',
+                    contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 });
 
                 const jsonText = response.text;
@@ -315,7 +314,8 @@ export class GeminiMatrixDialog {
         private _fuseConfirmationService: FuseConfirmationService,
         private _fuseConfigService: FuseConfigService,
         @Inject(MAT_DIALOG_DATA) public data: GeminiMatrixDialog,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService
     ) {
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');

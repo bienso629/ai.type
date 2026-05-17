@@ -18,12 +18,13 @@
             <div class="leading-10 w-full">
                 <input class="w-full text-base font-medium placeholder-white"
                     [placeholder]="'Chúng tôi sử dụng Gemini để trả lời câu hỏi của bạn.'"
-                    (keyup.enter)="chatgpt(goiy)" [(ngModel)]="goiy" required matInput />
+                    (keyup.enter)="!isLoading && chatgpt(goiy)" [(ngModel)]="goiy" required matInput [disabled]="isLoading" />
             </div>
 
             <div class="flex flex-row ml-auto">
-                <a mat-icon-button [matTooltip]="'Gửi câu hỏi tới Gemini'" (click)="chatgpt(goiy)">
-                    <mat-icon class="icon-size-4 text-current" [svgIcon]="'feather:send'"></mat-icon>
+                <a mat-icon-button [matTooltip]="'Gửi câu hỏi tới Gemini'" (click)="!isLoading && chatgpt(goiy)">
+                    <mat-icon *ngIf="!isLoading" class="icon-size-4 text-current" [svgIcon]="'feather:send'"></mat-icon>
+                    <mat-progress-spinner *ngIf="isLoading" [diameter]="20" [mode]="'indeterminate'"></mat-progress-spinner>
                 </a>
 
                 <!-- <input hidden type="file" class="file-input" (change)="upload($event)" #fileUpload>
@@ -45,8 +46,8 @@
                 <ngx-datatable-row-detail (toggle)="onDetailToggle($event)" [rowHeight]="202">
                     <ng-template let-row="row" let-rowIndex="rowIndex" let-expanded="expanded"
                         ngx-datatable-row-detail-template>
-                        <div class="p-4 chatgpt-result text-base hover:overflow-y-auto hover:h-50" id="{{row._id}}"
-                            [innerHTML]="row.answer | renderTrustHTML"></div>
+                        <div class="p-4 chatgpt-result text-base hover:overflow-y-auto hover:h-50" id="{{row?._id}}"
+                            [innerHTML]="row?.answer | renderTrustHTML"></div>
                     </ng-template>
                 </ngx-datatable-row-detail>
 
@@ -64,14 +65,14 @@
                 <ngx-datatable-column name="Câu hỏi" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                     [resizeable]="false">
                     <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
-                        {{ row.question }}
+                        {{ row?.question }}
                     </ng-template>
                 </ngx-datatable-column>
 
                 <ngx-datatable-column name="Thời gian" [width]="150" [sortable]="false" [canAutoResize]="false"
                     [draggable]="false" [resizeable]="false">
                     <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
-                        {{ row.updatedAt | timeago }}
+                        {{ row?.updatedAt | timeago }}
                     </ng-template>
                 </ngx-datatable-column>
 

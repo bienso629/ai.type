@@ -10,7 +10,7 @@ import { Subject, takeUntil } from "rxjs";
 
 import * as uuid from 'uuid';
 import { ToastrService } from "ngx-toastr";
-import { GoogleGenAI, createPartFromUri } from "@google/genai";
+import { GenaiService } from 'app/genai.service';
 import { MultiAccountService } from "app/modules/_services/multi-account.service";
 
 @Component({
@@ -83,7 +83,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
 
     loading: boolean = false;
 
-    ai: any;
+    // ai: any;
 
     @ViewChild('fileUpload') fileUpload: ElementRef; // Khai báo ViewChild
     selectedFileName: string = '';
@@ -133,32 +133,25 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
             let parts: any[] = [question];
 
             if (this.files) {
-                this.toastr.info('Đang tải file lên Gemini...');
-
-                // Upload lên Google File API
-                const uploadResponse = await this.ai.files.upload({
-                    file: this.files,
-                    config: { displayName: this.selectedFileName }
+                this.toastr.info('Đang xử lý file...');
+                const base64Data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+                    reader.onerror = error => reject(error);
+                    reader.readAsDataURL(this.files);
                 });
-
-                // Chờ xử lý (Polling)
-                let getFile = await this.ai.files.get({ name: uploadResponse.name });
-                while (getFile.state === 'PROCESSING') {
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    getFile = await this.ai.files.get({ name: uploadResponse.name });
-                }
-
-                if (getFile.state === 'FAILED') throw new Error('File lỗi');
-
-                // Tạo part từ URI
-                const filePart = createPartFromUri(getFile.uri, getFile.mimeType);
-                parts.push(filePart);
+                parts.push({
+                    inlineData: {
+                        data: base64Data,
+                        mimeType: this.files.type
+                    }
+                });
             }
 
             // Gửi toàn bộ nội dung
-            const result = await this.ai.models.generateContent({
-                model: 'gemini-3-flash-preview', // Dùng bản 2.0 ổn định
-                contents: parts
+            const result = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
+                contents: [{ role: 'user', parts: parts.map(p => typeof p === 'string' ? { text: p } : p) }]
             });
 
             if (result.text) {
@@ -219,6 +212,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         private _userService: UserService,
         public dialog: MatDialog,
         private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService,
         @Inject(MAT_BOTTOM_SHEET_DATA) public data: { content: string }
     ) {
         // lấy secretKey và searchAPIKey
@@ -231,12 +225,12 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
         }
 
         // Lấy key từ settings của bạn
-        let geminiKey = this.secretKey[3] || this.secretKey[0];
-        if (!geminiKey) {
-            this.toastr.warning('Không tìm thấy API Key.');
-        } else {
-            this.ai = new GoogleGenAI({ apiKey: geminiKey });
-        }
+        // let geminiKey = this.secretKey[3] || this.secretKey[0];
+        // if (!geminiKey) {
+        //     this.toastr.warning('Không tìm thấy API Key.');
+        // } else {
+        //     this.ai = new GoogleGenAI({ apiKey: geminiKey });
+        // }
 
         // Subscribe to user changes
         this._userService.user$

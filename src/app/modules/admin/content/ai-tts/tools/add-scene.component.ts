@@ -10,7 +10,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSelectModule } from '@angular/material/select';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { GoogleGenAI } from '@google/genai';
+import { GenaiService } from 'app/genai.service';
 
 @Component({
     selector: 'app-add-scene',
@@ -89,6 +89,7 @@ export class AddSceneComponent {
         public dialogRef: MatDialogRef<AddSceneComponent>,
         private multiAccountService: MultiAccountService,
         private toastr: ToastrService,
+        private _genaiService: GenaiService,
         @Inject(MAT_DIALOG_DATA) public data: { selectedClip: any, prompt: string, characters?: any[], masterPrompt?: string, availableClips?: any[] }
     ) {
         // Đảm bảo data không bị undefined
@@ -120,8 +121,8 @@ export class AddSceneComponent {
             return;
         }
 
-        const geminiKey = secretKey[6] || secretKey[0];
-        const ai = new GoogleGenAI({ apiKey: geminiKey });
+        // const geminiKey = secretKey[6] || secretKey[0];
+        // const ai = new GoogleGenAI({ apiKey: geminiKey });
 
         this.isGenerating = true;
 
@@ -156,8 +157,8 @@ export class AddSceneComponent {
         `;
 
         try {
-            const response = await ai.models.generateContent({
-                model: 'gemini-3-flash-preview',
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-preview',
                 contents: [{ role: 'user', parts: [{ text: promptText }] }],
             });
 
