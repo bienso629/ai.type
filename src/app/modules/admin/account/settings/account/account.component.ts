@@ -119,6 +119,7 @@ export class SettingsAccountComponent implements OnInit {
                 n8n: this.accountForm.value['n8n'],
                 umodelverseUrl: this.accountForm.value['umodelverseUrl'],
                 umodelverseKey: this.accountForm.value['umodelverseKey'],
+                umodelverseImageModel: this.accountForm.value['umodelverseImageModel'],
             };
 
             if (statusTypeLite) {
@@ -319,6 +320,7 @@ export class SettingsAccountComponent implements OnInit {
             n8n: [(settings && settings.n8n) ? settings.n8n : ''],
             umodelverseUrl: [(settings && settings.umodelverseUrl) ? settings.umodelverseUrl : ''],
             umodelverseKey: [(settings && settings.umodelverseKey) ? settings.umodelverseKey : ''],
+            umodelverseImageModel: [(settings && settings.umodelverseImageModel) ? settings.umodelverseImageModel : ''],
         });
 
         const secretKeyValue = this.accountForm.get('secretKey').value;

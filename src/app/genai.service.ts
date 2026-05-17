@@ -20,6 +20,7 @@ export class GenaiService {
 
     private _umodelverseUrl: string = '';
     private _umodelverseKey: string = '';
+    private _umodelverseImageModel: string = '';
 
     constructor(
         private multiAccountService: MultiAccountService
@@ -47,6 +48,7 @@ export class GenaiService {
             // Cập nhật cấu hình Mì Tôm AI
             this._umodelverseUrl = settings.umodelverseUrl?.trim() || '';
             this._umodelverseKey = settings.umodelverseKey?.trim() || '';
+            this._umodelverseImageModel = settings.umodelverseImageModel?.trim() || '';
             
             // Nếu umodelverseUrl bị thiếu giao thức, thêm vào (mặc định https)
             if (this._umodelverseUrl && !this._umodelverseUrl.startsWith('http')) {
@@ -111,7 +113,8 @@ export class GenaiService {
         if (params.model === 'gemini-3.1-flash-preview') {
             params.model = 'gemini-3-flash-preview';
         } else if (params.model === 'gemini-3.1-flash-image-preview') {
-            params.model = 'gemini-3-flash-preview-image';
+            // UModelverse chưa hỗ trợ model tạo ảnh của Gemini, fallback về model tùy chọn hoặc dall-e-3
+            params.model = this.isUModelverseEnabled() ? (this._umodelverseImageModel || 'dall-e-3') : 'gemini-3.1-flash-image-preview';
         }
 
         this._start(scope);
