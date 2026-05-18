@@ -1993,6 +1993,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         if (files?.length > 0) this.processFiles(files);
     }
 
+    selectedAudioIndex: number = -1;
+
     async processFiles(files: FileList) {
         const promises: Promise<AudioClip>[] = [];
         for (let i = 0; i < files.length; i++) {
@@ -2001,7 +2003,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
         try {
             const newClips = await Promise.all(promises);
-            this.audioList = [...this.audioList, ...newClips];
+            if (this.selectedAudioIndex !== -1 && this.selectedAudioIndex < this.audioList.length) {
+                this.audioList.splice(this.selectedAudioIndex + 1, 0, ...newClips);
+                this.audioList = [...this.audioList];
+            } else {
+                this.audioList = [...this.audioList, ...newClips];
+            }
+            this.selectedAudioIndex = -1;
             this.calculateTotalDuration();
             this.saveToLocal();
             this.update(false);
@@ -2023,7 +2031,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             isEditing: true, // Auto open edit mode
             tempDescription: ''
         };
-        this.audioList = [...this.audioList, newClip];
+        if (this.selectedAudioIndex !== -1 && this.selectedAudioIndex < this.audioList.length) {
+            this.audioList.splice(this.selectedAudioIndex + 1, 0, newClip);
+            this.audioList = [...this.audioList];
+        } else {
+            this.audioList = [...this.audioList, newClip];
+        }
+        this.selectedAudioIndex = -1;
         this.saveToLocal();
         this.update(false);
         this.cd.markForCheck();

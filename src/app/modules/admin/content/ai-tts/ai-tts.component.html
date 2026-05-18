@@ -173,7 +173,9 @@
                 <div cdkDropList [cdkDropListData]="audioList" (cdkDropListDropped)="drop($event)"
                     class="flex flex-col gap-3 p-6 pt-0">
                     <div *ngFor="let clip of audioList; let i = index" cdkDrag
-                        class="group bg-white dark:bg-gray-700 border border-gray-200 rounded-lg p-3 hover:shadow-md hover:border-primary-300 transition-all flex flex-col sm:flex-row gap-4 relative">
+                        (click)="selectedAudioIndex = selectedAudioIndex === i ? -1 : i"
+                        class="group bg-white dark:bg-gray-700 border-2 rounded-lg p-3 hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 relative cursor-pointer"
+                        [ngClass]="selectedAudioIndex === i ? 'border-green-500' : 'border-gray-200 hover:border-primary-300'">
 
                         <div
                             class="flex items-center min-w-[50px] cursor-grab active:cursor-grabbing border-r border-gray-100 dark:border-gray-600 pr-3">
@@ -184,7 +186,7 @@
 
                         <div class="flex items-center w-100 overflow-hidden">
                             <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mr-3 transition-colors cursor-pointer"
-                                (click)="playClip(clip)"
+                                (click)="$event.stopPropagation(); playClip(clip)"
                                 [ngClass]="clip.url ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' : 'bg-gray-100 text-gray-500'">
                                 <mat-icon *ngIf="clip.url || clip.audioFileName"
                                     [svgIcon]="'heroicons_solid:play'"></mat-icon>
@@ -197,7 +199,7 @@
                                     <span class="truncate">{{ clip.name }}</span>
                                     <button mat-icon-button
                                         class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                                        (click)="editClip(clip)" matTooltip="Sửa nội dung">
+                                        (click)="$event.stopPropagation(); editClip(clip)" matTooltip="Sửa nội dung">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
                                     </button>
@@ -213,12 +215,12 @@
                                 <div class="flex flex-col gap-1 flex-shrink-0">
                                     <button mat-icon-button
                                         class="w-6 h-6 min-h-6 bg-green-100 rounded hover:bg-green-200"
-                                        (click)="saveClipEdit(clip)">
+                                        (click)="$event.stopPropagation(); saveClipEdit(clip)">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'heroicons_outline:check'"></mat-icon>
                                     </button>
                                     <button mat-icon-button class="w-6 h-6 min-h-6 bg-red-100 rounded hover:bg-red-200"
-                                        (click)="cancelClipEdit(clip)">
+                                        (click)="$event.stopPropagation(); cancelClipEdit(clip)">
                                         <mat-icon class="icon-size-4 text-red-600"
                                             [svgIcon]="'heroicons_outline:x'"></mat-icon>
                                     </button>
@@ -280,14 +282,14 @@
                                 </ng-container>
 
                                 <div class="flex justify-start">
-                                    <button *ngIf="i === 0" mat-icon-button (click)="syncSettingsFromFirst()"
+                                    <button *ngIf="i === 0" mat-icon-button (click)="$event.stopPropagation(); syncSettingsFromFirst()"
                                         matTooltip="Đồng bộ Cài đặt xuống các dòng dưới">
                                         <mat-icon
                                             class="icon-size-5 text-indigo-500 hover:text-indigo-600 focus:text-indigo-600"
                                             [svgIcon]="'heroicons_outline:arrow-down'"></mat-icon>
                                     </button>
 
-                                    <button mat-icon-button [disabled]="clip.isProcessing" (click)="generateAudio(clip)"
+                                    <button mat-icon-button [disabled]="clip.isProcessing" (click)="$event.stopPropagation(); generateAudio(clip)"
                                         class="transition-colors"
                                         [matTooltip]="clip.localFilePath ? 'Tạo lại Audio' : 'Tạo Audio'">
                                         <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
@@ -306,7 +308,7 @@
                                         </button> -->
 
                                     <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
-                                        (click)="createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
+                                        (click)="$event.stopPropagation(); createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
                                         matTooltip="Tạo ảnh từ Prompt">
                                         <mat-icon class="icon-size-5 text-purple-500"
                                             [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
@@ -321,11 +323,11 @@
                                 class="text-xs font-medium text-gray-400 mr-2 whitespace-nowrap hidden sm:block">
                                 {{ clip.duration }}s
                             </span>
-                            <button *ngIf="clip.url" (click)="downloadClip(clip)" mat-icon-button
+                            <button *ngIf="clip.url" (click)="$event.stopPropagation(); downloadClip(clip)" mat-icon-button
                                 class="text-gray-300 hover:text-blue-500 transition-colors">
                                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:download'"></mat-icon>
                             </button>
-                            <button (click)="removeClip(i)" mat-icon-button class="transition-colors">
+                            <button (click)="$event.stopPropagation(); removeClip(i)" mat-icon-button class="transition-colors">
                                 <mat-icon class="icon-size-5 text-red-500 hover:text-red-600"
                                     [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                             </button>
