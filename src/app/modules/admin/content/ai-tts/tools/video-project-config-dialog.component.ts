@@ -138,7 +138,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
 
     openCharacterDialog(char: any = null, index: number = -1) {
         const dialogRef = this.dialog.open(CharacterDialogComponent, {
-            width: '600px',
+            width: '86vw',
             maxWidth: '95vw',
             height: 'auto',
             maxHeight: '90vh',

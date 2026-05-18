@@ -32,11 +32,9 @@ import { AddSceneComponent } from './add-scene.component';
 import { DirectorModeComponent } from './director-mode.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
-import { AudioGenerationComponent } from './audio-generation.component';
 import { Router } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { CharacterDialogComponent } from './character-dialog.component';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
 import { GenaiService } from 'app/genai.service';
 import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';
@@ -86,18 +84,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     onDragLinkStart(e: MouseEvent, video: any, sceneIdx: number, vIdx: number) {
         e.stopPropagation();
         e.preventDefault();
-        
+
         this.linkingSourceVideo = video;
         this.linkingSourceSceneIndex = sceneIdx;
         this.linkingSourceVideoIndex = vIdx;
         this.isDraggingLink = true;
-        
+
         this.currentMouseX = e.clientX;
         this.currentMouseY = e.clientY;
 
         document.addEventListener('mousemove', this.onDragLinkMove);
         document.addEventListener('mouseup', this.onDragLinkEnd);
-        
+
         this.updateLines();
     }
 
@@ -111,17 +109,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     onDragLinkEnd = (e: MouseEvent) => {
         document.removeEventListener('mousemove', this.onDragLinkMove);
         document.removeEventListener('mouseup', this.onDragLinkEnd);
-        
+
         if (!this.isDraggingLink) return;
         this.isDraggingLink = false;
-        
+
         const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
         if (dropTarget) {
             const videoWrapper = dropTarget.closest('[data-scene-idx]');
             if (videoWrapper) {
                 const targetSceneIdx = parseInt(videoWrapper.getAttribute('data-scene-idx') || '-1', 10);
                 const targetVIdx = parseInt(videoWrapper.getAttribute('data-v-idx') || '-1', 10);
-                
+
                 if (targetSceneIdx !== -1 && targetVIdx !== -1) {
                     const targetVideo = this.projectData?.scenes?.[targetSceneIdx]?.videos?.[targetVIdx];
                     if (targetVideo) {
@@ -132,7 +130,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 }
             }
         }
-        
+
         // Hủy nếu không thả vào vùng video hợp lệ
         this.cancelLinking();
         this.updateLines();
@@ -256,18 +254,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             const sourceEl = document.getElementById(sourceId);
             if (sourceEl) {
                 const sourceRect = sourceEl.getBoundingClientRect();
-                
+
                 // Điểm bắt đầu
                 const startX = sourceRect.right - containerRect.left;
                 const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
-                
+
                 // Điểm kết thúc là tọa độ chuột hiện tại
                 const endX = this.currentMouseX - containerRect.left;
                 const endY = this.currentMouseY - containerRect.top;
-                
+
                 const distanceX = Math.max(100, Math.abs(endX - startX) * 0.5);
                 const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
-                
+
                 // Hiển thị đường màu cam nét đứt hoặc màu cam đậm
                 newLines.push({ path, color: 'rgba(249, 115, 22, 0.9)' });
             }
@@ -285,7 +283,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     @ViewChild('svgLayer') svgLayer!: ElementRef;
     openConfigDialog() {
         const dialogRef = this.dialog.open(VideoProjectConfigDialogComponent, {
-            width: '800px',
+            width: 'auto',
             maxWidth: '95vw',
             autoFocus: false,
             data: {
@@ -484,7 +482,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
     openEditScenePromptDialog(scene: any, video: any, index: number) {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
-            width: '700px',
+            width: '86vw',
             maxWidth: '95vw',
             maxHeight: '90vh',
             disableClose: true,
