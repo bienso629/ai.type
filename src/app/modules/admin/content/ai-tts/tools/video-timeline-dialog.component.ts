@@ -5,7 +5,10 @@ import {
     ElementRef,
     Inject,
     CUSTOM_ELEMENTS_SCHEMA,
-    ChangeDetectorRef
+    ChangeDetectorRef,
+    HostListener,
+    OnDestroy,
+    TemplateRef
 } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -36,6 +39,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 import { CharacterDialogComponent } from './character-dialog.component';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
 import { GenaiService } from 'app/genai.service';
+import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';
 
 interface electron {
     selectLocalFile: (filePath: string) => Promise<string>;
@@ -56,7 +60,7 @@ interface electron {
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
-export class VideoTimelineDialogComponent implements OnInit {
+export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
 
     // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
@@ -70,8 +74,160 @@ export class VideoTimelineDialogComponent implements OnInit {
 
     allClips: any[] = []; // Chứa danh sách tất cả các câu thoại có trong project
 
+    linkingSourceVideo: any = null;
+    linkingSourceSceneIndex: number = -1;
+    linkingSourceVideoIndex: number = -1;
+
+    startLinking(video: any, sceneIdx: number, vIdx: number) {
+        this.linkingSourceVideo = video;
+        this.linkingSourceSceneIndex = sceneIdx;
+        this.linkingSourceVideoIndex = vIdx;
+        this.toastr.info('Vui lòng chọn một đoạn video khác để tạo liên kết.');
+    }
+
+    cancelLinking() {
+        this.linkingSourceVideo = null;
+        this.linkingSourceSceneIndex = -1;
+        this.linkingSourceVideoIndex = -1;
+    }
+
+    completeLinking(targetVideo: any, targetSceneIdx: number, targetVIdx: number) {
+        if (!this.linkingSourceVideo) return;
+
+        if (this.linkingSourceVideo === targetVideo) {
+            this.toastr.warning('Không thể liên kết với chính nó.');
+            this.cancelLinking();
+            return;
+        }
+
+        this.linkingSourceVideo.linkedTo = {
+            sceneIndex: targetSceneIdx,
+            videoIndex: targetVIdx,
+            text: `Scene ${targetSceneIdx + 1} - Phần ${targetVIdx + 1}`
+        };
+
+        this.saveData();
+        this.toastr.success(`Đã tạo liên kết thành công!`);
+        this.cancelLinking();
+    }
+
+    removeLink(video: any) {
+        video.linkedTo = null;
+        this.saveData();
+    }
+
+    scrollToLinkedVideo(linkedTo: any) {
+        if (!linkedTo) return;
+        const targetId = `video_${linkedTo.sceneIndex}_${linkedTo.videoIndex}`;
+        const element = document.getElementById(targetId);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+            element.classList.add('ring-4', 'ring-indigo-500');
+            setTimeout(() => {
+                element.classList.remove('ring-4', 'ring-indigo-500');
+            }, 1500);
+        } else {
+            this.toastr.warning('Không tìm thấy Video đích. Có thể nó đã bị xoá hoặc ẩn.');
+        }
+    }
+
+    @HostListener('document:keydown.escape', ['$event'])
+    onKeydownHandler(event: KeyboardEvent) {
+        if (this.linkingSourceVideo) {
+            this.cancelLinking();
+            this.toastr.info('Đã hủy tạo liên kết.');
+        }
+    }
+
+    svgLines: { path: string, color: string }[] = [];
+    private lastLinesStr = '';
+    private animationFrameId: any;
+
+    updateLines() {
+        if (!this.projectData || !this.projectData.scenes) {
+            this.svgLines = [];
+            return;
+        }
+
+        const newLines: any[] = [];
+        const svgContainer = this.svgLayer?.nativeElement;
+        if (!svgContainer) return;
+
+        const containerRect = svgContainer.getBoundingClientRect();
+
+        for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+            const scene = this.projectData.scenes[sIdx];
+            if (!scene.videos) continue;
+
+            for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                const video = scene.videos[vIdx];
+                if (video.linkedTo) {
+                    const sourceId = `video_${sIdx}_${vIdx}`;
+                    const targetId = `video_${video.linkedTo.sceneIndex}_${video.linkedTo.videoIndex}`;
+
+                    const sourceEl = document.getElementById(sourceId);
+                    const targetEl = document.getElementById(targetId);
+
+                    if (sourceEl && targetEl) {
+                        const sourceRect = sourceEl.getBoundingClientRect();
+                        const targetRect = targetEl.getBoundingClientRect();
+
+                        // Điểm bắt đầu (giữa cạnh phải của source)
+                        const startX = sourceRect.right - containerRect.left;
+                        const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
+
+                        // Điểm kết thúc (giữa cạnh trái của target)
+                        const endX = targetRect.left - containerRect.left;
+                        const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
+
+                        // Tính control points cho đường cong Bezier
+                        const distanceX = Math.max(100, Math.abs(endX - startX) * 0.5);
+
+                        // Đường cong M startX startY C cp1X cp1Y, cp2X cp2Y, endX endY
+                        const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
+
+                        // Nếu nối ngược về bên trái thì hiện màu đỏ cảnh báo, bình thường màu indigo
+                        const isBackwards = endX < startX;
+                        const color = isBackwards ? 'rgba(239, 68, 68, 0.7)' : 'rgba(99, 102, 241, 0.7)';
+
+                        newLines.push({ path, color });
+                    }
+                }
+            }
+        }
+
+        const newLinesStr = JSON.stringify(newLines);
+        if (newLinesStr !== this.lastLinesStr) {
+            this.svgLines = newLines;
+            this.lastLinesStr = newLinesStr;
+            this.cd.detectChanges();
+        }
+    }
+
     @ViewChild('scrollContainer') scrollContainer!: ElementRef;
-    @ViewChild('editScenePromptTemplate') editScenePromptTemplate!: any;
+    @ViewChild('svgLayer') svgLayer!: ElementRef;
+    openConfigDialog() {
+        const dialogRef = this.dialog.open(VideoProjectConfigDialogComponent, {
+            width: '60vw',
+            maxWidth: '95vw',
+            autoFocus: false,
+            data: {
+                projectData: this.projectData,
+                uuid: this.data?.uuid,
+                onSave: (newData: any) => {
+                    this.projectData = newData;
+                    this.saveData();
+                }
+            }
+        });
+        dialogRef.afterClosed().subscribe(result => {
+            if (result) {
+                this.projectData = result;
+                this.saveData();
+                this.cd.detectChanges();
+            }
+        });
+    }
 
     projectData: any;
 
@@ -249,169 +405,6 @@ export class VideoTimelineDialogComponent implements OnInit {
         this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
     }
 
-    async generateCharacterAndOpenDialog() {
-        if (!this.projectData?.masterPrompt) {
-            this.openCharacterDialog();
-            return;
-        }
-
-        const settings = this.multiAccountService.getItem('settings');
-        let secretKey;
-        try {
-            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
-        } catch { }
-
-        if (!secretKey) {
-            this.toastr.error('Thiếu API Key cho AI. Đang mở form mặc định...');
-            this.openCharacterDialog();
-            return;
-        }
-
-        const randomKey = secretKey[Math.floor(Math.random() * secretKey.length)];
-
-        this.isGeneratingCharacter = true;
-        this.cd.markForCheck();
-
-        const existingNames = (this.projectData.characters || []).map((c: any) => c.name || c.role).join(', ');
-        const ignoreInstruction = existingNames ? `DO NOT generate these characters because they already exist: ${existingNames}. Generate a NEW character from the story.` : 'Extract the main character or a significant character from the story.';
-
-        const systemPrompt = `
-            You are an expert Casting Director and Character Designer.
-            I will provide you with a story or video concept (Master Prompt).
-            Your task is to extract ONE character from this story and provide their details in JSON format.
-            
-            ${ignoreInstruction}
-            
-            Return ONLY a valid JSON object with the following structure:
-            {
-                "name": "Character's Name (or a descriptive title if unnamed)",
-                "role": "Their role in the story (e.g., Protagonist, Villain, Supporting)",
-                "appearance": "Detailed physical description (hair, eyes, clothes, age, etc.)",
-                "personality": "Their personality traits",
-                "prompt": "A highly detailed image generation prompt in ENGLISH for this character (e.g., 'A 25yo man, cinematic lighting, highly detailed face...')"
-            }
-        `;
-
-        try {
-            // const ai = new GoogleGenAI({ apiKey: randomKey });
-
-            const response = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [{ role: 'user', parts: [{ text: this.projectData.masterPrompt }] }],
-                config: {
-                    systemInstruction: systemPrompt,
-                    temperature: 0.7,
-                }
-            });
-
-            const text = response.text;
-            if (text) {
-                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/{[\s\S]*}/);
-                if (jsonMatch) {
-                    const charData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-                    this.toastr.success('AI đã trích xuất thành công nhân vật mới!');
-                    this.openCharacterDialog(charData);
-                    return;
-                }
-            }
-            this.toastr.error('AI không trả về dữ liệu chuẩn, mở form trống...');
-            this.openCharacterDialog();
-        } catch (error: any) {
-            console.error('Error generating character:', error);
-            this.toastr.error('Lỗi AI, đang mở form trống...');
-            this.openCharacterDialog();
-        } finally {
-            this.isGeneratingCharacter = false;
-            this.cd.markForCheck();
-        }
-    }
-
-    openCharacterDialog(char: any = null, index: number = -1) {
-        const dialogRef = this.dialog.open(CharacterDialogComponent, {
-            width: '600px',
-            maxWidth: '95vw',
-            height: 'auto',
-            maxHeight: '90vh',
-            disableClose: true,
-            data: {
-                char: char,
-                index: index,
-                masterPrompt: this.projectData?.masterPrompt || '',
-                existingCharacters: this.projectData?.characters || []
-            }
-        });
-
-        dialogRef.afterClosed().subscribe(result => {
-            if (result) {
-                if (!this.projectData) this.projectData = {};
-                if (!this.projectData.characters) this.projectData.characters = [];
-
-                if (index >= 0) {
-                    const oldChar = this.projectData.characters[index];
-                    const oldPrompt = oldChar?.prompt ? oldChar.prompt.trim() : '';
-                    const newPrompt = result.prompt ? result.prompt.trim() : '';
-
-                    this.projectData.characters[index] = result;
-
-                    // Tự động tìm và thay thế (Replace) câu prompt cũ bằng câu mới ở tất cả mọi nơi
-                    if (oldPrompt && newPrompt && oldPrompt !== newPrompt) {
-                        let replacedCount = 0;
-
-                        // 1. Cập nhật Master Prompt
-                        if (this.projectData.masterPrompt && this.projectData.masterPrompt.includes(oldPrompt)) {
-                            this.projectData.masterPrompt = this.projectData.masterPrompt.split(oldPrompt).join(newPrompt);
-                            replacedCount++;
-                        }
-
-                        // 2. Cập nhật tất cả các Phân cảnh (Scenes & Videos)
-                        if (this.projectData.scenes) {
-                            this.projectData.scenes.forEach((scene: any) => {
-                                if (scene.prompt && scene.prompt.includes(oldPrompt)) {
-                                    scene.prompt = scene.prompt.split(oldPrompt).join(newPrompt);
-                                    replacedCount++;
-                                }
-                                if (scene.videos) {
-                                    scene.videos.forEach((video: any) => {
-                                        if (video.prompt && video.prompt.includes(oldPrompt)) {
-                                            video.prompt = video.prompt.split(oldPrompt).join(newPrompt);
-                                            replacedCount++;
-                                        }
-                                    });
-                                }
-                            });
-                        }
-
-                        if (replacedCount > 0) {
-                            this.toastr.info(`Đã tự động cập nhật tạo hình nhân vật này cho ${replacedCount} đoạn Prompt!`);
-                        }
-                    }
-
-                } else {
-                    this.projectData.characters.push(result);
-                }
-
-                this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
-                this.saveData();
-
-                this.toastr.success(index >= 0 ? 'Đã cập nhật nhân vật' : 'Đã thêm nhân vật mới');
-            }
-        });
-    }
-
-    duplicateCharacter(char: any) {
-        if (!this.projectData) this.projectData = {};
-        if (!this.projectData.characters) this.projectData.characters = [];
-
-        const newChar = { ...char };
-        newChar.variant = newChar.variant ? `${newChar.variant} (Copy)` : 'Phiên bản mới';
-
-        this.projectData.characters.push(newChar);
-        this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
-        this.saveData();
-
-        this.toastr.success(`Đã nhân bản nhân vật: ${char.name || char.role}`);
-    }
-
     openEditScenePromptDialog(scene: any, video: any, index: number) {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             width: '700px',
@@ -441,31 +434,9 @@ export class VideoTimelineDialogComponent implements OnInit {
         });
     }
 
-    toggleEditMasterPrompt() {
-        if (this.isEditingMasterPrompt) {
-            this.saveData();
-            this.toastr.success('Đã lưu Master Prompt!');
-        }
-        this.isEditingMasterPrompt = !this.isEditingMasterPrompt;
-    }
-
     toggleVideoCompleted(video: any) {
         video.isCompleted = !video.isCompleted;
         this.saveData();
-    }
-
-    removeCharacter(index: number) {
-        this.alert({
-            title: 'Xóa nhân vật',
-            message: 'Bạn có chắc chắn muốn xóa nhân vật này khỏi hồ sơ Casting?',
-            confirm: 'Xóa ngay',
-            cb: () => {
-                this.projectData.characters.splice(index, 1);
-                this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
-                this.saveData();
-                this.toastr.warning('Đã xóa nhân vật.');
-            }
-        });
     }
 
     generateAllImages(): void {
@@ -832,6 +803,19 @@ export class VideoTimelineDialogComponent implements OnInit {
                     this.activeDownloadScene = null;
                 }
             });
+        }
+
+        // Bắt đầu vòng lặp vẽ SVG
+        const startLoop = () => {
+            this.updateLines();
+            this.animationFrameId = requestAnimationFrame(startLoop);
+        };
+        startLoop();
+    }
+
+    ngOnDestroy() {
+        if (this.animationFrameId) {
+            cancelAnimationFrame(this.animationFrameId);
         }
     }
 
