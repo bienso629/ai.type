@@ -66,6 +66,7 @@
                         @for (video of scene.videos; track video; let vIdx = $index) {
                         <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded-lg overflow-hidden"
                             [ngClass]="[video.imageUrl ? 'h-auto overflow-hidden' : 'min-h-32 max-h-40 h-32 overflow-hidden', linkingSourceVideo && linkingSourceVideo !== video ? 'ring-2 ring-indigo-500 hover:ring-4 cursor-pointer transition-all z-30' : '']"
+                            [attr.data-scene-idx]="sceneIdx" [attr.data-v-idx]="vIdx"
                             (click)="linkingSourceVideo ? completeLinking(video, sceneIdx, vIdx) : null"
                             [id]="'video_' + sceneIdx + '_' + vIdx">
 
@@ -119,36 +120,35 @@
                             </div>
                             }
 
-                            <div
-                                class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
+                            <div (mousedown)="onDragLinkStart($event, video, sceneIdx, vIdx)"
+                                class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20 cursor-grab active:cursor-grabbing">
 
                                 <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
                                     matTooltip="Copy Prompt phần này"
+                                    (mousedown)="$event.stopPropagation()"
                                     (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:copy'"></mat-icon>
                                 </button>
 
                                 <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
-                                    matTooltip="Chọn media" (click)="$event.stopPropagation(); fileInput.click()">
+                                    matTooltip="Chọn media" 
+                                    (mousedown)="$event.stopPropagation()"
+                                    (click)="$event.stopPropagation(); fileInput.click()">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:upload'"></mat-icon>
                                 </button>
 
                                 <button *ngIf="video.imageUrl" mat-icon-button
                                     class="bg-white/20 hover:bg-red-500 transition-colors" matTooltip="Gỡ bỏ media này"
+                                    (mousedown)="$event.stopPropagation()"
                                     (click)="$event.stopPropagation(); clearVideoMedia(video)">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:trash-2'"></mat-icon>
                                 </button>
 
                                 <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
                                     matTooltip="Sửa Prompt phần này"
+                                    (mousedown)="$event.stopPropagation()"
                                     (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:edit'"></mat-icon>
-                                </button>
-
-                                <button mat-icon-button class="bg-white/20 hover:bg-orange-500 transition-colors"
-                                    matTooltip="Tạo liên kết với phần khác"
-                                    (click)="$event.stopPropagation(); startLinking(video, sceneIdx, vIdx)">
-                                    <mat-icon class="icon-size-4 text-white">link</mat-icon>
                                 </button>
 
                                 <input #fileInput type="file" (change)="onFileSelected($event, scene, video)"
