@@ -19,12 +19,6 @@
 
     <div mat-dialog-content class="p-0 flex flex-col overflow-hidden flex-grow !max-h-none">
 
-        <!-- Linking Banner -->
-        <div *ngIf="linkingSourceVideo"
-            class="bg-indigo-100 text-indigo-800 px-4 py-2 flex justify-between items-center text-sm font-medium animate-pulse flex-shrink-0">
-            <span>Vui lòng chọn một đoạn video khác để tạo liên kết (hoặc bấm nút Hủy)...</span>
-            <button mat-button color="warn" (click)="cancelLinking()" class="h-8 min-h-8">Hủy (ESC)</button>
-        </div>
 
         <div class="flex flex-row flex-grow overflow-hidden relative">
 
@@ -37,14 +31,17 @@
                 }
             </svg>
 
-            <div class="flex overflow-x-hidden scrollbar-hide rounded-lg space-x-8 timeline-container cursor-grab active:cursor-grabbing"
+            <div class="flex overflow-x-hidden scrollbar-hide rounded-xl space-x-6 timeline-container cursor-grab active:cursor-grabbing"
                 #scrollContainer (mousedown)="startDragging($event)" (mouseleave)="stopDragging()"
                 (mouseup)="stopDragging()" (mousemove)="moveEvent($event)" cdkDropList
                 cdkDropListOrientation="horizontal" (cdkDropListDropped)="onSceneDropped($event)">
 
                 @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
-                <div class="flex-none flex flex-col w-80 max-h-full h-full rounded-lg overflow-hidden select-none relative transition-all duration-300"
-                    [ngClass]="activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50'" cdkDrag>
+                <div class="flex-none flex flex-col w-80 max-h-full h-full rounded-xl overflow-hidden select-none relative transition-all duration-300 cursor-pointer border-[3px]"
+                    [ngClass]="[
+                        activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50',
+                        selectedSceneIndex === sceneIdx ? 'border-green-500' : 'border-gray-50'
+                    ]" cdkDrag (click)="selectedSceneIndex = selectedSceneIndex === sceneIdx ? -1 : sceneIdx">
                     <div class="flex items-center justify-between p-2">
                         <div class="flex items-center cursor-move text-gray-500 hover:text-gray-800 transition-colors flex-1"
                             cdkDragHandle>
@@ -62,7 +59,7 @@
                     </div>
 
                     <div
-                        class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-1 p-2">
+                        class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-3 p-2">
                         @for (video of scene.videos; track video; let vIdx = $index) {
                         <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded-lg overflow-hidden"
                             [ngClass]="[video.imageUrl ? 'h-auto overflow-hidden' : 'min-h-32 max-h-40 h-32 overflow-hidden', linkingSourceVideo && linkingSourceVideo !== video ? 'ring-2 ring-indigo-500 hover:ring-4 cursor-pointer transition-all z-30' : '']"
@@ -105,10 +102,12 @@
                                     class="w-full h-auto object-contain pointer-events-none block">
                             </ng-container>
                             <ng-template #videoPlayer>
-                                <video #videoEl [src]="video.imageUrl" class="w-full h-full block object-cover" muted playsinline
-                                    [id]="'video_' + sceneIdx + '_' + vIdx" (play)="0" (pause)="0" (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
-                                
-                                <button mat-icon-button class="absolute bottom-2 left-2 z-30 text-white drop-shadow-md bg-black/20 hover:bg-black/50 transition-colors"
+                                <video #videoEl [src]="video.imageUrl" class="w-full h-full block object-cover" muted
+                                    playsinline [id]="'video_' + sceneIdx + '_' + vIdx" (play)="0" (pause)="0"
+                                    (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
+
+                                <button mat-icon-button
+                                    class="absolute bottom-2 left-2 z-30 text-white drop-shadow-md bg-black/20 hover:bg-black/50 transition-colors"
                                     (click)="$event.stopPropagation(); videoEl.paused ? videoEl.play() : videoEl.pause()">
                                     <mat-icon>{{ videoEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
                                 </button>
@@ -124,15 +123,13 @@
                                 class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20 cursor-grab active:cursor-grabbing">
 
                                 <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
-                                    matTooltip="Copy Prompt phần này"
-                                    (mousedown)="$event.stopPropagation()"
+                                    matTooltip="Copy Prompt phần này" (mousedown)="$event.stopPropagation()"
                                     (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:copy'"></mat-icon>
                                 </button>
 
                                 <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
-                                    matTooltip="Chọn media" 
-                                    (mousedown)="$event.stopPropagation()"
+                                    matTooltip="Chọn media" (mousedown)="$event.stopPropagation()"
                                     (click)="$event.stopPropagation(); fileInput.click()">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:upload'"></mat-icon>
                                 </button>
@@ -145,8 +142,7 @@
                                 </button>
 
                                 <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
-                                    matTooltip="Sửa Prompt phần này"
-                                    (mousedown)="$event.stopPropagation()"
+                                    matTooltip="Sửa Prompt phần này" (mousedown)="$event.stopPropagation()"
                                     (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
                                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:edit'"></mat-icon>
                                 </button>

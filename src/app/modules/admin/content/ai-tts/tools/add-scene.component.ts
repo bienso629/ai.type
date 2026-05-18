@@ -66,7 +66,7 @@ import { GenaiService } from 'app/genai.service';
             <button mat-flat-button color="primary" 
                     [mat-dialog-close]="data" 
                     [disabled]="!data.selectedClip || !data.prompt?.trim()">
-                <mat-icon class="icon-size-5">add_task</mat-icon>
+                <mat-icon class="icon-size-5">add</mat-icon>
                 <mat-label class="ml-2">Thêm vào Timeline</mat-label>
             </button>
         </div>
