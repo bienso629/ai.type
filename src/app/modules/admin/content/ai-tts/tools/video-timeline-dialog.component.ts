@@ -696,6 +696,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         return fileExtension ? imageExtensions.includes(fileExtension) : true;
     }
 
+    selectedSceneIndex: number = -1;
+
     addNewScene() {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '650px',
@@ -741,7 +743,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 if (!this.projectData) this.projectData = { scenes: [] };
                 if (!this.projectData.scenes) this.projectData.scenes = [];
 
-                this.projectData.scenes.push(newScene);
+                if (this.selectedSceneIndex !== -1 && this.selectedSceneIndex < this.projectData.scenes.length) {
+                    this.projectData.scenes.splice(this.selectedSceneIndex + 1, 0, newScene);
+                } else {
+                    this.projectData.scenes.push(newScene);
+                }
+
+                // Reset selection
+                this.selectedSceneIndex = -1;
 
                 this.saveData();
                 this.toastr.success('Đã thêm Scene mới thành công!');
