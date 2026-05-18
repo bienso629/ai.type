@@ -78,12 +78,66 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     linkingSourceSceneIndex: number = -1;
     linkingSourceVideoIndex: number = -1;
 
-    startLinking(video: any, sceneIdx: number, vIdx: number) {
+    // --- Drag to Link logic ---
+    isDraggingLink: boolean = false;
+    currentMouseX: number = 0;
+    currentMouseY: number = 0;
+
+    onDragLinkStart(e: MouseEvent, video: any, sceneIdx: number, vIdx: number) {
+        e.stopPropagation();
+        e.preventDefault();
+        
         this.linkingSourceVideo = video;
         this.linkingSourceSceneIndex = sceneIdx;
         this.linkingSourceVideoIndex = vIdx;
-        this.toastr.info('Vui lòng chọn một đoạn video khác để tạo liên kết.');
+        this.isDraggingLink = true;
+        
+        this.currentMouseX = e.clientX;
+        this.currentMouseY = e.clientY;
+
+        document.addEventListener('mousemove', this.onDragLinkMove);
+        document.addEventListener('mouseup', this.onDragLinkEnd);
+        
+        this.updateLines();
     }
+
+    onDragLinkMove = (e: MouseEvent) => {
+        if (!this.isDraggingLink) return;
+        this.currentMouseX = e.clientX;
+        this.currentMouseY = e.clientY;
+        this.updateLines();
+    }
+
+    onDragLinkEnd = (e: MouseEvent) => {
+        document.removeEventListener('mousemove', this.onDragLinkMove);
+        document.removeEventListener('mouseup', this.onDragLinkEnd);
+        
+        if (!this.isDraggingLink) return;
+        this.isDraggingLink = false;
+        
+        const dropTarget = document.elementFromPoint(e.clientX, e.clientY);
+        if (dropTarget) {
+            const videoWrapper = dropTarget.closest('[data-scene-idx]');
+            if (videoWrapper) {
+                const targetSceneIdx = parseInt(videoWrapper.getAttribute('data-scene-idx') || '-1', 10);
+                const targetVIdx = parseInt(videoWrapper.getAttribute('data-v-idx') || '-1', 10);
+                
+                if (targetSceneIdx !== -1 && targetVIdx !== -1) {
+                    const targetVideo = this.projectData?.scenes?.[targetSceneIdx]?.videos?.[targetVIdx];
+                    if (targetVideo) {
+                        this.completeLinking(targetVideo, targetSceneIdx, targetVIdx);
+                        this.updateLines();
+                        return;
+                    }
+                }
+            }
+        }
+        
+        // Hủy nếu không thả vào vùng video hợp lệ
+        this.cancelLinking();
+        this.updateLines();
+    }
+    // ----------------------------
 
     cancelLinking() {
         this.linkingSourceVideo = null;
@@ -196,6 +250,29 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             }
         }
 
+        // --- Dragging line ---
+        if (this.isDraggingLink && this.linkingSourceVideo) {
+            const sourceId = `video_${this.linkingSourceSceneIndex}_${this.linkingSourceVideoIndex}`;
+            const sourceEl = document.getElementById(sourceId);
+            if (sourceEl) {
+                const sourceRect = sourceEl.getBoundingClientRect();
+                
+                // Điểm bắt đầu
+                const startX = sourceRect.right - containerRect.left;
+                const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
+                
+                // Điểm kết thúc là tọa độ chuột hiện tại
+                const endX = this.currentMouseX - containerRect.left;
+                const endY = this.currentMouseY - containerRect.top;
+                
+                const distanceX = Math.max(100, Math.abs(endX - startX) * 0.5);
+                const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
+                
+                // Hiển thị đường màu cam nét đứt hoặc màu cam đậm
+                newLines.push({ path, color: 'rgba(249, 115, 22, 0.9)' });
+            }
+        }
+
         const newLinesStr = JSON.stringify(newLines);
         if (newLinesStr !== this.lastLinesStr) {
             this.svgLines = newLines;
@@ -208,7 +285,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     @ViewChild('svgLayer') svgLayer!: ElementRef;
     openConfigDialog() {
         const dialogRef = this.dialog.open(VideoProjectConfigDialogComponent, {
-            width: '600px',
+            width: '800px',
             maxWidth: '95vw',
             autoFocus: false,
             data: {
