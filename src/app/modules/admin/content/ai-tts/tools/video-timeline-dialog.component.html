@@ -104,8 +104,13 @@
                                     class="w-full h-auto object-contain pointer-events-none block">
                             </ng-container>
                             <ng-template #videoPlayer>
-                                <video [src]="video.imageUrl" class="w-full h-auto block" controls muted
-                                    [id]="'video_' + sceneIdx + '_' + vIdx"></video>
+                                <video #videoEl [src]="video.imageUrl" class="w-full h-full block object-cover" muted playsinline
+                                    [id]="'video_' + sceneIdx + '_' + vIdx" (play)="0" (pause)="0" (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
+                                
+                                <button mat-icon-button class="absolute bottom-2 left-2 z-30 text-white drop-shadow-md bg-black/20 hover:bg-black/50 transition-colors"
+                                    (click)="$event.stopPropagation(); videoEl.paused ? videoEl.play() : videoEl.pause()">
+                                    <mat-icon>{{ videoEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
+                                </button>
                             </ng-template>
                             } @else {
                             <div class="flex flex-col text-center p-2 w-full h-full items-center justify-center">
