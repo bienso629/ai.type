@@ -12,6 +12,8 @@ import { CharacterDialogComponent } from './character-dialog.component';
 import { DirectorModeComponent } from './director-mode.component';
 import { GenaiService } from 'app/genai.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { SwiperDirective } from 'app/swiper.directive';
+import { A11y, Mousewheel, Navigation, Pagination, SwiperOptions } from 'swiper';
 
 @Component({
     selector: 'app-video-project-config-dialog',
@@ -23,7 +25,9 @@ import { FuseConfirmationService } from '@fuse/services/confirmation/confirmatio
         MatButtonModule,
         MatIconModule,
         MatInputModule,
-        MatTooltipModule
+        MatInputModule,
+        MatTooltipModule,
+        SwiperDirective
     ],
     templateUrl: './video-project-config-dialog.component.html',
 })
@@ -31,6 +35,15 @@ export class VideoProjectConfigDialogComponent implements OnInit {
     projectData: any;
     isEditingMasterPrompt: boolean = false;
     isGeneratingCharacter: boolean = false;
+
+    public swipe: SwiperOptions = {
+        modules: [Navigation, Pagination, A11y, Mousewheel],
+        direction: "horizontal",
+        mousewheel: true,
+        spaceBetween: 16,
+        pagination: { clickable: true, dynamicBullets: true },
+        slidesPerView: 'auto',
+    };
 
     constructor(
         public dialogRef: MatDialogRef<VideoProjectConfigDialogComponent>,
@@ -60,12 +73,118 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         }
     }
 
+    isReanalyzingScenes: boolean = false;
+
     toggleEditMasterPrompt() {
         if (this.isEditingMasterPrompt) {
             this.save();
             this.toastr.success('Đã lưu Master Prompt!');
+
+            const dialogRef = this._fuseConfirmationService.open({
+                title: 'Cập nhật bối cảnh cho từng Scene?',
+                message: 'Bạn có muốn AI tự động phân tích và tạo lại bối cảnh (prompt) riêng cho từng phần của các Scene dựa trên Master Prompt mới này không?',
+                icon: { show: true, name: 'heroicons_outline:sparkles', color: 'primary' },
+                actions: {
+                    confirm: { show: true, label: 'Có, tự động tạo', color: 'primary' },
+                    cancel: { show: true, label: 'Không, giữ nguyên' }
+                }
+            });
+
+            dialogRef.afterClosed().subscribe((result) => {
+                if (result === 'confirmed') {
+                    this.reAnalyzeScenesWithMasterPrompt();
+                }
+            });
         }
         this.isEditingMasterPrompt = !this.isEditingMasterPrompt;
+    }
+
+    async reAnalyzeScenesWithMasterPrompt() {
+        if (!this.projectData?.scenes || this.projectData.scenes.length === 0) return;
+
+        this.isReanalyzingScenes = true;
+        this.cd.markForCheck();
+
+        try {
+            const sceneDataToAnalyze = [];
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.videos) {
+                    for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                        const video = scene.videos[vIdx];
+                        sceneDataToAnalyze.push({
+                            sceneIdx: sIdx,
+                            partIdx: vIdx,
+                            voiceText: video.text || '',
+                            currentPrompt: video.prompt || ''
+                        });
+                    }
+                }
+            }
+
+            if (sceneDataToAnalyze.length === 0) {
+                this.isReanalyzingScenes = false;
+                return;
+            }
+
+            const prompt = `Bạn là một đạo diễn hình ảnh AI chuyên nghiệp.
+            
+Tôi có một Master Prompt (Cấu hình chung) cho toàn bộ video như sau:
+"${this.projectData.masterPrompt}"
+
+Dưới đây là danh sách các phân cảnh (scene) và phần (part) của video:
+${JSON.stringify(sceneDataToAnalyze, null, 2)}
+
+Nhiệm vụ của bạn là:
+1. Đọc kĩ Master Prompt và nội dung voiceText/currentPrompt của từng phần.
+2. Viết lại hoặc tối ưu hóa \`newPrompt\` cho từng phần sao cho nó mang chi tiết bối cảnh, góc máy, ánh sáng, màu sắc phù hợp với tinh thần của Master Prompt nhưng ĐƯỢC CHIA NHỎ và áp dụng một cách hợp lý cho ngữ cảnh của phần đó (dựa vào voiceText). Không nhồi nhét toàn bộ Master Prompt vào từng phần.
+3. Chỉ trả về kết quả dưới dạng mảng JSON thuần túy (không bọc trong markdown \`\`\`json), với định dạng:
+[
+  {
+    "sceneIdx": 0,
+    "partIdx": 0,
+    "newPrompt": "Bối cảnh chi tiết..."
+  }
+]`;
+
+            const aiRes = await this._genaiService.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+
+            let text = aiRes?.text || '';
+            text = text.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+            const jsonStart = text.indexOf('[');
+            const jsonEnd = text.lastIndexOf(']');
+            if (jsonStart !== -1 && jsonEnd !== -1) {
+                text = text.substring(jsonStart, jsonEnd + 1);
+            }
+
+            const newPrompts = JSON.parse(text);
+
+            if (Array.isArray(newPrompts)) {
+                let updatedCount = 0;
+                newPrompts.forEach((item: any) => {
+                    if (item.sceneIdx !== undefined && item.partIdx !== undefined && item.newPrompt) {
+                        if (this.projectData.scenes[item.sceneIdx]?.videos?.[item.partIdx]) {
+                            this.projectData.scenes[item.sceneIdx].videos[item.partIdx].prompt = item.newPrompt;
+                            updatedCount++;
+                        }
+                    }
+                });
+                this.toastr.success(`Đã cập nhật bối cảnh cho ${updatedCount} phân đoạn!`);
+                this.save();
+            } else {
+                this.toastr.error('AI không trả về đúng định dạng mảng JSON.');
+            }
+        } catch (error) {
+            console.error('Error reanalyzing scenes:', error);
+            this.toastr.error('Có lỗi xảy ra khi gọi AI phân tích bối cảnh.');
+        } finally {
+            this.isReanalyzingScenes = false;
+            this.cd.markForCheck();
+        }
     }
 
     openDirectorMode() {
@@ -96,7 +215,8 @@ Yêu cầu trả về định dạng JSON thuần túy (không có markdown \`\`
     "role": "Vai trò của nhân vật (ví dụ: Chuyên gia CNTT, Khách hàng, Giám đốc...)",
     "name": "Tên nhân vật (nếu có)",
     "appearance": "Mô tả chi tiết về ngoại hình, độ tuổi, trang phục, kiểu tóc...",
-    "personality": "Mô tả tính cách, thái độ, biểu cảm..."
+    "personality": "Mô tả tính cách, thái độ, biểu cảm...",
+    "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc, chất liệu. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ (front, back, side view), chi tiết vật liệu' để ra được hình mẫu chuẩn."
 }
 
 Master Prompt:
@@ -138,7 +258,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
 
     openCharacterDialog(char: any = null, index: number = -1) {
         const dialogRef = this.dialog.open(CharacterDialogComponent, {
-            width: '86vw',
+            width: '800px',
             maxWidth: '95vw',
             height: 'auto',
             maxHeight: '90vh',
