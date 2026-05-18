@@ -208,7 +208,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     @ViewChild('svgLayer') svgLayer!: ElementRef;
     openConfigDialog() {
         const dialogRef = this.dialog.open(VideoProjectConfigDialogComponent, {
-            width: '60vw',
+            width: '600px',
             maxWidth: '95vw',
             autoFocus: false,
             data: {
