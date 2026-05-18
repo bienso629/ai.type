@@ -179,10 +179,6 @@
                         }
 
                         <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
-                            <button mat-icon-button class="transition-colors" [ngClass]="video.isCompleted ? 'bg-green-500 hover:bg-gray-500' : 'bg-white/20 hover:bg-green-500'"
-                                matTooltip="{{ video.isCompleted ? 'Đánh dấu chưa làm' : 'Đánh dấu đã xong' }}" (click)="$event.stopPropagation(); toggleVideoCompleted(video)">
-                                <mat-icon class="icon-size-4 text-white">check</mat-icon>
-                            </button>
 
                             <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors" matTooltip="Copy Prompt phần này"
                                 (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
@@ -192,6 +188,11 @@
                             <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors" matTooltip="Chọn media"
                                 (click)="$event.stopPropagation(); fileInput.click()">
                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:link'"></mat-icon>
+                            </button>
+
+                            <button *ngIf="video.imageUrl" mat-icon-button class="bg-white/20 hover:bg-red-500 transition-colors" matTooltip="Gỡ bỏ media này"
+                                (click)="$event.stopPropagation(); clearVideoMedia(video)">
+                                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:trash-2'"></mat-icon>
                             </button>
 
                             <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors" matTooltip="Sửa Prompt phần này"

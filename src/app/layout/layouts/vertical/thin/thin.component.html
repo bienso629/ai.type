@@ -78,16 +78,18 @@
             <mat-icon [svgIcon]="'feather:info'"></mat-icon>
         </button> -->
 
-        <span class="font-normal text-base text-secondary">AI Type là một phần mềm có sử dụng AI.
-            <a href="https://ai.type.vn" title="Phần mềm Tự động viết bài">Chính sách khi sử dụng AI TYPE</a> &copy;
-            {{currentYear}}. Phiên bản {{ appVersion }},
+        <span class="font-normal text-base text-secondary">AI Type là một phần mềm có sử dụng AI
+            &copy; {{currentYear}}. Phiên bản {{ appVersion }},
             <ng-container *ngIf="activeInfo && activeInfo.user; else elseTemplate">
-                <span>tài khoản đã xác thực.</span>
+                <span>tài khoản đã xác thực. </span>
             </ng-container>
             <ng-template #elseTemplate>
                 <span>tài khoản chưa xác thực [<a class="underline" [routerLink]="['/settings']"
-                        [queryParams]="{ tab: 'active' }">Xác thực ngay</a>].</span>
-            </ng-template></span>
+                        [queryParams]="{ tab: 'active' }">Xác thực ngay</a>]. </span>
+            </ng-template>
+            <a href="https://ai.type.vn" title="Phần mềm Tự động viết bài" class="underline">Chính sách khi sử dụng AI
+                TYPE</a>
+        </span>
     </div>
 
     <eco-fab-speed-dial #myFab [direction]="direction" [animationMode]="animationMode">

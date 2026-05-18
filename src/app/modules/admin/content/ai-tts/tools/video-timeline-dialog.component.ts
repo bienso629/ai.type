@@ -432,7 +432,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 if (!this.projectData || !this.projectData.scenes) return;
                 if (index >= 0 && index < this.projectData.scenes.length) {
                     video.prompt = result.prompt;
-                    if (result.imageUrl) video.imageUrl = result.imageUrl;
+                    video.imageUrl = result.imageUrl;
                     if (result.aspectRatio) video.aspectRatio = result.aspectRatio;
                     this.saveData();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
@@ -623,6 +623,7 @@ export class VideoTimelineDialogComponent implements OnInit {
                 const localFilePath = await electron.selectLocalFile(originalPath);
 
                 video.imageUrl = localFilePath;
+                video.isCompleted = true;
                 this.saveData();
                 this.toastr.success('Đã tải file thành công!');
             } catch (error) {
@@ -630,6 +631,12 @@ export class VideoTimelineDialogComponent implements OnInit {
                 this.toastr.error('Có lỗi xảy ra: ' + error);
             }
         }
+    }
+
+    clearVideoMedia(video: any) {
+        video.imageUrl = null;
+        video.isCompleted = false;
+        this.saveData();
     }
 
     isImageType(url: string): boolean {

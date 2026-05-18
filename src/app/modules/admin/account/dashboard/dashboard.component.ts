@@ -184,7 +184,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 // Get video projects being built
                 setTimeout(() => {
                     let projects = this.multiAccountService.getItemsByPrefix('ai_type_audio_merger_data_') || [];
-                    this.videoProjects = projects.filter(p => p.uuid && p.title).map(p => {
+                    this.videoProjects = projects.filter(p => p.uuid && p.title).reverse().map(p => {
                         // Calculate dynamic status
                         let statusLabel = 'Bản nháp';
                         let statusClass = 'bg-blue-100 text-blue-600';
