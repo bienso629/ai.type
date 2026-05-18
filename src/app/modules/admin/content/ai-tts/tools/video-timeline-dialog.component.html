@@ -2,7 +2,7 @@
     <div class="flex flex-row justify-between items-center pb-0 mb-4 flex-shrink-0">
         <div class="flex items-center text-xl font-normal text-primary tracking-tight">
             <mat-icon class="mr-2 icon-size-5 text-primary flex-shrink-0" [svgIcon]="'feather:edit-3'"></mat-icon>
-            <span class="truncate max-w-[50vw] tooltip" [title]="projectData?.masterPrompt">{{ projectData?.masterPrompt || 'Thiết kế video' }}</span>
+            <span class="truncate max-w-[50vw] tooltip" [title]="projectData?.extraPrompt || projectData?.title">{{ projectData?.extraPrompt || projectData?.title || 'Thiết kế video' }}</span>
         </div>
 
         <div class="flex items-center gap-1">
@@ -82,7 +82,7 @@
                                     <!-- <button mat-icon-button
                                         class="icon-size-8 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50"
                                         matTooltip="Copy Prompt" (click)="copyCharacterPrompt(char)">
-                                        <mat-icon class="icon-size-4">terminal</mat-icon>
+                                        <mat-icon class="icon-size-4">terminal</mat-icon>npm rn
                                     </button> -->
 
                                     <button mat-icon-button class="icon-size-8 text-gray-400 hover:text-blue-600 hover:bg-blue-50" matTooltip="Sửa nhân vật"
