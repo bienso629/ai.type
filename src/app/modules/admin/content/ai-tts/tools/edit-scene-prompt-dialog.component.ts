@@ -277,9 +277,14 @@ export class EditScenePromptDialogComponent {
             // Since Veo 3.1 SDK currently may not support base64 directly as easy as imageBytes in browser, 
             // we will just pass the prompt directly for now to ensure stability.
 
+            let finalPrompt = this.editingScenePrompt.prompt;
+            if (this.editingScenePrompt.duration) {
+                finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${this.editingScenePrompt.duration} seconds]`;
+            }
+
             operation = await ai.models.generateVideos({
                 model: 'veo-3.1-generate-preview',
-                prompt: this.editingScenePrompt.prompt,
+                prompt: finalPrompt,
             });
 
             let pollCount = 0;

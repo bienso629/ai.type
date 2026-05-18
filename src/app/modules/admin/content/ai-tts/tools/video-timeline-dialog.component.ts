@@ -501,7 +501,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 if (index >= 0 && index < this.projectData.scenes.length) {
                     video.prompt = result.prompt;
                     video.imageUrl = result.imageUrl;
-                    if (result.aspectRatio) video.aspectRatio = result.aspectRatio;
+                    if (result.videoUrl !== undefined) video.videoUrl = result.videoUrl;
+                    if (result.aspectRatio !== undefined) video.aspectRatio = result.aspectRatio;
+                    if (result.duration !== undefined) video.duration = result.duration;
                     this.saveData();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
                 }
