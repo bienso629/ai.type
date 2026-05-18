@@ -189,9 +189,21 @@ export class GenaiService {
                     } else if (parts && parts.length > 0) {
                         const mappedParts = parts.map((p: any) => {
                             if (p.inlineData) {
+                                const mimeType = p.inlineData.mimeType || '';
+                                if (mimeType.startsWith('audio/')) {
+                                    let format = 'mp3';
+                                    if (mimeType.includes('wav')) format = 'wav';
+                                    return {
+                                        type: 'input_audio',
+                                        input_audio: {
+                                            data: p.inlineData.data,
+                                            format: format
+                                        }
+                                    };
+                                }
                                 return {
                                     type: 'image_url',
-                                    image_url: { url: `data:${p.inlineData.mimeType};base64,${p.inlineData.data}` }
+                                    image_url: { url: `data:${mimeType};base64,${p.inlineData.data}` }
                                 };
                             }
                             return { type: 'text', text: p.text || '' };

@@ -1128,7 +1128,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         next: async (result) => {
                             if (result) {
                                 let parts: any[] = [
-                                    { text: `${prompt} dựa vào những hình ảnh đính kèm. Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
+                                    {
+                                        text: `${prompt} dựa vào những hình ảnh đính kèm. Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
                                     {
                                         "contents": ["Chi tiết 1", "Chi tiết 2"]
                                     }
@@ -1245,7 +1246,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 let parts: any[] = [
-                    { text: `${your_prompt}Nội dung mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
+                    {
+                        text: `${your_prompt}Nội dung mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}). Tôi muốn bạn trả về dữ liệu dưới định dạng JSON với key đầu tiên là contents có value là Array. Ví dụ:
                     {
                         "contents": ["Chi tiết 1", "Chi tiết 2"]
                     }
@@ -1438,7 +1440,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             total_chunks: 1,
             status_step: 'processing',
         });
-        
+
         this.updateJobState(jobId, {
             status: 'processing',
             transcript_id: 'ai-direct-' + jobId,
@@ -1502,7 +1504,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                             }
                         });
                     }
-                    
+
                     // Thêm Âm thanh vào Gemini (nếu có)
                     if (result.audio) {
                         const audioData = result.audio.split(',')[1] || result.audio;
@@ -1565,7 +1567,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                     this.done.push(`${data.content}`);
                     this.toastr.success('Đã phân tích video và tạo nội dung thành công!');
-                    
+
                     // Đánh dấu hoàn tất cho UI
                     this.updateJobState(jobId, {
                         status: 'done',
@@ -1755,27 +1757,29 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         bottomSheetRef.afterDismissed().subscribe((result) => {
             // Restore focus to an appropriate element for the user's workflow here.
             if (result && result.content != null) {
-                if (this.name === this.user.name) {
-                    // chính chủ đã chỉnh sửa
-                    const id = $(item[index]).attr('id');
+                // if (this.name === this.user.name) {
 
-                    if (id) {
-                        const value = $(result.content).prop('id', id);
-                        item[index] = value.prop('outerHTML');
-                    } else {
-                        item[index] = result.content;
-                    }
+                // } else {
+                //     // đồng tác giả chỉnh sửa
+                //     this.alert('Bạn cần phải có Tên công việc và bấm Lưu trữ công việc trước.');
+                // }
 
-                    this.detectForm
-                        .get('step1')
-                        .get('title')
-                        .setValue(result.title);
-                    // item[index] = `<p id="${$(item[index]).attr('id')}">${$(result.content).text()}</p>`;
-                    // item[index] = `${$(result.content).prop('id', $(item[index]).attr('id'))}`;
+                // chính chủ đã chỉnh sửa
+                const id = $(item[index]).attr('id');
+
+                if (id) {
+                    const value = $(result.content).prop('id', id);
+                    item[index] = value.prop('outerHTML');
                 } else {
-                    // đồng tác giả chỉnh sửa
-                    this.alert('Bạn cần phải có Tên công việc và bấm Lưu trữ công việc trước.');
+                    item[index] = result.content;
                 }
+
+                this.detectForm
+                    .get('step1')
+                    .get('title')
+                    .setValue(result.title);
+                // item[index] = `<p id="${$(item[index]).attr('id')}">${$(result.content).text()}</p>`;
+                // item[index] = `${$(result.content).prop('id', $(item[index]).attr('id'))}`;
 
                 // tinh toan lai done
                 this.seo = this.seoScore.transform({
@@ -2994,7 +2998,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.detectForm.get('step1').get('title').setValue(editor.title);
         this.detectForm.get('step2').get('url').setValue(editor.url);
-        
+
         if (editor.thumbnail) {
             this.detectForm.get('step1').get('thumbnail').setValue(editor.thumbnail);
         }
@@ -3555,7 +3559,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         if (text && this.done) {
             const htmlToInsert = `<p><strong>[Ghi âm]</strong> ${text.replace(/\n/g, '<br>')}</p>`;
             this.done.push(htmlToInsert);
-            
+
             // Trigger thay đổi giao diện
             this.cd.detectChanges();
             this.toastr.success('Đã tự động chèn kết quả ghi âm!');
@@ -3644,7 +3648,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     onThumbnailSelected(event: any) {
         if (event.target.files && event.target.files.length > 0) {
             const files = Array.from(event.target.files);
-            
+
             const processFile = (file: any): Promise<string> => {
                 return new Promise((resolve) => {
                     if (file.type && file.type.startsWith('video/')) {
@@ -3679,15 +3683,15 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                     return b64Key;
                 });
-                
+
                 const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
                 const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
-                
+
                 this.detectForm.get('step1').get('thumbnail').setValue(newValue);
                 this.update(false); // Lưu ngay lập tức
                 this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
                 this.cd.markForCheck();
-                
+
                 event.target.value = '';
             });
         }
@@ -3702,7 +3706,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Giải phóng bộ nhớ của object URLs
         Object.values(this.objectUrls).forEach(url => {
-            try { URL.revokeObjectURL(url); } catch (e) {}
+            try { URL.revokeObjectURL(url); } catch (e) { }
         });
 
         this.jobSubscriptions.forEach((sub) => sub.unsubscribe());
