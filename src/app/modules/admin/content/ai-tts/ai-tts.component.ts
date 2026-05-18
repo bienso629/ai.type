@@ -1145,11 +1145,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
             2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình nhân vật (tuổi, tóc, trang phục đặc trưng).
-            3. CHIA PHÂN CẢNH: Gom nhóm các câu thoại.
+            3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH: Gom nhóm các câu thoại và TỰ ĐỘNG phân tích kỹ nội dung từng câu thoại (voiceText) để tạo ra bối cảnh (prompt) chi tiết, bám sát nhất với diễn biến, hành động của từng phần cụ thể.
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: Trong "prompt" từng scene, TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật. Chỉ cần gọi TÊN hoặc VAI TRÒ (VD: "Người cha", "Cô gái"). Việc tạo hình sẽ do hệ thống quản lý ở phần Characters riêng.
-            - 🎨 TỐI ƯU PHONG CÁCH: Trong "prompt" của từng scene, bạn CHỈ ĐƯỢC PHÉP miêu tả góc máy (camera angle), ánh sáng (lighting), hành động, biểu cảm của nhân vật và bối cảnh không gian. TUYỆT ĐỐI KHÔNG miêu tả phong cách nghệ thuật (Art style) ở đây, vì hệ thống giao diện sẽ tự động ghép Master Prompt vào sau.
+            - 🎨 BỐI CẢNH THEO THOẠI: Trong "prompt" của từng scene, bạn PHẢI phân tích câu thoại để miêu tả góc máy (camera angle), ánh sáng, hành động, biểu cảm và bối cảnh không gian một cách CỤ THỂ VÀ KHÁC BIỆT cho từng cảnh. KHÔNG viết chung chung. TUYỆT ĐỐI KHÔNG miêu tả phong cách nghệ thuật (Art style) ở phần này.
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1).
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
@@ -1167,7 +1167,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                   "role": "Vai trò trong câu chuyện",
                   "appearance": "Mô tả chi tiết ngoại hình...",
                   "personality": "Mô tả tính cách...",
-                  "prompt": "Câu prompt độc lập chuẩn Midjourney/Stable Diffusion để tạo hình (casting) chân dung nhân vật này..."
+                  "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc, chất liệu. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ (front, back, side view), chi tiết vật liệu' để ra được hình mẫu chuẩn."
                 }
               ],
               "scenes": [

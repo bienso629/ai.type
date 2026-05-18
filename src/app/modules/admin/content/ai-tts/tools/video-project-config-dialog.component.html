@@ -14,8 +14,9 @@
         </div>
         <div class="flex items-center gap-0">
             <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt"
-                (click)="toggleEditMasterPrompt()">
-                <mat-icon class="icon-size-4">{{ isEditingMasterPrompt ? 'check' : 'edit' }}</mat-icon>
+                (click)="toggleEditMasterPrompt()" [disabled]="isReanalyzingScenes">
+                <mat-icon class="icon-size-4" *ngIf="!isReanalyzingScenes">{{ isEditingMasterPrompt ? 'check' : 'edit' }}</mat-icon>
+                <mat-icon class="icon-size-4 animate-spin" *ngIf="isReanalyzingScenes">autorenew</mat-icon>
             </button>
             <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode"
                 (click)="openDirectorMode()">
@@ -49,11 +50,13 @@
     </div>
 
     <!-- Horizontal Scroll Container for Characters -->
-    <div class="flex flex-row overflow-x-auto gap-4 scrollbar-hide w-full pb-2">
-        @for (char of projectData?.characters; track char; let charIdx = $index) {
-        <div
-            class="bg-white p-4 rounded-xl group relative flex flex-col gap-3 border border-gray-100 w-[320px] flex-shrink-0">
-            <div class="flex-1 min-w-0 w-full">
+    <div class="w-full pb-8">
+        <swiper-container fmSwiper [config]="swipe" init="false" class="w-full">
+            @for (char of projectData?.characters; track char; let charIdx = $index) {
+            <swiper-slide class="w-[320px] max-w-[85vw]">
+                <div
+                    class="bg-white h-full p-4 rounded-xl group relative flex flex-col gap-3 border border-gray-200 hover:border-indigo-300 transition-colors flex-shrink-0">
+                    <div class="flex-1 min-w-0 w-full">
                 <div class="flex justify-between items-start mb-3 border-b border-gray-50 pb-2">
                     <span class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
                         {{ char.name || char.role }}
@@ -107,8 +110,10 @@
                 }
             </div>
             }
-        </div>
-        }
+                </div>
+            </swiper-slide>
+            }
+        </swiper-container>
 
         @if (!projectData?.characters || projectData?.characters.length === 0) {
         <div
