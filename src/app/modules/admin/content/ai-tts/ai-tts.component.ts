@@ -1357,6 +1357,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 uuid: data.uuid,
                 title: data.title,
                 masterPrompt: aiResponse.masterPrompt || "",
+                extraPrompt: this.extraPrompt,
                 characters: aiResponse.characters || [],
                 totalOriginalClips: allClips.length,
                 totalScenes: finalScenes.length,
