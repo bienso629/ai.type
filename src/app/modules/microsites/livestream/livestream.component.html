@@ -24,7 +24,7 @@
 				</mat-icon>
 			</button>
 
-			<button mat-icon-button routerLink=".." (click)="stopAudio()"
+			<button mat-icon-button (click)="stopAudio()"
 				class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full">
 				<mat-icon class="icon-size-5" svgIcon="feather:x"></mat-icon>
 			</button>
@@ -200,7 +200,7 @@
 				<h2 class="text-2xl font-bold mb-2">Không tìm thấy dữ liệu Video</h2>
 				<p class="text-gray-400 max-w-md mb-6">Bạn cần hoàn tất các bước tạo kịch bản, chèn ảnh/video và tạo âm
 					thanh ở công cụ Timeline trước khi Livestream.</p>
-				<button mat-flat-button color="primary" routerLink="..">Quay lại công cụ</button>
+				<button mat-flat-button color="primary" (click)="stopAudio()">Quay lại công cụ</button>
 			</div>
 		</ng-template>
 	</div>

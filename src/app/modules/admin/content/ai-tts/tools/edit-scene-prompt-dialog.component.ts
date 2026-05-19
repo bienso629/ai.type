@@ -121,19 +121,8 @@ export class EditScenePromptDialogComponent {
         this.characters = data.characters || [];
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
 
-        if (this.masterPrompt) {
-            const hasCinematography = this.editingScenePrompt.prompt.includes('[Cinematography:');
-            const coreMaster = this.masterPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').trim();
-            const hasCoreMaster = coreMaster ? this.editingScenePrompt.prompt.includes(coreMaster) : false;
-
-            if (!hasCinematography && !hasCoreMaster) {
-                if (this.editingScenePrompt.prompt && this.editingScenePrompt.prompt.trim() !== '') {
-                    this.editingScenePrompt.prompt = this.masterPrompt + '\n\n' + this.editingScenePrompt.prompt;
-                } else {
-                    this.editingScenePrompt.prompt = this.masterPrompt;
-                }
-            }
-        }
+        // Không còn dán masterPrompt vào Scene Prompt nữa
+        // Theo yêu cầu mới, masterPrompt đã được đưa thẳng vào Character Prompt.
 
         // Tự động active các nhân vật đã có sẵn trong prompt
         if (this.editingScenePrompt.prompt) {
@@ -180,6 +169,9 @@ export class EditScenePromptDialogComponent {
 
         try {
             let promptText = this.editingScenePrompt.prompt || '';
+            if (this.masterPrompt) {
+                promptText = this.masterPrompt + '\n\n' + promptText;
+            }
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
             
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
@@ -281,6 +273,9 @@ export class EditScenePromptDialogComponent {
             // we will just pass the prompt directly for now to ensure stability.
 
             let finalPrompt = this.editingScenePrompt.prompt;
+            if (this.masterPrompt) {
+                finalPrompt = this.masterPrompt + '\n\n' + finalPrompt;
+            }
             if (this.editingScenePrompt.duration) {
                 finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${this.editingScenePrompt.duration} seconds]`;
             }
@@ -453,8 +448,9 @@ export class EditScenePromptDialogComponent {
         });
     }
 
-    removeImage() {
+    removeMedia() {
         this.editingScenePrompt.imageUrl = null;
+        this.editingScenePrompt.videoUrl = null;
     }
 
     isImageType(url: string): boolean {
@@ -500,8 +496,9 @@ export class EditScenePromptDialogComponent {
             this.toastr.warning('Không có nội dung để copy.');
             return;
         }
-        navigator.clipboard.writeText(text).then(() => {
-            this.toastr.success('Đã copy Prompt phân cảnh!');
+        const finalCopyText = this.masterPrompt ? `${this.masterPrompt}\n\n${text}` : text;
+        navigator.clipboard.writeText(finalCopyText).then(() => {
+            this.toastr.success('Đã copy Prompt phân cảnh (bao gồm Master Prompt)!');
         }).catch(err => {
             console.error('Lỗi khi copy:', err);
             this.toastr.error('Lỗi khi copy!');

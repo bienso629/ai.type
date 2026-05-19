@@ -1227,6 +1227,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const aiResponse = this.helperService.safeJsonParseFromAI(response.text);
             const aiResponseScenes = aiResponse.scenes || [];
 
+            // Đưa thẳng masterPrompt vào prompt tạo hình nhân vật
+            if (aiResponse.masterPrompt && aiResponse.characters) {
+                for (let char of aiResponse.characters) {
+                    if (char.prompt) {
+                        char.prompt = aiResponse.masterPrompt.trim() + '\n\n' + char.prompt;
+                    } else if (char.appearance) {
+                        char.prompt = aiResponse.masterPrompt.trim() + '\n\n' + char.appearance;
+                    } else {
+                        char.prompt = aiResponse.masterPrompt.trim();
+                    }
+                }
+            }
+
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 let exactSceneDuration = 0;
 
@@ -1279,7 +1292,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     let addedChars = [];
                     for (const char of characters) {
                         if (char.name && text.toLowerCase().includes(char.name.toLowerCase())) {
-                            const charDesc = char.prompt || char.appearance || '';
+                            let charDesc = char.prompt || char.appearance || '';
+                            if (aiResponse.masterPrompt && charDesc.startsWith(aiResponse.masterPrompt.trim())) {
+                                charDesc = charDesc.substring(aiResponse.masterPrompt.trim().length).trim();
+                            }
                             if (charDesc) {
                                 addedChars.push(`[Character '${char.name}': ${charDesc}]`);
                             }

@@ -451,14 +451,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     // ---------------------------------
 
     async generateImage(scene: any, video: any, index: number) {
-        // 1. Lấy Master Prompt từ dữ liệu tổng của Project
+        // Lấy Master Prompt từ dữ liệu tổng của Project
         const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
-        // 2. Tự động nối Master Prompt vào Scene Prompt để giữ phong cách xuyên suốt
+        // Tự động nối Master Prompt vào Scene Prompt để copy
         const scenePrompt = video.prompt || scene.prompt;
         const finalPrompt = master ? `${master}\n\n${scenePrompt}` : scenePrompt;
 
-        // 3. Copy vào Clipboard
+        // Copy vào Clipboard
         this.clipboard.copy(finalPrompt);
         this.toastr.info(`Đã copy Master Prompt + Scene #${index + 1} vào khay nhớ tạm!`, 'Thành công');
 

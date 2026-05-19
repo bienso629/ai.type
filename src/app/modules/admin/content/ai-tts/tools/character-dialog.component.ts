@@ -82,9 +82,6 @@ export class CharacterDialogComponent {
             if (this.editingChar.prompt) parts.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
             
             let finalPrompt = parts.join('\n');
-            if (this.masterPrompt) {
-                finalPrompt = `${this.masterPrompt}\n\n${finalPrompt}`;
-            }
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.1-flash-image-preview',
