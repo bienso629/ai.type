@@ -43,6 +43,8 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         spaceBetween: 16,
         pagination: { clickable: true, dynamicBullets: true },
         slidesPerView: 'auto',
+        observer: true,
+        observeParents: true,
     };
 
     constructor(
@@ -261,7 +263,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             width: '800px',
             maxWidth: '95vw',
             height: 'auto',
-            maxHeight: '90vh',
+            maxHeight: '95vh',
             disableClose: true,
             data: {
                 char: char,

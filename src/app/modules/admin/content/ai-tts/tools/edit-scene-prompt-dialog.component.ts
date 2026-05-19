@@ -64,12 +64,18 @@ export class EditScenePromptDialogComponent {
 
             if (this.editingScenePrompt.prompt) {
                 if (!this.editingScenePrompt.prompt.includes(charToken)) {
-                    let charPrompt = char.prompt || `Portrait of ${charName}, ${char.appearance || ''}`;
-                    this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charPrompt}]`;
+                    let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
+                    if (char.specialDetails) {
+                        charDesc += `. [CRITICAL DETAIL TO MAINTAIN EXACTLY: ${char.specialDetails}]`;
+                    }
+                    this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charDesc}]`;
                 }
             } else {
-                let charPrompt = char.prompt || `Portrait of ${charName}, ${char.appearance || ''}`;
-                this.editingScenePrompt.prompt = `[Character '${charName}': ${charPrompt}]`;
+                let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
+                if (char.specialDetails) {
+                    charDesc += `. [CRITICAL DETAIL TO MAINTAIN EXACTLY: ${char.specialDetails}]`;
+                }
+                this.editingScenePrompt.prompt = `[Character '${charName}': ${charDesc}]`;
             }
         }
     }
@@ -179,7 +185,10 @@ export class EditScenePromptDialogComponent {
         this.cd.markForCheck();
 
         try {
-            let requestParts: any[] = [{ text: this.editingScenePrompt.prompt }];
+            let promptText = this.editingScenePrompt.prompt || '';
+            const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
+            
+            let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
 
             // Gắn thêm ảnh reference của nhân vật vào parts
             for (const char of this.selectedReferenceChars) {
@@ -494,7 +503,9 @@ export class EditScenePromptDialogComponent {
     }
 
     save() {
-        this.editingScenePrompt.aspectRatio = this.selectedAspectRatio;
+        if (this.editingScenePrompt) {
+            this.editingScenePrompt.aspectRatio = this.selectedAspectRatio;
+        }
         this.dialogRef.close(this.editingScenePrompt);
     }
 }
