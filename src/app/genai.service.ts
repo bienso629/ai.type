@@ -60,12 +60,19 @@ export class GenaiService {
                 this._umodelverseUrl = this._umodelverseUrl.slice(0, -1);
             }
 
-            const key = settings.secretKey ? settings.secretKey.split(';')[0] : '';
+            const keys = settings.secretKey ? settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
 
-            if (key && (key !== this._currentKey || !this._aiInstance)) {
-                this._currentKey = key;
-                this._aiInstance = new GoogleGenAI({ apiKey: key });
-                console.log("GenaiService: Đã cập nhật API Key mới.");
+            if (keys.length > 0) {
+                // Chọn ngẫu nhiên một key trong mảng để tránh Rate Limit (429)
+                const randomKey = keys[Math.floor(Math.random() * keys.length)];
+                if (randomKey !== this._currentKey || !this._aiInstance) {
+                    this._currentKey = randomKey;
+                    this._aiInstance = new GoogleGenAI({ apiKey: randomKey });
+                    console.log("GenaiService: Đã đổi sang API Key mới (Random Load Balancing).");
+                }
+            } else {
+                this._currentKey = '';
+                this._aiInstance = undefined;
             }
         } catch (e) {
             console.error("GenaiService: Lỗi parse settings từ localStorage", e);

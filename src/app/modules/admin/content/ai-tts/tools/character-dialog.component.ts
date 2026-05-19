@@ -61,12 +61,13 @@ export class CharacterDialogComponent {
             secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
         } catch { }
 
-        if (!secretKey) {
-            this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+        const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
+        if (keys.length === 0) {
+            this.toastr.warning('Bạn chưa cung cấp API Key hợp lệ.');
             return;
         }
         
-        const apiKey = secretKey[0];
+        const apiKey = keys[Math.floor(Math.random() * keys.length)];
 
         this.isGeneratingAvatar = true;
         this.cd.markForCheck();

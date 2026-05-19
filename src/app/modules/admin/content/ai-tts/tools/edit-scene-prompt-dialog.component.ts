@@ -142,8 +142,11 @@ export class EditScenePromptDialogComponent {
             secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
         } catch { }
 
-        if (!secretKey) return null;
-        return secretKey[0];
+        const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
+        if (keys.length === 0) return null;
+        
+        // Random load balancing cho các tính năng render ảnh/video phụ trợ
+        return keys[Math.floor(Math.random() * keys.length)];
     }
 
     async generateImage() {
