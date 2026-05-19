@@ -65,16 +65,10 @@ export class EditScenePromptDialogComponent {
             if (this.editingScenePrompt.prompt) {
                 if (!this.editingScenePrompt.prompt.includes(charToken)) {
                     let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
-                    if (char.specialDetails) {
-                        charDesc += `. [CRITICAL DETAIL TO MAINTAIN EXACTLY: ${char.specialDetails}]`;
-                    }
                     this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charDesc}]`;
                 }
             } else {
                 let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
-                if (char.specialDetails) {
-                    charDesc += `. [CRITICAL DETAIL TO MAINTAIN EXACTLY: ${char.specialDetails}]`;
-                }
                 this.editingScenePrompt.prompt = `[Character '${charName}': ${charDesc}]`;
             }
         }
@@ -351,7 +345,6 @@ export class EditScenePromptDialogComponent {
 
             if (result && result.success) {
                 const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
-                this.editingScenePrompt.imageUrl = finalPath; // Save as imageUrl or videoUrl (system handles both)
                 this.editingScenePrompt.videoUrl = finalPath;
                 this.toastr.success('Đã tạo và tải Video phân cảnh thành công!');
             } else {
@@ -500,6 +493,19 @@ export class EditScenePromptDialogComponent {
                 this.toastr.error('Có lỗi xảy ra: ' + error);
             }
         }
+    }
+
+    copyPrompt(text: string) {
+        if (!text) {
+            this.toastr.warning('Không có nội dung để copy.');
+            return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            this.toastr.success('Đã copy Prompt phân cảnh!');
+        }).catch(err => {
+            console.error('Lỗi khi copy:', err);
+            this.toastr.error('Lỗi khi copy!');
+        });
     }
 
     save() {

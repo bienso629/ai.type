@@ -78,7 +78,6 @@ export class CharacterDialogComponent {
             let parts = [];
             if (this.editingChar.name || this.editingChar.role) parts.push(`Subject: ${this.editingChar.name || this.editingChar.role}`);
             if (this.editingChar.appearance) parts.push(`Appearance: ${this.editingChar.appearance}`);
-            if (this.editingChar.specialDetails) parts.push(`CRITICAL DETAILS: ${this.editingChar.specialDetails}`);
             if (this.editingChar.personality) parts.push(`Personality/Expression: ${this.editingChar.personality}`);
             if (this.editingChar.prompt) parts.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
             

@@ -261,9 +261,9 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
     openCharacterDialog(char: any = null, index: number = -1) {
         const dialogRef = this.dialog.open(CharacterDialogComponent, {
             width: '800px',
-            maxWidth: '95vw',
+            maxWidth: '98vw',
             height: 'auto',
-            maxHeight: '95vh',
+            maxHeight: '98vh',
             disableClose: true,
             data: {
                 char: char,

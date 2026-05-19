@@ -507,7 +507,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             width: '86vw',
             maxWidth: '95vw',
-            maxHeight: '90vh',
+            maxHeight: '95vh',
             disableClose: true,
             data: {
                 scene: video,
@@ -528,6 +528,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                     if (result.aspectRatio !== undefined) video.aspectRatio = result.aspectRatio;
                     if (result.duration !== undefined) video.duration = result.duration;
                     this.saveData();
+                    this.cd.detectChanges();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
                 }
             }
@@ -692,10 +693,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 }
 
                 const localFilePath = await electron.selectLocalFile(originalPath);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
 
-                video.imageUrl = localFilePath;
+                if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|avi|mov)$/i)) {
+                    video.videoUrl = finalPath;
+                    const videoObj = document.createElement('video');
+                    videoObj.src = video.videoUrl;
+                    videoObj.addEventListener('loadedmetadata', () => {
+                        if (videoObj.duration && !isNaN(videoObj.duration)) {
+                            video.duration = parseFloat(videoObj.duration.toFixed(1));
+                            this.saveData();
+                            this.cd.detectChanges();
+                            this.updateLines();
+                        }
+                    });
+                } else {
+                    video.imageUrl = finalPath;
+                }
+                
                 video.isCompleted = true;
                 this.saveData();
+                this.cd.detectChanges();
+                setTimeout(() => this.updateLines(), 150);
                 this.toastr.success('Đã tải file thành công!');
             } catch (error) {
                 console.error('Process error:', error);
@@ -706,8 +725,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
     clearVideoMedia(video: any) {
         video.imageUrl = null;
+        video.videoUrl = null;
         video.isCompleted = false;
         this.saveData();
+        this.cd.detectChanges();
     }
 
     isImageType(url: string): boolean {
@@ -725,7 +746,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '650px',
             maxWidth: '95vw',
-            maxHeight: '90vh',
+            maxHeight: '95vh',
             disableClose: true,
             data: {
                 selectedClip: null,
@@ -803,7 +824,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         const dialogRef = this.dialog.open(DirectorModeComponent, {
             width: '900px',
             maxWidth: '95vw',
-            maxHeight: '90vh',
+            maxHeight: '95vh',
             panelClass: 'dark-theme-dialog',
             data: { prompt: this.projectData?.masterPrompt || '', targetName: 'Apply to Master Prompt' }
         });

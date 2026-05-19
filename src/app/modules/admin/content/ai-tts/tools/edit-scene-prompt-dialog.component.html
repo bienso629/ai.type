@@ -79,9 +79,13 @@
         </div>
 
         <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
-            <textarea matInput class="px-2" [(ngModel)]="editingScenePrompt.prompt"
+            <textarea matInput class="px-2 overflow-x-hidden" [(ngModel)]="editingScenePrompt.prompt"
                 placeholder="Mô tả hành động, bối cảnh..." cdkTextareaAutosize cdkAutosizeMinRows="3"
                 cdkAutosizeMaxRows="8"></textarea>
+            <button mat-icon-button matSuffix class="icon-size-8 absolute top-4 right-4" (click)="copyPrompt(editingScenePrompt.prompt); $event.preventDefault(); $event.stopPropagation()"
+                matTooltip="Copy Prompt">
+                <mat-icon class="icon-size-4 text-green-600 hover:text-green-800" [svgIcon]="'feather:copy'"></mat-icon>
+            </button>
             <mat-hint>Mô tả chi tiết bối cảnh và hành động. AI sẽ kết hợp với hình ảnh nhân vật tham khảo ở trên để vẽ
                 Storyboard.</mat-hint>
         </mat-form-field>
