@@ -75,12 +75,14 @@ export class CharacterDialogComponent {
             // const ai = new GoogleGenAI({ apiKey: apiKey });
             
             // Build the prompt
-            let finalPrompt = '';
-            if (this.editingChar.prompt) {
-                finalPrompt = this.editingChar.prompt;
-            } else {
-                finalPrompt = `Portrait of ${this.editingChar.name || this.editingChar.role}, ${this.editingChar.appearance}`;
-            }
+            let parts = [];
+            if (this.editingChar.name || this.editingChar.role) parts.push(`Subject: ${this.editingChar.name || this.editingChar.role}`);
+            if (this.editingChar.appearance) parts.push(`Appearance: ${this.editingChar.appearance}`);
+            if (this.editingChar.specialDetails) parts.push(`CRITICAL DETAILS: ${this.editingChar.specialDetails}`);
+            if (this.editingChar.personality) parts.push(`Personality/Expression: ${this.editingChar.personality}`);
+            if (this.editingChar.prompt) parts.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
+            
+            let finalPrompt = parts.join('\n');
             if (this.masterPrompt) {
                 finalPrompt = `${this.masterPrompt}\n\n${finalPrompt}`;
             }
@@ -219,5 +221,17 @@ export class CharacterDialogComponent {
 
     save() {
         this.dialogRef.close(this.editingChar);
+    }
+
+    copyPrompt(text: string) {
+        if (!text) {
+            this.toastr.warning('Không có nội dung để copy.');
+            return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            this.toastr.success('Đã copy Prompt!');
+        }).catch(err => {
+            this.toastr.error('Lỗi khi copy: ' + err);
+        });
     }
 }

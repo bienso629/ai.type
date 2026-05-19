@@ -18,17 +18,14 @@
                     </button>
                 </div>
 
-                <div
-                    class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50">
-                    <button mat-icon-button
-                        class="bg-green-50 hover:bg-green-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
+                <div class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50">
+                    <button mat-icon-button class="bg-green-50 hover:bg-green-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
                         (click)="avatarInput.click()" matTooltip="Tải ảnh lên">
                         <mat-icon class="icon-size-4 text-green-600">upload_file</mat-icon>
                     </button>
 
-                    <button mat-icon-button
-                        class="bg-blue-50 hover:bg-blue-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
-                        (click)="generateAvatar()" [disabled]="isGeneratingAvatar" matTooltip="Tạo hình AI">
+                    <button mat-icon-button class="bg-blue-50 hover:bg-blue-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full" (click)="generateAvatar()"
+                        [disabled]="isGeneratingAvatar" matTooltip="Tạo hình AI">
                         @if (isGeneratingAvatar) {
                         <mat-spinner diameter="16"></mat-spinner>
                         } @else {
@@ -37,8 +34,7 @@
                     </button>
                 </div>
 
-                <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
-                    class="hidden">
+                <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*" class="hidden">
             </div>
 
             <!-- Form Inputs -->
@@ -62,21 +58,31 @@
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Ngoại hình</mat-label>
-            <textarea matInput class="px-2" [(ngModel)]="editingChar.appearance" placeholder="VD: Tóc vàng, áo cam..."
-                cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="3"></textarea>
+            <textarea matInput class="px-2" [(ngModel)]="editingChar.appearance" placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"
+                cdkAutosizeMaxRows="3"></textarea>
+        </mat-form-field>
+
+        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+            <mat-label>Đặc điểm cố định (Logo, Hình xăm...)</mat-label>
+            <textarea matInput class="px-2" [(ngModel)]="editingChar.specialDetails" placeholder="VD: Logo hình tròn chữ TADU màu trắng bên ngực trái..." cdkTextareaAutosize
+                cdkAutosizeMinRows="1" cdkAutosizeMaxRows="2"></textarea>
+            <mat-hint>Ghi chú: AI thường làm méo logo nhỏ. Nên mô tả vị trí và màu sắc thật chi tiết.</mat-hint>
         </mat-form-field>
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Tính cách</mat-label>
-            <textarea matInput class="px-2" [(ngModel)]="editingChar.personality"
-                placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2" cdkAutosizeMaxRows="2"></textarea>
+            <textarea matInput class="px-2" [(ngModel)]="editingChar.personality" placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"
+                cdkAutosizeMaxRows="2"></textarea>
         </mat-form-field>
 
-        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+        <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
             <mat-label>Prompt Tạo hình</mat-label>
-            <textarea matInput class="px-2" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..."
-                cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
-            <!-- <mat-hint>Mô tả tiếng Việt chuẩn để dùng cho AI tạo ảnh</mat-hint> -->
+            <textarea matInput class="px-2 overflow-x-hidden" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
+                cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
+            <button mat-icon-button matSuffix class="icon-size-8 absolute top-4 right-4" (click)="copyPrompt(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()"
+                matTooltip="Copy Prompt">
+                <mat-icon class="icon-size-4 text-green-600 hover:text-green-800" [svgIcon]="'feather:copy'"></mat-icon>
+            </button>
         </mat-form-field>
     </mat-dialog-content>
 
