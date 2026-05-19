@@ -439,9 +439,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         let fullText = '';
         let isFirstChunk = true; // Cờ để xóa chữ "Đang phân tích..."
 
-        let secretKey = this.settings.secretKey?.split(';');
-        let geminiKey = secretKey?.[0] || '';
-        if (secretKey?.[3]) geminiKey = secretKey[3];
+        const secretKeys = this.settings.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
+        const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
 
         if (!geminiKey) {
             this.toastr.warning('Bạn chưa có mã Google Gemini Key');
@@ -586,9 +585,8 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
         
         const triggerIndex = (filename: string) => {
-            let secretKey = this.settings?.secretKey?.split(';');
-            let geminiKey = secretKey?.[0] || '';
-            if (secretKey?.[3]) geminiKey = secretKey[3];
+            const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
+            const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
 
             const payload = {
                 username: this.user.name,
@@ -726,14 +724,9 @@ export class ChatBotComponent implements OnInit, OnDestroy {
     }
 
     listFiles() {
-        let secretKey = this.settings.secretKey;
-        if (secretKey) {
-            secretKey = secretKey.split(';');
-            let geminiKey = secretKey[0];
-
-            if (secretKey[3]) {
-                geminiKey = secretKey[3];
-            }
+        if (this.settings.secretKey) {
+            const secretKeys = this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k);
+            const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
 
             this._chatbotService.listFiles({
                 username: this.user.name,

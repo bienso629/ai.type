@@ -116,13 +116,14 @@ export class AddSceneComponent {
             secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
         } catch { }
 
-        if (!secretKey) {
-            this.toastr.error('Thiếu API Key cho AI. Vui lòng kiểm tra cài đặt.');
+        const keys = secretKey ? secretKey.map((k: string) => k.trim()).filter((k: string) => k) : [];
+        if (keys.length === 0) {
+            this.toastr.error('Thiếu API Key hợp lệ cho AI (Gemini). Vui lòng kiểm tra Cài đặt.');
             return;
         }
 
-        // const geminiKey = secretKey[6] || secretKey[0];
-        // const ai = new GoogleGenAI({ apiKey: geminiKey });
+        // Lấy ngẫu nhiên API key để dàn trải quota (Load Balancing)
+        const geminiKey = keys[Math.floor(Math.random() * keys.length)];
 
         this.isGenerating = true;
 
