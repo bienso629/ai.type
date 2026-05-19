@@ -80,7 +80,7 @@
                             </div>
 
                             <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center rounded-lg overflow-hidden"
-                                [ngClass]="[video.imageUrl ? 'h-auto' : 'min-h-32 max-h-40 h-32', linkingSourceVideo && linkingSourceVideo !== video ? 'ring-2 ring-indigo-500 hover:ring-4 cursor-pointer transition-all z-30' : '']">
+                                [ngClass]="[(video.imageUrl || video.videoUrl) ? 'h-auto' : 'min-h-32 max-h-40 h-32', linkingSourceVideo && linkingSourceVideo !== video ? 'ring-2 ring-indigo-500 hover:ring-4 cursor-pointer transition-all z-30' : '']">
 
                                 <!-- Header hiển thị part -->
                                 <div class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br-lg">
@@ -103,23 +103,33 @@
                                 </div>
                                 }
 
-                                @if (video.imageUrl) {
-                                <ng-container *ngIf="isImageType(video.imageUrl); else videoPlayer">
-                                    <img [src]="video.imageUrl" class="w-full h-auto object-contain pointer-events-none block">
-                                </ng-container>
-                                <ng-template #videoPlayer>
-                                    <video #videoEl [src]="video.imageUrl" class="w-full h-full block object-cover" muted playsinline [id]="'video_' + sceneIdx + '_' + vIdx"
+                                @if (video.videoUrl) {
+                                    <video #videoEl [src]="video.videoUrl" class="w-full h-auto block object-cover" muted playsinline
                                         (play)="0" (pause)="0" (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
 
                                     <button mat-icon-button
-                                        class="absolute top-1 right-1 z-30 text-white drop-shadow-md bg-black/40 hover:bg-black/70 transition-colors icon-size-6 flex items-center justify-center rounded-full pointer-events-auto"
+                                        class="absolute bottom-1 right-1 z-30 text-white drop-shadow-md bg-black/40 hover:bg-black/70 transition-colors icon-size-6 flex items-center justify-center rounded-full pointer-events-auto"
                                         [ngClass]="!videoEl.paused ? 'opacity-0 group-hover:opacity-100' : ''"
                                         (click)="$event.stopPropagation(); videoEl.paused ? videoEl.play() : videoEl.pause()">
                                         <mat-icon class="icon-size-5">{{ videoEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
                                     </button>
-                                </ng-template>
+                                } @else if (video.imageUrl) {
+                                    <ng-container *ngIf="isImageType(video.imageUrl); else legacyVideoPlayer">
+                                        <img [src]="video.imageUrl" class="w-full h-auto object-contain pointer-events-none block">
+                                    </ng-container>
+                                    <ng-template #legacyVideoPlayer>
+                                        <video #legacyVideoEl [src]="video.imageUrl" class="w-full h-auto block object-cover" muted playsinline
+                                            (play)="0" (pause)="0" (ended)="legacyVideoEl.currentTime=0; legacyVideoEl.pause()"></video>
+
+                                        <button mat-icon-button
+                                            class="absolute bottom-1 right-1 z-30 text-white drop-shadow-md bg-black/40 hover:bg-black/70 transition-colors icon-size-6 flex items-center justify-center rounded-full pointer-events-auto"
+                                            [ngClass]="!legacyVideoEl.paused ? 'opacity-0 group-hover:opacity-100' : ''"
+                                            (click)="$event.stopPropagation(); legacyVideoEl.paused ? legacyVideoEl.play() : legacyVideoEl.pause()">
+                                            <mat-icon class="icon-size-5">{{ legacyVideoEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
+                                        </button>
+                                    </ng-template>
                                 } @else {
-                                <div class="flex flex-col text-center p-2 w-full h-full items-center justify-center">
+                                <div class="flex flex-col text-center p-2 w-full h-full min-h-32 items-center justify-center">
                                     <mat-icon class="text-gray-400 text-3xl">image</mat-icon>
                                     <p class="text-[10px] text-gray-500 mt-1">No media</p>
                                 </div>
@@ -137,7 +147,7 @@
                                         <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:upload'"></mat-icon>
                                     </button>
 
-                                    <button *ngIf="video.imageUrl" mat-icon-button class="bg-white/20 hover:bg-red-500 transition-colors" matTooltip="Gỡ bỏ media này"
+                                    <button *ngIf="video.imageUrl || video.videoUrl" mat-icon-button class="bg-white/20 hover:bg-red-500 transition-colors" matTooltip="Gỡ bỏ media này"
                                         (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); clearVideoMedia(video)">
                                         <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:trash-2'"></mat-icon>
                                     </button>

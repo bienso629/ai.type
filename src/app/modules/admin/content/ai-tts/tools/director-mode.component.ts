@@ -88,6 +88,59 @@ export class DirectorModeComponent implements OnInit {
         movementType: ['Static', 'Tilt', 'Dolly', 'Tracking', 'Orbit']
     };
 
+    labels: any = {
+        'Golden hour': 'Giờ vàng',
+        'Midday': 'Trưa nắng',
+        'Twilight': 'Chạng vạng',
+        'Neon': 'Đèn Neon',
+
+        'Front lit': 'Sáng mặt trước',
+        'Side lit': 'Sáng ngang',
+        'Back lit': 'Sáng ngược',
+        'Top lit': 'Sáng từ trên',
+
+        'VHS': 'Băng VHS',
+        '16mm': 'Phim 16mm',
+        '35mm': 'Phim 35mm',
+        'Digital': 'Kỹ thuật số',
+        'Full color': 'Đầy đủ màu sắc',
+        'Black & White': 'Trắng đen',
+
+        'Deep focus': 'Nét sâu',
+        'Cinematic Bokeh': 'Xóa phông mờ ảo',
+        'Selective focus': 'Lấy nét có chọn lọc',
+
+        'Rule of thirds': 'Quy tắc 1/3',
+        'Center weighted': 'Cân bằng giữa',
+        'Negative space': 'Không gian trống',
+        'Headroom': 'Khoảng không đỉnh đầu',
+
+        'Extreme close-up': 'Đặc tả',
+        'Close-up': 'Cận cảnh',
+        'Medium': 'Trung cảnh',
+        'Wide': 'Toàn cảnh',
+        'Extreme wide': 'Viễn cảnh',
+
+        'Wide angle': 'Góc rộng',
+        'Standard': 'Tiêu chuẩn',
+        'Telephoto': 'Chụp xa',
+        'Macro': 'Siêu cận',
+
+        'Static': 'Cố định',
+        'Tilt': 'Nghiêng',
+        'Dolly': 'Trượt',
+        'Tracking': 'Bám theo',
+        'Orbit': 'Xoay vòng',
+
+        'Subtle': 'Nhẹ nhàng',
+        'Standard movement': 'Tiêu chuẩn',
+        'Intense': 'Mạnh mẽ',
+
+        'Linear': 'Đều đặn',
+        'Standard easing': 'Tiêu chuẩn',
+        'Natural': 'Tự nhiên'
+    };
+
     // Dummy images for UI display. You can replace these with local assets later.
     getPlaceholderUrl(label: string) {
         let textParts = label.split(' ');

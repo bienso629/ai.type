@@ -3,7 +3,7 @@
         {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
     </h2>
 
-    <mat-dialog-content class="flex flex-col gap-2 p-0">
+    <mat-dialog-content class="flex flex-col gap-2 p-0 !max-h-[85vh]">
         <div class="flex flex-col gap-4 items-start">
             <!-- Avatar Section -->
             <div class="flex flex-wrap gap-3 w-full items-start">
@@ -62,12 +62,6 @@
                 cdkAutosizeMaxRows="3"></textarea>
         </mat-form-field>
 
-        <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <mat-label>Đặc điểm cố định (Logo, Hình xăm...)</mat-label>
-            <textarea matInput class="px-2" [(ngModel)]="editingChar.specialDetails" placeholder="VD: Logo hình tròn chữ TADU màu trắng bên ngực trái..." cdkTextareaAutosize
-                cdkAutosizeMinRows="1" cdkAutosizeMaxRows="2"></textarea>
-            <mat-hint>Ghi chú: AI thường làm méo logo nhỏ. Nên mô tả vị trí và màu sắc thật chi tiết.</mat-hint>
-        </mat-form-field>
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Tính cách</mat-label>
