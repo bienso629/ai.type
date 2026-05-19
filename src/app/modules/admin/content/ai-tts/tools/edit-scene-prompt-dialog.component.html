@@ -33,18 +33,24 @@
 
         <!-- Storyboard Area -->
         <div class="flex items-start gap-4 mb-2 mt-2">
-            <div *ngIf="editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl)"
+            <div *ngIf="editingScenePrompt.videoUrl || (editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl))"
                 class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group transition-all duration-300"
                 [ngStyle]="getAspectRatioStyle()">
-                <img [src]="editingScenePrompt.imageUrl" class="w-full h-full object-cover rounded-lg">
+                
+                @if (editingScenePrompt.videoUrl) {
+                    <video [src]="editingScenePrompt.videoUrl" class="w-full h-full object-cover rounded-lg" [loop]="true" muted autoplay playsinline></video>
+                } @else {
+                    <img [src]="editingScenePrompt.imageUrl" class="w-full h-full object-cover rounded-lg">
+                }
+
                 <button mat-icon-button
                     class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
-                    (click)="removeImage()">
+                    (click)="removeMedia()">
                     <mat-icon class="icon-size-4 text-white">close</mat-icon>
                 </button>
             </div>
 
-            <div *ngIf="!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl)"
+            <div *ngIf="!editingScenePrompt.videoUrl && (!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl))"
                 class="relative shrink-0 rounded-lg border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
                 [ngStyle]="getAspectRatioStyle()">
                 <button mat-icon-button class="bg-green-50 hover:bg-green-100" (click)="imageInput.click()">

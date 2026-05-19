@@ -243,13 +243,14 @@ export class LivestreamComponent implements OnInit, OnDestroy {
                 const video = this.currentScene.videos[i];
                 accumulatedVideoTime += video.duration || 8;
                 if (elapsedAudioTime <= accumulatedVideoTime) {
-                    newMediaUrl = video.imageUrl || this.currentScene.imageUrl;
+                    newMediaUrl = video.videoUrl || video.imageUrl || this.currentScene.imageUrl;
                     found = true;
                     break;
                 }
             }
             if (!found) {
-                newMediaUrl = this.currentScene.videos[this.currentScene.videos.length - 1].imageUrl || this.currentScene.imageUrl;
+                const lastVideo = this.currentScene.videos[this.currentScene.videos.length - 1];
+                newMediaUrl = lastVideo.videoUrl || lastVideo.imageUrl || this.currentScene.imageUrl;
             }
         }
 
@@ -420,7 +421,10 @@ export class LivestreamComponent implements OnInit, OnDestroy {
         // 3. Ép Angular cập nhật lại UI (Cực kỳ quan trọng với OnPush)
         this.cd.markForCheck();
 
-        this.router.navigate(['/archives']);
+        const projectName = this.projectData?.title ? 
+            this.projectData.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') : 
+            'project';
+        this.router.navigate(['/voice2video', projectName, this.uuid]);
     }
 
     // --- TIỆN ÍCH KIỂM TRA ĐUÔI FILE ---
