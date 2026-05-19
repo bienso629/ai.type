@@ -183,6 +183,19 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         }
     }
 
+    hasIncomingLink(sceneIdx: number, vIdx: number): boolean {
+        if (!this.projectData || !this.projectData.scenes) return false;
+        for (const scene of this.projectData.scenes) {
+            if (!scene.videos) continue;
+            for (const video of scene.videos) {
+                if (video.linkedTo && video.linkedTo.sceneIndex === sceneIdx && video.linkedTo.videoIndex === vIdx) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
     @HostListener('document:keydown.escape', ['$event'])
     onKeydownHandler(event: KeyboardEvent) {
         if (this.linkingSourceVideo) {
@@ -224,12 +237,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                         const sourceRect = sourceEl.getBoundingClientRect();
                         const targetRect = targetEl.getBoundingClientRect();
 
-                        // Điểm bắt đầu (giữa cạnh phải của source)
-                        const startX = sourceRect.right - containerRect.left;
+                        // Điểm bắt đầu (cạnh ngoài của node phải)
+                        const startX = sourceRect.right - containerRect.left + 12;
                         const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
 
-                        // Điểm kết thúc (giữa cạnh trái của target)
-                        const endX = targetRect.left - containerRect.left;
+                        // Điểm kết thúc (cạnh ngoài của node trái)
+                        const endX = targetRect.left - containerRect.left - 12;
                         const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
 
                         // Tính control points cho đường cong Bezier
@@ -255,8 +268,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             if (sourceEl) {
                 const sourceRect = sourceEl.getBoundingClientRect();
 
-                // Điểm bắt đầu
-                const startX = sourceRect.right - containerRect.left;
+                // Điểm bắt đầu (cạnh ngoài của node phải)
+                const startX = sourceRect.right - containerRect.left + 12;
                 const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
 
                 // Điểm kết thúc là tọa độ chuột hiện tại
@@ -328,6 +341,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
     stopDragging() {
         this.isMouseDown = false;
+    }
+
+    onWheelScroll(event: WheelEvent) {
+        if (event.deltaY !== 0 && !event.shiftKey) {
+            event.preventDefault();
+            this.scrollContainer.nativeElement.scrollLeft += event.deltaY;
+        } else if (event.deltaX !== 0) {
+            event.preventDefault();
+            this.scrollContainer.nativeElement.scrollLeft += event.deltaX;
+        }
     }
 
     moveEvent(e: MouseEvent) {

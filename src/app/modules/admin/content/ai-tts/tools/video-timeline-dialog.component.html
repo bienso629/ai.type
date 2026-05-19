@@ -26,14 +26,13 @@
             <svg #svgLayer class="absolute inset-0 w-full h-full pointer-events-none z-50">
                 @for (line of svgLines; track $index) {
                 <!-- Main line -->
-                <path [attr.d]="line.path" fill="none" [attr.stroke]="line.color" stroke-width="2.5"
-                    stroke-linecap="round"></path>
+                <path [attr.d]="line.path" fill="none" [attr.stroke]="line.color" stroke-width="3" stroke-linecap="round"></path>
                 }
             </svg>
 
-            <div class="flex overflow-x-hidden scrollbar-hide rounded-xl space-x-6 timeline-container cursor-grab active:cursor-grabbing"
-                #scrollContainer (mousedown)="startDragging($event)" (mouseleave)="stopDragging()"
-                (mouseup)="stopDragging()" (mousemove)="moveEvent($event)" cdkDropList
+            <div class="flex overflow-x-hidden scrollbar-hide rounded-xl space-x-6 timeline-container cursor-grab active:cursor-grabbing" #scrollContainer
+                (wheel)="onWheelScroll($event)" (scroll)="updateLines()"
+                (mousedown)="startDragging($event)" (mouseleave)="stopDragging()" (mouseup)="stopDragging()" (mousemove)="moveEvent($event)" cdkDropList
                 cdkDropListOrientation="horizontal" (cdkDropListDropped)="onSceneDropped($event)">
 
                 @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
@@ -43,112 +42,113 @@
                         selectedSceneIndex === sceneIdx ? 'border-green-500' : 'border-gray-50'
                     ]" cdkDrag (click)="selectedSceneIndex = selectedSceneIndex === sceneIdx ? -1 : sceneIdx">
                     <div class="flex items-center justify-between p-2">
-                        <div class="flex items-center cursor-move text-gray-500 hover:text-gray-800 transition-colors flex-1"
-                            cdkDragHandle>
+                        <div class="flex items-center cursor-move text-gray-500 hover:text-gray-800 transition-colors flex-1" cdkDragHandle>
                             <mat-icon class="icon-size-5 mr-1">drag_indicator</mat-icon>
                             <span class="text-xs font-bold">
                                 Scene #{{ sceneIdx + 1 }} • {{ getSceneDuration(scene) }}
                             </span>
                         </div>
 
-                        <button mat-icon-button color="warn"
-                            class="icon-size-6 flex items-center justify-center rounded-full flex-shrink-0"
+                        <button mat-icon-button color="warn" class="icon-size-6 flex items-center justify-center rounded-full flex-shrink-0"
                             (click)="$event.stopPropagation(); removeScene(sceneIdx)" size="small">
                             <mat-icon class="icon-size-4">delete</mat-icon>
                         </button>
                     </div>
 
-                    <div
-                        class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-3 p-2">
+                    <div class="w-full relative flex flex-col flex-shrink-0 items-center justify-center bg-gray-50 gap-3 px-4 py-2">
                         @for (video of scene.videos; track video; let vIdx = $index) {
-                        <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center group rounded-lg overflow-hidden"
-                            [ngClass]="[video.imageUrl ? 'h-auto overflow-hidden' : 'min-h-32 max-h-40 h-32 overflow-hidden', linkingSourceVideo && linkingSourceVideo !== video ? 'ring-2 ring-indigo-500 hover:ring-4 cursor-pointer transition-all z-30' : '']"
-                            [attr.data-scene-idx]="sceneIdx" [attr.data-v-idx]="vIdx"
-                            (click)="linkingSourceVideo ? completeLinking(video, sceneIdx, vIdx) : null"
-                            [id]="'video_' + sceneIdx + '_' + vIdx">
+                        <div class="w-full relative flex flex-shrink-0 group z-10 hover:z-20" [attr.data-scene-idx]="sceneIdx" [attr.data-v-idx]="vIdx"
+                            (click)="linkingSourceVideo ? completeLinking(video, sceneIdx, vIdx) : null" [id]="'video_' + sceneIdx + '_' + vIdx">
 
-                            <!-- Header hiển thị part -->
-                            <div
-                                class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br-lg">
-                                Phần {{vIdx + 1}} • {{video.duration}}s
+                            <!-- Left Node (Input) -->
+                            <div class="absolute -left-2.5 top-1/2 -translate-y-1/2 w-5 h-5 bg-indigo-500 rounded-full border-[3px] border-white shadow-sm z-40 transition-all duration-200 pointer-events-auto"
+                                [ngClass]="hasIncomingLink(sceneIdx, vIdx) || linkingSourceVideo ? 'opacity-100 scale-100' : 'opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100'">
                             </div>
 
-                            <!-- Dấu tick xanh nếu đã hoàn thành -->
-                            @if (video.isCompleted) {
-                            <div class="absolute top-0 right-0 bg-green-500 text-white p-1 z-10 rounded-bl flex items-center justify-center"
-                                matTooltip="Đã tạo video">
-                                <mat-icon class="icon-size-4 text-white">check</mat-icon>
+                            <!-- Right Node (Output) -->
+                            <div class="absolute -right-2.5 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full border-[3px] border-white shadow-sm z-40 transition-all duration-200 pointer-events-auto flex items-center justify-center group/node"
+                                [ngClass]="[
+                                    video.linkedTo ? 'opacity-100 scale-100 bg-indigo-500 hover:bg-red-500 hover:border-red-500 cursor-pointer hover:scale-125' : 'cursor-crosshair bg-indigo-500 hover:bg-indigo-600 hover:scale-125',
+                                    !video.linkedTo && linkingSourceVideo === video ? 'opacity-100 scale-100' : '',
+                                    !video.linkedTo && linkingSourceVideo !== video ? 'opacity-0 scale-50 group-hover:opacity-100 group-hover:scale-100' : ''
+                                 ]" (mousedown)="$event.stopPropagation(); !video.linkedTo ? onDragLinkStart($event, video, sceneIdx, vIdx) : null"
+                                (click)="$event.stopPropagation(); video.linkedTo ? removeLink(video) : null" [matTooltip]="video.linkedTo ? 'Gỡ bỏ liên kết' : ''">
+                                @if (video.linkedTo) {
+                                <mat-icon class="text-white opacity-0 group-hover/node:opacity-100 transition-opacity flex items-center justify-center m-0 p-0"
+                                    style="font-size: 10px; width: 10px; height: 10px; line-height: 10px;">close</mat-icon>
+                                }
                             </div>
-                            }
 
-                            <!-- Badge Liên kết -->
-                            @if (video.linkedTo) {
-                            <div class="absolute bottom-0 left-0 bg-indigo-600/90 hover:bg-indigo-700 text-white text-[10px] px-2 py-0.5 z-30 rounded-tr-lg flex items-center gap-1 cursor-pointer"
-                                matTooltip="Đang liên kết. Bấm để cuộn đến phần này."
-                                (click)="$event.stopPropagation(); scrollToLinkedVideo(video.linkedTo)">
-                                <mat-icon class="icon-size-3">link</mat-icon>
-                                <span>Nối với {{video.linkedTo.text}}</span>
-                            </div>
-                            <button *ngIf="!linkingSourceVideo"
-                                class="absolute bottom-0 right-0 bg-red-500 hover:bg-red-600 text-white px-1 py-0.5 z-30 rounded-tl-lg hidden group-hover:block cursor-pointer shadow-md"
-                                matTooltip="Gỡ bỏ liên kết" (click)="$event.stopPropagation(); removeLink(video)">
-                                <mat-icon class="icon-size-3 text-white">close</mat-icon>
-                            </button>
-                            }
+                            <div class="w-full bg-gray-200 relative flex flex-shrink-0 items-center justify-center rounded-lg overflow-hidden"
+                                [ngClass]="[video.imageUrl ? 'h-auto' : 'min-h-32 max-h-40 h-32', linkingSourceVideo && linkingSourceVideo !== video ? 'ring-2 ring-indigo-500 hover:ring-4 cursor-pointer transition-all z-30' : '']">
 
-                            @if (video.imageUrl) {
-                            <ng-container *ngIf="isImageType(video.imageUrl); else videoPlayer">
-                                <img [src]="video.imageUrl"
-                                    class="w-full h-auto object-contain pointer-events-none block">
-                            </ng-container>
-                            <ng-template #videoPlayer>
-                                <video #videoEl [src]="video.imageUrl" class="w-full h-full block object-cover" muted
-                                    playsinline [id]="'video_' + sceneIdx + '_' + vIdx" (play)="0" (pause)="0"
-                                    (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
+                                <!-- Header hiển thị part -->
+                                <div class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-2 py-0.5 z-10 rounded-br-lg">
+                                    Phần {{vIdx + 1}} • {{video.duration}}s
+                                </div>
 
-                                <button mat-icon-button
-                                    class="absolute bottom-2 left-2 z-30 text-white drop-shadow-md bg-black/20 hover:bg-black/50 transition-colors"
-                                    (click)="$event.stopPropagation(); videoEl.paused ? videoEl.play() : videoEl.pause()">
-                                    <mat-icon>{{ videoEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
-                                </button>
-                            </ng-template>
-                            } @else {
-                            <div class="flex flex-col text-center p-2 w-full h-full items-center justify-center">
-                                <mat-icon class="text-gray-400 text-3xl">image</mat-icon>
-                                <p class="text-[10px] text-gray-500 mt-1">No media</p>
-                            </div>
-                            }
+                                <!-- Dấu tick xanh nếu đã hoàn thành -->
+                                @if (video.isCompleted) {
+                                <div class="absolute top-0 right-0 bg-green-500 text-white p-1 z-10 rounded-bl flex items-center justify-center" matTooltip="Đã tạo video">
+                                    <mat-icon class="icon-size-4 text-white">check</mat-icon>
+                                </div>
+                                }
 
-                            <div (mousedown)="onDragLinkStart($event, video, sceneIdx, vIdx)"
-                                class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20 cursor-grab active:cursor-grabbing">
+                                <!-- Badge Liên kết -->
+                                @if (video.linkedTo) {
+                                <div class="absolute bottom-0 left-0 bg-indigo-600/90 hover:bg-indigo-700 text-white text-[10px] px-2 py-0.5 z-30 rounded-tr-lg flex items-center gap-1 cursor-pointer"
+                                    matTooltip="Đang liên kết. Bấm để cuộn đến phần này." (click)="$event.stopPropagation(); scrollToLinkedVideo(video.linkedTo)">
+                                    <mat-icon class="icon-size-3">link</mat-icon>
+                                    <span>Nối với {{video.linkedTo.text}}</span>
+                                </div>
+                                }
 
-                                <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors"
-                                    matTooltip="Copy Prompt phần này" (mousedown)="$event.stopPropagation()"
-                                    (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
-                                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:copy'"></mat-icon>
-                                </button>
+                                @if (video.imageUrl) {
+                                <ng-container *ngIf="isImageType(video.imageUrl); else videoPlayer">
+                                    <img [src]="video.imageUrl" class="w-full h-auto object-contain pointer-events-none block">
+                                </ng-container>
+                                <ng-template #videoPlayer>
+                                    <video #videoEl [src]="video.imageUrl" class="w-full h-full block object-cover" muted playsinline [id]="'video_' + sceneIdx + '_' + vIdx"
+                                        (play)="0" (pause)="0" (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
 
-                                <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors"
-                                    matTooltip="Chọn media" (mousedown)="$event.stopPropagation()"
-                                    (click)="$event.stopPropagation(); fileInput.click()">
-                                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:upload'"></mat-icon>
-                                </button>
+                                    <button mat-icon-button
+                                        class="absolute top-1 right-1 z-30 text-white drop-shadow-md bg-black/40 hover:bg-black/70 transition-colors icon-size-6 flex items-center justify-center rounded-full pointer-events-auto"
+                                        [ngClass]="!videoEl.paused ? 'opacity-0 group-hover:opacity-100' : ''"
+                                        (click)="$event.stopPropagation(); videoEl.paused ? videoEl.play() : videoEl.pause()">
+                                        <mat-icon class="icon-size-5">{{ videoEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
+                                    </button>
+                                </ng-template>
+                                } @else {
+                                <div class="flex flex-col text-center p-2 w-full h-full items-center justify-center">
+                                    <mat-icon class="text-gray-400 text-3xl">image</mat-icon>
+                                    <p class="text-[10px] text-gray-500 mt-1">No media</p>
+                                </div>
+                                }
 
-                                <button *ngIf="video.imageUrl" mat-icon-button
-                                    class="bg-white/20 hover:bg-red-500 transition-colors" matTooltip="Gỡ bỏ media này"
-                                    (mousedown)="$event.stopPropagation()"
-                                    (click)="$event.stopPropagation(); clearVideoMedia(video)">
-                                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:trash-2'"></mat-icon>
-                                </button>
+                                <div class="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-all gap-1 z-20">
 
-                                <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors"
-                                    matTooltip="Sửa Prompt phần này" (mousedown)="$event.stopPropagation()"
-                                    (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
-                                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:edit'"></mat-icon>
-                                </button>
+                                    <button mat-icon-button class="bg-white/20 hover:bg-blue-500 transition-colors" matTooltip="Copy Prompt phần này"
+                                        (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
+                                        <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:copy'"></mat-icon>
+                                    </button>
 
-                                <input #fileInput type="file" (change)="onFileSelected($event, scene, video)"
-                                    accept="image/*,video/*" class="hidden">
+                                    <button mat-icon-button class="bg-white/20 hover:bg-pink-500 transition-colors" matTooltip="Chọn media" (mousedown)="$event.stopPropagation()"
+                                        (click)="$event.stopPropagation(); fileInput.click()">
+                                        <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:upload'"></mat-icon>
+                                    </button>
+
+                                    <button *ngIf="video.imageUrl" mat-icon-button class="bg-white/20 hover:bg-red-500 transition-colors" matTooltip="Gỡ bỏ media này"
+                                        (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); clearVideoMedia(video)">
+                                        <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                    </button>
+
+                                    <button mat-icon-button class="bg-white/20 hover:bg-green-500 transition-colors" matTooltip="Sửa Prompt phần này"
+                                        (mousedown)="$event.stopPropagation()" (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx)">
+                                        <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:edit'"></mat-icon>
+                                    </button>
+
+                                    <input #fileInput type="file" (change)="onFileSelected($event, scene, video)" accept="image/*,video/*" class="hidden">
+                                </div>
                             </div>
                         </div>
                         }
@@ -166,25 +166,18 @@
                                 </p>
 
                                 <div class="flex-shrink-0 flex flex-row items-center whitespace-nowrap">
-                                    <button mat-icon-button class="icon-size-6"
-                                        (click)="$event.stopPropagation(); enableEditSub(sub)"
-                                        matTooltip="Sửa câu thoại">
-                                        <mat-icon
-                                            class="icon-size-3.5 text-blue-400 hover:text-blue-600">edit</mat-icon>
+                                    <button mat-icon-button class="icon-size-6" (click)="$event.stopPropagation(); enableEditSub(sub)" matTooltip="Sửa câu thoại">
+                                        <mat-icon class="icon-size-3.5 text-blue-400 hover:text-blue-600">edit</mat-icon>
                                     </button>
 
-                                    <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)"
-                                        accept="audio/*" class="hidden">
+                                    <input #audioInput type="file" (change)="onAudioFileSelected($event, sub)" accept="audio/*" class="hidden">
                                     @if (sub.audioUrl) {
-                                    <button mat-icon-button class="icon-size-6"
-                                        (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
-                                        <mat-icon
-                                            class="icon-size-4 text-red-500 hover:bg-red-50">delete_outline</mat-icon>
+                                    <button mat-icon-button class="icon-size-6" (click)="$event.stopPropagation(); removeAudio(sub)" matTooltip="Xóa âm thanh">
+                                        <mat-icon class="icon-size-4 text-red-500 hover:bg-red-50">delete_outline</mat-icon>
                                     </button>
                                     } @else {
                                     <button mat-icon-button class="icon-size-6" (click)="audioInput.click()">
-                                        <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl"
-                                            [class.text-gray-300]="!sub.audioUrl">
+                                        <mat-icon class="icon-size-4" [class.text-blue-500]="sub.audioUrl" [class.text-gray-300]="!sub.audioUrl">
                                             {{ sub.audioUrl ? 'volume_up' : 'add_circle_outline' }}
                                         </mat-icon>
                                     </button>
@@ -193,15 +186,12 @@
                                 }
                                 @else {
                                 <div class="flex-1 w-full bg-white rounded p-2 z-10">
-                                    <textarea [(ngModel)]="sub.tempText"
-                                        class="w-full text-sm p-1 border-none outline-none scrollbar-hide resize-y min-h-[60px]"
+                                    <textarea [(ngModel)]="sub.tempText" class="w-full text-sm p-1 border-none outline-none scrollbar-hide resize-y min-h-[60px]"
                                         placeholder="Nhập nội dung câu thoại..."></textarea>
 
                                     <div class="flex justify-end gap-2 mt-2 pt-2 border-t border-gray-100">
-                                        <button mat-button class="h-8 min-h-8 px-3" color="warn"
-                                            (click)="$event.stopPropagation(); cancelEditSub(sub)">Hủy</button>
-                                        <button mat-flat-button class="h-8 min-h-8 px-3" color="primary"
-                                            (click)="$event.stopPropagation(); saveEditSub(scene, sub)">Lưu</button>
+                                        <button mat-button class="h-8 min-h-8 px-3" color="warn" (click)="$event.stopPropagation(); cancelEditSub(sub)">Hủy</button>
+                                        <button mat-flat-button class="h-8 min-h-8 px-3" color="primary" (click)="$event.stopPropagation(); saveEditSub(scene, sub)">Lưu</button>
                                     </div>
                                 </div>
                                 }
@@ -215,8 +205,7 @@
         </div>
     </div>
 
-    <div mat-dialog-actions
-        class="flex flex-row justify-end gap-1 p-0 mt-6 pt-4 border-t border-gray-100 flex-shrink-0">
+    <div mat-dialog-actions class="flex flex-row justify-end gap-1 p-0 mt-6 pt-4 border-t border-gray-100 flex-shrink-0">
         <button mat-raised-button class="bg-green-500 text-white" (click)="addNewScene()">
             <mat-icon class="icon-size-4" [svgIcon]="'feather:dollar-sign'"></mat-icon>
             <mat-label class="ml-2">Chèn quảng cáo 5s</mat-label>
