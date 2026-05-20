@@ -73,6 +73,11 @@
         [resizeable]="true">
         <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
             <div class="flex items-center gap-1">
+                <button mat-icon-button (click)="downloadPdf(row.doc_type, row.filename)"
+                    matTooltipPosition="above" [matTooltip]="'Tải xuống tài liệu này'">
+                    <mat-icon class="icon-size-4 text-blue-600" svgIcon="feather:download"></mat-icon>
+                </button>
+
                 <button mat-icon-button (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
                     matTooltipPosition="above" [matTooltip]="'Học lại (Re-index) tài liệu này'"
                     [disabled]="indexingFilename === row.filename">

@@ -277,6 +277,29 @@ export class FileListDialogComponent implements AfterViewInit {
         });
     }
 
+    downloadPdf(doc_type: string, filename: string): void {
+        const dType = (!doc_type || doc_type === 'None') ? 'default' : doc_type;
+        const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
+        
+        let downloadFilename = filename;
+        let fileUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
+        
+        // Nếu là file PDF, chuyển sang tải file JSON kết quả của MinerU
+        if (filename.toLowerCase().endsWith('.pdf')) {
+            const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
+            downloadFilename = `${filenameWithoutExt}.mineru.json`;
+            fileUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
+        }
+        
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.target = '_blank';
+        link.download = downloadFilename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
     deletePdf(doc_type: string, filename: string, rowIndex: number): void {
         this._chatbotService.deleteFile({
             username: this.user.name,
