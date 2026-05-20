@@ -75,6 +75,17 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         }
     }
 
+    downloadConfig() {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(this.projectData, null, 2));
+        const downloadAnchorNode = document.createElement('a');
+        downloadAnchorNode.setAttribute("href", dataStr);
+        downloadAnchorNode.setAttribute("download", "video_project_config.json");
+        document.body.appendChild(downloadAnchorNode); // required for firefox
+        downloadAnchorNode.click();
+        downloadAnchorNode.remove();
+        this.toastr.success('Đã tải xuống tệp cấu hình');
+    }
+
     isReanalyzingScenes: boolean = false;
 
     toggleEditMasterPrompt() {
