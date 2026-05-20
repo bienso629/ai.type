@@ -106,7 +106,7 @@ def load_model():
         model = Qwen2VLForConditionalGeneration.from_pretrained(
             model_name, 
             torch_dtype=dtype, 
-            device_map="auto" if device == "cuda" else {"": "cpu"}
+            device_map={"": "cuda"} if device == "cuda" else {"": "cpu"}
         )
         processor = AutoProcessor.from_pretrained(model_name, use_fast=True)
         
@@ -175,4 +175,4 @@ if __name__ == "__main__":
     import uvicorn
     # Mở server ở port 48921 để tránh trùng lặp
     print("Khởi động API Server tại http://127.0.0.1:48921")
-    uvicorn.run("pdf:app", host="127.0.0.1", port=48921, reload=False)
+    uvicorn.run(app, host="127.0.0.1", port=48921, reload=False)

@@ -1,12 +1,21 @@
 # -*- mode: python ; coding: utf-8 -*-
+from PyInstaller.utils.hooks import collect_all
+from PyInstaller.utils.hooks import copy_metadata
+
+datas = []
+binaries = []
+hiddenimports = []
+datas += copy_metadata('torchcodec')
+tmp_ret = collect_all('transformers')
+datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
 
 a = Analysis(
     ['pdf.py'],
     pathex=[],
-    binaries=[],
-    datas=[],
-    hiddenimports=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hiddenimports,
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
