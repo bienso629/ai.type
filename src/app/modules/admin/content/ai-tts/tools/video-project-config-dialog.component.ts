@@ -269,7 +269,9 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
                 char: char,
                 index: index,
                 masterPrompt: this.projectData?.masterPrompt || '',
-                existingCharacters: this.projectData?.characters || []
+                existingCharacters: this.projectData?.characters || [],
+                uuid: this.data?.uuid,
+                username: this.data?.username || 'anonymous'
             }
         });
 

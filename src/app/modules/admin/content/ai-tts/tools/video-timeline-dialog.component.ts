@@ -302,6 +302,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             data: {
                 projectData: this.projectData,
                 uuid: this.data?.uuid,
+                username: this.data?.username || 'anonymous',
                 onSave: (newData: any) => {
                     this.projectData = newData;
                     this.saveData();
@@ -524,6 +525,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 if (index >= 0 && index < this.projectData.scenes.length) {
                     video.prompt = result.prompt;
                     video.imageUrl = result.imageUrl;
+                    if (result.imagePrompt !== undefined) video.imagePrompt = result.imagePrompt;
                     if (result.videoUrl !== undefined) video.videoUrl = result.videoUrl;
                     if (result.aspectRatio !== undefined) video.aspectRatio = result.aspectRatio;
                     if (result.duration !== undefined) video.duration = result.duration;

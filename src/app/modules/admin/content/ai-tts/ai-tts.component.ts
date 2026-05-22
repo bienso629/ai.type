@@ -652,6 +652,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // 2. [MỚI] LƯU VIDEO TIMELINE (SCENES) NẾU CÓ DỮ LIỆU
         if (this.videoProject) {
+            this.videoProject.aspectRatio = this.aspectRatio || '16:9';
             const storageKeyVideo = `${this.STORAGE_CLIPS_KEY}_${targetUuid}`;
             this.multiAccountService.setItem(storageKeyVideo, this.videoProject);
         }
@@ -1416,6 +1417,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // Hàm bổ trợ để mở Dialog
     async openTimelineDialog(data: any) {
         data['username'] = this.user?.name || 'anonymous'; // Đảm bảo có username trong data
+        data.aspectRatio = this.aspectRatio || '16:9';
 
         // Đồng bộ và kiểm tra file audio thực sự tồn tại trước khi gắn vào kịch bản
         if (data.scenes && data.scenes.length > 0) {
