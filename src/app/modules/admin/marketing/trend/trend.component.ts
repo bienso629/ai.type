@@ -613,7 +613,7 @@ export class AIFacePostComponent
             // this.ai = new GoogleGenAI({ apiKey: geminiKey }); // ok rooi
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-preview',
+                model: 'gemini-3-flash-preview',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 

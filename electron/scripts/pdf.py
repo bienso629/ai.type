@@ -139,6 +139,70 @@ def analyze_pdf(req: AnalyzeRequest):
             import fitz  # type: ignore
             doc = fitz.open(file_path)
             full_data = []
+            
+            def extract_style_from_fitz(mineru_bbox, fitz_page):
+                page_dict = fitz_page.get_text("dict")
+                page_width = fitz_page.rect.width
+                page_height = fitz_page.rect.height
+                
+                mx0, my0, mx1, my1 = mineru_bbox
+                fx0, fy0, fx1, fy1 = mx0 * page_width, my0 * page_height, mx1 * page_width, my1 * page_height
+                
+                total_chars = 0
+                italic_chars = 0
+                bold_chars = 0
+                font_sizes = []
+                first_line_x0 = None
+                
+                for block in page_dict.get("blocks", []):
+                    if block.get("type") != 0:
+                        continue
+                    for line in block.get("lines", []):
+                        line_bbox = line.get("bbox")
+                        # Check intersection
+                        if line_bbox[2] < fx0 or line_bbox[0] > fx1 or line_bbox[3] < fy0 or line_bbox[1] > fy1:
+                            continue
+                            
+                        # Compute intersection area to ensure it's mostly inside
+                        ix0, iy0 = max(fx0, line_bbox[0]), max(fy0, line_bbox[1])
+                        ix1, iy1 = min(fx1, line_bbox[2]), min(fy1, line_bbox[3])
+                        inter_area = max(0, ix1 - ix0) * max(0, iy1 - iy0)
+                        line_area = (line_bbox[2] - line_bbox[0]) * (line_bbox[3] - line_bbox[1])
+                        if line_area == 0 or inter_area / line_area < 0.3:
+                            continue
+                            
+                        if first_line_x0 is None:
+                            first_line_x0 = line_bbox[0]
+                            
+                        for span in line.get("spans", []):
+                            text = span.get("text", "").strip()
+                            if not text: continue
+                            chars = len(text)
+                            
+                            flags = span.get("flags", 0)
+                            font = span.get("font", "").lower()
+                            
+                            is_italic = bool(flags & 2) or "italic" in font
+                            is_bold = bool(flags & 16) or "bold" in font
+                            
+                            total_chars += chars
+                            if is_italic: italic_chars += chars
+                            if is_bold: bold_chars += chars
+                            font_sizes.append((span.get("size", 14), chars))
+                
+                if total_chars == 0:
+                    return {"fitz_font_size": 14, "is_bold": False, "is_italic": False, "fitz_text_indent": 0, "fitz_page_width": page_width}
+                    
+                avg_size = sum(sz * c for sz, c in font_sizes) / total_chars
+                indent = max(0, first_line_x0 - fx0) if first_line_x0 is not None else 0
+                
+                return {
+                    "fitz_font_size": avg_size,
+                    "is_bold": bold_chars > total_chars * 0.5,
+                    "is_italic": italic_chars > total_chars * 0.5,
+                    "fitz_text_indent": indent,
+                    "fitz_page_width": page_width
+                }
             for i in range(len(doc)):
                 if is_cancelled:
                     print("Đã hủy quá trình phân tích theo yêu cầu!")
@@ -151,6 +215,67 @@ def analyze_pdf(req: AnalyzeRequest):
                     res = global_client.two_step_extract(img)
                 # Đảm bảo res là list
                 if not isinstance(res, list): res = [res]
+                
+                # Tạo thư mục chứa ảnh nếu chưa có
+                img_dir = file_path + "_images"
+                if not os.path.exists(img_dir):
+                    os.makedirs(img_dir)
+                
+                # Lưu ảnh gốc của toàn bộ trang để làm hình nền (background)
+                full_bg_filename = f"page_{i+1}_full_bg.png"
+                img.save(os.path.join(img_dir, full_bg_filename))
+                
+                # Bơm dữ liệu hình nền vào danh sách
+                bg_item = {
+                    "type": "page_background",
+                    "page_idx": i,
+                    "image_url": f"{os.path.basename(img_dir)}/{full_bg_filename}",
+                    "width": img.width,
+                    "height": img.height
+                }
+                full_data.append(bg_item)
+                    
+                for idx, item in enumerate(res):
+                    item['page_idx'] = i
+                    content = str(item.get('content', '')).strip()
+                    content_lower = content.lower()
+                    
+                    if item.get('bbox') and item.get('type') in ['text', 'title', 'header', 'footer']:
+                        style_info = extract_style_from_fitz(item['bbox'], page)
+                        item.update(style_info)
+                    
+                    # LOGGING FOR DEBUG
+                    with open("pdf_debug.log", "a", encoding="utf-8") as lf:
+                        lf.write(f"type: {item.get('type')}, content: {content}\n")
+                        
+                    # Sửa lỗi model phân loại nhầm ảnh thành text/header
+                    if item.get('type') not in ['image', 'figure']:
+                        is_hallucinated = (
+                            not content or 
+                            "image contains" in content_lower or 
+                            "image shows" in content_lower or 
+                            "stylized emblem" in content_lower or 
+                            "no ocr output" in content_lower or
+                            "national emblem" in content_lower or
+                            "ignore" in content_lower
+                        )
+                        if is_hallucinated:
+                            item['type'] = 'image'
+                            
+                    if item.get('type') in ['image', 'figure']:
+                        bbox = item.get('bbox')
+                        if bbox:
+                            w, h = img.size
+                            x0, y0, x1, y1 = bbox
+                            crop_box = (int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h))
+                            try:
+                                cropped_img = img.crop(crop_box)
+                                img_filename = f"page_{i+1}_{item['type']}_{idx}.png"
+                                cropped_img.save(os.path.join(img_dir, img_filename))
+                                item['image_url'] = f"{os.path.basename(img_dir)}/{img_filename}"
+                            except Exception as e:
+                                print(f"Error cropping image: {e}")
+                
                 full_data.extend(res)
             
             print(f"Đã xử lý xong PDF!")
@@ -160,11 +285,48 @@ def analyze_pdf(req: AnalyzeRequest):
             print("Phát hiện định dạng ảnh, đang phân tích...")
             if is_cancelled:
                 return {"status": "error", "data": "Đã hủy"}
+            img = Image.open(file_path)
             with torch.no_grad():
-                res = global_client.two_step_extract(Image.open(file_path))
+                res = global_client.two_step_extract(img)
             print(f"Đã xử lý xong Hình ảnh!")
             import json
             if not isinstance(res, list): res = [res]
+            
+            img_dir = file_path + "_images"
+            if not os.path.exists(img_dir):
+                os.makedirs(img_dir)
+            for idx, item in enumerate(res):
+                content = str(item.get('content', '')).strip()
+                content_lower = content.lower()
+                
+                # Sửa lỗi model phân loại nhầm ảnh thành text/header
+                if item.get('type') not in ['image', 'figure']:
+                    is_hallucinated = (
+                        not content or 
+                        "image contains" in content_lower or 
+                        "image shows" in content_lower or 
+                        "stylized emblem" in content_lower or 
+                        "no ocr output" in content_lower or
+                        "national emblem" in content_lower or
+                        "ignore" in content_lower
+                    )
+                    if is_hallucinated:
+                        item['type'] = 'image'
+                        
+                if item.get('type') in ['image', 'figure']:
+                    bbox = item.get('bbox')
+                    if bbox:
+                        w, h = img.size
+                        x0, y0, x1, y1 = bbox
+                        crop_box = (int(x0 * w), int(y0 * h), int(x1 * w), int(y1 * h))
+                        try:
+                            cropped_img = img.crop(crop_box)
+                            img_filename = f"image_element_{idx}.png"
+                            cropped_img.save(os.path.join(img_dir, img_filename))
+                            item['image_url'] = f"{os.path.basename(img_dir)}/{img_filename}"
+                        except Exception as e:
+                            print(f"Error cropping image: {e}")
+                            
             return {"status": "success", "data": json.dumps(res, ensure_ascii=False)}
     except Exception as e:
         print("LỖI KHI PHÂN TÍCH:")

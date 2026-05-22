@@ -22,6 +22,7 @@ export class GenaiService {
     private _umodelverseKey: string = '';
     private _umodelverseChatModel: string = '';
     private _umodelverseImageModel: string = '';
+    public _umodelverseVideoModel: string = '';
 
     constructor(
         private multiAccountService: MultiAccountService
@@ -51,6 +52,7 @@ export class GenaiService {
             this._umodelverseKey = settings.umodelverseKey?.trim() || '';
             this._umodelverseChatModel = settings.umodelverseChatModel?.trim() || '';
             this._umodelverseImageModel = settings.umodelverseImageModel?.trim() || '';
+            this._umodelverseVideoModel = settings.umodelverseVideoModel?.trim() || '';
             
             // Nếu umodelverseUrl bị thiếu giao thức, thêm vào (mặc định https)
             if (this._umodelverseUrl && !this._umodelverseUrl.startsWith('http')) {
@@ -121,7 +123,7 @@ export class GenaiService {
         this.syncConfigFromStorage();
 
         // Restore model compatibility with existing UModelverse config
-        if (params.model === 'gemini-3.1-flash-preview') {
+        if (params.model === 'gemini-3-flash-preview') {
             params.model = 'gemini-3-flash-preview';
         } else if (params.model === 'gemini-3.1-flash-image-preview') {
             // UModelverse chưa hỗ trợ model tạo ảnh của Gemini, fallback về model tùy chọn hoặc dall-e-3
@@ -223,13 +225,17 @@ export class GenaiService {
 
         const overrideModel = params.model === 'gemini-3-flash-preview' ? null : params.model;
         
-        const body = {
+        const body: any = {
             model: overrideModel || this._umodelverseChatModel || 'gpt-4o',
             messages: messages,
             temperature: params.config?.temperature,
-            max_tokens: params.config?.maxOutputTokens,
+            max_tokens: params.config?.maxOutputTokens || 8192,
             top_p: params.config?.topP,
         };
+
+        if (params.config?.responseMimeType === 'application/json') {
+            body.response_format = { type: 'json_object' };
+        }
 
         const response = await fetch(`${url}/chat/completions`, {
             method: 'POST',

@@ -264,6 +264,16 @@
                         </mat-form-field>
                         <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng dall-e-3). VD: flux-schnell</div>
                     </div>
+
+                    <div class="w-full mt-2">
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>Model tạo video (Tùy chọn)</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'" matPrefix></mat-icon>
+                            <input [formControlName]="'umodelverseVideoModel'" type="text" matInput placeholder="VD: cogvideox-5b, luma-dream-machine">
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
+                    </div>
                 </div>
 
                 <ng-container *ngIf="user.reputation >= 100000000">

@@ -1145,12 +1145,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
             2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình nhân vật (tuổi, tóc, trang phục đặc trưng).
-            3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH: Gom nhóm các câu thoại và TỰ ĐỘNG phân tích kỹ nội dung từng câu thoại (voiceText) để tạo ra bối cảnh (prompt) chi tiết, bám sát nhất với diễn biến, hành động của từng phần cụ thể.
+            3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH (STORYBOARD/SHOT LIST): Đây là bản thiết kế kỹ thuật (blueprint) để hình ảnh hóa kịch bản. Bạn phải gom nhóm các câu thoại và TỰ ĐỘNG phân tích nội dung để tạo ra bối cảnh (prompt) chi tiết, định hướng rõ ràng cho khâu tiền kỳ và hậu kỳ.
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
-            - 👤 TỐI ƯU NHÂN VẬT: Trong "prompt" từng scene, TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật. Chỉ cần gọi TÊN hoặc VAI TRÒ (VD: "Người cha", "Cô gái"). Việc tạo hình sẽ do hệ thống quản lý ở phần Characters riêng.
-            - 🎨 BỐI CẢNH THEO THOẠI: Trong "prompt" của từng scene, bạn PHẢI phân tích câu thoại để miêu tả góc máy (camera angle), ánh sáng, hành động, biểu cảm và bối cảnh không gian một cách CỤ THỂ VÀ KHÁC BIỆT cho từng cảnh. KHÔNG viết chung chung. TUYỆT ĐỐI KHÔNG miêu tả phong cách nghệ thuật (Art style) ở phần này.
-            - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1).
+            - 👤 TỐI ƯU NHÂN VẬT: TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật trong cảnh. Việc tạo hình do hệ thống tự động xử lý.
+            - 🎬 TÁCH BIỆT "BỐI CẢNH" (imagePrompt) VÀ "HÀNH ĐỘNG" (prompt):
+              + "imagePrompt": Bản thiết kế kiến trúc/bối cảnh (Blueprint). PHẢI LÀ CẢNH TRỐNG (Empty Set). MIÊU TẢ Góc máy (Close-up, Wide shot...), Ánh sáng, Màu sắc, Không gian âm. TUYỆT ĐỐI KHÔNG CÓ SỰ XUẤT HIỆN CỦA CON NGƯỜI HAY NHÂN VẬT TRONG MÔ TẢ NÀY (để dọn sẵn không gian chờ diễn viên bước vào).
+              + "prompt": Bản thiết kế hành động cho Video. Bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM hành động, biểu cảm, chuyển động của nhân vật bên trong không gian đó.
+            - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1). TUYỆT ĐỐI KHÔNG miêu tả lại Art style ở phần scene.
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
@@ -1172,7 +1174,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               ],
               "scenes": [
                 {
-                  "prompt": "Chỉ viết góc máy, ánh sáng, hành động, biểu cảm và bối cảnh (KHÔNG viết phong cách nghệ thuật chung)...",
+                  "imagePrompt": "Góc máy (Cận/Toàn/Trung), Ánh sáng (hướng/màu/mood), Bố cục (không gian âm). CẢNH TRỐNG, KHÔNG CÓ CON NGƯỜI HAY NHÂN VẬT.",
+                  "prompt": "Góc máy, Ánh sáng, Bố cục NHƯ TRÊN + Hành động, biểu cảm cụ thể của nhân vật trong khung cảnh đó.",
                   "subtitleIds": ["id1", "id2"]
                 }
               ]
@@ -1206,8 +1209,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             for (let i = 0; i < retries; i++) {
                 try {
                     response = await this._genaiService.generateContent({
-                        model: 'gemini-3.1-flash-preview',
+                        model: 'gemini-3-flash-preview',
                         contents: finalContents,
+                        config: {
+                            responseMimeType: "application/json",
+                            maxOutputTokens: 8192
+                        }
                     });
                     break;
                 } catch (apiError: any) {
@@ -1227,18 +1234,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const aiResponse = this.helperService.safeJsonParseFromAI(response.text);
             const aiResponseScenes = aiResponse.scenes || [];
 
-            // Đưa thẳng masterPrompt vào prompt tạo hình nhân vật
-            if (aiResponse.masterPrompt && aiResponse.characters) {
-                for (let char of aiResponse.characters) {
-                    if (char.prompt) {
-                        char.prompt = aiResponse.masterPrompt.trim() + '\n\n' + char.prompt;
-                    } else if (char.appearance) {
-                        char.prompt = aiResponse.masterPrompt.trim() + '\n\n' + char.appearance;
-                    } else {
-                        char.prompt = aiResponse.masterPrompt.trim();
-                    }
-                }
-            }
+            // Không dán masterPrompt vào prompt tạo hình nhân vật nữa,
+            // để khung nhập liệu trong form Sửa Nhân Vật được gọn gàng.
+            // Component hiển thị (CharacterDialogComponent) sẽ tự động dính masterPrompt vào khi copy hoặc render ảnh.
 
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 let exactSceneDuration = 0;
@@ -1271,11 +1269,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // KHÔNG TỰ ĐỘNG DÁN MASTER PROMPT VÀO ĐÂY vì ở VideoTimelineDialogComponent (khi bấm Copy) đã có logic tự dán masterPrompt rồi!
                 // Nếu dán ở đây sẽ bị nhân đôi. Chỉ lấy đúng prompt của scene do AI tạo ra.
                 let originalScenePrompt = scene.prompt ? scene.prompt.trim() : '';
+                let originalImagePrompt = scene.imagePrompt ? scene.imagePrompt.trim() : originalScenePrompt;
                 let masterText = aiResponse.masterPrompt ? aiResponse.masterPrompt.trim() : '';
 
                 // Lọc bỏ masterText khỏi originalScenePrompt nếu AI lỡ tay lặp lại do không có hành động
                 if (masterText && originalScenePrompt.includes(masterText)) {
                     originalScenePrompt = originalScenePrompt.replace(masterText, '').trim();
+                }
+                if (masterText && originalImagePrompt.includes(masterText)) {
+                    originalImagePrompt = originalImagePrompt.replace(masterText, '').trim();
                 }
 
                 let constraintStr = "completely textless, no text, no watermark, no signature, clean background";
@@ -1284,28 +1286,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 let finalScenePrompt = originalScenePrompt + `\n\n(Constraints: ${constraintStr})`;
+                let finalImagePrompt = originalImagePrompt + `\n\n(Constraints: ${constraintStr})`;
 
                 // Tự động nhận diện nhân vật và gắn mô tả (appearance/prompt) vào
                 const characters = aiResponse.characters || [];
-                const injectCharacters = (text: string) => {
-                    let injectedText = text;
-                    let addedChars = [];
-                    for (const char of characters) {
-                        if (char.name && text.toLowerCase().includes(char.name.toLowerCase())) {
-                            let charDesc = char.prompt || char.appearance || '';
-                            if (aiResponse.masterPrompt && charDesc.startsWith(aiResponse.masterPrompt.trim())) {
-                                charDesc = charDesc.substring(aiResponse.masterPrompt.trim().length).trim();
-                            }
-                            if (charDesc) {
-                                addedChars.push(`[Character '${char.name}': ${charDesc}]`);
-                            }
-                        }
-                    }
-                    if (addedChars.length > 0) {
-                        injectedText = addedChars.join('\n') + '\n\n' + injectedText;
-                    }
-                    return injectedText;
-                };
 
                 let videos = [];
                 const maxVideoLength = this.maxDuration;
@@ -1329,32 +1313,33 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         }
 
                         let basePrompt = finalScenePrompt;
+                        let baseImagePrompt = finalImagePrompt;
                         if (individualPrompts.length > 0) {
                             basePrompt = individualPrompts[Math.min(i, individualPrompts.length - 1)] + `\n\n(Constraints: ${constraintStr})`;
+                            // Nếu có split video prompt, image prompt giữ nguyên ảnh tĩnh ban đầu
+                            baseImagePrompt = finalImagePrompt;
                         }
-
-                        // Gắn nhân vật vào
-                        basePrompt = injectCharacters(basePrompt);
 
                         videos.push({
                             id: i + 1,
                             prompt: `${basePrompt}\n[NOTE: This scene is ${partDuration} seconds long. Generate video continuation Part ${i + 1}/${parts}]`,
+                            imagePrompt: baseImagePrompt,
                             imageUrl: null,
                             duration: partDuration
                         });
                     }
                 } else {
                     let singlePrompt = finalScenePrompt;
+                    let cleanImagePrompt = finalImagePrompt;
+                    
                     if (isVideo) {
                         singlePrompt += `\n[MANDATORY: Generate video with exact duration of ${roundedDuration} seconds]`;
                     }
 
-                    // Gắn nhân vật vào
-                    singlePrompt = injectCharacters(singlePrompt);
-
                     videos.push({
                         id: 1,
                         prompt: singlePrompt,
+                        imagePrompt: cleanImagePrompt,
                         imageUrl: null,
                         duration: roundedDuration
                     });

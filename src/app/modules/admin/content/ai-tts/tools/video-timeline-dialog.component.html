@@ -87,8 +87,8 @@
                                     Phần {{vIdx + 1}} • {{video.duration}}s
                                 </div>
 
-                                <!-- Dấu tick xanh nếu đã hoàn thành -->
-                                @if (video.isCompleted) {
+                                <!-- Dấu tick xanh nếu đã hoàn thành (ẩn đi nếu đã có video và icon play) -->
+                                @if (video.isCompleted && !video.videoUrl) {
                                 <div class="absolute top-0 right-0 bg-green-500 text-white p-1 z-10 rounded-bl flex items-center justify-center" matTooltip="Đã tạo video">
                                     <mat-icon class="icon-size-4 text-white">check</mat-icon>
                                 </div>

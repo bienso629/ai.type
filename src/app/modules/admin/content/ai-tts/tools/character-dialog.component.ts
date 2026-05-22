@@ -225,7 +225,8 @@ export class CharacterDialogComponent {
             this.toastr.warning('Không có nội dung để copy.');
             return;
         }
-        navigator.clipboard.writeText(text).then(() => {
+
+        navigator.clipboard.writeText(text.trim()).then(() => {
             this.toastr.success('Đã copy Prompt!');
         }).catch(err => {
             this.toastr.error('Lỗi khi copy: ' + err);
