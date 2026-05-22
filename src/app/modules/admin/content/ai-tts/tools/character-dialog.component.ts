@@ -107,12 +107,20 @@ export class CharacterDialogComponent {
             }
 
             const fileName = `avatar_${this.editingChar.name || 'char'}_${Date.now()}.png`.replace(/[^a-zA-Z0-9_.]/g, '');
-            const result = await electron.saveBase64({
+            const uuid = this.data?.uuid;
+            const username = this.data?.username || 'anonymous';
+            const saveParams: any = {
                 base64: base64Data,
-                fileName: fileName,
-                folder: 'avatars',
-                username: 'ai_type'
-            });
+                fileName: fileName
+            };
+            if (uuid) {
+                saveParams.customDir = `tts/${username}/${uuid}`;
+            } else {
+                saveParams.folder = 'avatars';
+                saveParams.username = username;
+            }
+
+            const result = await electron.saveBase64(saveParams);
 
             if (result && result.success) {
                 const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
@@ -189,7 +197,11 @@ export class CharacterDialogComponent {
                     const originalPath = electron.getPathForFile(file);
 
                     if (originalPath) {
-                        const localFilePath = await electron.selectLocalFile(originalPath);
+                        const uuid = this.data?.uuid;
+                        const username = this.data?.username || 'anonymous';
+                        const customDir = uuid ? `tts/${username}/${uuid}` : undefined;
+                        
+                        const localFilePath = await electron.selectLocalFile(originalPath, customDir);
                         const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
                         if (!this.editingChar.avatarUrls.includes(finalPath)) {
                             this.editingChar.avatarUrls.push(finalPath);

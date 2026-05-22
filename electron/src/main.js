@@ -2252,16 +2252,26 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
     }
 });
 
-// --- IPC HANDLER: Xử lý việc copy file ---
 // Lắng nghe sự kiện 'select-local-file' từ Renderer process
-ipcMain.handle('select-local-file', async (event, { filePath }) => {
+ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
     try {
         const fileName = path.basename(filePath);
         // Tạo một tên file duy nhất để tránh bị trùng (ví dụ: timestamp_filename)
         const uniqueFileName = `${Date.now()}_${fileName}`;
-        const destinationPath = path.join(uploadsDir, uniqueFileName);
+        
+        let destinationPath;
+        if (customDir) {
+            const docPath = app.getPath("documents");
+            const saveDir = path.join(docPath, "ai.type", "data", customDir);
+            if (!fs.existsSync(saveDir)) {
+                fs.mkdirSync(saveDir, { recursive: true });
+            }
+            destinationPath = path.join(saveDir, uniqueFileName);
+        } else {
+            destinationPath = path.join(uploadsDir, uniqueFileName);
+        }
 
-        // Copy file từ đường dẫn gốc sang thư mục uploads của app
+        // Copy file từ đường dẫn gốc sang thư mục uploads/custom của app
         fs.copyFileSync(filePath, destinationPath);
 
         console.log(`File copied from ${filePath} to ${destinationPath}`);
@@ -2410,20 +2420,25 @@ ipcMain.on("app:relaunch", () => {
 // main.js (Phần xử lý ipcMain save-base64)
 ipcMain.handle("save-base64", async (event, args) => {
     // Thêm username vào destructuring
-    const { base64, fileName, folder, username } = args;
+    const { base64, fileName, folder, username, customDir } = args;
 
     const docPath = app.getPath("documents");
 
-    // SỬA ĐƯỜNG DẪN: Thêm username vào cuối đường dẫn
-    // Ví dụ: .../uploads/thumbnails/admin/
-    const saveDir = path.join(
-        docPath,
-        "ai.type",
-        "data",
-        "uploads",
-        folder || "thumbnails",
-        username || "default",
-    );
+    let saveDir;
+    if (customDir) {
+        saveDir = path.join(docPath, "ai.type", "data", customDir);
+    } else {
+        // SỬA ĐƯỜNG DẪN: Thêm username vào cuối đường dẫn
+        // Ví dụ: .../uploads/thumbnails/admin/
+        saveDir = path.join(
+            docPath,
+            "ai.type",
+            "data",
+            "uploads",
+            folder || "thumbnails",
+            username || "default",
+        );
+    }
 
     // Tạo thư mục (recursive: true sẽ tạo cả thư mục username nếu chưa có)
     if (!fs.existsSync(saveDir)) {
@@ -3003,11 +3018,11 @@ app.whenReady().then(async () => {
                 menu.popup();
             });
 
-            contents.on('console-message', (event, level, message, line, sourceId) => {
+            contents.on('console-message', (event, details) => {
                 const fs = require('fs');
                 const logPath = require('path').join(app.getPath('userData'), 'webview.log');
                 try {
-                    fs.appendFileSync(logPath, `[WEBVIEW] ${level}: ${message} (line ${line} at ${sourceId})\n`);
+                    fs.appendFileSync(logPath, `[WEBVIEW] ${details.level}: ${details.message} (line ${details.line} at ${details.sourceId})\n`);
                 } catch (e) {
                     console.error('Failed to write to webview.log:', e);
                 }
