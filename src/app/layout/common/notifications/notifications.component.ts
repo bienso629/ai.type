@@ -544,7 +544,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                 });
 
                 return this._genaiService.generateContent({
-                    model: 'gemini-3.1-flash-preview',
+                    model: 'gemini-3-flash-preview',
                     contents: [{ role: 'user', parts: parts }]
                 });
             } catch (error) {
@@ -557,7 +557,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
             } else {
                 try {
                     return this._genaiService.generateContent({
-                        model: 'gemini-3.1-flash-preview',
+                        model: 'gemini-3-flash-preview',
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
                 } catch (error) {

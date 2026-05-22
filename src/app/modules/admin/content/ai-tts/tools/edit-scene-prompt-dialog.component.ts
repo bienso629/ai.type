@@ -149,6 +149,64 @@ export class EditScenePromptDialogComponent {
         return keys[Math.floor(Math.random() * keys.length)];
     }
 
+    getFullImagePrompt(): string {
+        // Lấy prompt dành cho ảnh (không có lệnh tạo video)
+        let baseText = this.editingScenePrompt.imagePrompt || this.editingScenePrompt.prompt || '';
+        
+        // Loại bỏ các thẻ [Character ...] cũ nếu có để tạo lại từ các checkbox hiện tại
+        baseText = baseText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+
+        let addedChars = [];
+        for (const char of this.selectedReferenceChars) {
+            let charDesc = char.prompt || char.appearance || '';
+            if (this.masterPrompt && charDesc.startsWith(this.masterPrompt.trim())) {
+                charDesc = charDesc.substring(this.masterPrompt.trim().length).trim();
+            }
+            if (charDesc) {
+                addedChars.push(`[Character '${char.name}': ${charDesc}]`);
+            }
+        }
+        
+        if (addedChars.length > 0) {
+            baseText = addedChars.join('\n') + '\n\n' + baseText;
+        }
+
+        if (this.masterPrompt) {
+            baseText = this.masterPrompt.trim() + '\n\n' + baseText;
+        }
+
+        return baseText;
+    }
+
+    getFullVideoPrompt(): string {
+        // Lấy prompt dành cho video
+        let baseText = this.editingScenePrompt.prompt || '';
+        
+        // Loại bỏ các thẻ [Character ...] cũ nếu có để tạo lại từ các checkbox hiện tại
+        baseText = baseText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+
+        let addedChars = [];
+        for (const char of this.selectedReferenceChars) {
+            let charDesc = char.prompt || char.appearance || '';
+            if (this.masterPrompt && charDesc.startsWith(this.masterPrompt.trim())) {
+                charDesc = charDesc.substring(this.masterPrompt.trim().length).trim();
+            }
+            if (charDesc) {
+                addedChars.push(`[Character '${char.name}': ${charDesc}]`);
+            }
+        }
+        
+        if (addedChars.length > 0) {
+            baseText = addedChars.join('\n') + '\n\n' + baseText;
+        }
+
+        if (this.masterPrompt) {
+            baseText = this.masterPrompt.trim() + '\n\n' + baseText;
+        }
+
+        return baseText;
+    }
+
     async generateImage() {
         if (!this.editingScenePrompt.prompt) {
             this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo ảnh!');
@@ -171,7 +229,12 @@ export class EditScenePromptDialogComponent {
         this.cd.markForCheck();
 
         try {
-            let promptText = this.editingScenePrompt.prompt || '';
+            // Thay vì dùng prompt cho video, ta dùng prompt đã clean của ảnh
+            let promptText = this.editingScenePrompt.imagePrompt || this.editingScenePrompt.prompt || '';
+            
+            // Xóa các tag character cũ vì bên dưới ta sẽ đẩy vào mảng requestParts (tránh lặp)
+            promptText = promptText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+            
             if (this.masterPrompt) {
                 promptText = this.masterPrompt + '\n\n' + promptText;
             }
@@ -438,6 +501,7 @@ export class EditScenePromptDialogComponent {
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
+                // 1. Áp dụng cho Video Prompt
                 let currentPrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
                 currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
@@ -446,7 +510,18 @@ export class EditScenePromptDialogComponent {
                 } else {
                     this.editingScenePrompt.prompt = '[Cinematography: ' + result + ']';
                 }
-                this.toastr.success('Đã áp dụng các thông số Director Mode vào Phân cảnh!');
+
+                // 2. Áp dụng cho Image Prompt (Blueprint)
+                let currentImagePrompt = this.editingScenePrompt.imagePrompt ? this.editingScenePrompt.imagePrompt.trim() : '';
+                currentImagePrompt = currentImagePrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+                if (currentImagePrompt) {
+                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + result + ']\n\n' + currentImagePrompt;
+                } else {
+                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + result + ']';
+                }
+
+                this.toastr.success('Đã áp dụng thông số Director Mode cho cả Hình Ảnh và Video!');
             }
         });
     }
@@ -499,9 +574,8 @@ export class EditScenePromptDialogComponent {
             this.toastr.warning('Không có nội dung để copy.');
             return;
         }
-        const finalCopyText = this.masterPrompt ? `${this.masterPrompt}\n\n${text}` : text;
-        navigator.clipboard.writeText(finalCopyText).then(() => {
-            this.toastr.success('Đã copy Prompt phân cảnh (bao gồm Master Prompt)!');
+        navigator.clipboard.writeText(text).then(() => {
+            this.toastr.success('Đã copy Prompt phân cảnh (bao gồm Master Prompt & Nhân vật)!');
         }).catch(err => {
             console.error('Lỗi khi copy:', err);
             this.toastr.error('Lỗi khi copy!');

@@ -611,7 +611,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-preview',
+                model: 'gemini-3-flash-preview',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -1147,7 +1147,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                                 // Call AI to generate content
                                 const response = await this._genaiService.generateContent({
-                                    model: 'gemini-3.1-flash-preview',
+                                    model: 'gemini-3-flash-preview',
                                     contents: [{ role: 'user', parts: parts }],
                                 });
 
@@ -1279,7 +1279,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Call AI to generate content
                 const response = await this._genaiService.generateContent({
-                    model: 'gemini-3.1-flash-preview',
+                    model: 'gemini-3-flash-preview',
                     contents: [{ role: 'user', parts: parts }],
                 });
 
@@ -1529,7 +1529,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-preview',
+                model: 'gemini-3-flash-preview',
                 contents: [{ role: 'user', parts: parts }],
             });
 
@@ -1655,7 +1655,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-preview',
+                model: 'gemini-3-flash-preview',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 

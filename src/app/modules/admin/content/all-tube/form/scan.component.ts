@@ -321,7 +321,7 @@ export class ScanVideoLinkFormComponent implements OnInit, OnDestroy {
 
         // const ai = new GoogleGenAI({ apiKey: settings['secretKey'] });
         const response = await this._genaiService.generateContent({
-            model: 'gemini-3.1-flash-preview',
+            model: 'gemini-3-flash-preview',
             contents: [{ role: 'user', parts: [{ text: 'Why is the sky blue?' }] }],
         });
     }
