@@ -346,8 +346,24 @@ export class EditScenePromptDialogComponent {
             const isProxy = this._genaiService.isUModelverseEnabled();
             console.log("generateVideo: UModelverse proxy enabled status =", isProxy, "URL =", this._genaiService.umodelverseUrl);
 
-            // Fetch character reference images if selected
+            // Fetch storyboard image if exists
             let referenceImages: any[] = [];
+            if (this.editingScenePrompt.imageUrl && this.isImageType(this.editingScenePrompt.imageUrl)) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(this.editingScenePrompt.imageUrl);
+                    referenceImages.push({
+                        image: {
+                            imageBytes: base64Data,
+                            mimeType: 'image/png'
+                        },
+                        referenceType: 'ASSET'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh Storyboard làm reference cho video:', e);
+                }
+            }
+
+            // Fetch character reference images if selected
             for (const char of this.selectedReferenceChars) {
                 const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
                 if (imgUrl) {

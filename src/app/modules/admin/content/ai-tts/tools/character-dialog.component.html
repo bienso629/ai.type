@@ -58,14 +58,14 @@
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Ngoại hình</mat-label>
-            <textarea matInput class="px-2" [(ngModel)]="editingChar.appearance" placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"
+            <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.appearance" placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"
                 cdkAutosizeMaxRows="3"></textarea>
         </mat-form-field>
 
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Tính cách</mat-label>
-            <textarea matInput class="px-2" [(ngModel)]="editingChar.personality" placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"
+            <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.personality" placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"
                 cdkAutosizeMaxRows="2"></textarea>
         </mat-form-field>
 
@@ -78,7 +78,7 @@
                 </button>
             </div>
             <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
-                <textarea matInput class="px-2 overflow-x-hidden text-sm leading-relaxed" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
+                <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
                     cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
             </mat-form-field>
         </div>

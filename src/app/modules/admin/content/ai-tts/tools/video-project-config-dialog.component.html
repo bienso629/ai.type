@@ -31,7 +31,7 @@
         projectData?.masterPrompt }}"</p>
     } @else {
     <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-4 bg-white rounded" [subscriptSizing]="'dynamic'">
-        <textarea matInput class="px-2 py-1 text-sm text-gray-800" [(ngModel)]="projectData.masterPrompt" cdkTextareaAutosize></textarea>
+        <textarea matInput class="px-2 py-1 text-base text-gray-800 leading-relaxed" [(ngModel)]="projectData.masterPrompt" cdkTextareaAutosize></textarea>
     </mat-form-field>
     }
 

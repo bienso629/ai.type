@@ -88,7 +88,7 @@
                     </button>
                 </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
-                    <textarea matInput class="px-2 overflow-x-hidden text-sm leading-relaxed" 
+                    <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" 
                         [(ngModel)]="editingScenePrompt.imagePrompt"
                         placeholder="Prompt hình ảnh..." cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
                 </mat-form-field>
@@ -104,7 +104,7 @@
                     </button>
                 </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
-                    <textarea matInput class="px-2 overflow-x-hidden text-sm leading-relaxed" [(ngModel)]="editingScenePrompt.prompt"
+                    <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingScenePrompt.prompt"
                         placeholder="Mô tả hành động, bối cảnh..." cdkTextareaAutosize cdkAutosizeMinRows="4"
                         cdkAutosizeMaxRows="10"></textarea>
                 </mat-form-field>
@@ -114,7 +114,11 @@
         <div class="flex items-end mt-2 gap-4">
             <mat-form-field class="fuse-mat-dense w-32" [subscriptSizing]="'dynamic'">
                 <mat-label>Thời lượng (giây)</mat-label>
-                <input matInput type="number" [(ngModel)]="editingScenePrompt.duration" (ngModelChange)="onDurationChanged($event)" min="1" max="10" step="0.1">
+                <mat-select [(ngModel)]="editingScenePrompt.duration" (ngModelChange)="onDurationChanged($event)">
+                    <mat-option [value]="4">4s</mat-option>
+                    <mat-option [value]="6">6s</mat-option>
+                    <mat-option [value]="8">8s</mat-option>
+                </mat-select>
             </mat-form-field>
         </div>
     </div>
