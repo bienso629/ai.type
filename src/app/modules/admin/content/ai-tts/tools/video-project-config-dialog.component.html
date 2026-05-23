@@ -67,8 +67,9 @@
 
                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                 <button mat-icon-button class="icon-size-7 text-gray-400 hover:text-green-600 hover:bg-green-50" matTooltip="Nhân bản (Tạo phiên bản mới)"
-                                    (click)="duplicateCharacter(char)">
-                                    <mat-icon class="icon-size-3.5">content_copy</mat-icon>
+                                    (click)="duplicateCharacter(char)" [disabled]="isGeneratingCharacter">
+                                    <mat-icon class="icon-size-3.5" *ngIf="!isGeneratingCharacter">content_copy</mat-icon>
+                                    <mat-icon class="icon-size-3.5 animate-spin" *ngIf="isGeneratingCharacter">autorenew</mat-icon>
                                 </button>
 
                                 <button mat-icon-button class="icon-size-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50" matTooltip="Sửa nhân vật"

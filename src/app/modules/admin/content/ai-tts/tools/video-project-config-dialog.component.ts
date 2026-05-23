@@ -334,20 +334,114 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
         });
     }
 
-    duplicateCharacter(char: any) {
-        if (!this.projectData) this.projectData = {};
-        if (!this.projectData.characters) this.projectData.characters = [];
+    async duplicateCharacter(char: any) {
+        if (this.isGeneratingCharacter) return;
+        this.isGeneratingCharacter = true;
+        this.cd.markForCheck();
 
-        const newChar = { ...char };
-        newChar.variant = newChar.variant ? `${newChar.variant} (Copy)` : 'Phiên bản mới';
+        this.toastr.info(`Đang dùng AI phân tích cốt truyện để nhân bản "${char.name || char.role}"...`, 'Hệ thống', { timeOut: 3000 });
 
-        this.projectData.characters.push(newChar);
-        if (this.data.uuid) {
-            this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+        try {
+            const storyContext = this.projectData.scenes ? this.projectData.scenes.map((s: any, idx: number) => {
+                const subsText = s.subtitles ? s.subtitles.map((sub: any) => sub.text).join(' ') : '';
+                return `Cảnh #${idx + 1}: ${s.prompt || ''}\nLời thoại: ${subsText}`;
+            }).join('\n\n') : '';
+
+            const prompt = `Bạn là Giám đốc Sáng tạo và Đạo diễn cốt truyện xuất sắc.
+Tôi muốn nhân bản nhân vật dưới đây để tạo ra một phiên bản mới phù hợp với diễn biến cốt truyện.
+Ví dụ: Nếu phiên bản cũ là "Ông Minh (Quá khứ / nghèo khó / trẻ trung)", phiên bản mới có thể là "Ông Minh (Hiện tại / thành đạt / già hơn)" hoặc thay đổi trang phục, trạng thái cảm xúc để phù hợp với ngữ cảnh câu chuyện.
+
+THÔNG TIN DỰ ÁN:
+- Master Prompt: ${this.projectData.masterPrompt || 'Không có'}
+- Tóm tắt diễn biến kịch bản/câu thoại:
+${storyContext}
+
+NHÂN VẬT GỐC CẦN NHÂN BẢN:
+- Tên nhân vật: ${char.name || ''}
+- Vai trò: ${char.role || ''}
+- Phiên bản hiện tại (Variant): ${char.variant || 'Mặc định'}
+- Ngoại hình: ${char.appearance || ''}
+- Tính cách: ${char.personality || ''}
+- Prompt tạo hình: ${char.prompt || ''}
+
+NHIỆM VỤ CỦA BẠN:
+Hãy phân tích kịch bản và nhân vật gốc, sau đó sáng tạo ra MỘT PHIÊN BẢN NHÂN BẢN MỚI của nhân vật này. Phiên bản mới này phải thể hiện sự thay đổi logic (về tuổi tác, trang phục, biểu cảm, trạng thái hoặc hoàn cảnh) để phục vụ cho các phân cảnh khác trong câu chuyện.
+Yêu cầu trả về định dạng JSON thuần túy (không có markdown \`\`\`json) với cấu trúc:
+{
+    "name": "Giữ nguyên tên của nhân vật gốc",
+    "role": "Cập nhật vai trò nếu có thay đổi nhỏ, hoặc giữ nguyên",
+    "variant": "Tên phiên bản mới ngắn gọn (Ví dụ: 'Hiện tại', 'Sau 5 năm', 'Lúc giàu sang', 'Mặc đồ công sở', 'Lúc tức giận'...)",
+    "appearance": "Mô tả chi tiết ngoại hình mới (thay đổi trang phục phù hợp hoàn cảnh mới, tuổi tác nếu có, nhưng phải giữ nét đặc trưng nhận diện)",
+    "personality": "Mô tả tính cách/trạng thái cảm xúc mới phù hợp diễn biến mới",
+    "prompt": "Câu prompt tạo hình mới (BẰNG TIẾNG VIỆT). YÊU CẦU: Giữ nguyên phong cách của prompt gốc nhưng thay đổi trang phục, tuổi tác hoặc bối cảnh thiết kế phù hợp phiên bản mới."
+}
+
+Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào khác.`;
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3-flash-preview',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    temperature: 0.7,
+                }
+            });
+
+            const text = response.text;
+            let newChar = null;
+
+            if (text) {
+                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/{[\s\S]*}/);
+                if (jsonMatch) {
+                    const charData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+                    newChar = {
+                        ...char,
+                        avatarUrls: char.avatarUrls ? [...char.avatarUrls] : [],
+                        name: charData.name || char.name,
+                        role: charData.role || char.role,
+                        variant: charData.variant || 'Phiên bản mới',
+                        appearance: charData.appearance || char.appearance,
+                        personality: charData.personality || char.personality,
+                        prompt: charData.prompt || char.prompt
+                    };
+                }
+            }
+
+            if (!newChar) {
+                newChar = { 
+                    ...char,
+                    avatarUrls: char.avatarUrls ? [...char.avatarUrls] : []
+                };
+                newChar.variant = newChar.variant ? `${newChar.variant} (Copy)` : 'Phiên bản mới';
+            }
+
+            if (!this.projectData.characters) {
+                this.projectData.characters = [];
+            }
+            this.projectData.characters.push(newChar);
+
+            if (this.data.uuid) {
+                this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+            }
+            this.save();
+
+            this.toastr.success(`Đã dùng AI nhân bản thành công nhân vật: ${newChar.name} (${newChar.variant})`);
+        } catch (error: any) {
+            console.error('Error duplicating character:', error);
+            const fallbackChar = { 
+                ...char,
+                avatarUrls: char.avatarUrls ? [...char.avatarUrls] : []
+            };
+            fallbackChar.variant = fallbackChar.variant ? `${fallbackChar.variant} (Copy)` : 'Phiên bản mới';
+            this.projectData.characters.push(fallbackChar);
+            if (this.data.uuid) {
+                this.multiAccountService.setItem(`casting_list_${this.data.uuid}`, this.projectData.characters);
+            }
+            this.save();
+            this.toastr.warning(`Lỗi AI, đã nhân bản bản sao thông thường cho: ${char.name}`);
+        } finally {
+            this.isGeneratingCharacter = false;
+            this.cd.markForCheck();
         }
-        this.save();
-
-        this.toastr.success(`Đã nhân bản nhân vật: ${char.name || char.role}`);
     }
 
     removeCharacter(index: number) {
