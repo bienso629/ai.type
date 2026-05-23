@@ -1297,8 +1297,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Cố gắng tách các "Prompt 1:", "Prompt 2:" ra nếu AI có sinh ra
                 let individualPrompts: string[] = [];
-                const splitRegex = /Prompt\s*\d+[^:]*:/gi;
+                const splitRegex = /(?:Prompt|Phân đoạn|Phần|Cảnh|Part)\s*\d+[^:]*:/gi;
                 if (splitRegex.test(originalScenePrompt)) {
+                    // Reset lại lastIndex do dùng global (/g) flag
+                    splitRegex.lastIndex = 0;
                     individualPrompts = originalScenePrompt.split(splitRegex).map(s => s.trim()).filter(s => s.length > 0);
                 }
 
