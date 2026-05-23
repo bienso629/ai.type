@@ -80,29 +80,33 @@
         <div class="grid grid-cols-2 gap-4 mt-2">
             <!-- Cột 1: Prompt Hình ảnh -->
             <div class="flex flex-col">
-                <span class="font-semibold text-slate-800 text-sm mb-1">Prompt tạo phân cảnh (Hình ảnh)</span>
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="font-semibold text-slate-800 text-sm">Prompt tạo phân cảnh (Hình ảnh)</span>
+                    <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
+                        (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt Hình Ảnh">
+                        <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
+                    </button>
+                </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
                     <textarea matInput class="px-2 overflow-x-hidden text-sm leading-relaxed" 
                         [(ngModel)]="editingScenePrompt.imagePrompt"
                         placeholder="Prompt hình ảnh..." cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
-                    <button mat-icon-button matSuffix class="icon-size-8 absolute top-2 right-2" 
-                        (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt Hình Ảnh">
-                        <mat-icon class="icon-size-4 text-slate-500 hover:text-slate-800" [svgIcon]="'feather:copy'"></mat-icon>
-                    </button>
                 </mat-form-field>
             </div>
 
             <!-- Cột 2: Prompt Video -->
             <div class="flex flex-col">
-                <span class="font-semibold text-slate-800 text-sm mb-1">Prompt tạo Video (Chi tiết)</span>
+                <div class="flex items-center gap-1.5 mb-1">
+                    <span class="font-semibold text-slate-800 text-sm">Prompt tạo Video (Chi tiết)</span>
+                    <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
+                        (click)="copyPrompt(getFullVideoPrompt()); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt Video">
+                        <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
+                    </button>
+                </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
                     <textarea matInput class="px-2 overflow-x-hidden text-sm leading-relaxed" [(ngModel)]="editingScenePrompt.prompt"
                         placeholder="Mô tả hành động, bối cảnh..." cdkTextareaAutosize cdkAutosizeMinRows="4"
                         cdkAutosizeMaxRows="10"></textarea>
-                    <button mat-icon-button matSuffix class="icon-size-8 absolute top-2 right-2" (click)="copyPrompt(getFullVideoPrompt()); $event.preventDefault(); $event.stopPropagation()"
-                        matTooltip="Copy Prompt Video">
-                        <mat-icon class="icon-size-4 text-slate-500 hover:text-slate-800" [svgIcon]="'feather:copy'"></mat-icon>
-                    </button>
                 </mat-form-field>
             </div>
         </div>

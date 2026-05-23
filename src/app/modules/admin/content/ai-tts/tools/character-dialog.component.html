@@ -69,15 +69,19 @@
                 cdkAutosizeMaxRows="2"></textarea>
         </mat-form-field>
 
-        <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
-            <mat-label>Prompt Tạo hình</mat-label>
-            <textarea matInput class="px-2 overflow-x-hidden" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
-                cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
-            <button mat-icon-button matSuffix class="icon-size-8 absolute top-4 right-4" (click)="copyPrompt(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()"
-                matTooltip="Copy Prompt">
-                <mat-icon class="icon-size-4 text-green-600 hover:text-green-800" [svgIcon]="'feather:copy'"></mat-icon>
-            </button>
-        </mat-form-field>
+        <div class="flex flex-col mt-2">
+            <div class="flex items-center gap-1.5 mb-1">
+                <mat-label class="font-semibold text-slate-800 text-sm">Prompt Tạo hình</mat-label>
+                <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full" 
+                    (click)="copyPrompt(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt">
+                    <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
+                </button>
+            </div>
+            <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+                <textarea matInput class="px-2 overflow-x-hidden text-sm leading-relaxed" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
+                    cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
+            </mat-form-field>
+        </div>
     </mat-dialog-content>
 
     <mat-dialog-actions align="end" class="flex pt-4 mt-0 px-0 gap-1">

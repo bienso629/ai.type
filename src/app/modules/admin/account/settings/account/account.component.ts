@@ -31,7 +31,15 @@ export class SettingsAccountComponent implements OnInit {
 
     accountForm: UntypedFormGroup;
     geminiKeys: string[] = [''];
+    geminiKeysVisibility: boolean[] = [];
+    showSearchAPIKey: boolean = false;
+    showUmodelverseKey: boolean = false;
+    showN8N: boolean = false;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    toggleKeyVisibility(index: number): void {
+        this.geminiKeysVisibility[index] = !this.geminiKeysVisibility[index];
+    }
 
     /**
      * Save
@@ -334,17 +342,21 @@ export class SettingsAccountComponent implements OnInit {
                 this.geminiKeys = [''];
             }
         }
+        this.geminiKeysVisibility = this.geminiKeys.map(() => false);
     }
 
     addGeminiKey(): void {
         this.geminiKeys.unshift('');
+        this.geminiKeysVisibility.unshift(false);
         this.updateSecretKey();
     }
 
     removeGeminiKey(index: number): void {
         this.geminiKeys.splice(index, 1);
+        this.geminiKeysVisibility.splice(index, 1);
         if (this.geminiKeys.length === 0) {
             this.geminiKeys = [''];
+            this.geminiKeysVisibility = [false];
         }
         this.updateSecretKey();
     }
