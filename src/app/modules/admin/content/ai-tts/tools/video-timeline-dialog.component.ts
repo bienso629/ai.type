@@ -143,6 +143,134 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         this.linkingSourceVideoIndex = -1;
     }
 
+    private getGeminiKey(): string | null {
+        const settings = this.multiAccountService.getItem('settings');
+        let secretKey;
+        try {
+            secretKey = settings.secretKey ? settings.secretKey.split(';') : undefined;
+        } catch { }
+
+        const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
+        if (keys.length === 0) return null;
+        
+        return keys[Math.floor(Math.random() * keys.length)];
+    }
+
+    private getBase64FromImageUrl(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            if (!url) {
+                reject('Empty URL');
+                return;
+            }
+            if (url.startsWith('data:image')) {
+                resolve(url.split(',')[1]);
+                return;
+            }
+
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL('image/png');
+                resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+            };
+            img.onerror = error => reject(error);
+            img.src = url;
+        });
+    }
+
+    private async autoGenerateStoryboard(video: any, sceneIdx: number, vIdx: number) {
+        if (!video.prompt) return;
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.saveBase64) return;
+
+        const apiKey = this.getGeminiKey();
+        if (!apiKey) return;
+
+        try {
+            this.toastr.info(`Đang tự động vẽ Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`, 'Hệ thống');
+            
+            let promptText = video.imagePrompt || video.prompt || '';
+            promptText = promptText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
+            
+            const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+            if (master) {
+                promptText = master + '\n\n' + promptText;
+            }
+            const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
+            
+            let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
+
+            // Gắn thêm ảnh reference của nhân vật được tick nếu có
+            // Tìm các nhân vật có tên xuất hiện trong prompt
+            if (this.projectData?.characters) {
+                for (const char of this.projectData.characters) {
+                    const charName = char.name || char.role;
+                    if (charName && video.prompt.includes(`[Character '${charName}'`)) {
+                        const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                        if (imgUrl) {
+                            try {
+                                const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                                requestParts.push({
+                                    inlineData: {
+                                        data: base64Data,
+                                        mimeType: 'image/png'
+                                    }
+                                });
+                            } catch (e) {
+                                console.error('Không thể đọc ảnh reference cho', char.name, e);
+                            }
+                        }
+                    }
+                }
+            }
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-image-preview',
+                contents: [{ role: 'user', parts: requestParts }],
+                config: {
+                    aspectRatio: this.projectData?.aspectRatio || '16:9',
+                    responseModalities: ['IMAGE']
+                } as any
+            });
+
+            let base64Data = null;
+            if (response.candidates && response.candidates.length > 0) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        base64Data = part.inlineData.data;
+                        break;
+                    }
+                }
+            }
+
+            if (base64Data) {
+                const fileName = `scene_auto_${Date.now()}_${sceneIdx}_${vIdx}.png`;
+                const result = await electron.saveBase64({
+                    base64: base64Data,
+                    fileName: fileName,
+                    folder: 'scenes',
+                    username: 'ai_type'
+                });
+
+                if (result && result.success) {
+                    const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                    video.imageUrl = finalPath;
+                    this.saveData();
+                    this.cd.detectChanges();
+                    this.toastr.success(`Đã tự động tạo ảnh Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}!`);
+                }
+            }
+        } catch (error) {
+            console.error('Lỗi tự động tạo Storyboard:', error);
+        }
+    }
+
     completeLinking(targetVideo: any, targetSceneIdx: number, targetVIdx: number) {
         if (!this.linkingSourceVideo) return;
 
@@ -152,7 +280,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             return;
         }
 
-        this.linkingSourceVideo.linkedTo = {
+        const sourceVideo = this.linkingSourceVideo;
+        const sourceSceneIdx = this.linkingSourceSceneIndex;
+        const sourceVIdx = this.linkingSourceVideoIndex;
+
+        sourceVideo.linkedTo = {
             sceneIndex: targetSceneIdx,
             videoIndex: targetVIdx,
             text: `Scene ${targetSceneIdx + 1} - Phần ${targetVIdx + 1}`
@@ -160,6 +292,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
         this.saveData();
         this.toastr.success(`Đã tạo liên kết thành công!`);
+
+        // Tự động tạo Storyboard cho cả 2 video nếu chưa có ảnh
+        if (!sourceVideo.imageUrl) {
+            this.autoGenerateStoryboard(sourceVideo, sourceSceneIdx, sourceVIdx);
+        }
+        if (!targetVideo.imageUrl) {
+            this.autoGenerateStoryboard(targetVideo, targetSceneIdx, targetVIdx);
+        }
+
         this.cancelLinking();
     }
 
