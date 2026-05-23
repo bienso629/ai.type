@@ -32,7 +32,10 @@ export class CharacterDialogComponent {
         private _genaiService: GenaiService
     ) {
         this.isEditMode = data.index >= 0;
-        this.editingChar = data.char ? { ...data.char } : { name: '', variant: '', role: '', appearance: '', personality: '', prompt: '', avatarUrl: null, avatarUrls: [] };
+        this.editingChar = data.char ? { 
+            ...data.char,
+            avatarUrls: data.char.avatarUrls ? [...data.char.avatarUrls] : []
+        } : { name: '', variant: '', role: '', appearance: '', personality: '', prompt: '', avatarUrl: null, avatarUrls: [] };
         this.masterPrompt = data.masterPrompt || '';
         
         // Backward compatibility: if avatarUrl exists but avatarUrls is empty
@@ -41,6 +44,33 @@ export class CharacterDialogComponent {
         } else if (!this.editingChar.avatarUrls) {
             this.editingChar.avatarUrls = [];
         }
+    }
+
+    private getBase64FromImageUrl(url: string): Promise<string> {
+        return new Promise((resolve, reject) => {
+            if (!url) {
+                reject('Empty URL');
+                return;
+            }
+            if (url.startsWith('data:image')) {
+                resolve(url.split(',')[1]);
+                return;
+            }
+
+            const img = new Image();
+            img.crossOrigin = 'Anonymous';
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0);
+                const dataURL = canvas.toDataURL('image/png');
+                resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+            };
+            img.onerror = error => reject(error);
+            img.src = url;
+        });
     }
 
     async generateAvatar() {
@@ -76,17 +106,72 @@ export class CharacterDialogComponent {
             // const ai = new GoogleGenAI({ apiKey: apiKey });
             
             // Build the prompt
-            let parts = [];
-            if (this.editingChar.name || this.editingChar.role) parts.push(`Subject: ${this.editingChar.name || this.editingChar.role}`);
-            if (this.editingChar.appearance) parts.push(`Appearance: ${this.editingChar.appearance}`);
-            if (this.editingChar.personality) parts.push(`Personality/Expression: ${this.editingChar.personality}`);
-            if (this.editingChar.prompt) parts.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
+            let promptPartsText = [];
+            if (this.editingChar.name || this.editingChar.role) promptPartsText.push(`Subject: ${this.editingChar.name || this.editingChar.role}`);
+            if (this.editingChar.appearance) promptPartsText.push(`Appearance: ${this.editingChar.appearance}`);
+            if (this.editingChar.personality) promptPartsText.push(`Personality/Expression: ${this.editingChar.personality}`);
+            if (this.editingChar.prompt) promptPartsText.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
             
-            let finalPrompt = parts.join('\n');
+            let finalPrompt = promptPartsText.join('\n');
+
+            let requestParts: any[] = [{ text: finalPrompt }];
+
+            let refImgUrl = null;
+
+            const cleanName = (name: string) => {
+                if (!name) return '';
+                return name.trim().toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[đĐ]/g, 'd')
+                    .replace(/[^a-z0-9]/g, '');
+            };
+
+            const targetCleanName = cleanName(this.editingChar.name);
+
+            // Thứ tự ưu tiên nạp ảnh tham chiếu (đồng bộ gương mặt):
+            // 1. Ưu tiên 1: Lấy ảnh hiện tại đang hoạt động của chính nhân vật này (nếu đã có ảnh trước đó và muốn tạo tư thế mới)
+            if (this.editingChar.avatarUrl) {
+                refImgUrl = this.editingChar.avatarUrl;
+            } else if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > 0) {
+                refImgUrl = this.editingChar.avatarUrls[0];
+            } 
+            // 2. Ưu tiên 2: Nếu chưa có ảnh, tìm nhân vật gốc cùng tên để đồng bộ gương mặt chéo giữa các phiên bản
+            else {
+                const existingChars = this.data.existingCharacters || [];
+                const originalChar = existingChars.find((c: any, idx: number) => 
+                    c.name && this.editingChar.name &&
+                    cleanName(c.name) === targetCleanName && 
+                    (c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0)) &&
+                    idx !== this.data.index &&
+                    c.variant !== this.editingChar.variant
+                );
+
+                if (originalChar) {
+                    refImgUrl = originalChar.avatarUrl || (originalChar.avatarUrls && originalChar.avatarUrls.length > 0 ? originalChar.avatarUrls[0] : null);
+                    if (refImgUrl) {
+                        this.toastr.info(`Đã tìm thấy phiên bản "${originalChar.variant || 'gốc'}" của ${this.editingChar.name}, đang tự động đồng bộ gương mặt nhân vật...`, 'Đồng bộ khuôn mặt');
+                    }
+                }
+            }
+
+            if (refImgUrl) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(refImgUrl);
+                    requestParts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: 'image/png'
+                        }
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh gốc làm reference để đồng bộ:', e);
+                }
+            }
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.1-flash-image-preview',
-                contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
+                contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     responseModalities: ['IMAGE']
                 } as any
