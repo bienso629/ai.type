@@ -310,156 +310,235 @@ export class GenaiService {
         }
 
         let activeModel = params.model || 'dall-e-3';
+        
+        // Auto-correct model names for UModelverse / Astraflow
+        if (activeModel === 'gemini-3-pro-image') {
+            activeModel = 'gemini-3-pro-image-preview'; // Sửa theo chuẩn tên phổ biến nhất của Google
+        }
 
-        const body: any = {
-            model: activeModel,
-            prompt: promptText,
-            n: 1,
-            size: size,
-            response_format: 'b64_json'
-        };
-
-        console.log(`[UModelverse Image] Gửi yêu cầu tạo ảnh: model = ${activeModel}, size = ${size}`);
-
-        let response = await fetch(`${url}/images/generations`, {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(body)
-        });
-
-        let data = await response.json();
-
-        // --- LỚP DỰ PHÒNG 1: THỬ LẠI KHÔNG DÙNG response_format NẾU BỊ LỖI (VÌ NHIỀU PROXY BỊ CRASH 500 VỚI B64_JSON) ---
-        if (!response.ok && body.response_format) {
-            console.warn("[UModelverse Image] Yêu cầu thất bại hoặc gặp lỗi 500. Đang thử lại mà không gửi 'response_format'...");
-            const fallbackBody = { ...body };
-            delete fallbackBody.response_format;
+        // --- XỬ LÝ RIÊNG CHO GEMINI MODELS BẰNG GEMINI COMPATIBLE INTERFACE ---
+        if (activeModel.includes('gemini')) {
+            console.log(`[UModelverse Image] Dùng Gemini Compatible Interface cho model: ${activeModel}`);
             
+            // Chuyển đổi url từ /v1 sang /v1beta để gọi API Gemini chuẩn của proxy
+            let baseUrl = url.replace(/\/v1\/?$/, '');
+            const geminiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent`;
+            
+            const geminiBody: any = {
+                contents: [
+                    {
+                        parts: [{ text: promptText }]
+                    }
+                ]
+            };
+
+            // Nếu user có setting configRatio
+            if (configRatio) {
+                geminiBody.generationConfig = {
+                    aspectRatio: String(configRatio).trim()
+                };
+            }
+
+            const geminiResponse = await fetch(geminiUrl, {
+                method: 'POST',
+                headers, // Giữ nguyên Authorization Bearer proxy key
+                body: JSON.stringify(geminiBody)
+            });
+
+            const geminiData = await geminiResponse.json();
+            
+            if (geminiResponse.ok && geminiData.candidates && geminiData.candidates.length > 0) {
+                console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
+                return geminiData;
+            } else {
+                console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại:`, geminiData?.error?.message);
+                throw new Error(geminiData?.error?.message || `HTTP Error: ${geminiResponse.status}`);
+            }
+        }
+        // --- KẾT THÚC XỬ LÝ GEMINI ---
+
+        const candidateRequests: any[] = [
+            // Option 0: Chuẩn OpenAI đầy đủ
+            {
+                model: activeModel,
+                prompt: promptText,
+                n: 1,
+                size: size,
+                response_format: 'b64_json'
+            },
+            // Option 1: Bỏ response_format (nhiều proxy crash với b64_json)
+            {
+                model: activeModel,
+                prompt: promptText,
+                n: 1,
+                size: size
+            },
+            // Option 2: Format dành cho Gemini/Midjourney (không dùng n, size, mà dùng aspect_ratio)
+            {
+                model: activeModel,
+                prompt: promptText,
+                aspect_ratio: configRatio || '1:1',
+                response_format: 'b64_json'
+            },
+            // Option 3: Bỏ luôn cả response_format cho Gemini/Midjourney
+            {
+                model: activeModel,
+                prompt: promptText,
+                aspect_ratio: configRatio || '1:1'
+            },
+            // Option 4: Siêu tối giản, chỉ có model và prompt
+            {
+                model: activeModel,
+                prompt: promptText
+            }
+        ];
+
+        let lastErrorMsg = '';
+        let lastResponseStatus = 200;
+        let data: any = null;
+
+        console.log(`[UModelverse Image] Bắt đầu quá trình tạo ảnh với model = ${activeModel}`);
+
+        for (let i = 0; i < candidateRequests.length; i++) {
+            const body = candidateRequests[i];
+            console.log(`[UModelverse Image] Thử nghiệm cấu hình request ${i}:`, JSON.stringify(body));
+
             try {
-                const retryRes = await fetch(`${url}/images/generations`, {
+                const response = await fetch(`${url}/images/generations`, {
                     method: 'POST',
                     headers,
-                    body: JSON.stringify(fallbackBody)
+                    body: JSON.stringify(body)
                 });
-                const retryData = await retryRes.json();
-                if (retryRes.ok) {
-                    response = retryRes;
-                    data = retryData;
-                    delete body.response_format; // Cập nhật lại body chính để các khâu sau đồng bộ
+
+                lastResponseStatus = response.status;
+                data = await response.json();
+
+                if (response.ok) {
+                    console.log(`[UModelverse Image] Cấu hình request ${i} thành công!`);
+                    
+                    let b64 = data.data?.[0]?.b64_json;
+                    
+                    // Nếu không có b64_json nhưng trả về url, tải ảnh từ URL và chuyển sang base64
+                    if (!b64 && data.data?.[0]?.url) {
+                        const imageUrl = data.data[0].url;
+                        try {
+                            const imgRes = await fetch(imageUrl);
+                            if (imgRes.ok) {
+                                const blob = await imgRes.blob();
+                                b64 = await new Promise<string>((resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        const result = reader.result as string;
+                                        const base64Str = result.split(',')[1];
+                                        resolve(base64Str);
+                                    };
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(blob);
+                                });
+                            } else {
+                                throw new Error(`Không thể fetch ảnh từ url: ${imgRes.statusText}`);
+                            }
+                        } catch (err: any) {
+                            throw new Error(`Không thể chuyển đổi ảnh từ URL sang base64: ${err.message || err}`);
+                        }
+                    }
+
+                    if (!b64) throw new Error("Không nhận được dữ liệu ảnh (base64 hoặc URL) từ proxy");
+
+                    // Fake GenerateContentResponse format
+                    return {
+                        candidates: [
+                            {
+                                content: {
+                                    parts: [
+                                        {
+                                            inlineData: {
+                                                mimeType: 'image/png',
+                                                data: b64
+                                            }
+                                        }
+                                    ],
+                                    role: 'model'
+                                }
+                            }
+                        ]
+                    };
+                } else {
+                    lastErrorMsg = (data?.error && data.error.message) || `HTTP Error: ${response.status}`;
+                    console.warn(`[UModelverse Image] Cấu hình request ${i} thất bại:`, lastErrorMsg);
+                    
+                    // Nếu lỗi do model không tồn tại thì không cần thử các format payload nữa, break ra để fallback model
+                    if (lastErrorMsg.includes('does not exist') || lastResponseStatus === 404) {
+                        break;
+                    }
                 }
-            } catch (err) {
-                console.error("[UModelverse Image response_format Retry Exception]", err);
+            } catch (err: any) {
+                lastErrorMsg = err.message || err.toString();
+                console.error(`[UModelverse Image] Cấu hình request ${i} gặp lỗi ngoại lệ:`, err);
             }
         }
 
-        // --- LỚP DỰ PHÒNG 2: NẾU VẪN LỖI (BẤT KỲ LỖI 400, 404, 500 NÀO), QUÉT DANH SÁCH /models ĐỂ THAY THẾ MODEL KHẢ DỤNG ---
-        if (!response.ok) {
-            console.warn(`[UModelverse Image Warning] Tạo ảnh thất bại (${response.status}): ${data?.error?.message || 'Unknown'}. Đang tự động quét tìm model sinh ảnh khả dụng từ tài khoản của bạn...`);
-            try {
-                const modelsRes = await fetch(`${url}/models`, {
-                    method: 'GET',
-                    headers: {
-                        'Authorization': `Bearer ${this._umodelverseKey}`
-                    }
-                });
-                if (modelsRes.ok) {
-                    const modelsData = await modelsRes.json();
-                    if (modelsData && Array.isArray(modelsData.data)) {
-                        const modelIds = modelsData.data.map((m: any) => m.id);
-                        console.log("[UModelverse Image] Các model khả dụng trên tài khoản của bạn:", modelIds);
+        // --- LỚP DỰ PHÒNG CHÓT: QUÉT DANH SÁCH MODEL ĐỂ THAY THẾ (NẾU TẤT CẢ PAYLOAD ĐỀU FAIL CHO MODEL NÀY) ---
+        console.warn(`[UModelverse Image Warning] Không thể tạo ảnh với model ${activeModel}. Đang quét tìm model sinh ảnh thay thế...`);
+        try {
+            const modelsRes = await fetch(`${url}/models`, {
+                method: 'GET',
+                headers: { 'Authorization': `Bearer ${headers['Authorization'].split(' ')[1]}` }
+            });
+            if (modelsRes.ok) {
+                const modelsData = await modelsRes.json();
+                if (modelsData && Array.isArray(modelsData.data)) {
+                    const modelIds = modelsData.data.map((m: any) => m.id);
+                    const alternativeModel = modelIds.find((id: string) => {
+                        const lid = id.toLowerCase();
+                        return (lid.includes('flux') || lid.includes('dall') || lid.includes('sdxl') || lid.includes('stable-diffusion') || lid.includes('playground') || lid.includes('art') || lid.includes('mj') || lid.includes('midjourney')) && id !== activeModel;
+                    });
+                    
+                    if (alternativeModel) {
+                        console.log(`[UModelverse Image Fallback] Tìm thấy model thay thế: '${alternativeModel}'. Bắt đầu thử tạo lại với payload cơ bản...`);
                         
-                        // Ưu tiên tìm các model sinh ảnh phổ biến trong tài khoản proxy (Flux, Dall-E, SD, v.v.)
-                        const alternativeModel = modelIds.find((id: string) => {
-                            const lid = id.toLowerCase();
-                            return (lid.includes('flux') || lid.includes('dall') || lid.includes('sdxl') || lid.includes('stable-diffusion') || lid.includes('playground') || lid.includes('art') || lid.includes('mj') || lid.includes('midjourney')) && id !== activeModel;
+                        const retryBody = {
+                            model: alternativeModel,
+                            prompt: promptText,
+                            n: 1,
+                            size: size
+                        };
+                        
+                        const retryResponse = await fetch(`${url}/images/generations`, {
+                            method: 'POST',
+                            headers,
+                            body: JSON.stringify(retryBody)
                         });
+                        const retryData = await retryResponse.json();
                         
-                        if (alternativeModel) {
-                            console.log(`[UModelverse Image Fallback] Đã tìm thấy model ảnh thay thế: '${alternativeModel}'. Bắt đầu thử tạo lại...`);
-                            body.model = alternativeModel;
-                            activeModel = alternativeModel;
-                            
-                            // Tiến hành gọi lại với model thay thế mới tìm được
-                            response = await fetch(`${url}/images/generations`, {
-                                method: 'POST',
-                                headers,
-                                body: JSON.stringify(body)
-                            });
-                            data = await response.json();
+                        if (retryResponse.ok) {
+                            let b64 = retryData.data?.[0]?.b64_json;
+                            if (!b64 && retryData.data?.[0]?.url) {
+                                const imgRes = await fetch(retryData.data[0].url);
+                                const blob = await imgRes.blob();
+                                b64 = await new Promise<string>((resolve, reject) => {
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => resolve((reader.result as string).split(',')[1]);
+                                    reader.onerror = reject;
+                                    reader.readAsDataURL(blob);
+                                });
+                            }
+                            if (b64) {
+                                return {
+                                    candidates: [{ content: { parts: [{ inlineData: { mimeType: 'image/png', data: b64 } }], role: 'model' } }]
+                                };
+                            }
+                        } else {
+                            lastErrorMsg = retryData?.error?.message || `HTTP Error: ${retryResponse.status}`;
                         }
                     }
                 }
-            } catch (err) {
-                console.error("[UModelverse Image Dynamic Fallback Exception]", err);
             }
+        } catch (err) {
+            console.error("[UModelverse Image Dynamic Fallback Exception]", err);
         }
 
-        // --- LỚP DỰ PHÒNG 3: NẾU VẪN LỖI DO response_format SAU KHI ĐÃ ĐỔI MODEL ---
-        if (!response.ok && data?.error && body.response_format && (
-            data.error.message?.includes('response_format') ||
-            data.error.message?.includes('Unknown parameter')
-        )) {
-            console.warn("[UModelverse Image] Model mới không hỗ trợ response_format. Thử lại không dùng tham số này...");
-            delete body.response_format;
-            response = await fetch(`${url}/images/generations`, {
-                method: 'POST',
-                headers,
-                body: JSON.stringify(body)
-            });
-            data = await response.json();
-        }
-
-        if (!response.ok) {
-            throw new Error((data?.error && data.error.message) || `HTTP Error: ${response.status}`);
-        }
-
-        let b64 = data.data?.[0]?.b64_json;
-        
-        // Nếu không có b64_json nhưng trả về url, tải ảnh từ URL và chuyển sang base64
-        if (!b64 && data.data?.[0]?.url) {
-            const imageUrl = data.data[0].url;
-            try {
-                const imgRes = await fetch(imageUrl);
-                if (imgRes.ok) {
-                    const blob = await imgRes.blob();
-                    b64 = await new Promise<string>((resolve, reject) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const result = reader.result as string;
-                            const base64Str = result.split(',')[1];
-                            resolve(base64Str);
-                        };
-                        reader.onerror = reject;
-                        reader.readAsDataURL(blob);
-                    });
-                } else {
-                    throw new Error(`Không thể fetch ảnh từ url: ${imgRes.statusText}`);
-                }
-            } catch (err: any) {
-                throw new Error(`Không thể chuyển đổi ảnh từ URL sang base64: ${err.message || err}`);
-            }
-        }
-
-        if (!b64) throw new Error("Không nhận được dữ liệu ảnh (base64 hoặc URL) từ OpenAI image generation");
-
-        // Fake GenerateContentResponse format
-        return {
-            candidates: [
-                {
-                    content: {
-                        parts: [
-                            {
-                                inlineData: {
-                                    mimeType: 'image/png',
-                                    data: b64
-                                }
-                            }
-                        ],
-                        role: 'model'
-                    }
-                }
-            ]
-        };
+        throw new Error(lastErrorMsg || `HTTP Error: ${lastResponseStatus}`);
     }
 
     async generateText(
@@ -523,11 +602,12 @@ export class GenaiService {
                             id.toLowerCase().includes('luma') || 
                             id.toLowerCase().includes('vidu') || 
                             id.toLowerCase().includes('wan') || 
-                            id.toLowerCase().includes('sora')
+                            id.toLowerCase().includes('sora') ||
+                            id.toLowerCase().includes('mimo') ||
+                            id.toLowerCase().includes('runway')
                         );
-                        const errorMsg = `Model [${model}] không được hỗ trợ bởi tài khoản proxy của bạn. Danh sách các model video đang có sẵn: ${videoModels.join(', ') || 'Không tìm thấy model video nào, danh sách tất cả: ' + modelIds.slice(0, 10).join(', ')}`;
-                        console.error(`[UModelverse Error] ${errorMsg}`);
-                        throw new Error(errorMsg);
+                        console.warn(`[UModelverse Warning] Model [${model}] không có mặt trong danh sách công khai của /models. Phần mềm vẫn sẽ thử gửi request, nhưng có thể sẽ bị proxy từ chối nếu bạn chưa mua gói hoặc API key không hỗ trợ. Danh sách các model video đang hiển thị: ${videoModels.join(', ')}`);
+                        // Xoá dòng throw Error để cho phép thử nghiệm các model ẩn
                     }
                 }
             } else {
@@ -535,14 +615,12 @@ export class GenaiService {
             }
         } catch (e: any) {
             console.error("[UModelverse Model Check Exception]", e);
-            if (e.message && e.message.includes("không được hỗ trợ bởi tài khoản proxy")) {
-                throw e;
-            }
         }
 
         // Chuẩn hoá referenceImages sang các định dạng phổ biến cho Video model
         let refBase64Raw = '';
         let refBase64DataUri = '';
+        let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
             const firstImg = referenceImages[0];
             refBase64Raw = firstImg.image?.imageBytes || (typeof firstImg === 'string' ? firstImg : '');
@@ -550,13 +628,34 @@ export class GenaiService {
                 refBase64DataUri = `data:image/png;base64,${refBase64Raw}`;
             } else if (refBase64Raw.startsWith('data:')) {
                 refBase64DataUri = refBase64Raw;
+                refMimeType = refBase64Raw.substring(5, refBase64Raw.indexOf(';'));
                 refBase64Raw = refBase64Raw.split(',')[1];
             }
         }
 
         // --- BƯỚC 1: THỬ QUA CÁC ENDPOINT ASYNC TASK (PHÙ HỢP CHO VIDEO MODELS TRÊN UMODELVERSE) ---
         const candidateTaskRequests: any[] = [
-            // Option 0: Nested standard with Data URI (phổ biến nhất cho Wan/Kling/Vidu trên proxy)
+            // Option 0: Format chuẩn cho Veo-3.1 (Astraflow/Google)
+            {
+                model: model,
+                input: {
+                    prompt: prompt,
+                    ...(refBase64Raw ? {
+                        image: {
+                            bytesBase64Encoded: refBase64Raw,
+                            mimeType: refMimeType
+                        }
+                    } : {})
+                },
+                parameters: {
+                    aspect_ratio: aspectRatio || '16:9',
+                    resolution: '720p',
+                    generate_audio: false,
+                    duration: (duration === 4 || duration === 6 || duration === 8) ? duration : 6
+                    // Bắt buộc truyền duration hợp lệ vì UModelverse có thể tự gán default=5 gây lỗi với Veo
+                }
+            },
+            // Option 1: Nested standard with Data URI (phổ biến nhất cho Wan/Kling/Vidu trên proxy)
             {
                 model: model,
                 input: {
@@ -637,6 +736,7 @@ export class GenaiService {
 
         let taskId = '';
         let taskEndpointUsed = '';
+        let lastErrorMsg = '';
         
         const taskEndpoints = [
             `${url}/tasks/submit`,
@@ -703,7 +803,7 @@ export class GenaiService {
 
                     if (response.ok) {
                         const data = await response.json();
-                        const statusVal = (data.task_status || data.status || data.state || data.data?.status || data.output?.status || '').toLowerCase();
+                        const statusVal = (data.task_status || data.status || data.state || data.data?.status || data.data?.task_status || data.output?.status || data.output?.task_status || '').toLowerCase();
                         
                         console.log(`[Poll Response] Task status: ${statusVal}`);
 
@@ -800,7 +900,7 @@ export class GenaiService {
             }
         ];
 
-        let lastErrorMsg = '';
+        lastErrorMsg = '';
         let lastResponseStatus = 200;
 
         for (let i = 0; i < candidateRequests.length; i++) {
