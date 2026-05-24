@@ -1737,6 +1737,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             title: this.projectTitle,
             uuid: this.uuid,
             createdAt: new Date().toISOString(),
+            extraPrompt: this.extraPrompt,
+            videoFormat: this.videoFormat,
+            aspectRatio: this.aspectRatio,
+            maxDuration: this.maxDuration,
             videoProject: null,
             clips: []
         };
@@ -1843,6 +1847,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 if (data.title) this.projectTitle = data.title;
+                if (data.extraPrompt !== undefined) this.extraPrompt = data.extraPrompt;
+                if (data.videoFormat !== undefined) this.videoFormat = data.videoFormat;
+                if (data.aspectRatio !== undefined) this.aspectRatio = data.aspectRatio;
+                if (data.maxDuration !== undefined) this.maxDuration = data.maxDuration;
                 
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;
