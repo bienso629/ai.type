@@ -2350,6 +2350,17 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
         const { path: filePath, filename, username } = payload;
         let targetPath = filePath;
 
+        if (targetPath) {
+            if (targetPath.startsWith('file:///')) {
+                targetPath = targetPath.slice(8);
+            } else if (targetPath.startsWith('file://')) {
+                targetPath = targetPath.slice(7);
+            }
+            try {
+                targetPath = decodeURIComponent(targetPath);
+            } catch (e) {}
+        }
+
         if (!targetPath && filename) {
             const documentsPath = app.getPath("documents");
             targetPath = path.join(
@@ -2362,12 +2373,16 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
             );
         }
 
-        if (targetPath && fs.existsSync(targetPath)) {
+        const exists = !!(targetPath && fs.existsSync(targetPath));
+        console.log(`[IPC check-local-file-exists] filePath: "${filePath}", filename: "${filename}", computed targetPath: "${targetPath}", exists: ${exists}`);
+
+        if (exists) {
             return { exists: true, path: targetPath };
         } else {
             return { exists: false };
         }
     } catch (error) {
+        console.error("[IPC check-local-file-exists] Error:", error);
         return { exists: false, error: error.message };
     }
 });
@@ -2376,6 +2391,17 @@ ipcMain.handle("read-local-audio", async (event, payload) => {
     try {
         const { path: filePath, filename } = payload;
         let targetPath = filePath;
+
+        if (targetPath) {
+            if (targetPath.startsWith('file:///')) {
+                targetPath = targetPath.slice(8);
+            } else if (targetPath.startsWith('file://')) {
+                targetPath = targetPath.slice(7);
+            }
+            try {
+                targetPath = decodeURIComponent(targetPath);
+            } catch (e) {}
+        }
 
         // Nếu Frontend không gửi đường dẫn tuyệt đối (chỉ gửi tên file)
         // Ta sẽ tìm trong thư mục Documents mặc định

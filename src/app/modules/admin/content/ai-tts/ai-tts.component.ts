@@ -186,10 +186,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             audio.addEventListener('loadedmetadata', () => {
                 // Trả về thời lượng dạng giây, làm tròn 2 chữ số thập phân
                 resolve(Number(audio.duration.toFixed(2)));
+                audio.src = '';
+                audio.load();
             });
             audio.addEventListener('error', () => {
                 console.warn('Không thể đọc duration từ:', blobUrl);
                 resolve(0);
+                audio.src = '';
+                audio.load();
             });
         });
     }
@@ -750,6 +754,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             const offlineKeywords = ['ausync', 'tts.type.vn'];
             const isOfflineVoice =
                 (item.voice && offlineVoices.includes(item.voice)) ||
+                (item.voice && offlineKeywords.some((k) => item.voice.includes(k))) ||
                 (item.audioFileName &&
                     offlineKeywords.some((k) =>
                         item.audioFileName.includes(k),
@@ -779,7 +784,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // CHỈ KHI NÀO KHÔNG CÓ localFilePath THÌ MỚI GẮN LINK SERVER
                     let userFolder =
                         item.username || this.user?.name || 'anonymous';
-                    let baseUrl = this.SERVER_AUDIO_URL || '';
+                                        let baseUrl = this.SERVER_AUDIO_URL || '';
                     if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
 
                     if (baseUrl) {
@@ -810,46 +815,55 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }, 300);
     }
 
-    // Hàm trung gian: Gọi Electron lấy file -> Biến thành Blob -> Gán vào Clip
-    async loadLocalAudioContent(
+    // Hàm trung gian: Kiểm tra file tồn tại trên ổ cứng -> Gán trực tiếp file:/// protocol vào Clip
+
+        async loadLocalAudioContent(
         clip: AudioClip,
         retryCount = 0,
     ): Promise<boolean> {
         if (!(window as any).electron) return false;
 
         let filePath = clip['localFilePath'];
-
-        // Nếu clip có rawUrl là blob rồi thì thôi
-        if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) return true;
+        if (!filePath) return false;
 
         try {
+            // Kiểm tra xem tệp tin cục bộ có thực sự tồn tại trên ổ cứng hay không
             const result = await (window as any).electron.invoke(
-                'read-local-audio',
+                'check-local-file-exists',
                 {
                     path: filePath,
                     filename: clip.audioFileName,
                 },
             );
 
-            if (result && result.base64) {
-                const byteCharacters = atob(result.base64);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+            if (result && result.exists) {
+                const safePath = filePath.replace(/\\/g, '/');
+                // Bóc giao thức cũ để tránh trùng lặp
+                let cleanPath = safePath;
+                if (cleanPath.startsWith('file:///')) {
+                    cleanPath = cleanPath.slice(8);
+                } else if (cleanPath.startsWith('file://')) {
+                    cleanPath = cleanPath.slice(7);
                 }
-                const byteArray = new Uint8Array(byteNumbers);
-                const blob = new Blob([byteArray], { type: 'audio/mp3' });
-                const blobUrl = URL.createObjectURL(blob);
 
-                clip.rawUrl = blobUrl;
-                clip.url = this.sanitizer.bypassSecurityTrustUrl(blobUrl);
+                // Thiết lập đường dẫn file URL trực tiếp
+                const fileUrl = safePath.startsWith('/') ? `file://${cleanPath}` : `file:///${cleanPath}`;
+
+                // Nếu clip đã được gán đúng URL này rồi, không cần gán lại hay đo lại duration (tránh nhấp nháy WaveSurfer)
+                if (clip.rawUrl === fileUrl) {
+                    return true;
+                }
+
+                clip.rawUrl = fileUrl;
+                clip.url = this.sanitizer.bypassSecurityTrustUrl(fileUrl);
 
                 // ==========================================
                 // [MỚI] ĐO VÀ CẬP NHẬT DURATION NGAY LẬP TỨC
                 // ==========================================
-                // Luôn cập nhật lại duration với file mới nhất
-                clip.duration = await this.getAudioDuration(blobUrl);
+                // Luôn cập nhật lại duration với file mới nhất từ ổ cứng
+                clip.duration = await this.getAudioDuration(fileUrl);
                 this.calculateTotalDuration(); // Cập nhật ngay tổng thời gian của toàn project
+                this.cd.markForCheck();
                 // ==========================================
 
                 return true;
@@ -865,6 +879,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     clip.url = null;
                     clip.rawUrl = null;
                     clip.duration = 0;
+                    if (this.wavesurfer) {
+                        this.wavesurfer.empty();
+                    }
                     this.calculateTotalDuration();
                     this.cd.markForCheck();
                     this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local để không bị lặp lại lỗi khi F5
@@ -884,6 +901,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 clip.url = null;
                 clip.rawUrl = null;
                 clip.duration = 0;
+                if (this.wavesurfer) {
+                    this.wavesurfer.empty();
+                }
                 this.calculateTotalDuration();
                 this.cd.markForCheck();
                 this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local
@@ -1601,17 +1621,22 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        // 3. Nếu chưa có gì cả -> Gọi hàm load từ ổ cứng
+                // 3. Nếu chưa có gì cả -> Gọi hàm load từ ổ cứng
         if (clip.audioFileName && (window as any).electron) {
             // this.toastr.info('Đang đọc file...', 'System');
             const success = await this.loadLocalAudioContent(clip);
 
             if (success && clip.rawUrl) {
-                this.wavesurfer.load(clip.rawUrl);
+                // Thêm timestamp để tránh cache trình duyệt (đảm bảo đọc fresh file từ đĩa, đặc biệt khi file bị xóa/tạo lại)
+                const playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
+                this.wavesurfer.load(playUrl);
                 this.wavesurfer.once('ready', () => {
                     this.wavesurfer.play();
                 });
             } else {
+                if (this.wavesurfer) {
+                    this.wavesurfer.empty();
+                }
                 this.toastr.error('Không tìm thấy file audio trên máy.');
             }
         }
@@ -1719,6 +1744,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // Clone videoProject to avoid modifying the current state
         if (this.videoProject) {
             exportData.videoProject = JSON.parse(JSON.stringify(this.videoProject));
+            
+            // Đảm bảo lấy danh sách nhân vật mới nhất từ localStorage casting_list_${this.uuid}
+            const localCharacters = this.multiAccountService.getItem(`casting_list_${this.uuid}`);
+            if (localCharacters) {
+                exportData.videoProject.characters = localCharacters;
+            }
+
             // Extract from videoProject scenes
             if (exportData.videoProject.scenes) {
                 exportData.videoProject.scenes.forEach((scene: any) => {
@@ -1733,6 +1765,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                 });
             }
+            // Xử lý hình ảnh nhân vật trong characters
+            if (exportData.videoProject.characters) {
+                exportData.videoProject.characters.forEach((char: any) => {
+                    if (char.avatarUrl) {
+                        char.avatarUrl = processPath(char.avatarUrl);
+                    }
+                    if (char.avatarUrls && Array.isArray(char.avatarUrls)) {
+                        char.avatarUrls = char.avatarUrls.map((url: string) => processPath(url));
+                    }
+                });
+            }
+            // Xử lý hình ảnh nhân vật trong existingCharacters (nếu có)
             if (exportData.videoProject.existingCharacters) {
                 exportData.videoProject.existingCharacters.forEach((char: any) => {
                     if (char.avatarUrl) {
@@ -1776,15 +1820,32 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     async importProject() {
         try {
-            const res = await (window as any).electron.invoke('import-project', this.uuid);
+            const res = await (window as any).electron.invoke('import-project', {
+                currentUuid: this.uuid,
+                username: this.user?.name || 'admin'
+            });
             
             if (res.success) {
                 this.toastr.info('Đang nạp dự án...', 'Import');
                 const data = res.projectData;
+                
+                // Kiểm tra xem kịch bản này đã từng tồn tại trong chương trình chưa
+                const storageKey = `${this.STORAGE_AUDIO_KEY}_${res.targetUuid}`;
+                const isExistingScenario = !!this.multiAccountService.getItem(storageKey);
+
+                // Cập nhật UUID nếu đây là một kịch bản mới/khác kịch bản hiện tại
+                if (res.isNewScenario && res.targetUuid) {
+                    this.uuid = res.targetUuid;
+                }
+
                 if (data.title) this.projectTitle = data.title;
                 
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;
+                    // Đồng bộ hóa danh sách nhân vật vào localStorage casting_list_${this.uuid}
+                    if (this.videoProject.characters) {
+                        this.multiAccountService.setItem(`casting_list_${this.uuid}`, this.videoProject.characters);
+                    }
                 }
                 
                 if (data.clips) {
@@ -1792,12 +1853,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
                 
                 this.saveToLocal();
-                this.toastr.success(`Đã nhập dự án: ${this.projectTitle}`, 'Import');
+                this.toastr.success(
+                    isExistingScenario 
+                        ? `Đã cập nhật dữ liệu kịch bản: ${this.projectTitle}` 
+                        : `Đã nhập thành kịch bản mới: ${this.projectTitle}`, 
+                    'Import'
+                );
                 
-                // Cần load lại Audio Content từ disk vào thẻ <audio>
-                setTimeout(() => {
-                    this.loadAudiosFromLocal(this.uuid);
-                }, 500);
+                if (res.isNewScenario && res.targetUuid) {
+                    // Chuyển hướng sang route mới của kịch bản mới vừa import
+                    const routeName = this.currentName || this.user?.name || 'admin';
+                    this.router.navigate(['/voice2video', routeName, res.targetUuid]);
+                } else {
+                    // Cần load lại Audio Content từ disk vào thẻ <audio>
+                    setTimeout(() => {
+                        this.loadAudiosFromLocal(this.uuid);
+                    }, 500);
+                }
                 
             } else if (!res.canceled) {
                 this.toastr.error(`Lỗi nhập dự án: ${res.error}`, 'Import');
