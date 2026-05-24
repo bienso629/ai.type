@@ -48,8 +48,8 @@ function registerExportImportHandlers() {
                 }
 
                 if (fs.existsSync(localPath)) {
-                    // addLocalFile adds the file into the zip under the specified folder 'media'
-                    zip.addLocalFile(localPath, 'media');
+                    // addLocalFile adds the file into the zip under the root folder
+                    zip.addLocalFile(localPath, '');
                 } else {
                     console.warn(`Export Warning: Tệp media không tồn tại trên máy cục bộ: ${localPath}`);
                 }
@@ -117,7 +117,7 @@ function registerExportImportHandlers() {
             // Giải nén trực tiếp vào thư mục Documents/ai.type/data/tts/<username>/<uuid> để hiển thị và lưu trữ đúng vị trí trực quan cho người dùng
             const docPath = app.getPath('documents');
             const extractDir = path.join(docPath, 'ai.type', 'data', 'tts', username || 'admin', targetUuid);
-            const mediaDir = path.join(extractDir, 'media');
+            const mediaDir = extractDir;
 
             // Tạo thư mục nếu chưa có
             if (!fs.existsSync(extractDir)) {
@@ -125,6 +125,18 @@ function registerExportImportHandlers() {
             }
 
             zip.extractAllTo(extractDir, true);
+
+            // Di chuyển các tệp từ thư mục 'media' cũ (nếu có từ bản export cũ) ra ngoài root của thư mục dự án
+            const oldMediaDir = path.join(extractDir, 'media');
+            if (fs.existsSync(oldMediaDir) && fs.statSync(oldMediaDir).isDirectory()) {
+                const files = fs.readdirSync(oldMediaDir);
+                for (const file of files) {
+                    fs.renameSync(path.join(oldMediaDir, file), path.join(extractDir, file));
+                }
+                try {
+                    fs.rmdirSync(oldMediaDir);
+                } catch(e) {}
+            }
 
             // Chuyển đổi importedData thành chuỗi JSON để thay thế %MEDIA_DIR%
             let projectJSON = JSON.stringify(importedData);
