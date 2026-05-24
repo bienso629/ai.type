@@ -10,6 +10,7 @@ const {
     Notification,
     desktopCapturer
 } = require("electron");
+const { registerExportImportHandlers } = require("./export-import-project");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
 const os = require("os");
@@ -2804,6 +2805,7 @@ function startSttServer() {
 }
 
 app.whenReady().then(async () => {
+    registerExportImportHandlers();
     if (process.platform === 'win32') {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
     }

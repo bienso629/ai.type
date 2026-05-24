@@ -1694,6 +1694,120 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         clip.isEditing = true;
     }
 
+    async exportProject() {
+        const mediaPaths: string[] = [];
+        
+        // Helper function to process paths
+        const processPath = (filePath: string) => {
+            if (!filePath) return null;
+            if (filePath.startsWith('http') || filePath.startsWith('data:') || filePath.startsWith('blob:')) return filePath;
+            // Extract filename and replace absolute path
+            const filename = filePath.split(/[/\\]/).pop();
+            const relPath = `%MEDIA_DIR%/${filename}`;
+            mediaPaths.push(filePath);
+            return relPath;
+        };
+
+        const exportData: any = {
+            title: this.projectTitle,
+            uuid: this.uuid,
+            createdAt: new Date().toISOString(),
+            videoProject: null,
+            clips: []
+        };
+
+        // Clone videoProject to avoid modifying the current state
+        if (this.videoProject) {
+            exportData.videoProject = JSON.parse(JSON.stringify(this.videoProject));
+            // Extract from videoProject scenes
+            if (exportData.videoProject.scenes) {
+                exportData.videoProject.scenes.forEach((scene: any) => {
+                    if (scene.audioLocalPath) {
+                        scene.audioLocalPath = processPath(scene.audioLocalPath);
+                    }
+                    if (scene.customVideoPath) {
+                        scene.customVideoPath = processPath(scene.customVideoPath);
+                    }
+                    if (scene.imageUrl) {
+                        scene.imageUrl = processPath(scene.imageUrl);
+                    }
+                });
+            }
+            if (exportData.videoProject.existingCharacters) {
+                exportData.videoProject.existingCharacters.forEach((char: any) => {
+                    if (char.avatarUrl) {
+                        char.avatarUrl = processPath(char.avatarUrl);
+                    }
+                    if (char.avatarUrls && Array.isArray(char.avatarUrls)) {
+                        char.avatarUrls = char.avatarUrls.map((url: string) => processPath(url));
+                    }
+                });
+            }
+        }
+
+        exportData.clips = this.audioList.map((clip) => {
+            const clone = { ...clip };
+            if (clone.localFilePath) {
+                clone.localFilePath = processPath(clone.localFilePath);
+            }
+            // Blob URL needs to be re-loaded upon import, so we drop it
+            if (clone.url && (clone.url as string).startsWith?.('blob:')) {
+                clone.url = undefined;
+                clone.rawUrl = undefined;
+            }
+            return clone;
+        });
+
+        const jsonStr = JSON.stringify(exportData, null, 2);
+        
+        this.toastr.info('Đang đóng gói dự án...', 'Export');
+        try {
+            const res = await (window as any).electron.invoke('export-project', { projectJSON: jsonStr, mediaPaths });
+            if (res.success) {
+                this.toastr.success(`Đã xuất thành công: ${res.filePath}`, 'Export');
+            } else if (!res.canceled) {
+                this.toastr.error(`Lỗi xuất dự án: ${res.error}`, 'Export');
+            }
+        } catch (error) {
+            console.error(error);
+            this.toastr.error('Có lỗi xảy ra khi gọi hàm xuất dự án', 'Export');
+        }
+    }
+
+    async importProject() {
+        try {
+            const res = await (window as any).electron.invoke('import-project', this.uuid);
+            
+            if (res.success) {
+                this.toastr.info('Đang nạp dự án...', 'Import');
+                const data = res.projectData;
+                if (data.title) this.projectTitle = data.title;
+                
+                if (data.videoProject) {
+                    this.videoProject = data.videoProject;
+                }
+                
+                if (data.clips) {
+                    this.restoreClips(data.clips);
+                }
+                
+                this.saveToLocal();
+                this.toastr.success(`Đã nhập dự án: ${this.projectTitle}`, 'Import');
+                
+                // Cần load lại Audio Content từ disk vào thẻ <audio>
+                setTimeout(() => {
+                    this.loadAudiosFromLocal(this.uuid);
+                }, 500);
+                
+            } else if (!res.canceled) {
+                this.toastr.error(`Lỗi nhập dự án: ${res.error}`, 'Import');
+            }
+        } catch (error) {
+            console.error(error);
+            this.toastr.error('Có lỗi xảy ra khi gọi hàm nhập dự án', 'Import');
+        }
+    }
+
     saveClipEdit(clip: any) {
         if (!clip.tempDescription || clip.tempDescription.trim() === '') {
             this.toastr.warning('Nội dung không được để trống');
@@ -1793,62 +1907,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         );
     }
 
-    exportProject() {
-        const exportData = {
-            title: this.projectTitle,
-            createdAt: new Date().toISOString(),
-            clips: this.audioList.map((clip) => ({
-                id: clip.id,
-                name: clip.name,
-                description: clip.description,
-                voice: clip.voice,
-                duration: clip.duration,
-                audioFileName: clip.audioFileName,
-                username: clip.username,
-            })),
-        };
-        const jsonStr = JSON.stringify(exportData, null, 2);
-        const blob = new Blob([jsonStr], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-        const safeTitle = this.toSlug(this.projectTitle).replace(/-/g, '_');
-        const fileName = `${safeTitle || 'project'}_${new Date().getTime()}.json`;
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = fileName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-        this.toastr.success(`Đã xuất file: ${fileName}`);
-    }
-
-    triggerImport() {
-        const fileInput = document.getElementById(
-            'importInput',
-        ) as HTMLInputElement;
-        if (fileInput) fileInput.click();
-    }
-    onImportFileSelected(event: any) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e: any) => {
-            try {
-                const importedData = JSON.parse(e.target.result);
-                let clipsToRestore = Array.isArray(importedData)
-                    ? importedData
-                    : importedData.clips;
-                if (importedData.title) this.projectTitle = importedData.title;
-                this.restoreClips(clipsToRestore);
-                this.saveToLocal();
-                this.toastr.success(`Đã nhập dự án: ${this.projectTitle}`);
-            } catch (err) {
-                this.toastr.error('Lỗi khi đọc file dự án.');
-            }
-        };
-        reader.readAsText(file);
-        event.target.value = '';
-    }
 
     async createImgWithDreamina(url: string, prompt: string) {
         this.copy(prompt);
