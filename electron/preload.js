@@ -69,7 +69,9 @@ contextBridge.exposeInMainWorld('electron', {
         const listener = (_event, data) => callback(data);
         ipcRenderer.on('pdf-analysis-progress', listener);
         return () => ipcRenderer.removeListener('pdf-analysis-progress', listener);
-    }
+    },
+    exportProject: (payload) => ipcRenderer.invoke('export-project', payload),
+    importProject: (uuid) => ipcRenderer.invoke('import-project', uuid)
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
