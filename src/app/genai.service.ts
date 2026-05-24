@@ -283,6 +283,7 @@ export class GenaiService {
 
     private async generateImageUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
         let promptText = '';
+        let referenceBase64: string | null = null;
         if (params.contents && (params.contents as any).length > 0) {
             const firstContent = params.contents[0];
             if (firstContent.parts) {
@@ -291,6 +292,14 @@ export class GenaiService {
                     .filter((p: any) => p.text)
                     .map((p: any) => p.text)
                     .join(' ');
+                
+                // Trích xuất ảnh gốc (nếu có) để gửi cho các model hỗ trợ Image-to-Image qua chuẩn OpenAI
+                const imgPart = firstContent.parts.find((p: any) => p.inlineData);
+                if (imgPart && imgPart.inlineData) {
+                    // Định dạng base64 đúng chuẩn OpenAI/Astraflow có thể yêu cầu 'data:image/png;base64,...'
+                    // Ở đây phần data chỉ là chuỗi base64 thuần (từ character-dialog)
+                    referenceBase64 = imgPart.inlineData.data;
+                }
             }
         }
 
@@ -364,14 +373,16 @@ export class GenaiService {
                 prompt: promptText,
                 n: 1,
                 size: size,
-                response_format: 'b64_json'
+                response_format: 'b64_json',
+                image: referenceBase64 ? `data:image/png;base64,${referenceBase64}` : undefined
             },
             // Option 1: Bỏ response_format (nhiều proxy crash với b64_json)
             {
                 model: activeModel,
                 prompt: promptText,
                 n: 1,
-                size: size
+                size: size,
+                image: referenceBase64 ? `data:image/png;base64,${referenceBase64}` : undefined
             },
             // Option 2: Format dành cho Gemini/Midjourney (không dùng n, size, mà dùng aspect_ratio)
             {
@@ -404,7 +415,13 @@ export class GenaiService {
             console.log(`[UModelverse Image] Thử nghiệm cấu hình request ${i}:`, JSON.stringify(body));
 
             try {
-                const response = await fetch(`${url}/images/generations`, {
+                let targetUrl = `${url}/images/generations`;
+                if (activeModel.includes('flux')) {
+                    let baseUrl = url.replace(/\/v1\/?$/, '');
+                    targetUrl = `${baseUrl}/v1/${activeModel}`;
+                }
+
+                const response = await fetch(targetUrl, {
                     method: 'POST',
                     headers,
                     body: JSON.stringify(body)
