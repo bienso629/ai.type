@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatInputModule } from '@angular/material/input';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { MatIconModule } from '@angular/material/icon';
+import { MatSelectModule } from '@angular/material/select';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
@@ -14,7 +15,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 @Component({
     selector: 'app-character-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatProgressSpinnerModule],
+    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatSelectModule, MatProgressSpinnerModule],
     templateUrl: './character-dialog.component.html'
 })
 export class CharacterDialogComponent {
@@ -22,6 +23,7 @@ export class CharacterDialogComponent {
     isEditMode: boolean = false;
     isGeneratingAvatar: boolean = false;
     masterPrompt: string = '';
+    referenceImageUrl: string | null = null;
 
     constructor(
         public dialogRef: MatDialogRef<CharacterDialogComponent>,
@@ -44,6 +46,8 @@ export class CharacterDialogComponent {
         } else if (!this.editingChar.avatarUrls) {
             this.editingChar.avatarUrls = [];
         }
+        
+        this.updateAvailableReferenceImages();
     }
 
     private getBase64FromImageUrl(url: string): Promise<string> {
@@ -71,6 +75,57 @@ export class CharacterDialogComponent {
             img.onerror = error => reject(error);
             img.src = url;
         });
+    }
+
+    cleanName(name: string) {
+        if (!name) return '';
+        return name.trim().toLowerCase()
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .replace(/[đĐ]/g, 'd')
+            .replace(/[^a-z0-9]/g, '');
+    }
+
+    availableReferenceImages: { url: string, name: string, variant: string }[] = [];
+
+    updateAvailableReferenceImages() {
+        const existingChars = this.data.existingCharacters || [];
+        const result: { url: string, name: string, variant: string }[] = [];
+        const seenUrls = new Set<string>();
+        
+        existingChars.forEach((c: any, idx: number) => {
+            // Include all characters except the current one being edited
+            if (idx !== this.data.index || c.variant !== this.editingChar.variant) {
+                if (c.avatarUrls && c.avatarUrls.length > 0) {
+                    c.avatarUrls.forEach((url: string) => {
+                        if (!seenUrls.has(url)) {
+                            result.push({ url, name: c.name || 'Vô danh', variant: c.variant || 'Gốc' });
+                            seenUrls.add(url);
+                        }
+                    });
+                } else if (c.avatarUrl && !seenUrls.has(c.avatarUrl)) {
+                    result.push({ url: c.avatarUrl, name: c.name || 'Vô danh', variant: c.variant || 'Gốc' });
+                    seenUrls.add(c.avatarUrl);
+                }
+            }
+        });
+
+        // Ưu tiên đưa các ảnh có cùng tên nhân vật lên đầu
+        const cleanNameStr = this.cleanName(this.editingChar.name);
+        if (cleanNameStr) {
+            result.sort((a, b) => {
+                const aMatch = this.cleanName(a.name) === cleanNameStr ? -1 : 1;
+                const bMatch = this.cleanName(b.name) === cleanNameStr ? -1 : 1;
+                return aMatch - bMatch;
+            });
+        }
+        
+        this.availableReferenceImages = result;
+        
+        // If the current reference image is not in the list anymore, clear it
+        if (this.referenceImageUrl && !result.find(img => img.url === this.referenceImageUrl)) {
+            this.referenceImageUrl = null;
+        }
     }
 
     async generateAvatar() {
@@ -118,20 +173,15 @@ export class CharacterDialogComponent {
 
             let refImgUrl = null;
 
-            const cleanName = (name: string) => {
-                if (!name) return '';
-                return name.trim().toLowerCase()
-                    .normalize('NFD')
-                    .replace(/[\u0300-\u036f]/g, '')
-                    .replace(/[đĐ]/g, 'd')
-                    .replace(/[^a-z0-9]/g, '');
-            };
-
-            const targetCleanName = cleanName(this.editingChar.name);
+            const targetCleanName = this.cleanName(this.editingChar.name);
 
             // Thứ tự ưu tiên nạp ảnh tham chiếu (đồng bộ gương mặt):
+            // 0. Ưu tiên cao nhất: Ảnh do người dùng chủ động đính kèm vào phần Prompt
+            if (this.referenceImageUrl) {
+                refImgUrl = this.referenceImageUrl;
+            }
             // 1. Ưu tiên 1: Lấy ảnh hiện tại đang hoạt động của chính nhân vật này (nếu đã có ảnh trước đó và muốn tạo tư thế mới)
-            if (this.editingChar.avatarUrl) {
+            else if (this.editingChar.avatarUrl) {
                 refImgUrl = this.editingChar.avatarUrl;
             } else if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > 0) {
                 refImgUrl = this.editingChar.avatarUrls[0];
@@ -141,7 +191,7 @@ export class CharacterDialogComponent {
                 const existingChars = this.data.existingCharacters || [];
                 const originalChar = existingChars.find((c: any, idx: number) => 
                     c.name && this.editingChar.name &&
-                    cleanName(c.name) === targetCleanName && 
+                    this.cleanName(c.name) === targetCleanName && 
                     (c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0)) &&
                     idx !== this.data.index &&
                     c.variant !== this.editingChar.variant
@@ -311,6 +361,11 @@ export class CharacterDialogComponent {
             this.editingChar.avatarUrls.splice(index, 1);
             this.editingChar.avatarUrl = this.editingChar.avatarUrls.length > 0 ? this.editingChar.avatarUrls[0] : null;
         }
+    }
+
+    removeRefImage() {
+        this.referenceImageUrl = null;
+        this.cd.detectChanges();
     }
 
     save() {

@@ -41,7 +41,7 @@
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-grow w-full">
                 <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
                     <mat-label>Tên nhân vật</mat-label>
-                    <input matInput [(ngModel)]="editingChar.name" placeholder="VD: Naruto" />
+                    <input matInput [(ngModel)]="editingChar.name" (ngModelChange)="updateAvailableReferenceImages()" placeholder="VD: Naruto" />
                 </mat-form-field>
 
                 <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
@@ -77,6 +77,47 @@
                     <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
                 </button>
             </div>
+            
+            @if (availableReferenceImages.length > 0) {
+                <mat-form-field class="w-full fuse-mat-dense mb-2" [subscriptSizing]="'dynamic'">
+                    <mat-select [(value)]="referenceImageUrl" placeholder="Không dùng ảnh">
+                        <mat-select-trigger>
+                            @if (referenceImageUrl) {
+                                <div class="flex items-center gap-2">
+                                    <mat-icon class="icon-size-4 text-indigo-500">image</mat-icon>
+                                    <span class="text-sm font-medium">Đã chọn 1 ảnh gốc</span>
+                                </div>
+                            } @else {
+                                <span class="text-sm text-slate-500">Không dùng ảnh tham chiếu</span>
+                            }
+                        </mat-select-trigger>
+                        <mat-option [value]="null">Không dùng ảnh</mat-option>
+                        @for (img of availableReferenceImages; track img.url) {
+                            <mat-option [value]="img.url" class="h-auto py-2">
+                                <div class="flex items-center gap-3">
+                                    <img [src]="img.url" class="w-10 h-10 object-cover rounded shadow-sm">
+                                    <div class="flex flex-col">
+                                        <span class="text-sm font-semibold truncate max-w-[200px]">{{ img.name }}</span>
+                                        <span class="text-xs text-slate-500 truncate max-w-[200px]">Bản: {{ img.variant }}</span>
+                                    </div>
+                                </div>
+                            </mat-option>
+                        }
+                    </mat-select>
+                </mat-form-field>
+            }
+            
+            @if (referenceImageUrl) {
+            <div class="relative w-16 h-16 mb-2 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group border border-slate-200">
+                <img [src]="referenceImageUrl" class="w-full h-full object-cover rounded-md">
+                <button mat-icon-button
+                    class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                    (click)="removeRefImage()">
+                    <mat-icon class="icon-size-3 text-white">close</mat-icon>
+                </button>
+            </div>
+            }
+
             <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
                 <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
                     cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
