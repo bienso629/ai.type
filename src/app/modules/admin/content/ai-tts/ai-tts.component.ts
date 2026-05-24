@@ -1806,7 +1806,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         
         this.toastr.info('Đang đóng gói dự án...', 'Export');
         try {
-            const res = await (window as any).electron.invoke('export-project', { projectJSON: jsonStr, mediaPaths });
+            const res = await (window as any).electron.invoke('export-project', { 
+                projectJSON: jsonStr, 
+                mediaPaths,
+                username: this.user?.name || 'admin'
+            });
             if (res.success) {
                 this.toastr.success(`Đã xuất thành công: ${res.filePath}`, 'Export');
             } else if (!res.canceled) {

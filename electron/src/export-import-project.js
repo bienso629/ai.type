@@ -5,11 +5,16 @@ const AdmZip = require('adm-zip');
 const crypto = require('crypto');
 
 function registerExportImportHandlers() {
-    ipcMain.handle('export-project', async (event, { projectJSON, mediaPaths }) => {
+    ipcMain.handle('export-project', async (event, payload) => {
         try {
+            const projectJSON = payload.projectJSON;
+            const mediaPaths = payload.mediaPaths || [];
+            const username = payload.username || 'admin';
+            let data = {};
+
             let defaultPath = 'project.ait';
             try {
-                const data = JSON.parse(projectJSON);
+                data = JSON.parse(projectJSON);
                 if (data.uuid) defaultPath = `${data.uuid}.ait`;
             } catch (e) {
                 // Ignore parse error
@@ -25,10 +30,31 @@ function registerExportImportHandlers() {
 
             const zip = new AdmZip();
             
-            // Thêm file project.json
+            const docPath = app.getPath('documents');
+            const targetUuid = data.uuid || 'unknown';
+            const projectDir = path.join(docPath, 'ai.type', 'data', 'tts', username, targetUuid);
+
+            const addedFiles = new Set();
+
+            // Nếu thư mục dự án tồn tại, nén toàn bộ thư mục đó (bỏ qua file project.json vì sẽ ghi đè sau)
+            if (fs.existsSync(projectDir) && fs.statSync(projectDir).isDirectory()) {
+                const files = fs.readdirSync(projectDir);
+                for (const file of files) {
+                    if (file === 'project.json') continue; // Sẽ thêm bằng projectJSON đã xử lý
+                    const fullPath = path.join(projectDir, file);
+                    if (fs.statSync(fullPath).isDirectory()) {
+                        zip.addLocalFolder(fullPath, file);
+                    } else {
+                        zip.addLocalFile(fullPath, '');
+                        addedFiles.add(file);
+                    }
+                }
+            }
+
+            // Thêm file project.json đã được parse các đường dẫn %MEDIA_DIR%
             zip.addFile('project.json', Buffer.from(projectJSON, 'utf8'));
 
-            // Thêm các file media vào thư mục media/
+            // Thêm các file media từ `mediaPaths` nếu chúng KHÔNG nằm trong projectDir (phòng hờ)
             for (const mediaPath of mediaPaths) {
                 if (!mediaPath) continue;
 
@@ -48,8 +74,11 @@ function registerExportImportHandlers() {
                 }
 
                 if (fs.existsSync(localPath)) {
-                    // addLocalFile adds the file into the zip under the root folder
-                    zip.addLocalFile(localPath, '');
+                    const filename = path.basename(localPath);
+                    if (!addedFiles.has(filename)) {
+                        zip.addLocalFile(localPath, '');
+                        addedFiles.add(filename);
+                    }
                 } else {
                     console.warn(`Export Warning: Tệp media không tồn tại trên máy cục bộ: ${localPath}`);
                 }
