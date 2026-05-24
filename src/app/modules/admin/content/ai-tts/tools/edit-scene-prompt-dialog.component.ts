@@ -669,6 +669,24 @@ export class EditScenePromptDialogComponent {
         }
     }
 
+    autoFixVideoPrompt() {
+        let originalScenePrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
+        let originalImagePrompt = this.editingScenePrompt.imagePrompt ? this.editingScenePrompt.imagePrompt.trim() : originalScenePrompt;
+
+        if (!originalScenePrompt) {
+            originalScenePrompt = originalImagePrompt;
+        } else if (originalImagePrompt.length > originalScenePrompt.length) {
+            if (originalImagePrompt.includes(originalScenePrompt)) {
+                originalScenePrompt = originalImagePrompt;
+            } else {
+                originalScenePrompt = originalImagePrompt + '\n\n' + originalScenePrompt;
+            }
+        }
+        
+        this.editingScenePrompt.prompt = originalScenePrompt;
+        this.toastr.success('Đã tự động bù đắp bối cảnh từ Hình ảnh sang Video', 'Auto-fix');
+    }
+
     copyPrompt(text: string) {
         if (!text) {
             this.toastr.warning('Không có nội dung để copy.');

@@ -102,6 +102,10 @@
                         (click)="copyPrompt(getFullVideoPrompt()); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt Video">
                         <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
                     </button>
+                    <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-blue-50 rounded-full ml-1"
+                        (click)="autoFixVideoPrompt(); $event.preventDefault(); $event.stopPropagation()" matTooltip="Auto-fix (Bù đắp bối cảnh từ Hình ảnh sang Video)">
+                        <mat-icon class="icon-size-4 text-blue-500 hover:text-blue-700">auto_awesome</mat-icon>
+                    </button>
                 </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
                     <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingScenePrompt.prompt"

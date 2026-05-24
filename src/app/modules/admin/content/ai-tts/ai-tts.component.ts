@@ -1291,6 +1291,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Nếu dán ở đây sẽ bị nhân đôi. Chỉ lấy đúng prompt của scene do AI tạo ra.
                 let originalScenePrompt = scene.prompt ? scene.prompt.trim() : '';
                 let originalImagePrompt = scene.imagePrompt ? scene.imagePrompt.trim() : originalScenePrompt;
+
+                // Tự động bổ sung bối cảnh vào prompt video nếu AI tạo prompt quá sơ sài
+                if (!originalScenePrompt) {
+                    originalScenePrompt = originalImagePrompt;
+                } else if (originalImagePrompt.length > originalScenePrompt.length) {
+                    // Nếu prompt video ngắn hơn prompt hình ảnh, AI đã làm mất mô tả phong cảnh
+                    if (originalImagePrompt.includes(originalScenePrompt)) {
+                        // AI chỉ lấy một đoạn ngắn (vd: Góc máy, tỉ lệ), ghi đè bằng toàn bộ bối cảnh
+                        originalScenePrompt = originalImagePrompt;
+                    } else {
+                        // AI viết câu mới nhưng ngắn hơn, ghép bối cảnh vào
+                        originalScenePrompt = originalImagePrompt + '\n\n' + originalScenePrompt;
+                    }
+                }
                 let masterText = aiResponse.masterPrompt ? aiResponse.masterPrompt.trim() : '';
 
                 // Lọc bỏ masterText khỏi originalScenePrompt nếu AI lỡ tay lặp lại do không có hành động
