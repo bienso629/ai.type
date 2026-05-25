@@ -1485,6 +1485,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             // Cập nhật lại vào bộ nhớ
             this.videoProject = data;
+            if (!this.videoProject.uuid) {
+                this.videoProject.uuid = this.uuid;
+            }
             this.saveToLocal();
         }
 
