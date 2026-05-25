@@ -26,6 +26,7 @@ import { MatSelectModule } from '@angular/material/select';
 export class EditScenePromptDialogComponent {
     editingScenePrompt: any;
     editingSceneIndex: number;
+    editingVideoIndex: number = -1;
     characters: any[] = [];
     masterPrompt: string = '';
     selectedReferenceChars = new Set<any>();
@@ -116,8 +117,8 @@ export class EditScenePromptDialogComponent {
     }
 
     constructor(
-        public dialogRef: MatDialogRef<EditScenePromptDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
+        private dialogRef: MatDialogRef<EditScenePromptDialogComponent>,
         private dialog: MatDialog,
         private toastr: ToastrService,
         private multiAccountService: MultiAccountService,
@@ -126,7 +127,8 @@ export class EditScenePromptDialogComponent {
         private sanitizer: DomSanitizer
     ) {
         this.editingSceneIndex = data.index;
-        this.editingScenePrompt = { ...data.scene };
+        this.editingVideoIndex = data.vIdx !== undefined ? data.vIdx : -1;
+        this.editingScenePrompt = data.video ? { ...data.video } : { ...data.scene };
         this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || data.projectAspectRatio || '16:9';
         this.characters = data.characters || [];
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';

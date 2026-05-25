@@ -153,7 +153,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
         const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
         if (keys.length === 0) return null;
-        
+
         return keys[Math.floor(Math.random() * keys.length)];
     }
 
@@ -195,16 +195,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
         try {
             this.toastr.info(`Đang tự động vẽ Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`, 'Hệ thống');
-            
+
             let promptText = video.imagePrompt || video.prompt || '';
             promptText = promptText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
-            
+
             const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
             if (master) {
                 promptText = master + '\n\n' + promptText;
             }
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
-            
+
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
 
             // Gắn thêm ảnh reference của nhân vật được tick nếu có
@@ -646,20 +646,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         this.toastr.success(`Đã thêm tạo hình "${char.name || char.role}" vào Master Prompt!`);
     }
 
-    openEditScenePromptDialog(scene: any, video: any, index: number) {
+    openEditScenePromptDialog(scene: any, video: any, index: number, vIdx: number = -1) {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             data: {
                 scene,
                 video,
                 index,
+                vIdx,
                 characters: this.projectData?.characters || [],
                 projectAspectRatio: this.projectData?.aspectRatio || '16:9',
                 masterPrompt: this.projectData?.masterPrompt || '',
                 mediaDir: this.projectData?.mediaDir || '',
                 uuid: this.projectData?.uuid || this.data?.uuid
             },
-            width: '100vw',
-            maxWidth: '100vw',
+            width: '90vw',
+            maxWidth: '95vw',
             maxHeight: '95vh',
             disableClose: true
         });
@@ -857,7 +858,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 } else {
                     video.imageUrl = finalPath;
                 }
-                
+
                 video.isCompleted = true;
                 this.saveData();
                 this.cd.detectChanges();
@@ -1053,7 +1054,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             let basename = cleanUrl.split(/[/\\]/).pop() || cleanUrl;
             // Cắt bỏ tiền tố timestamp (13 số + _) bị dính từ bên Win sang
             basename = basename.replace(/^\d{13}_/, '');
-            
+
             const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
             if (mediaDir) {
                 cleanUrl = `media://${mediaDir}/${basename}`;
@@ -1068,7 +1069,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
-        
+
         const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
