@@ -2281,12 +2281,22 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
 ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
     try {
         const fileName = path.basename(filePath);
+        const docPath = app.getPath("documents");
+        const dataDir = path.join(docPath, "ai.type", "data");
+
+        // Nếu file đã nằm trong thư mục data của app rồi thì không cần copy
+        const normalizedFilePath = path.normalize(filePath);
+        const normalizedDataDir = path.normalize(dataDir);
+        if (normalizedFilePath.startsWith(normalizedDataDir)) {
+            console.log(`File already in data dir, skipping copy: ${filePath}`);
+            return `file://${path.resolve(filePath)}`;
+        }
+
         // Tạo một tên file duy nhất để tránh bị trùng (ví dụ: timestamp_filename)
         const uniqueFileName = `${Date.now()}_${fileName}`;
         
         let destinationPath;
         if (customDir) {
-            const docPath = app.getPath("documents");
             const saveDir = path.join(docPath, "ai.type", "data", customDir);
             if (!fs.existsSync(saveDir)) {
                 fs.mkdirSync(saveDir, { recursive: true });
@@ -2302,9 +2312,6 @@ ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
         console.log(`File copied from ${filePath} to ${destinationPath}`);
 
         // Trả về đường dẫn mới về Renderer process.
-        // LƯU Ý: Để Angular có thể hiển thị ảnh/video này, đường dẫn
-        // cần được định dạng dưới dạng một file:// protocol URL.
-        // path.resolve() đảm bảo đường dẫn là tuyệt đối.
         return `file://${path.resolve(destinationPath)}`;
     } catch (error) {
         console.error('Error selecting file:', error);
