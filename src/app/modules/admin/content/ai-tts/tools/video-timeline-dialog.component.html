@@ -125,7 +125,7 @@
                                     }
 
                                     @if (video.videoUrl) {
-                                    <video #videoEl [src]="video.videoUrl" class="w-full h-full block object-contain"
+                                    <video #videoEl [src]="getSafeUrl(video.videoUrl)" class="w-full h-full block object-contain"
                                         muted playsinline (play)="0" (pause)="0"
                                         (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
 
@@ -138,11 +138,12 @@
                                     </button>
                                     } @else if (video.imageUrl) {
                                     <ng-container *ngIf="isImageType(video.imageUrl); else legacyVideoPlayer">
-                                        <img [src]="video.imageUrl"
-                                            class="w-full h-full object-contain pointer-events-none block">
+                                        <img [src]="getSafeUrl(video.imageUrl)"
+                                            class="w-full h-full object-contain pointer-events-none block"
+                                            (error)="$event.target.src='assets/images/placeholder.jpg'" />
                                     </ng-container>
                                     <ng-template #legacyVideoPlayer>
-                                        <video #legacyVideoEl [src]="video.imageUrl"
+                                        <video #legacyVideoEl [src]="getSafeUrl(video.imageUrl)"
                                             class="w-full h-full block object-contain" muted playsinline (play)="0"
                                             (pause)="0"
                                             (ended)="legacyVideoEl.currentTime=0; legacyVideoEl.pause()"></video>

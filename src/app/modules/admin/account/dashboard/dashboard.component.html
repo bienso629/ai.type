@@ -4,10 +4,8 @@
         <!-- CONTENT GOES HERE -->
         <div class="p-6 md:p-8">
             <div class="text-2xl font-bold tracking-tight leading-8 mb-6">{{collections?.length || 0}} tập của bạn</div>
-            <div *ngIf="collections && collections.length > 0"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                <div *ngFor="let item of collections" [routerLink]="['/collection']"
-                    [queryParams]="{ collectionId: item._id }"
+            <div *ngIf="collections && collections.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div *ngFor="let item of collections" [routerLink]="['/collection']" [queryParams]="{ collectionId: item._id }"
                     class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-green-600 rounded-xl overflow-hidden cursor-pointer">
                     <div class="p-6 flex flex-col flex-auto">
                         <div class="flex items-center justify-between mb-4">
@@ -20,8 +18,7 @@
                                 <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:clock'"></mat-icon>
                                 {{(item.lastItemUpdatedAt || item.lastUpdatedAt || item.lastUpdated || item.updatedAt) | timeago}}
                             </span>
-                            <span
-                                class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">
+                            <span class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">
                                 {{item.count || 0}} bản ghi • {{item.totalUsed || item.used || item.total_used || 0}} lần dùng
                             </span>
                         </div>
@@ -39,8 +36,7 @@
                             <circle cx="60" cy="60" r="56" fill="url(#bgGrad)" />
 
                             <!-- Document Base -->
-                            <rect x="28" y="28" width="52" height="68" rx="6" fill="white" fill-opacity="0.15"
-                                stroke="white" stroke-opacity="0.3" stroke-width="1.5" />
+                            <rect x="28" y="28" width="52" height="68" rx="6" fill="white" fill-opacity="0.15" stroke="white" stroke-opacity="0.3" stroke-width="1.5" />
                             <!-- Header line -->
                             <rect x="40" y="42" width="28" height="6" rx="3" fill="white" fill-opacity="0.6" />
                             <!-- Text lines -->
@@ -49,23 +45,20 @@
                             <rect x="40" y="76" width="24" height="4" rx="2" fill="white" fill-opacity="0.3" />
 
                             <!-- Floating Media Box -->
-                            <rect x="52" y="48" width="44" height="34" rx="6" fill="white" fill-opacity="0.25"
-                                stroke="white" stroke-opacity="0.5" stroke-width="1.5" />
+                            <rect x="52" y="48" width="44" height="34" rx="6" fill="white" fill-opacity="0.25" stroke="white" stroke-opacity="0.5" stroke-width="1.5" />
                             <circle cx="65" cy="58" r="3.5" fill="white" fill-opacity="0.7" />
-                            <path d="M54 75 L63 65 L69 71 L77 61 L93 75" fill="none" stroke="white" stroke-opacity="0.7"
-                                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M54 75 L63 65 L69 71 L77 61 L93 75" fill="none" stroke="white" stroke-opacity="0.7" stroke-width="2" stroke-linecap="round"
+                                stroke-linejoin="round" />
 
                             <!-- Floating Add/Create Button -->
                             <circle cx="82" cy="82" r="14" fill="white" fill-opacity="0.95" />
-                            <path d="M82 75 V89 M75 82 H89" fill="none" stroke="#059669" stroke-width="2.5"
-                                stroke-linecap="round" />
+                            <path d="M82 75 V89 M75 82 H89" fill="none" stroke="#059669" stroke-width="2.5" stroke-linecap="round" />
 
                             <!-- Sparkles -->
                             <circle cx="92" cy="34" r="3" fill="#a7f3d0" opacity="0.8" />
                             <circle cx="22" cy="46" r="2" fill="#6ee7b7" opacity="0.6" />
                             <circle cx="34" cy="88" r="2.5" fill="#6ee7b7" opacity="0.7" />
-                            <path d="M72 26 L73 30 L77 31 L73 32 L72 36 L71 32 L67 31 L71 30 Z" fill="white"
-                                fill-opacity="0.8" />
+                            <path d="M72 26 L73 30 L77 31 L73 32 L72 36 L71 32 L67 31 L71 30 Z" fill="white" fill-opacity="0.8" />
 
                             <defs>
                                 <linearGradient id="bgGrad" x1="0" y1="0" x2="120" y2="120" gradientUnits="userSpaceOnUse">
@@ -88,15 +81,22 @@
         <!-- Video Projects Section -->
         <div class="p-6 md:p-8 pt-0">
             <div class="text-2xl font-bold tracking-tight leading-8 mb-6">{{videoProjects?.length || 0}} kịch bản video đang xây dựng</div>
-            <div *ngIf="videoProjects && videoProjects.length > 0"
-                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            <div *ngIf="videoProjects && videoProjects.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div *ngFor="let project of videoProjects" [routerLink]="['/voice2video', user.name, project.uuid]"
                     class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-blue-600 rounded-xl overflow-hidden cursor-pointer relative group">
                     <div class="p-6 flex flex-col flex-auto">
-                        <div class="flex items-center justify-between mb-4">
+                        <div class="flex flex-col mb-4 relative pr-8">
                             <div class="text-lg font-medium tracking-tight truncate" [title]="project.title">
                                 {{project.title || 'Dự án mới'}}
                             </div>
+                            <div class="text-[11px] text-gray-400 mt-1 font-mono truncate" [title]="'UUID: ' + project.uuid">
+                                ID: {{project.uuid}}
+                            </div>
+                            <button mat-icon-button (click)="deleteVideoProject(project, $event)"
+                                class="absolute -top-2 -right-2 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                matTooltip="Xóa kịch bản">
+                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                            </button>
                         </div>
                         <div class="mt-4 flex items-center justify-between text-xs text-secondary">
                             <span class="flex items-center">
@@ -108,7 +108,7 @@
                     </div>
                 </div>
             </div>
-            
+
             <div *ngIf="!videoProjects || videoProjects.length === 0" class="text-gray-500 text-sm mt-2">
                 Chưa có kịch bản video nào đang làm.
             </div>

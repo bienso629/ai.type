@@ -60,10 +60,17 @@ function registerExportImportHandlers() {
 
                 // Loại bỏ giao thức file:// hoặc file:///
                 let localPath = mediaPath;
-                if (localPath.startsWith('file:///')) {
-                    localPath = localPath.slice(8);
-                } else if (localPath.startsWith('file://')) {
-                    localPath = localPath.slice(7);
+                if (localPath.startsWith('file://')) {
+                    try {
+                        const url = require('url');
+                        localPath = url.fileURLToPath(localPath);
+                    } catch (e) {
+                        if (localPath.startsWith('file:///')) {
+                            localPath = process.platform === 'win32' ? localPath.slice(8) : localPath.slice(7);
+                        } else {
+                            localPath = localPath.slice(7);
+                        }
+                    }
                 }
 
                 // Giải mã các ký tự đặc biệt (ví dụ khoảng trắng %20)
@@ -127,7 +134,6 @@ function registerExportImportHandlers() {
             let targetUuid = importedData.uuid;
             let isNewScenario = false;
 
-            // Nếu tệp nhập vào không có UUID, tạo UUID mới
             if (!targetUuid) {
                 targetUuid = crypto.randomUUID ? crypto.randomUUID() : `scenario_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
                 isNewScenario = true;
@@ -136,22 +142,21 @@ function registerExportImportHandlers() {
                     importedData.videoProject.uuid = targetUuid;
                 }
             } else {
-                // Giữ nguyên UUID của tệp nhập vào.
-                // Nếu UUID khác kịch bản đang mở, báo frontend chuyển hướng (navigate) sang kịch bản đó
                 if (targetUuid !== currentUuid) {
                     isNewScenario = true;
                 }
             }
 
-            // Giải nén trực tiếp vào thư mục Documents/ai.type/data/tts/<username>/<uuid> để hiển thị và lưu trữ đúng vị trí trực quan cho người dùng
+            // Giải nén trực tiếp vào thư mục Documents/ai.type/data/tts/<username>/<uuid>
             const docPath = app.getPath('documents');
             const extractDir = path.join(docPath, 'ai.type', 'data', 'tts', username || 'admin', targetUuid);
             const mediaDir = extractDir;
 
-            // Tạo thư mục nếu chưa có
-            if (!fs.existsSync(extractDir)) {
-                fs.mkdirSync(extractDir, { recursive: true });
+            // XOÁ THƯ MỤC CŨ ĐI (nếu tồn tại) ĐỂ TRÁNH NHÂN ĐÔI DỮ LIỆU
+            if (fs.existsSync(extractDir)) {
+                fs.rmSync(extractDir, { recursive: true, force: true });
             }
+            fs.mkdirSync(extractDir, { recursive: true });
 
             zip.extractAllTo(extractDir, true);
 
@@ -167,18 +172,10 @@ function registerExportImportHandlers() {
                 } catch(e) {}
             }
 
-            // Chuyển đổi importedData thành chuỗi JSON để thay thế %MEDIA_DIR%
-            let projectJSON = JSON.stringify(importedData);
+            const projectData = importedData;
 
-            // Thay thế %MEDIA_DIR% bằng đường dẫn thư mục media thực tế dưới dạng URL file:// để Chromium hiển thị được
-            // Lưu ý: trong JSON, dấu gạch chéo ngược trên Windows sẽ cần được escape (hoặc dùng forward slash)
-            // Dùng forward slash cho đồng bộ vì Electron/Chromium hiểu forward slash tốt trên cả Windows
-            const safeMediaDir = mediaDir.replace(/\\/g, '/');
-            const fileProtocolPrefix = safeMediaDir.startsWith('/') ? 'file://' : 'file:///';
-            const replacement = `${fileProtocolPrefix}${safeMediaDir}`;
-            projectJSON = projectJSON.replace(/%MEDIA_DIR%/g, replacement);
-
-            const projectData = JSON.parse(projectJSON);
+            // Bổ sung mediaDir vào projectData để frontend biết thư mục gốc của project
+            projectData.mediaDir = mediaDir.replace(/\\/g, '/');
 
             // Ghi đè lại file project.json đã cập nhật UUID và đường dẫn trong thư mục dự án mới/hiện tại
             const updatedProjectJsonPath = path.join(extractDir, 'project.json');
@@ -187,6 +184,22 @@ function registerExportImportHandlers() {
             return { success: true, isNewScenario, targetUuid, projectData };
         } catch (error) {
             console.error("Import Project Error:", error);
+            return { success: false, error: error.message };
+        }
+    });
+    ipcMain.handle('delete-project', async (event, payload) => {
+        try {
+            const { targetUuid, username } = payload;
+            if (!targetUuid) return { success: false, error: 'Thiếu targetUuid' };
+            const docPath = app.getPath('documents');
+            const extractDir = path.join(docPath, 'ai.type', 'data', 'tts', username || 'admin', targetUuid);
+            
+            if (fs.existsSync(extractDir)) {
+                fs.rmSync(extractDir, { recursive: true, force: true });
+            }
+            return { success: true };
+        } catch (error) {
+            console.error("Delete Project Error:", error);
             return { success: false, error: error.message };
         }
     });

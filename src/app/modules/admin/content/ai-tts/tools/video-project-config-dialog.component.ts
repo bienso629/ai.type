@@ -1,4 +1,5 @@
 import { Component, Inject, OnInit, ChangeDetectorRef } from '@angular/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialog, MatDialogModule } from '@angular/material/dialog';
@@ -55,12 +56,41 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         private dialog: MatDialog,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
-        private _fuseConfirmationService: FuseConfirmationService
+        private _fuseConfirmationService: FuseConfirmationService,
+        private sanitizer: DomSanitizer
     ) {
         this.projectData = this.data?.projectData || {};
         if (!this.projectData.characters) {
             this.projectData.characters = [];
         }
+    }
+
+    private safeUrlCache: { [url: string]: SafeUrl } = {};
+    getSafeUrl(url: string | null): SafeUrl | string | null {
+        if (!url) return url;
+        if (typeof url !== 'string') return url;
+        let cleanUrl = url;
+
+        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
+            // do nothing
+        } else {
+            cleanUrl = cleanUrl.replace(/^unsafe:/, '');
+            let basename = cleanUrl.split(/[/\\]/).pop() || cleanUrl;
+            
+            const mediaDir = this.data?.mediaDir || '';
+            if (mediaDir) {
+                cleanUrl = `media://${mediaDir}/${basename}`;
+            } else {
+                const projectUuid = this.data?.uuid || 'default';
+                cleanUrl = `media://AUTO_FIND/${projectUuid}/${basename}`;
+            }
+        }
+
+        if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
+        
+        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+        this.safeUrlCache[cleanUrl] = safeUrl;
+        return safeUrl;
     }
 
     ngOnInit(): void { }
@@ -271,7 +301,8 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
                 masterPrompt: this.projectData?.masterPrompt || '',
                 existingCharacters: this.projectData?.characters || [],
                 uuid: this.data?.uuid,
-                username: this.data?.username || 'anonymous'
+                username: this.data?.username || 'anonymous',
+                mediaDir: this.data?.mediaDir || ''
             }
         });
 
@@ -448,7 +479,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa nhân vật',
             message: 'Bạn có chắc chắn muốn xóa nhân vật này? Các prompt có sử dụng mô tả của nhân vật này sẽ không tự động bị xóa.',
-            icon: { show: true, name: 'heroicons_outline:exclamation-triangle', color: 'warn' },
+            icon: { show: true, name: 'heroicons_outline:question-mark-circle', color: 'warn' },
             actions: {
                 confirm: { show: true, label: 'Xóa', color: 'warn' },
                 cancel: { show: true, label: 'Hủy' }

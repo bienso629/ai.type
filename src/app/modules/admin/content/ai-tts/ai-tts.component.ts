@@ -837,17 +837,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             );
 
             if (result && result.exists) {
-                const safePath = filePath.replace(/\\/g, '/');
-                // Bóc giao thức cũ để tránh trùng lặp
-                let cleanPath = safePath;
+                // Luôn sử dụng absolute path trả về từ backend (result.path)
+                let cleanPath = result.path.replace(/\\/g, '/');
                 if (cleanPath.startsWith('file:///')) {
                     cleanPath = cleanPath.slice(8);
                 } else if (cleanPath.startsWith('file://')) {
                     cleanPath = cleanPath.slice(7);
                 }
 
-                // Thiết lập đường dẫn file URL trực tiếp
-                const fileUrl = safePath.startsWith('/') ? `file://${cleanPath}` : `file:///${cleanPath}`;
+                // Dùng protocol media:// để không bị Chromium chặn
+                const fileUrl = cleanPath.startsWith('/') ? `media://${cleanPath}` : `media:///${cleanPath}`;
 
                 // Nếu clip đã được gán đúng URL này rồi, không cần gán lại hay đo lại duration (tránh nhấp nháy WaveSurfer)
                 if (clip.rawUrl === fileUrl) {
@@ -950,7 +949,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     const result = await (window as any).electron.invoke('check-local-file-exists', payload);
 
                     if (result && result.exists) {
-                        clip['localFilePath'] = result.path;
+                        clip['localFilePath'] = fname; // Chỉ lưu basename
                         clip.audioFileName = fname;
                         clip.username = projectSubPath;
 
@@ -1736,15 +1735,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     async exportProject() {
         const mediaPaths: string[] = [];
         
-        // Helper function to process paths
         const processPath = (filePath: string) => {
             if (!filePath) return null;
             if (filePath.startsWith('http') || filePath.startsWith('data:') || filePath.startsWith('blob:')) return filePath;
-            // Extract filename and replace absolute path
+            // Extract filename
             const filename = filePath.split(/[/\\]/).pop();
-            const relPath = `%MEDIA_DIR%/${filename}`;
             mediaPaths.push(filePath);
-            return relPath;
+            return filename;
         };
 
         const exportData: any = {
@@ -1780,6 +1777,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                     if (scene.imageUrl) {
                         scene.imageUrl = processPath(scene.imageUrl);
+                    }
+                    if (scene.videos && Array.isArray(scene.videos)) {
+                        scene.videos.forEach((video: any) => {
+                            if (video.imageUrl) {
+                                video.imageUrl = processPath(video.imageUrl);
+                            }
+                            if (video.videoUrl) {
+                                video.videoUrl = processPath(video.videoUrl);
+                            }
+                            if (video.customVideoPath) {
+                                video.customVideoPath = processPath(video.customVideoPath);
+                            }
+                        });
                     }
                 });
             }
