@@ -9,7 +9,8 @@ const {
     ipcMain,
     dialog, // <--- Thêm cái này vào
     Notification,
-    desktopCapturer
+    desktopCapturer,
+    net
 } = require("electron");
 const { registerExportImportHandlers } = require("./export-import-project");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
@@ -21,11 +22,20 @@ const fs = require("fs");
 
 protocol.registerSchemesAsPrivileged([
     {
-        scheme: 'media',
+        scheme: 'mediacors',
         privileges: {
             supportFetchAPI: true,
             bypassCSP: true,
             corsEnabled: true
+        }
+    },
+    {
+        scheme: 'media',
+        privileges: {
+            standard: true,
+            secure: true,
+            supportFetchAPI: true,
+            bypassCSP: true
         }
     }
 ]);
@@ -2819,27 +2829,97 @@ function startSttServer() {
 }
 
 app.whenReady().then(async () => {
-    protocol.registerFileProtocol('media', (request, callback) => {
-        let url = request.url.replace('media://', '');
-        
-        // Hỗ trợ tự động tìm kiếm thư mục dự án nếu Frontend chưa có mediaDir
-        if (url.startsWith('AUTO_FIND/')) {
-            const parts = url.replace('AUTO_FIND/', '').split('/');
+    const resolveMediaPath = (originalUrl) => {
+        let targetPath = '';
+        let url = decodeURIComponent(originalUrl);
+
+        // Chromium với standard:true sẽ normalize URL:
+        //   media://AUTO_FIND/xxx  ->  media://auto_find/xxx   (lowercase hostname)
+        //   media:///C:/path       ->  media://c/path          (C: bị mất dấu hai chấm)
+        // Nên ta cần so khớp case-insensitive
+
+        if (url.toLowerCase().startsWith('auto_find/')) {
+            // Cắt bỏ phần "auto_find/" (case-insensitive)
+            const rest = url.substring('auto_find/'.length);
+            const parts = rest.split('/');
             const uuid = parts[0];
-            const basename = parts.slice(1).join('/'); // Trong trường hợp basename chứa slash (hiếm)
+            const basename = parts.slice(1).join('/');
             const docPath = app.getPath('documents');
-            const targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid, decodeURIComponent(basename));
-            return callback(targetPath);
+            targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid, basename);
+        } else {
+            // Xử lý đường dẫn ổ đĩa bị Chromium bóp méo
+            // "c/Users/..." -> "C:/Users/..."
+            // "/c/Users/..." -> "C:/Users/..."
+            // "/C:/Users/..." -> "C:/Users/..."
+            let cleaned = url;
+            // Bỏ dấu / đầu nếu có
+            if (cleaned.startsWith('/')) cleaned = cleaned.substring(1);
+            // Khôi phục drive letter: "c/Users" -> "C:/Users"
+            const driveMatch = cleaned.match(/^([a-zA-Z])(:?)\//);
+            if (driveMatch) {
+                const driveLetter = driveMatch[1].toUpperCase();
+                // Nếu đã có dấu hai chấm (C:/) thì giữ, nếu không (c/) thì thêm vào
+                if (driveMatch[2] === ':') {
+                    cleaned = driveLetter + cleaned.substring(1);
+                } else {
+                    cleaned = driveLetter + ':' + cleaned.substring(1);
+                }
+            }
+            targetPath = cleaned;
         }
 
-        // Hỗ trợ đường dẫn Windows
-        if (url.startsWith('/C:/') || url.startsWith('/D:/') || url.startsWith('/E:/')) {
-            url = url.substring(1);
+        targetPath = require('path').normalize(targetPath);
+
+        // Fallback: tìm file có timestamp prefix
+        if (!fs.existsSync(targetPath)) {
+            const dir = require('path').dirname(targetPath);
+            const base = require('path').basename(targetPath);
+            if (fs.existsSync(dir)) {
+                const files = fs.readdirSync(dir);
+                const match = files.find(f => f.endsWith(`_${base}`) || f === base);
+                if (match) {
+                    targetPath = require('path').join(dir, match);
+                }
+            }
         }
+        return targetPath;
+    };
+
+    // Native file protocol cho <img>, <video>, <audio> (Hỗ trợ stream, seeking hoàn hảo)
+    protocol.registerFileProtocol('media', (request, callback) => {
         try {
-            return callback(decodeURIComponent(url));
+            const url = request.url.replace('media://', '');
+            const targetPath = resolveMediaPath(url);
+            console.log('[Media Protocol - File]', request.url, '-> targetPath:', targetPath);
+            return callback({ path: targetPath });
         } catch (error) {
-            console.error(error);
+            console.error('Lỗi protocol media:', error);
+            return callback({ error: -2 }); // -2 is FAILED
+        }
+    });
+
+    // Custom protocol cho Wavesurfer dùng fetch() (cần CORS)
+    protocol.handle('mediacors', async (request) => {
+        const url = request.url.replace('mediacors://', '');
+        const targetPath = resolveMediaPath(url);
+        
+        try {
+            const fileUrl = require('url').pathToFileURL(targetPath).toString();
+            const response = await net.fetch(fileUrl, {
+                headers: request.headers,
+                method: request.method
+            });
+            const headers = new Headers(response.headers);
+            headers.set('Access-Control-Allow-Origin', '*');
+            headers.set('Access-Control-Allow-Headers', '*');
+            
+            return new Response(response.body, {
+                status: response.status,
+                statusText: response.statusText,
+                headers: headers
+            });
+        } catch (error) {
+            return new Response('Not Found', { status: 404 });
         }
     });
 
