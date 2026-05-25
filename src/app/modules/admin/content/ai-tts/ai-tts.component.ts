@@ -1652,7 +1652,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             if (success && clip.rawUrl) {
                 // Thêm timestamp để tránh cache trình duyệt (đảm bảo đọc fresh file từ đĩa, đặc biệt khi file bị xóa/tạo lại)
-                const playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
+                let playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
+                playUrl = playUrl.replace('media://', 'mediacors://');
                 this.wavesurfer.load(playUrl);
                 this.wavesurfer.once('ready', () => {
                     this.wavesurfer.play();

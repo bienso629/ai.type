@@ -840,7 +840,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                     return;
                 }
 
-                const localFilePath = await electron.selectLocalFile(originalPath);
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electron.selectLocalFile(originalPath, customDir);
                 const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
 
                 if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|avi|mov)$/i)) {
