@@ -1,4 +1,5 @@
 import { Component, Inject, ChangeDetectorRef } from '@angular/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialog, MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -121,7 +122,8 @@ export class EditScenePromptDialogComponent {
         private toastr: ToastrService,
         private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private sanitizer: DomSanitizer
     ) {
         this.editingSceneIndex = data.index;
         this.editingScenePrompt = { ...data.scene };
@@ -150,6 +152,34 @@ export class EditScenePromptDialogComponent {
                 `$1${this.editingScenePrompt.duration}$3`
             );
         }
+    }
+
+    private safeUrlCache: { [url: string]: SafeUrl } = {};
+    getSafeUrl(url: string | null): SafeUrl | string | null {
+        if (!url) return url;
+        if (typeof url !== 'string') return url;
+        let cleanUrl = url;
+
+        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
+            // do nothing
+        } else {
+            cleanUrl = cleanUrl.replace(/^unsafe:/, '');
+            let basename = cleanUrl.split(/[/\\]/).pop() || cleanUrl;
+            
+            const mediaDir = this.data?.mediaDir || '';
+            if (mediaDir) {
+                cleanUrl = `media://${mediaDir}/${basename}`;
+            } else {
+                const projectUuid = this.data?.uuid || 'default';
+                cleanUrl = `media://AUTO_FIND/${projectUuid}/${basename}`;
+            }
+        }
+
+        if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
+        
+        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+        this.safeUrlCache[cleanUrl] = safeUrl;
+        return safeUrl;
     }
 
     private getGeminiKey(): string | null {

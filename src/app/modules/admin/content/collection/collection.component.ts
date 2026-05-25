@@ -291,7 +291,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa khỏi tập',
             message: `Bạn có chắc chắn muốn gỡ công việc ${row.uuid} khỏi tập này?`,
-            icon: { show: true, name: 'heroicons_outline:exclamation-triangle', color: 'warn' },
+            icon: { show: true, name: 'heroicons_outline:question-mark-circle', color: 'warn' },
             actions: {
                 confirm: { show: true, label: 'Gỡ bỏ', color: 'warn' },
                 cancel: { show: true, label: 'Hủy' }
@@ -324,7 +324,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa hàng loạt',
             message: `Bạn có chắc chắn muốn gỡ ${this.selected.length} công việc đã chọn khỏi tập này?`,
-            icon: { show: true, name: 'heroicons_outline:exclamation-triangle', color: 'warn' },
+            icon: { show: true, name: 'heroicons_outline:question-mark-circle', color: 'warn' },
             actions: {
                 confirm: { show: true, label: 'Gỡ bỏ', color: 'warn' },
                 cancel: { show: true, label: 'Hủy' }

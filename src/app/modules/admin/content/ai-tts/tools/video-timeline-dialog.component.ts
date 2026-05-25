@@ -10,6 +10,7 @@ import {
     OnDestroy,
     TemplateRef
 } from '@angular/core';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import {
     MAT_DIALOG_DATA,
     MatDialogRef,
@@ -647,17 +648,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
     openEditScenePromptDialog(scene: any, video: any, index: number) {
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
-            width: '86vw',
-            maxWidth: '95vw',
-            maxHeight: '95vh',
-            disableClose: true,
             data: {
-                scene: video,
-                index: index,
+                scene,
+                index,
                 characters: this.projectData?.characters || [],
+                projectAspectRatio: this.projectData?.aspectRatio || '16:9',
                 masterPrompt: this.projectData?.masterPrompt || '',
-                projectAspectRatio: this.projectData?.aspectRatio || '16:9'
-            }
+                mediaDir: this.projectData?.mediaDir || ''
+            },
+            width: '100vw',
+            maxWidth: '100vw',
+            maxHeight: '95vh',
+            disableClose: true
         });
 
         dialogRef.afterClosed().subscribe(result => {
@@ -878,7 +880,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         const imageExtensions = [
             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
         ];
-        const cleanUrl = url.replace('file://', '');
+        let cleanUrl = url.replace('file://', '').replace('media://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
         return fileExtension ? imageExtensions.includes(fileExtension) : true;
     }
@@ -1030,8 +1032,40 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         private router: Router,
         private dialog: MatDialog,
         private cd: ChangeDetectorRef,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private sanitizer: DomSanitizer
     ) { }
+
+    private safeUrlCache: { [url: string]: SafeUrl } = {};
+    getSafeUrl(url: string | null): SafeUrl | string | null {
+        if (!url) return url;
+        if (typeof url !== 'string') return url;
+        let cleanUrl = url;
+
+        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
+            // do nothing
+        } else {
+            // Loại bỏ unsafe: nếu có
+            cleanUrl = cleanUrl.replace(/^unsafe:/, '');
+            // Rút trích chỉ lấy tên file (basename) phòng trường hợp localStorage lưu đường dẫn cũ
+            let basename = cleanUrl.split(/[/\\]/).pop() || cleanUrl;
+            
+            const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
+            if (mediaDir) {
+                cleanUrl = `media://${mediaDir}/${basename}`;
+            } else {
+                // Nếu chưa có mediaDir, uỷ quyền cho backend tự tìm
+                const projectUuid = this.projectData?.uuid || this.data?.uuid || 'default';
+                cleanUrl = `media://AUTO_FIND/${projectUuid}/${basename}`;
+            }
+        }
+
+        if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
+        
+        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+        this.safeUrlCache[cleanUrl] = safeUrl;
+        return safeUrl;
+    }
 
     ngOnInit() {
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;

@@ -249,4 +249,54 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.router.navigate(['/tools']);
         });
     }
+
+    deleteVideoProject(project: any, event: MouseEvent) {
+        event.stopPropagation();
+        
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa kịch bản video',
+            message: `Bạn có chắc chắn muốn xóa kịch bản "<b>${project.title || 'Dự án mới'}</b>"?<br>Hành động này không thể hoàn tác và sẽ xóa toàn bộ dữ liệu âm thanh, hình ảnh liên quan.`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:question-mark-circle',
+                color: 'warn'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (result === 'confirmed') {
+                // Xóa localStorage
+                this.multiAccountService.removeItem(`ai_type_audio_merger_data_${project.uuid}`);
+                this.multiAccountService.removeItem(`ai_type_video_ready_data_${project.uuid}`);
+                this.multiAccountService.removeItem(`casting_list_${project.uuid}`);
+                
+                // Cập nhật mảng trên UI
+                this.videoProjects = this.videoProjects.filter(p => p.uuid !== project.uuid);
+                
+                // Xóa file trên đĩa qua Electron IPC
+                if ((window as any).electron) {
+                    try {
+                        await (window as any).electron.invoke('delete-project', {
+                            targetUuid: project.uuid,
+                            username: this.user.name
+                        });
+                    } catch (e) {
+                        console.error('Lỗi khi xóa file đĩa:', e);
+                    }
+                }
+            }
+        });
+    }
 }

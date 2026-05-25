@@ -14,7 +14,7 @@
                 <div class="relative cursor-pointer border-2 rounded-lg p-1 transition-all"
                     [ngClass]="isReferenceCharSelected(char) ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-slate-300'"
                     (click)="toggleReferenceChar(char)" matTooltip="Dùng làm ảnh tham khảo cho AI">
-                    <img [src]="char.avatarUrl || char.avatarUrls[0]" class="w-12 h-12 object-cover rounded-md">
+                    <img [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])" class="w-12 h-12 object-cover rounded-md">
                     @if (isReferenceCharSelected(char)) {
                     <div
                         class="absolute -top-2 -right-2 bg-blue-500 rounded-full w-5 h-5 flex items-center justify-center">
@@ -38,9 +38,9 @@
                 [ngStyle]="getAspectRatioStyle()">
                 
                 @if (editingScenePrompt.videoUrl) {
-                    <video [src]="editingScenePrompt.videoUrl" class="w-full h-full object-cover rounded-lg" [loop]="true" muted autoplay playsinline></video>
+                    <video [src]="getSafeUrl(editingScenePrompt.videoUrl)" class="w-full h-full object-cover rounded-lg" [loop]="true" muted autoplay playsinline></video>
                 } @else {
-                    <img [src]="editingScenePrompt.imageUrl" class="w-full h-full object-cover rounded-lg">
+                    <img [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="w-full h-full object-cover rounded-lg">
                 }
 
                 <button mat-icon-button

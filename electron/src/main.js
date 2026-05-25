@@ -1,5 +1,6 @@
 const {
     app,
+    protocol,
     BrowserWindow,
     Menu,
     globalShortcut,
@@ -2351,10 +2352,17 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
         let targetPath = filePath;
 
         if (targetPath) {
-            if (targetPath.startsWith('file:///')) {
-                targetPath = targetPath.slice(8);
-            } else if (targetPath.startsWith('file://')) {
-                targetPath = targetPath.slice(7);
+            if (targetPath.startsWith('file://')) {
+                try {
+                    const url = require('url');
+                    targetPath = url.fileURLToPath(targetPath);
+                } catch (e) {
+                    if (targetPath.startsWith('file:///')) {
+                        targetPath = process.platform === 'win32' ? targetPath.slice(8) : targetPath.slice(7);
+                    } else {
+                        targetPath = targetPath.slice(7);
+                    }
+                }
             }
             try {
                 targetPath = decodeURIComponent(targetPath);
@@ -2387,51 +2395,6 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
     }
 });
 
-ipcMain.handle("read-local-audio", async (event, payload) => {
-    try {
-        const { path: filePath, filename } = payload;
-        let targetPath = filePath;
-
-        if (targetPath) {
-            if (targetPath.startsWith('file:///')) {
-                targetPath = targetPath.slice(8);
-            } else if (targetPath.startsWith('file://')) {
-                targetPath = targetPath.slice(7);
-            }
-            try {
-                targetPath = decodeURIComponent(targetPath);
-            } catch (e) {}
-        }
-
-        // Nếu Frontend không gửi đường dẫn tuyệt đối (chỉ gửi tên file)
-        // Ta sẽ tìm trong thư mục Documents mặc định
-        if (!targetPath && filename) {
-            const documentsPath = app.getPath("documents");
-            // Lưu ý: Logic tìm kiếm này chỉ mang tính ước lượng nếu thiếu path
-            // Tốt nhất Frontend nên gửi path tuyệt đối (clip['localFilePath'])
-            targetPath = path.join(
-                documentsPath,
-                "ai.type",
-                "data",
-                "tts",
-                "admin",
-                filename,
-            );
-        }
-
-        if (targetPath && fs.existsSync(targetPath)) {
-            const fileBuffer = fs.readFileSync(targetPath);
-            return { success: true, base64: fileBuffer.toString("base64") };
-        } else {
-            return {
-                success: false,
-                error: `Không tìm thấy file: ${targetPath}`,
-            };
-        }
-    } catch (error) {
-        return { success: false, error: error.message };
-    }
-});
 
 ipcMain.handle("get-app-version", async () => {
     return version;
@@ -2831,6 +2794,30 @@ function startSttServer() {
 }
 
 app.whenReady().then(async () => {
+    protocol.registerFileProtocol('media', (request, callback) => {
+        let url = request.url.replace('media://', '');
+        
+        // Hỗ trợ tự động tìm kiếm thư mục dự án nếu Frontend chưa có mediaDir
+        if (url.startsWith('AUTO_FIND/')) {
+            const parts = url.replace('AUTO_FIND/', '').split('/');
+            const uuid = parts[0];
+            const basename = parts.slice(1).join('/'); // Trong trường hợp basename chứa slash (hiếm)
+            const docPath = app.getPath('documents');
+            const targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid, decodeURIComponent(basename));
+            return callback(targetPath);
+        }
+
+        // Hỗ trợ đường dẫn Windows
+        if (url.startsWith('/C:/') || url.startsWith('/D:/') || url.startsWith('/E:/')) {
+            url = url.substring(1);
+        }
+        try {
+            return callback(decodeURIComponent(url));
+        } catch (error) {
+            console.error(error);
+        }
+    });
+
     registerExportImportHandlers();
     if (process.platform === 'win32') {
         app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
@@ -4110,15 +4097,16 @@ function cleanFilePath(fileUrl) {
     if (!fileUrl) return '';
     let p = fileUrl;
 
-    // Xóa prefix file://
     if (p.startsWith('file://')) {
-        p = p.substring(7); // Giữ lại dấu / đầu tiên (VD: /C:/... hoặc /Users/...)
-    }
-
-    // Trên Windows, đường dẫn tuyệt đối có dạng /C:/Users/...
-    // Ta cần bỏ dấu / ở đầu đi để thành C:/Users/...
-    if (process.platform === 'win32' && p.match(/^\/[a-zA-Z]:/)) {
-        p = p.substring(1);
+        try {
+            const url = require('url');
+            p = url.fileURLToPath(p);
+        } catch (e) {
+            p = p.substring(7); // Giữ lại dấu / đầu tiên
+            if (process.platform === 'win32' && p.match(/^\/[a-zA-Z]:/)) {
+                p = p.substring(1);
+            }
+        }
     }
 
     try {
