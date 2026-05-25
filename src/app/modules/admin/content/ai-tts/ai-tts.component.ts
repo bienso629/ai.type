@@ -833,6 +833,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 {
                     path: filePath,
                     filename: clip.audioFileName,
+                    username: this.user?.name || 'admin',
+                    targetUuid: this.uuid
                 },
             );
 
@@ -1464,8 +1466,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             sub.duration = originalClip.duration || sub.duration;
                             if (originalClip.localFilePath) {
                                 try {
-                                    const result = await (window as any).electron.invoke('check-local-file-exists', { path: originalClip.localFilePath });
+                                    const result = await (window as any).electron.invoke('check-local-file-exists', { 
+                                        path: originalClip.localFilePath,
+                                        filename: originalClip.audioFileName,
+                                        username: this.user?.name || 'admin',
+                                        targetUuid: this.uuid
+                                    });
                                     if (result && result.exists) {
+                                        originalClip.localFilePath = result.path;
                                         const safePath = originalClip.localFilePath.replace(/\\/g, '/');
                                         sub.audioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
                                     } else {
@@ -1780,6 +1788,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
                     if (scene.imageUrl) {
                         scene.imageUrl = processPath(scene.imageUrl);
+                    }
+                    if (scene.videoUrl) {
+                        scene.videoUrl = processPath(scene.videoUrl);
                     }
                     if (scene.videos && Array.isArray(scene.videos)) {
                         scene.videos.forEach((video: any) => {

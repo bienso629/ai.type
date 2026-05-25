@@ -18,6 +18,19 @@ const os = require("os");
 const path = require("path");
 const http = require("http");
 const fs = require("fs");
+
+protocol.registerSchemesAsPrivileged([
+    {
+        scheme: 'media',
+        privileges: {
+            supportFetchAPI: true,
+            bypassCSP: true,
+            corsEnabled: true
+        }
+    }
+]);
+
+// Cờ xác định có đang ở chế độ dev hay không
 const express = require("express");
 const cheerio = require("cheerio");
 const puppeteer = require("puppeteer-extra");
@@ -2348,7 +2361,7 @@ ipcMain.handle("tts-generate", async (event, payload) => {
 // 2. Hàm đọc file - Cập nhật logic fallback (phòng hờ)
 ipcMain.handle("check-local-file-exists", async (event, payload) => {
     try {
-        const { path: filePath, filename, username } = payload;
+        const { path: filePath, filename, username, targetUuid } = payload;
         let targetPath = filePath;
 
         if (targetPath) {
@@ -2369,16 +2382,28 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
             } catch (e) {}
         }
 
+        // Nếu filepath chỉ là tên file (basename) thì targetPath (absolute) ban đầu không tồn tại (sẽ failed fs.existsSync).
+        // Ta cần reset targetPath về rỗng nếu nó không phải là absolute path để chạy logic dự phòng bên dưới.
+        if (targetPath && !path.isAbsolute(targetPath)) {
+            targetPath = null;
+        }
+
         if (!targetPath && filename) {
             const documentsPath = app.getPath("documents");
-            targetPath = path.join(
-                documentsPath,
-                "ai.type",
-                "data",
-                "tts",
-                username || "anonymous",
-                filename
-            );
+            const userFolder = path.join(documentsPath, "ai.type", "data", "tts", username || "anonymous");
+            
+            // TH1: Tìm trong thư mục dự án hiện tại (targetUuid) - Hỗ trợ Import Project
+            if (targetUuid) {
+                const projectPath = path.join(userFolder, targetUuid, filename);
+                if (fs.existsSync(projectPath)) {
+                    targetPath = projectPath;
+                }
+            }
+            
+            // TH2: Tìm trong thư mục global (TTS cache chung)
+            if (!targetPath) {
+                targetPath = path.join(userFolder, filename);
+            }
         }
 
         const exists = !!(targetPath && fs.existsSync(targetPath));
