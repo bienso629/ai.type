@@ -191,7 +191,17 @@ export class MultiAccountService {
      */
     async saveAccount(accountId: string, rawData: any): Promise<void> {
         this.currentAccountId = accountId;
-        this.currentSessionData = { ...this.currentSessionData, ...rawData }; 
+        
+        // Lấy dữ liệu cũ của account này (nếu có) để tránh dính data của account trước đó
+        let existingData = await this.safeDbCall(async () => {
+            const existingRecord = await db.sessions.get(accountId);
+            if (existingRecord && existingRecord.encryptedData) {
+                return this.decryptData(existingRecord.encryptedData) || {};
+            }
+            return {};
+        }, {});
+
+        this.currentSessionData = { ...existingData, ...rawData }; 
         
         await this.safeDbCall(async () => {
             await db.sessions.toCollection().modify({ isActive: 0 });

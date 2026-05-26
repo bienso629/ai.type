@@ -230,56 +230,70 @@
                     </div>
 
                     <div class="w-full mt-4">
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Base URL (Mì tôm AI)</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:link'" matPrefix></mat-icon>
-                            <input [formControlName]="'umodelverseUrl'" type="text" matInput>
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint">Đường dẫn API tương thích OpenAI. VD:
-                            https://api.mitom.ai/v1</div>
+                        <div class="full-width-toggle mb-4">
+                            <mat-slide-toggle [formControlName]="'enableUmodelverse'"
+                                class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
+                                <mat-label class="toggle-label text-md">
+                                    Bật/Tắt Mì Tôm AI
+                                    <span class="text-gray-400">(Tắt để sử dụng mô hình gốc)</span>
+                                </mat-label>
+                            </mat-slide-toggle>
+                        </div>
                     </div>
 
-                    <div class="w-full mt-2">
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>API Key (UModelverse)</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
-                            <input [formControlName]="'umodelverseKey'" [type]="showUmodelverseKey ? 'text' : 'password'" matInput>
-                            <button mat-icon-button type="button" matSuffix (click)="showUmodelverseKey = !showUmodelverseKey">
-                                <mat-icon class="icon-size-4">{{ showUmodelverseKey ? 'visibility_off' : 'visibility' }}</mat-icon>
-                            </button>
-                        </mat-form-field>
-                    </div>
+                    <div class="w-full transition-opacity duration-300" [class.opacity-50]="!accountForm.get('enableUmodelverse').value" [class.pointer-events-none]="!accountForm.get('enableUmodelverse').value">
+                        <div class="w-full mt-4">
+                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>Base URL (Mì tôm AI)</mat-label>
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:link'" matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseUrl'" type="text" matInput>
+                            </mat-form-field>
+                            <div class="mt-1 text-md text-hint">Đường dẫn API tương thích OpenAI. VD:
+                                https://api.mitom.ai/v1</div>
+                        </div>
 
-                    <div class="w-full mt-2">
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Model văn bản (Tùy chọn)</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'" matPrefix></mat-icon>
-                            <input [formControlName]="'umodelverseChatModel'" type="text" matInput placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng gpt-4o).</div>
-                    </div>
+                        <div class="w-full mt-2">
+                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>API Key (UModelverse)</mat-label>
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseKey'" [type]="showUmodelverseKey ? 'text' : 'password'" matInput>
+                                <button mat-icon-button type="button" matSuffix (click)="showUmodelverseKey = !showUmodelverseKey">
+                                    <mat-icon class="icon-size-4">{{ showUmodelverseKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                </button>
+                            </mat-form-field>
+                        </div>
 
-                    <div class="w-full mt-2">
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'" matPrefix></mat-icon>
-                            <input [formControlName]="'umodelverseImageModel'" type="text" matInput placeholder="VD: flux, qwen-vl, dall-e-3">
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng dall-e-3). VD: flux-schnell</div>
-                    </div>
+                        <div class="w-full mt-2">
+                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>Model văn bản (Tùy chọn)</mat-label>
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'" matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseChatModel'" type="text" matInput placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
+                            </mat-form-field>
+                            <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng gpt-4o).</div>
+                        </div>
 
-                    <div class="w-full mt-2">
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Model tạo video (Tùy chọn)</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'" matPrefix></mat-icon>
-                            <input [formControlName]="'umodelverseVideoModel'" type="text" matInput placeholder="VD: cogvideox-5b, luma-dream-machine">
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
+                        <div class="w-full mt-2">
+                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'" matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseImageModel'" type="text" matInput placeholder="VD: flux, qwen-vl, dall-e-3">
+                            </mat-form-field>
+                            <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng dall-e-3). VD: flux-schnell</div>
+                        </div>
+
+                        <div class="w-full mt-2">
+                            <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                                [subscriptSizing]="'dynamic'">
+                                <mat-label>Model tạo video (Tùy chọn)</mat-label>
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'" matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseVideoModel'" type="text" matInput placeholder="VD: cogvideox-5b, luma-dream-machine">
+                            </mat-form-field>
+                            <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
+                        </div>
                     </div>
                 </div>
 
