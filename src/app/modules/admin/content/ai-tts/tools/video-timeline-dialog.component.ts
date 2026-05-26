@@ -317,6 +317,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     removeLink(video: any) {
         video.linkedTo = null;
         this.saveData();
+        this.updateLines();
     }
 
     scrollToLinkedVideo(linkedTo: any) {
@@ -563,14 +564,42 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     onWheelScroll(event: WheelEvent) {
+        event.preventDefault();
+        event.stopPropagation();
         const el = this.scrollContainer.elementRef.nativeElement;
-        if (event.deltaY !== 0 && !event.shiftKey) {
-            event.preventDefault();
-            el.scrollLeft += event.deltaY;
-        } else if (event.deltaX !== 0) {
-            event.preventDefault();
-            el.scrollLeft += event.deltaX;
+        // Lăn chuột dọc (deltaY) → cuộn ngang từng bước nhỏ
+        // Lăn chuột ngang (deltaX) → cuộn ngang bình thường
+        const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
+        // Giới hạn tốc độ cuộn để không nhảy quá xa
+        const step = Math.sign(delta) * Math.min(Math.abs(delta), 150);
+        const newOffset = Math.max(0, el.scrollLeft + step);
+        this.scrollContainer.scrollToOffset(newOffset);
+    }
+
+    // Xử lý wheel trên từng scene column
+    // Nếu content tràn → cuộn dọc trong scene đó, chặn lan truyền
+    // Nếu content không tràn hoặc đã cuộn tới giới hạn → để event lan truyền lên cha để cuộn ngang
+    onSceneWheel(event: WheelEvent) {
+        const el = event.currentTarget as HTMLElement;
+        const hasOverflow = el.scrollHeight > el.clientHeight;
+
+        if (!hasOverflow) {
+            // Không tràn → để event lan lên cha (cuộn ngang)
+            return;
         }
+
+        const atTop = el.scrollTop <= 0;
+        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+        const scrollingDown = event.deltaY > 0;
+        const scrollingUp = event.deltaY < 0;
+
+        // Đã cuộn tới biên → cho event lan truyền lên cha để cuộn ngang
+        if ((atTop && scrollingUp) || (atBottom && scrollingDown)) {
+            return;
+        }
+
+        // Đang cuộn trong vùng nội dung → chặn lan truyền, chỉ cuộn dọc scene này
+        event.stopPropagation();
     }
 
     moveEvent(e: MouseEvent) {

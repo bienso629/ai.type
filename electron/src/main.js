@@ -2848,28 +2848,73 @@ app.whenReady().then(async () => {
         if (url.toLowerCase().startsWith('smart_find/')) {
             const queryString = url.substring(url.indexOf('?') + 1);
             const params = new URLSearchParams(queryString);
-            const originalPath = params.get('path');
-            const mediaDir = params.get('dir');
-            const uuid = params.get('uuid');
+            const originalPath = params.get('path') || '';
+            const mediaDir = params.get('dir') || '';
+            const uuid = params.get('uuid') || 'default';
 
+            // Rút trích basename, bỏ timestamp prefix nếu có
+            let basename = originalPath ? require('path').basename(originalPath).replace(/^\d{13}_/, '') : '';
+            
+            // Khôi phục drive letter bị Chromium lowercase
             let testPath = originalPath;
             if (testPath) {
-                // Sửa lỗi mất / trên macOS/Linux cho absolute path
-                if (testPath.startsWith('/') === false && testPath.match(/^[a-zA-Z]:[\\/]/) === null && originalPath.startsWith('/')) {
-                    testPath = '/' + testPath;
+                const dm = testPath.match(/^([a-zA-Z])(:?)([\\/])/);
+                if (dm && !dm[2]) {
+                    testPath = dm[1].toUpperCase() + ':' + testPath.substring(1);
                 }
                 if (fs.existsSync(testPath)) return testPath;
-            }
-
-            const basename = originalPath ? require('path').basename(originalPath).replace(/^\d{13}_/, '') : '';
-            
-            if (mediaDir) {
-                const target = require('path').join(mediaDir, basename);
-                if (fs.existsSync(target)) return target;
+                // Thử với basename gốc (chưa strip timestamp)
+                const rawBasename = require('path').basename(originalPath);
+                if (rawBasename !== basename) {
+                    const rawDir = require('path').dirname(testPath);
+                    const rawPath = require('path').join(rawDir, rawBasename);
+                    if (fs.existsSync(rawPath)) return rawPath;
+                }
             }
 
             const docPath = app.getPath('documents');
-            targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid || 'default', basename);
+            const ttsAdminDir = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin');
+
+            // Chiến lược tìm kiếm theo thứ tự ưu tiên:
+            const searchDirs = [];
+
+            // 1. mediaDir (nếu có)
+            if (mediaDir) searchDirs.push(mediaDir);
+
+            // 2. Thư mục uuid hiện tại
+            searchDirs.push(require('path').join(ttsAdminDir, uuid));
+
+            // 3. Tất cả thư mục project khác trong tts/admin/
+            if (fs.existsSync(ttsAdminDir)) {
+                try {
+                    const allDirs = fs.readdirSync(ttsAdminDir, { withFileTypes: true })
+                        .filter(d => d.isDirectory() && d.name !== uuid)
+                        .map(d => require('path').join(ttsAdminDir, d.name));
+                    searchDirs.push(...allDirs);
+                } catch (e) { /* ignore */ }
+            }
+
+            // 4. Thư mục uploads
+            searchDirs.push(uploadsDir);
+
+            // Quét từng thư mục
+            for (const dir of searchDirs) {
+                if (!fs.existsSync(dir)) continue;
+                
+                // Thử trực tiếp
+                const directPath = require('path').join(dir, basename);
+                if (fs.existsSync(directPath)) return directPath;
+
+                // Thử tìm file có timestamp prefix (ví dụ: 1779705618490_s1p3.mp4)
+                try {
+                    const files = fs.readdirSync(dir);
+                    const match = files.find(f => f.endsWith(`_${basename}`) || f === basename);
+                    if (match) return require('path').join(dir, match);
+                } catch (e) { /* ignore */ }
+            }
+
+            // Fallback cuối: trả về path mặc định (dù có thể không tồn tại)
+            targetPath = require('path').join(ttsAdminDir, uuid, basename);
             return targetPath;
         } else if (url.toLowerCase().startsWith('auto_find/')) {
             // Cắt bỏ phần "auto_find/" (case-insensitive)
