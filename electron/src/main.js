@@ -2845,7 +2845,33 @@ app.whenReady().then(async () => {
         //   media:///C:/path       ->  media://c/path          (C: bị mất dấu hai chấm)
         // Nên ta cần so khớp case-insensitive
 
-        if (url.toLowerCase().startsWith('auto_find/')) {
+        if (url.toLowerCase().startsWith('smart_find/')) {
+            const queryString = url.substring(url.indexOf('?') + 1);
+            const params = new URLSearchParams(queryString);
+            const originalPath = params.get('path');
+            const mediaDir = params.get('dir');
+            const uuid = params.get('uuid');
+
+            let testPath = originalPath;
+            if (testPath) {
+                // Sửa lỗi mất / trên macOS/Linux cho absolute path
+                if (testPath.startsWith('/') === false && testPath.match(/^[a-zA-Z]:[\\/]/) === null && originalPath.startsWith('/')) {
+                    testPath = '/' + testPath;
+                }
+                if (fs.existsSync(testPath)) return testPath;
+            }
+
+            const basename = originalPath ? require('path').basename(originalPath).replace(/^\d{13}_/, '') : '';
+            
+            if (mediaDir) {
+                const target = require('path').join(mediaDir, basename);
+                if (fs.existsSync(target)) return target;
+            }
+
+            const docPath = app.getPath('documents');
+            targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid || 'default', basename);
+            return targetPath;
+        } else if (url.toLowerCase().startsWith('auto_find/')) {
             // Cắt bỏ phần "auto_find/" (case-insensitive)
             const rest = url.substring('auto_find/'.length);
             const parts = rest.split('/');

@@ -62,20 +62,16 @@ export class CharacterDialogComponent {
             // do nothing
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
-            let basename = cleanUrl.split(/[/\\]/).pop() || cleanUrl;
-            basename = basename.replace(/^\d{13}_/, '');
-            
+            const originalPath = cleanUrl;
+
             const mediaDir = this.data?.mediaDir || '';
-            if (mediaDir) {
-                cleanUrl = `media://${mediaDir}/${basename}`;
-            } else {
-                let projectUuid = this.data?.uuid;
-                if (!projectUuid) {
-                    const parts = window.location.href.split('/');
-                    projectUuid = parts[parts.length - 1];
-                }
-                cleanUrl = `media://AUTO_FIND/${projectUuid || 'default'}/${basename}`;
+            let projectUuid = this.data?.uuid;
+            if (!projectUuid) {
+                const parts = window.location.href.split('/');
+                projectUuid = parts[parts.length - 1];
             }
+
+            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
