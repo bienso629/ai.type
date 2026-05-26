@@ -2,6 +2,26 @@
     ::ng-deep .cdk-virtual-scroll-content-wrapper {
         display: flex !important;
         flex-direction: row !important;
+        height: 100% !important;
+        align-items: stretch !important;
+    }
+
+    /* Ẩn scrollbar dọc của cdk-virtual-scroll-viewport (chỉ cuộn ngang) */
+    ::ng-deep cdk-virtual-scroll-viewport.scrollbar-hide {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    ::ng-deep cdk-virtual-scroll-viewport.scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Ẩn scrollbar trong mỗi scene column */
+    .scene-scroll-area {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+    .scene-scroll-area::-webkit-scrollbar {
+        display: none;
     }
 </style>
 <div class="flex flex-col w-full h-full p-0">
@@ -63,11 +83,9 @@
                     </div>
 
                     <!-- Thân cột hỗ trợ Scroll dọc thống nhất cho cả Videos và Subtitles -->
-                    <!-- Gọi hàm updateLines() khi cuộn để cập nhật chính xác vị trí đường nối SVG -->
-                    <!-- Chặn sự kiện wheel và mousedown lan truyền lên cha để tránh kích hoạt nhầm cuộn ngang -->
-                    <!-- Ẩn thanh cuộn vật lý bằng scrollbar-hide để giữ thiết kế tối giản, sạch sẽ -->
-                    <div class="flex-1 overflow-y-auto min-h-0 scrollbar-hide flex flex-col gap-3"
-                        (scroll)="updateLines()" (wheel)="$event.stopPropagation()"
+                    <!-- Cuộn dọc khi content tràn, ẩn scrollbar, chặn wheel lan truyền lên cha khi đang cuộn dọc -->
+                    <div class="flex-1 overflow-y-auto min-h-0 scene-scroll-area flex flex-col gap-3"
+                        (scroll)="updateLines()" (wheel)="onSceneWheel($event)"
                         (mousedown)="$event.stopPropagation()">
 
                         <!-- Danh sách Video Cards -->
