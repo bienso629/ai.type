@@ -183,18 +183,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     private getAudioDuration(blobUrl: string): Promise<number> {
         return new Promise((resolve) => {
             const audio = new Audio(blobUrl);
-            audio.addEventListener('loadedmetadata', () => {
+            audio.onloadedmetadata = () => {
                 // Trả về thời lượng dạng giây, làm tròn 2 chữ số thập phân
                 resolve(Number(audio.duration.toFixed(2)));
-                audio.src = '';
-                audio.load();
-            });
-            audio.addEventListener('error', () => {
+                audio.removeAttribute('src');
+            };
+            audio.onerror = () => {
                 console.warn('Không thể đọc duration từ:', blobUrl);
                 resolve(0);
-                audio.src = '';
-                audio.load();
-            });
+                audio.removeAttribute('src');
+            };
         });
     }
 

@@ -2871,6 +2871,9 @@ app.whenReady().then(async () => {
                 } else {
                     cleaned = driveLetter + ':' + cleaned.substring(1);
                 }
+            } else {
+                // Trên macOS/Linux: Khôi phục dấu / ở đầu để tạo thành absolute path
+                cleaned = '/' + cleaned;
             }
             targetPath = cleaned;
         }
