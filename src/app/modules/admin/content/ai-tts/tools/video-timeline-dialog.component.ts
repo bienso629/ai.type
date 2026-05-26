@@ -1147,24 +1147,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
             // do nothing
         } else {
-            // Loại bỏ unsafe: nếu có
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
-            // Rút trích chỉ lấy tên file (basename) phòng trường hợp localStorage lưu đường dẫn cũ
-            let basename = cleanUrl.split(/[/\\]/).pop() || cleanUrl;
-            // Cắt bỏ tiền tố timestamp (13 số + _) bị dính từ bên Win sang
-            basename = basename.replace(/^\d{13}_/, '');
+            const originalPath = cleanUrl;
 
             const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
-            if (mediaDir) {
-                cleanUrl = `media://${mediaDir}/${basename}`;
-            } else {
-                let projectUuid = this.projectData?.uuid || this.data?.uuid;
-                if (!projectUuid) {
-                    const parts = window.location.href.split('/');
-                    projectUuid = parts[parts.length - 1];
-                }
-                cleanUrl = `media://AUTO_FIND/${projectUuid || 'default'}/${basename}`;
+            let projectUuid = this.projectData?.uuid || this.data?.uuid;
+            if (!projectUuid) {
+                const parts = window.location.href.split('/');
+                projectUuid = parts[parts.length - 1];
             }
+
+            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
