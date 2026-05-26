@@ -130,6 +130,7 @@ export class SettingsAccountComponent implements OnInit {
                 umodelverseChatModel: this.accountForm.value['umodelverseChatModel'],
                 umodelverseImageModel: this.accountForm.value['umodelverseImageModel'],
                 umodelverseVideoModel: this.accountForm.value['umodelverseVideoModel'],
+                enableUmodelverse: this.accountForm.value['enableUmodelverse'],
             };
 
             if (statusTypeLite) {
@@ -333,6 +334,7 @@ export class SettingsAccountComponent implements OnInit {
             umodelverseChatModel: [(settings && settings.umodelverseChatModel) ? settings.umodelverseChatModel : ''],
             umodelverseImageModel: [(settings && settings.umodelverseImageModel) ? settings.umodelverseImageModel : ''],
             umodelverseVideoModel: [(settings && settings.umodelverseVideoModel) ? settings.umodelverseVideoModel : ''],
+            enableUmodelverse: [(settings && settings.enableUmodelverse !== undefined) ? settings.enableUmodelverse : false],
         });
 
         const secretKeyValue = this.accountForm.get('secretKey').value;

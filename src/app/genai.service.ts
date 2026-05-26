@@ -23,6 +23,7 @@ export class GenaiService {
     private _umodelverseChatModel: string = '';
     private _umodelverseImageModel: string = '';
     public _umodelverseVideoModel: string = '';
+    private _enableUmodelverse: boolean = false;
 
     constructor(
         private multiAccountService: MultiAccountService
@@ -40,6 +41,7 @@ export class GenaiService {
             const settingsRaw = this.multiAccountService.getItem('settings');
             if (!settingsRaw) {
                 this._currentKey = '';
+                this._enableUmodelverse = false;
                 this._umodelverseUrl = '';
                 this._umodelverseKey = '';
                 return;
@@ -48,6 +50,7 @@ export class GenaiService {
             const settings = settingsRaw;
             
             // Cập nhật cấu hình Mì Tôm AI
+            this._enableUmodelverse = settings.enableUmodelverse === true;
             this._umodelverseUrl = settings.umodelverseUrl?.trim() || '';
             this._umodelverseKey = settings.umodelverseKey?.trim() || '';
             this._umodelverseChatModel = settings.umodelverseChatModel?.trim() || '';
@@ -79,6 +82,7 @@ export class GenaiService {
         } catch (e) {
             console.error("GenaiService: Lỗi parse settings từ localStorage", e);
             this._currentKey = '';
+            this._enableUmodelverse = false;
             this._umodelverseUrl = '';
             this._umodelverseKey = '';
             this._umodelverseChatModel = '';
@@ -88,7 +92,7 @@ export class GenaiService {
 
     public isUModelverseEnabled(): boolean {
         this.syncConfigFromStorage();
-        return !!this._umodelverseUrl;
+        return this._enableUmodelverse && !!this._umodelverseUrl;
     }
 
     public get umodelverseUrl(): string { return this._umodelverseUrl; }

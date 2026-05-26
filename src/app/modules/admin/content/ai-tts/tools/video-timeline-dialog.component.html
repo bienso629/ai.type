@@ -1,3 +1,9 @@
+<style>
+    ::ng-deep .cdk-virtual-scroll-content-wrapper {
+        display: flex !important;
+        flex-direction: row !important;
+    }
+</style>
 <div class="flex flex-col w-full h-full p-0">
     <div class="flex flex-row justify-between items-center pb-0 mb-4 flex-shrink-0">
         <div class="flex items-center text-xl font-normal text-primary tracking-tight">
@@ -20,26 +26,24 @@
     <div mat-dialog-content class="p-0 flex flex-col overflow-hidden flex-grow min-h-0 !max-h-none">
         <div class="flex flex-row flex-grow overflow-hidden relative">
             <!-- SVG Connection Lines -->
-            <svg #svgLayer class="absolute inset-0 w-full h-full pointer-events-none z-50">
-                @for (line of svgLines; track $index) {
-                <!-- Main line -->
-                <path [attr.d]="line.path" fill="none" [attr.stroke]="line.color" stroke-width="3"
-                    stroke-linecap="round"></path>
-                }
+            <svg #svgLayer 
+                class="absolute inset-0 w-full h-full pointer-events-none z-50 transition-opacity duration-300"
+                [ngClass]="isSvgReady ? 'opacity-100' : 'opacity-0'">
             </svg>
 
-            <div class="flex w-full h-full overflow-x-hidden scrollbar-hide rounded-xl space-x-6 timeline-container cursor-grab active:cursor-grabbing"
+            <cdk-virtual-scroll-viewport orientation="horizontal" itemSize="344"
+                class="w-full h-full overflow-x-hidden scrollbar-hide rounded-xl timeline-container cursor-grab active:cursor-grabbing"
                 #scrollContainer (wheel)="onWheelScroll($event)" (scroll)="updateLines()"
                 (mousedown)="startDragging($event)" (mouseleave)="stopDragging()" (mouseup)="stopDragging()"
                 (mousemove)="moveEvent($event)" cdkDropList cdkDropListOrientation="horizontal"
                 (cdkDropListDropped)="onSceneDropped($event)">
 
-                @for (scene of projectData?.scenes; track scene; let sceneIdx = $index) {
-                <div class="flex-none flex flex-col w-80 max-h-full h-full min-h-0 rounded-xl overflow-hidden select-none relative transition-all duration-300 cursor-pointer border-[3px]"
+                <div *cdkVirtualFor="let scene of projectData?.scenes; let sceneIdx = index; trackBy: trackByScene"
+                    class="flex-none flex flex-col w-80 mr-6 max-h-full h-full min-h-0 rounded-xl overflow-hidden select-none relative transition-all duration-300 cursor-pointer border-[3px]"
                     [ngClass]="[
                         activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50',
                         selectedSceneIndex === sceneIdx ? 'border-green-500' : 'border-gray-50'
-                    ]" cdkDrag (click)="selectedSceneIndex = selectedSceneIndex === sceneIdx ? -1 : sceneIdx">
+                    ]" cdkDrag [cdkDragData]="scene" (click)="selectedSceneIndex = selectedSceneIndex === sceneIdx ? -1 : sceneIdx">
 
                     <!-- Header của Scene: Giữ cố định nhờ flex-shrink-0 -->
                     <div class="flex items-center justify-between p-2 flex-shrink-0">
@@ -263,8 +267,7 @@
                         </div>
                     </div>
                 </div>
-                }
-            </div>
+            </cdk-virtual-scroll-viewport>
         </div>
     </div>
 

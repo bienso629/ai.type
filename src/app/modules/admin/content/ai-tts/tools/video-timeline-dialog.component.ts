@@ -8,7 +8,8 @@ import {
     ChangeDetectorRef,
     HostListener,
     OnDestroy,
-    TemplateRef
+    TemplateRef,
+    AfterViewInit
 } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import {
@@ -28,6 +29,7 @@ import {
     CdkDragDrop,
     moveItemInArray,
 } from '@angular/cdk/drag-drop';
+import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 
 import { AddSceneComponent } from './add-scene.component';
 import { DirectorModeComponent } from './director-mode.component';
@@ -56,10 +58,11 @@ interface electron {
         MatIconModule,
         MatInputModule,
         DragDropModule,
+        ScrollingModule,
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
-export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
+export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterViewInit {
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
 
     // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
@@ -285,9 +288,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         const sourceSceneIdx = this.linkingSourceSceneIndex;
         const sourceVIdx = this.linkingSourceVideoIndex;
 
+        // Đảm bảo target video có ID để liên kết không bị hỏng khi kéo thả đổi chỗ Scene
+        if (!targetVideo.videoId) {
+            targetVideo.videoId = 'vid_' + Math.random().toString(36).substr(2, 9);
+        }
+
         sourceVideo.linkedTo = {
             sceneIndex: targetSceneIdx,
             videoIndex: targetVIdx,
+            videoId: targetVideo.videoId,
             text: `Scene ${targetSceneIdx + 1} - Phần ${targetVIdx + 1}`
         };
 
@@ -346,13 +355,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         }
     }
 
+    @HostListener('window:resize', ['$event'])
+    onWindowResize() {
+        this.updateLines();
+    }
+
     svgLines: { path: string, color: string }[] = [];
     private lastLinesStr = '';
     private animationFrameId: any;
+    isSvgReady = false;
 
     updateLines() {
         if (!this.projectData || !this.projectData.scenes) {
-            this.svgLines = [];
             return;
         }
 
@@ -362,15 +376,53 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
 
         const containerRect = svgContainer.getBoundingClientRect();
 
+        // Tối ưu hóa: Xây dựng Map O(1) để tra cứu videoId, tránh vòng lặp lồng nhau O(N^2) gây giật lag
+        const videoIdMap = new Map<string, { sIdx: number, vIdx: number }>();
+        for (let s = 0; s < this.projectData.scenes.length; s++) {
+            const scene = this.projectData.scenes[s];
+            if (!scene.videos) continue;
+            for (let v = 0; v < scene.videos.length; v++) {
+                const vid = scene.videos[v];
+                if (vid.videoId) {
+                    videoIdMap.set(vid.videoId, { sIdx: s, vIdx: v });
+                }
+            }
+        }
+
         for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
             const scene = this.projectData.scenes[sIdx];
             if (!scene.videos) continue;
 
             for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                 const video = scene.videos[vIdx];
+                
+                if (!video.videoId) {
+                    video.videoId = 'vid_' + Math.random().toString(36).substr(2, 9);
+                    videoIdMap.set(video.videoId, { sIdx, vIdx });
+                }
+
                 if (video.linkedTo) {
+                    let targetSceneIdx = video.linkedTo.sceneIndex;
+                    let targetVIdx = video.linkedTo.videoIndex;
+
+                    if (video.linkedTo.videoId) {
+                        const targetInfo = videoIdMap.get(video.linkedTo.videoId);
+                        if (targetInfo) {
+                            targetSceneIdx = targetInfo.sIdx;
+                            targetVIdx = targetInfo.vIdx;
+                        } else {
+                            video.linkedTo = null;
+                            continue;
+                        }
+                    }
+
+                    // Cập nhật lại data phòng khi index bị lệch
+                    video.linkedTo.sceneIndex = targetSceneIdx;
+                    video.linkedTo.videoIndex = targetVIdx;
+                    video.linkedTo.text = `Scene ${targetSceneIdx + 1} - Phần ${targetVIdx + 1}`;
+
                     const sourceId = `video_${sIdx}_${vIdx}`;
-                    const targetId = `video_${video.linkedTo.sceneIndex}_${video.linkedTo.videoIndex}`;
+                    const targetId = `video_${targetSceneIdx}_${targetVIdx}`;
 
                     const sourceEl = document.getElementById(sourceId);
                     const targetEl = document.getElementById(targetId);
@@ -387,15 +439,25 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                         const endX = targetRect.left - containerRect.left - 12;
                         const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
 
+                        // Cập nhật logic: Nối trong cùng 1 scene thì không báo đỏ
+                        const targetSceneIdx = video.linkedTo.sceneIndex;
+                        const targetVIdx = video.linkedTo.videoIndex;
+                        const isLogicalBackwards = targetSceneIdx < sIdx || (targetSceneIdx === sIdx && targetVIdx < vIdx);
+                        const color = isLogicalBackwards ? 'rgba(239, 68, 68, 0.7)' : 'rgba(99, 102, 241, 0.7)';
+
                         // Tính control points cho đường cong Bezier
-                        const distanceX = Math.max(100, Math.abs(endX - startX) * 0.5);
+                        // Tránh tình trạng đường cong lấn vào hình ảnh của các Video kề nhau bằng cách giới hạn theo khoảng cách thực
+                        let distanceX;
+                        if (endX <= startX + 50) {
+                            // Nối ngược, nối trong cùng scene, hoặc nối 2 scene sát cạnh nhau
+                            distanceX = Math.min(60, Math.max(20, Math.abs(endX - startX) * 0.5));
+                        } else {
+                            // Nối tiến xa: cho độ cong lớn hơn nhưng tối đa 150px
+                            distanceX = Math.min(150, Math.abs(endX - startX) * 0.5);
+                        }
 
                         // Đường cong M startX startY C cp1X cp1Y, cp2X cp2Y, endX endY
                         const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
-
-                        // Nếu nối ngược về bên trái thì hiện màu đỏ cảnh báo, bình thường màu indigo
-                        const isBackwards = endX < startX;
-                        const color = isBackwards ? 'rgba(239, 68, 68, 0.7)' : 'rgba(99, 102, 241, 0.7)';
 
                         newLines.push({ path, color });
                     }
@@ -418,7 +480,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 const endX = this.currentMouseX - containerRect.left;
                 const endY = this.currentMouseY - containerRect.top;
 
-                const distanceX = Math.max(100, Math.abs(endX - startX) * 0.5);
+                let distanceX;
+                if (endX <= startX + 50) {
+                    distanceX = Math.min(60, Math.max(20, Math.abs(endX - startX) * 0.5));
+                } else {
+                    distanceX = Math.min(150, Math.abs(endX - startX) * 0.5);
+                }
                 const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
 
                 // Hiển thị đường màu cam nét đứt hoặc màu cam đậm
@@ -426,15 +493,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             }
         }
 
-        const newLinesStr = JSON.stringify(newLines);
-        if (newLinesStr !== this.lastLinesStr) {
-            this.svgLines = newLines;
-            this.lastLinesStr = newLinesStr;
-            this.cd.detectChanges();
+        // Tối ưu hóa render 60fps: Cập nhật DOM trực tiếp thay vì thông qua Angular Change Detection
+        // Điều này giúp loại bỏ hoàn toàn hiện tượng giật lag khi cuộn chuột hoặc kéo thả
+        while (svgContainer.firstChild) {
+            svgContainer.removeChild(svgContainer.firstChild);
         }
+
+        newLines.forEach(line => {
+            const pathEl = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            pathEl.setAttribute('d', line.path);
+            pathEl.setAttribute('fill', 'none');
+            pathEl.setAttribute('stroke', line.color);
+            pathEl.setAttribute('stroke-width', '3');
+            pathEl.setAttribute('stroke-linecap', 'round');
+            svgContainer.appendChild(pathEl);
+        });
     }
 
-    @ViewChild('scrollContainer') scrollContainer!: ElementRef;
+    @ViewChild('scrollContainer') scrollContainer!: CdkVirtualScrollViewport;
     @ViewChild('svgLayer') svgLayer!: ElementRef;
     openConfigDialog() {
         const dialogRef = this.dialog.open(VideoProjectConfigDialogComponent, {
@@ -478,8 +554,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     startDragging(e: MouseEvent) {
         if ((e.target as HTMLElement).closest('.cdk-drag-handle')) return;
         this.isMouseDown = true;
-        this.startX = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
-        this.scrollLeftStart = this.scrollContainer.nativeElement.scrollLeft;
+        this.startX = e.pageX - this.scrollContainer.elementRef.nativeElement.offsetLeft;
+        this.scrollLeftStart = this.scrollContainer.elementRef.nativeElement.scrollLeft;
     }
 
     stopDragging() {
@@ -487,28 +563,43 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
     }
 
     onWheelScroll(event: WheelEvent) {
+        const el = this.scrollContainer.elementRef.nativeElement;
         if (event.deltaY !== 0 && !event.shiftKey) {
             event.preventDefault();
-            this.scrollContainer.nativeElement.scrollLeft += event.deltaY;
+            el.scrollLeft += event.deltaY;
         } else if (event.deltaX !== 0) {
             event.preventDefault();
-            this.scrollContainer.nativeElement.scrollLeft += event.deltaX;
+            el.scrollLeft += event.deltaX;
         }
     }
 
     moveEvent(e: MouseEvent) {
         if (!this.isMouseDown) return;
         e.preventDefault();
-        const x = e.pageX - this.scrollContainer.nativeElement.offsetLeft;
+        const el = this.scrollContainer.elementRef.nativeElement;
+        const x = e.pageX - el.offsetLeft;
         const walk = (x - this.startX) * 1.5;
-        this.scrollContainer.nativeElement.scrollLeft = this.scrollLeftStart - walk;
+        el.scrollLeft = this.scrollLeftStart - walk;
     }
 
     onSceneDropped(event: CdkDragDrop<any[]>) {
         if (!this.projectData || !this.projectData.scenes) return;
-        moveItemInArray(this.projectData.scenes, event.previousIndex, event.currentIndex);
-        this.saveData();
-        this.toastr.success('Đã thay đổi vị trí Scene');
+
+        // Tính toán lại index thật sự dựa trên viewport của Virtual Scroll
+        const renderedRange = this.scrollContainer.getRenderedRange();
+        
+        // actualPrevIndex phải tìm bằng data thực tế vì renderedRange có thể đã thay đổi nếu user cuộn trong lúc kéo
+        const actualPrevIndex = this.projectData.scenes.indexOf(event.item.data);
+        
+        // actualCurrIndex tính theo range hiện tại của virtual scroll khi thả tay
+        const actualCurrIndex = renderedRange.start + event.currentIndex;
+
+        if (actualPrevIndex !== -1 && actualPrevIndex !== actualCurrIndex) {
+            moveItemInArray(this.projectData.scenes, actualPrevIndex, actualCurrIndex);
+            this.saveData();
+            this.toastr.success('Đã thay đổi vị trí Scene');
+            setTimeout(() => this.updateLines(), 100);
+        }
     }
 
     getGlobalIndex(sceneIdx: number, subIdx: number): number {
@@ -820,6 +911,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         this.dialogRef.close();
     }
 
+    trackByScene(index: number, scene: any): any {
+        return scene;
+    }
+
     async onFileSelected(event: any, scene: any, video: any) {
         const fileInput = event.target as HTMLInputElement;
         if (fileInput.files && fileInput.files.length > 0) {
@@ -950,8 +1045,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 this.toastr.success('Đã thêm Scene mới thành công!');
 
                 setTimeout(() => {
-                    this.scrollContainer.nativeElement.scrollLeft =
-                        this.scrollContainer.nativeElement.scrollWidth;
+                    const el = this.scrollContainer.elementRef.nativeElement;
+                    el.scrollLeft = el.scrollWidth;
+                    this.updateLines();
                 }, 100);
             }
         });
@@ -966,6 +1062,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
                 this.projectData.scenes.splice(index, 1);
                 this.saveData();
                 this.toastr.warning(`Đã xóa Scene #${index + 1}`);
+                setTimeout(() => this.updateLines(), 100);
             },
         });
     }
@@ -1077,7 +1174,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
         return safeUrl;
     }
 
+    ngAfterViewInit() {
+        if (this.scrollContainer) {
+            this.scrollContainer.elementScrolled().subscribe(() => {
+                this.updateLines();
+            });
+            // Lắng nghe thêm sự thay đổi index render (ví dụ khi danh sách thay đổi kích thước/kéo thả)
+            this.scrollContainer.renderedRangeStream.subscribe(() => {
+                setTimeout(() => this.updateLines(), 50);
+            });
+        }
+    }
+
     ngOnInit() {
+        this.isSvgReady = false;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
 
@@ -1122,18 +1232,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy {
             });
         }
 
-        // Bắt đầu vòng lặp vẽ SVG
-        const startLoop = () => {
+        // Vẽ SVG lần đầu sau khi view render xong
+        // Đảm bảo updateLines chạy đủ lâu để chờ virtual scroll render xong các item ảo
+        setTimeout(() => this.updateLines(), 100);
+        setTimeout(() => this.updateLines(), 300);
+        setTimeout(() => this.updateLines(), 600);
+        setTimeout(() => {
             this.updateLines();
-            this.animationFrameId = requestAnimationFrame(startLoop);
-        };
-        startLoop();
+            this.isSvgReady = true;
+            this.cd.detectChanges();
+        }, 800);
     }
 
     ngOnDestroy() {
-        if (this.animationFrameId) {
-            cancelAnimationFrame(this.animationFrameId);
-        }
+        // Hủy các sự kiện nếu có
     }
 
     alert(alert?: any) {
