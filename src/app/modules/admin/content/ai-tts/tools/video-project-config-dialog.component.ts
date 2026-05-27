@@ -88,7 +88,7 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
-        
+
         const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
@@ -439,7 +439,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             }
 
             if (!newChar) {
-                newChar = { 
+                newChar = {
                     ...char,
                     avatarUrls: char.avatarUrls ? [...char.avatarUrls] : []
                 };
@@ -459,7 +459,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             this.toastr.success(`Đã dùng AI nhân bản thành công nhân vật: ${newChar.name} (${newChar.variant})`);
         } catch (error: any) {
             console.error('Error duplicating character:', error);
-            const fallbackChar = { 
+            const fallbackChar = {
                 ...char,
                 avatarUrls: char.avatarUrls ? [...char.avatarUrls] : []
             };

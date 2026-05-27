@@ -42,10 +42,8 @@
             <h3 class="font-bold text-indigo-800 text-sm">Tạo hình Nhân vật (Casting)</h3>
         </div>
 
-        <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100" matTooltip="Thêm nhân vật" (click)="generateCharacterAndOpenDialog()"
-            [disabled]="isGeneratingCharacter">
-            <mat-icon class="icon-size-4" *ngIf="!isGeneratingCharacter">person_add</mat-icon>
-            <mat-icon class="icon-size-4 animate-spin" *ngIf="isGeneratingCharacter">autorenew</mat-icon>
+        <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100" matTooltip="Thêm nhân vật" (click)="openCharacterDialog()">
+            <mat-icon class="icon-size-4">person_add</mat-icon>
         </button>
     </div>
 
