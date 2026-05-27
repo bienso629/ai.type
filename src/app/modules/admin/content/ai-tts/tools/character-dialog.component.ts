@@ -25,6 +25,11 @@ export class CharacterDialogComponent {
     isGeneratingAvatar: boolean = false;
     masterPrompt: string = '';
     referenceImageUrl: string | null = null;
+    
+    aiProfilePrompt: string = '';
+    isGeneratingProfile: boolean = false;
+    showFullForm: boolean = false;
+    
     private safeUrlCache: { [url: string]: SafeUrl } = {};
 
     constructor(
@@ -37,6 +42,7 @@ export class CharacterDialogComponent {
         private sanitizer: DomSanitizer
     ) {
         this.isEditMode = data.index >= 0;
+        this.showFullForm = this.isEditMode;
         this.editingChar = data.char ? { 
             ...data.char,
             avatarUrls: data.char.avatarUrls ? [...data.char.avatarUrls] : []
@@ -341,6 +347,87 @@ export class CharacterDialogComponent {
         }
 
         return msg;
+    }
+
+    async generateProfileByAI() {
+        if (!this.aiProfilePrompt && (!this.editingChar.avatarUrls || this.editingChar.avatarUrls.length === 0)) {
+            this.toastr.warning('Vui lòng nhập ý tưởng hoặc tải lên một ảnh để AI có dữ liệu tạo hồ sơ!');
+            return;
+        }
+
+        this.isGeneratingProfile = true;
+        this.cd.markForCheck();
+
+        try {
+            const prompt = `Bạn là Giám đốc Sáng tạo và Chuyên gia Thiết kế Nhân vật.
+Tôi muốn tạo một hồ sơ nhân vật hoàn chỉnh dựa trên ý tưởng và hình ảnh (nếu có) sau.
+
+- Master Prompt (Bối cảnh chung của dự án): ${this.masterPrompt || 'Không có'}
+- Ý tưởng/Yêu cầu của tôi: ${this.aiProfilePrompt || 'Không có yêu cầu cụ thể, hãy tự sáng tạo dựa trên ảnh hoặc bối cảnh.'}
+
+Nếu tôi có đính kèm ảnh, hãy phân tích chi tiết gương mặt, trang phục, phong cách từ ảnh đó để viết ra ngoại hình và prompt tạo hình thật sát với ảnh gốc. Nếu không có ảnh, hãy tự sáng tạo dựa trên ý tưởng.
+
+Yêu cầu trả về định dạng JSON thuần túy (không có markdown \`\`\`json) với cấu trúc:
+{
+    "name": "Tên nhân vật (ngắn gọn, phù hợp với ý tưởng)",
+    "role": "Vai trò của nhân vật",
+    "appearance": "Mô tả chi tiết về ngoại hình, độ tuổi, trang phục, kiểu tóc, phụ kiện...",
+    "personality": "Mô tả tính cách, thái độ, biểu cảm...",
+    "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ' để ra được hình mẫu chuẩn."
+}
+
+Lưu ý: Chỉ trả về object JSON thuần túy.`;
+
+            let requestParts: any[] = [{ text: prompt }];
+
+            // Gửi ảnh đầu tiên (nếu có) cho AI phân tích
+            if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > 0) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(this.editingChar.avatarUrls[0]);
+                    requestParts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: 'image/png'
+                        }
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh đính kèm:', e);
+                }
+            }
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3-flash-preview', // Use a model capable of reading images
+                contents: [{ role: 'user', parts: requestParts }],
+                config: { temperature: 0.7 }
+            });
+
+            const text = response.text;
+            if (text) {
+                const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/{[\s\S]*}/);
+                if (jsonMatch) {
+                    const charData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
+                    
+                    this.editingChar.name = charData.name || this.editingChar.name;
+                    this.editingChar.role = charData.role || this.editingChar.role;
+                    this.editingChar.appearance = charData.appearance || this.editingChar.appearance;
+                    this.editingChar.personality = charData.personality || this.editingChar.personality;
+                    this.editingChar.prompt = charData.prompt || this.editingChar.prompt;
+                    
+                    this.showFullForm = true;
+                    this.toastr.success('AI đã tạo xong hồ sơ nhân vật!');
+                    this.cd.markForCheck();
+                    return;
+                }
+            }
+            this.toastr.error('AI không trả về đúng định dạng, vui lòng thử lại.');
+        } catch (error: any) {
+            console.error('Error generating profile:', error);
+            const errorMsg = this.formatGeminiError(error);
+            this.toastr.error('Lỗi AI: ' + errorMsg);
+        } finally {
+            this.isGeneratingProfile = false;
+            this.cd.markForCheck();
+        }
     }
 
     async onAvatarSelected(event: any) {

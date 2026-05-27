@@ -4,6 +4,53 @@
     </h2>
 
     <mat-dialog-content class="flex flex-col gap-2 p-0 !max-h-[85vh]">
+        @if (!showFullForm) {
+        <div class="w-full mb-2 flex flex-col gap-4">
+            <mat-form-field class="w-full flex-auto mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                [subscriptSizing]="'dynamic'">
+                <textarea matInput [(ngModel)]="aiProfilePrompt"
+                    placeholder="Nhập ý tưởng (Vd: Tạo nhân vật nam chính là thám tử, phong cách cyberpunk...)"
+                    cdkTextareaAutosize cdkAutosizeMinRows="5" class="px-2"></textarea>
+            </mat-form-field>
+
+            <div class="flex items-center gap-3 flex-wrap">
+                <button mat-flat-button (click)="aiAvatarInput.click()" class="bg-green-500 text-white">
+                    <mat-icon class="icon-size-5 text-gray-500 mr-2">upload_file</mat-icon>
+                    <mat-label class="ml-2">Tải ảnh mẫu (Tuỳ chọn)</mat-label>
+                </button>
+                <input #aiAvatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
+                    class="hidden">
+
+                <!-- Hiển thị ảnh đã tải lên -->
+                <div *ngFor="let url of editingChar.avatarUrls; let i = index"
+                    class="relative w-12 h-12 rounded shadow-sm bg-gray-100">
+                    <img [src]="getSafeUrl(url)" class="w-full h-full object-cover rounded">
+                    <button mat-icon-button
+                        class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
+                        (click)="removeAvatar(i)">
+                        <mat-icon class="icon-size-3 text-white">close</mat-icon>
+                    </button>
+                </div>
+            </div>
+
+            <div class="flex justify-between items-center mt-2">
+                <button mat-button class="bg-blue-500 text-white" (click)="showFullForm = true">Nhập thủ
+                    công</button>
+                <div class="flex items-center gap-2">
+                    <button mat-button class="bg-gray-900 text-white" mat-dialog-close>Hủy</button>
+
+                    <button mat-flat-button color="primary" class="px-6" (click)="generateProfileByAI()"
+                        [disabled]="isGeneratingProfile">
+                        <mat-icon class="icon-size-5" *ngIf="!isGeneratingProfile">auto_awesome</mat-icon>
+                        <mat-icon class="icon-size-5 animate-spin" *ngIf="isGeneratingProfile">autorenew</mat-icon>
+                        <span class="ml-2 font-medium">Tạo nhân vật</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        }
+
+        @if (showFullForm) {
         <div class="flex flex-col gap-4 items-start">
             <!-- Avatar Section -->
             <div class="flex flex-wrap gap-3 w-full items-start">
@@ -18,14 +65,17 @@
                     </button>
                 </div>
 
-                <div class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50">
-                    <button mat-icon-button class="bg-green-50 hover:bg-green-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
+                <div
+                    class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50">
+                    <button mat-icon-button
+                        class="bg-green-50 hover:bg-green-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
                         (click)="avatarInput.click()" matTooltip="Tải ảnh lên">
                         <mat-icon class="icon-size-4 text-green-600">upload_file</mat-icon>
                     </button>
 
-                    <button mat-icon-button class="bg-blue-50 hover:bg-blue-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full" (click)="generateAvatar()"
-                        [disabled]="isGeneratingAvatar" matTooltip="Tạo hình AI">
+                    <button mat-icon-button
+                        class="bg-blue-50 hover:bg-blue-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
+                        (click)="generateAvatar()" [disabled]="isGeneratingAvatar" matTooltip="Tạo hình AI">
                         @if (isGeneratingAvatar) {
                         <mat-spinner diameter="16"></mat-spinner>
                         } @else {
@@ -34,14 +84,16 @@
                     </button>
                 </div>
 
-                <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*" class="hidden">
+                <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
+                    class="hidden">
             </div>
 
             <!-- Form Inputs -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-grow w-full">
                 <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
                     <mat-label>Tên nhân vật</mat-label>
-                    <input matInput [(ngModel)]="editingChar.name" (ngModelChange)="updateAvailableReferenceImages()" placeholder="VD: Naruto" />
+                    <input matInput [(ngModel)]="editingChar.name" (ngModelChange)="updateAvailableReferenceImages()"
+                        placeholder="VD: Naruto" />
                 </mat-form-field>
 
                 <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
@@ -58,57 +110,64 @@
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Ngoại hình</mat-label>
-            <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.appearance" placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"
+            <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.appearance"
+                placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"
                 cdkAutosizeMaxRows="3"></textarea>
         </mat-form-field>
 
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Tính cách</mat-label>
-            <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.personality" placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"
+            <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.personality"
+                placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"
                 cdkAutosizeMaxRows="2"></textarea>
         </mat-form-field>
 
         <div class="flex flex-col mt-2">
             <div class="flex items-center gap-1.5 mb-1">
                 <mat-label class="font-semibold text-slate-800 text-sm">Prompt Tạo hình</mat-label>
-                <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full" 
-                    (click)="copyPrompt(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt">
-                    <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
+                <button mat-icon-button
+                    class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
+                    (click)="copyPrompt(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()"
+                    matTooltip="Copy Prompt">
+                    <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
+                        [svgIcon]="'feather:copy'"></mat-icon>
                 </button>
             </div>
-            
+
             @if (availableReferenceImages.length > 0) {
-                <mat-form-field class="w-full fuse-mat-dense mb-2" [subscriptSizing]="'dynamic'">
-                    <mat-select [(value)]="referenceImageUrl" placeholder="Không dùng ảnh">
-                        <mat-select-trigger>
-                            @if (referenceImageUrl) {
-                                <div class="flex items-center gap-2">
-                                    <mat-icon class="icon-size-4 text-indigo-500">image</mat-icon>
-                                    <span class="text-sm font-medium">Đã chọn 1 ảnh gốc</span>
-                                </div>
-                            } @else {
-                                <span class="text-sm text-slate-500">Không dùng ảnh tham chiếu</span>
-                            }
-                        </mat-select-trigger>
-                        <mat-option [value]="null">Không dùng ảnh</mat-option>
-                        @for (img of availableReferenceImages; track img.url) {
-                            <mat-option [value]="img.url" class="h-auto py-2">
-                                <div class="flex items-center gap-3">
-                                    <img [src]="getSafeUrl(img.url)" class="w-10 h-10 object-cover rounded shadow-sm">
-                                    <div class="flex flex-col">
-                                        <span class="text-sm font-semibold truncate max-w-[200px]">{{ img.name }}</span>
-                                        <span class="text-xs text-slate-500 truncate max-w-[200px]">Bản: {{ img.variant }}</span>
-                                    </div>
-                                </div>
-                            </mat-option>
+            <mat-form-field class="w-full fuse-mat-dense mb-2" [subscriptSizing]="'dynamic'">
+                <mat-select [(value)]="referenceImageUrl" placeholder="Không dùng ảnh">
+                    <mat-select-trigger>
+                        @if (referenceImageUrl) {
+                        <div class="flex items-center gap-2">
+                            <mat-icon class="icon-size-4 text-indigo-500">image</mat-icon>
+                            <span class="text-sm font-medium">Đã chọn 1 ảnh gốc</span>
+                        </div>
+                        } @else {
+                        <span class="text-sm text-slate-500">Không dùng ảnh tham chiếu</span>
                         }
-                    </mat-select>
-                </mat-form-field>
+                    </mat-select-trigger>
+                    <mat-option [value]="null">Không dùng ảnh</mat-option>
+                    @for (img of availableReferenceImages; track img.url) {
+                    <mat-option [value]="img.url" class="h-auto py-2">
+                        <div class="flex items-center gap-3">
+                            <img [src]="getSafeUrl(img.url)" class="w-10 h-10 object-cover rounded shadow-sm">
+                            <div class="flex flex-col">
+                                <span class="text-sm font-semibold truncate max-w-[200px]">{{ img.name }}</span>
+                                <span class="text-xs text-slate-500 truncate max-w-[200px]">Bản: {{ img.variant
+                                    }}</span>
+                            </div>
+                        </div>
+                    </mat-option>
+                    }
+                </mat-select>
+            </mat-form-field>
             }
-            
+
             @if (referenceImageUrl) {
-            <div class="relative w-16 h-16 mb-2 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group border border-slate-200">
+            <div
+                class="relative w-16 h-16 mb-2 shrink-0 rounded-md flex items-center justify-center bg-gray-50 overflow-visible group border border-slate-200">
                 <img [src]="getSafeUrl(referenceImageUrl)" class="w-full h-full object-cover rounded-md">
                 <button mat-icon-button
                     class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-5 h-5 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
@@ -119,16 +178,20 @@
             }
 
             <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
-                <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
-                    cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
+                <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
+                    [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..."
+                    cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
             </mat-form-field>
         </div>
+        }
     </mat-dialog-content>
 
+    @if (showFullForm) {
     <mat-dialog-actions align="end" class="flex pt-4 mt-0 px-0 gap-1">
         <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" [disabled]="!editingChar.name && !editingChar.role" (click)="save()">
             Lưu thông tin
         </button>
     </mat-dialog-actions>
+    }
 </div>
