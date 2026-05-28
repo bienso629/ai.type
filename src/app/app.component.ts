@@ -94,50 +94,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         this.updateRootCssVar();
     }
 
-    // Xoá toàn bộ cookie và làm mới webview
-    async clearWebviewCookie() {
-        try {
-            const electron = (window as any).electron;
 
-            // Chỉ clear phần auth của Puppeteer, không clear cookie toàn app
-            if (electron?.clearWebviewAuth) {
-                await electron.clearWebviewAuth();
-            }
-
-            // Clear trên webview DOM
-            const container = document.getElementById('webview-container-div');
-            if (container) {
-                // Find the currently visible webview
-                const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
-
-                if (activeWebview && activeWebview.clearData) {
-                    await activeWebview.clearData({ dataTypes: ['cookies', 'storages', 'caches', 'serviceworkers'] });
-                    console.log('Webview data cleared.');
-                }
-
-                // Tải lại các webview
-                const webviews = container.querySelectorAll('webview');
-                webviews.forEach((wv: any) => {
-                    if (wv.reload) {
-                        wv.reload();
-                    }
-                });
-            }
-        } catch (err) {
-            console.error('Lỗi xoá toàn bộ cookie:', err);
-        }
-    }
-
-    // Mở trang đăng nhập Google
-    openLoginBrowser() {
-        const container = document.getElementById('webview-container-div');
-        if (container) {
-            const activeWebview = Array.from(container.querySelectorAll('webview')).find((wv: any) => wv.style.display !== 'none') as any || container.querySelector('webview') as any;
-            if (activeWebview && activeWebview.executeJavaScript) {
-                activeWebview.executeJavaScript("window.location.href = 'https://gemini.google.com/trigger-stealth-login';");
-            }
-        }
-    }
     // ===============================
 
     updateTime(): void {
