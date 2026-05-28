@@ -110,7 +110,7 @@
                     <!-- Chatbot Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Tích hợp Chatbot</mat-label>
+                        <mat-label>Tích hợp Simple AI Chatbot</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'" matPrefix></mat-icon>
                         <input [formControlName]="'chatbot'" type="text" matInput>
                     </mat-form-field>
@@ -124,7 +124,7 @@
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Tích hợp Zalo CRM</mat-label>
+                        <mat-label>Tích hợp X-CRM</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:database'" matPrefix></mat-icon>
                         <input [formControlName]="'customer'" type="text" matInput>
                     </mat-form-field>
@@ -161,7 +161,7 @@
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Chuyển đổi video thành bài viết</mat-label>
+                        <mat-label>Làm phụ đề cho video</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:film'" matPrefix></mat-icon>
                         <input [formControlName]="'sst'" type="text" matInput>
                     </mat-form-field>
@@ -172,7 +172,7 @@
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Tự động hóa công việc</mat-label>
+                        <mat-label>Tự động chơi Tiktok</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:target'" matPrefix></mat-icon>
                         <input [formControlName]="'mxhauto'" type="text" matInput>
                     </mat-form-field>
@@ -201,11 +201,12 @@
                             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mb-0"
                                 [subscriptSizing]="'dynamic'">
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
-                                <input [type]="geminiKeysVisibility[i] ? 'text' : 'password'" matInput [value]="key" (input)="onGeminiKeyChange(i, $event)"
-                                    placeholder="Nhập Secret Key">
+                                <input [type]="geminiKeysVisibility[i] ? 'text' : 'password'" matInput [value]="key"
+                                    (input)="onGeminiKeyChange(i, $event)" placeholder="Nhập Secret Key">
 
                                 <button mat-icon-button type="button" matSuffix (click)="toggleKeyVisibility(i)">
-                                    <mat-icon class="icon-size-4">{{ geminiKeysVisibility[i] ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                    <mat-icon class="icon-size-4">{{ geminiKeysVisibility[i] ? 'visibility_off' :
+                                        'visibility' }}</mat-icon>
                                 </button>
 
                                 <button mat-icon-button type="button" color="warn" matSuffix
@@ -241,7 +242,9 @@
                         </div>
                     </div>
 
-                    <div class="w-full transition-opacity duration-300" [class.opacity-50]="!accountForm.get('enableUmodelverse').value" [class.pointer-events-none]="!accountForm.get('enableUmodelverse').value">
+                    <div class="w-full transition-opacity duration-300"
+                        [class.opacity-50]="!accountForm.get('enableUmodelverse').value"
+                        [class.pointer-events-none]="!accountForm.get('enableUmodelverse').value">
                         <div class="w-full mt-4">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
@@ -258,9 +261,12 @@
                                 [subscriptSizing]="'dynamic'">
                                 <mat-label>API Key (UModelverse)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseKey'" [type]="showUmodelverseKey ? 'text' : 'password'" matInput>
-                                <button mat-icon-button type="button" matSuffix (click)="showUmodelverseKey = !showUmodelverseKey">
-                                    <mat-icon class="icon-size-4">{{ showUmodelverseKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+                                <input [formControlName]="'umodelverseKey'"
+                                    [type]="showUmodelverseKey ? 'text' : 'password'" matInput>
+                                <button mat-icon-button type="button" matSuffix
+                                    (click)="showUmodelverseKey = !showUmodelverseKey">
+                                    <mat-icon class="icon-size-4">{{ showUmodelverseKey ? 'visibility_off' :
+                                        'visibility' }}</mat-icon>
                                 </button>
                             </mat-form-field>
                         </div>
@@ -269,30 +275,39 @@
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
                                 <mat-label>Model văn bản (Tùy chọn)</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'" matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseChatModel'" type="text" matInput placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'"
+                                    matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseChatModel'" type="text" matInput
+                                    placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng gpt-4o).</div>
+                            <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu
+                                để trống sẽ dùng gpt-4o).</div>
                         </div>
 
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
                                 <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'" matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseImageModel'" type="text" matInput placeholder="VD: flux, qwen-vl, dall-e-3">
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'"
+                                    matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseImageModel'" type="text" matInput
+                                    placeholder="VD: flux, qwen-vl, dall-e-3">
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng dall-e-3). VD: flux-schnell</div>
+                            <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để
+                                trống sẽ dùng dall-e-3). VD: flux-schnell</div>
                         </div>
 
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
                                 <mat-label>Model tạo video (Tùy chọn)</mat-label>
-                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'" matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseVideoModel'" type="text" matInput placeholder="VD: cogvideox-5b, luma-dream-machine">
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"
+                                    matPrefix></mat-icon>
+                                <input [formControlName]="'umodelverseVideoModel'" type="text" matInput
+                                    placeholder="VD: cogvideox-5b, luma-dream-machine">
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
+                            <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để
+                                trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
                         </div>
                     </div>
                 </div>
@@ -312,9 +327,12 @@
                             [subscriptSizing]="'dynamic'">
                             <mat-label>Search Engine</mat-label>
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
-                            <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'" matInput>
-                            <button mat-icon-button type="button" matSuffix (click)="showSearchAPIKey = !showSearchAPIKey">
-                                <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility' }}</mat-icon>
+                            <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
+                                matInput>
+                            <button mat-icon-button type="button" matSuffix
+                                (click)="showSearchAPIKey = !showSearchAPIKey">
+                                <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility'
+                                    }}</mat-icon>
                             </button>
                         </mat-form-field>
                         <div class="mt-1 text-md text-hint">Bạn chưa có Search Api Key của Google Search? Tạo <a

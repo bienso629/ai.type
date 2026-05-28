@@ -49,6 +49,15 @@
                         <h2 class="text-xl font-semibold mb-2 text-secondary">Quản lý Web Tools</h2>
                         <p class="text-sm text-gray-500">Thêm các trang web thường xuyên sử dụng vào thanh tiện ích để
                             mở nhanh trên màn hình phụ.</p>
+                        
+                        <div class="flex gap-2 mt-4">
+                            <button mat-flat-button color="primary" (click)="openLoginBrowser()" matTooltip="Mở trình duyệt riêng để đăng nhập Google">
+                                Đăng Nhập
+                            </button>
+                            <button mat-flat-button color="warn" (click)="clearWebviewCookie()" matTooltip="Xoá toàn bộ Cookie & Session của Webview">
+                                Xoá Cookie
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Tool Management List -->
