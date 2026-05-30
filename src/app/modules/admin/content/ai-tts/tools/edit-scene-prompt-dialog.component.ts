@@ -156,6 +156,7 @@ export class EditScenePromptDialogComponent {
         }
     }
 
+    private cacheBuster: number = Date.now();
     private safeUrlCache: { [url: string]: SafeUrl } = {};
     getSafeUrl(url: string | null): SafeUrl | string | null {
         if (!url) return url;
@@ -166,7 +167,9 @@ export class EditScenePromptDialogComponent {
             // do nothing
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
-            const originalPath = cleanUrl;
+            // Loại bỏ query string cũ nếu có để tránh lỗi và bỏ prefix file://
+            let originalPath = cleanUrl.split('?')[0];
+            originalPath = originalPath.replace(/^file:\/\//i, '');
 
             const mediaDir = this.data?.mediaDir || '';
             let projectUuid = this.data?.uuid;
@@ -175,7 +178,7 @@ export class EditScenePromptDialogComponent {
                 projectUuid = parts[parts.length - 1];
             }
 
-            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
+            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}&_t=${this.cacheBuster}`;
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
@@ -343,6 +346,7 @@ export class EditScenePromptDialogComponent {
 
             if (result && result.success) {
                 const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                this.cacheBuster = Date.now();
                 this.editingScenePrompt.imageUrl = finalPath;
                 this.toastr.success('Đã tạo Storyboard thành công!');
             } else {
@@ -516,6 +520,7 @@ export class EditScenePromptDialogComponent {
 
             if (result && result.success) {
                 const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                this.cacheBuster = Date.now();
                 this.editingScenePrompt.videoUrl = finalPath;
                 this.toastr.success('Đã tạo và tải Video phân cảnh thành công!');
             } else {
@@ -691,6 +696,7 @@ export class EditScenePromptDialogComponent {
                 if (originalPath) {
                     const localFilePath = await electron.selectLocalFile(originalPath);
                     const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
+                    this.cacheBuster = Date.now();
                     this.editingScenePrompt.imageUrl = finalPath;
                 }
 

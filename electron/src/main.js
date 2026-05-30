@@ -2848,7 +2848,8 @@ app.whenReady().then(async () => {
         if (url.toLowerCase().startsWith('smart_find/')) {
             const queryString = url.substring(url.indexOf('?') + 1);
             const params = new URLSearchParams(queryString);
-            const originalPath = params.get('path') || '';
+            let originalPath = params.get('path') || '';
+            originalPath = originalPath.replace(/^file:\/\//i, '');
             const mediaDir = params.get('dir') || '';
             const uuid = params.get('uuid') || 'default';
 
