@@ -123,11 +123,6 @@
                         <!-- <span class="text-sm text-gray-400 mr-1">Kéo thả để sắp xếp</span> -->
                         <div class="flex items-center">
                             <!-- Removed bulk setting dropdowns and "Cài đặt" button as requested -->
-                            <button mat-flat-button color="warn" (click)="cancelProcessing()" *ngIf="isGlobalProcessing" class="ml-2">
-                                <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
-                                <span class="ml-2">Dừng</span>
-                            </button>
-
                             <button mat-icon-button class="ml-0" (click)="clear()" *ngIf="audioList.length > 0" matTooltip="Làm mới nội dung">
                                 <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
                             </button>
@@ -143,6 +138,11 @@
                             </button>
 
                             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
+
+                            <button mat-flat-button color="warn" (click)="cancelProcessing()" *ngIf="isGlobalProcessing" class="ml-2">
+                                <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                                <span class="ml-2">Dừng</span>
+                            </button>
 
                             <button mat-flat-button color="primary" (click)="generateAll()" [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0" class="ml-2">
                                 <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white" [svgIcon]="'feather:loader'"></mat-icon>

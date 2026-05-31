@@ -2,10 +2,8 @@
     <div class="flex-1 min-w-0 relative h-full">
         <div class="flex-auto h-full overflow-y-auto hover-scroll" cdkScrollable>
             <div class="timeline-container fullscreen">
-                <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false"
-                    [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
-                    [panelLabel]="'Thao tác'" (itemTimeChanged)="onItemTimeChanged($event)"
-                    [itemContentTemplate]="customItemTemplate"></timeline-calendar>
+                <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false" [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70"
+                    [items]="items" [panelLabel]="'Thao tác'" (itemTimeChanged)="onItemTimeChanged($event)" [itemContentTemplate]="customItemTemplate"></timeline-calendar>
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div (click)="changeEvent(item)" class="flex flex-row cursor-pointer">
@@ -37,7 +35,7 @@
     </div>
 
     <div class="flex flex-col shrink-0 border-l min-w-100 h-full">
-        <div class="flex flex-row p-4 py-4">
+        <div class="flex flex-row p-6 py-4">
             <div class="flex flex-1 flex-col">
                 <p class="text-base"><b>Tắt/Mở</b> danh sách Livestream</p>
                 <p class="text-gray-400 text-sm">
@@ -45,13 +43,12 @@
                 </p>
             </div>
             <div class="flex-0 justify-between items-center flex">
-                <mat-slide-toggle class="fuse-mat-dense fuse-mat-emphasized-affix" (change)="onToggleChange($event)"
-                    [checked]="turnOffLiveStream" [color]="'primary'">
+                <mat-slide-toggle class="fuse-mat-dense fuse-mat-emphasized-affix" (change)="onToggleChange($event)" [checked]="turnOffLiveStream" [color]="'primary'">
                 </mat-slide-toggle>
             </div>
         </div>
         <div class="border-t"></div>
-        <div class="flex flex-col w-full h-full rounded-md overflow-y-auto hover-scroll p-4" *ngIf="rooms.length > 0">
+        <div class="flex flex-col w-full h-full rounded-md overflow-y-auto hover-scroll p-6" *ngIf="rooms.length > 0">
             <div class="flex flex-row mb-3 last:mb-0 items-center" *ngFor="let room of rooms; let i = index">
                 <div class="flex-0">
                     <div class="w-13 h-13 m-0 my-auto mr-3 rounded-md" matTooltipPosition="above" matTooltip="&#64;{{
@@ -73,8 +70,7 @@
                             }}</mat-label>
                     </p>
                     <div class="flex items-center justify-self-stretch">
-                        <mat-label matTooltipPosition="above" matTooltip="&#64;{{ room['unique_id'] }}"
-                            (click)="playLiveStream(room)"
+                        <mat-label matTooltipPosition="above" matTooltip="&#64;{{ room['unique_id'] }}" (click)="playLiveStream(room)"
                             class="h-6 leading-6 items-center cursor-pointer px-3 rounded-full text-sm line-clamp-1 font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">{{
                             room["nickname"] }}</mat-label>
                     </div>
@@ -89,17 +85,14 @@
             </div>
         </div>
 
-        <div class="p-4 h-full">
+        <div class="p-6 h-full">
             <div #captionsBox class="captions-container h-full relative">
-                <ngx-datatable [virtualization]="true" #table class="material fullscreen shadow-none rounded-md border"
-                    [columnMode]="ColumnMode.force" [selected]="selected" [selectionType]="SelectionType.checkbox"
-                    [selectAllRowsOnPage]="false" [displayCheck]="displayCheck" (select)="onSelect($event)"
-                    [externalSorting]="true" [count]="captions.length" [headerHeight]="50" [footerHeight]="50"
-                    [rowHeight]="50" [scrollbarV]="true" [rows]="captions" [trackByProp]="'trackByIndex'">
-                    <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                        [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
-                    <ngx-datatable-column name="Phụ đề" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                        [resizeable]="true">
+                <ngx-datatable [virtualization]="true" #table class="material fullscreen shadow-none rounded-md border" [columnMode]="ColumnMode.force" [selected]="selected"
+                    [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false" [displayCheck]="displayCheck" (select)="onSelect($event)" [externalSorting]="true"
+                    [count]="captions.length" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="captions" [trackByProp]="'trackByIndex'">
+                    <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
+                        [checkboxable]="true"></ngx-datatable-column>
+                    <ngx-datatable-column name="Phụ đề" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                         <ng-template let-row="row" ngx-datatable-cell-template>
                             <mat-label class="line-clamp-1 text-base">{{
                                 row.text
@@ -107,9 +100,8 @@
                         </ng-template>
                     </ngx-datatable-column>
                     <ngx-datatable-footer>
-                        <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
-                            let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
-                            let-isVisible="isVisible">
+                        <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize" let-selectedCount="selectedCount" let-curPage="curPage"
+                            let-offset="offset" let-isVisible="isVisible">
                             <div class="flex w-full px-4 sm:items-center sm:justify-between">
                                 <div class="flex-1 min-w-0">
                                     <div class="flex items-center justify-self-stretch">
@@ -122,19 +114,15 @@
                                                         comments.length === 0;
                                                     else nextComment
                                                 ">
-                                                <a [color]="'primary'"
-                                                    class="cursor-pointer text-blue-600 hover:underline"
-                                                    (click)="generateComment()">Tạo Comment</a>
+                                                <a [color]="'primary'" class="cursor-pointer text-blue-600 hover:underline" (click)="generateComment()">Tạo Comment</a>
 
                                                 <div class="border-l h-full"></div>
 
-                                                <a class="cursor-pointer text-blue-600 hover:underline"
-                                                    (click)="generateLike()">Thả tim</a>
+                                                <a class="cursor-pointer text-blue-600 hover:underline" (click)="generateLike()">Thả tim</a>
                                             </ng-container>
 
                                             <ng-template #nextComment>
-                                                <a [color]="'primary'"
-                                                    class="ml-2 cursor-pointer text-blue-600 hover:underline" (click)="
+                                                <a [color]="'primary'" class="ml-2 cursor-pointer text-blue-600 hover:underline" (click)="
                                                         generatNextComment()
                                                     ">Tiếp tục comment</a>
                                             </ng-template>
@@ -143,8 +131,7 @@
                                 </div>
 
                                 <div class="flex shrink-0 items-center gap-0">
-                                    <button mat-icon-button [color]="'warn'" (click)="resetScriptContext()"
-                                        matTooltip="Xóa kịch bản và ngữ cảnh AI">
+                                    <button mat-icon-button [color]="'warn'" (click)="resetScriptContext()" matTooltip="Xóa kịch bản và ngữ cảnh AI">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                                     </button>
                                 </div>
@@ -157,24 +144,23 @@
 
         <div class="border-t"></div>
 
-        <div class="p-4">
-            <a class="h-6 leading-6 px-4 py-2 cursor-pointer items-center rounded-full text-sm bg-blue-600 hover:bg-blue-700 text-white"
-                (click)="n8nComments()">Tổng duyệt</a>
+        <div class="p-6">
+            <a class="h-6 leading-6 px-4 py-2 cursor-pointer items-center rounded-full text-sm bg-blue-600 hover:bg-blue-700 text-white" (click)="n8nComments()">Tổng duyệt</a>
         </div>
     </div>
 </div>
 
 <ng-template #promptDialog>
     <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 600px">
-        <div class="flex items-center justify-between p-4 bg-gray-50 border-b shrink-0">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
             <h2 class="text-xl font-bold m-0 text-gray-800">
-                Yêu cầu bổ sung cho AI khi tạo kịch bản Comment
+                Sử dụng AI tạo kịch bản Comment
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
             </button>
         </div>
-        <div class="p-4">
+        <div class="p-6">
             <p class="text-gray-600 text-sm">
                 Nhập chỉ đạo cụ thể (Ví dụ: "10h ngày 15/01/2026...", "Tập trung
                 hỏi giá...") và link video TikTok nếu có.
@@ -182,8 +168,7 @@
 
             <mat-form-field class="w-full mt-3" appearance="outline">
                 <mat-label>Nhập prompt bổ sung</mat-label>
-                <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5"
-                    placeholder="Ví dụ: Link video https://..."></textarea>
+                <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5" placeholder="Ví dụ: Link video https://..."></textarea>
             </mat-form-field>
 
             <p class="text-blue-700 text-xs">
@@ -196,7 +181,7 @@
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-4 border-t bg-gray-50 shrink-0">
+        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
             <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
                 Hủy
             </button>
@@ -222,8 +207,7 @@
         </div>
 
         <div class="flex items-center px-6 py-3 bg-white border-b shrink-0">
-            <mat-checkbox color="primary" [checked]="isAllSelected" [ngModelOptions]="{ standalone: true }"
-                (change)="toggleAllSelection($event.checked)">
+            <mat-checkbox color="primary" [checked]="isAllSelected" [ngModelOptions]="{ standalone: true }" (change)="toggleAllSelection($event.checked)">
                 Chọn tất cả ({{ commentGroups.length }} nhóm)
             </mat-checkbox>
         </div>
@@ -232,8 +216,8 @@
             <ng-container *ngFor="let group of commentGroups">
                 <div class="flex items-center px-6 py-3 bg-gray-100 border-t first:border-t-0 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
                     (click)="toggleGroup(group)">
-                    <mat-icon class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200"
-                        [class.rotate-90]="group.expanded" [svgIcon]="'feather:chevron-right'"></mat-icon>
+                    <mat-icon class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200" [class.rotate-90]="group.expanded"
+                        [svgIcon]="'feather:chevron-right'"></mat-icon>
                     <span class="font-bold text-gray-800 text-sm">{{
                         group.key
                         }}</span>
@@ -256,128 +240,117 @@
                                     <th class="w-24 px-4 py-2 text-center">
                                         Thao tác
                                     </th>
-                            </tr>
-                        </thead>
-                        <tbody class="text-sm divide-y divide-gray-100">
-                            <tr *ngFor="let item of group.items" class="hover:bg-gray-50 transition-colors">
-                                <td class="px-6 py-3 text-center">
-                                    <mat-checkbox color="primary" [(ngModel)]="item.selected"
-                                        [ngModelOptions]="{ standalone: true }"
-                                        (change)="updateSelectionCount()"></mat-checkbox>
-                                </td>
-                                <td class="px-4 py-3 text-gray-600 whitespace-nowrap align-top">
-                                    <div class="font-medium text-blue-600">
-                                        {{ item.start | date: "HH:mm:ss" }}
-                                    </div>
-                                    <div class="text-xs text-gray-400">
-                                        {{ item.start | date: "dd/MM/yyyy" }}
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 align-top">
-                                    <ng-container *ngIf="!item.isEditing">
-                                        <a *ngIf="item.videoUrl" [href]="item.videoUrl" target="_blank"
-                                            class="text-blue-500 hover:underline flex items-center"
-                                            matTooltip="{{ item.videoUrl }}">
-                                            <mat-icon class="icon-size-4 mr-1" [svgIcon]="
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm divide-y divide-gray-100">
+                                <tr *ngFor="let item of group.items" class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-3 text-center">
+                                        <mat-checkbox color="primary" [(ngModel)]="item.selected" [ngModelOptions]="{ standalone: true }"
+                                            (change)="updateSelectionCount()"></mat-checkbox>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap align-top">
+                                        <div class="font-medium text-blue-600">
+                                            {{ item.start | date: "HH:mm:ss" }}
+                                        </div>
+                                        <div class="text-xs text-gray-400">
+                                            {{ item.start | date: "dd/MM/yyyy" }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 align-top">
+                                        <ng-container *ngIf="!item.isEditing">
+                                            <a *ngIf="item.videoUrl" [href]="item.videoUrl" target="_blank" class="text-blue-500 hover:underline flex items-center"
+                                                matTooltip="{{ item.videoUrl }}">
+                                                <mat-icon class="icon-size-4 mr-1" [svgIcon]="
                                                     'feather:external-link'
                                                 "></mat-icon>
-                                            Link
-                                        </a>
-                                        <span *ngIf="!item.videoUrl" class="text-gray-400 text-xs">-</span>
-                                    </ng-container>
-                                    <ng-container *ngIf="item.isEditing">
-                                        <input type="text" class="w-full p-2 border border-gray-200 rounded text-xs"
-                                            placeholder="URL video..." [(ngModel)]="item.videoUrlDraft"
-                                            [ngModelOptions]="{
+                                                Link
+                                            </a>
+                                            <span *ngIf="!item.videoUrl" class="text-gray-400 text-xs">-</span>
+                                        </ng-container>
+                                        <ng-container *ngIf="item.isEditing">
+                                            <input type="text" class="w-full p-2 border border-gray-200 rounded text-xs" placeholder="URL video..." [(ngModel)]="item.videoUrlDraft"
+                                                [ngModelOptions]="{
                                                 standalone: true,
                                             }" />
-                                    </ng-container>
-                                </td>
-                                <td class="px-4 py-3 text-gray-900 font-medium align-top">
-                                    <div class="flex flex-col gap-1">
-                                        <div class="flex gap-2">
-                                            <span [class]="
+                                        </ng-container>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-900 font-medium align-top">
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex gap-2">
+                                                <span [class]="
                                                     item.type === 'LIKE'
                                                         ? 'bg-pink-100 text-pink-700'
                                                         : 'bg-blue-100 text-blue-700'
                                                 " class="px-2 py-0.5 rounded text-[10px] font-bold uppercase">
-                                                {{
-                                                item.type === "LIKE"
-                                                ? "Thả tim"
-                                                : "Comment"
-                                                }}
-                                            </span>
-                                        </div>
+                                                    {{
+                                                    item.type === "LIKE"
+                                                    ? "Thả tim"
+                                                    : "Comment"
+                                                    }}
+                                                </span>
+                                            </div>
 
-                                        <ng-container *ngIf="!item.isEditing">
-                                            <span [class.text-pink-600]="
+                                            <ng-container *ngIf="!item.isEditing">
+                                                <span [class.text-pink-600]="
                                                     item.type === 'LIKE'
                                                 ">{{ item.comment }}</span>
-                                        </ng-container>
+                                            </ng-container>
 
-                                        <ng-container *ngIf="item.isEditing">
-                                            <textarea *ngIf="item.type === 'COMMENT'"
-                                                class="w-full p-2 border border-gray-200 rounded focus:outline-none"
-                                                rows="3" [(ngModel)]="item.commentDraft"></textarea>
-                                            <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">Nội dung
-                                                Like không thể
-                                                sửa</span>
-                                        </ng-container>
+                                            <ng-container *ngIf="item.isEditing">
+                                                <textarea *ngIf="item.type === 'COMMENT'" class="w-full p-2 border border-gray-200 rounded focus:outline-none" rows="3"
+                                                    [(ngModel)]="item.commentDraft"></textarea>
+                                                <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">Nội dung
+                                                    Like không thể
+                                                    sửa</span>
+                                            </ng-container>
 
-                                        <div class="text-[10px] text-gray-400 truncate mt-1"
-                                            [matTooltip]="item.videoUrl">
-                                            URL: {{ item.videoUrl }}
+                                            <div class="text-[10px] text-gray-400 truncate mt-1" [matTooltip]="item.videoUrl">
+                                                URL: {{ item.videoUrl }}
+                                            </div>
                                         </div>
-                                    </div>
-                                </td>
-                                <td class="px-4 py-3 text-gray-500 align-top">
-                                    <ng-container *ngIf="!item.isEditing">{{
-                                        item.result || "---"
-                                        }}</ng-container>
-                                    <ng-container *ngIf="item.isEditing">
-                                        <textarea
-                                            class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"
-                                            rows="3" [(ngModel)]="item.resultDraft" [ngModelOptions]="{
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-500 align-top">
+                                        <ng-container *ngIf="!item.isEditing">{{
+                                            item.result || "---"
+                                            }}</ng-container>
+                                        <ng-container *ngIf="item.isEditing">
+                                            <textarea class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50" rows="3"
+                                                [(ngModel)]="item.resultDraft" [ngModelOptions]="{
                                                 standalone: true,
                                             }"></textarea>
-                                    </ng-container>
-                                </td>
-                                <td class="px-4 py-3 text-center align-top">
-                                    <div *ngIf="!item.isEditing" class="flex justify-center items-center gap-2">
-                                        <button mat-icon-button (click)="enableEdit(item)" matTooltip="Chỉnh sửa"
-                                            class="text-blue-500 hover:bg-blue-50">
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
-                                        </button>
-                                        <button mat-icon-button (click)="deleteComment(group, item)" matTooltip="Xóa"
-                                            class="text-red-500 hover:bg-red-50">
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
-                                        </button>
-                                    </div>
-                                    <div *ngIf="item.isEditing" class="flex justify-center items-center gap-2">
-                                        <button mat-icon-button (click)="saveEdit(item)" matTooltip="Lưu"
-                                            class="text-green-600 hover:bg-green-50">
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
-                                        </button>
-                                        <button mat-icon-button (click)="cancelEdit(item)" matTooltip="Hủy"
-                                            class="text-gray-500 hover:bg-gray-50">
-                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
-                                        </button>
-                                    </div>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+                                        </ng-container>
+                                    </td>
+                                    <td class="px-4 py-3 text-center align-top">
+                                        <div *ngIf="!item.isEditing" class="flex justify-center items-center gap-2">
+                                            <button mat-icon-button (click)="enableEdit(item)" matTooltip="Chỉnh sửa" class="text-blue-500 hover:bg-blue-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
+                                            </button>
+                                            <button mat-icon-button (click)="deleteComment(group, item)" matTooltip="Xóa" class="text-red-500 hover:bg-red-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                            </button>
+                                        </div>
+                                        <div *ngIf="item.isEditing" class="flex justify-center items-center gap-2">
+                                            <button mat-icon-button (click)="saveEdit(item)" matTooltip="Lưu" class="text-green-600 hover:bg-green-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
+                                            </button>
+                                            <button mat-icon-button (click)="cancelEdit(item)" matTooltip="Hủy" class="text-gray-500 hover:bg-gray-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
                 </div>
             </ng-container>
-            <div *ngIf="commentGroups.length === 0"
-                class="flex flex-col items-center justify-center h-64 text-gray-500">
+            <div *ngIf="commentGroups.length === 0" class="flex flex-col items-center justify-center h-64 text-gray-500">
                 <mat-icon class="icon-size-12 mb-2" [svgIcon]="'heroicons_outline:inbox'"></mat-icon>
                 <span>Chưa có dữ liệu comment nào.</span>
             </div>
         </div>
 
-        <div class="flex items-center justify-between p-4 border-t bg-gray-50 shrink-0 z-10">
+        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10">
             <div class="text-sm text-gray-600 ml-2">
                 <span class="text-gray-500 mr-4">Thống kê:</span>
                 <span class="text-blue-600 mr-4">Comment: {{ countTypeInGroups("COMMENT") }}</span>
@@ -398,7 +371,7 @@
 
 <ng-template #likeDialog>
     <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="min-width: 500px">
-        <div class="flex items-center justify-between p-4 bg-gray-50 border-b shrink-0">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
             <h2 class="text-xl font-bold m-0 text-gray-800">
                 Cài đặt kịch bản Thả tim hàng loạt
             </h2>
@@ -407,7 +380,7 @@
             </button>
         </div>
 
-        <div class="p-4">
+        <div class="p-6">
             <mat-form-field class="w-full mt-3" appearance="outline">
                 <mat-label>Link video TikTok</mat-label>
                 <input matInput [(ngModel)]="likeVideoUrl" placeholder="https://www.tiktok.com/@..." />
@@ -415,18 +388,16 @@
             </mat-form-field>
 
             <div class="flex flex-col gap-2">
-                <div class="flex gap-4">
+                <div class="flex gap-6">
                     <mat-form-field class="flex-1" appearance="outline">
                         <mat-label>Từ thời điểm</mat-label>
-                        <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()"
-                            [(ngModel)]="likeStartTime" />
+                        <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()" [(ngModel)]="likeStartTime" />
                         <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:calendar'"></mat-icon>
                     </mat-form-field>
 
                     <mat-form-field class="flex-1" appearance="outline">
                         <mat-label>Đến thời điểm</mat-label>
-                        <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()"
-                            [(ngModel)]="likeEndTime" />
+                        <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()" [(ngModel)]="likeEndTime" />
                         <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>
                     </mat-form-field>
                 </div>
@@ -439,7 +410,7 @@
             </p>
         </div>
 
-        <div class="flex items-center justify-end p-4 border-t bg-gray-50 shrink-0">
+        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
             <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
                 Hủy
             </button>
