@@ -580,10 +580,21 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         resolveCallback?: () => void,
     ) {
         clip.isProcessing = false;
+        
+        // Reset properties to ensure it doesn't look like it's done if it failed
+        clip.localFilePath = null;
+        clip.audioFileName = null;
+        clip.url = null;
+        clip.rawUrl = null;
+        clip.duration = 0;
+        
+        this.calculateTotalDuration();
         this.cd.markForCheck();
 
         // Hiển thị thông báo lỗi lên góc phải màn hình cho người dùng biết
         this.toastr.error(`Lỗi khi tạo "${clip.name}": ${errorMessage}`, 'Thất bại');
+
+        if (resolveCallback) resolveCallback();
 
         // // Mở dialog hỏi người dùng
         // const dialogRef = this._fuseConfirmationService.open({
@@ -2225,6 +2236,86 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.saveToLocal();
         this.update(false);
         this.cd.markForCheck();
+    }
+
+    splitClipText(text: string, maxLength: number = 80): string[] {
+        if (!text) return [];
+        const sentences = text.split(/(?<=[.!?\n])\s+/);
+        const result: string[] = [];
+        
+        for (let sentence of sentences) {
+            sentence = sentence.trim();
+            if (!sentence) continue;
+            
+            if (sentence.length <= maxLength) {
+                result.push(sentence);
+            } else {
+                const parts = sentence.split(/(?<=[,;])\s+/);
+                let currentPart = '';
+                for (const part of parts) {
+                    if ((currentPart + ' ' + part).trim().length <= maxLength) {
+                        currentPart = (currentPart + ' ' + part).trim();
+                    } else {
+                        if (currentPart) result.push(currentPart);
+                        if (part.length > maxLength) {
+                            const words = part.split(' ');
+                            let tempWord = '';
+                            for (const word of words) {
+                                if ((tempWord + ' ' + word).trim().length <= maxLength) {
+                                    tempWord = (tempWord + ' ' + word).trim();
+                                } else {
+                                    if (tempWord) result.push(tempWord);
+                                    tempWord = word;
+                                }
+                            }
+                            if (tempWord) currentPart = tempWord;
+                        } else {
+                            currentPart = part;
+                        }
+                    }
+                }
+                if (currentPart) result.push(currentPart);
+            }
+        }
+        return result;
+    }
+
+    splitClip(clip: any, index: number) {
+        if (!clip.description) {
+            this.toastr.warning("Đoạn văn trống, không thể chia nhỏ.");
+            return;
+        }
+
+        const parts = this.splitClipText(clip.description, 80);
+        
+        if (parts.length <= 1) {
+            this.toastr.info("Đoạn văn này đã đủ ngắn (dưới 80 ký tự), không cần chia nhỏ.");
+            return;
+        }
+
+        const newClips = parts.map(part => {
+            return {
+                ...clip,
+                id: this.generateId(),
+                description: part,
+                name: part.substring(0, 50) + (part.length > 50 ? '...' : ''),
+                url: null,
+                audioFileName: null,
+                localFilePath: null,
+                duration: 0,
+                tempDescription: part,
+                isEditing: false
+            };
+        });
+
+        this.audioList.splice(index, 1, ...newClips);
+        this.audioList = [...this.audioList];
+        
+        this.selectedAudioIndex = -1;
+        this.saveToLocal();
+        this.update(false);
+        this.cd.markForCheck();
+        this.toastr.success(`Đã chia nhỏ thành ${parts.length} đoạn ngắn.`);
     }
 
     private createAudioClipFromFile(file: File): Promise<AudioClip> {

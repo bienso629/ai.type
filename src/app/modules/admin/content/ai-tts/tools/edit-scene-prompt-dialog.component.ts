@@ -54,6 +54,127 @@ export class EditScenePromptDialogComponent {
         }
     }
 
+    getDialogueForThisPart(): string {
+        const scene = this.data.scene;
+        if (!scene || !scene.subtitles || !scene.videos) return '';
+
+        let partStartTime = 0;
+        if (this.editingVideoIndex >= 0) {
+            for (let i = 0; i < this.editingVideoIndex; i++) {
+                partStartTime += scene.videos[i].duration || 0;
+            }
+        }
+
+        const dur = this.editingScenePrompt.duration || 0;
+        let partEndTime = dur > 0 ? partStartTime + dur : 99999;
+
+        let dialogueWords: string[] = [];
+        let currentSubTime = 0;
+
+        for (const sub of scene.subtitles) {
+            let subDuration = 0;
+            if (sub.duration) {
+                subDuration = sub.duration;
+            } else if (sub.text) {
+                subDuration = Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+            }
+
+            const subStartTime = currentSubTime;
+            const subEndTime = currentSubTime + subDuration;
+
+            if (subStartTime < partEndTime && subEndTime > partStartTime) {
+                if (sub.text) {
+                    const textStr = sub.text.trim();
+                    const words = textStr.split(/\s+/);
+                    if (subStartTime >= partStartTime && subEndTime <= partEndTime) {
+                        dialogueWords.push(...words);
+                    } else {
+                        const overlapStart = Math.max(0, partStartTime - subStartTime);
+                        const overlapEnd = Math.min(subDuration, partEndTime - subStartTime);
+
+                        const startRatio = overlapStart / subDuration;
+                        const endRatio = overlapEnd / subDuration;
+
+                        // Use Math.round for both to ensure identical cut points for adjacent parts
+                        let startIndex = Math.round(startRatio * words.length);
+                        let endIndex = Math.round(endRatio * words.length);
+
+                        const findBestBoundary = (targetIndex: number) => {
+                            let bestIdx = targetIndex;
+                            let minDistance = 999;
+                            let searchRadius = 12; // Adjusted radius
+
+                            for (let i = Math.max(0, targetIndex - searchRadius); i < Math.min(words.length + 1, targetIndex + searchRadius); i++) {
+                                if (i > 0 && i <= words.length) {
+                                    const dist = Math.abs(i - targetIndex);
+                                    if (words[i - 1].match(/[.!?]$/)) {
+                                        if (dist - 5 < minDistance) {
+                                            bestIdx = i;
+                                            minDistance = dist - 5;
+                                        }
+                                    } else if (words[i - 1].match(/[,;]$/)) {
+                                        if (dist < minDistance) {
+                                            bestIdx = i;
+                                            minDistance = dist;
+                                        }
+                                    }
+                                }
+                            }
+                            return bestIdx;
+                        };
+
+                        let bestStartIndex = startRatio > 0.01 ? findBestBoundary(startIndex) : 0;
+                        let bestEndIndex = endRatio < 0.99 ? findBestBoundary(endIndex) : words.length;
+
+                        // Fallback if snapping causes invalid ranges
+                        if (bestEndIndex <= bestStartIndex) {
+                            bestStartIndex = startIndex;
+                            bestEndIndex = endIndex;
+                        }
+
+                        dialogueWords.push(...words.slice(bestStartIndex, bestEndIndex));
+                    }
+                }
+            }
+
+            currentSubTime = subEndTime;
+        }
+
+        return dialogueWords.join(' ').trim();
+    }
+
+    addDialogueToPrompt() {
+        const dialogue = this.getDialogueForThisPart();
+        if (!dialogue) {
+            this.toastr.warning('Không tìm thấy lời thoại nào trong khoảng thời gian của phần này.');
+            return;
+        }
+
+        const dialogText = `[Dialogue: "${dialogue}"]`;
+        if (this.editingScenePrompt.prompt) {
+            if (this.editingScenePrompt.prompt.includes(dialogText)) {
+                this.toastr.info('Lời thoại đã được thêm vào prompt trước đó rồi.');
+                return;
+            }
+
+            // Check if there are constraints or NOTE at the end, insert before it if possible
+            const prompt = this.editingScenePrompt.prompt;
+            const noteRegex = /\n*(\(Constraints:|\[NOTE:|\[MANDATORY:)/i;
+            const match = prompt.match(noteRegex);
+
+            if (match && match.index !== undefined) {
+                const firstPart = prompt.substring(0, match.index).trim();
+                const lastPart = prompt.substring(match.index).trim();
+                this.editingScenePrompt.prompt = firstPart + '\n\n' + dialogText + '\n\n' + lastPart;
+            } else {
+                this.editingScenePrompt.prompt += '\n\n' + dialogText;
+            }
+        } else {
+            this.editingScenePrompt.prompt = dialogText;
+        }
+        this.toastr.success('Đã thêm lời thoại vào Prompt tạo Video!');
+    }
+
     toggleReferenceChar(char: any) {
         if (this.selectedReferenceChars.has(char)) {
             this.selectedReferenceChars.delete(char);
@@ -182,7 +303,7 @@ export class EditScenePromptDialogComponent {
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
-        
+
         const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
@@ -197,7 +318,7 @@ export class EditScenePromptDialogComponent {
 
         const keys = secretKey.map((k: string) => k.trim()).filter((k: string) => k);
         if (keys.length === 0) return null;
-        
+
         // Random load balancing cho các tính năng render ảnh/video phụ trợ
         return keys[Math.floor(Math.random() * keys.length)];
     }
@@ -205,7 +326,7 @@ export class EditScenePromptDialogComponent {
     getFullImagePrompt(): string {
         // Lấy prompt dành cho ảnh (không có lệnh tạo video)
         let baseText = this.editingScenePrompt.imagePrompt || this.editingScenePrompt.prompt || '';
-        
+
         // Loại bỏ các thẻ [Character ...] cũ nếu có để tạo lại từ các checkbox hiện tại
         baseText = baseText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
 
@@ -219,7 +340,7 @@ export class EditScenePromptDialogComponent {
                 addedChars.push(`[Character '${char.name}': ${charDesc}]`);
             }
         }
-        
+
         if (addedChars.length > 0) {
             baseText = addedChars.join('\n') + '\n\n' + baseText;
         }
@@ -234,7 +355,7 @@ export class EditScenePromptDialogComponent {
     getFullVideoPrompt(): string {
         // Lấy prompt dành cho video
         let baseText = this.editingScenePrompt.prompt || '';
-        
+
         // Loại bỏ các thẻ [Character ...] cũ nếu có để tạo lại từ các checkbox hiện tại
         baseText = baseText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
 
@@ -248,7 +369,7 @@ export class EditScenePromptDialogComponent {
                 addedChars.push(`[Character '${char.name}': ${charDesc}]`);
             }
         }
-        
+
         if (addedChars.length > 0) {
             baseText = addedChars.join('\n') + '\n\n' + baseText;
         }
@@ -258,6 +379,98 @@ export class EditScenePromptDialogComponent {
         }
 
         return baseText;
+    }
+
+    isAutoFixing: boolean = false;
+
+    async autoFixVideoPrompt() {
+        if (!this.editingScenePrompt.imagePrompt || !this.editingScenePrompt.imagePrompt.trim()) {
+            this.toastr.warning('Bạn chưa có Prompt Hình ảnh để bù đắp!');
+            return;
+        }
+
+        if (!this.editingScenePrompt.prompt || !this.editingScenePrompt.prompt.trim()) {
+            this.toastr.warning('Bạn chưa có Prompt Video!');
+            return;
+        }
+
+        const dialogRef = this.dialog.open(PromptInputDialogComponent, {
+            width: '500px',
+            panelClass: 'dark-theme-dialog',
+            data: {
+                title: 'Yêu cầu thêm với AI (Tùy chọn)',
+                placeholder: 'Ví dụ: Thêm hiệu ứng slow-mo, góc máy kịch tính hơn...'
+            }
+        });
+
+        const result = await new Promise<any>((resolve) => {
+            dialogRef.afterClosed().subscribe((res: any) => resolve(res));
+        });
+
+        if (result === null || result === undefined) {
+            // Người dùng bấm Cancel
+            return;
+        }
+
+        const extraInstructions = result.text || '';
+        const attachedFile = result.file;
+
+        if (this.isAutoFixing) return;
+        this.isAutoFixing = true;
+        this.toastr.info('Đang dùng AI tối ưu hóa Prompt Video...', 'Đang xử lý');
+
+        let systemPrompt = `You are an expert AI video generation prompt engineer (for tools like Kling, Runway Gen-3, Dreamina).
+Your task is to merge a "Scene/Background Image Prompt" and an "Action/Video Prompt" into ONE single highly detailed, coherent, and visually stunning video prompt.
+
+Image Prompt (Context/Lighting/Setting):
+${this.editingScenePrompt.imagePrompt}
+
+Video Prompt (Character/Action/Movement/Constraints):
+${this.editingScenePrompt.prompt}
+
+Instructions:
+1. Combine them naturally. The environment and lighting from the Image Prompt must set the stage for the action in the Video Prompt.
+2. Maintain the exact character constraints, Dialogue tags, NOTE tags, and Constraints tags from the original Video Prompt. DO NOT remove them!
+3. Enhance the descriptive language slightly to make the video generation look cinematic, realistic, and beautiful. Keep it in the same language as the input.
+4. Output ONLY the final merged prompt, nothing else. No markdown code blocks, no explanations.`;
+
+        if (extraInstructions.trim()) {
+            systemPrompt += `\n5. SPECIAL USER REQUEST: ${extraInstructions.trim()} (Please ensure this is incorporated into the final prompt).`;
+        }
+
+        const parts: any[] = [{ text: systemPrompt }];
+
+        if (attachedFile) {
+            parts.push({
+                inlineData: {
+                    mimeType: attachedFile.mimeType,
+                    data: attachedFile.data
+                }
+            });
+            systemPrompt += `\n(Also referring to the attached image for context)`;
+        }
+
+        try {
+            let result = await this._genaiService.generateText({
+                model: 'gemini-3-flash-preview',
+                contents: [{ role: 'user', parts: parts }],
+                config: {
+                    temperature: 0.7
+                }
+            });
+
+            if (result && result.trim()) {
+                result = result.replace(/^```[a-zA-Z]*\n/i, '').replace(/```$/i, '').trim();
+                this.editingScenePrompt.prompt = result;
+                this.toastr.success('Đã tối ưu xong Prompt Video!');
+            } else {
+                this.toastr.error('AI không trả về kết quả. Vui lòng thử lại hoặc kiểm tra API Key.');
+            }
+        } catch (err: any) {
+            this.toastr.error('Lỗi khi gọi AI: ' + err.message);
+        } finally {
+            this.isAutoFixing = false;
+        }
     }
 
     async generateImage() {
@@ -284,15 +497,15 @@ export class EditScenePromptDialogComponent {
         try {
             // Thay vì dùng prompt cho video, ta dùng prompt đã clean của ảnh
             let promptText = this.editingScenePrompt.imagePrompt || this.editingScenePrompt.prompt || '';
-            
+
             // Xóa các tag character cũ vì bên dưới ta sẽ đẩy vào mảng requestParts (tránh lặp)
             promptText = promptText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
-            
+
             if (this.masterPrompt) {
                 promptText = this.masterPrompt + '\n\n' + promptText;
             }
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
-            
+
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
 
             // Gắn thêm ảnh reference của nhân vật vào parts
@@ -431,7 +644,7 @@ export class EditScenePromptDialogComponent {
                 // Sử dụng Mì Tôm AI (Proxy) để tạo Video
                 const modelName = this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
                 this.toastr.info(`Đang gửi yêu cầu tạo video qua Mì Tôm AI (Base URL: ${this._genaiService.umodelverseUrl}, Model: ${modelName})...`, 'Hệ thống', { timeOut: 5000 });
-                
+
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
                     this.selectedAspectRatio,
@@ -708,24 +921,6 @@ export class EditScenePromptDialogComponent {
         }
     }
 
-    autoFixVideoPrompt() {
-        let originalScenePrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
-        let originalImagePrompt = this.editingScenePrompt.imagePrompt ? this.editingScenePrompt.imagePrompt.trim() : originalScenePrompt;
-
-        if (!originalScenePrompt) {
-            originalScenePrompt = originalImagePrompt;
-        } else if (originalImagePrompt.length > originalScenePrompt.length) {
-            if (originalImagePrompt.includes(originalScenePrompt)) {
-                originalScenePrompt = originalImagePrompt;
-            } else {
-                originalScenePrompt = originalImagePrompt + '\n\n' + originalScenePrompt;
-            }
-        }
-        
-        this.editingScenePrompt.prompt = originalScenePrompt;
-        this.toastr.success('Đã tự động bù đắp bối cảnh từ Hình ảnh sang Video', 'Auto-fix');
-    }
-
     copyPrompt(text: string) {
         if (!text) {
             this.toastr.warning('Không có nội dung để copy.');
@@ -752,5 +947,79 @@ export class EditScenePromptDialogComponent {
             }
         }
         this.dialogRef.close(this.editingScenePrompt);
+    }
+}
+
+@Component({
+    selector: 'app-prompt-input-dialog',
+    standalone: true,
+    imports: [CommonModule, FormsModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatTooltipModule],
+    template: `
+        <h2 class="text-lg font-semibold mb-4 text-slate-800">{{data.title}}</h2>
+        <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+            <textarea matInput [(ngModel)]="value" [placeholder]="data.placeholder" cdkTextareaAutosize cdkAutosizeMinRows="3"></textarea>
+        </mat-form-field>
+        
+        <div *ngIf="attachedFile" class="flex items-center gap-2 mt-2">
+            <mat-icon class="text-slate-500 icon-size-5">attach_file</mat-icon>
+            <span class="text-sm text-slate-700 flex-1 truncate">{{attachedFileName}}</span>
+            <button mat-icon-button class="text-red-500 icon-size-6" (click)="removeFile()">
+                <mat-icon class="icon-size-4">close</mat-icon>
+            </button>
+        </div>
+
+        <div class="flex justify-between mt-4">
+            <div>
+                <button mat-icon-button class="text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors rounded-full" matTooltip="Đính kèm ảnh/tài liệu" (click)="fileInput.click()">
+                    <mat-icon class="icon-size-5">attach_file</mat-icon>
+                </button>
+                <input #fileInput type="file" class="hidden" (change)="onFileSelected($event)">
+            </div>
+            <div class="flex gap-2">
+                <button mat-button (click)="dialogRef.close(null)">Hủy</button>
+                <button mat-flat-button color="primary" (click)="submit()">Đồng ý</button>
+            </div>
+        </div>
+    `
+})
+export class PromptInputDialogComponent {
+    value: string = '';
+    attachedFile: { mimeType: string, data: string } | null = null;
+    attachedFileName: string = '';
+
+    constructor(
+        public dialogRef: MatDialogRef<PromptInputDialogComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: any
+    ) { }
+
+    onFileSelected(event: any) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        this.attachedFileName = file.name;
+        const reader = new FileReader();
+        reader.onload = () => {
+            const result = reader.result as string;
+            const base64Data = result.split(',')[1];
+            this.attachedFile = {
+                mimeType: file.type,
+                data: base64Data
+            };
+        };
+        reader.readAsDataURL(file);
+
+        event.target.value = '';
+    }
+
+    removeFile() {
+        this.attachedFile = null;
+        this.attachedFileName = '';
+    }
+
+    submit() {
+        this.dialogRef.close({
+            text: this.value || '',
+            file: this.attachedFile
+        });
     }
 }

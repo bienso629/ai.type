@@ -1901,8 +1901,12 @@ async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pi
 
         execFile(exePath, args, (error, stdout, stderr) => {
             if (error) {
-                sendToRenderer("tools-log", `[TTS-Exe] Error: ${stderr || error.message}`);
-                return reject(error);
+                let errorMsg = stderr || error.message;
+                if (errorMsg.includes("No audio was received") && voice === "vi-VN-NamMinhNeural") {
+                    errorMsg = "Giọng đọc Nam Minh của Microsoft bị giới hạn độ dài ký tự rất ngắn (dưới 80 ký tự/câu). Vui lòng ngắt đoạn text này thành nhiều phần ngắn hơn, hoặc đổi sang giọng Hoài My để đọc các đoạn dài liên tục.";
+                }
+                sendToRenderer("tools-log", `[TTS-Exe] Error: ${errorMsg}`);
+                return reject(new Error(errorMsg));
             }
             resolve({ audio: outputPath, sub: subPath });
         });

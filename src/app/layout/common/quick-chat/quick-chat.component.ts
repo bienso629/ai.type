@@ -4,6 +4,7 @@ import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
+import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
 export interface ToolItem {
     id: string;
@@ -122,6 +123,11 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
                 container.removeChild(webview);
             }
         }
+    }
+
+    drop(event: CdkDragDrop<ToolItem[]>) {
+        moveItemInArray(this.tools, event.previousIndex, event.currentIndex);
+        this.multiAccountService.setItem('tools_urls', this.tools);
     }
 
     openTool(tool: ToolItem): void {

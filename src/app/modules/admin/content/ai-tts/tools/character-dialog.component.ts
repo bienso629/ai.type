@@ -373,7 +373,7 @@ Yêu cầu trả về định dạng JSON thuần túy (không có markdown \`\`
     "role": "Vai trò của nhân vật",
     "appearance": "Mô tả chi tiết về ngoại hình, độ tuổi, trang phục, kiểu tóc, phụ kiện...",
     "personality": "Mô tả tính cách, thái độ, biểu cảm...",
-    "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ' để ra được hình mẫu chuẩn."
+    "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: BẮT BUỘC phải mô tả rõ GIỚI TÍNH (Nam/Nữ/Boy/Girl/Man/Woman...) và ĐỘ TUỔI của nhân vật. Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ' để ra được hình mẫu chuẩn."
 }
 
 Lưu ý: Chỉ trả về object JSON thuần túy.`;

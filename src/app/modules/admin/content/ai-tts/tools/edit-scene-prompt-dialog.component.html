@@ -15,7 +15,8 @@
                 <div class="relative cursor-pointer border-2 rounded-lg p-1 transition-all"
                     [ngClass]="isReferenceCharSelected(char) ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-slate-300'"
                     (click)="toggleReferenceChar(char)" matTooltip="Dùng làm ảnh tham khảo cho AI">
-                    <img [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])" class="w-12 h-12 object-cover rounded-md">
+                    <img [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])"
+                        class="w-12 h-12 object-cover rounded-md">
                     @if (isReferenceCharSelected(char)) {
                     <div
                         class="absolute -top-2 -right-2 bg-blue-500 rounded-full w-5 h-5 flex items-center justify-center">
@@ -37,11 +38,12 @@
             <div *ngIf="editingScenePrompt.videoUrl || (editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl))"
                 class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group transition-all duration-300"
                 [ngStyle]="getAspectRatioStyle()">
-                
+
                 @if (editingScenePrompt.videoUrl) {
-                    <video [src]="getSafeUrl(editingScenePrompt.videoUrl)" class="w-full h-full object-cover rounded-lg" [loop]="true" muted autoplay playsinline></video>
+                <video [src]="getSafeUrl(editingScenePrompt.videoUrl)" class="w-full h-full object-cover rounded-lg"
+                    [loop]="true" muted autoplay playsinline></video>
                 } @else {
-                    <img [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="w-full h-full object-cover rounded-lg">
+                <img [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="w-full h-full object-cover rounded-lg">
                 }
 
                 <button mat-icon-button
@@ -83,15 +85,18 @@
             <div class="flex flex-col">
                 <div class="flex items-center gap-1.5 mb-1">
                     <span class="font-semibold text-slate-800 text-sm">Prompt tạo phân cảnh (Hình ảnh)</span>
-                    <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
-                        (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt Hình Ảnh">
-                        <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
+                    <button mat-icon-button
+                        class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center ml-1 hover:bg-white rounded-full"
+                        (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()"
+                        matTooltip="Copy Prompt Hình Ảnh">
+                        <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
+                            [svgIcon]="'feather:copy'"></mat-icon>
                     </button>
                 </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
-                    <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" 
-                        [(ngModel)]="editingScenePrompt.imagePrompt"
-                        placeholder="Prompt hình ảnh..." cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
+                    <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
+                        [(ngModel)]="editingScenePrompt.imagePrompt" placeholder="Prompt hình ảnh..."
+                        cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
                 </mat-form-field>
             </div>
 
@@ -99,19 +104,33 @@
             <div class="flex flex-col">
                 <div class="flex items-center gap-1.5 mb-1">
                     <span class="font-semibold text-slate-800 text-sm">Prompt tạo Video (Chi tiết)</span>
-                    <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
-                        (click)="copyPrompt(getFullVideoPrompt()); $event.preventDefault(); $event.stopPropagation()" matTooltip="Copy Prompt Video">
-                        <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700" [svgIcon]="'feather:copy'"></mat-icon>
+
+                    <button mat-icon-button
+                        class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-1 hover:bg-white hover:opacity-70"
+                        (click)="copyPrompt(getFullVideoPrompt()); $event.preventDefault(); $event.stopPropagation()"
+                        matTooltip="Copy Prompt Video">
+                        <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
+                            [svgIcon]="'feather:copy'"></mat-icon>
                     </button>
-                    <button mat-icon-button class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-blue-50 rounded-full ml-1"
-                        (click)="autoFixVideoPrompt(); $event.preventDefault(); $event.stopPropagation()" matTooltip="Auto-fix (Bù đắp bối cảnh từ Hình ảnh sang Video)">
+
+                    <button mat-icon-button
+                        class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-0 hover:bg-white hover:opacity-70"
+                        (click)="autoFixVideoPrompt(); $event.preventDefault(); $event.stopPropagation()"
+                        matTooltip="Auto-fix (Bù đắp bối cảnh từ Hình ảnh sang Video)">
                         <mat-icon class="icon-size-4 text-blue-500 hover:text-blue-700">auto_awesome</mat-icon>
+                    </button>
+
+                    <button mat-icon-button
+                        class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-0 hover:bg-white hover:opacity-70"
+                        (click)="addDialogueToPrompt(); $event.preventDefault(); $event.stopPropagation()"
+                        matTooltip="Thêm lời thoại (Dựa theo thời gian của Phần này)">
+                        <mat-icon class="icon-size-4 text-green-500 hover:text-green-700">record_voice_over</mat-icon>
                     </button>
                 </div>
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
-                    <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingScenePrompt.prompt"
-                        placeholder="Mô tả hành động, bối cảnh..." cdkTextareaAutosize cdkAutosizeMinRows="4"
-                        cdkAutosizeMaxRows="10"></textarea>
+                    <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
+                        [(ngModel)]="editingScenePrompt.prompt" placeholder="Mô tả hành động, bối cảnh..."
+                        cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
                 </mat-form-field>
             </div>
         </div>
@@ -129,8 +148,9 @@
     </div>
 
     <div class="flex items-center justify-end pt-6 gap-2 mt-auto">
-        <div class="flex items-center gap-6 mr-auto">
-            <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900" (click)="openDirectorModeForScene()">
+        <div class="flex items-center gap-2 mr-auto">
+            <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900"
+                (click)="openDirectorModeForScene()">
                 <span class="flex items-center">
                     <mat-icon class="icon-size-4 mr-2 text-teal-600">movie_filter</mat-icon> Director Mode
                 </span>
@@ -149,7 +169,7 @@
             </a>
         </div>
 
-        <button mat-flat-button color="accent" mat-dialog-close>Hủy</button>
+        <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" (click)="save()">Lưu thông tin</button>
     </div>
 </div>
