@@ -177,6 +177,10 @@
                                         (click)="$event.stopPropagation(); editClip(clip)" matTooltip="Sửa nội dung">
                                         <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
                                     </button>
+                                    <button mat-icon-button class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                        (click)="$event.stopPropagation(); splitClip(clip, i)" matTooltip="Tự động chia nhỏ">
+                                        <mat-icon class="icon-size-4 text-orange-500" [svgIcon]="'heroicons_outline:scissors'"></mat-icon>
+                                    </button>
                                 </div>
                                 <div class="text-xs text-gray-400 truncate mt-0.5">{{clip.username}}</div>
                             </div>

@@ -9,6 +9,7 @@ import { FuseDrawerModule } from '@fuse/components/drawer';
 import { FuseScrollbarModule } from '@fuse/directives/scrollbar';
 import { TimeagoModule } from 'ngx-timeago';
 import { SharedModule } from 'app/shared.module';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { QuickChatComponent } from 'app/layout/common/quick-chat/quick-chat.component';
 
 @NgModule({
@@ -24,6 +25,7 @@ import { QuickChatComponent } from 'app/layout/common/quick-chat/quick-chat.comp
         MatDialogModule,
         FuseDrawerModule,
         FuseScrollbarModule,
+        DragDropModule,
         TimeagoModule.forRoot(),
         SharedModule
     ],

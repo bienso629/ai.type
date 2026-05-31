@@ -180,7 +180,7 @@
 
     <!-- Footer Actions -->
     <div class="px-0 mt-4 flex justify-end gap-2">
-        <button mat-button class="text-gray-600" (click)="dialogRef.close()">Hủy</button>
+        <button mat-button (click)="dialogRef.close()">Hủy</button>
         <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName === 'Apply to Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName === 'Apply to Scene Prompt' ? 'Áp dụng vào Phân cảnh' : 'Áp dụng') }}</button>
     </div>
 </div>
