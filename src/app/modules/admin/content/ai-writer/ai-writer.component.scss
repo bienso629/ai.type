@@ -393,6 +393,11 @@ ng-select {
         .ng-select-container {
             border-color: #cbd5e1 !important;
         }
+        &.has-prefix {
+            .ng-select-container {
+                padding-left: 28px !important;
+            }
+        }
     }
 }
 
