@@ -240,9 +240,9 @@ export class AIFacePostComponent
             });
 
         // lấy bài theo collection
-        if (counter && counter > 0) {
-            this.resetTable();
-        }
+        // if (counter && counter > 0) {
+        //     this.resetTable();
+        // }
     }
 
     // lấy tất cả domain làm việc của bạn
@@ -339,14 +339,13 @@ export class AIFacePostComponent
             .facePosts({
                 username: this.user.name,
                 keyword: this.keyword,
-                facegroup: collection ? collection._id : null,
+                facegroup: null,
                 page: payloadPage,
                 bookmark: this.currentBookmark, // Truyền bookmark
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
-                    console.log('data trả về ', result.data);
                     const resData = result.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
                         const newRowsWithHeaders = [];
@@ -381,8 +380,13 @@ export class AIFacePostComponent
                             ...newRowsWithHeaders,
                         ];
 
-                        // Cộng thêm một lượng pageSize ảo để ngx-datatable tạo thanh scrollbar cho phép kéo xuống load page tiếp theo
-                        this.totalElements = this.rows.length + this.page.size;
+                        // Nếu số docs ít hơn size tức là đã đến trang cuối, không cần cộng thêm ảo
+                        if (resData.docs.length < this.page.size) {
+                            this.totalElements = this.rows.length;
+                        } else {
+                            // Cộng thêm một lượng pageSize ảo để ngx-datatable tạo thanh scrollbar cho phép kéo xuống load page tiếp theo
+                            this.totalElements = this.rows.length + this.page.size;
+                        }
                         this.totalDisplayCount = this.rows.filter(
                             (row) => !row.isHeader,
                         ).length; // Cập nhật số lượng hiển thị thực tế (không tính header)
@@ -393,7 +397,7 @@ export class AIFacePostComponent
                         // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
                         if (resData && resData.bookmark && resData.bookmark !== this.currentBookmark) {
                             this.currentBookmark = resData.bookmark;
-                            this.isLoading = false; 
+                            this.isLoading = false;
                             delete this.cache[this.page.pageNumber];
                             this.cd.detectChanges();
                             this.setPage(pageInfo);
@@ -403,6 +407,7 @@ export class AIFacePostComponent
                         // Hết dữ liệu thì chốt cứng totalElements bằng số row đang có
                         if (this.rows) {
                             this.totalElements = this.rows.length;
+                            this.rows = [...this.rows]; // Cập nhật lại mảng để ngx-datatable tính lại chiều cao virtual scroll
                         }
                         delete this.cache[this.page.pageNumber];
                     }
@@ -946,11 +951,11 @@ export class AIFacePostComponent
                 if (data.action === 'facebook-crawl-stream' && data.success) {
                     if (data && data.posts && data.posts.length > 0) {
                         console.log('Realtime post:', data.posts[0]);
-                        
+
                         // Cập nhật bảng
                         this.rows = [...data.posts, ...this.rows];
                         this.selected = [...data.posts, ...this.selected];
-                        
+
                         this.totalElements = this.rows.length;
                         this.totalDisplayCount = this.rows.filter(
                             (row) => !row.isHeader,

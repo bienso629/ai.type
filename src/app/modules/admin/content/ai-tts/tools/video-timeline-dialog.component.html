@@ -11,6 +11,7 @@
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
+
     ::ng-deep cdk-virtual-scroll-viewport.scrollbar-hide::-webkit-scrollbar {
         display: none;
     }
@@ -20,6 +21,7 @@
         scrollbar-width: none;
         -ms-overflow-style: none;
     }
+
     .scene-scroll-area::-webkit-scrollbar {
         display: none;
     }
@@ -46,7 +48,7 @@
     <div mat-dialog-content class="p-0 flex flex-col overflow-hidden flex-grow min-h-0 !max-h-none">
         <div class="flex flex-row flex-grow overflow-hidden relative">
             <!-- SVG Connection Lines -->
-            <svg #svgLayer 
+            <svg #svgLayer
                 class="absolute inset-0 w-full h-full pointer-events-none z-50 transition-opacity duration-300"
                 [ngClass]="isSvgReady ? 'opacity-100' : 'opacity-0'">
             </svg>
@@ -63,7 +65,8 @@
                     [ngClass]="[
                         activeDownloadScene === scene ? 'bg-blue-50' : 'bg-gray-50',
                         selectedSceneIndex === sceneIdx ? 'border-green-500' : 'border-gray-50'
-                    ]" cdkDrag [cdkDragData]="scene" (click)="selectedSceneIndex = selectedSceneIndex === sceneIdx ? -1 : sceneIdx">
+                    ]" cdkDrag [cdkDragData]="scene"
+                    (click)="selectedSceneIndex = selectedSceneIndex === sceneIdx ? -1 : sceneIdx">
 
                     <!-- Header của Scene: Giữ cố định nhờ flex-shrink-0 -->
                     <div class="flex items-center justify-between p-2 flex-shrink-0">
@@ -85,8 +88,7 @@
                     <!-- Thân cột hỗ trợ Scroll dọc thống nhất cho cả Videos và Subtitles -->
                     <!-- Cuộn dọc khi content tràn, ẩn scrollbar, chặn wheel lan truyền lên cha khi đang cuộn dọc -->
                     <div class="flex-1 overflow-y-auto min-h-0 scene-scroll-area flex flex-col gap-3"
-                        (scroll)="updateLines()" (wheel)="onSceneWheel($event)"
-                        (mousedown)="$event.stopPropagation()">
+                        (scroll)="updateLines()" (wheel)="onSceneWheel($event)" (mousedown)="$event.stopPropagation()">
 
                         <!-- Danh sách Video Cards -->
                         <div
@@ -147,9 +149,9 @@
                                     }
 
                                     @if (video.videoUrl) {
-                                    <video #videoEl [src]="getSafeUrl(video.videoUrl)" class="w-full h-full block object-contain"
-                                        muted playsinline (play)="0" (pause)="0"
-                                        (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
+                                    <video #videoEl [src]="getSafeUrl(video.videoUrl)"
+                                        class="w-full h-full block object-contain" muted playsinline (play)="0"
+                                        (pause)="0" (ended)="videoEl.currentTime=0; videoEl.pause()"></video>
 
                                     <button mat-icon-button
                                         class="absolute bottom-1 right-1 z-30 text-white drop-shadow-md bg-black/40 hover:bg-black/70 transition-colors icon-size-6 flex items-center justify-center rounded-full pointer-events-auto"
@@ -305,7 +307,7 @@
 
         <button mat-flat-button color="primary" (click)="generateAllImages()">
             <mat-icon class="icon-size-4">voice_chat</mat-icon>
-            <mat-label class="ml-2">Phát sóng</mat-label>
+            <mat-label class="ml-2">Phát sóng ngay</mat-label>
         </button>
     </div>
 </div>
