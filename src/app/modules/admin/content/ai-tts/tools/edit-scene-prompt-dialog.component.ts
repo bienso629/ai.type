@@ -960,22 +960,21 @@ Instructions:
             <textarea matInput [(ngModel)]="value" [placeholder]="data.placeholder" cdkTextareaAutosize cdkAutosizeMinRows="3"></textarea>
         </mat-form-field>
         
-        <div *ngIf="attachedFile" class="flex items-center gap-2 mt-2">
-            <mat-icon class="text-slate-500 icon-size-5">attach_file</mat-icon>
-            <span class="text-sm text-slate-700 flex-1 truncate">{{attachedFileName}}</span>
-            <button mat-icon-button class="text-red-500 icon-size-6" (click)="removeFile()">
-                <mat-icon class="icon-size-4">close</mat-icon>
-            </button>
-        </div>
-
-        <div class="flex justify-between mt-4">
-            <div>
-                <button mat-icon-button class="text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors rounded-full" matTooltip="Đính kèm ảnh/tài liệu" (click)="fileInput.click()">
+        <div class="flex justify-between items-center mt-4">
+            <div class="flex items-center gap-2 overflow-hidden mr-2">
+                <button mat-icon-button class="text-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors rounded-full flex-shrink-0" matTooltip="Đính kèm ảnh/tài liệu" (click)="fileInput.click()">
                     <mat-icon class="icon-size-5">attach_file</mat-icon>
                 </button>
                 <input #fileInput type="file" class="hidden" (change)="onFileSelected($event)">
+                
+                <div *ngIf="attachedFile" class="flex items-center gap-1 overflow-hidden bg-slate-50 rounded-full px-3 py-1 pr-1">
+                    <span class="text-sm text-slate-700 truncate max-w-[200px]" [matTooltip]="attachedFileName">{{attachedFileName}}</span>
+                    <button mat-icon-button class="text-red-500 hover:bg-red-50 icon-size-6 flex-shrink-0" (click)="removeFile()">
+                        <mat-icon class="icon-size-4">close</mat-icon>
+                    </button>
+                </div>
             </div>
-            <div class="flex gap-2">
+            <div class="flex gap-2 flex-shrink-0">
                 <button mat-button (click)="dialogRef.close(null)">Hủy</button>
                 <button mat-flat-button color="primary" (click)="submit()">Đồng ý</button>
             </div>
