@@ -782,12 +782,12 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
                 postUrls.push(fullHref);
             }
 
-            if (txt.includes('phút') || txt.includes('vừa xong') || txt.includes('min')) {
+            if (/(vừa xong|just now|hôm qua|yesterday)/i.test(txt) || /\d+\s*(phút|giờ|ngày|tháng|năm|m|h|d|y|hr|hrs|mins|thg|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(txt)) {
                 timeText = txt;
             }
         });
 
-        if (!timeText) return;
+        if (!timeText) timeText = "Unknown time";
         postUrls = [...new Set(postUrls)];
 
         // --- 2. LẤY TÁC GIẢ ---
