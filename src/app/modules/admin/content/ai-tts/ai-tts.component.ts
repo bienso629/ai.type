@@ -1071,17 +1071,21 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         }
 
-        const missingAudio = allClips.find((c: any) => !c.localFilePath);
-        if (missingAudio) {
-            this.toastr.warning('Vui lòng tạo Audio cho tất cả các đoạn thoại trước khi Dựng Video!', 'Thiếu Audio');
-            this.isAnalyzing = false;
-            this.cd.markForCheck();
-            return;
+        let hasMissingAudio = false;
+        for (const clip of allClips) {
+            if (!clip.localFilePath) {
+                hasMissingAudio = true;
+                clip.duration = 0; // Đặt về 0 để Gemini tự tính cho chính xác
+            }
         }
 
-        // Rút gọn format đầu vào để AI dễ đọc
+        if (hasMissingAudio) {
+            this.toastr.info('Hệ thống đang yêu cầu AI tự động ước lượng thời gian cho các cảnh hành động...', 'Thông báo');
+        }
+
+        // Rút gọn format đầu vào để AI dễ đọc. Phân biệt rõ dòng nào có thoại (có số giây), dòng nào hành động (NO_AUDIO)
         const continuousText = allClips
-            .map((c: any) => `[${c.id} | ${c.duration || 2}s] ${c.description}`)
+            .map((c: any) => `[${c.id} | ${c.localFilePath ? (c.duration + 's') : 'NO_AUDIO'}] ${c.description}`)
             .join('\n');
 
         // Lấy định dạng từ select box
@@ -1170,8 +1174,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${finalFormatRequest}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
-            - Mặc định sử dụng TIẾNG VIỆT CHUẨN (VIETNAMESE) cho toàn bộ kết quả JSON trả về (kịch bản, nhân vật, prompt).
-            - TUY NHIÊN, nếu trong "ĐỊNH DẠNG TÁC PHẨM YÊU CẦU" ở trên có nhắc đến việc sử dụng ngôn ngữ khác (ví dụ: Tiếng Anh), hãy ƯU TIÊN SỬ DỤNG NGÔN NGỮ ĐÓ.
+            - Các trường "masterPrompt" và "characters": Mặc định sử dụng TIẾNG VIỆT CHUẨN (VIETNAMESE).
+            - Riêng 2 trường "imagePrompt" và "prompt" bên trong "scenes" (dùng để tạo video): BẮT BUỘC PHẢI DỊCH SANG TIẾNG ANH (ENGLISH). Sử dụng các từ khóa chuyên ngành kỹ thuật điện ảnh (như Close-up, Tracking shot, Cinematic lighting...) để AI video dễ hiểu nhất.
 
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
@@ -1180,12 +1184,16 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật trong cảnh. Việc tạo hình do hệ thống tự động xử lý.
-            - 🎬 TÁCH BIỆT "BỐI CẢNH" (imagePrompt) VÀ "HÀNH ĐỘNG" (prompt):
-              + "imagePrompt": Bản thiết kế kiến trúc/bối cảnh (Blueprint). PHẢI LÀ CẢNH TRỐNG (Empty Set). MIÊU TẢ Góc máy (Close-up, Wide shot...), Ánh sáng, Màu sắc, Không gian âm. TUYỆT ĐỐI KHÔNG CÓ SỰ XUẤT HIỆN CỦA CON NGƯỜI HAY NHÂN VẬT TRONG MÔ TẢ NÀY (để dọn sẵn không gian chờ diễn viên bước vào).
-              + "prompt": Bản thiết kế hành động cho Video. Bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM hành động, biểu cảm, chuyển động của nhân vật bên trong không gian đó.
+            - 🎬 CÔNG THỨC PROMPT DỰNG PHIM CHUẨN ĐIỆN ẢNH (BẮT BUỘC CHO MỌI SCENE):
+              Bắt buộc tuân thủ cấu trúc sau cho "prompt" video: [Chủ thể] + [Hành động chi tiết, đơn hướng] + [Bối cảnh/Môi trường] + [Góc máy & Chuyển động camera] + [Ánh sáng] + [Phong cách & Thông số chất lượng].
+              (Ví dụ: "A young businessman typing on a laptop, close-up shot on hands, dark office background, cinematic lighting, dramatic shadows, 4k, photorealistic").
+            - 🎬 TÁCH BIỆT "BỐI CẢNH" (imagePrompt) VÀ "HÀNH ĐỘNG" (prompt) THEO CÔNG THỨC:
+              + "imagePrompt": Bản thiết kế bối cảnh. PHẢI LÀ CẢNH TRỐNG (Empty Set). Chỉ bao gồm: [Bối cảnh] + [Góc máy] + [Ánh sáng] + [Phong cách]. TUYỆT ĐỐI KHÔNG CÓ CON NGƯỜI HAY NHÂN VẬT.
+              + "prompt": Bản thiết kế hành động. Gom đủ 6 yếu tố của CÔNG THỨC TRÊN. Phải bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM Chủ thể, Hành động, Chuyển động camera (vd: Tracking shot, Slow-motion, Pan). Hành động càng cụ thể, đơn hướng càng tốt.
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1). TUYỆT ĐỐI KHÔNG miêu tả lại Art style ở phần scene.
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
+            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. Bạn phải tự tưởng tượng một cảnh hành động như vậy tốn bao nhiêu giây trong thực tế để gán số (ví dụ: 2, 3.5, 5). KHÔNG cộng dồn thời gian một cách vô lý.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
@@ -1205,9 +1213,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               ],
               "scenes": [
                 {
-                  "imagePrompt": "Góc máy (Cận/Toàn/Trung), Ánh sáng (hướng/màu/mood), Bố cục (không gian âm). CẢNH TRỐNG, KHÔNG CÓ CON NGƯỜI HAY NHÂN VẬT.",
-                  "prompt": "Góc máy, Ánh sáng, Bố cục NHƯ TRÊN + Hành động, biểu cảm cụ thể của nhân vật trong khung cảnh đó.",
-                  "subtitleIds": ["id1", "id2"]
+                  "imagePrompt": "[Bối cảnh] + [Góc máy] + [Ánh sáng] + [Phong cách] (Bằng Tiếng Anh, CẢNH TRỐNG KHÔNG NGƯỜI)",
+                  "prompt": "[Chủ thể] + [Hành động] + [Bối cảnh] + [Góc máy & Chuyển động camera] + [Ánh sáng] + [Chất lượng] (Bằng Tiếng Anh)",
+                  "subtitleIds": ["id1", "id2"],
+                  "estimatedDuration": 3 // CHỈ BẮT BUỘC NẾU tất cả subtitleIds đều là NO_AUDIO (nhập số giây ước tính thực tế, vd: 2, 3.5)
                 }
               ]
             }
@@ -1271,6 +1280,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             const finalScenes = aiResponseScenes.map((scene: any) => {
                 let exactSceneDuration = 0;
+                let hasAnyAudio = false;
 
                 const mappedSubtitles = scene.subtitleIds.map((id: string) => {
                     const originalClip = allClips.find((c: any) => c.id === id);
@@ -1282,6 +1292,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         exactSceneDuration += clipDuration;
 
                         if (originalClip.localFilePath) {
+                            hasAnyAudio = true;
                             const safePath = originalClip.localFilePath.replace(/\\/g, '/');
                             safeAudioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
                         }
@@ -1294,6 +1305,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         audioUrl: safeAudioUrl
                     };
                 });
+
+                if (!hasAnyAudio && scene.estimatedDuration) {
+                    exactSceneDuration = scene.estimatedDuration;
+                }
 
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
 
