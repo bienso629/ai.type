@@ -49,8 +49,9 @@
         </div>
 
         <div class="mt-4">
-            <button mat-flat-button color="primary" (click)="loadFromGSC()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+            <button mat-flat-button color="primary" (click)="loadFromGSC()" [disabled]="gscLoading">
+                <mat-icon *ngIf="!gscLoading" class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
+                <mat-icon *ngIf="gscLoading" class="icon-size-4 animate-spin" svgIcon="feather:loader"></mat-icon>
                 <span class="ml-2">Báo cáo từ khóa</span>
             </button>
         </div>
@@ -88,7 +89,7 @@
                 <ngx-datatable *ngIf="filteredRows && filteredRows.length > 0" #mydatatable
                     class="material shadow-none w-full border rounded-lg" [virtualization]="!isExportingPdf"
                     [rows]="filteredRows" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
-                    [rowHeight]="getRowHeight" [scrollbarV]="!isExportingPdf" [scrollbarH]="false"
+                    [rowHeight]="50" [scrollbarV]="!isExportingPdf" [scrollbarH]="false"
                     [style.height]="isExportingPdf ? 'auto' : '420px'" [rowClass]="getRowClass"
                     (activate)="onTableActivate($event)">
 
@@ -308,8 +309,12 @@
 
                         <div class="flex flex-col gap-2 mb-6">
                             <div class="flex items-center gap-2">
-                                <button mat-flat-button color="primary" (click)="loadGaOverview()">
-                                    <mat-icon class="icon-size-4" svgIcon="feather:bar-chart-2"></mat-icon>
+                                <button mat-flat-button color="primary" (click)="loadGaOverview()"
+                                    [disabled]="gaLoading">
+                                    <mat-icon *ngIf="!gaLoading" class="icon-size-4"
+                                        svgIcon="feather:bar-chart-2"></mat-icon>
+                                    <mat-icon *ngIf="gaLoading" class="icon-size-4 animate-spin"
+                                        svgIcon="feather:loader"></mat-icon>
                                     <span class="ml-2">Lấy dữ liệu & Phân tích đa chiều</span>
                                 </button>
                             </div>
@@ -359,7 +364,7 @@
                                     <ngx-datatable *ngIf="analyzedResults.length > 0"
                                         class="material shadow-none w-full text-base"
                                         [rows]="analyzedResults[0].categories" [columnMode]="ColumnMode.force"
-                                        [headerHeight]="40" [footerHeight]="0" [rowHeight]="'auto'" [scrollbarV]="false"
+                                        [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="false"
                                         [scrollbarH]="false">
 
                                         <ngx-datatable-column name="Hạng" [width]="60" [sortable]="false">
@@ -421,7 +426,8 @@
                                             </tr>
                                         </tbody>
                                     </table>
-                                    <div *ngIf="gaByCountry.length === 0" class="py-4 text-center text-gray-400 text-sm">
+                                    <div *ngIf="gaByCountry.length === 0"
+                                        class="py-4 text-center text-gray-400 text-sm">
                                         Chưa có dữ liệu
                                     </div>
                                 </div>
@@ -469,7 +475,6 @@
                                 </div>
 
                                 <div class="border rounded-lg p-3">
-                                    <div class="text-base font-semibold mb-1">Sự kiện tương tác</div>
                                     <table class="w-full text-base" *ngIf="gaByEvent.length > 0">
                                         <thead>
                                             <tr>

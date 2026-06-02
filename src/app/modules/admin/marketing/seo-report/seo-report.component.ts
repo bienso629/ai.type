@@ -169,6 +169,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     // AI suggestions
     aiSuggestions = '';
     aiLoading = false;
+    gscLoading = false;
 
     // Google Ads Keyword Planner
     adsLoading = false;
@@ -338,6 +339,9 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 return;
             }
 
+            this.gscLoading = true;
+            this.cd.markForCheck();
+
             const detailPromise = window.electron.gscQuery({
                 startDate: this.startDate,
                 endDate: this.endDate,
@@ -415,6 +419,9 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         } catch (e: any) {
             console.error(e);
             this.toastr.error(`Lỗi khi tải GSC: ${e.message || e}`);
+        } finally {
+            this.gscLoading = false;
+            this.cd.markForCheck();
         }
     }
 
