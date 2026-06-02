@@ -4904,6 +4904,42 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
         if (binaries.ffmpeg) {
             ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
         }
+
+        // Bổ sung cookie từ trình duyệt Chrome đối với Facebook để tránh bị chặn
+        const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
+        const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+        
+        let hasCustomCookies = false;
+        
+        if (fs.existsSync(cookiesTxtPath)) {
+            ytdlpArgs.push('--cookies', cookiesTxtPath);
+            hasCustomCookies = true;
+        } else if (fs.existsSync(cookiesJsonPath)) {
+            try {
+                const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
+                let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
+                for (const c of cookiesData) {
+                    let domain = c.domain || '';
+                    let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                    let cPath = c.path || '/';
+                    let secure = c.secure ? 'TRUE' : 'FALSE';
+                    let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                    netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                }
+                const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
+                fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                ytdlpArgs.push('--cookies', tempCookiePath);
+                hasCustomCookies = true;
+            } catch (err) {
+                console.error("Lỗi đọc file cookies.json", err);
+            }
+        }
+
+        // Nếu không có file cookie nào được xuất, thì mới dùng cookie từ trình duyệt Chrome
+        if (!hasCustomCookies && (url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com'))) {
+            ytdlpArgs.push('--cookies-from-browser', 'chrome');
+        }
+
         ytdlpArgs.push(url);
 
         await new Promise((resolve, reject) => {
@@ -4925,8 +4961,8 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
         // Tìm file video và phụ đề vừa tải về trong thư mục tạm
         const files = fs.readdirSync(tempDir);
-        const videoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.vtt'));
-        const subtitleFile = files.find(f => f.startsWith('video.') && f.endsWith('.vtt'));
+        const videoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.vtt') && !f.endsWith('.srt') && !f.endsWith('.lrc') && !f.endsWith('.json'));
+        const subtitleFile = files.find(f => f.startsWith('video.') && (f.endsWith('.vtt') || f.endsWith('.srt')));
         
         if (!videoFile) {
             throw new Error('Không tìm thấy video tải về.');
@@ -5011,5 +5047,20 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
         console.error("Analyze Video Local Error:", err);
         sendToRenderer("tools-log", `[AI Analyze] Lỗi: ${err.message}`);
         return { success: false, error: err.message };
+    }
+});
+
+// ==== AI: FETCH HTML ====
+ipcMain.handle('ai:fetch-html', async (event, targetUrl) => {
+    try {
+        const response = await fetch(targetUrl, {
+            headers: {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+            }
+        });
+        const html = await response.text();
+        return { success: true, html };
+    } catch (error) {
+        return { success: false, error: error.message };
     }
 });
