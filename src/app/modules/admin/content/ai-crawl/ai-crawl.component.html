@@ -93,41 +93,56 @@
                                 <div class="w-full p-3">
                                     <!-- Địa chỉ mẹ -->
                                     <mat-form-field
-                                        class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                                        class="w-full mt-2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
                                         <mat-label>URL cần thu thập dữ liệu</mat-label>
                                         <textarea class="px-2" [formControlName]="'domain'"
                                             [placeholder]="'https://type.vn'" required matInput
                                             cdkTextareaAutosize></textarea>
-                                        <!-- <mat-hint>Chương trình tự động quét link</mat-hint> -->
-                                        <!-- <mat-select [formControlName]="'type'" [value]="'website'" matPrefix>
-                                            <mat-option [value]="'website'">Website</mat-option>
-                                        </mat-select> -->
                                     </mat-form-field>
 
-                                    <div class="w-full mt-2">
-                                        <mat-form-field
-                                            class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
-                                            [subscriptSizing]="'dynamic'">
-                                            <mat-label>Quy tắc thu thập dữ liệu</mat-label>
-                                            <textarea class="px-2 overflow-y-hidden" [formControlName]="'request'"
-                                                required matInput cdkTextareaAutosize></textarea>
-                                            <mat-hint>Lưu ý: Bạn không cần phải thay đổi cấu hình này nếu không cần
-                                                thiết.</mat-hint>
-                                        </mat-form-field>
-                                    </div>
+
                                 </div>
                             </mat-expansion-panel>
                         </mat-accordion>
 
                         <div class="w-full mt-8 mb-2">
                             <!-- Divider -->
-                            <div class="text-secondary text-xl">Cấu hình nâng cao</div>
+                            <div class="flex items-center justify-between">
+                                <div class="text-secondary text-xl">Cấu hình nâng cao</div>
+                                <button mat-icon-button color="primary" (click)="autoConfigByAI()"
+                                    [disabled]="aiLoading" matTooltipPosition="above"
+                                    matTooltip="Tự động cấu hình bằng AI">
+                                    <mat-icon *ngIf="!aiLoading" class="icon-size-4"
+                                        svgIcon="heroicons_solid:sparkles"></mat-icon>
+                                    <mat-icon *ngIf="aiLoading" class="icon-size-4 animate-spin"
+                                        svgIcon="feather:loader"></mat-icon>
+                                </button>
+                            </div>
                             <div class="mt-2 mb-2 border-t"></div>
                         </div>
 
-                        <mat-accordion class="border rounded-xl p-2 bg-white">
-                            <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
+                        <mat-accordion class="border rounded-xl p-2 bg-white flex flex-col gap-2">
+                            <mat-expansion-panel showToggle class="mb-0" [expanded]="false">
+                                <mat-expansion-panel-header>
+                                    <mat-panel-title class="font-semibold text-primary uppercase">
+                                        Quy tắc thu thập dữ liệu
+                                    </mat-panel-title>
+                                </mat-expansion-panel-header>
+
+                                <div class="w-full p-3">
+                                    <mat-form-field
+                                        class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                                        [subscriptSizing]="'dynamic'">
+                                        <mat-label>Quy tắc thu thập dữ liệu</mat-label>
+                                        <textarea class="px-2 overflow-y-hidden" [formControlName]="'request'" required
+                                            matInput cdkTextareaAutosize></textarea>
+                                        <mat-hint>Lưu ý: Thường không cần thay đổi cấu hình này.</mat-hint>
+                                    </mat-form-field>
+                                </div>
+                            </mat-expansion-panel>
+
+                            <mat-expansion-panel showToggle class="mb-0" [expanded]="false">
                                 <mat-expansion-panel-header>
                                     <mat-panel-title class="font-semibold text-primary uppercase">
                                         Chi tiết selector cho chương trình
@@ -191,48 +206,7 @@
                             </mat-expansion-panel>
                         </mat-accordion>
 
-                        <mat-accordion class="border rounded-xl w-full mt-6 p-2 bg-white">
-                            <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
-                                <mat-expansion-panel-header>
-                                    <mat-panel-title class="font-semibold text-primary uppercase">
-                                        Tạo bộ selector bằng AI
-                                    </mat-panel-title>
-                                </mat-expansion-panel-header>
 
-                                <div formArrayName="ai_main_class" class="w-full p-3">
-                                    <div *ngFor="let control of mainClassArray.controls; let i = index"
-                                        [formGroupName]="i" class="flex flex-col mb-2 last:mb-0 border-b border-dashed">
-                                        <mat-form-field class="flex-1 fuse-mat-dense fuse-mat-emphasized-affix">
-                                            <mat-label>Key</mat-label>
-                                            <input matInput formControlName="key" placeholder="Ví dụ: title" />
-                                            <!-- <mat-hint class="text-sm">key = `div.main`</mat-hint> -->
-                                        </mat-form-field>
-
-                                        <mat-form-field
-                                            class="flex-1 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix">
-                                            <mat-label>Prompt <mat-label class="text-base text-red-500 cursor-pointer"
-                                                    (click)="removeMainClassField(i)"
-                                                    *ngIf="mainClassArray.length > 1">/-</mat-label></mat-label>
-                                            <textarea class="px-2" [formControlName]="'value'"
-                                                [placeholder]="'Ví dụ: Bạn hãy lấy lấy title trong thẻ <title> cho tôi'"
-                                                matInput cdkTextareaAutosize></textarea>
-                                            <!-- <mat-hint class="text-sm">value = `Công ty TNHH ABC`</mat-hint> -->
-                                        </mat-form-field>
-                                    </div>
-
-                                    <div class="flex shrink-0 items-center">
-                                        <button type="button" matTooltipPosition="above" matTooltip="Thêm mới Selector"
-                                            mat-icon-button (click)="addMainClassField()">
-                                            <mat-icon class="icon-size-4 text-green-600"
-                                                [svgIcon]="'feather:plus'"></mat-icon>
-                                        </button>
-
-                                        <mat-label class="text-base text-green-600 cursor-pointer ml-2"
-                                            (click)="addMainClassField()">Thêm mới Selector</mat-label>
-                                    </div>
-                                </div>
-                            </mat-expansion-panel>
-                        </mat-accordion>
 
                         <div class="w-full mt-8 mb-2">
                             <!-- Divider -->
