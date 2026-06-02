@@ -314,42 +314,7 @@
                                 </button>
                             </div>
 
-                            <div *ngIf="analyzedResults.length > 0"
-                                class="flex flex-col gap-3 mt-2 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                                <div class="text-sm font-semibold w-full text-gray-700">
-                                    Kết quả phân tích ({{ analyzedResults.length }} tiêu chí):
-                                </div>
 
-                                <div class="flex flex-wrap gap-4">
-                                    <div *ngFor="let res of analyzedResults"
-                                        class="flex items-center gap-1 p-2 bg-white rounded-lg border border-gray-50">
-
-                                        <div class="flex flex-col px-2">
-                                            <span class="font-bold text-sm text-gray-800">{{ res.name }}</span>
-                                            <span class="text-[10px] text-gray-500">{{ res.categories.length }} danh
-                                                mục</span>
-                                        </div>
-
-                                        <button mat-icon-button color="primary" [matTooltip]="'Tải xuống máy tính'"
-                                            (click)="downloadCategoryJson(res)">
-                                            <mat-icon class="icon-size-4" svgIcon="feather:download"></mat-icon>
-                                        </button>
-
-                                        <button mat-icon-button class="text-pink-600"
-                                            [matTooltip]="'Đồng bộ lên Website'" [disabled]="syncLoading"
-                                            (click)="syncToWordpress(res)">
-                                            <mat-icon class="icon-size-4"
-                                                [svgIcon]="syncLoading ? 'feather:loader' : 'feather:refresh-cw'"
-                                                [class.animate-spin]="syncLoading"></mat-icon>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div class="text-[10px] text-gray-400 mt-1 italic">
-                                    *Nút đồng bộ sẽ cập nhật dữ liệu vào cột tương ứng (All/Mobile/Desktop) trên
-                                    WordPress.
-                                </div>
-                            </div>
                         </div>
 
                         <div *ngIf="gaLoading" class="mb-4 text-base text-gray-300">
@@ -439,10 +404,10 @@
                                 </div>
                             </div>
 
-                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                                 <div class="border rounded-lg p-3">
                                     <!-- <div class="text-base font-semibold mb-1">Top quốc gia</div> -->
-                                    <table class="w-full text-base">
+                                    <table class="w-full text-base" *ngIf="gaByCountry.length > 0">
                                         <thead>
                                             <tr>
                                                 <th class="text-left py-1">Quốc gia</th>
@@ -456,11 +421,14 @@
                                             </tr>
                                         </tbody>
                                     </table>
+                                    <div *ngIf="gaByCountry.length === 0" class="py-4 text-center text-gray-400 text-sm">
+                                        Chưa có dữ liệu
+                                    </div>
                                 </div>
 
                                 <div class="border rounded-lg p-3">
                                     <!-- <div class="text-base font-semibold mb-1">Thiết bị</div> -->
-                                    <table class="w-full text-base">
+                                    <table class="w-full text-base" *ngIf="gaByDevice.length > 0">
                                         <thead>
                                             <tr>
                                                 <th class="text-left py-1">Thiết bị</th>
@@ -474,11 +442,14 @@
                                             </tr>
                                         </tbody>
                                     </table>
+                                    <div *ngIf="gaByDevice.length === 0" class="py-4 text-center text-gray-400 text-sm">
+                                        Chưa có dữ liệu
+                                    </div>
                                 </div>
 
                                 <div class="border rounded-lg p-3">
-                                    <!-- <div class="text-base font-semibold mb-1">Độ tuổi</div> -->
-                                    <table class="w-full text-base">
+                                    <div class="text-base font-semibold mb-1">Độ tuổi</div>
+                                    <table class="w-full text-base" *ngIf="gaByAge.length > 0">
                                         <thead>
                                             <tr>
                                                 <th class="text-left py-1">Độ tuổi</th>
@@ -492,6 +463,30 @@
                                             </tr>
                                         </tbody>
                                     </table>
+                                    <div *ngIf="gaByAge.length === 0" class="py-4 text-center text-gray-400 text-sm">
+                                        Chưa có dữ liệu (Do chưa bật Google Signals)
+                                    </div>
+                                </div>
+
+                                <div class="border rounded-lg p-3">
+                                    <div class="text-base font-semibold mb-1">Sự kiện tương tác</div>
+                                    <table class="w-full text-base" *ngIf="gaByEvent.length > 0">
+                                        <thead>
+                                            <tr>
+                                                <th class="text-left py-1">Sự kiện</th>
+                                                <th class="text-right py-1">Lượt tương tác</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <tr *ngFor="let r of gaByEvent">
+                                                <td class="py-1 pr-2">{{ r.dimension }}</td>
+                                                <td class="py-1 text-right">{{ r.count | number }}</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                    <div *ngIf="gaByEvent.length === 0" class="py-4 text-center text-gray-400 text-sm">
+                                        Chưa có dữ liệu
+                                    </div>
                                 </div>
                             </div>
                         </ng-container>
