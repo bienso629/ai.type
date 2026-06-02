@@ -193,15 +193,14 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     gaByCountry: { dimension: string; totalUsers: number }[] = [];
     gaByDevice: { dimension: string; totalUsers: number }[] = [];
     gaByAge: { dimension: string; totalUsers: number }[] = [];
+    gaByEvent: { dimension: string; count: number }[] = [];
 
     // --- BIẾN LƯU KẾT QUẢ PHÂN TÍCH NHIỀU SEGMENT ---
     analyzedResults: SegmentResult[] = [];
     gaTopPages: { path: string; title: string; views: number }[] = [];
     // ------------------------------------------------
 
-    // Sync Variables
-    syncLoading = false;
-    wpSyncSecretKey = 'AI_TYPE_SECRET_2025';
+    // ------------------------------------------------
 
     getRowHeight(row?: any): number {
         return 50;
@@ -1033,6 +1032,7 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         this.gaByCountry = [];
         this.gaByDevice = [];
         this.gaByAge = [];
+        this.gaByEvent = [];
         this.analyzedResults = []; // Reset kết quả
 
         this.cd.markForCheck();
@@ -1062,6 +1062,9 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
             const byAge = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['userAgeBracket'], limit: 10 });
             this.gaByAge = (byAge?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
+
+            const byEvent = await this.callGaReport({ metrics: ['eventCount'], dimensions: ['eventName'], limit: 10 });
+            this.gaByEvent = (byEvent?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, count: Number(r.metricValues?.[0]?.value) }));
 
             // C. Lập danh sách các phân tích cần chạy
             // 1. All Users
@@ -1153,83 +1156,6 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             }
             return (b.count || 0) - (a.count || 0);
         });
-    }
-
-    // Download JSON cho 1 kết quả cụ thể
-    downloadCategoryJson(segmentResult: SegmentResult) {
-        if (!segmentResult || !segmentResult.categories || segmentResult.categories.length === 0) {
-            this.toastr.warning('Chưa có dữ liệu để tải.');
-            return;
-        }
-
-        const dataStr = JSON.stringify(segmentResult.categories, null, 2);
-        const blob = new Blob([dataStr], { type: 'application/json' });
-        const url = window.URL.createObjectURL(blob);
-
-        const a = document.createElement('a');
-        a.href = url;
-        const safeName = segmentResult.name.replace(/[^a-zA-Z0-9]/g, '_');
-        a.download = `category_ranking_${safeName}_${this.startDate}.json`;
-        a.click();
-
-        window.URL.revokeObjectURL(url);
-        this.toastr.success(`Đã tải xuống file JSON: ${segmentResult.name}`);
-    }
-
-    /**
-     * Hàm đồng bộ dữ liệu về WordPress thông qua Plugin (Dynamic URL)
-     * Gửi kèm tên segment để plugin biết lưu vào meta key nào
-     */
-    async syncToWordpress(segmentResult: any) {
-        if (!segmentResult || !segmentResult.categories || segmentResult.categories.length === 0) {
-            this.toastr.warning('Không có dữ liệu để đồng bộ.');
-            return;
-        }
-
-        this.syncLoading = true;
-        this.cd.markForCheck();
-
-        // 1. Chuẩn bị payload: Gửi kèm thông tin segment
-        const payload = {
-            info: {
-                segment: segmentResult.name, // "Mobile", "Desktop", ...
-                date: new Date().toISOString()
-            },
-            data: segmentResult.categories.map((cat: any) => ({
-                id: cat.id,
-                attributedViews: cat.attributedViews
-            }))
-        };
-
-        // 2. Dynamic URL
-        const baseUrl = this.siteUrl.replace(/\/$/, ''); // Xóa dấu / ở cuối nếu có
-        const dynamicApiUrl = `${baseUrl}/wp-json/aitype/v1/sync`;
-
-        try {
-            const response = await fetch(dynamicApiUrl, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-Aitype-Key': this.wpSyncSecretKey
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.success) {
-                this.toastr.success(`Đã đồng bộ "${segmentResult.name}" thành công lên ${baseUrl}!`);
-            } else {
-                throw new Error(data.message || 'Lỗi server');
-            }
-
-        } catch (error: any) {
-            console.error('Sync Error:', error);
-            this.toastr.error('Lỗi khi đồng bộ: ' + error.message);
-        } finally {
-            this.syncLoading = false;
-            this.cd.markForCheck();
-        }
     }
 
     constructor(
