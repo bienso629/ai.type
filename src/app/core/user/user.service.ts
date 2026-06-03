@@ -25,6 +25,9 @@ export class UserService {
      * @param value
      */
     set user(value: User) {
+        if (value && value.avatar) {
+            value.avatar = value.avatar.replace(/&#x2F;/gi, '/');
+        }
         // Store the value
         this._user.next(value);
     }
