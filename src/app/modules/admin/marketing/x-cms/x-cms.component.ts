@@ -18,13 +18,13 @@ import { CustomerService } from 'app/modules/_services/customer';
 import { MatDialog } from '@angular/material/dialog';
 
 @Component({
-    selector: 'zms',
-    styleUrls: ['./zms.component.scss'],
-    templateUrl: './zms.component.html',
+    selector: 'x-cms',
+    styleUrls: ['./x-cms.component.scss'],
+    templateUrl: './x-cms.component.html',
     providers: [CrawlService, ForumService],
     encapsulation: ViewEncapsulation.None
 })
-export class ZmsComponent implements OnInit, OnDestroy {
+export class XCmsComponent implements OnInit, OnDestroy {
     user: User;
     config: AppConfig;
 
