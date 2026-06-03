@@ -2559,7 +2559,15 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
-                        this.forumCategories = result.data.response.categories;
+                        this.forumCategories = result.data.response.categories.map((item: any) => {
+                            if (item.name) {
+                                item.name = item.name.replace(/&lsqb;/gi, '[').replace(/&rsqb;/gi, ']');
+                                if (item.name.includes('[[category:uncategorized]]')) {
+                                    item.name = item.name.replace('[[category:uncategorized]]', 'Chưa phân loại');
+                                }
+                            }
+                            return item;
+                        });
                     }
                 },
                 error: () => { },
