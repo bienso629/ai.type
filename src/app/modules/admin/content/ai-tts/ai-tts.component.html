@@ -6,6 +6,10 @@
                 <div class="flex items-center whitespace-nowrap shrink-0">
                     <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
                 </div>
+                <div class="flex items-center ml-1 min-w-0 shrink-0">
+                    <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                    <a class="ml-1 text-base text-primary-500 whitespace-nowrap" [routerLink]="['/archives']">công việc đang làm của bạn</a>
+                </div>
                 <div class="flex items-center ml-1 min-w-0 overflow-hidden">
                     <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                     <span class="ml-1 text-base truncate block w-full" [title]="projectTitle">
@@ -14,7 +18,7 @@
                 </div>
             </div>
             <div class="flex sm:hidden">
-                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
+                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="['/archives']">
                     <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                     <span class="ml-1 text-base">quay lại</span>
                 </a>
