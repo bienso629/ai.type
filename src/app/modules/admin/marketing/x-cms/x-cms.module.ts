@@ -19,20 +19,20 @@ import { NgSelectModule } from '@ng-select/ng-select';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TimeagoModule } from 'ngx-timeago';
 import { SharedModule } from 'app/shared.module';
-import { ZmsComponent } from 'app/modules/admin/marketing/zms/zms.component';
-import { EditDialog } from 'app/modules/admin/marketing/zms/dialogs/edit-dialog';
-import { SMSDialog } from 'app/modules/admin/marketing/zms/dialogs/sms-dialog';
+import { XCmsComponent } from './x-cms.component';
+import { EditDialog } from './dialogs/edit-dialog';
+import { SMSDialog } from './dialogs/sms-dialog';
 
 const Routes: Route[] = [
     {
         path: '',
-        component: ZmsComponent
+        component: XCmsComponent
     }
 ];
 
 @NgModule({
     declarations: [
-        ZmsComponent,
+        XCmsComponent,
         EditDialog,
         SMSDialog
     ],
@@ -61,5 +61,5 @@ const Routes: Route[] = [
         SharedModule
     ]
 })
-export class ZmsModule {
+export class XCmsModule {
 }
