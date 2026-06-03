@@ -14,7 +14,8 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <a class="ml-1 text-base text-primary-500" [routerLink]="['/archives']">công việc đang làm của bạn</a>
+                    <a class="ml-1 text-base text-primary-500" [routerLink]="['/archives']">công việc đang làm của
+                        bạn</a>
                 </div>
                 <div class="flex items-center ml-1 whitespace-nowrap relative">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
@@ -2475,20 +2476,8 @@
                     <!-- Actions -->
                     <div class="flex-1 flex-col w-1/2 shrink-0 h-full relative overflow-x-hidden overflow-y-auto border-l"
                         cdkScrollable (scroll)="scrolled($event)">
-                        <div class="flex flex-row w-full gt-sm:flex-row pt-6 px-6 pb-3 sticky top-0 bg-white z-10">
-                            <!-- Tuyển tập -->
-                            <ng-select class="custom-select-ai-writer max-w-60 mr-2" placeholder="Tập của bạn"
-                                [items]="collections" [addTag]="addCollection" [readonly]="(name !== user.name)"
-                                (clear)="onClearCollection()" (add)="onAddCollection($event)"
-                                (remove)="onRemoveCollection($event)" (change)="onChangeCollection($event)"
-                                multiple="true" bindLabel="title" [clearable]="false" [loading]="loading"
-                                [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'" appendTo="body">
-                                <ng-template ng-tag-tmp let-search="searchTerm">
-                                    <mat-label class="text-base">Click để tạo tập mới:
-                                        {{search}}</mat-label>
-                                </ng-template>
-                            </ng-select>
-
+                        <div
+                            class="flex flex-row justify-start w-full gt-sm:flex-row pt-6 px-6 pb-3 sticky top-0 bg-white z-10">
                             <ng-container *ngIf="!uuid">
                                 <button mat-flat-button class="mr-2 max-w-40" (click)="archive()" color="primary">
                                     <mat-icon class="icon-size-4" svgIcon="feather:archive"></mat-icon>
@@ -2686,6 +2675,25 @@
                                     </mat-accordion>
 
                                     <div class="mt-4 flex flex-col">
+                                        <!-- Tuyển tập -->
+                                        <div class="mb-4">
+                                            <mat-label class="font-semibold text-sm block mb-1">Tập của
+                                                bạn</mat-label>
+                                            <ng-select class="custom-select-ai-writer w-full" placeholder="Chọn tập"
+                                                [items]="collections" [addTag]="addCollection"
+                                                [readonly]="(name !== user.name)" (clear)="onClearCollection()"
+                                                (add)="onAddCollection($event)" (remove)="onRemoveCollection($event)"
+                                                (change)="onChangeCollection($event)" multiple="true" bindLabel="title"
+                                                [clearable]="false" [loading]="loading"
+                                                [(ngModel)]="selectedCollections" [dropdownPosition]="'top'"
+                                                appendTo="body">
+                                                <ng-template ng-tag-tmp let-search="searchTerm">
+                                                    <mat-label class="text-base">Click để tạo tập mới:
+                                                        {{search}}</mat-label>
+                                                </ng-template>
+                                            </ng-select>
+                                        </div>
+
                                         <mat-form-field *ngIf="uuid && details"
                                             class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix mr-2"
                                             appearance="fill">
