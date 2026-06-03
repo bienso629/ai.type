@@ -5,8 +5,8 @@ import { HelperService } from "app/helper.service";
 import { CrawlService } from "app/modules/_services/crawl";
 import { WordpressService } from "app/modules/_services/wordpress";
 import { ToastrService } from "ngx-toastr";
-import { Subject, takeUntil } from "rxjs";
 import { Clipboard } from '@angular/cdk/clipboard';
+import { Subject, takeUntil } from 'rxjs';
 
 declare var TurndownService: any;
 
@@ -58,15 +58,15 @@ declare var TurndownService: any;
                     <!-- <div class="my-1"><mat-label><b>Mô tả:</b> {{this.data.description || "Chưa có mô tả"}}</mat-label></div>
                     <div class="my-1"><mat-label><b>Khoá chính:</b> {{this.data.mainkey || "Chưa có khoá chính"}}</mat-label></div> -->
 
-                    <div class="my-1 flex flex-col">
-                        <quill-editor class="w-full mt-2 edit-before-export-quill" theme="snow" format="html" [ngStyle]="{'height': 'auto'}" placeholder="Nhập nội dung" [formControlName]="'content'" (onEditorCreated)="getEditorInstance($event)"><div above-quill-editor-toolbar> above </div> <div quill-editor-toolbar> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <select class="ql-header hover:bg-slate-100"> <option value="1">Heading</option> <option value="2">Subheading</option> <option selected>Normal</option> </select> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-bold !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-italic !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-underline !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="ordered"></button> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="bullet"></button> <select class="ql-align !border !border-solid !border-slate-300 rounded hover:bg-slate-100"> <option label="left" selected></option> <option label="center" value="center"></option> <option label="right" value="right"></option> <option label="justify" value="justify"></option> </select> </span> <span class="ql-formats inline-flex gap-1 mb-1"> 
+                    <div class="my-1 flex flex-col w-full">
+                        <quill-editor class="w-full mt-2 edit-before-export-quill" theme="snow" format="html" [ngStyle]="{'height': 'auto'}" placeholder="Nhập nội dung" [formControlName]="'content'" (onEditorCreated)="getEditorInstance($event)"><div quill-editor-toolbar> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <select class="ql-header hover:bg-slate-100"> <option value="1">Heading</option> <option value="2">Subheading</option> <option selected>Normal</option> </select> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-bold !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-italic !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-underline !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="ordered"></button> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="bullet"></button> <select class="ql-align !border !border-solid !border-slate-300 rounded hover:bg-slate-100"> <option label="left" selected></option> <option label="center" value="center"></option> <option label="right" value="right"></option> <option label="justify" value="justify"></option> </select> </span> <span class="ql-formats inline-flex gap-1 mb-1"> 
                             <button class="ql-blockquote !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Quote"><mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'"></mat-icon></button>
                             <button class="ql-code-block !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Code"><mat-icon class="icon-size-4" [svgIcon]="'feather:code'"></mat-icon></button> 
                             <button class="ql-link !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Link"><mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon></button> 
                             <button class="ql-image !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Hình ảnh"><mat-icon class="icon-size-4" [svgIcon]="'feather:image'"></mat-icon></button> 
                             <button class="ql-video !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Video"><mat-icon class="icon-size-4" [svgIcon]="'feather:video'"></mat-icon></button>
                             <button class="ql-table !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Chèn bảng"><mat-icon class="icon-size-4" [svgIcon]="'feather:grid'"></mat-icon></button>
-                        </span> </div> <div below-quill-editor-toolbar> below </div></quill-editor>
+                        </span> </div></quill-editor>
                     </div>
                 </div>
             </form>
@@ -176,9 +176,19 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         this._wordpressService.categories(this.editorForm.value)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
-                next: async (result) => {
+                next: async (result: any) => {
                     if (result) {
-                        this.categoryitems = result;
+                        this.categoryitems = result.map((item: any) => {
+                            if (item.name) {
+                                // Decode các thẻ HTML entities của NodeBB
+                                item.name = item.name.replace(/&lsqb;/gi, '[').replace(/&rsqb;/gi, ']');
+                                // Dịch thành tiếng việt
+                                if (item.name.includes('[[category:uncategorized]]')) {
+                                    item.name = item.name.replace('[[category:uncategorized]]', 'Chưa phân loại');
+                                }
+                            }
+                            return item;
+                        });
                     } else {
                         this.toastr.warning('Lấy danh mục thất bại.');
                     }
@@ -436,7 +446,17 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         });
 
         this.data.content.map((item: string) => {
-            this.editorForm.controls['content'].setValue(this.editorForm.controls['content'].value + item);
+            let formattedItem = item;
+            if (formattedItem) {
+                // Dọn dẹp các thẻ xuống dòng trống trước thẻ table
+                formattedItem = formattedItem.replace(/(?:<p><br><\/p>\s*)+<table/gi, '<table');
+                formattedItem = formattedItem.replace(/(?:<br\s*\/?>\s*)+<table/gi, '<table');
+                
+                formattedItem = formattedItem.replace(/<th/gi, '<td').replace(/<\/th>/gi, '</td>');
+                formattedItem = formattedItem.replace(/<thead/gi, '<tbody').replace(/<\/thead>/gi, '</tbody>');
+                formattedItem = formattedItem.replace(/<\/p>\s*<table/gi, '</p><table');
+            }
+            this.editorForm.controls['content'].setValue(this.editorForm.controls['content'].value + formattedItem);
         });
 
         let domainacc: any = localStorage.getItem(`${this.domain['domain']}.account`);

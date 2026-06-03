@@ -12,6 +12,7 @@ const {
     desktopCapturer,
     net
 } = require("electron");
+const { autoUpdater } = require("electron-updater");
 const { registerExportImportHandlers } = require("./export-import-project");
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 const { exec, execFile, spawn } = require("child_process");
@@ -1037,6 +1038,7 @@ if (!gotTheLock) {
 }
 
 app.commandLine.appendSwitch("remote-debugging-port", "9999"); // BẮT BUỘC cho puppeteer.connect()
+app.commandLine.appendSwitch("log-level", "3"); // Tắt các cảnh báo không cần thiết của Chromium DevTools (Autofill.enable, ...)
 
 // Thêm util này gần đầu file:
 const fileExists = (p) => {
@@ -3224,11 +3226,11 @@ app.whenReady().then(async () => {
                 menu.popup();
             });
 
-            contents.on('console-message', (event, details) => {
+            contents.on('console-message', (event) => {
                 const fs = require('fs');
                 const logPath = require('path').join(app.getPath('userData'), 'webview.log');
                 try {
-                    fs.appendFileSync(logPath, `[WEBVIEW] ${details.level}: ${details.message} (line ${details.line} at ${details.sourceId})\n`);
+                    fs.appendFileSync(logPath, `[WEBVIEW] ${event.level}: ${event.message} (line ${event.line} at ${event.sourceId})\n`);
                 } catch (e) {
                     console.error('Failed to write to webview.log:', e);
                 }
@@ -3962,6 +3964,63 @@ app.whenReady().then(async () => {
         }
     });
 
+    // ==========================================
+    // AUTO UPDATER (CẬP NHẬT TỰ ĐỘNG)
+    // ==========================================
+    autoUpdater.autoDownload = true;
+    autoUpdater.autoInstallOnAppQuit = true;
+
+    autoUpdater.on('checking-for-update', () => {
+        sendToRenderer("tools-log", '[AutoUpdate] Đang kiểm tra phiên bản mới...');
+    });
+    
+    autoUpdater.on('update-available', (info) => {
+        sendToRenderer("tools-log", `[AutoUpdate] Tìm thấy phiên bản mới: ${info.version}`);
+    });
+    
+    autoUpdater.on('update-not-available', (info) => {
+        sendToRenderer("tools-log", '[AutoUpdate] Bạn đang dùng phiên bản mới nhất.');
+    });
+    
+    autoUpdater.on('error', (err) => {
+        sendToRenderer("tools-log", `[AutoUpdate] Lỗi kiểm tra cập nhật: ${err.message}`);
+    });
+    
+    autoUpdater.on('download-progress', (progressObj) => {
+        const speed = Math.round(progressObj.bytesPerSecond / 1024);
+        const percent = Math.round(progressObj.percent);
+        sendToRenderer("tools-log", `[AutoUpdate] Tốc độ tải: ${speed}KB/s - Đã tải ${percent}%`);
+    });
+    
+    autoUpdater.on('update-downloaded', (info) => {
+        sendToRenderer("tools-log", '[AutoUpdate] Tải hoàn tất! Ứng dụng sẽ được cập nhật.');
+        dialog.showMessageBox({
+            type: 'info',
+            title: 'Cập nhật phần mềm',
+            message: `Đã tải xong phiên bản mới (${info.version}). Bạn có muốn cài đặt và khởi động lại ngay bây giờ?`,
+            buttons: ['Cài đặt ngay', 'Để sau']
+        }).then((result) => {
+            if (result.response === 0) {
+                autoUpdater.quitAndInstall();
+            }
+        });
+    });
+
+    // Bắt buộc cấu hình URL cho môi trường dev để test
+    if (!app.isPackaged) {
+        try {
+            const pkg = require(require('path').join(__dirname, '..', 'package.json'));
+            app.getVersion = () => pkg.version; // Ép app đọc đúng version từ package.json thay vì version của lõi Electron
+        } catch (e) {}
+        
+        autoUpdater.forceDevUpdateConfig = true;
+        autoUpdater.setFeedURL("https://ai.type.vn/phan-mem/");
+    }
+
+    // Bắt đầu kiểm tra cập nhật ngay cả trong Dev
+    autoUpdater.checkForUpdatesAndNotify().catch(err => {
+        sendToRenderer("tools-log", `[AutoUpdate] Lỗi khi chạy updater: ${err.message}`);
+    });
 });
 
 // Hủy đăng ký khi ứng dụng đóng để tránh rò rỉ bộ nhớ
