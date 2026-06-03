@@ -412,3 +412,19 @@ mat-list-option {
         overflow: auto !important;
     }
 }
+::ng-deep .edit-before-export-quill .ql-editor table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-bottom: 1rem;
+}
+
+::ng-deep .edit-before-export-quill .ql-editor table td {
+    border: 1px solid #e2e8f0;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+::ng-deep .edit-before-export-quill .ql-editor table tr:first-child td {
+    background-color: #f1f5f9;
+    font-weight: 600;
+}
