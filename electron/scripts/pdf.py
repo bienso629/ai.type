@@ -82,7 +82,8 @@ global_client = None
 is_cancelled = False
 
 class AnalyzeRequest(BaseModel):
-    file_path: str
+    file_path: str = ""
+    file_base64: str = None
 
 @app.post("/cancel")
 def cancel_analysis():
@@ -132,6 +133,19 @@ def analyze_pdf(req: AnalyzeRequest):
 
     is_cancelled = False
     file_path = req.file_path
+    
+    if req.file_base64:
+        import base64
+        import tempfile
+        import os
+        # Xác định đuôi file dựa trên đường dẫn gốc hoặc mặc định là pdf
+        file_ext = ".pdf" if file_path.lower().endswith(".pdf") else ".png"
+        temp_dir = tempfile.gettempdir()
+        file_path = os.path.join(temp_dir, f"uploaded_mineru_file{file_ext}")
+        with open(file_path, "wb") as f:
+            f.write(base64.b64decode(req.file_base64))
+        print(f"Đã giải mã file base64 vào: {file_path}")
+        
     print(f"Bắt đầu xử lý file: {file_path}")
 
     try:

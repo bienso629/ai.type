@@ -649,7 +649,25 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         } catch (e) {}
                     }
                     
-                    const result = await electron.invoke(ipcMethod, filePath, configData);
+                    let result: any;
+                    if (isMinerUEnabled) {
+                        this.taskProgress.updateMessage('Đang gửi qua server.py (http://localhost:8000)...');
+                        const response = await fetch('http://localhost:8000/analyze_pdf', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ file_path: filePath })
+                        });
+                        if (!response.ok) {
+                            throw new Error(`Lỗi Server (8000): ${response.statusText}`);
+                        }
+                        const resData = await response.json();
+                        if (resData.status !== 'success') {
+                            throw new Error(resData.message || 'Lỗi phân tích từ server.py');
+                        }
+                        result = typeof resData.data === 'string' ? resData.data : JSON.stringify(resData.data);
+                    } else {
+                        result = await electron.invoke(ipcMethod, filePath, configData);
+                    }
                     
                     this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
                     console.log("Kết quả phân tích từ AI:", result);
