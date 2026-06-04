@@ -637,28 +637,32 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                     const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
                     
                     let configData = undefined;
-                    if (!isMinerUEnabled) {
-                        try {
-                            const settings = this.multiAccountService.getItem('settings');
-                            if (settings) {
-                                configData = {
-                                    url: settings.umodelverseUrl || '',
-                                    key: settings.umodelverseKey || ''
-                                };
+                    let serverApiUrl = 'http://localhost:8002'; // Mặc định
+                    try {
+                        const settings = this.multiAccountService.getItem('settings');
+                        if (settings) {
+                            configData = {
+                                url: settings.umodelverseUrl || '',
+                                key: settings.umodelverseKey || ''
+                            };
+                            if (settings.umodelverseUrl) {
+                                serverApiUrl = settings.umodelverseUrl;
                             }
-                        } catch (e) {}
-                    }
+                        }
+                    } catch (e) {}
+                    
+                    serverApiUrl = serverApiUrl.replace(/\/$/, ''); // Xoá dấu gạch chéo cuối nếu có
                     
                     let result: any;
                     if (isMinerUEnabled) {
-                        this.taskProgress.updateMessage('Đang gửi qua server.py (http://localhost:8000)...');
-                        const response = await fetch('http://localhost:8000/analyze_pdf', {
+                        this.taskProgress.updateMessage(`Đang gửi qua Server Chatbot (${serverApiUrl})...`);
+                        const response = await fetch(`${serverApiUrl}/analyze_pdf`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({ file_path: filePath })
                         });
                         if (!response.ok) {
-                            throw new Error(`Lỗi Server (8000): ${response.statusText}`);
+                            throw new Error(`Lỗi Server: ${response.statusText}`);
                         }
                         const resData = await response.json();
                         if (resData.status !== 'success') {
