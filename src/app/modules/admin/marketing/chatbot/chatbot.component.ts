@@ -582,7 +582,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         const file = (event.target as HTMLInputElement)?.files?.[0];
         if (!file) return;
 
-        const isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
+        if (!file) return;
         
         const triggerIndex = (filename: string) => {
             const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
@@ -634,44 +634,31 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 });
 
                 try {
-                    const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
-                    
-                    let configData = undefined;
                     let serverApiUrl = 'http://localhost:8002'; // Mặc định
                     try {
                         const settings = this.multiAccountService.getItem('settings');
-                        if (settings) {
-                            configData = {
-                                url: settings.umodelverseUrl || '',
-                                key: settings.umodelverseKey || ''
-                            };
-                            if (settings.umodelverseUrl) {
-                                serverApiUrl = settings.umodelverseUrl;
-                            }
+                        if (settings && settings.umodelverseUrl) {
+                            serverApiUrl = settings.umodelverseUrl;
                         }
                     } catch (e) {}
                     
                     serverApiUrl = serverApiUrl.replace(/\/$/, ''); // Xoá dấu gạch chéo cuối nếu có
                     
                     let result: any;
-                    if (isMinerUEnabled) {
-                        this.taskProgress.updateMessage(`Đang gửi qua Server Chatbot (${serverApiUrl})...`);
-                        const response = await fetch(`${serverApiUrl}/analyze_pdf`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ file_path: filePath })
-                        });
-                        if (!response.ok) {
-                            throw new Error(`Lỗi Server: ${response.statusText}`);
-                        }
-                        const resData = await response.json();
-                        if (resData.status !== 'success') {
-                            throw new Error(resData.message || 'Lỗi phân tích từ server.py');
-                        }
-                        result = typeof resData.data === 'string' ? resData.data : JSON.stringify(resData.data);
-                    } else {
-                        result = await electron.invoke(ipcMethod, filePath, configData);
+                    this.taskProgress.updateMessage(`Đang gửi qua Server Chatbot (${serverApiUrl})...`);
+                    const response = await fetch(`${serverApiUrl}/analyze_pdf`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ file_path: filePath })
+                    });
+                    if (!response.ok) {
+                        throw new Error(`Lỗi Server: ${response.statusText}`);
                     }
+                    const resData = await response.json();
+                    if (resData.status !== 'success') {
+                        throw new Error(resData.message || 'Lỗi phân tích từ server.py');
+                    }
+                    result = typeof resData.data === 'string' ? resData.data : JSON.stringify(resData.data);
                     
                     this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
                     console.log("Kết quả phân tích từ AI:", result);

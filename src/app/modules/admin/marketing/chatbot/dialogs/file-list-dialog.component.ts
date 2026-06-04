@@ -57,7 +57,7 @@ export class FileListDialogComponent implements AfterViewInit {
                 const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
                 const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
                 const jsonUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
-                
+
                 try {
                     // Bước 1: Kiểm tra xem file json đã tồn tại trên server chưa
                     const checkRes = await fetch(jsonUrl, { method: 'HEAD' });
@@ -68,10 +68,10 @@ export class FileListDialogComponent implements AfterViewInit {
                         this.cdr.markForCheck();
 
                         const pdfUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
-                        
+
                         // Gọi main.js tải file PDF về thư mục temp
                         const tempPdfPath = await electron.invoke('download-temp-pdf', pdfUrl);
-                        
+
                         this.progressStatus = isMinerUEnabled ? 'Đang chuẩn bị phân tích bằng MinerU...' : 'Đang chuẩn bị phân tích bằng OpenAI (Local)...';
                         this.progressPercent = 50;
                         this.cdr.markForCheck();
@@ -84,12 +84,11 @@ export class FileListDialogComponent implements AfterViewInit {
 
                         try {
                             const ipcMethod = isMinerUEnabled ? 'run-pdf-analysis' : 'run-pdf-analysis-openai';
-                            
+
                             let configData = undefined;
                             if (!isMinerUEnabled) {
                                 try {
                                     const settings = this._multiAccountService.getItem('settings');
-                                    console.log("file-list-dialog loaded settings:", settings);
                                     if (settings) {
                                         configData = {
                                             url: settings.umodelverseUrl || '',
@@ -103,9 +102,9 @@ export class FileListDialogComponent implements AfterViewInit {
                                     console.error("Error loading settings:", e);
                                 }
                             }
-                            
+
                             const result = await electron.invoke(ipcMethod, tempPdfPath, configData);
-                            
+
                             this.progressStatus = 'Đang lưu kết quả AI lên Server...';
                             this.progressPercent = 90;
                             this.cdr.markForCheck();
@@ -280,17 +279,17 @@ export class FileListDialogComponent implements AfterViewInit {
     downloadPdf(doc_type: string, filename: string): void {
         const dType = (!doc_type || doc_type === 'None') ? 'default' : doc_type;
         const backendUrl = this.config?.settings?.chatbot || 'https://bot.type.vn';
-        
+
         let downloadFilename = filename;
         let fileUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filename)}`;
-        
+
         // Nếu là file PDF, chuyển sang tải file JSON kết quả của MinerU
         if (filename.toLowerCase().endsWith('.pdf')) {
             const filenameWithoutExt = filename.replace(/\.pdf$/i, '');
             downloadFilename = `${filenameWithoutExt}.mineru.json`;
             fileUrl = `${backendUrl}/pdfs/${dType}/${this.username}/${encodeURIComponent(filenameWithoutExt)}.mineru.json`;
         }
-        
+
         const link = document.createElement('a');
         link.href = fileUrl;
         link.target = '_blank';
