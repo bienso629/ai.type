@@ -13,8 +13,6 @@ export class SettingChatbotDialogComponent {
     domainOptions: any[] = [];
     selectedSettingsDomains: string[] = [];
     customPrompt: string = '';
-    isMinerUEnabled: boolean = false;
-
     constructor(
         public dialogRef: MatDialogRef<SettingChatbotDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
@@ -26,9 +24,6 @@ export class SettingChatbotDialogComponent {
         this.domainOptions = data.domainOptions || [];
         this.selectedSettingsDomains = [...(data.selectedSettingsDomains || [])];
         this.customPrompt = data.customPrompt || '';
-        
-        // Đọc trạng thái từ localStorage
-        this.isMinerUEnabled = localStorage.getItem('isMinerUEnabled') === 'true';
     }
 
     toggleDocType(value: string) {
@@ -49,60 +44,7 @@ export class SettingChatbotDialogComponent {
         }
     }
 
-    async toggleMinerU(event: any) {
-        if (event.checked) {
-            // Tạm thời giữ công tắc ở trạng thái TẮT cho đến khi tải xong
-            event.source.checked = false;
-            this.isMinerUEnabled = false;
 
-            const electron = (window as any).electron;
-            if (!electron) return;
-
-            try {
-                // Kiểm tra trước xem model đã có chưa
-                const isExist = await electron.invoke('check-mineru-model');
-                
-                if (isExist) {
-                    // Đã có model -> Bật luôn không cần hiển thị popup rườm rà
-                    this.isMinerUEnabled = true;
-                    event.source.checked = true;
-                    localStorage.setItem('isMinerUEnabled', 'true');
-                    return;
-                }
-
-                // Nếu chưa có, bắt đầu hiển thị giao diện tải về
-                this.taskProgress.show('Đang chuẩn bị mô hình AI', 'Đang tải dữ liệu...');
-                
-                // Đăng ký nhận luồng dữ liệu tiến trình download từ Electron
-                const cleanup = electron.onPdfProgress((data: string) => {
-                    this.taskProgress.updateMessage(data);
-                });
-
-                // Gọi Electron để download & extract model
-                await electron.invoke('setup-mineru-model');
-                this.taskProgress.done('Cài đặt mô hình AI hoàn tất!');
-                
-                // Tải thành công -> BẬT công tắc
-                this.isMinerUEnabled = true;
-                event.source.checked = true;
-                localStorage.setItem('isMinerUEnabled', 'true');
-                
-                cleanup();
-            } catch (error: any) {
-                console.error("Lỗi cài đặt AI:", error);
-                this.taskProgress.error('Có lỗi xảy ra: ' + (error?.message || error));
-                
-                // Giữ nguyên trạng thái TẮT
-                this.isMinerUEnabled = false;
-                event.source.checked = false;
-                localStorage.setItem('isMinerUEnabled', 'false');
-            }
-        } else {
-            // User chủ động tắt
-            this.isMinerUEnabled = false;
-            localStorage.setItem('isMinerUEnabled', 'false');
-        }
-    }
 
     onClose(): void {
         this.dialogRef.close();

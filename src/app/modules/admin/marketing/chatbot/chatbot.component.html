@@ -131,7 +131,8 @@
                         </div>
 
                         <div class="p-4 border-t sticky bottom-0 w-full bg-white items-center">
-                            <form [formGroup]="chatbotMessage" (ngSubmit)="sendMessage()" class="w-full max-w-200 mx-auto flex items-center">
+                            <form [formGroup]="chatbotMessage" (ngSubmit)="sendMessage()"
+                                class="w-full max-w-200 mx-auto flex items-center">
                                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
                                     <input [formControlName]="'chatgpt'" type="text" required matInput>
@@ -147,9 +148,9 @@
                     <div class="flex flex-col shrink-0 background-gray-100 border-l p-4 max-w-100 sticky bottom-0">
                         <mat-label class="text-base font-medium mb-2">Hướng dẫn sử dụng</mat-label>
                         <div class="text-sm text-gray-500 mb-2">
-                            <p>- Tải lên tài liệu tham khảo (PDF, DOCX)</p>
+                            <p>- Tải lên tài liệu của bạn (PDF, DOCX)</p>
                             <p>- Tạo trao đổi mới để bắt đầu cuộc trò chuyện</p>
-                            <p>- Câu trả lời dựa trên tài liệu đã tải lên</p>
+                            <p>- Câu trả lời dựa trên tài liệu của bạn</p>
                             <p>- Quản lý các trao đổi trong thanh bên trái</p>
                         </div>
 
@@ -157,12 +158,13 @@
                         <div class="my-2 border-t"></div>
 
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
-                            (click)="listFiles()">Quản lý tài liệu</mat-label>
+                            (click)="listFiles()">Tài liệu của bạn</mat-label>
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
                             (click)="indexDomains()">Bot học
                             Website <mat-label
                                 *ngIf="statusIndex.status === 'running' || statusIndex.status === 'done'">
-                                ({{ statusIndex.completed }}/{{ statusIndex.total }} {{ statusIndex.status }})</mat-label></mat-label>
+                                ({{ statusIndex.completed }}/{{ statusIndex.total }} {{ statusIndex.status
+                                }})</mat-label></mat-label>
 
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
                             (click)="settingChatbot()">Cài đặt chatbot</mat-label>
@@ -172,4 +174,3 @@
         </mat-drawer-container>
     </div>
 </div>
-
