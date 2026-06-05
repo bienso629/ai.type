@@ -70,11 +70,7 @@
                 <mat-icon class="icon-size-8">{{ activeItem ? (isPreviewPlaying ? 'pause' : 'play_arrow') : (isPlayingTimeline ? 'pause' : 'play_arrow') }}</mat-icon>
             </button>
 
-            <button *ngIf="previewVideoUrl || previewImageUrl || previewAudioUrl" mat-icon-button
-                class="absolute top-4 right-4 bg-white/10 hover:bg-red-500 text-white rounded transition-colors"
-                (click)="clearPreview()">
-                <mat-icon>close</mat-icon>
-            </button>
+
         </div>
 
         <div class="flex flex-row flex-shrink-0 overflow-x-auto overflow-y-hidden relative w-full h-fit border-t border-gray-700 scene-scroll-area"

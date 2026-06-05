@@ -2195,6 +2195,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     data: firstVideo,
                     scene: firstScene
                 });
+                this.currentTimelineTime = firstVideo.startTime || 0;
+                this.updateTimelineSync();
             }
         }
 
