@@ -61,7 +61,7 @@ import { GenaiService } from 'app/genai.service';
             </div>
         </div>
         
-        <div mat-dialog-actions class="flex justify-end gap-3 mt-8 pt-4 border-t border-gray-100">
+        <div mat-dialog-actions class="flex justify-end gap-1 mt-8 pt-4 border-t border-gray-100">
             <button mat-flat-button color="accent" (click)="onCancel()">Hủy bỏ</button>
             <button mat-flat-button color="primary" 
                     [mat-dialog-close]="data" 
