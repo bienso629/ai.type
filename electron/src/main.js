@@ -3588,6 +3588,54 @@ app.whenReady().then(async () => {
         });
     }
 
+    // ===== EXTRACT AUDIO IPC =====
+    ipcMain.handle("extract-audio", async (_event, videoPath) => {
+        return new Promise((resolve, reject) => {
+            if (!binaries.ffmpeg) {
+                return reject(new Error("Không tìm thấy FFmpeg"));
+            }
+            try {
+                const audioDir = path.dirname(videoPath);
+                const ext = path.extname(videoPath);
+                const baseName = path.basename(videoPath, ext);
+                const outputFileName = `${baseName}_audio.mp3`;
+                const outputPath = path.join(audioDir, outputFileName);
+                
+                const ffmpegPath = binaries.ffmpeg;
+                const args = [
+                    "-i", videoPath,
+                    "-vn", // No video
+                    "-acodec", "libmp3lame",
+                    "-q:a", "2", // Good quality
+                    "-y", // Overwrite
+                    outputPath
+                ];
+                
+                sendToRenderer("tools-log", `[FFmpeg] Tách audio: ${args.join(" ")}`);
+                const child = spawn(ffmpegPath, args);
+                
+                let stderrOutput = "";
+                child.stderr.on("data", (data) => {
+                    stderrOutput += data.toString();
+                });
+                
+                child.on("close", (code) => {
+                    if (code === 0) {
+                        resolve(outputPath);
+                    } else {
+                        reject(new Error(`FFmpeg error (code ${code}): ${stderrOutput}`));
+                    }
+                });
+                
+                child.on("error", (err) => {
+                    reject(err);
+                });
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+
     // ===== GOOGLE SEARCH CONSOLE IPC =====
     ipcMain.handle("gsc:query", async (_event, args) => {
         const {

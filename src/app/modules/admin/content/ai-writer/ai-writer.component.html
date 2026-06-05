@@ -949,7 +949,7 @@
                                                         <mat-label matTooltipPosition="above"
                                                             matTooltip="Nếu tiến trình chuyển đổi chưa hoàn tất, nhấn để thử lại"
                                                             class="flex flex-row items-center h-7 px-3 rounded-full text-sm leading-7 cursor-pointer mx-1"
-                                                            (click)="retryConvertVideo2Post(job?.transcript_id, i)"
+                                                            (click)="retryConvertVideo2Post(item, i)"
                                                             [ngClass]="{'bg-gray-200 hover:bg-grey-300': job?.status !== 'done', 'bg-primary-400 hover:bg-primary-500 text-white': job?.status === 'done'}">
                                                             <mat-progress-spinner
                                                                 *ngIf="job?.status !== 'done' || loading"
