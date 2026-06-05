@@ -45,7 +45,7 @@
 
         <!-- Preview Area (Upper Half) -->
         <div
-            class="w-full h-[45vh] bg-black flex flex-col items-center justify-center relative border-b border-gray-700 flex-shrink-0 group">
+            class="w-full flex-grow flex-shrink min-h-[20vh] bg-black flex flex-col items-center justify-center relative flex-shrink group">
             <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
                 class="w-full h-full object-contain" (ended)="isPreviewPlaying = false" (pause)="isPreviewPlaying = false" (play)="isPreviewPlaying = true"></video>
             <img [src]="getSafeUrl(previewImageUrl)" *ngIf="previewImageUrl && !previewVideoUrl"
@@ -61,13 +61,13 @@
             </div>
 
             <audio #mainAudioPlayer [src]="getSafeUrl(previewAudioUrl)" *ngIf="previewAudioUrl" controls
-                class="absolute bottom-4 w-1/2 opacity-0 group-hover:opacity-100 transition-opacity"></audio>
+                class="absolute bottom-4 w-1/2 opacity-0 group-hover:opacity-100 transition-opacity" (ended)="isPreviewPlaying = false" (pause)="isPreviewPlaying = false" (play)="isPreviewPlaying = true"></audio>
 
             <!-- Global Timeline Play/Pause Overlay Button -->
             <button *ngIf="previewVideoUrl || previewImageUrl" mat-icon-button
                 class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-50 text-white bg-black/40 hover:bg-black/80 icon-size-10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                (click)="togglePreviewPlay()">
-                <mat-icon class="icon-size-8">{{ isPreviewPlaying ? 'pause' : 'play_arrow' }}</mat-icon>
+                (click)="activeItem ? togglePreviewPlay() : toggleTimelinePlay()">
+                <mat-icon class="icon-size-8">{{ activeItem ? (isPreviewPlaying ? 'pause' : 'play_arrow') : (isPlayingTimeline ? 'pause' : 'play_arrow') }}</mat-icon>
             </button>
 
             <button *ngIf="previewVideoUrl || previewImageUrl || previewAudioUrl" mat-icon-button
@@ -77,9 +77,9 @@
             </button>
         </div>
 
-        <div class="flex flex-row flex-grow overflow-x-auto overflow-y-auto relative w-full h-full"
-            id="timeline-scroll-container">
-            <div class="relative w-[5000px] min-h-full h-fit">
+        <div class="flex flex-row flex-shrink-0 overflow-x-auto overflow-y-hidden relative w-full h-fit border-t border-gray-700 scene-scroll-area"
+            id="timeline-scroll-container" (wheel)="onTimelineScroll($event)">
+            <div class="relative w-[5000px] h-fit">
                 <!-- SVG Connection Lines -->
                 <svg #svgLayer
                     class="absolute inset-0 w-full h-full pointer-events-none z-50 transition-opacity duration-300"
@@ -107,13 +107,13 @@
                 </div>
 
                 <!-- Tracks -->
-                <div class="relative h-full flex flex-col" [style.minHeight.px]="trackCount * 160 + 50">
+                <div class="relative h-fit flex flex-col">
                     <div *ngFor="let _ of [].constructor(trackCount); let tIdx = index"
-                        class="relative h-40 border-b border-gray-800 bg-gray-800/30 flex-shrink-0 w-full">
+                        class="relative h-24 border-b border-gray-800 bg-gray-800/30 flex-shrink-0 w-full">
 
                         <!-- Track Header (Sticky Left) -->
                         <div
-                            class="absolute left-0 top-0 bottom-0 w-32 bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-center z-40 overflow-hidden">
+                            class="sticky left-0 top-0 h-full w-32 bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-center z-[60] overflow-hidden">
                             <span class="text-xs font-bold text-gray-300">Track {{tIdx + 1}}</span>
                         </div>
 
@@ -172,7 +172,7 @@
 
                                         <!-- Thanh công cụ hover (đặt ngoài overflow-hidden để block nhỏ không bị đè) -->
                                         <div
-                                            class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-50 pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 shadow-xl">
+                                            class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 shadow-xl">
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-blue-500 transition-colors icon-size-6 rounded"
                                                 matTooltip="Copy Prompt"
@@ -193,7 +193,7 @@
                                                 (click)="$event.stopPropagation(); removeVideo(sceneIdx, tIdx)">
                                                 <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
                                             </button>
-                                            <button *ngIf="video.videoUrl" mat-icon-button
+                                            <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)" mat-icon-button
                                                 class="bg-white/10 hover:bg-orange-500 transition-colors icon-size-6 rounded"
                                                 [matTooltip]="video.muted ? 'Unmute' : 'Mute'"
                                                 (click)="$event.stopPropagation(); toggleMute(video)">
@@ -235,7 +235,8 @@
 
                                         <!-- Right Drag Handle -->
                                         <div class="absolute right-0 top-0 bottom-0 w-3 cursor-col-resize hover:bg-white/40 z-40 rounded-r-lg flex items-center justify-center"
-                                            (mousedown)="onResizeStart($event, video, 'right')">
+                                            (mousedown)="onResizeStart($event, video, 'right')"
+                                            (dblclick)="resetVideoDuration($event, video)">
                                             <div class="w-1 h-4 bg-white/60 rounded-full pointer-events-none"></div>
                                         </div>
 
@@ -276,7 +277,7 @@
                     <div class="relative h-24 border-b border-gray-800 bg-gray-800/40 flex-shrink-0 w-full">
                         <!-- Track Header -->
                         <div
-                            class="absolute left-0 top-0 bottom-0 w-32 bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-center z-40 overflow-hidden">
+                            class="sticky left-0 top-0 h-full w-32 bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-center z-[60] overflow-hidden">
                             <span class="text-xs font-bold text-gray-300">Track Audio</span>
                             <mat-icon class="icon-size-4 text-blue-400 mt-1">mic</mat-icon>
                         </div>
@@ -320,7 +321,7 @@
 
                                     <!-- Thanh công cụ hover -->
                                     <div
-                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-50 pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg shadow-xl border border-gray-700">
+                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg shadow-xl border border-gray-700">
                                         <button mat-icon-button
                                             class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
                                             matTooltip="Delete Audio"
@@ -345,7 +346,7 @@
                     <div class="relative h-24 border-b border-gray-800 bg-gray-800/40 flex-shrink-0 w-full">
                         <!-- Track Header -->
                         <div
-                            class="absolute left-0 top-0 bottom-0 w-32 bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-center z-40 overflow-hidden">
+                            class="sticky left-0 top-0 h-full w-32 bg-gray-900 border-r border-gray-700 flex flex-col items-center justify-center z-[60] overflow-hidden">
                             <span class="text-xs font-bold text-gray-300">Âm thanh gốc</span>
                             <mat-icon class="icon-size-4 text-indigo-400 mt-1">graphic_eq</mat-icon>
                         </div>
@@ -388,7 +389,7 @@
 
                                     <!-- Thanh công cụ hover -->
                                     <div
-                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-50 pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg shadow-xl border border-gray-700">
+                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg shadow-xl border border-gray-700">
                                         <button mat-icon-button
                                             class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
                                             matTooltip="Delete Audio"

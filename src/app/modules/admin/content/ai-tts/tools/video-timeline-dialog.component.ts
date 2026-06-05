@@ -190,10 +190,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const tick = (timestamp: number) => {
             if (!this.isPlayingTimeline) return;
 
-            const deltaSeconds = (timestamp - lastTimestamp) / 1000;
+            let deltaSeconds = (timestamp - lastTimestamp) / 1000;
             lastTimestamp = timestamp;
 
+            const vidEl = this.mainVideoPlayer?.nativeElement;
+
+            if (this.activeVideo && this.activeVideo.videoUrl && vidEl) {
+                if (vidEl.seeking || vidEl.readyState < 3) {
+                    // Video is seeking or buffering, pause the timeline clock
+                    deltaSeconds = 0;
+                } else if (!vidEl.paused) {
+                    // Video is playing smoothly, let video drive the timeline
+                    this.currentTimelineTime = (this.activeVideo.startTime || 0) + vidEl.currentTime;
+                    deltaSeconds = 0; // We already updated currentTimelineTime
+                }
+            }
+
             this.currentTimelineTime += deltaSeconds;
+
 
             if (this.currentTimelineTime >= maxTime) {
                 this.currentTimelineTime = maxTime;
@@ -264,7 +278,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const vidEl = this.mainVideoPlayer.nativeElement;
                         vidEl.currentTime = this.currentTimelineTime - (foundVideo.startTime || 0);
                         vidEl.muted = !!foundVideo.muted;
-                        vidEl.play().catch(e => console.error("Error playing video:", e));
+                        if (this.isPlayingTimeline) {
+                            vidEl.play().catch(e => console.error("Error playing video:", e));
+                        } else {
+                            vidEl.pause();
+                        }
                     }
                 }, 0);
             } else {
@@ -276,8 +294,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement) {
                 const vidEl = this.mainVideoPlayer.nativeElement;
                 const expectedTime = this.currentTimelineTime - (this.activeVideo.startTime || 0);
-                if (Math.abs(vidEl.currentTime - expectedTime) > 0.5) {
-                    vidEl.currentTime = expectedTime;
+                const threshold = this.isPlayingTimeline ? 0.5 : 0.1;
+                if (Math.abs(vidEl.currentTime - expectedTime) > threshold) {
+                    if (!vidEl.seeking) {
+                        vidEl.currentTime = expectedTime;
+                    }
+                }
+
+                if (this.isPlayingTimeline && vidEl.paused) {
+                    vidEl.play().catch(e => console.error("Error playing video:", e));
+                } else if (!this.isPlayingTimeline && !vidEl.paused) {
+                    vidEl.pause();
                 }
             }
         }
@@ -374,13 +401,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     onScrubberMouseDown(e: MouseEvent) {
         e.preventDefault();
         e.stopPropagation();
+        this.setActiveItem(null); // Clear active item so timeline takes priority
         this.isDraggingScrubber = true;
         document.addEventListener('mousemove', this.onScrubberMouseMove);
         document.addEventListener('mouseup', this.onScrubberMouseUp);
     }
 
+    onTimelineScroll(event: WheelEvent) {
+        if (event.deltaY !== 0) {
+            const container = document.getElementById('timeline-scroll-container');
+            if (container) {
+                container.scrollLeft += event.deltaY;
+                event.preventDefault();
+            }
+        }
+    }
+
     onTimeRulerMouseDown(e: MouseEvent) {
         e.preventDefault();
+        this.pauseTimeline(); // Pause while dragging
+        this.setActiveItem(null); // Clear active item so timeline takes priority
         this.isDraggingScrubber = true;
         this.seekTimelineToMouse(e);
         document.addEventListener('mousemove', this.onScrubberMouseMove);
@@ -397,6 +437,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.isDraggingScrubber = false;
         document.removeEventListener('mousemove', this.onScrubberMouseMove);
         document.removeEventListener('mouseup', this.onScrubberMouseUp);
+        this.playTimeline(); // Start playing when released
     }
 
     seekTimelineToMouse(e: MouseEvent) {
@@ -431,14 +472,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     packTimeline() {
         if (!this.projectData || !this.projectData.scenes) return;
-        
+
         let currentTime = 0;
         for (const scene of this.projectData.scenes) {
             if (scene.videos && scene.videos.length > 0) {
                 // Đặt thời gian bắt đầu cho video trên track 0 (đại diện cho toàn bộ scene)
                 const mainVideo = scene.videos[0];
                 mainVideo.startTime = currentTime;
-                
+
                 // Đồng bộ các video ở track khác trong cùng scene
                 for (let i = 1; i < scene.videos.length; i++) {
                     scene.videos[i].startTime = currentTime;
@@ -461,7 +502,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         extTime += (ext.duration || 0);
                     }
                 }
-                
+
                 // Cộng dồn thời gian của scene hiện tại cho scene tiếp theo
                 currentTime += (mainVideo.duration || 5);
             }
@@ -555,9 +596,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
         this.saveData(); // Save the normalized data back to prevent recurring issues
 
-            // Initialize WaveSurfers after data is loaded
-            setTimeout(() => this.initWaveSurfers(), 500);
-        }
+        // Initialize WaveSurfers after data is loaded
+        setTimeout(() => this.initWaveSurfers(), 500);
+    }
 
     initWaveSurfers() {
         if (!this.projectData || !this.projectData.scenes) return;
@@ -629,7 +670,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.dragStartX = e.clientX;
         this.dragStartLeft = video.startTime || 0;
         this.dragSceneIdx = sceneIdx;
-        
+
         this.dragVideoIdx = -1;
         const scene = this.projectData?.scenes?.[sceneIdx];
         if (scene && scene.videos) {
@@ -679,7 +720,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const v = scene.videos[vIdx];
                         if (v === this.draggingVideo) continue;
                         if (vIdx === this.dragVideoIdx && sIdx > this.dragSceneIdx && this.dragType === 'move') continue;
-                        
+
                         if (v.startTime !== undefined) {
                             snapPoints.push(v.startTime);
                             snapPoints.push(v.startTime + (v.duration || 0));
@@ -1903,10 +1944,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     setActiveItem(item: any, event?: MouseEvent) {
         if (event) event.stopPropagation();
         this.activeItem = item;
-        
+
         // Hiện lên preview nếu là video/image
         if (item && (item.videoUrl || item.imageUrl)) {
             this.playPreview(item);
+        } else if (!item) {
+            this.updateTimelineSync();
         }
     }
 
@@ -2140,6 +2183,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         // Khởi tạo Timeline (gán startTime cho các video)
         this.initializeTimeline();
 
+        // Select the first video by default
+        if (this.projectData && this.projectData.scenes && this.projectData.scenes.length > 0) {
+            const firstScene = this.projectData.scenes[0];
+            if (firstScene.videos && firstScene.videos.length > 0) {
+                const firstVideo = firstScene.videos[0];
+                this.setActiveItem({
+                    type: 'video',
+                    sceneIndex: 0,
+                    videoIndex: 0,
+                    data: firstVideo,
+                    scene: firstScene
+                });
+            }
+        }
+
         // Tự động kiểm tra file audio ngay khi mở màn hình
         this.prepareForVideoGeneration(true);
 
@@ -2200,5 +2258,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (alert.cc) alert.cc();
             }
         });
+    }
+
+    resetVideoDuration(e: MouseEvent, video: any) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (video && video.maxDuration !== undefined) {
+            video.duration = video.maxDuration;
+            this.saveData();
+            this.cd.detectChanges();
+        }
     }
 }
