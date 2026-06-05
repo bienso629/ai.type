@@ -1593,26 +1593,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
 
 
-    retryConvertVideo2Post(transcript_id: string, jobId: number) {
+    retryConvertVideo2Post(content: string, jobId: number) {
         this.stopTracking(jobId);
-
-        this._youtubeService
-            .retryVideo2Post({
-                transcript_id: transcript_id, // nếu chạy lại API này sẽ không tải lại video nữa
-                username: this.user.name,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (data) => {
-                    if (data && data.id.length > 0) {
-                        this.startTracking(data.id, jobId);
-                    }
-                },
-                error: (e: any) => {
-                    this.toastr.warning('Tải video thất bại.');
-                },
-                complete: () => { },
-            });
+        this.convertVideo2Post(content, jobId);
     }
 
     transcriptDetails(transcript_id: string, include_snapshots?: boolean) {

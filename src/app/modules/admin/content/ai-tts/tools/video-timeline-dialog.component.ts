@@ -21,6 +21,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
+import WaveSurfer from 'wavesurfer.js';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -75,6 +76,794 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     isEditingMasterPrompt: boolean = false;
 
     allClips: any[] = []; // Chứa danh sách tất cả các câu thoại có trong project
+
+    // --- Timeline & Drag Logic ---
+    pixelsPerSecond: number = 20;
+    draggingVideo: any = null;
+    dragType: 'move' | 'left' | 'right' | null = null;
+    dragStartX: number = 0;
+    dragStartLeft: number = 0;
+    dragStartWidth: number = 0;
+
+    // --- Preview Area ---
+    previewVideoUrl: string | null = null;
+    previewImageUrl: string | null = null;
+    previewAudioUrl: string | null = null;
+
+    // --- Timeline Player ---
+    isPlayingTimeline: boolean = false;
+    isPreviewPlaying: boolean = false;
+    currentTimelineTime: number = 0;
+    timelineTimer: any = null;
+    activeVideo: any = null;
+    activeAudio: any = null;
+
+    // Khai báo ViewChild để truy cập video tag trong template
+    @ViewChild('mainVideoPlayer') mainVideoPlayer?: ElementRef<HTMLVideoElement>;
+    @ViewChild('mainAudioPlayer') mainAudioPlayer?: ElementRef<HTMLAudioElement>;
+    wavesurfers: { [key: string]: WaveSurfer } = {};
+
+    playPreview(video: any) {
+        this.clearPreview();
+        this.pauseTimeline(); // Dừng timeline nếu đang phát
+        if (video.videoUrl) {
+            this.previewVideoUrl = video.videoUrl;
+        } else if (video.imageUrl) {
+            this.previewImageUrl = video.imageUrl;
+        }
+    }
+
+    // ===== TIMELINE PLAYER LOGIC =====
+    toggleTimelinePlay() {
+        if (this.isPlayingTimeline) {
+            this.pauseTimeline();
+        } else {
+            this.playTimeline();
+        }
+    }
+
+    togglePreviewPlay() {
+        if (this.mainVideoPlayer && this.previewVideoUrl) {
+            const video = this.mainVideoPlayer.nativeElement;
+            if (video.paused) {
+                video.play();
+                this.isPreviewPlaying = true;
+            } else {
+                video.pause();
+                this.isPreviewPlaying = false;
+            }
+        } else if (this.mainAudioPlayer && this.previewAudioUrl) {
+            const audio = this.mainAudioPlayer.nativeElement;
+            if (audio.paused) {
+                audio.play();
+                this.isPreviewPlaying = true;
+            } else {
+                audio.pause();
+                this.isPreviewPlaying = false;
+            }
+        }
+    }
+
+    getMaxTimelineTime(): number {
+        if (!this.projectData || !this.projectData.scenes) return 0;
+        let maxTime = 0;
+        for (const scene of this.projectData.scenes) {
+            if (scene.videos) {
+                for (const v of scene.videos) {
+                    const end = (v.startTime || 0) + (v.duration || 5);
+                    if (end > maxTime) maxTime = end;
+                }
+            }
+            if (scene.subtitles) {
+                for (const s of scene.subtitles) {
+                    const end = (s.startTime || 0) + (s.duration || 5);
+                    if (end > maxTime) maxTime = end;
+                }
+            }
+            if (scene.extractedAudios) {
+                for (const a of scene.extractedAudios) {
+                    const end = (a.startTime || 0) + (a.duration || 5);
+                    if (end > maxTime) maxTime = end;
+                }
+            }
+        }
+        return maxTime;
+    }
+
+    playTimeline() {
+        if (!this.projectData || !this.projectData.scenes) return;
+
+        // Tính toán độ dài tối đa của timeline
+        let maxTime = this.getMaxTimelineTime();
+
+        if (maxTime === 0) return;
+
+        // Nếu đã chạy tới cuối, phát lại từ đầu
+        if (this.currentTimelineTime >= maxTime) {
+            this.currentTimelineTime = 0;
+        }
+
+        this.isPlayingTimeline = true;
+
+        let lastTimestamp = performance.now();
+
+        const tick = (timestamp: number) => {
+            if (!this.isPlayingTimeline) return;
+
+            const deltaSeconds = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            this.currentTimelineTime += deltaSeconds;
+
+            if (this.currentTimelineTime >= maxTime) {
+                this.currentTimelineTime = maxTime;
+                this.pauseTimeline();
+            }
+
+            this.updateTimelineSync();
+            this.cd.detectChanges();
+
+            if (this.isPlayingTimeline) {
+                this.timelineTimer = requestAnimationFrame(tick);
+            }
+        };
+
+        this.timelineTimer = requestAnimationFrame(tick);
+    }
+
+    pauseTimeline() {
+        this.isPlayingTimeline = false;
+        if (this.timelineTimer) {
+            cancelAnimationFrame(this.timelineTimer);
+            this.timelineTimer = null;
+        }
+
+        if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement) {
+            this.mainVideoPlayer.nativeElement.pause();
+        }
+        if (this.mainAudioPlayer && this.mainAudioPlayer.nativeElement) {
+            this.mainAudioPlayer.nativeElement.pause();
+        }
+        for (const key in this.wavesurfers) {
+            if (this.wavesurfers[key].isPlaying()) {
+                this.wavesurfers[key].pause();
+            }
+        }
+    }
+
+    updateTimelineSync() {
+        if (!this.projectData || !this.projectData.scenes) return;
+
+        let foundVideo = null;
+        let foundAudio = null;
+
+        for (const scene of this.projectData.scenes) {
+            // Find active video
+            if (scene.videos) {
+                for (const v of scene.videos) {
+                    if (v.disabled) continue;
+                    const start = v.startTime || 0;
+                    const end = start + (v.duration || 5);
+                    if (this.currentTimelineTime >= start && this.currentTimelineTime < end) {
+                        foundVideo = v;
+                    }
+                }
+            }
+        }
+
+        // Handle Video
+        if (foundVideo !== this.activeVideo) {
+            this.activeVideo = foundVideo;
+            if (foundVideo) {
+                this.previewVideoUrl = foundVideo.videoUrl || null;
+                this.previewImageUrl = foundVideo.imageUrl || null;
+
+                // Cần setTimeout để chờ view update tag video/img
+                setTimeout(() => {
+                    if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement && this.previewVideoUrl) {
+                        const vidEl = this.mainVideoPlayer.nativeElement;
+                        vidEl.currentTime = this.currentTimelineTime - (foundVideo.startTime || 0);
+                        vidEl.muted = !!foundVideo.muted;
+                        vidEl.play().catch(e => console.error("Error playing video:", e));
+                    }
+                }, 0);
+            } else {
+                this.previewVideoUrl = null;
+                this.previewImageUrl = null;
+            }
+        } else if (this.activeVideo && this.activeVideo.videoUrl) {
+            // Liên tục đồng bộ hóa phòng trường hợp bị khựng
+            if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement) {
+                const vidEl = this.mainVideoPlayer.nativeElement;
+                const expectedTime = this.currentTimelineTime - (this.activeVideo.startTime || 0);
+                if (Math.abs(vidEl.currentTime - expectedTime) > 0.5) {
+                    vidEl.currentTime = expectedTime;
+                }
+            }
+        }
+        // Handle Subtitles (WaveSurfer)
+        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            const scene = this.projectData.scenes[sceneIdx];
+            if (scene.subtitles) {
+                for (let sIdx = 0; sIdx < scene.subtitles.length; sIdx++) {
+                    const sub = scene.subtitles[sIdx];
+                    const ws = this.wavesurfers[`waveform-sub-${sceneIdx}-${sIdx}`];
+                    if (ws) {
+                        const start = sub.startTime || 0;
+                        const end = start + (sub.duration || 5);
+                        const isPlayingNow = !sub.disabled && this.currentTimelineTime >= start && this.currentTimelineTime < end;
+
+                        if (isPlayingNow) {
+                            const expectedTime = this.currentTimelineTime - start;
+                            if (this.isPlayingTimeline) {
+                                if (!ws.isPlaying()) ws.play();
+                                if (Math.abs(ws.getCurrentTime() - expectedTime) > 0.5) {
+                                    ws.setTime(expectedTime);
+                                }
+                            } else {
+                                if (ws.isPlaying()) ws.pause();
+                                ws.setTime(expectedTime);
+                            }
+                        } else {
+                            if (ws.isPlaying()) ws.pause();
+                        }
+                    }
+                }
+            }
+        }
+
+
+        // Handle Extracted Audios (WaveSurfer)
+        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            const scene = this.projectData.scenes[sceneIdx];
+            if (scene.extractedAudios) {
+                for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                    const audio = scene.extractedAudios[aIdx];
+                    const ws = this.wavesurfers[`waveform-${sceneIdx}-${aIdx}`];
+                    if (ws) {
+                        const start = audio.startTime || 0;
+                        const end = start + (audio.duration || 5);
+                        const isPlayingNow = !audio.disabled && this.currentTimelineTime >= start && this.currentTimelineTime < end;
+
+                        if (isPlayingNow) {
+                            const expectedTime = this.currentTimelineTime - start;
+                            if (this.isPlayingTimeline) {
+                                if (!ws.isPlaying()) ws.play();
+                                if (Math.abs(ws.getCurrentTime() - expectedTime) > 0.5) {
+                                    ws.setTime(expectedTime);
+                                }
+                            } else {
+                                if (ws.isPlaying()) ws.pause();
+                                ws.setTime(expectedTime);
+                            }
+                        } else {
+                            if (ws.isPlaying()) ws.pause();
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    playWaveform(type: 'sub' | 'extracted', sceneIdx: number, idx: number) {
+        // Pause all wavesurfers first
+        for (const key in this.wavesurfers) {
+            if (this.wavesurfers[key].isPlaying()) {
+                this.wavesurfers[key].pause();
+            }
+        }
+
+        // Play the selected one
+        const prefix = type === 'sub' ? 'waveform-sub' : 'waveform';
+        const ws = this.wavesurfers[`${prefix}-${sceneIdx}-${idx}`];
+        if (ws) {
+            ws.setTime(0);
+            ws.play();
+        }
+    }
+
+    clearPreview() {
+        this.previewVideoUrl = null;
+        this.previewImageUrl = null;
+        this.previewAudioUrl = null;
+    }
+
+    // --- Scrubber Drag Logic ---
+    isDraggingScrubber: boolean = false;
+
+    onScrubberMouseDown(e: MouseEvent) {
+        e.preventDefault();
+        e.stopPropagation();
+        this.isDraggingScrubber = true;
+        document.addEventListener('mousemove', this.onScrubberMouseMove);
+        document.addEventListener('mouseup', this.onScrubberMouseUp);
+    }
+
+    onTimeRulerMouseDown(e: MouseEvent) {
+        e.preventDefault();
+        this.isDraggingScrubber = true;
+        this.seekTimelineToMouse(e);
+        document.addEventListener('mousemove', this.onScrubberMouseMove);
+        document.addEventListener('mouseup', this.onScrubberMouseUp);
+    }
+
+    onScrubberMouseMove = (e: MouseEvent) => {
+        if (!this.isDraggingScrubber) return;
+        this.seekTimelineToMouse(e);
+    }
+
+    onScrubberMouseUp = (e: MouseEvent) => {
+        if (!this.isDraggingScrubber) return;
+        this.isDraggingScrubber = false;
+        document.removeEventListener('mousemove', this.onScrubberMouseMove);
+        document.removeEventListener('mouseup', this.onScrubberMouseUp);
+    }
+
+    seekTimelineToMouse(e: MouseEvent) {
+        const container = document.getElementById('timeline-scroll-container');
+        const contentContainer = container?.querySelector('.relative.w-\\[5000px\\]');
+        if (!contentContainer) return;
+
+        const rect = contentContainer.getBoundingClientRect();
+        let x = e.clientX - rect.left - 128; // Trừ đi phần header Track 128px
+        if (x < 0) x = 0;
+
+        const newTime = x / this.pixelsPerSecond;
+        let maxTime = this.getMaxTimelineTime();
+        if (maxTime === 0) maxTime = 100; // Default max if empty
+
+        this.currentTimelineTime = Math.min(newTime, maxTime);
+        this.updateTimelineSync();
+        this.cd.detectChanges();
+    }
+
+    // Tính toán số Track hiển thị (dựa trên scene nào có nhiều video nhất)
+    get trackCount(): number {
+        if (!this.projectData || !this.projectData.scenes) return 1;
+        let max = 1;
+        for (const scene of this.projectData.scenes) {
+            if (scene.videos && scene.videos.length > max) {
+                max = scene.videos.length;
+            }
+        }
+        return max;
+    }
+
+    packTimeline() {
+        if (!this.projectData || !this.projectData.scenes) return;
+        
+        let currentTime = 0;
+        for (const scene of this.projectData.scenes) {
+            if (scene.videos && scene.videos.length > 0) {
+                // Đặt thời gian bắt đầu cho video trên track 0 (đại diện cho toàn bộ scene)
+                const mainVideo = scene.videos[0];
+                mainVideo.startTime = currentTime;
+                
+                // Đồng bộ các video ở track khác trong cùng scene
+                for (let i = 1; i < scene.videos.length; i++) {
+                    scene.videos[i].startTime = currentTime;
+                }
+
+                // Đồng bộ subtitle
+                let subTime = currentTime;
+                if (scene.subtitles) {
+                    for (const sub of scene.subtitles) {
+                        sub.startTime = subTime;
+                        subTime += (sub.duration || 0);
+                    }
+                }
+
+                // Đồng bộ audio
+                let extTime = currentTime;
+                if (scene.extractedAudios) {
+                    for (const ext of scene.extractedAudios) {
+                        ext.startTime = extTime;
+                        extTime += (ext.duration || 0);
+                    }
+                }
+                
+                // Cộng dồn thời gian của scene hiện tại cho scene tiếp theo
+                currentTime += (mainVideo.duration || 5);
+            }
+        }
+
+        this.saveData();
+        this.cd.detectChanges();
+        setTimeout(() => this.updateLines(), 100);
+    }
+
+    initializeTimeline() {
+        if (!this.projectData || !this.projectData.scenes) return;
+        let currentTime = 0;
+        for (const scene of this.projectData.scenes) {
+            // Dọn dẹp các [Âm thanh gốc] cũ vô tình bị lưu vào subtitles
+            if (scene.subtitles) {
+                const legacyExtracted = scene.subtitles.filter((sub: any) => sub.text === '[Âm thanh gốc]');
+                if (legacyExtracted.length > 0) {
+                    if (!scene.extractedAudios) scene.extractedAudios = [];
+                    // Di chuyển chúng sang mảng extractedAudios
+                    scene.extractedAudios.push(...legacyExtracted);
+                    // Loại bỏ khỏi subtitles
+                    scene.subtitles = scene.subtitles.filter((sub: any) => sub.text !== '[Âm thanh gốc]');
+                }
+            }
+
+            if (!scene.videos || !Array.isArray(scene.videos) || scene.videos.length === 0) {
+                let defaultDuration = scene.forcedDuration || 5;
+                if (!scene.forcedDuration && scene.subtitles) {
+                    let totalSecs = 0;
+                    for (const sub of scene.subtitles) {
+                        if (sub.duration) totalSecs += sub.duration;
+                        else if (sub.text) totalSecs += Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+                    }
+                    if (totalSecs > 0) defaultDuration = Math.round(totalSecs);
+                }
+                scene.videos = [{
+                    id: 1,
+                    prompt: scene.prompt || '',
+                    imageUrl: scene.imageUrl || null,
+                    duration: defaultDuration
+                }];
+            }
+
+            // Clean up any null/undefined videos
+            scene.videos = scene.videos.filter((v: any) => v);
+
+            for (const video of scene.videos) {
+                // Ensure duration is a valid number
+                let dur = typeof video.duration === 'number' ? video.duration : parseFloat(String(video.duration).replace('s', ''));
+                if (isNaN(dur) || dur <= 0) {
+                    dur = 5;
+                }
+                video.duration = dur;
+                if (video.maxDuration === undefined && (video.videoUrl || video.audioUrl)) {
+                    video.maxDuration = video.duration;
+                }
+
+                // Ensure startTime is a valid number
+                if (video.startTime === undefined || isNaN(video.startTime) || video.startTime === null) {
+                    video.startTime = currentTime;
+                } else {
+                    // Try parsing if it's a string somehow
+                    let start = parseFloat(String(video.startTime));
+                    if (isNaN(start) || start > 100000 || !isFinite(start)) start = currentTime;
+                    if (start < 0) start = 0; // Prevent negative start
+                    video.startTime = start;
+                }
+
+                if (!isFinite(video.duration) || video.duration > 100000) video.duration = 5;
+
+                currentTime = Math.max(currentTime, video.startTime + video.duration);
+            }
+
+            // Gán startTime cho các phần tử audio/subtitle trong scene
+            if (scene.subtitles && scene.videos.length > 0) {
+                let subTime = scene.videos[0].startTime || 0;
+                for (const sub of scene.subtitles) {
+                    let subDur = sub.duration;
+                    if (!subDur || isNaN(subDur) || subDur <= 0) {
+                        subDur = Math.max(1, (sub.text ? sub.text.trim().split(/\s+/).length / 4 : 2));
+                        sub.duration = subDur;
+                    }
+                    if (sub.maxDuration === undefined && sub.audioUrl) {
+                        sub.maxDuration = sub.duration;
+                    }
+                    sub.startTime = subTime;
+                    subTime += subDur;
+                }
+            }
+        }
+        this.saveData(); // Save the normalized data back to prevent recurring issues
+
+            // Initialize WaveSurfers after data is loaded
+            setTimeout(() => this.initWaveSurfers(), 500);
+        }
+
+    initWaveSurfers() {
+        if (!this.projectData || !this.projectData.scenes) return;
+
+        // Cleanup existing
+        for (const key in this.wavesurfers) {
+            this.wavesurfers[key].destroy();
+        }
+        this.wavesurfers = {};
+
+        // Create new ones for extractedAudios
+        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            const scene = this.projectData.scenes[sceneIdx];
+            if (scene.extractedAudios) {
+                for (let aIdx = 0; aIdx < scene.extractedAudios.length; aIdx++) {
+                    const audio = scene.extractedAudios[aIdx];
+                    const containerId = `waveform-${sceneIdx}-${aIdx}`;
+                    const container = document.getElementById(containerId);
+
+                    if (container && audio.audioUrl) {
+                        const ws = WaveSurfer.create({
+                            container: container,
+                            waveColor: '#4f46e5',
+                            progressColor: '#818cf8',
+                            height: 40,
+                            barWidth: 2,
+                            interact: false
+                        });
+                        ws.load(audio.audioUrl);
+                        this.wavesurfers[containerId] = ws;
+                    }
+                }
+            }
+
+            // Create new ones for subtitles
+            if (scene.subtitles) {
+                for (let sIdx = 0; sIdx < scene.subtitles.length; sIdx++) {
+                    const sub = scene.subtitles[sIdx];
+                    const containerId = `waveform-sub-${sceneIdx}-${sIdx}`;
+                    const container = document.getElementById(containerId);
+
+                    if (container && sub.audioUrl) {
+                        const ws = WaveSurfer.create({
+                            container: container,
+                            waveColor: '#4f46e5',
+                            progressColor: '#818cf8',
+                            height: 40,
+                            barWidth: 2,
+                            interact: false
+                        });
+                        ws.load(sub.audioUrl);
+                        this.wavesurfers[containerId] = ws;
+                    }
+                }
+            }
+        }
+    }
+
+    dragInitialStarts: Map<any, number> = new Map();
+    dragSceneIdx: number = -1;
+    dragVideoIdx: number = -1;
+
+    onDragBlockStart(e: MouseEvent, video: any, sceneIdx: number) {
+        if (e.button !== 0) return; // Only left click
+        e.stopPropagation();
+        this.draggingVideo = video;
+        this.setActiveItem(video); // Activate & show preview
+        this.dragType = 'move';
+        this.dragStartX = e.clientX;
+        this.dragStartLeft = video.startTime || 0;
+        this.dragSceneIdx = sceneIdx;
+        
+        this.dragVideoIdx = -1;
+        const scene = this.projectData?.scenes?.[sceneIdx];
+        if (scene && scene.videos) {
+            this.dragVideoIdx = scene.videos.indexOf(video);
+        }
+
+        this.dragInitialStarts.clear();
+        if (this.projectData?.scenes) {
+            for (const s of this.projectData.scenes) {
+                if (s.videos) s.videos.forEach((v: any) => this.dragInitialStarts.set(v, v.startTime || 0));
+                if (s.subtitles) s.subtitles.forEach((sub: any) => this.dragInitialStarts.set(sub, sub.startTime || 0));
+                if (s.extractedAudios) s.extractedAudios.forEach((ext: any) => this.dragInitialStarts.set(ext, ext.startTime || 0));
+            }
+        }
+
+        document.addEventListener('mousemove', this.onTimelineMouseMove);
+        document.addEventListener('mouseup', this.onTimelineMouseUp);
+    }
+
+    onResizeStart(e: MouseEvent, video: any, type: 'left' | 'right') {
+        if (e.button !== 0) return;
+        e.stopPropagation();
+        this.draggingVideo = video;
+        this.setActiveItem(video); // Activate & show preview
+        this.dragType = type;
+        this.dragStartX = e.clientX;
+        this.dragStartLeft = video.startTime || 0;
+        this.dragStartWidth = video.duration || 5;
+
+        document.addEventListener('mousemove', this.onTimelineMouseMove);
+        document.addEventListener('mouseup', this.onTimelineMouseUp);
+    }
+
+    onTimelineMouseMove = (e: MouseEvent) => {
+        if (!this.draggingVideo) return;
+        const deltaX = e.clientX - this.dragStartX;
+        const deltaSeconds = deltaX / this.pixelsPerSecond;
+        const snapThreshold = 15 / this.pixelsPerSecond; // Khoảng cách hút dính (15 pixels)
+
+        // Thu thập tất cả các điểm snap (bỏ qua các video sẽ bị kéo theo)
+        const snapPoints: number[] = [0];
+        if (this.projectData?.scenes) {
+            for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                const scene = this.projectData.scenes[sIdx];
+                if (scene.videos) {
+                    for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                        const v = scene.videos[vIdx];
+                        if (v === this.draggingVideo) continue;
+                        if (vIdx === this.dragVideoIdx && sIdx > this.dragSceneIdx && this.dragType === 'move') continue;
+                        
+                        if (v.startTime !== undefined) {
+                            snapPoints.push(v.startTime);
+                            snapPoints.push(v.startTime + (v.duration || 0));
+                        }
+                    }
+                }
+            }
+        }
+
+        if (this.dragType === 'move') {
+            let minStart = 0;
+            if (this.dragSceneIdx > 0 && this.projectData?.scenes) {
+                // Không xếp chồng lên video liền trước trên cùng track
+                for (let sIdx = this.dragSceneIdx - 1; sIdx >= 0; sIdx--) {
+                    const prevScene = this.projectData.scenes[sIdx];
+                    if (prevScene.videos && prevScene.videos[this.dragVideoIdx]) {
+                        const prevVideo = prevScene.videos[this.dragVideoIdx];
+                        minStart = (prevVideo.startTime || 0) + (prevVideo.duration || 0);
+                        break;
+                    }
+                }
+            }
+
+            let newStart = this.dragStartLeft + deltaSeconds;
+
+            // Tìm điểm snap gần nhất
+            let bestSnap = newStart;
+            let minDiff = snapThreshold;
+            for (const point of snapPoints) {
+                if (Math.abs(newStart - point) < minDiff) {
+                    minDiff = Math.abs(newStart - point);
+                    bestSnap = point;
+                }
+                const endPos = newStart + (this.draggingVideo.duration || 0);
+                if (Math.abs(endPos - point) < minDiff) {
+                    minDiff = Math.abs(endPos - point);
+                    bestSnap = point - (this.draggingVideo.duration || 0);
+                }
+            }
+
+            newStart = Math.max(minStart, bestSnap);
+            this.draggingVideo.startTime = newStart;
+            const totalDelta = newStart - this.dragStartLeft;
+
+            // Kéo theo các video phía sau (Ripple edit)
+            if (this.projectData?.scenes) {
+                for (let sIdx = this.dragSceneIdx + 1; sIdx < this.projectData.scenes.length; sIdx++) {
+                    const nextScene = this.projectData.scenes[sIdx];
+                    if (nextScene.videos && nextScene.videos[this.dragVideoIdx]) {
+                        const nextVideo = nextScene.videos[this.dragVideoIdx];
+                        const initStart = this.dragInitialStarts.get(nextVideo) || 0;
+                        nextVideo.startTime = initStart + totalDelta;
+                    }
+                }
+
+                // Đồng bộ subtitle và audio nếu đây là video chính (track 0)
+                if (this.dragVideoIdx === 0) {
+                    for (let sIdx = this.dragSceneIdx; sIdx < this.projectData.scenes.length; sIdx++) {
+                        const scene = this.projectData.scenes[sIdx];
+                        if (scene.subtitles) {
+                            scene.subtitles.forEach((sub: any) => {
+                                sub.startTime = (this.dragInitialStarts.get(sub) || 0) + totalDelta;
+                            });
+                        }
+                        if (scene.extractedAudios) {
+                            scene.extractedAudios.forEach((ext: any) => {
+                                ext.startTime = (this.dragInitialStarts.get(ext) || 0) + totalDelta;
+                            });
+                        }
+                    }
+                }
+            }
+        } else if (this.dragType === 'left') {
+            let newStart = this.dragStartLeft + deltaSeconds;
+            let newDuration = this.dragStartWidth - deltaSeconds;
+
+            // Tìm điểm snap gần nhất cho đầu video
+            let bestSnapStart = newStart;
+            let minDiff = snapThreshold;
+            for (const point of snapPoints) {
+                if (Math.abs(newStart - point) < minDiff) {
+                    minDiff = Math.abs(newStart - point);
+                    bestSnapStart = point;
+                }
+            }
+
+            if (bestSnapStart !== newStart) {
+                newDuration = this.dragStartLeft + this.dragStartWidth - bestSnapStart;
+                newStart = bestSnapStart;
+            }
+
+            if (newDuration < 1) {
+                newDuration = 1;
+                newStart = this.dragStartLeft + this.dragStartWidth - 1;
+            }
+
+            // Cap at maxDuration if media
+            let maxAllowable = this.draggingVideo.maxDuration;
+            if (!this.draggingVideo.videoUrl && !this.draggingVideo.audioUrl) {
+                maxAllowable = Infinity;
+            } else if (!maxAllowable) {
+                maxAllowable = this.dragStartWidth;
+            }
+            if (newDuration > maxAllowable) {
+                newDuration = maxAllowable;
+                newStart = this.dragStartLeft + this.dragStartWidth - newDuration;
+            }
+
+            if (newStart < 0) {
+                newStart = 0;
+                newDuration = this.dragStartWidth + this.dragStartLeft;
+            }
+            this.draggingVideo.startTime = newStart;
+            this.draggingVideo.duration = newDuration;
+        } else if (this.dragType === 'right') {
+            let newDuration = this.dragStartWidth + deltaSeconds;
+            let newEnd = this.dragStartLeft + newDuration;
+
+            // Tìm điểm snap gần nhất cho đuôi video
+            let bestSnapEnd = newEnd;
+            let minDiff = snapThreshold;
+            for (const point of snapPoints) {
+                if (Math.abs(newEnd - point) < minDiff) {
+                    minDiff = Math.abs(newEnd - point);
+                    bestSnapEnd = point;
+                }
+            }
+
+            if (bestSnapEnd !== newEnd) {
+                newDuration = bestSnapEnd - this.dragStartLeft;
+            }
+
+            if (newDuration < 1) newDuration = 1;
+
+            // Cap at maxDuration if media
+            let maxAllowable = this.draggingVideo.maxDuration;
+            if (!this.draggingVideo.videoUrl && !this.draggingVideo.audioUrl) {
+                maxAllowable = Infinity;
+            } else if (!maxAllowable) {
+                maxAllowable = this.dragStartWidth;
+            }
+            if (newDuration > maxAllowable) {
+                newDuration = maxAllowable;
+            }
+
+            this.draggingVideo.duration = newDuration;
+        }
+
+        // Logic cập nhật audio theo dragType left/right (nếu là video chính)
+        if (this.dragType !== 'move' && this.projectData?.scenes) {
+            for (const scene of this.projectData.scenes) {
+                if (scene.videos && scene.videos[0] === this.draggingVideo) {
+                    let subTime = this.draggingVideo.startTime || 0;
+                    if (scene.subtitles) {
+                        for (const sub of scene.subtitles) {
+                            sub.startTime = subTime;
+                            subTime += (sub.duration || 0);
+                        }
+                    }
+                    let extTime = this.draggingVideo.startTime || 0;
+                    if (scene.extractedAudios) {
+                        for (const ext of scene.extractedAudios) {
+                            ext.startTime = extTime;
+                            extTime += (ext.duration || 0);
+                        }
+                    }
+                    break;
+                }
+            }
+        }
+
+        this.updateLines();
+    }
+
+    onTimelineMouseUp = () => {
+        if (this.draggingVideo) {
+            this.saveData();
+        }
+        this.draggingVideo = null;
+        this.dragType = null;
+        document.removeEventListener('mousemove', this.onTimelineMouseMove);
+        document.removeEventListener('mouseup', this.onTimelineMouseUp);
+    }
+    // ----------------------------
 
     linkingSourceVideo: any = null;
     linkingSourceSceneIndex: number = -1;
@@ -396,7 +1185,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
                 const video = scene.videos[vIdx];
-                
+
                 if (!video.videoId) {
                     video.videoId = 'vid_' + Math.random().toString(36).substr(2, 9);
                     videoIdMap.set(video.videoId, { sIdx, vIdx });
@@ -432,13 +1221,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const sourceRect = sourceEl.getBoundingClientRect();
                         const targetRect = targetEl.getBoundingClientRect();
 
-                        // Điểm bắt đầu (cạnh ngoài của node phải)
-                        const startX = sourceRect.right - containerRect.left + 12;
-                        const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
+                        // Điểm bắt đầu (cạnh ngoài của node bottom)
+                        const startX = sourceRect.left + sourceRect.width / 2 - containerRect.left;
+                        const startY = sourceRect.bottom - containerRect.top + 12;
 
-                        // Điểm kết thúc (cạnh ngoài của node trái)
-                        const endX = targetRect.left - containerRect.left - 12;
-                        const endY = targetRect.top + targetRect.height / 2 - containerRect.top;
+                        // Điểm kết thúc (cạnh ngoài của node top)
+                        const endX = targetRect.left + targetRect.width / 2 - containerRect.left;
+                        const endY = targetRect.top - containerRect.top - 12;
 
                         // Cập nhật logic: Nối trong cùng 1 scene thì không báo đỏ
                         const targetSceneIdx = video.linkedTo.sceneIndex;
@@ -446,19 +1235,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const isLogicalBackwards = targetSceneIdx < sIdx || (targetSceneIdx === sIdx && targetVIdx < vIdx);
                         const color = isLogicalBackwards ? 'rgba(239, 68, 68, 0.7)' : 'rgba(99, 102, 241, 0.7)';
 
-                        // Tính control points cho đường cong Bezier
-                        // Tránh tình trạng đường cong lấn vào hình ảnh của các Video kề nhau bằng cách giới hạn theo khoảng cách thực
-                        let distanceX;
-                        if (endX <= startX + 50) {
-                            // Nối ngược, nối trong cùng scene, hoặc nối 2 scene sát cạnh nhau
-                            distanceX = Math.min(60, Math.max(20, Math.abs(endX - startX) * 0.5));
+                        // Tính control points cho đường cong Bezier dọc
+                        let distanceY;
+                        if (endY >= startY) {
+                            // target ở dưới source
+                            distanceY = Math.min(60, Math.max(20, Math.abs(endY - startY) * 0.5));
                         } else {
-                            // Nối tiến xa: cho độ cong lớn hơn nhưng tối đa 150px
-                            distanceX = Math.min(150, Math.abs(endX - startX) * 0.5);
+                            // target ở trên source (hoặc trên cùng track)
+                            distanceY = Math.min(150, Math.max(40, Math.abs(endX - startX) * 0.5));
                         }
 
                         // Đường cong M startX startY C cp1X cp1Y, cp2X cp2Y, endX endY
-                        const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
+                        const path = `M ${startX} ${startY} C ${startX} ${startY + distanceY}, ${endX} ${endY - distanceY}, ${endX} ${endY}`;
 
                         newLines.push({ path, color });
                     }
@@ -473,21 +1261,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (sourceEl) {
                 const sourceRect = sourceEl.getBoundingClientRect();
 
-                // Điểm bắt đầu (cạnh ngoài của node phải)
-                const startX = sourceRect.right - containerRect.left + 12;
-                const startY = sourceRect.top + sourceRect.height / 2 - containerRect.top;
+                // Điểm bắt đầu (cạnh ngoài của node bottom)
+                const startX = sourceRect.left + sourceRect.width / 2 - containerRect.left;
+                const startY = sourceRect.bottom - containerRect.top + 12;
 
                 // Điểm kết thúc là tọa độ chuột hiện tại
                 const endX = this.currentMouseX - containerRect.left;
                 const endY = this.currentMouseY - containerRect.top;
 
-                let distanceX;
-                if (endX <= startX + 50) {
-                    distanceX = Math.min(60, Math.max(20, Math.abs(endX - startX) * 0.5));
+                let distanceY;
+                if (endY >= startY) {
+                    distanceY = Math.min(60, Math.max(20, Math.abs(endY - startY) * 0.5));
                 } else {
-                    distanceX = Math.min(150, Math.abs(endX - startX) * 0.5);
+                    distanceY = Math.min(150, Math.max(40, Math.abs(endX - startX) * 0.5));
                 }
-                const path = `M ${startX} ${startY} C ${startX + distanceX} ${startY}, ${endX - distanceX} ${endY}, ${endX} ${endY}`;
+                const path = `M ${startX} ${startY} C ${startX} ${startY + distanceY}, ${endX} ${endY - distanceY}, ${endX} ${endY}`;
 
                 // Hiển thị đường màu cam nét đứt hoặc màu cam đậm
                 newLines.push({ path, color: 'rgba(249, 115, 22, 0.9)' });
@@ -511,8 +1299,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         });
     }
 
-    @ViewChild('scrollContainer') scrollContainer!: CdkVirtualScrollViewport;
     @ViewChild('svgLayer') svgLayer!: ElementRef;
+
+    // Fallback cho scroll (đã loại bỏ CdkVirtualScroll)
+    get scrollContainer() {
+        return {
+            elementRef: {
+                nativeElement: document.getElementById('timeline-scroll-container')
+            }
+        };
+    }
+
     openConfigDialog() {
         const dialogRef = this.dialog.open(VideoProjectConfigDialogComponent, {
             width: '800px',
@@ -548,9 +1345,18 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     private characterDialogRef: any = null;
     private editSceneDialogRef: any = null;
 
+    // Pan (Kéo Timeline)
     private isMouseDown = false;
     private startX = 0;
     private scrollLeftStart = 0;
+
+    onWheelScroll(event: WheelEvent) {
+        // Có thể để trống hoặc thêm logic scroll timeline
+    }
+
+    onSceneWheel(event: WheelEvent) {
+        // Đã không còn Scene Columns dọc
+    }
 
     startDragging(e: MouseEvent) {
         if ((e.target as HTMLElement).closest('.cdk-drag-handle')) return;
@@ -563,73 +1369,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.isMouseDown = false;
     }
 
-    onWheelScroll(event: WheelEvent) {
-        event.preventDefault();
-        event.stopPropagation();
-        const el = this.scrollContainer.elementRef.nativeElement;
-        // Lăn chuột dọc (deltaY) → cuộn ngang từng bước nhỏ
-        // Lăn chuột ngang (deltaX) → cuộn ngang bình thường
-        const delta = event.deltaY !== 0 ? event.deltaY : event.deltaX;
-        // Giới hạn tốc độ cuộn để không nhảy quá xa
-        const step = Math.sign(delta) * Math.min(Math.abs(delta), 150);
-        const newOffset = Math.max(0, el.scrollLeft + step);
-        this.scrollContainer.scrollToOffset(newOffset);
-    }
 
-    // Xử lý wheel trên từng scene column
-    // Nếu content tràn → cuộn dọc trong scene đó, chặn lan truyền
-    // Nếu content không tràn hoặc đã cuộn tới giới hạn → để event lan truyền lên cha để cuộn ngang
-    onSceneWheel(event: WheelEvent) {
-        const el = event.currentTarget as HTMLElement;
-        const hasOverflow = el.scrollHeight > el.clientHeight;
-
-        if (!hasOverflow) {
-            // Không tràn → để event lan lên cha (cuộn ngang)
-            return;
-        }
-
-        const atTop = el.scrollTop <= 0;
-        const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
-        const scrollingDown = event.deltaY > 0;
-        const scrollingUp = event.deltaY < 0;
-
-        // Đã cuộn tới biên → cho event lan truyền lên cha để cuộn ngang
-        if ((atTop && scrollingUp) || (atBottom && scrollingDown)) {
-            return;
-        }
-
-        // Đang cuộn trong vùng nội dung → chặn lan truyền, chỉ cuộn dọc scene này
-        event.stopPropagation();
-    }
-
-    moveEvent(e: MouseEvent) {
-        if (!this.isMouseDown) return;
-        e.preventDefault();
-        const el = this.scrollContainer.elementRef.nativeElement;
-        const x = e.pageX - el.offsetLeft;
-        const walk = (x - this.startX) * 1.5;
-        el.scrollLeft = this.scrollLeftStart - walk;
-    }
-
-    onSceneDropped(event: CdkDragDrop<any[]>) {
-        if (!this.projectData || !this.projectData.scenes) return;
-
-        // Tính toán lại index thật sự dựa trên viewport của Virtual Scroll
-        const renderedRange = this.scrollContainer.getRenderedRange();
-        
-        // actualPrevIndex phải tìm bằng data thực tế vì renderedRange có thể đã thay đổi nếu user cuộn trong lúc kéo
-        const actualPrevIndex = this.projectData.scenes.indexOf(event.item.data);
-        
-        // actualCurrIndex tính theo range hiện tại của virtual scroll khi thả tay
-        const actualCurrIndex = renderedRange.start + event.currentIndex;
-
-        if (actualPrevIndex !== -1 && actualPrevIndex !== actualCurrIndex) {
-            moveItemInArray(this.projectData.scenes, actualPrevIndex, actualCurrIndex);
-            this.saveData();
-            this.toastr.success('Đã thay đổi vị trí Scene');
-            setTimeout(() => this.updateLines(), 100);
-        }
-    }
 
     getGlobalIndex(sceneIdx: number, subIdx: number): number {
         if (!this.projectData || !this.projectData.scenes) return 0;
@@ -649,13 +1389,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const localPath = await electron.selectLocalFile(originalPath);
             sub.audioUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
 
-            // ---> THÊM ĐOẠN NÀY: Lấy thời lượng thực tế của Audio
             const audioObj = new Audio(sub.audioUrl);
             audioObj.addEventListener('loadedmetadata', () => {
-                sub.duration = audioObj.duration; // Lưu số giây thực tế vào sub
-                this.saveData(); // Cập nhật lại data sau khi đã lấy được duration
+                sub.duration = audioObj.duration;
+                sub.maxDuration = sub.duration;
+                this.saveData();
+                this.cd.detectChanges();
             });
-            // <--- KẾT THÚC ĐOẠN THÊM
 
             this.saveData();
             this.toastr.success('Đã cập nhật Audio!');
@@ -667,7 +1407,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     removeAudio(sub: any) {
         if (sub.audioUrl) {
             delete sub.audioUrl;
-            delete sub.duration; // Thêm dòng này để xóa thời lượng thực tế cũ
+            delete sub.duration;
+            delete sub.maxDuration;
 
             this.saveData();
             this.toastr.info('Đã xóa liên kết âm thanh câu thoại.');
@@ -779,8 +1520,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 mediaDir: this.projectData?.mediaDir || '',
                 uuid: this.projectData?.uuid || this.data?.uuid
             },
-            width: '90vw',
-            maxWidth: '95vw',
+            width: '75vw',
+            maxWidth: '90vw',
             maxHeight: '95vh',
             disableClose: true
         });
@@ -794,7 +1535,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (result.imagePrompt !== undefined) video.imagePrompt = result.imagePrompt;
                     if (result.videoUrl !== undefined) video.videoUrl = result.videoUrl;
                     if (result.aspectRatio !== undefined) video.aspectRatio = result.aspectRatio;
-                    if (result.duration !== undefined) video.duration = result.duration;
+                    if (result.duration !== undefined) {
+                        video.duration = result.duration;
+                        video.maxDuration = result.duration;
+                    }
                     this.saveData();
                     this.cd.detectChanges();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
@@ -894,6 +1638,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         const audioObj = new Audio(sub.audioUrl);
                         audioObj.addEventListener('loadedmetadata', () => {
                             sub.duration = audioObj.duration;
+                            sub.maxDuration = sub.duration;
                             updatedCount++;
                             resolve();
                         });
@@ -976,9 +1721,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     videoObj.addEventListener('loadedmetadata', () => {
                         if (videoObj.duration && !isNaN(videoObj.duration)) {
                             video.duration = parseFloat(videoObj.duration.toFixed(1));
-                            this.saveData();
-                            this.cd.detectChanges();
-                            this.updateLines();
+                            video.maxDuration = video.duration;
                         }
                     });
                 } else {
@@ -1001,6 +1744,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         video.imageUrl = null;
         video.videoUrl = null;
         video.isCompleted = false;
+        video.maxDuration = undefined;
         this.saveData();
         this.cd.detectChanges();
     }
@@ -1039,6 +1783,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         id: clip.id,
                         text: clip.description,
                         duration: clip.duration || 0,
+                        maxDuration: clip.duration || 0,
                         audioUrl: clip.localFilePath ? `file://${clip.localFilePath.replace(/\\/g, '/')}` : null
                     }
                 ];
@@ -1054,7 +1799,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         id: 1,
                         prompt: result.prompt.trim(),
                         imageUrl: null,
-                        duration: totalDuration
+                        duration: totalDuration,
+                        maxDuration: totalDuration
                     }]
                 };
 
@@ -1082,15 +1828,169 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         });
     }
 
-    removeScene(index: number) {
+    toggleMute(video: any) {
+        video.muted = !video.muted;
+        this.saveData();
+    }
+
+    async extractAudio(video: any, sceneIdx: number) {
+        if (!video.videoUrl) return;
+        const scene = this.projectData.scenes[sceneIdx];
+        if (!scene) return;
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.extractAudio || !electron.getPathForFile) {
+            this.toastr.error('Tính năng tách audio không khả dụng (Electron error).');
+            return;
+        }
+
+        try {
+            this.toastr.info('Đang tách âm thanh, vui lòng đợi...', 'Đang xử lý');
+            let originalPath = video.videoUrl;
+            if (originalPath.startsWith('media://')) {
+                originalPath = decodeURIComponent(originalPath.substring(8));
+            } else if (originalPath.startsWith('file://')) {
+                originalPath = decodeURIComponent(originalPath.substring(7));
+            }
+            if (originalPath.match(/^\/[a-zA-Z]:[\\/]/)) {
+                originalPath = originalPath.substring(1);
+            }
+            const extractedAudioPath = await electron.extractAudio(originalPath);
+
+            // Generate a local url for the browser
+            const audioUrl = `media://${extractedAudioPath.replace(/\\/g, '/')}`;
+
+            // Bổ sung vào danh sách extractedAudios của scene hiện tại
+            if (!scene.extractedAudios) scene.extractedAudios = [];
+
+            const existIdx = scene.extractedAudios.findIndex((a: any) => a.startTime === video.startTime && a.text === '[Âm thanh gốc]');
+
+            if (existIdx >= 0) {
+                // Cập nhật lại thay vì tạo mới
+                scene.extractedAudios[existIdx].audioUrl = audioUrl;
+                scene.extractedAudios[existIdx].duration = video.duration || 5;
+                scene.extractedAudios[existIdx].maxDuration = scene.extractedAudios[existIdx].duration;
+            } else {
+                scene.extractedAudios.push({
+                    text: '[Âm thanh gốc]',
+                    audioUrl: audioUrl,
+                    startTime: video.startTime,
+                    duration: video.duration || 5,
+                    maxDuration: video.duration || 5
+                });
+            }
+
+            // Tắt tiếng video gốc để tránh phát trùng
+            video.muted = true;
+
+            this.toastr.success('Đã tách âm thanh thành công!');
+            this.saveData();
+            setTimeout(() => this.initWaveSurfers(), 500); // Initialize wavesurfers after DOM update
+            this.initializeTimeline();
+        } catch (err: any) {
+            console.error('Extract audio error', err);
+            this.toastr.error(`Lỗi khi tách âm thanh: ${err.message}`);
+        }
+    }
+
+    hasExtractedAudio(scene: any, video: any): boolean {
+        if (!scene || !scene.extractedAudios || !video) return false;
+        return scene.extractedAudios.some((a: any) => a.startTime === video.startTime && a.text === '[Âm thanh gốc]');
+    }
+
+    activeItem: any = null;
+
+    setActiveItem(item: any, event?: MouseEvent) {
+        if (event) event.stopPropagation();
+        this.activeItem = item;
+        
+        // Hiện lên preview nếu là video/image
+        if (item && (item.videoUrl || item.imageUrl)) {
+            this.playPreview(item);
+        }
+    }
+
+    removeSubtitle(sceneIdx: number, subIdx: number) {
+        const scene = this.projectData.scenes[sceneIdx];
+        if (!scene || !scene.subtitles) return;
+
         this.alert({
-            title: 'Nhắc nhở',
-            message: `Bạn có chắc chắn muốn xóa Scene #${index + 1} không?`,
+            title: 'Xóa Track Audio',
+            message: `Bạn có chắc chắn muốn xóa đoạn audio này không?`,
+            confirm: 'Xóa',
+            cb: () => {
+                scene.subtitles.splice(subIdx, 1);
+                this.saveData();
+                this.toastr.warning(`Đã xóa audio!`);
+                setTimeout(() => this.initWaveSurfers(), 500);
+            }
+        });
+    }
+
+    removeExtractedAudio(sceneIdx: number, aIdx: number) {
+        const scene = this.projectData.scenes[sceneIdx];
+        if (!scene || !scene.extractedAudios) return;
+
+        this.alert({
+            title: 'Xóa Âm thanh gốc',
+            message: `Bạn có chắc chắn muốn xóa đoạn âm thanh gốc này không?`,
+            confirm: 'Xóa',
+            cb: () => {
+                const audio = scene.extractedAudios[aIdx];
+                if (scene.videos) {
+                    const video = scene.videos.find((v: any) => v.startTime === audio.startTime);
+                    if (video) video.muted = false;
+                }
+                scene.extractedAudios.splice(aIdx, 1);
+                this.saveData();
+                this.toastr.warning(`Đã xóa âm thanh gốc!`);
+                setTimeout(() => this.initWaveSurfers(), 500);
+            }
+        });
+    }
+
+    removeVideo(sceneIdx: number, vIdx: number) {
+        const scene = this.projectData.scenes[sceneIdx];
+        if (!scene || !scene.videos || !scene.videos[vIdx]) return;
+
+        this.alert({
+            title: 'Xóa Video',
+            message: `Bạn có chắc chắn muốn xóa video này không? Các video phía sau sẽ tự động dồn lên.`,
             confirm: 'Xóa liền',
             cb: () => {
-                this.projectData.scenes.splice(index, 1);
+                const deletedVideo = scene.videos[vIdx];
+                const shiftAmount = deletedVideo.duration || 0;
+
+                // 1. Dịch chuyển các video phía sau sang trái TRƯỚC KHI xoá phần tử trong mảng
+                let passedDeleted = false;
+                for (let s = 0; s < this.projectData.scenes.length; s++) {
+                    const currentScene = this.projectData.scenes[s];
+                    if (!currentScene.videos) continue;
+
+                    if (s > sceneIdx) passedDeleted = true;
+
+                    for (let v = 0; v < currentScene.videos.length; v++) {
+                        const vid = currentScene.videos[v];
+                        if (s === sceneIdx && v > vIdx) {
+                            passedDeleted = true;
+                        }
+
+                        if (passedDeleted && vid.startTime !== undefined) {
+                            vid.startTime = Math.max(0, vid.startTime - shiftAmount);
+                        }
+                    }
+                }
+
+                // 2. Xoá video khỏi danh sách
+                scene.videos.splice(vIdx, 1);
+
+                // 3. Nếu scene trống thì xoá luôn scene
+                if (scene.videos.length === 0) {
+                    this.projectData.scenes.splice(sceneIdx, 1);
+                }
+
                 this.saveData();
-                this.toastr.warning(`Đã xóa Scene #${index + 1}`);
+                this.toastr.warning(`Đã xóa video và dồn timeline!`);
                 setTimeout(() => this.updateLines(), 100);
             },
         });
@@ -1197,13 +2097,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     ngAfterViewInit() {
-        if (this.scrollContainer) {
-            this.scrollContainer.elementScrolled().subscribe(() => {
+        const el = document.getElementById('timeline-scroll-container');
+        if (el) {
+            el.addEventListener('scroll', () => {
                 this.updateLines();
-            });
-            // Lắng nghe thêm sự thay đổi index render (ví dụ khi danh sách thay đổi kích thước/kéo thả)
-            this.scrollContainer.renderedRangeStream.subscribe(() => {
-                setTimeout(() => this.updateLines(), 50);
             });
         }
     }
@@ -1220,16 +2117,28 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         // Backward compatibility: Convert old scenes to grouped videos format
         if (this.projectData && this.projectData.scenes) {
             this.projectData.scenes.forEach((scene: any) => {
-                if (!scene.videos) {
+                if (!scene.videos || scene.videos.length === 0) {
+                    let defaultDuration = scene.forcedDuration || 5;
+                    if (!scene.forcedDuration && scene.subtitles) {
+                        let totalSecs = 0;
+                        for (const sub of scene.subtitles) {
+                            if (sub.duration) totalSecs += sub.duration;
+                            else if (sub.text) totalSecs += Math.max(1, sub.text.trim().split(/\s+/).length / 4);
+                        }
+                        if (totalSecs > 0) defaultDuration = Math.round(totalSecs);
+                    }
                     scene.videos = [{
                         id: 1,
-                        prompt: scene.prompt,
+                        prompt: scene.prompt || '',
                         imageUrl: scene.imageUrl || null,
-                        duration: scene.forcedDuration || parseFloat(this.getSceneDuration(scene)) || 0
+                        duration: defaultDuration
                     }];
                 }
             });
         }
+
+        // Khởi tạo Timeline (gán startTime cho các video)
+        this.initializeTimeline();
 
         // Tự động kiểm tra file audio ngay khi mở màn hình
         this.prepareForVideoGeneration(true);
