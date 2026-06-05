@@ -470,23 +470,26 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return max;
     }
 
-    packTimeline() {
+    packTimeline(save: boolean = true) {
         if (!this.projectData || !this.projectData.scenes) return;
 
         let currentTime = 0;
         for (const scene of this.projectData.scenes) {
             if (scene.videos && scene.videos.length > 0) {
-                // Đặt thời gian bắt đầu cho video trên track 0 (đại diện cho toàn bộ scene)
-                const mainVideo = scene.videos[0];
-                mainVideo.startTime = currentTime;
+                const sceneStartTime = currentTime;
 
-                // Đồng bộ các video ở track khác trong cùng scene
-                for (let i = 1; i < scene.videos.length; i++) {
-                    scene.videos[i].startTime = currentTime;
+                // Videos nối tiếp nhau
+                let videoTime = sceneStartTime;
+                for (let i = 0; i < scene.videos.length; i++) {
+                    const v = scene.videos[i];
+                    if (v) {
+                        v.startTime = videoTime;
+                        videoTime += (v.duration || 5);
+                    }
                 }
 
-                // Đồng bộ subtitle
-                let subTime = currentTime;
+                // Subtitles bắt đầu từ đầu scene và nối tiếp nhau
+                let subTime = sceneStartTime;
                 if (scene.subtitles) {
                     for (const sub of scene.subtitles) {
                         sub.startTime = subTime;
@@ -494,8 +497,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
 
-                // Đồng bộ audio
-                let extTime = currentTime;
+                // Audio bắt đầu từ đầu scene và nối tiếp nhau
+                let extTime = sceneStartTime;
                 if (scene.extractedAudios) {
                     for (const ext of scene.extractedAudios) {
                         ext.startTime = extTime;
@@ -503,14 +506,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                 }
 
-                // Cộng dồn thời gian của scene hiện tại cho scene tiếp theo
-                currentTime += (mainVideo.duration || 5);
+                // Scene tiếp theo sẽ bắt đầu sau khi MỌI media của scene hiện tại kết thúc
+                let maxEndTime = videoTime;
+                if (subTime > maxEndTime) maxEndTime = subTime;
+                if (extTime > maxEndTime) maxEndTime = extTime;
+
+                currentTime = maxEndTime;
             }
         }
 
-        this.saveData();
-        this.cd.detectChanges();
-        setTimeout(() => this.updateLines(), 100);
+        if (save) {
+            this.saveData();
+            this.cd.detectChanges();
+            setTimeout(() => this.updateLines(), 100);
+        }
     }
 
     initializeTimeline() {
@@ -731,19 +740,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         if (this.dragType === 'move') {
-            let minStart = 0;
-            if (this.dragSceneIdx > 0 && this.projectData?.scenes) {
-                // Không xếp chồng lên video liền trước trên cùng track
-                for (let sIdx = this.dragSceneIdx - 1; sIdx >= 0; sIdx--) {
-                    const prevScene = this.projectData.scenes[sIdx];
-                    if (prevScene.videos && prevScene.videos[this.dragVideoIdx]) {
-                        const prevVideo = prevScene.videos[this.dragVideoIdx];
-                        minStart = (prevVideo.startTime || 0) + (prevVideo.duration || 0);
-                        break;
-                    }
-                }
-            }
-
             let newStart = this.dragStartLeft + deltaSeconds;
 
             // Tìm điểm snap gần nhất
@@ -761,36 +757,64 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
 
-            newStart = Math.max(minStart, bestSnap);
-            this.draggingVideo.startTime = newStart;
-            const totalDelta = newStart - this.dragStartLeft;
+            const targetVisualStart = Math.max(0, bestSnap);
+            this.draggingVideo.startTime = targetVisualStart;
+            const totalDelta = targetVisualStart - this.dragStartLeft;
 
-            // Kéo theo các video phía sau (Ripple edit)
-            if (this.projectData?.scenes) {
-                for (let sIdx = this.dragSceneIdx + 1; sIdx < this.projectData.scenes.length; sIdx++) {
-                    const nextScene = this.projectData.scenes[sIdx];
-                    if (nextScene.videos && nextScene.videos[this.dragVideoIdx]) {
-                        const nextVideo = nextScene.videos[this.dragVideoIdx];
-                        const initStart = this.dragInitialStarts.get(nextVideo) || 0;
-                        nextVideo.startTime = initStart + totalDelta;
+            // Đồng bộ subtitle và audio nếu đây là video chính (track 0)
+            if (this.dragVideoIdx === 0 && this.projectData?.scenes) {
+                const scene = this.projectData.scenes[this.dragSceneIdx];
+                if (scene) {
+                    if (scene.subtitles) {
+                        scene.subtitles.forEach((sub: any) => {
+                            sub.startTime = (this.dragInitialStarts.get(sub) || 0) + totalDelta;
+                        });
+                    }
+                    if (scene.extractedAudios) {
+                        scene.extractedAudios.forEach((ext: any) => {
+                            ext.startTime = (this.dragInitialStarts.get(ext) || 0) + totalDelta;
+                        });
                     }
                 }
+            }
 
-                // Đồng bộ subtitle và audio nếu đây là video chính (track 0)
+            // Realtime sort and pack
+            if (this.projectData?.scenes) {
+                this.projectData.scenes.sort((a, b) => {
+                    const startA = (a.videos && a.videos.length > 0) ? (a.videos[0].startTime || 0) : 0;
+                    const startB = (b.videos && b.videos.length > 0) ? (b.videos[0].startTime || 0) : 0;
+                    return startA - startB;
+                });
+
+                // Cập nhật lại dragSceneIdx do vị trí mảng đã thay đổi sau khi sort
                 if (this.dragVideoIdx === 0) {
-                    for (let sIdx = this.dragSceneIdx; sIdx < this.projectData.scenes.length; sIdx++) {
-                        const scene = this.projectData.scenes[sIdx];
+                    const newIdx = this.projectData.scenes.findIndex(s => s.videos && s.videos[0] === this.draggingVideo);
+                    if (newIdx >= 0) this.dragSceneIdx = newIdx;
+                }
+
+                // Đóng gói giả (không save) để các scene khác tự dạt ra realtime
+                this.packTimeline(false);
+
+                // Khôi phục lại vị trí visual của scene đang kéo để nó vẫn dính vào chuột
+                if (this.dragVideoIdx === 0) {
+                    const scene = this.projectData.scenes[this.dragSceneIdx];
+                    if (scene && scene.videos && scene.videos.length > 0) {
+                        const packedStart = scene.videos[0].startTime || 0;
+                        const restoreDelta = targetVisualStart - packedStart;
+
+                        scene.videos[0].startTime = targetVisualStart;
+                        for (let i = 1; i < scene.videos.length; i++) {
+                            scene.videos[i].startTime = (scene.videos[i].startTime || 0) + restoreDelta;
+                        }
                         if (scene.subtitles) {
-                            scene.subtitles.forEach((sub: any) => {
-                                sub.startTime = (this.dragInitialStarts.get(sub) || 0) + totalDelta;
-                            });
+                            scene.subtitles.forEach((sub: any) => sub.startTime = (sub.startTime || 0) + restoreDelta);
                         }
                         if (scene.extractedAudios) {
-                            scene.extractedAudios.forEach((ext: any) => {
-                                ext.startTime = (this.dragInitialStarts.get(ext) || 0) + totalDelta;
-                            });
+                            scene.extractedAudios.forEach((ext: any) => ext.startTime = (ext.startTime || 0) + restoreDelta);
                         }
                     }
+                } else {
+                    this.draggingVideo.startTime = targetVisualStart;
                 }
             }
         } else if (this.dragType === 'left') {
@@ -897,6 +921,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     onTimelineMouseUp = () => {
         if (this.draggingVideo) {
+            if (this.dragType === 'move' && this.projectData && this.projectData.scenes) {
+                // Sắp xếp lại mảng scenes dựa trên startTime trực quan sau khi kéo
+                this.projectData.scenes.sort((a, b) => {
+                    const startA = (a.videos && a.videos.length > 0) ? (a.videos[0].startTime || 0) : 0;
+                    const startB = (b.videos && b.videos.length > 0) ? (b.videos[0].startTime || 0) : 0;
+                    return startA - startB;
+                });
+                // Tính toán lại timeline để các video xếp nối tiếp nhau tự động
+                this.packTimeline();
+            }
             this.saveData();
         }
         this.draggingVideo = null;
@@ -1848,21 +1882,46 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (!this.projectData) this.projectData = { scenes: [] };
                 if (!this.projectData.scenes) this.projectData.scenes = [];
 
-                if (this.selectedSceneIndex !== -1 && this.selectedSceneIndex < this.projectData.scenes.length) {
-                    this.projectData.scenes.splice(this.selectedSceneIndex + 1, 0, newScene);
+                let targetIndex = this.projectData.scenes.length;
+                if (this.activeItem) {
+                    // activeItem is the raw video/audio object, find its scene index
+                    for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
+                        const s = this.projectData.scenes[sIdx];
+                        if ((s.videos && s.videos.includes(this.activeItem)) ||
+                            (s.subtitles && s.subtitles.includes(this.activeItem)) ||
+                            (s.extractedAudios && s.extractedAudios.includes(this.activeItem))) {
+                            targetIndex = sIdx + 1; // Insert AFTER the scene containing the active item
+                            break;
+                        }
+                    }
+                }
+
+                if (targetIndex < this.projectData.scenes.length) {
+                    this.projectData.scenes.splice(targetIndex, 0, newScene);
                 } else {
                     this.projectData.scenes.push(newScene);
                 }
 
-                // Reset selection
-                this.selectedSceneIndex = -1;
-
+                // Cập nhật lại thời gian cho các cảnh do đã chèn vào giữa
+                this.initializeTimeline();
                 this.saveData();
+
+                // Tự động focus vào video mới tạo
+                setTimeout(() => {
+                    this.setActiveItem(newScene.videos[0]);
+                    this.currentTimelineTime = (newScene.videos[0] as any).startTime || 0;
+                    this.updateTimelineSync();
+                    this.cd.detectChanges();
+                }, 100);
                 this.toastr.success('Đã thêm Scene mới thành công!');
 
                 setTimeout(() => {
                     const el = this.scrollContainer.elementRef.nativeElement;
-                    el.scrollLeft = el.scrollWidth;
+                    const startX = ((newScene.videos[0] as any).startTime || 0) * this.pixelsPerSecond;
+                    // Chỉ scroll nếu điểm bắt đầu nằm ngoài màn hình
+                    if (startX < el.scrollLeft || startX > el.scrollLeft + el.clientWidth) {
+                        el.scrollLeft = Math.max(0, startX - 100); // 100px padding
+                    }
                     this.updateLines();
                 }, 100);
             }
@@ -2188,13 +2247,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const firstScene = this.projectData.scenes[0];
             if (firstScene.videos && firstScene.videos.length > 0) {
                 const firstVideo = firstScene.videos[0];
-                this.setActiveItem({
-                    type: 'video',
-                    sceneIndex: 0,
-                    videoIndex: 0,
-                    data: firstVideo,
-                    scene: firstScene
-                });
+                this.setActiveItem(firstVideo);
                 this.currentTimelineTime = firstVideo.startTime || 0;
                 this.updateTimelineSync();
             }
