@@ -1174,8 +1174,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${finalFormatRequest}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
-            - Các trường "masterPrompt" và "characters": Mặc định sử dụng TIẾNG VIỆT CHUẨN (VIETNAMESE).
-            - Riêng 2 trường "imagePrompt" và "prompt" bên trong "scenes" (dùng để tạo video): BẮT BUỘC PHẢI DỊCH SANG TIẾNG ANH (ENGLISH). Sử dụng các từ khóa chuyên ngành kỹ thuật điện ảnh (như Close-up, Tracking shot, Cinematic lighting...) để AI video dễ hiểu nhất.
+            - TẤT CẢ CÁC TRƯỜNG "masterPrompt", "characters" (kể cả "prompt" tạo hình nhân vật), "imagePrompt", và "prompt" bên trong "scenes" BẮT BUỘC PHẢI VIẾT BẰNG TIẾNG ANH (ENGLISH).
+            - Riêng phần tên nhân vật ("name") nếu là tên riêng tiếng Việt thì giữ nguyên (VD: "Ông Bảy", "Lan").
+            - Mọi mô tả, hành động, bối cảnh, hãy sử dụng các từ khóa chuyên ngành kỹ thuật điện ảnh (như Close-up, Tracking shot, Cinematic lighting...) để AI video dễ hiểu nhất.
 
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
@@ -1184,9 +1185,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật trong cảnh. Việc tạo hình do hệ thống tự động xử lý.
+            - 👤 ĐỊNH DANH NHÂN VẬT (RẤT QUAN TRỌNG): Trong câu "prompt" của từng scene, BẮT BUỘC PHẢI DÙNG CHÍNH XÁC TÊN NHÂN VẬT đã khai báo trong danh sách "characters" làm Chủ thể (Subject) thay vì dùng các từ chung chung như "he", "the man", "an old man" (Ví dụ sai: "an old man is wiping the glass". Ví dụ ĐÚNG: "Ông Bảy is wiping the glass"). Việc gọi đúng tên này giúp hệ thống tự động nhận diện và áp dụng đúng ngoại hình (Character Reference).
             - 🎬 CÔNG THỨC PROMPT DỰNG PHIM CHUẨN ĐIỆN ẢNH (BẮT BUỘC CHO MỌI SCENE):
-              Bắt buộc tuân thủ cấu trúc sau cho "prompt" video: [Chủ thể] + [Hành động chi tiết, đơn hướng] + [Bối cảnh/Môi trường] + [Góc máy & Chuyển động camera] + [Ánh sáng] + [Phong cách & Thông số chất lượng].
-              (Ví dụ: "A young businessman typing on a laptop, close-up shot on hands, dark office background, cinematic lighting, dramatic shadows, 4k, photorealistic").
+              Bắt buộc tuân thủ cấu trúc sau cho "prompt" video: [Chủ thể (Tên nhân vật)] + [Hành động chi tiết, đơn hướng] + [Bối cảnh/Môi trường] + [Góc máy & Chuyển động camera] + [Ánh sáng] + [Phong cách & Thông số chất lượng].
+              (Ví dụ: "Maria typing on a laptop, close-up shot on hands, dark office background, cinematic lighting, dramatic shadows, 4k, photorealistic").
             - 🎬 TÁCH BIỆT "BỐI CẢNH" (imagePrompt) VÀ "HÀNH ĐỘNG" (prompt) THEO CÔNG THỨC:
               + "imagePrompt": Bản thiết kế bối cảnh. PHẢI LÀ CẢNH TRỐNG (Empty Set). Chỉ bao gồm: [Bối cảnh] + [Góc máy] + [Ánh sáng] + [Phong cách]. TUYỆT ĐỐI KHÔNG CÓ CON NGƯỜI HAY NHÂN VẬT.
               + "prompt": Bản thiết kế hành động. Gom đủ 6 yếu tố của CÔNG THỨC TRÊN. Phải bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM Chủ thể, Hành động, Chuyển động camera (vd: Tracking shot, Slow-motion, Pan). Hành động càng cụ thể, đơn hướng càng tốt.
@@ -1201,20 +1203,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY:
             {
-              "masterPrompt": "Viết Master Prompt chi tiết về phong cách nghệ thuật và chất lượng render chung...",
+              "masterPrompt": "Write a detailed Master Prompt about art style and render quality in English...",
               "characters": [
                 {
-                  "name": "Tên nhân vật",
-                  "role": "Vai trò trong câu chuyện",
-                  "appearance": "Mô tả chi tiết ngoại hình...",
-                  "personality": "Mô tả tính cách...",
-                  "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc, chất liệu. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ (front, back, side view), chi tiết vật liệu' để ra được hình mẫu chuẩn."
+                  "name": "Tên nhân vật (giữ nguyên nếu là tên riêng)",
+                  "role": "Role in the story (in English)...",
+                  "appearance": "Detailed physical description (in English)...",
+                  "personality": "Personality description (in English)...",
+                  "prompt": "Character design prompt (IN ENGLISH). Focus on highly detailed appearance, clothing, colors, materials. Write it as a 'Character design sheet, multiple angles (front, back, side view), highly detailed materials'."
                 }
               ],
               "scenes": [
                 {
-                  "imagePrompt": "[Bối cảnh] + [Góc máy] + [Ánh sáng] + [Phong cách] (Bằng Tiếng Anh, CẢNH TRỐNG KHÔNG NGƯỜI)",
-                  "prompt": "[Chủ thể] + [Hành động] + [Bối cảnh] + [Góc máy & Chuyển động camera] + [Ánh sáng] + [Chất lượng] (Bằng Tiếng Anh)",
+                  "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN ENGLISH, EMPTY SCENE NO CHARACTERS)",
+                  "prompt": "[Subject (Character Name)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN ENGLISH)",
                   "subtitleIds": ["id1", "id2"],
                   "estimatedDuration": 3 // CHỈ BẮT BUỘC NẾU tất cả subtitleIds đều là NO_AUDIO (nhập số giây ước tính thực tế, vd: 2, 3.5)
                 }
@@ -2253,9 +2255,26 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         this.cd.markForCheck();
     }
 
-    splitClipText(text: string, maxLength: number = 80): string[] {
+    splitClipText(text: string, maxLength: number = 300): string[] {
         if (!text) return [];
-        const sentences = text.split(/(?<=[.!?\n])\s+/);
+
+        // Thêm khoảng trắng sau dấu câu nếu bị dính liền (ví dụ: "có.Power" -> "có. Power")
+        text = text.replace(/([.!?])([A-ZÀÁẠẢÃÂẦẤẬẨẪĂẰẮẶẲẴEÈÉẸẺẼÊỀẾỆỂỄIÌÍỊỈĨOÒÓỌỎÕÔỒỐỘỔỖƠỜỚỢỞỠUÙÚỤỦŨƯỪỨỰỬỮYỲÝỴỶỸĐ])/g, '$1 $2');
+
+        // Tách theo dấu . ! ? hoặc xuống dòng (giữ lại dấu câu)
+        const sentences = text
+            .split(/([.!?\n]+(?:\s+|$))/)
+            .reduce((acc: string[], val: string, i: number, arr: string[]) => {
+                if (i % 2 === 0) {
+                    const next = arr[i + 1] || '';
+                    const combined = (val + next).trim();
+                    if (combined) {
+                        acc.push(combined);
+                    }
+                }
+                return acc;
+            }, []);
+
         const result: string[] = [];
         
         for (let sentence of sentences) {
@@ -2265,7 +2284,18 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if (sentence.length <= maxLength) {
                 result.push(sentence);
             } else {
-                const parts = sentence.split(/(?<=[,;])\s+/);
+                // Nếu câu dài hơn maxLength, tách theo dấu phẩy, chấm phẩy
+                const parts = sentence
+                    .split(/([,;]+(?:\s+|$))/)
+                    .reduce((acc: string[], val: string, i: number, arr: string[]) => {
+                        if (i % 2 === 0) {
+                            const next = arr[i + 1] || '';
+                            const combined = (val + next).trim();
+                            if (combined) acc.push(combined);
+                        }
+                        return acc;
+                    }, []);
+
                 let currentPart = '';
                 for (const part of parts) {
                     if ((currentPart + ' ' + part).trim().length <= maxLength) {
@@ -2301,10 +2331,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        const parts = this.splitClipText(clip.description, 80);
+        const parts = this.splitClipText(clip.description, 300);
         
         if (parts.length <= 1) {
-            this.toastr.info("Đoạn văn này đã đủ ngắn (dưới 80 ký tự), không cần chia nhỏ.");
+            this.toastr.info("Đoạn văn này đã đủ ngắn, không cần chia nhỏ.");
             return;
         }
 

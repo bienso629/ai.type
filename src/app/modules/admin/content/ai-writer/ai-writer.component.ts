@@ -263,6 +263,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     private saveRouterStrategyReuseLogic: any;
 
     /* END TWO OBJECTS */
+    private unsubscribeLog: () => void;
+    private unsubscribeRes: () => void;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     // -----------------------------------------------------------------------------------------------------
@@ -1206,6 +1208,93 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.cd.markForCheck();
             }
         });
+    }
+
+    async createImgWithDreamina(url: string, item: any, isVid: boolean = false) {
+        if (!this._userService.permissionDreamina(this.user)) {
+            this.toastr.error('Đây là chức năng trả phí.');
+            return;
+        }
+
+        const promptText = this.removeHTML.transform(item);
+
+        // NẾU BẬT MÌ TÔM AI -> DÙNG MÌ TÔM AI THAY VÌ MỞ DREAMINA
+        if (this._genaiService.isUModelverseEnabled()) {
+            this.toastr.info(`Đang tiến hành tạo ${isVid ? 'video' : 'ảnh'} qua hệ thống Mì Tôm AI...`);
+            try {
+                if (isVid) {
+                    const base64Str = await this._genaiService.generateVideoUModelverse(promptText);
+                    if (base64Str) {
+                        const fileName = `umodelverse_video_${Date.now()}.mp4`;
+                        const res = await (window as any).electron.invoke('save-base64', {
+                            base64: base64Str,
+                            fileName: fileName,
+                            folder: 'thumbnails',
+                            username: this.user.name
+                        });
+
+                        if (res && res.success) {
+                            this.source.playlist[0]['youtube'].unshift(
+                                `<p id="source-youtube-${uuid.v4()}">local-video:${res.path}</p>`
+                            );
+                            this.toastr.success('Video đã tạo thành công và thêm vào danh sách.');
+                            this.cd.markForCheck();
+                        } else {
+                            this.toastr.error('Lưu video thất bại: ' + (res?.error || 'Unknown error'));
+                        }
+                    }
+                } else {
+                    const response = await this._genaiService.generateContent({
+                        model: 'gemini-3.1-flash-image-preview',
+                        contents: [{ role: 'user', parts: [{ text: promptText }] }],
+                        config: { responseModalities: ['IMAGE'] }
+                    } as any);
+                    const base64Str = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                    if (base64Str) {
+                        const fileName = `umodelverse_image_${Date.now()}.png`;
+                        const res = await (window as any).electron.invoke('save-base64', {
+                            base64: base64Str,
+                            fileName: fileName,
+                            folder: 'thumbnails',
+                            username: this.user.name
+                        });
+
+                        if (res && res.success) {
+                            this.source.img.unshift(
+                                `<p id="source-img-${uuid.v4()}"><img src="file://${res.path}" /></p>`
+                            );
+                            this.toastr.success('Hình ảnh đã tạo thành công và lưu vào ổ cứng.');
+                            this.cd.markForCheck();
+                        } else {
+                            this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Unknown error'));
+                        }
+                    } else {
+                        console.error('Invalid image response from UModelverse:', response);
+                        this.toastr.error('Không tìm thấy dữ liệu ảnh trả về từ máy chủ!');
+                    }
+                }
+            } catch (err: any) {
+                this.toastr.error(`Lỗi tạo ${isVid ? 'video' : 'ảnh'}: ${err.message || 'Lỗi không xác định'}`);
+            }
+            return;
+        }
+
+        // Sao chép nội dung prompt vào clipboard
+        this.clipboard.copy(promptText);
+        this.toastr.info('Đã sao chép câu lệnh vào bộ nhớ tạm.');
+
+        if (window && (window as any).electron) {
+            this.toastr.success('Mở trình duyệt AI Studio...');
+            (window as any).electron.tools({
+                command: 'dreamina.capcut',
+                targetUrlWithUniqueID: url,
+                uniqueID: 'dreamina',
+                username: this.user.name,
+                options: {
+                    prompt: promptText, // Tự động dán nếu backend hỗ trợ
+                }
+            });
+        }
     }
 
     /**
@@ -3501,6 +3590,50 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     return;
                 }
             });
+
+        if (window && (window as any).electron) {
+            this.unsubscribeRes = (window as any).electron.onToolsResponse(
+                async (data: any) => {
+                    if (data.action === 'dreamina-downloaded') {
+                        if (data.isVid) {
+                            // Tạo thẻ HTML chứa video path và đưa vào playlist
+                            this.source.playlist[0]['youtube'].unshift(
+                                `<p id="source-youtube-${uuid.v4()}">${data.file}</p>`
+                            );
+                            this.toastr.success('Video đã được tải xuống và thêm vào danh sách.');
+                            this.cd.markForCheck();
+                        } else {
+                            // Dùng uploadImage (hoặc uploadThumbnailPromise nếu cần base64, nhưng file ở đây là local path)
+                            // Sử dụng cách giống fetch/uploadImage:
+                            this.uploadImage(data.file).subscribe({
+                                next: async (result) => {
+                                    if (result && result.img) {
+                                        this.source.img.unshift(
+                                            `<p id="source-img-${uuid.v4()}"><img src="${result.img}" /></p>`
+                                        );
+                                        this.toastr.success('Hình ảnh đã được tải lên và thêm vào danh sách.');
+                                    } else {
+                                        this.toastr.success('Ảnh đã tải xuống nhưng không tải lên server được.');
+                                    }
+                                },
+                                error: () => {
+                                    this.toastr.warning('Lỗi tải ảnh lên server.');
+                                },
+                                complete: () => {
+                                    this.cd.markForCheck();
+                                }
+                            });
+                        }
+                    }
+                }
+            );
+
+            this.unsubscribeLog = (window as any).electron.onToolsLog(
+                (msg: any) => {
+                    console.log('Log từ main:', msg);
+                }
+            );
+        }
     }
 
     /**
@@ -3694,6 +3827,13 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     ngOnDestroy(): void {
         window.removeEventListener('stt-transcribed', this.onSttTranscribed);
         clearInterval(this.intervalAutoSave);
+
+        if (this.unsubscribeRes) {
+            this.unsubscribeRes();
+        }
+        if (this.unsubscribeLog) {
+            this.unsubscribeLog();
+        }
 
         // Giải phóng bộ nhớ của object URLs
         Object.values(this.objectUrls).forEach(url => {
