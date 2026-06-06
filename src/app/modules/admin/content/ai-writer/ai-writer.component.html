@@ -1265,6 +1265,18 @@
                                                                     [svgIcon]="'feather:tag'"></mat-icon>
                                                                 <span>Từ khoá</span>
                                                             </button>
+                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, false)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:image'"></mat-icon>
+                                                                <span>Tạo hình ảnh</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, true)"
+                                                                [color]="'primary'">
+                                                                <mat-icon class="icon-size-4"
+                                                                    [svgIcon]="'feather:video'"></mat-icon>
+                                                                <span>Tạo video</span>
+                                                            </button>
                                                             <!-- <button mat-menu-item (click)="edit(source.pre, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
