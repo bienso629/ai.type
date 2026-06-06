@@ -18,7 +18,7 @@
         </div>
 
         <div class="flex items-center gap-1">
-            <button mat-icon-button class="text-gray-400 hover:text-white transition-colors"
+            <button *ngIf="!projectData?.scenes?.length" mat-icon-button class="text-gray-400 hover:text-white transition-colors"
                 matTooltip="Thêm Track (Scene)"
                 (click)="addNewScene()">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:plus'"></mat-icon>
@@ -169,6 +169,12 @@
                                         <!-- Thanh công cụ hover (đặt ngoài overflow-hidden để block nhỏ không bị đè) -->
                                         <div
                                             class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 shadow-xl">
+                                            <button mat-icon-button
+                                                class="bg-white/10 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
+                                                matTooltip="Thêm Scene nối tiếp"
+                                                (click)="$event.stopPropagation(); addNewScene(sceneIdx)">
+                                                <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:plus'"></mat-icon>
+                                            </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-blue-500 transition-colors icon-size-6 rounded"
                                                 matTooltip="Copy Prompt"

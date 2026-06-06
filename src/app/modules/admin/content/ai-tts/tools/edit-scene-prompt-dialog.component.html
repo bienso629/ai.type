@@ -1,10 +1,9 @@
-<div class="bg-white rounded-lg flex flex-col">
-    <h2 class="text-xl font-bold p-0 text-slate-800 m-0">
-        Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
-        <ng-container *ngIf="editingVideoIndex >= 0">- Phần {{ editingVideoIndex + 1 }}</ng-container>
-    </h2>
+<h2 mat-dialog-title class="text-xl font-bold text-slate-800 m-0 p-0 mb-4">
+    Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
+    <ng-container *ngIf="editingVideoIndex >= 0">- Phần {{ editingVideoIndex + 1 }}</ng-container>
+</h2>
 
-    <div class="flex flex-col gap-4 pt-4">
+<mat-dialog-content class="flex flex-col gap-4 p-0 overflow-x-hidden scrollbar-hide !max-h-none">
         <!-- Reference Images Section -->
         @if (characters && characters.length > 0) {
         <div class="flex flex-col mt-2">
@@ -96,7 +95,7 @@
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
                     <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
                         [(ngModel)]="editingScenePrompt.imagePrompt" placeholder="Prompt hình ảnh..."
-                        cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
+                        cdkTextareaAutosize cdkAutosizeMinRows="4"></textarea>
                 </mat-form-field>
             </div>
 
@@ -130,7 +129,7 @@
                 <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1" [subscriptSizing]="'dynamic'">
                     <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
                         [(ngModel)]="editingScenePrompt.prompt" placeholder="Mô tả hành động, bối cảnh..."
-                        cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="10"></textarea>
+                        cdkTextareaAutosize cdkAutosizeMinRows="4"></textarea>
                 </mat-form-field>
             </div>
         </div>
@@ -146,9 +145,9 @@
                 </mat-select>
             </mat-form-field>
         </div>
-    </div>
+</mat-dialog-content>
 
-    <div class="flex items-center justify-end pt-6 gap-2 mt-auto">
+<mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-2">
         <div class="flex items-center gap-2 mr-auto">
             <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900"
                 (click)="openDirectorModeForScene()">
@@ -172,5 +171,4 @@
 
         <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" (click)="save()">Lưu thông tin</button>
-    </div>
-</div>
+</mat-dialog-actions>

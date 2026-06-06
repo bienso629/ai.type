@@ -1,9 +1,8 @@
-<div class="bg-white rounded-lg flex flex-col">
-    <h2 class="text-xl font-bold p-0 text-slate-800 m-0 mb-4">
-        {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
-    </h2>
+<h2 mat-dialog-title class="text-xl font-bold text-slate-800 m-0 p-0 mb-4">
+    {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
+</h2>
 
-    <mat-dialog-content class="flex flex-col gap-2 p-0 !max-h-[85vh]">
+<mat-dialog-content class="flex flex-col gap-2 p-0 scrollbar-hide !max-h-none">
         @if (!showFullForm) {
         <div class="w-full mb-2 flex flex-col gap-4">
             <mat-form-field class="w-full flex-auto mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
@@ -111,16 +110,14 @@
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Ngoại hình</mat-label>
             <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.appearance"
-                placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"
-                cdkAutosizeMaxRows="3"></textarea>
+                placeholder="VD: Tóc vàng, áo cam..." cdkTextareaAutosize cdkAutosizeMinRows="2"></textarea>
         </mat-form-field>
 
 
         <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-label>Tính cách</mat-label>
             <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.personality"
-                placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"
-                cdkAutosizeMaxRows="2"></textarea>
+                placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"></textarea>
         </mat-form-field>
 
         <div class="flex flex-col mt-2">
@@ -180,18 +177,17 @@
             <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
                 <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
                     [(ngModel)]="editingChar.prompt" placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..."
-                    cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
+                    cdkTextareaAutosize cdkAutosizeMinRows="3"></textarea>
             </mat-form-field>
         </div>
         }
-    </mat-dialog-content>
+</mat-dialog-content>
 
-    @if (showFullForm) {
-    <mat-dialog-actions align="end" class="flex pt-4 mt-0 px-0 gap-1">
+@if (showFullForm) {
+<mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-1">
         <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" [disabled]="!editingChar.name && !editingChar.role" (click)="save()">
             Lưu thông tin
         </button>
-    </mat-dialog-actions>
-    }
-</div>
+</mat-dialog-actions>
+}
