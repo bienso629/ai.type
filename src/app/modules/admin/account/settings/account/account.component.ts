@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { MatSlideToggleChange } from '@angular/material/slide-toggle';
 import { Title } from '@angular/platform-browser';
@@ -12,6 +12,11 @@ import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 
+interface ModelGroup {
+    name: string;
+    models: string[];
+}
+
 @Component({
     selector: 'settings-account',
     templateUrl: './account.component.html',
@@ -21,6 +26,9 @@ import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
     changeDetection: ChangeDetectionStrategy.OnPush
 })
 export class SettingsAccountComponent implements OnInit {
+    chatModels: ModelGroup[] = [];
+    imageModels: ModelGroup[] = [];
+    videoModels: ModelGroup[] = [];
     config: AppConfig;
     user: User;
     uniqueID: String;
@@ -249,7 +257,8 @@ export class SettingsAccountComponent implements OnInit {
         private _userService: UserService,
         private _userClientService: UserClientService,
         private _fuseConfigService: FuseConfigService,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private cd: ChangeDetectorRef
     ) {
         this.titleService.setTitle(`cấu hình tài khoản | ai.type - công cụ tạo content`);
 
@@ -345,6 +354,110 @@ export class SettingsAccountComponent implements OnInit {
             }
         }
         this.geminiKeysVisibility = this.geminiKeys.map(() => false);
+
+        // Fetch umodelverse models
+        fetch('https://api-us-ca.umodelverse.ai/v1/models')
+            .then(res => res.json())
+            .then(data => {
+                if (data && data.data) {
+                    const allModels = data.data.map((m: any) => m.id);
+                    
+                    const videoKeywords = ['video', 'vidu', 'kling', 'sora', 'veo', 'wan', 'i2v', 't2v', 'r2v', 'luma', 'cogvideo', 'runway', 'pika', 'haiper', 'seedream', 'mimo', 'pixverse'];
+                    const imageKeywords = ['image', 'dall-e', 'flux', 'midjourney', 'mj', 'sd', 'stable-diffusion', 'qwen-image'];
+                    const audioKeywords = ['tts', 'speech', 'suno', 'music', 'sound', 'voice', 'lip-sync', 'seedance', 'indextts'];
+
+                    const rawChat: string[] = [];
+                    const rawImage: string[] = [];
+                    const rawVideo: string[] = [];
+
+                    allModels.forEach((id: string) => {
+                        const lowerId = id.toLowerCase();
+                        if (videoKeywords.some(kw => lowerId.includes(kw))) {
+                            rawVideo.push(id);
+                        } else if (imageKeywords.some(kw => lowerId.includes(kw))) {
+                            rawImage.push(id);
+                        } else if (audioKeywords.some(kw => lowerId.includes(kw))) {
+                            // Do nothing for audio models, they don't have a select box here
+                        } else {
+                            rawChat.push(id);
+                        }
+                    });
+                    
+                    const currentChat = this.accountForm.get('umodelverseChatModel').value;
+                    const currentImg = this.accountForm.get('umodelverseImageModel').value;
+                    const currentVid = this.accountForm.get('umodelverseVideoModel').value;
+                    
+                    if (currentChat && !rawChat.includes(currentChat)) rawChat.push(currentChat);
+                    if (currentImg && !rawImage.includes(currentImg)) rawImage.push(currentImg);
+                    if (currentVid && !rawVideo.includes(currentVid)) rawVideo.push(currentVid);
+                    
+                    const groupModels = (models: string[]): ModelGroup[] => {
+                        const groups: { [key: string]: string[] } = {
+                            'OpenAI (GPT/Sora/DALL-E)': [],
+                            'Anthropic (Claude)': [],
+                            'Google (Gemini/Veo)': [],
+                            'Alibaba (Qwen/Wan)': [],
+                            'DeepSeek': [],
+                            'MiniMax (Hailuo)': [],
+                            'ByteDance (Doubao)': [],
+                            'Kuaishou (Kling)': [],
+                            'Shengshu (Vidu)': [],
+                            'Zhipu (GLM)': [],
+                            'Moonshot (Kimi)': [],
+                            'Baidu (Ernie)': [],
+                            'Black Forest (Flux)': [],
+                            'Midjourney': [],
+                            'Khác (Others)': []
+                        };
+
+                        models.forEach(m => {
+                            const lower = m.toLowerCase();
+                            if (lower.includes('gpt') || lower.includes('o1') || lower.includes('o3') || lower.includes('o4') || lower.includes('sora') || lower.includes('dall-e') || lower.includes('codex')) {
+                                groups['OpenAI (GPT/Sora/DALL-E)'].push(m);
+                            } else if (lower.includes('claude')) {
+                                groups['Anthropic (Claude)'].push(m);
+                            } else if (lower.includes('gemini') || lower.includes('veo')) {
+                                groups['Google (Gemini/Veo)'].push(m);
+                            } else if (lower.includes('qwen') || lower.includes('wan') || lower.includes('qwq')) {
+                                groups['Alibaba (Qwen/Wan)'].push(m);
+                            } else if (lower.includes('deepseek')) {
+                                groups['DeepSeek'].push(m);
+                            } else if (lower.includes('minimax') || lower.includes('hailuo')) {
+                                groups['MiniMax (Hailuo)'].push(m);
+                            } else if (lower.includes('doubao')) {
+                                groups['ByteDance (Doubao)'].push(m);
+                            } else if (lower.includes('kling')) {
+                                groups['Kuaishou (Kling)'].push(m);
+                            } else if (lower.includes('vidu')) {
+                                groups['Shengshu (Vidu)'].push(m);
+                            } else if (lower.includes('glm')) {
+                                groups['Zhipu (GLM)'].push(m);
+                            } else if (lower.includes('kimi') || lower.includes('moonshot')) {
+                                groups['Moonshot (Kimi)'].push(m);
+                            } else if (lower.includes('ernie')) {
+                                groups['Baidu (Ernie)'].push(m);
+                            } else if (lower.includes('flux')) {
+                                groups['Black Forest (Flux)'].push(m);
+                            } else if (lower.includes('midjourney') || lower.includes('mj')) {
+                                groups['Midjourney'].push(m);
+                            } else {
+                                groups['Khác (Others)'].push(m);
+                            }
+                        });
+
+                        return Object.keys(groups)
+                            .filter(k => groups[k].length > 0)
+                            .map(k => ({ name: k, models: groups[k].sort() }));
+                    };
+
+                    this.chatModels = groupModels(rawChat);
+                    this.imageModels = groupModels(rawImage);
+                    this.videoModels = groupModels(rawVideo);
+
+                    this.cd.markForCheck();
+                }
+            })
+            .catch(err => console.error('Failed to fetch models', err));
     }
 
     addGeminiKey(): void {

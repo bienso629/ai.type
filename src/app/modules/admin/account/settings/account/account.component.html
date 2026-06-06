@@ -277,8 +277,13 @@
                                 <mat-label>Model văn bản (Tùy chọn)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'"
                                     matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseChatModel'" type="text" matInput
-                                    placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
+                                <mat-select [formControlName]="'umodelverseChatModel'" placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
+                                    <mat-optgroup *ngFor="let group of chatModels" [label]="group.name">
+                                        <mat-option *ngFor="let model of group.models" [value]="model">
+                                            {{model}}
+                                        </mat-option>
+                                    </mat-optgroup>
+                                </mat-select>
                             </mat-form-field>
                             <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu
                                 để trống sẽ dùng gpt-4o).</div>
@@ -290,8 +295,13 @@
                                 <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'"
                                     matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseImageModel'" type="text" matInput
-                                    placeholder="VD: flux, qwen-vl, dall-e-3">
+                                <mat-select [formControlName]="'umodelverseImageModel'" placeholder="VD: flux, qwen-vl, dall-e-3">
+                                    <mat-optgroup *ngFor="let group of imageModels" [label]="group.name">
+                                        <mat-option *ngFor="let model of group.models" [value]="model">
+                                            {{model}}
+                                        </mat-option>
+                                    </mat-optgroup>
+                                </mat-select>
                             </mat-form-field>
                             <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để
                                 trống sẽ dùng dall-e-3). VD: flux-schnell</div>
@@ -303,8 +313,13 @@
                                 <mat-label>Model tạo video (Tùy chọn)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"
                                     matPrefix></mat-icon>
-                                <input [formControlName]="'umodelverseVideoModel'" type="text" matInput
-                                    placeholder="VD: cogvideox-5b, luma-dream-machine">
+                                <mat-select [formControlName]="'umodelverseVideoModel'" placeholder="VD: cogvideox-5b, luma-dream-machine">
+                                    <mat-optgroup *ngFor="let group of videoModels" [label]="group.name">
+                                        <mat-option *ngFor="let model of group.models" [value]="model">
+                                            {{model}}
+                                        </mat-option>
+                                    </mat-optgroup>
+                                </mat-select>
                             </mat-form-field>
                             <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để
                                 trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
