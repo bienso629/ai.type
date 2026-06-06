@@ -24,6 +24,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     collections: any[] = [];
     videoProjects: any[] = [];
+    totalVideoProjects: number = 0;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -184,7 +185,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 // Get video projects being built
                 setTimeout(() => {
                     let projects = this.multiAccountService.getItemsByPrefix('ai_type_audio_merger_data_') || [];
-                    this.videoProjects = projects.filter(p => p.uuid && p.title).reverse().map(p => {
+                    const allProjects = projects.filter(p => p.uuid && p.title).reverse().map(p => {
                         // Calculate dynamic status
                         let statusLabel = 'Bản nháp';
                         let statusClass = 'bg-blue-100 text-blue-600';
@@ -207,6 +208,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         
                         return { ...p, statusLabel, statusClass };
                     });
+                    this.totalVideoProjects = allProjects.length;
+                    this.videoProjects = allProjects.slice(0, 12);
                 }, 500); // wait a bit to ensure multiAccountService has loaded if needed
             });
     }
@@ -284,6 +287,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 
                 // Cập nhật mảng trên UI
                 this.videoProjects = this.videoProjects.filter(p => p.uuid !== project.uuid);
+                this.totalVideoProjects--;
                 
                 // Xóa file trên đĩa qua Electron IPC
                 if ((window as any).electron) {

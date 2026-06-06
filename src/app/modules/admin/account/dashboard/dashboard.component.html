@@ -80,7 +80,13 @@
 
         <!-- Video Projects Section -->
         <div class="p-6 md:p-8 pt-0">
-            <div class="text-2xl font-bold tracking-tight leading-8 mb-6">{{videoProjects?.length || 0}} kịch bản video đang xây dựng</div>
+            <div class="flex items-center justify-between mb-6">
+                <div class="text-2xl font-bold tracking-tight leading-8">{{totalVideoProjects || 0}} kịch bản video đang xây dựng</div>
+                <a *ngIf="totalVideoProjects > 12" [routerLink]="['/dashboard/video-projects']" 
+                    class="text-md font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer">
+                    Xem tất cả
+                </a>
+            </div>
             <div *ngIf="videoProjects && videoProjects.length > 0" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div *ngFor="let project of videoProjects" [routerLink]="['/voice2video', user.name, project.uuid]"
                     class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-blue-600 rounded-xl overflow-hidden cursor-pointer relative group">

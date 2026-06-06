@@ -1,0 +1,68 @@
+<div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-white">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-6 md:p-8 border-b bg-card">
+        <div class="flex-1 min-w-0">
+            <div class="flex items-center">
+                <button mat-icon-button [routerLink]="['/dashboard']"
+                    class="mr-4 -ml-2 text-secondary hover:text-primary transition-colors">
+                    <mat-icon [svgIcon]="'heroicons_outline:arrow-left'"></mat-icon>
+                </button>
+                <div>
+                    <div class="text-4xl font-extrabold tracking-tight leading-none">Danh sách kịch bản video</div>
+                    <div class="ml-0.5 mt-1 text-md font-medium text-secondary">
+                        Đang hiển thị {{videoProjects?.length || 0}} kịch bản
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="flex items-center mt-6 sm:mt-0 sm:ml-4">
+            <button mat-flat-button color="primary" (click)="importProject()">
+                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:upload'"></mat-icon>
+                <mat-label class="ml-2">Nhập kịch bản</mat-label>
+            </button>
+        </div>
+    </div>
+
+    <!-- Main -->
+    <div class="flex-auto overflow-y-auto" cdkScrollable>
+        <div class="p-6 md:p-8">
+            <div *ngIf="videoProjects && videoProjects.length > 0"
+                class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+                <div *ngFor="let project of videoProjects" [routerLink]="['/voice2video', user?.name, project.uuid]"
+                    class="flex flex-col bg-card shadow-none border border-gray-200 hover:border-blue-600 rounded-xl overflow-hidden cursor-pointer relative group transition-colors">
+                    <div class="p-6 flex flex-col flex-auto">
+                        <div class="flex flex-col mb-4 relative pr-8">
+                            <div class="text-lg font-medium tracking-tight truncate" [title]="project.title">
+                                {{project.title || 'Dự án mới'}}
+                            </div>
+                            <div class="text-[11px] text-gray-400 mt-1 font-mono truncate"
+                                [title]="'UUID: ' + project.uuid">
+                                ID: {{project.uuid}}
+                            </div>
+                            <button mat-icon-button (click)="deleteVideoProject(project, $event)"
+                                class="absolute -top-2 -right-2 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
+                                matTooltip="Xóa kịch bản">
+                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                            </button>
+                        </div>
+                        <div class="mt-4 flex items-center justify-between text-xs text-secondary">
+                            <span class="flex items-center">
+                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:video'"></mat-icon>
+                                {{project.clips?.length || 0}} cảnh quay
+                            </span>
+                            <span [ngClass]="project.statusClass"
+                                class="px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{project.statusLabel}}</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div *ngIf="!videoProjects || videoProjects.length === 0"
+                class="text-gray-500 text-sm mt-2 flex flex-col items-center justify-center py-12">
+                <mat-icon class="icon-size-12 text-gray-300 mb-4"
+                    [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
+                <span class="text-lg font-medium text-gray-600">Chưa có kịch bản video nào đang làm.</span>
+            </div>
+        </div>
+    </div>
+</div>

@@ -255,7 +255,7 @@ export class GenaiService {
             top_p: params.config?.topP,
         };
 
-        const isReasoningModel = targetModel.includes('gpt-5') || targetModel.includes('o1') || targetModel.includes('o3') || targetModel.includes('deepseek-reasoner');
+        const isReasoningModel = targetModel.includes('gpt-5') || targetModel.includes('o1') || targetModel.includes('o3') || targetModel.includes('deepseek-reasoner') || targetModel.includes('kimi') || targetModel.includes('qwq') || targetModel.includes('r1');
 
         if (params.config?.maxOutputTokens) {
             if (isReasoningModel) {
@@ -287,10 +287,17 @@ export class GenaiService {
             throw new Error((data.error && data.error.message) || `HTTP Error: ${response.status}`);
         }
 
-        // Fake GenerateContentResponse format
-        const replyText = data.choices?.[0]?.message?.content || '';
+        const choice = data.choices?.[0];
+        const message = choice?.message;
+        const replyText = message?.content || '';
+
         return {
-            get text() { return replyText; },
+            get text() { 
+                if (choice?.finish_reason === 'length' && !replyText) {
+                    throw new Error(`Model ${targetModel} đã đạt giới hạn độ dài (max tokens) trong quá trình suy luận và bị ngắt giữa chừng. Hãy dùng một model khác (VD: gpt-4o, claude-3-5-sonnet) cho kịch bản dài này.`);
+                }
+                return replyText; 
+            },
             candidates: [
                 {
                     content: {

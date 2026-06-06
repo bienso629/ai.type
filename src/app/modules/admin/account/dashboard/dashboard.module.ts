@@ -10,17 +10,23 @@ import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
 import { TimeagoModule } from 'ngx-timeago';
 import { DashboardComponent } from 'app/modules/admin/account/dashboard/dashboard.component';
+import { VideoProjectsComponent } from 'app/modules/admin/account/dashboard/video-projects/video-projects.component';
 
 const Routes: Route[] = [
     {
         path: '',
         component: DashboardComponent
+    },
+    {
+        path: 'video-projects',
+        component: VideoProjectsComponent
     }
 ];
 
 @NgModule({
     declarations: [
-        DashboardComponent
+        DashboardComponent,
+        VideoProjectsComponent
     ],
     imports: [
         RouterModule.forChild(Routes),
