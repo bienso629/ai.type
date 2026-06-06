@@ -246,13 +246,31 @@ export class GenaiService {
 
         const overrideModel = params.model === 'gemini-3-flash-preview' ? null : params.model;
         
+        const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
+        
         const body: any = {
-            model: overrideModel || this._umodelverseChatModel || 'gpt-4o',
+            model: targetModel,
             messages: messages,
             temperature: params.config?.temperature,
-            max_tokens: params.config?.maxOutputTokens || 8192,
             top_p: params.config?.topP,
         };
+
+        const isReasoningModel = targetModel.includes('gpt-5') || targetModel.includes('o1') || targetModel.includes('o3') || targetModel.includes('deepseek-reasoner');
+
+        if (params.config?.maxOutputTokens) {
+            if (isReasoningModel) {
+                // Các model reasoning cần lượng token rất lớn. Nếu code set cứng 8192 thì sẽ bị cắt ngang (finish_reason: "length").
+                // Nên ta bỏ qua mức trần 8192 này để mô hình tự do output.
+                if (params.config.maxOutputTokens !== 8192) {
+                    body.max_completion_tokens = params.config.maxOutputTokens;
+                }
+            } else {
+                body.max_tokens = params.config.maxOutputTokens;
+            }
+        } else if (!isReasoningModel) {
+            // Không giới hạn 8192 mặc định đối với các model reasoning vì chúng cần token ẩn rất lớn để suy luận
+            body.max_tokens = 8192;
+        }
 
         if (params.config?.responseMimeType === 'application/json') {
             body.response_format = { type: 'json_object' };
