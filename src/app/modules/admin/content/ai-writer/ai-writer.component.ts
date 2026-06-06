@@ -1189,6 +1189,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
+    loadingDreamina: { [key: number]: boolean } = {};
+
     /**
      * Chi tiết lưu trữ
      */
@@ -1210,7 +1212,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         });
     }
 
-    async createImgWithDreamina(url: string, item: any, isVid: boolean = false) {
+    async createImgWithDreamina(url: string, item: any, isVid: boolean = false, index: number = -1) {
         if (!this._userService.permissionDreamina(this.user)) {
             this.toastr.error('Đây là chức năng trả phí.');
             return;
@@ -1221,6 +1223,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         // NẾU BẬT MÌ TÔM AI -> DÙNG MÌ TÔM AI THAY VÌ MỞ DREAMINA
         if (this._genaiService.isUModelverseEnabled()) {
             this.toastr.info(`Đang tiến hành tạo ${isVid ? 'video' : 'ảnh'} qua hệ thống Mì Tôm AI...`);
+            if (index > -1) {
+                this.loadingDreamina[index] = true;
+                this.cd.markForCheck();
+            }
             try {
                 if (isVid) {
                     const base64Str = await this._genaiService.generateVideoUModelverse(promptText);
@@ -1249,7 +1255,16 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         contents: [{ role: 'user', parts: [{ text: promptText }] }],
                         config: { responseModalities: ['IMAGE'] }
                     } as any);
-                    const base64Str = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+                    
+                    let base64Str = '';
+                    const parts = response.candidates?.[0]?.content?.parts || [];
+                    for (const part of parts) {
+                        if (part.inlineData && part.inlineData.data) {
+                            base64Str = part.inlineData.data;
+                            break;
+                        }
+                    }
+
                     if (base64Str) {
                         const fileName = `umodelverse_image_${Date.now()}.png`;
                         const res = await (window as any).electron.invoke('save-base64', {
@@ -1271,10 +1286,24 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     } else {
                         console.error('Invalid image response from UModelverse:', response);
                         this.toastr.error('Không tìm thấy dữ liệu ảnh trả về từ máy chủ!');
+                        // Ghi ra file để debug
+                        try {
+                            await (window as any).electron.invoke('save-base64', {
+                                base64: btoa(unescape(encodeURIComponent(JSON.stringify(response)))),
+                                fileName: `debug_response_${Date.now()}.txt`,
+                                folder: 'thumbnails',
+                                username: this.user.name
+                            });
+                        } catch(e) {}
                     }
                 }
             } catch (err: any) {
                 this.toastr.error(`Lỗi tạo ${isVid ? 'video' : 'ảnh'}: ${err.message || 'Lỗi không xác định'}`);
+            } finally {
+                if (index > -1) {
+                    this.loadingDreamina[index] = false;
+                    this.cd.markForCheck();
+                }
             }
             return;
         }

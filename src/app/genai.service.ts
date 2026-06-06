@@ -168,8 +168,12 @@ export class GenaiService {
         }
     }
 
-    private async generateWithUModelverse(params: GenerateContentParameters): Promise<any> {
+    public async generateWithUModelverse(params: GenerateContentParameters): Promise<any> {
+        this.syncConfigFromStorage();
         const url = this._umodelverseUrl;
+        if (!url) {
+            throw new Error("Vui lòng cấu hình Base URL (Mì tôm AI) trong mục Cài đặt trước khi sử dụng.");
+        }
         const key = this._umodelverseKey;
         const headers = {
             'Content-Type': 'application/json',
@@ -337,7 +341,8 @@ export class GenaiService {
             let baseUrl = url.replace(/\/v1\/?$/, '');
             const geminiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent`;
             
-            const geminiBody: any = {
+            try {
+                const geminiBody: any = {
                 contents: [
                     {
                         parts: [{ text: promptText }]
@@ -345,11 +350,15 @@ export class GenaiService {
                 ]
             };
 
+            // Cập nhật generationConfig chuẩn
+            geminiBody.generationConfig = {
+                responseModalities: ["IMAGE"],
+                imageConfig: {}
+            };
+
             // Nếu user có setting configRatio
             if (configRatio) {
-                geminiBody.generationConfig = {
-                    aspectRatio: String(configRatio).trim()
-                };
+                geminiBody.generationConfig.imageConfig.aspectRatio = String(configRatio).trim();
             }
 
             const geminiResponse = await fetch(geminiUrl, {
@@ -358,15 +367,23 @@ export class GenaiService {
                 body: JSON.stringify(geminiBody)
             });
 
-            const geminiData = await geminiResponse.json();
+            const geminiResponseText = await geminiResponse.text();
+            let geminiData: any = {};
+            try {
+                geminiData = JSON.parse(geminiResponseText);
+            } catch (e) {
+                throw new Error(`Proxy trả về dữ liệu không hợp lệ (Mã lỗi ${geminiResponse.status})`);
+            }
             
             if (geminiResponse.ok && geminiData.candidates && geminiData.candidates.length > 0) {
                 console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
                 return geminiData;
             } else {
-                console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại:`, geminiData?.error?.message);
-                throw new Error(geminiData?.error?.message || `HTTP Error: ${geminiResponse.status}`);
+                console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại, tự động chuyển sang OpenAI Compatible Interface. Lỗi:`, geminiData?.error?.message || geminiResponse.status);
             }
+        } catch(e: any) {
+             console.warn(`[UModelverse Image] Lỗi khi gọi Gemini Interface, chuyển sang OpenAI Interface:`, e.message);
+        }
         }
         // --- KẾT THÚC XỬ LÝ GEMINI ---
 
@@ -432,7 +449,12 @@ export class GenaiService {
                 });
 
                 lastResponseStatus = response.status;
-                data = await response.json();
+                const responseText = await response.text();
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    throw new Error(`Mã lỗi ${response.status}: Proxy trả về HTML hoặc text không hợp lệ thay vì JSON. (Dữ liệu trả về: ${responseText.substring(0, 50)}...)`);
+                }
 
                 if (response.ok) {
                     console.log(`[UModelverse Image] Cấu hình request ${i} thành công!`);
@@ -507,7 +529,13 @@ export class GenaiService {
                 headers: { 'Authorization': `Bearer ${headers['Authorization'].split(' ')[1]}` }
             });
             if (modelsRes.ok) {
-                const modelsData = await modelsRes.json();
+                const modelsText = await modelsRes.text();
+                let modelsData: any = {};
+                try {
+                    modelsData = JSON.parse(modelsText);
+                } catch (e) {
+                    console.warn('[UModelverse Image Fallback Error]: Cannot parse /models response');
+                }
                 if (modelsData && Array.isArray(modelsData.data)) {
                     const modelIds = modelsData.data.map((m: any) => m.id);
                     const alternativeModel = modelIds.find((id: string) => {
@@ -530,7 +558,11 @@ export class GenaiService {
                             headers,
                             body: JSON.stringify(retryBody)
                         });
-                        const retryData = await retryResponse.json();
+                        const retryText = await retryResponse.text();
+                        let retryData: any = {};
+                        try {
+                            retryData = JSON.parse(retryText);
+                        } catch(e) {}
                         
                         if (retryResponse.ok) {
                             let b64 = retryData.data?.[0]?.b64_json;
@@ -570,8 +602,11 @@ export class GenaiService {
             const res = await this.generateContent(params, scope);
 
             const candidate = res.candidates?.[0];
-            if (candidate?.content?.parts?.[0]?.text) {
-                return candidate.content.parts[0].text;
+            if (candidate?.content?.parts) {
+                const textParts = candidate.content.parts.filter((p: any) => p.text).map((p: any) => p.text);
+                if (textParts.length > 0) {
+                    return textParts.join('\n\n');
+                }
             }
 
             return '';
@@ -837,8 +872,15 @@ export class GenaiService {
                                 throw new Error("Task báo Success nhưng không tìm thấy URL video trong JSON.");
                             }
                         } else if (statusVal === 'failed' || statusVal === 'failure' || statusVal === 'error') {
-                            const errMessage = data.error_message || data.error?.message || data.message || "Task thất bại.";
-                            throw new Error(`Video task failed: ${errMessage}`);
+                            let errMessage = data.error_message || data.output?.error_message || data.error?.message || data.output?.error || data.message || "Task thất bại.";
+                            
+                            if (typeof errMessage === 'string') {
+                                if (errMessage.toLowerCase().includes('violate') || errMessage.toLowerCase().includes('safety')) {
+                                    errMessage = "Nội dung vi phạm tiêu chuẩn an toàn của AI (bạo lực, nhạy cảm...). Vui lòng thử từ khoá khác.";
+                                }
+                            }
+
+                            throw new Error(`${errMessage}`);
                         }
                     } else {
                         console.warn(`[Poll HTTP Error] Kiểm tra trạng thái trả về: ${response.status}`);

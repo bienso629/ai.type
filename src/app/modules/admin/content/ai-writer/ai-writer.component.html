@@ -1212,14 +1212,16 @@
                                             (cdkDropListDropped)="drop($event)">
                                             <ng-container>
                                                 <div class="flex items-center example-box p-1"
-                                                    *ngFor="let item of source.pre" cdkDrag>
+                                                    *ngFor="let item of source.pre; let i = index" cdkDrag>
                                                     <div class="flex-1" [innerHTML]="item"></div>
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                         <button mat-icon-button class="icon-size-8"
+                                                            *ngIf="!loadingDreamina[i]"
                                                             [matMenuTriggerFor]="menu">
                                                             <mat-icon>more_horiz</mat-icon>
                                                         </button>
+                                                        <mat-spinner *ngIf="loadingDreamina[i]" [diameter]="20" class="m-1"></mat-spinner>
 
                                                         <mat-menu #menu="matMenu">
                                                             <button mat-menu-item
@@ -1265,13 +1267,13 @@
                                                                     [svgIcon]="'feather:tag'"></mat-icon>
                                                                 <span>Từ khoá</span>
                                                             </button>
-                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, false)"
+                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, false, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:image'"></mat-icon>
                                                                 <span>Tạo hình ảnh</span>
                                                             </button>
-                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, true)"
+                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, true, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:video'"></mat-icon>
