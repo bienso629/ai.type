@@ -60,43 +60,36 @@ import { MatDialogRef } from '@angular/material/dialog';
     </div>
 
     <!-- Main -->
-    <div class="flex-auto overflow-y-auto">
+    <div class="flex-auto overflow-y-auto bg-transparent relative p-2" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <div class="h-full w-full bg-transparent relative" cdkScrollable>
-            <ngx-datatable #datatable class="material grid fullscreen image-thumbnails" [rows]="rows"
-                [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
-                [headerHeight]="0" [footerHeight]="0" [columnMode]="'force'">
-                <ngx-datatable-column [flexGrow]="1">
-                    <ng-template ngx-datatable-cell-template let-row="row" let-rowIndex="rowIndex">
-                        <div class="row-grid w-full flex flex-wrap">
-                            <div class="thumb-wrap p-2 box-border"
-                                *ngFor="let img of row.images; let i = index" [ngStyle]="{
-                                flex: '0 0 ' + (100 / gridSize) + '%',
-                            }">
-                                <ng-container
-                                                        *ngIf="img.toLowerCase().endsWith('.mp4'); else imageTemplate">
-                                                        <video [src]="'file:///' + img"
-                                                            class="thumb w-full h-auto object-cover rounded-2xl"
-                                                            controls muted loop>
-                                                        </video>
-                                                    </ng-container>
+        <div class="flex flex-wrap w-full">
+            <div class="thumb-wrap p-2 box-border relative"
+                *ngFor="let img of imageUrls" 
+                [ngStyle]="{
+                    flex: '0 0 ' + (100 / gridSize) + '%',
+                    maxWidth: (100 / gridSize) + '%'
+                }">
+                
+                <ng-container *ngIf="img.toLowerCase().endsWith('.mp4'); else imageTemplate">
+                    <video [src]="'file:///' + img"
+                        class="thumb w-full object-cover rounded-2xl"
+                        controls muted loop>
+                    </video>
+                </ng-container>
 
-                                                    <ng-template #imageTemplate>
-                                                        <img [src]="'file:///' + img"
-                                                            class="thumb w-full h-auto object-cover rounded-2xl" />
+                <ng-template #imageTemplate>
+                    <img [src]="'file:///' + img" loading="lazy"
+                        class="thumb w-full object-cover rounded-2xl" />
 
-                                                        <div class="thumb-actions">
-                                                            <a mat-icon-button (click)="insert('file:///' + img)"
-                                    class="rounded-full icon-size-6 hover:bg-white hover:bg-opacity-50">
-                                    <mat-icon class="icon-size-4 text-blue-600"
-                                        [svgIcon]="'feather:arrow-down'"></mat-icon></a>
-                                                        </div>
-                                                    </ng-template>
-                            </div>
-                        </div>
-                    </ng-template>
-                </ngx-datatable-column>
-            </ngx-datatable>
+                    <div class="thumb-actions">
+                        <a mat-icon-button (click)="insert('file:///' + img)"
+                            class="rounded-full icon-size-6 hover:bg-white hover:bg-opacity-50">
+                            <mat-icon class="icon-size-4 text-blue-600"
+                                [svgIcon]="'feather:arrow-down'"></mat-icon>
+                        </a>
+                    </div>
+                </ng-template>
+            </div>
         </div>
     </div>
 </div>`,
@@ -247,9 +240,14 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
             chatgpt: ['']
         });
 
-        // Chỉ chạy tính toán khi Dialog đã mở xong hoàn toàn (hết animation)
+            // Chỉ chạy tính toán khi Dialog đã mở xong hoàn toàn (hết animation)
         this.dialogRef.afterOpened().subscribe(() => {
             this.detectGrid();
+
+            // Kích hoạt giả lập resize sau khi dialog mở để ngx-datatable tự căn chỉnh lại chiều rộng chính xác
+            setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 150);
 
             // Subscribe to config changes
             this._fuseConfigService.config$

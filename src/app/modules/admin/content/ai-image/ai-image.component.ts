@@ -385,8 +385,8 @@ export class AIImageComponent
                 });
             }
 
-            // 2. Gọi API Banana Pro thông qua GenaiService
-            const response = await this._genaiService.generateContent(generateOptions);
+            // 2. Gọi API Mì Tôm AI thông qua GenaiService
+            const response = await this._genaiService.generateWithUModelverse(generateOptions);
 
             // 3. Rà soát Logic phản hồi
             const candidates = response.candidates;
@@ -428,7 +428,7 @@ export class AIImageComponent
             }
         } catch (err: any) {
             console.error('Lỗi Banana Logic:', err);
-            this.toastr.error('Không thể tạo hình ảnh. Vui lòng thử lại.');
+            this.toastr.error('Lỗi tạo ảnh: ' + (err.message || 'Vui lòng thử lại.'));
 
             this.loading = false;
             this.cd.markForCheck();
