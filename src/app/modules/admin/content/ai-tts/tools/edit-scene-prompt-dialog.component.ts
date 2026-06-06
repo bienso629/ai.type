@@ -257,12 +257,19 @@ export class EditScenePromptDialogComponent {
         // Không còn dán masterPrompt vào Scene Prompt nữa
         // Theo yêu cầu mới, masterPrompt đã được đưa thẳng vào Character Prompt.
 
-        // Tự động active các nhân vật đã có sẵn trong prompt
+        // Tự động active các nhân vật có tên trong prompt
         if (this.editingScenePrompt.prompt) {
             for (const char of this.characters) {
                 const charName = char.name || char.role;
-                if (charName && this.editingScenePrompt.prompt.includes(`[Character '${charName}'`)) {
+                if (charName && this.editingScenePrompt.prompt.includes(charName)) {
                     this.selectedReferenceChars.add(char);
+                    
+                    // Tự động chèn thông tin nhân vật vào textarea cho người dùng thấy rõ
+                    const charToken = `[Character '${charName}'`;
+                    if (!this.editingScenePrompt.prompt.includes(charToken)) {
+                        let charDesc = char.appearance ? char.appearance : `Portrait of ${charName}`;
+                        this.editingScenePrompt.prompt += `\n\n[Character '${charName}': ${charDesc}]`;
+                    }
                 }
             }
         }
@@ -496,14 +503,8 @@ Instructions:
 
         try {
             // Thay vì dùng prompt cho video, ta dùng prompt đã clean của ảnh
-            let promptText = this.editingScenePrompt.imagePrompt || this.editingScenePrompt.prompt || '';
-
-            // Xóa các tag character cũ vì bên dưới ta sẽ đẩy vào mảng requestParts (tránh lặp)
-            promptText = promptText.replace(/\[Character '[^']+': [^\]]+\]/g, '').trim();
-
-            if (this.masterPrompt) {
-                promptText = this.masterPrompt + '\n\n' + promptText;
-            }
+            let promptText = this.getFullImagePrompt();
+            
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
 
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
@@ -632,10 +633,7 @@ Instructions:
                 }
             }
 
-            let finalPrompt = this.editingScenePrompt.prompt;
-            if (this.masterPrompt) {
-                finalPrompt = this.masterPrompt + '\n\n' + finalPrompt;
-            }
+            let finalPrompt = this.getFullVideoPrompt();
             if (this.editingScenePrompt.duration) {
                 finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${this.editingScenePrompt.duration} seconds]`;
             }

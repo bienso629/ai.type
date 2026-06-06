@@ -1835,7 +1835,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     selectedSceneIndex: number = -1;
 
-    addNewScene() {
+    addNewScene(insertAfterIndex?: number) {
         const dialogRef = this.dialog.open(AddSceneComponent, {
             width: '650px',
             maxWidth: '95vw',
@@ -1883,7 +1883,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (!this.projectData.scenes) this.projectData.scenes = [];
 
                 let targetIndex = this.projectData.scenes.length;
-                if (this.activeItem) {
+                
+                if (insertAfterIndex !== undefined && insertAfterIndex !== null) {
+                    targetIndex = insertAfterIndex + 1;
+                } else if (this.activeItem) {
                     // activeItem is the raw video/audio object, find its scene index
                     for (let sIdx = 0; sIdx < this.projectData.scenes.length; sIdx++) {
                         const s = this.projectData.scenes[sIdx];
