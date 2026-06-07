@@ -3588,6 +3588,55 @@ app.whenReady().then(async () => {
         });
     }
 
+    // ===== EXTRACT LAST FRAME IPC =====
+    ipcMain.handle("extract-last-frame", async (_event, videoPath) => {
+        return new Promise((resolve, reject) => {
+            if (!binaries.ffmpeg) {
+                return reject(new Error("Không tìm thấy FFmpeg"));
+            }
+            try {
+                const imgDir = path.dirname(videoPath);
+                const ext = path.extname(videoPath);
+                const baseName = path.basename(videoPath, ext);
+                const outputFileName = `${baseName}_last_frame.jpg`;
+                const outputPath = path.join(imgDir, outputFileName);
+                
+                const ffmpegPath = binaries.ffmpeg;
+                const args = [
+                    "-sseof", "-0.1",
+                    "-i", videoPath,
+                    "-update", "1",
+                    "-q:v", "2",
+                    "-y",
+                    outputPath
+                ];
+                
+                sendToRenderer("tools-log", `[FFmpeg] Trích xuất last frame: ${args.join(" ")}`);
+                const child = spawn(ffmpegPath, args);
+                
+                let stderrOutput = "";
+                child.stderr.on("data", (data) => {
+                    stderrOutput += data.toString();
+                });
+                
+                child.on("close", (code) => {
+                    if (code === 0) {
+                        resolve({ success: true, path: outputPath });
+                    } else {
+                        sendToRenderer("tools-log", `[FFmpeg Error] ${stderrOutput}`);
+                        reject(new Error(`FFmpeg exited with code ${code}`));
+                    }
+                });
+                
+                child.on("error", (err) => {
+                    reject(err);
+                });
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+
     // ===== EXTRACT AUDIO IPC =====
     ipcMain.handle("extract-audio", async (_event, videoPath) => {
         return new Promise((resolve, reject) => {
@@ -5169,5 +5218,42 @@ ipcMain.handle('ai:fetch-html', async (event, targetUrl) => {
         return { success: true, html };
     } catch (error) {
         return { success: false, error: error.message };
+    }
+});
+ipcMain.handle('extract-last-frame', async (event, videoPath) => {
+    try {
+        const videoPathDecoded = videoPath.replace('file://', '');
+        if (!fs.existsSync(videoPathDecoded)) return { success: false, error: 'Video file not found: ' + videoPathDecoded };
+        
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+        const tempImage = path.join(os.tmpdir(), `frame_${Date.now()}.png`);
+        
+        return new Promise((resolve) => {
+            const args = ['-sseof', '-0.5', '-i', videoPathDecoded, '-update', '1', '-q:v', '2', tempImage];
+            const child = spawn(ffmpegPath, args);
+            child.on('close', (code) => {
+                if (fs.existsSync(tempImage)) {
+                    const base64 = fs.readFileSync(tempImage, { encoding: 'base64' });
+                    fs.unlinkSync(tempImage);
+                    resolve({ success: true, base64 });
+                } else {
+                    // Try getting the first frame if the previous method fails (e.g., video too short)
+                    const tempImage2 = path.join(os.tmpdir(), `frame_first_${Date.now()}.png`);
+                    const args2 = ['-i', videoPathDecoded, '-vframes', '1', '-q:v', '2', tempImage2];
+                    const child2 = spawn(ffmpegPath, args2);
+                    child2.on('close', () => {
+                        if (fs.existsSync(tempImage2)) {
+                            const base64 = fs.readFileSync(tempImage2, { encoding: 'base64' });
+                            fs.unlinkSync(tempImage2);
+                            resolve({ success: true, base64 });
+                        } else {
+                            resolve({ success: false, error: 'Cannot extract frame' });
+                        }
+                    });
+                }
+            });
+        });
+    } catch (e) {
+        return { success: false, error: e.message };
     }
 });

@@ -146,8 +146,8 @@
             </div>
         </div>
 
-        <div class="flex items-end mt-2 gap-4">
-            <mat-form-field class="fuse-mat-dense w-32" [subscriptSizing]="'dynamic'">
+        <div class="flex items-center mt-2 gap-6">
+            <mat-form-field class="fuse-mat-dense w-32 shrink-0" [subscriptSizing]="'dynamic'">
                 <mat-label>Thời lượng (giây)</mat-label>
                 <mat-select [(ngModel)]="editingScenePrompt.duration" (ngModelChange)="onDurationChanged($event)">
                     <mat-option [value]="4">4s</mat-option>
@@ -156,6 +156,11 @@
                     <mat-option [value]="10">10s</mat-option>
                 </mat-select>
             </mat-form-field>
+            
+            <label *ngIf="previousVideoUrl" class="flex items-center gap-2 cursor-pointer mt-1">
+                <input type="checkbox" [(ngModel)]="usePreviousSceneFrame" class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer">
+                <span class="text-sm font-medium text-slate-700">🔄 Kế thừa khung hình cuối từ cảnh trước</span>
+            </label>
         </div>
 </mat-dialog-content>
 

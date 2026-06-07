@@ -222,16 +222,31 @@ Nhiệm vụ của bạn là:
 
     openDirectorMode() {
         const dialogRef = this.dialog.open(DirectorModeComponent, {
-            width: '800px',
-            maxWidth: '95vw',
-            data: {
-                projectData: this.projectData
-            }
+            data: { 
+                prompt: this.projectData.masterPrompt,
+                controlImageUrl: this.projectData.masterControlImageUrl 
+            },
+            width: '600px'
         });
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.projectData = result;
+                let promptResult = typeof result === 'string' ? result : result.prompt;
+                
+                if (!this.projectData) this.projectData = {};
+                let currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
+                currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+                if (currentPrompt) {
+                    this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
+                } else {
+                    this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']';
+                }
+                
+                if (typeof result !== 'string' && result.controlImageUrl) {
+                    this.projectData.masterControlImageUrl = result.controlImageUrl;
+                }
+                
                 this.save();
             }
         });

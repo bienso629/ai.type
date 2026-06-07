@@ -29,6 +29,9 @@ export class EditScenePromptDialogComponent {
     editingVideoIndex: number = -1;
     characters: any[] = [];
     masterPrompt: string = '';
+    globalContext: any = null;
+    previousVideoUrl: string | null = null;
+    usePreviousSceneFrame: boolean = false;
     selectedReferenceChars = new Set<any>();
 
     isGeneratingImage: boolean = false;
@@ -265,6 +268,9 @@ export class EditScenePromptDialogComponent {
         this.selectedAspectRatio = this.editingScenePrompt.aspectRatio || data.projectAspectRatio || '16:9';
         this.characters = data.characters || [];
         this.masterPrompt = data.masterPrompt ? data.masterPrompt.trim() : '';
+        this.globalContext = data.globalContext || null;
+        this.previousVideoUrl = data.previousVideoUrl || null;
+        this.usePreviousSceneFrame = this.editingScenePrompt.usePreviousSceneFrame || false;
 
         // Không còn dán masterPrompt vào Scene Prompt nữa
         // Theo yêu cầu mới, masterPrompt đã được đưa thẳng vào Character Prompt.
@@ -361,7 +367,7 @@ export class EditScenePromptDialogComponent {
         }
 
         if (addedChars.length > 0) {
-            baseText = addedChars.join('\n') + '\n\n' + baseText;
+            baseText = addedChars.join('\n') + '\n\n[MANDATORY: Use the provided reference images as the EXACT visual appearance for the characters. Match their face, clothing, and details perfectly.]\n\n' + baseText;
         }
 
         if (this.masterPrompt) {
@@ -390,7 +396,7 @@ export class EditScenePromptDialogComponent {
         }
 
         if (addedChars.length > 0) {
-            baseText = addedChars.join('\n') + '\n\n' + baseText;
+            baseText = addedChars.join('\n') + '\n\n[MANDATORY: Use the provided reference images as the EXACT visual appearance for the characters. Match their face, clothing, and details perfectly.]\n\n' + baseText;
         }
 
         if (this.masterPrompt) {
@@ -517,9 +523,42 @@ Instructions:
             // Thay vì dùng prompt cho video, ta dùng prompt đã clean của ảnh
             let promptText = this.getFullImagePrompt();
             
+            if (this.globalContext?.environmentPrompt) {
+                promptText += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
+            }
+
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
 
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
+
+            // Nếu bật kế thừa khung hình cảnh trước
+            let usedPreviousFrame = false;
+            if (this.usePreviousSceneFrame && this.previousVideoUrl) {
+                try {
+                    this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
+                    let cleanUrl = this.previousVideoUrl.replace('file://', '');
+                    // Nếu là đường dẫn an toàn qua bypassSecurityTrustUrl thì bóc url thực
+                    if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
+                        cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                    }
+                    
+                    const extractResult = await electron.extractLastFrame(cleanUrl);
+                    if (extractResult && extractResult.success) {
+                        const base64Data = await this.getBase64FromImageUrl('file://' + extractResult.path);
+                        requestParts.push({
+                            inlineData: {
+                                data: base64Data,
+                                mimeType: 'image/jpeg'
+                            }
+                        });
+                        usedPreviousFrame = true;
+                        this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
+                    }
+                } catch (e) {
+                    console.error('Lỗi khi trích xuất frame từ video trước:', e);
+                    this.toastr.error('Lỗi khi trích xuất frame: ' + e);
+                }
+            }
 
             // Gắn thêm ảnh tham khảo do người dùng tải lên
             if (this.aiReferenceImageLocalUrl) {
@@ -535,6 +574,37 @@ Instructions:
                     this.aiReferenceImageLocalUrl = null;
                 } catch (e) {
                     console.error('Không thể đọc ảnh reference upload', e);
+                }
+            }
+
+            // Gắn thêm Global Reference Image
+            if (this.globalContext?.referenceImageUrl) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(this.globalContext.referenceImageUrl);
+                    requestParts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: 'image/png'
+                        }
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh Global Reference Image', e);
+                }
+            }
+
+            // Gắn thêm control image (Khung xương / Bố cục)
+            let finalControlImage = this.editingScenePrompt.controlImageUrl || this.data?.masterControlImageUrl;
+            if (finalControlImage) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(finalControlImage);
+                    requestParts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: 'image/png'
+                        }
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh control image', e);
                 }
             }
 
@@ -628,6 +698,36 @@ Instructions:
 
             // Fetch storyboard image if exists
             let referenceImages: any[] = [];
+            
+            // Nếu bật kế thừa khung hình cảnh trước
+            let usedPreviousFrameVideo = false;
+            if (this.usePreviousSceneFrame && this.previousVideoUrl) {
+                try {
+                    this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
+                    let cleanUrl = this.previousVideoUrl.replace('file://', '');
+                    if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
+                        cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                    }
+                    
+                    const extractResult = await electron.extractLastFrame(cleanUrl);
+                    if (extractResult && extractResult.success) {
+                        const base64Data = await this.getBase64FromImageUrl('file://' + extractResult.path);
+                        referenceImages.push({
+                            image: {
+                                imageBytes: base64Data,
+                                mimeType: 'image/jpeg'
+                            },
+                            referenceType: 'ASSET'
+                        });
+                        usedPreviousFrameVideo = true;
+                        this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
+                    }
+                } catch (e) {
+                    console.error('Lỗi khi trích xuất frame từ video trước:', e);
+                    this.toastr.error('Lỗi khi trích xuất frame: ' + e);
+                }
+            }
+
             if (this.editingScenePrompt.imageUrl && this.isImageType(this.editingScenePrompt.imageUrl)) {
                 try {
                     const base64Data = await this.getBase64FromImageUrl(this.editingScenePrompt.imageUrl);
@@ -662,10 +762,49 @@ Instructions:
                 }
             }
 
+            // Fetch control image (Khung xương / Bố cục)
+            let finalControlImageVid = this.editingScenePrompt.controlImageUrl || this.data?.masterControlImageUrl;
+            if (finalControlImageVid) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(finalControlImageVid);
+                    referenceImages.push({
+                        image: {
+                            imageBytes: base64Data,
+                            mimeType: 'image/png'
+                        },
+                        referenceType: 'ASSET'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh control image cho video:', e);
+                }
+            }
+
+            // Fetch Global Reference Image (Nhân vật / Phong cách tham chiếu chung)
+            if (this.globalContext?.referenceImageUrl) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(this.globalContext.referenceImageUrl);
+                    referenceImages.push({
+                        image: {
+                            imageBytes: base64Data,
+                            mimeType: 'image/png'
+                        },
+                        referenceType: 'ASSET'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh Global Reference Image cho video:', e);
+                }
+            }
+
             let finalPrompt = this.getFullVideoPrompt();
+            if (this.globalContext?.environmentPrompt) {
+                finalPrompt += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
+            }
+
             if (this.editingScenePrompt.duration) {
                 finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${this.editingScenePrompt.duration} seconds]`;
             }
+
+            const seedToUse = this.globalContext?.seed ? this.globalContext.seed : undefined;
 
             if (isProxy) {
                 // Sử dụng Mì Tôm AI (Proxy) để tạo Video
@@ -676,7 +815,8 @@ Instructions:
                     finalPrompt,
                     this.selectedAspectRatio,
                     referenceImages,
-                    this.editingScenePrompt.duration
+                    this.editingScenePrompt.duration,
+                    seedToUse
                 );
             } else {
                 // Chạy trực tiếp qua máy chủ Google bằng SDK chính thức
@@ -871,22 +1011,32 @@ Instructions:
 
     openDirectorModeForScene() {
         const dialogRef = this.dialog.open(DirectorModeComponent, {
-            width: '1024px',
+            width: '650px',
             maxWidth: '95vw',
             panelClass: 'dark-theme-dialog',
-            data: { prompt: this.editingScenePrompt?.prompt || '', targetName: 'Apply to Scene Prompt' }
+            data: { 
+                prompt: this.editingScenePrompt?.prompt || '', 
+                targetName: 'Apply to Scene Prompt',
+                controlImageUrl: this.editingScenePrompt?.controlImageUrl || null
+            }
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
+                let promptResult = typeof result === 'string' ? result : result.prompt;
+                
+                if (typeof result !== 'string' && result.controlImageUrl !== undefined) {
+                    this.editingScenePrompt.controlImageUrl = result.controlImageUrl;
+                }
+
                 // 1. Áp dụng cho Video Prompt
                 let currentPrompt = this.editingScenePrompt.prompt ? this.editingScenePrompt.prompt.trim() : '';
                 currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
                 if (currentPrompt) {
-                    this.editingScenePrompt.prompt = '[Cinematography: ' + result + ']\n\n' + currentPrompt;
+                    this.editingScenePrompt.prompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
                 } else {
-                    this.editingScenePrompt.prompt = '[Cinematography: ' + result + ']';
+                    this.editingScenePrompt.prompt = '[Cinematography: ' + promptResult + ']';
                 }
 
                 // 2. Áp dụng cho Image Prompt (Blueprint)
@@ -894,9 +1044,9 @@ Instructions:
                 currentImagePrompt = currentImagePrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
                 if (currentImagePrompt) {
-                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + result + ']\n\n' + currentImagePrompt;
+                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + promptResult + ']\n\n' + currentImagePrompt;
                 } else {
-                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + result + ']';
+                    this.editingScenePrompt.imagePrompt = '[Cinematography: ' + promptResult + ']';
                 }
 
                 this.toastr.success('Đã áp dụng thông số Director Mode cho cả Hình Ảnh và Video!');
@@ -964,6 +1114,7 @@ Instructions:
     save() {
         if (this.editingScenePrompt) {
             this.editingScenePrompt.aspectRatio = this.selectedAspectRatio;
+            this.editingScenePrompt.usePreviousSceneFrame = this.usePreviousSceneFrame;
             // Đảm bảo đồng bộ thời lượng trong prompt một lần nữa trước khi lưu
             if (this.editingScenePrompt.duration && this.editingScenePrompt.prompt) {
                 const regex = /(NOTE:\s*This\s*scene\s*is\s*)([\d.]+)(\s*seconds?\s*long)/gi;

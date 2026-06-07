@@ -709,7 +709,8 @@ export class GenaiService {
         prompt: string,
         aspectRatio?: string,
         referenceImages?: any[],
-        duration?: number
+        duration?: number,
+        seed?: number
     ): Promise<string> {
         this.syncConfigFromStorage();
         
@@ -832,7 +833,8 @@ export class GenaiService {
                     input: inputPayload,
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        duration: duration || config.defaultDuration || 5
+                        duration: duration || config.defaultDuration || 5,
+                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
                 };
             } else if (config.payloadFormat === 'flat') {
@@ -840,7 +842,8 @@ export class GenaiService {
                     model: model,
                     ...inputPayload,
                     aspect_ratio: aspectRatio || '16:9',
-                    duration: duration || config.defaultDuration || 5
+                    duration: duration || config.defaultDuration || 5,
+                    ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                 };
             } else if (config.payloadFormat === 'google_sdk') {
                 // Xử lý riêng cho Veo / Google SDK format

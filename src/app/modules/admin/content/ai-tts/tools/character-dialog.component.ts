@@ -205,6 +205,8 @@ export class CharacterDialogComponent {
             if (this.editingChar.prompt) promptPartsText.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
             
             let finalPrompt = promptPartsText.join('\n');
+            // Force character sheet for the avatar generation
+            finalPrompt += '\n\n[MANDATORY: Generate a professional "Character Reference Sheet" showing the character from multiple angles (front, side, back) on a single cohesive canvas. White background.]';
 
             let requestParts: any[] = [{ text: finalPrompt }];
 
@@ -373,7 +375,7 @@ Yêu cầu trả về định dạng JSON thuần túy (không có markdown \`\`
     "role": "Vai trò của nhân vật",
     "appearance": "Mô tả chi tiết về ngoại hình, độ tuổi, trang phục, kiểu tóc, phụ kiện...",
     "personality": "Mô tả tính cách, thái độ, biểu cảm...",
-    "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG VIỆT). YÊU CẦU: BẮT BUỘC phải mô tả rõ GIỚI TÍNH (Nam/Nữ/Boy/Girl/Man/Woman...) và ĐỘ TUỔI của nhân vật. Tập trung miêu tả cực kỳ chi tiết ngoại hình, trang phục, màu sắc. Hãy viết theo dạng 'Bản vẽ thiết kế nhân vật (Character design sheet), nhiều góc độ' để ra được hình mẫu chuẩn."
+    "prompt": "Câu prompt tạo hình nhân vật (BẰNG TIẾNG ANH). YÊU CẦU: BẮT BUỘC phải mô tả rõ GIỚI TÍNH, ĐỘ TUỔI, trang phục, màu sắc. RẤT QUAN TRỌNG: Bắt buộc phải bắt đầu bằng cụm từ 'Character reference sheet, character turnaround, multiple views, front view, side view, back view, white background'."
 }
 
 Lưu ý: Chỉ trả về object JSON thuần túy.`;
