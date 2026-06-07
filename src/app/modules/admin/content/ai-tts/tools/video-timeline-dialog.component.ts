@@ -1051,20 +1051,60 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 reject('Empty URL');
                 return;
             }
-            if (url.startsWith('data:image')) {
-                resolve(url.split(',')[1]);
-                return;
-            }
 
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
+                
+                // Đảm bảo kích thước tối thiểu và tỷ lệ khung hình an toàn cho Kling V3
+                // (tránh lỗi ConvertImageRequest do server proxy cố tự resize ảnh không hợp lệ)
+                let targetW = img.width;
+                let targetH = img.height;
+                
+                // Nếu ảnh quá nhỏ, scale lên tối thiểu 512
+                if (targetW < 512 || targetH < 512) {
+                    const scale = Math.max(512 / targetW, 512 / targetH);
+                    targetW = Math.round(targetW * scale);
+                    targetH = Math.round(targetH * scale);
+                }
+                
+                // Khống chế kích thước tối đa 1536 để tránh file quá nặng
+                if (targetW > 1536 || targetH > 1536) {
+                    const scale = Math.min(1536 / targetW, 1536 / targetH);
+                    targetW = Math.round(targetW * scale);
+                    targetH = Math.round(targetH * scale);
+                }
+
+                // Kiểm tra tỷ lệ khung hình (Kling giới hạn 1:2.5 đến 2.5:1)
+                // Ta sẽ pad (thêm viền) nếu tỷ lệ vượt quá 1:2 hoặc 2:1 để an toàn
+                let finalW = targetW;
+                let finalH = targetH;
+                const ratio = targetW / targetH;
+                
+                if (ratio > 2) {
+                    // Quá rộng -> thêm viền trên dưới
+                    finalH = Math.round(targetW / 2);
+                } else if (ratio < 0.5) {
+                    // Quá cao -> thêm viền 2 bên
+                    finalW = Math.round(targetH / 2);
+                }
+
+                canvas.width = finalW;
+                canvas.height = finalH;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                const dataURL = canvas.toDataURL('image/png');
+                if (ctx) {
+                    // Lót nền trắng để tránh bị đen do ảnh PNG trong suốt chuyển sang JPEG
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, finalW, finalH);
+                    
+                    // Vẽ ảnh vào giữa canvas
+                    const offsetX = (finalW - targetW) / 2;
+                    const offsetY = (finalH - targetH) / 2;
+                    ctx.drawImage(img, offsetX, offsetY, targetW, targetH);
+                }
+
+                const dataURL = canvas.toDataURL('image/jpeg', 0.85);
                 resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
             };
             img.onerror = error => reject(error);
@@ -1208,7 +1248,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 try {
                     const base64Data = await this.getBase64FromImageUrl(video.imageUrl);
                     referenceImages.push({
-                        image: { imageBytes: base64Data, mimeType: 'image/png' },
+                        image: { imageBytes: base64Data, mimeType: 'image/jpeg' },
                         referenceType: 'START_FRAME'
                     });
                 } catch (e) {
@@ -1224,7 +1264,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     try {
                         const base64DataEnd = await this.getBase64FromImageUrl(targetVideo.imageUrl);
                         referenceImages.push({
-                            image: { imageBytes: base64DataEnd, mimeType: 'image/png' },
+                            image: { imageBytes: base64DataEnd, mimeType: 'image/jpeg' },
                             referenceType: 'END_FRAME'
                         });
                     } catch (e) {
@@ -1233,7 +1273,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
 
-            // Gắn nhân vật
+            // Gắn thêm ảnh Khung xương/Bố cục (ControlNet / Pose reference)
+            let controlImg = video.controlImageUrl || this.projectData?.masterControlImageUrl;
+            if (controlImg) {
+                try {
+                    const base64DataControl = await this.getBase64FromImageUrl(controlImg);
+                    referenceImages.push({
+                        image: { imageBytes: base64DataControl, mimeType: 'image/jpeg' },
+                        referenceType: 'CONTROL_IMAGE'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh Khung xương/Bố cục làm reference cho video:', e);
+                }
+            }
+
+            // Gắn ảnh avatar nhân vật để giữ nhất quán nhân vật giữa các video
+            let hasCharacterRef = false;
             if (this.projectData?.characters) {
                 for (const char of this.projectData.characters) {
                     const charName = char.name || char.role;
@@ -1243,9 +1298,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             try {
                                 const base64Data = await this.getBase64FromImageUrl(imgUrl);
                                 referenceImages.push({
-                                    image: { imageBytes: base64Data, mimeType: 'image/png' },
+                                    image: { imageBytes: base64Data, mimeType: 'image/jpeg' },
                                     referenceType: 'ASSET'
                                 });
+                                hasCharacterRef = true;
                             } catch (e) {
                                 console.error('Không thể đọc ảnh reference cho video:', char.name, e);
                             }
@@ -1261,6 +1317,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             if (video.duration) {
                 finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${video.duration} seconds]`;
             }
+
 
             if (isProxy) {
                 base64 = await this._genaiService.generateVideoUModelverse(
@@ -1856,6 +1913,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         video.duration = result.duration;
                         video.maxDuration = result.duration;
                     }
+                    if (result.usePreviousSceneFrame !== undefined) video.usePreviousSceneFrame = result.usePreviousSceneFrame;
+                    if (result.controlImageUrl !== undefined) video.controlImageUrl = result.controlImageUrl;
                     this.saveData();
                     this.cd.detectChanges();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');

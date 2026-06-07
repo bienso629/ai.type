@@ -39,7 +39,7 @@ import { GenaiService } from 'app/genai.service';
             </div>
         </div>
         
-        <div class="flex flex-col gap-5 pt-4">
+        <div class="flex flex-col gap-1 pt-2">
             <mat-form-field appearance="outline" class="w-full">
                 <mat-label>Chọn câu thoại có sẵn</mat-label>
                 <mat-select [(ngModel)]="data.selectedClip" placeholder="Tìm và chọn một câu thoại..." required (selectionChange)="generateAIPrompt()">

@@ -205,8 +205,13 @@ export class CharacterDialogComponent {
             if (this.editingChar.prompt) promptPartsText.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
             
             let finalPrompt = promptPartsText.join('\n');
-            // Force character sheet for the avatar generation
-            finalPrompt += '\n\n[MANDATORY: Generate a professional "Character Reference Sheet" showing the character from multiple angles (front, side, back) on a single cohesive canvas. White background.]';
+            
+            // Lấy phong cách visual từ master prompt (master prompt quy định style toàn bộ project)
+            if (this.masterPrompt && this.masterPrompt.trim()) {
+                finalPrompt += `\n\n[VISUAL STYLE FROM PROJECT: ${this.masterPrompt.trim()}]\n[IMPORTANT: The character avatar MUST strictly follow the visual style described above. Match the same art style, rendering technique, and aesthetic.]`;
+            }
+            
+            finalPrompt += '\n\n[MANDATORY: Generate a professional "Character Reference Sheet" showing the character from multiple angles (front, side, back) on a single cohesive canvas. Neutral background.]';
 
             let requestParts: any[] = [{ text: finalPrompt }];
 

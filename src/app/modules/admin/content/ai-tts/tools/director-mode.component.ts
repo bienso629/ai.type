@@ -360,7 +360,7 @@ export class DirectorModeComponent implements OnInit {
             this.cd.detectChanges();
 
             const aiPrompt = `Draw a detailed professional storyboard sketch representing EXACTLY this scene/layout: "${promptInput}". 
-[MANDATORY: Make it a clear, high-quality storyboard sketch in grayscale or black-and-white. It MUST include details of the environment, background, and specific character poses described in the prompt. Do NOT draw a simple stickman. Ensure structural details are present to serve as a master layout reference.]`;
+[MANDATORY: Make it a clear, high-quality storyboard sketch in grayscale or black-and-white. It MUST include details of the environment, background, and specific character poses described in the prompt. CRITICAL: Do NOT draw specific clothing, outfits, or detailed facial features for the characters. Draw all characters as simple 3D mannequins, wooden dummies, or blank base meshes. This is to ensure it only captures the POSE and STRUCTURAL COMPOSITION without polluting the final video's clothing style.]`;
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.1-flash-image-preview',

@@ -75,10 +75,10 @@ export class HelperService {
 
             // 6. Parse
             return JSON.parse(jsonText);
-        } catch (err) {
+        } catch (err: any) {
             console.error('AI JSON parse failed');
             console.error('Original:', text);
-            throw err;
+            throw new Error(`${err.message} | RAW: ${text.substring(0, 150)}`);
         }
     }
 

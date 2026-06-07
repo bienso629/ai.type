@@ -230,21 +230,59 @@ export class EditScenePromptDialogComponent {
                 reject('Empty URL');
                 return;
             }
-            // Nếu url đã là base64 thì trả về phần data
-            if (url.startsWith('data:image')) {
-                resolve(url.split(',')[1]);
-                return;
-            }
 
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                canvas.width = img.width;
-                canvas.height = img.height;
+                
+                // Đảm bảo kích thước tối thiểu và tỷ lệ khung hình an toàn cho Kling V3 (tránh lỗi ConvertImageRequest do server cố tự resize)
+                let targetW = img.width;
+                let targetH = img.height;
+                
+                // Nếu ảnh quá nhỏ, scale lên tối thiểu 512
+                if (targetW < 512 || targetH < 512) {
+                    const scale = Math.max(512 / targetW, 512 / targetH);
+                    targetW = Math.round(targetW * scale);
+                    targetH = Math.round(targetH * scale);
+                }
+                
+                // Khống chế kích thước tối đa 1536 để tránh file quá nặng
+                if (targetW > 1536 || targetH > 1536) {
+                    const scale = Math.min(1536 / targetW, 1536 / targetH);
+                    targetW = Math.round(targetW * scale);
+                    targetH = Math.round(targetH * scale);
+                }
+
+                // Kiểm tra tỷ lệ khung hình (Kling giới hạn 1:2.5 đến 2.5:1)
+                // Ta sẽ pad (thêm viền) nếu tỷ lệ vượt quá 1:2 hoặc 2:1 để an toàn
+                let finalW = targetW;
+                let finalH = targetH;
+                const ratio = targetW / targetH;
+                
+                if (ratio > 2) {
+                    // Quá rộng -> thêm viền trên dưới
+                    finalH = Math.round(targetW / 2);
+                } else if (ratio < 0.5) {
+                    // Quá cao -> thêm viền 2 bên
+                    finalW = Math.round(targetH / 2);
+                }
+
+                canvas.width = finalW;
+                canvas.height = finalH;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0);
-                const dataURL = canvas.toDataURL('image/png');
+                if (ctx) {
+                    // Lót nền trắng để tránh bị đen do ảnh PNG trong suốt chuyển sang JPEG
+                    ctx.fillStyle = '#ffffff';
+                    ctx.fillRect(0, 0, finalW, finalH);
+                    
+                    // Vẽ ảnh vào giữa canvas
+                    const offsetX = (finalW - targetW) / 2;
+                    const offsetY = (finalH - targetH) / 2;
+                    ctx.drawImage(img, offsetX, offsetY, targetW, targetH);
+                }
+
+                const dataURL = canvas.toDataURL('image/jpeg', 0.85);
                 resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
             };
             img.onerror = error => reject(error);
@@ -552,6 +590,10 @@ Instructions:
                             }
                         });
                         usedPreviousFrame = true;
+                        
+                        // Hiển thị trực quan ảnh nối tiếp trên UI
+                        this.editingScenePrompt.imageUrl = 'file://' + extractResult.path;
+                        
                         this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
                     }
                 } catch (e) {
@@ -717,9 +759,13 @@ Instructions:
                                 imageBytes: base64Data,
                                 mimeType: 'image/jpeg'
                             },
-                            referenceType: 'ASSET'
+                            referenceType: 'START_FRAME'
                         });
                         usedPreviousFrameVideo = true;
+                        
+                        // Hiển thị trực quan ảnh nối tiếp trên UI
+                        this.editingScenePrompt.imageUrl = 'file://' + extractResult.path;
+                        
                         this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
                     }
                 } catch (e) {
@@ -736,7 +782,7 @@ Instructions:
                             imageBytes: base64Data,
                             mimeType: 'image/png'
                         },
-                        referenceType: 'ASSET'
+                        referenceType: usedPreviousFrameVideo ? 'CHARACTER_REFERENCE' : 'START_FRAME'
                     });
                 } catch (e) {
                     console.error('Không thể đọc ảnh Storyboard làm reference cho video:', e);
@@ -754,7 +800,7 @@ Instructions:
                                 imageBytes: base64Data,
                                 mimeType: 'image/png'
                             },
-                            referenceType: 'ASSET'
+                            referenceType: 'CHARACTER_REFERENCE'
                         });
                     } catch (e) {
                         console.error('Không thể đọc ảnh reference cho video:', char.name, e);
@@ -762,20 +808,37 @@ Instructions:
                 }
             }
 
-            // Fetch control image (Khung xương / Bố cục)
-            let finalControlImageVid = this.editingScenePrompt.controlImageUrl || this.data?.masterControlImageUrl;
-            if (finalControlImageVid) {
+            // Fetch control image riêng của phân cảnh (Khung xương / Bố cục)
+            let sceneControlImageVid = this.editingScenePrompt.controlImageUrl;
+            if (sceneControlImageVid) {
                 try {
-                    const base64Data = await this.getBase64FromImageUrl(finalControlImageVid);
+                    const base64Data = await this.getBase64FromImageUrl(sceneControlImageVid);
                     referenceImages.push({
                         image: {
                             imageBytes: base64Data,
                             mimeType: 'image/png'
                         },
-                        referenceType: 'ASSET'
+                        referenceType: 'CONTROL_IMAGE'
                     });
                 } catch (e) {
-                    console.error('Không thể đọc ảnh control image cho video:', e);
+                    console.error('Không thể đọc ảnh control image của scene cho video:', e);
+                }
+            }
+
+            // Fetch Master Control Image (Phong cách chung toàn video)
+            let masterControlImageVid = this.data?.masterControlImageUrl;
+            if (masterControlImageVid && masterControlImageVid !== sceneControlImageVid) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(masterControlImageVid);
+                    referenceImages.push({
+                        image: {
+                            imageBytes: base64Data,
+                            mimeType: 'image/png'
+                        },
+                        referenceType: 'STYLE_REFERENCE'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh master control image cho video:', e);
                 }
             }
 
@@ -788,7 +851,7 @@ Instructions:
                             imageBytes: base64Data,
                             mimeType: 'image/png'
                         },
-                        referenceType: 'ASSET'
+                        referenceType: 'CHARACTER_REFERENCE'
                     });
                 } catch (e) {
                     console.error('Không thể đọc ảnh Global Reference Image cho video:', e);
