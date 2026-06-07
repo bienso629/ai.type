@@ -98,6 +98,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     // --- Timeline Player ---
     isPlayingTimeline: boolean = false;
     isPreviewPlaying: boolean = false;
+
+    get hasAnyExtractedAudio(): boolean {
+        if (!this.projectData || !this.projectData.scenes) return false;
+        return this.projectData.scenes.some((scene: any) => 
+            scene.extractedAudios && scene.extractedAudios.length > 0
+        );
+    }
     currentTimelineTime: number = 0;
     timelineTimer: any = null;
     activeVideo: any = null;
@@ -1803,15 +1810,30 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     openEditScenePromptDialog(scene: any, video: any, index: number, vIdx: number = -1) {
+        let previousVideoUrl: string | null = null;
+        if (vIdx > 0 && scene.videos && scene.videos[vIdx - 1]) {
+            previousVideoUrl = scene.videos[vIdx - 1].videoUrl || null;
+        } else if (index > 0 && this.projectData?.scenes?.[index - 1]) {
+            const prevScene = this.projectData.scenes[index - 1];
+            if (prevScene.videos && prevScene.videos.length > 0) {
+                previousVideoUrl = prevScene.videos[prevScene.videos.length - 1].videoUrl || null;
+            } else if (prevScene.videoUrl) {
+                previousVideoUrl = prevScene.videoUrl;
+            }
+        }
+
         const dialogRef = this.dialog.open(EditScenePromptDialogComponent, {
             data: {
                 scene,
                 video,
                 index,
                 vIdx,
+                previousVideoUrl,
                 characters: this.projectData?.characters || [],
                 projectAspectRatio: this.projectData?.aspectRatio || '16:9',
                 masterPrompt: this.projectData?.masterPrompt || '',
+                masterControlImageUrl: this.projectData?.masterControlImageUrl || '',
+                globalContext: this.projectData?.globalContext || null,
                 mediaDir: this.projectData?.mediaDir || '',
                 uuid: this.projectData?.uuid || this.data?.uuid
             },
@@ -2323,24 +2345,39 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     openDirectorMode() {
         const dialogRef = this.dialog.open(DirectorModeComponent, {
-            width: '900px',
+            width: '650px',
             maxWidth: '95vw',
             maxHeight: '95vh',
             panelClass: 'dark-theme-dialog',
-            data: { prompt: this.projectData?.masterPrompt || '', targetName: 'Apply to Master Prompt' }
+            data: { 
+                prompt: this.projectData?.masterPrompt || '', 
+                targetName: 'Apply to Master Prompt',
+                globalContext: this.projectData?.globalContext || null
+            }
         });
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
+                let promptResult = typeof result === 'string' ? result : result.prompt;
+                
                 if (!this.projectData) this.projectData = {};
                 let currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
                 currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
                 if (currentPrompt) {
-                    this.projectData.masterPrompt = '[Cinematography: ' + result + ']\n\n' + currentPrompt;
+                    this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']\n\n' + currentPrompt;
                 } else {
-                    this.projectData.masterPrompt = '[Cinematography: ' + result + ']';
+                    this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']';
                 }
+                
+                if (typeof result !== 'string' && result.controlImageUrl) {
+                    this.projectData.masterControlImageUrl = result.controlImageUrl;
+                }
+
+                if (typeof result !== 'string' && result.globalContext) {
+                    this.projectData.globalContext = { ...result.globalContext };
+                }
+                
                 this.saveData();
                 this.toastr.success('Đã áp dụng các thông số Director Mode vào Master Prompt!');
             }

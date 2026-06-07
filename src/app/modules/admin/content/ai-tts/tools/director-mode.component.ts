@@ -3,11 +3,16 @@ import { CommonModule } from '@angular/common';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { GenaiService } from 'app/genai.service';
+import { ToastrService } from 'ngx-toastr';
+import { ChangeDetectorRef } from '@angular/core';
 
 @Component({
     selector: 'app-director-mode',
     standalone: true,
-    imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule],
+    imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
     templateUrl: './director-mode.component.html',
     styles: [`
         .light-theme {
@@ -63,15 +68,31 @@ import { MatIconModule } from '@angular/material/icon';
 })
 export class DirectorModeComponent implements OnInit {
     
+    activeTab: 'camera' | 'controlnet' | 'context' = 'camera';
+    controlImageUrl: string | null = null;
+    isUploadingControlImage: boolean = false;
+    
+    // Global Context
+    globalContext = {
+        seed: null as number | null,
+        referenceImageUrl: null as string | null,
+        environmentPrompt: ''
+    };
+    isUploadingReferenceImage: boolean = false;
+    
+    private safeUrlCache: { [url: string]: SafeUrl } = {};
+
     selections: any = {
         timeOfDay: '',
         lighting: '',
         filmStockColor: 'Full color',
         filmStockType: '',
         focusDepth: '',
+        cameraAngle: '',
         composition: '',
         shotSize: '',
         lenses: '',
+        cameraSpeed: '',
         movementType: '',
         movementSpeed: 'Standard movement',
         movementEasing: 'Standard easing'
@@ -83,9 +104,11 @@ export class DirectorModeComponent implements OnInit {
         filmStockType: ['VHS', '16mm', '35mm', 'Digital'],
         focusDepth: ['Deep focus', 'Cinematic Bokeh', 'Selective focus'],
         composition: ['Rule of thirds', 'Center weighted', 'Negative space', 'Headroom'],
+        cameraAngle: ['Eye level', 'Low angle', 'High angle', 'Top-down', 'Dutch angle'],
         shotSize: ['Extreme close-up', 'Close-up', 'Medium', 'Wide', 'Extreme wide'],
         lenses: ['Wide angle', 'Standard', 'Telephoto', 'Macro'],
-        movementType: ['Static', 'Tilt', 'Dolly', 'Tracking', 'Orbit']
+        movementType: ['Static', 'Tilt', 'Dolly', 'Tracking', 'Orbit'],
+        cameraSpeed: ['Real-time', 'Slow motion', 'Hyperlapse']
     };
 
     labels: any = {
@@ -98,6 +121,16 @@ export class DirectorModeComponent implements OnInit {
         'Side lit': 'Sáng ngang',
         'Back lit': 'Sáng ngược',
         'Top lit': 'Sáng từ trên',
+
+        'Eye level': 'Ngang tầm mắt',
+        'Low angle': 'Từ dưới lên',
+        'High angle': 'Từ trên xuống',
+        'Top-down': 'Đỉnh đầu',
+        'Dutch angle': 'Góc nghiêng',
+
+        'Real-time': 'Bình thường',
+        'Slow motion': 'Quay chậm',
+        'Hyperlapse': 'Tua nhanh',
 
         'VHS': 'Băng VHS',
         '16mm': 'Phim 16mm',
@@ -142,16 +175,19 @@ export class DirectorModeComponent implements OnInit {
     };
 
     // Dummy images for UI display. You can replace these with local assets later.
-    getPlaceholderUrl(label: string) {
+    getInitials(label: string) {
         let textParts = label.split(' ');
         let initials = textParts.length > 1 ? textParts[0][0] + textParts[1][0] : label.substring(0, 2);
-        initials = initials.toUpperCase();
-        return `https://ui-avatars.com/api/?name=${initials}&background=e5e7eb&color=4b5563&size=128&font-size=0.4`;
+        return initials.toUpperCase();
     }
 
     constructor(
         public dialogRef: MatDialogRef<DirectorModeComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: any
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private sanitizer: DomSanitizer,
+        private _genaiService: GenaiService,
+        private toastr: ToastrService,
+        private cd: ChangeDetectorRef
     ) {
         // Init with existing prompt if any
         if (data && data.prompt) {
@@ -202,7 +238,180 @@ export class DirectorModeComponent implements OnInit {
                     }
                 });
             }
+            if (data.controlImageUrl) {
+                this.controlImageUrl = data.controlImageUrl;
+            }
+            if (data.globalContext) {
+                this.globalContext = { ...data.globalContext };
+            }
         }
+    }
+
+    onReferenceImageSelected(event: any) {
+        const file = event.target.files[0];
+        if (file) {
+            this.isUploadingReferenceImage = true;
+            this.globalContext.referenceImageUrl = URL.createObjectURL(file);
+            this.isUploadingReferenceImage = false;
+        }
+    }
+
+    removeReferenceImage() {
+        this.globalContext.referenceImageUrl = null;
+    }
+
+    getSafeUrl(url: string | null): SafeUrl | string | null {
+        if (!url) return url;
+        if (typeof url !== 'string') return url;
+        let cleanUrl = url;
+
+        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
+            // do nothing
+        } else {
+            cleanUrl = cleanUrl.replace(/^unsafe:/, '');
+            const originalPath = cleanUrl;
+
+            const mediaDir = this.data?.mediaDir || '';
+            let projectUuid = this.data?.uuid;
+            if (!projectUuid) {
+                const parts = window.location.href.split('/');
+                projectUuid = parts[parts.length - 1];
+            }
+
+            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
+        }
+
+        if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
+        
+        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+        this.safeUrlCache[cleanUrl] = safeUrl;
+        return safeUrl;
+    }
+
+    async onControlImageSelected(event: any) {
+        const fileInput = event.target as HTMLInputElement;
+        if (fileInput.files && fileInput.files.length > 0) {
+            try {
+                this.isUploadingControlImage = true;
+                const electron = (window as any).electron;
+
+                if (!electron || !electron.getPathForFile) {
+                    const file = fileInput.files[0];
+                    this.controlImageUrl = URL.createObjectURL(file);
+                    this.isUploadingControlImage = false;
+                    return;
+                }
+
+                const file = fileInput.files[0];
+                const originalPath = electron.getPathForFile(file);
+
+                if (originalPath) {
+                    const uuid = this.data?.uuid;
+                    const username = this.data?.username || 'anonymous';
+                    const customDir = uuid ? `tts/${username}/${uuid}` : undefined;
+                    
+                    const localFilePath = await electron.selectLocalFile(originalPath, customDir);
+                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
+                    this.controlImageUrl = finalPath;
+                }
+                this.isUploadingControlImage = false;
+                this.cd.detectChanges();
+            } catch (error) {
+                console.error('Process error:', error);
+                this.isUploadingControlImage = false;
+                this.cd.detectChanges();
+            }
+        }
+    }
+
+    isPromptingForPose: boolean = false;
+    posePromptText: string = '';
+
+    openPosePrompt(event: Event) {
+        event.stopPropagation();
+        this.isPromptingForPose = true;
+        let basePrompt = '';
+        if (this.data && this.data.prompt) {
+            basePrompt = this.data.prompt;
+            basePrompt = basePrompt.replace(/\[(?:Director|Cinematography|MANDATORY):.*?\]/g, '').replace(/\n{2,}/g, '\n').trim();
+        }
+        if (!basePrompt) {
+            basePrompt = "Góc máy ngang tầm mắt, trung cảnh (Medium Shot). Một người đàn ông đang đứng khoanh tay suy nghĩ.";
+        }
+        this.posePromptText = basePrompt;
+        this.cd.detectChanges();
+    }
+
+    async submitGeneratePose(event: Event) {
+        event.stopPropagation();
+        const promptInput = this.posePromptText.trim();
+        if (!promptInput) return;
+
+        this.isPromptingForPose = false;
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.saveBase64) {
+            this.toastr.error('Tính năng này yêu cầu môi trường Desktop (Electron) để lưu ảnh.');
+            return;
+        }
+
+        try {
+            this.isUploadingControlImage = true;
+            this.cd.detectChanges();
+
+            const aiPrompt = `Draw a detailed professional storyboard sketch representing EXACTLY this scene/layout: "${promptInput}". 
+[MANDATORY: Make it a clear, high-quality storyboard sketch in grayscale or black-and-white. It MUST include details of the environment, background, and specific character poses described in the prompt. Do NOT draw a simple stickman. Ensure structural details are present to serve as a master layout reference.]`;
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-image-preview',
+                contents: [{ role: 'user', parts: [{ text: aiPrompt }] }],
+                config: {
+                    aspectRatio: '16:9',
+                    responseModalities: ['IMAGE']
+                } as any
+            });
+
+            let base64Data = null;
+            if (response.candidates && response.candidates.length > 0) {
+                for (const part of response.candidates[0].content.parts) {
+                    if (part.inlineData) {
+                        base64Data = part.inlineData.data;
+                        break;
+                    }
+                }
+            }
+
+            if (!base64Data) {
+                throw new Error('AI did not return any image data.');
+            }
+
+            const fileName = `pose_reference_${Date.now()}.png`;
+            const result = await electron.saveBase64({
+                base64: base64Data,
+                fileName: fileName,
+                folder: 'tts',
+                username: this.data.username || 'admin'
+            });
+
+            if (result && result.success) {
+                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                this.controlImageUrl = finalPath;
+                this.toastr.success('Đã tạo ảnh phác thảo thành công!');
+            } else {
+                throw new Error(result.error || 'Failed to save local file');
+            }
+
+        } catch (error: any) {
+            console.error('Error generating pose:', error);
+            this.toastr.error('Lỗi khi tạo ảnh phác thảo: ' + error.message);
+        } finally {
+            this.isUploadingControlImage = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    removeControlImage() {
+        this.controlImageUrl = null;
     }
 
     ngOnInit(): void {}
@@ -233,8 +442,10 @@ export class DirectorModeComponent implements OnInit {
         
         if (this.selections.focusDepth) parts.push(this.selections.focusDepth);
         if (this.selections.composition) parts.push(this.selections.composition);
-        if (this.selections.shotSize) parts.push(this.selections.shotSize);
+        if (this.selections.cameraAngle) parts.push(`${this.selections.cameraAngle} shot`);
+        if (this.selections.shotSize) parts.push(`${this.selections.shotSize} shot`);
         if (this.selections.lenses) parts.push(this.selections.lenses);
+        if (this.selections.cameraSpeed) parts.push(this.selections.cameraSpeed);
         
         if (this.selections.movementType) {
             if (this.selections.movementType !== 'Static') {
@@ -244,7 +455,15 @@ export class DirectorModeComponent implements OnInit {
             }
         }
 
-        const finalPrompt = parts.join(', ');
-        this.dialogRef.close(finalPrompt);
+        let finalPrompt = '';
+        if (parts.length > 0) {
+            finalPrompt = parts.join(', ');
+        }
+
+        this.dialogRef.close({ 
+            prompt: finalPrompt, 
+            controlImageUrl: this.controlImageUrl,
+            globalContext: this.globalContext
+        });
     }
 }

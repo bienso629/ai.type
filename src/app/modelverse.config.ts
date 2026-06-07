@@ -1,15 +1,26 @@
+// Dùng chung cho cả cấu hình Video và Image
 export interface VideoModelConfig {
     payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat';
     promptKey: string;
     imageKey?: string;         // e.g., 'image_url', 'first_frame_image', 'image'
     endImageKey?: string;      // e.g., 'last_frame_image', 'image_end', 'end_image_url'
     useDataUri: boolean;       // true if 'data:image/png;base64,...' is required
-    defaultDuration?: number;
+    defaultDuration?: number;  // Only applicable for video models
     // Có thể cấu hình thêm các tham số tĩnh khác
     extraParams?: Record<string, any>;
 }
 
 export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
+    // ----------------------
+    // VIDEO MODELS
+    // ----------------------
+    'sora': {
+        payloadFormat: 'flat',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false,
+        defaultDuration: 5
+    },
     // Kling Series (Kling-v3, Kling-O3, Kling-v3-Motion-Control)
     'kling': {
         payloadFormat: 'nested_input',
@@ -27,7 +38,7 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         useDataUri: true,
         defaultDuration: 5
     },
-    // Wan Series (Wan2.1)
+    // Wan Series (Wan2.1, Wan2.5, Wan2.6, Wan2.7)
     'wan': {
         payloadFormat: 'nested_input',
         promptKey: 'prompt',
@@ -51,6 +62,68 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         imageKey: 'image_url',
         useDataUri: true,
         defaultDuration: 5
+    },
+    // MiniMax Series (Hailuo)
+    'minimax': {
+        payloadFormat: 'nested_input',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false,
+        defaultDuration: 5
+    },
+    'hailuo': {
+        payloadFormat: 'nested_input',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false,
+        defaultDuration: 5
+    },
+    // Doubao (Seedance / Seedream)
+    'doubao': {
+        payloadFormat: 'nested_input',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: true,
+        defaultDuration: 5
+    },
+    // ----------------------
+    // IMAGE MODELS
+    // ----------------------
+    'gemini': {
+        payloadFormat: 'google_sdk',
+        promptKey: 'prompt',
+        imageKey: 'image',
+        useDataUri: false
+    },
+    'flux': {
+        payloadFormat: 'flat',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false
+    },
+    'stepfun': {
+        payloadFormat: 'nested_input',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: true
+    },
+    'qwen': {
+        payloadFormat: 'flat',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false
+    },
+    'gpt-image': {
+        payloadFormat: 'flat',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false
+    },
+    'midjourney': {
+        payloadFormat: 'nested_input',
+        promptKey: 'prompt',
+        imageKey: 'image_url',
+        useDataUri: false
     }
 };
 
