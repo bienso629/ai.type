@@ -1,5 +1,6 @@
 import { Component, Inject, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -9,10 +10,17 @@ import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { ChangeDetectorRef } from '@angular/core';
 
+export interface ControlTemplate {
+    id: string;
+    prompt: string;
+    imageUrl: string;
+    createdAt: number;
+}
+
 @Component({
     selector: 'app-director-mode',
     standalone: true,
-    imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule],
+    imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, FormsModule],
     templateUrl: './director-mode.component.html',
     styles: [`
         .light-theme {
@@ -71,6 +79,10 @@ export class DirectorModeComponent implements OnInit {
     activeTab: 'camera' | 'controlnet' | 'context' = 'camera';
     controlImageUrl: string | null = null;
     isUploadingControlImage: boolean = false;
+
+    savedControlTemplates: ControlTemplate[] = [];
+    isPromptingForSaveTemplate: boolean = false;
+    saveTemplateName: string = '';
     
     // Global Context
     globalContext = {
@@ -241,10 +253,56 @@ export class DirectorModeComponent implements OnInit {
             if (data.controlImageUrl) {
                 this.controlImageUrl = data.controlImageUrl;
             }
-            if (data.globalContext) {
-                this.globalContext = { ...data.globalContext };
+            if (this.data && this.data.globalContext) {
+                this.globalContext = { ...this.data.globalContext };
             }
         }
+    }
+
+    ngOnInit(): void {
+        this.loadControlTemplates();
+    }
+
+    loadControlTemplates() {
+        try {
+            const saved = localStorage.getItem('saved_control_templates');
+            if (saved) {
+                this.savedControlTemplates = JSON.parse(saved);
+            }
+        } catch (e) {
+            console.error('Lỗi khi tải bố cục mẫu:', e);
+        }
+    }
+
+    saveCurrentControlAsTemplate() {
+        if (!this.controlImageUrl) {
+            this.toastr.warning('Vui lòng đảm bảo đã có ảnh bố cục.');
+            return;
+        }
+        
+        const promptName = this.posePromptText?.trim() || 'Bố cục tuỳ chỉnh';
+
+        const newTemplate: ControlTemplate = {
+            id: 'template_' + Date.now(),
+            prompt: promptName,
+            imageUrl: this.controlImageUrl,
+            createdAt: Date.now()
+        };
+
+        this.savedControlTemplates.push(newTemplate);
+        localStorage.setItem('saved_control_templates', JSON.stringify(this.savedControlTemplates));
+        
+        this.toastr.success('Đã lưu bố cục mẫu thành công!');
+    }
+
+    deleteControlTemplate(id: string, event: Event) {
+        event.stopPropagation();
+        this.savedControlTemplates = this.savedControlTemplates.filter(t => t.id !== id);
+        localStorage.setItem('saved_control_templates', JSON.stringify(this.savedControlTemplates));
+    }
+
+    selectControlTemplate(template: ControlTemplate) {
+        this.controlImageUrl = template.imageUrl;
     }
 
     onReferenceImageSelected(event: any) {
@@ -331,8 +389,12 @@ export class DirectorModeComponent implements OnInit {
         event.stopPropagation();
         this.isPromptingForPose = true;
         let basePrompt = '';
-        if (this.data && this.data.prompt) {
-            basePrompt = this.data.prompt;
+        if (this.data && (this.data.prompt || this.data.videoPrompt)) {
+            let combined = '';
+            if (this.data.prompt) combined += this.data.prompt.trim();
+            if (this.data.videoPrompt) combined += (combined ? '\n\n' : '') + this.data.videoPrompt.trim();
+            
+            basePrompt = combined;
             basePrompt = basePrompt.replace(/\[(?:Director|Cinematography|MANDATORY):.*?\]/g, '').replace(/\n{2,}/g, '\n').trim();
         }
         if (!basePrompt) {
@@ -413,8 +475,6 @@ export class DirectorModeComponent implements OnInit {
     removeControlImage() {
         this.controlImageUrl = null;
     }
-
-    ngOnInit(): void {}
 
     select(category: string, value: string) {
         if (this.selections[category] === value) {

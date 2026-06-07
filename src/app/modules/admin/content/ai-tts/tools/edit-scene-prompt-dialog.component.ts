@@ -696,7 +696,8 @@ Instructions:
                 base64: base64Data,
                 fileName: fileName,
                 folder: 'scenes',
-                username: 'ai_type'
+                username: 'ai_type',
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
             });
 
             if (result && result.success) {
@@ -741,39 +742,6 @@ Instructions:
             // Fetch storyboard image if exists
             let referenceImages: any[] = [];
             
-            // Nếu bật kế thừa khung hình cảnh trước
-            let usedPreviousFrameVideo = false;
-            if (this.usePreviousSceneFrame && this.previousVideoUrl) {
-                try {
-                    this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
-                    let cleanUrl = this.previousVideoUrl.replace('file://', '');
-                    if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
-                        cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
-                    }
-                    
-                    const extractResult = await electron.extractLastFrame(cleanUrl);
-                    if (extractResult && extractResult.success) {
-                        const base64Data = await this.getBase64FromImageUrl('file://' + extractResult.path);
-                        referenceImages.push({
-                            image: {
-                                imageBytes: base64Data,
-                                mimeType: 'image/jpeg'
-                            },
-                            referenceType: 'START_FRAME'
-                        });
-                        usedPreviousFrameVideo = true;
-                        
-                        // Hiển thị trực quan ảnh nối tiếp trên UI
-                        this.editingScenePrompt.imageUrl = 'file://' + extractResult.path;
-                        
-                        this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
-                    }
-                } catch (e) {
-                    console.error('Lỗi khi trích xuất frame từ video trước:', e);
-                    this.toastr.error('Lỗi khi trích xuất frame: ' + e);
-                }
-            }
-
             if (this.editingScenePrompt.imageUrl && this.isImageType(this.editingScenePrompt.imageUrl)) {
                 try {
                     const base64Data = await this.getBase64FromImageUrl(this.editingScenePrompt.imageUrl);
@@ -782,7 +750,7 @@ Instructions:
                             imageBytes: base64Data,
                             mimeType: 'image/png'
                         },
-                        referenceType: usedPreviousFrameVideo ? 'CHARACTER_REFERENCE' : 'START_FRAME'
+                        referenceType: 'START_FRAME'
                     });
                 } catch (e) {
                     console.error('Không thể đọc ảnh Storyboard làm reference cho video:', e);
@@ -858,13 +826,28 @@ Instructions:
                 }
             }
 
-            let finalPrompt = this.getFullVideoPrompt();
+            let basePrompt = this.getFullVideoPrompt();
             if (this.globalContext?.environmentPrompt) {
-                finalPrompt += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
+                basePrompt += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
             }
 
+            let mandatoryTags = '';
             if (this.editingScenePrompt.duration) {
-                finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${this.editingScenePrompt.duration} seconds]`;
+                mandatoryTags += `\n[MANDATORY: Generate video with exact duration of ${this.editingScenePrompt.duration} seconds]`;
+            }
+
+            if (referenceImages && referenceImages.length > 0) {
+                mandatoryTags += `\n[MANDATORY: Strictly follow layout, skeleton & character references 100%. No hallucinations or extra details.]`;
+            }
+
+            let finalPrompt = basePrompt + mandatoryTags;
+            let byteLength = new TextEncoder().encode(finalPrompt).length;
+
+            if (byteLength > 2500 && isProxy) {
+                this.toastr.warning(`Độ dài prompt (${byteLength} bytes) vượt quá giới hạn 2500 của hệ thống. Vui lòng rút gọn kịch bản hoặc Master Prompt.`);
+                this.isGeneratingVideo = false;
+                this.cd.markForCheck();
+                return;
             }
 
             const seedToUse = this.globalContext?.seed ? this.globalContext.seed : undefined;
@@ -958,7 +941,8 @@ Instructions:
                 base64: base64,
                 fileName: fileName,
                 folder: 'scenes_videos',
-                username: 'ai_type'
+                username: 'ai_type',
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
             });
 
             if (result && result.success) {
@@ -1016,6 +1000,56 @@ Instructions:
         }
 
         return msg;
+    }
+
+    async onUsePreviousFrameChange(checked: boolean) {
+        if (checked && this.previousVideoUrl) {
+            try {
+                this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
+                let cleanUrl = this.previousVideoUrl.replace('file://', '');
+                if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
+                    cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                }
+                
+                // @ts-ignore
+                const extractResult = await electron.extractLastFrame(cleanUrl);
+                if (extractResult && extractResult.success) {
+                    let finalUrl = '';
+                    if (extractResult.base64) {
+                        // Trình xử lý IPC trả về base64 trực tiếp
+                        finalUrl = 'data:image/png;base64,' + extractResult.base64;
+                    } else if (extractResult.path) {
+                        // Trình xử lý IPC trả về đường dẫn file
+                        let properPath = extractResult.path.replace(/\\/g, '/');
+                        if (!properPath.startsWith('/')) properPath = '/' + properPath;
+                        finalUrl = 'file://' + properPath;
+                    }
+
+                    if (finalUrl) {
+                        this.editingScenePrompt.imageUrl = finalUrl;
+                        this.cd.markForCheck();
+                        this.toastr.success('Đã trích xuất và gán khung hình nối tiếp thành công!');
+                    } else {
+                        throw new Error('Kết quả trích xuất không chứa ảnh hoặc đường dẫn hợp lệ.');
+                    }
+                } else {
+                    this.toastr.error('Không thể trích xuất khung hình từ video trước.');
+                    this.usePreviousSceneFrame = false;
+                    this.cd.markForCheck();
+                }
+            } catch (e) {
+                console.error('Lỗi trích xuất frame:', e);
+                this.toastr.error('Lỗi khi trích xuất khung hình: ' + e);
+                this.usePreviousSceneFrame = false;
+                this.cd.markForCheck();
+            }
+        } else {
+            // Khi bỏ check, xoá ảnh kế thừa đi (nếu đó là ảnh last_frame)
+            if (this.editingScenePrompt.imageUrl && this.editingScenePrompt.imageUrl.includes('_last_frame.jpg')) {
+                this.editingScenePrompt.imageUrl = null;
+                this.cd.markForCheck();
+            }
+        }
     }
 
     onDurationChanged(newDuration: number) {
@@ -1079,6 +1113,7 @@ Instructions:
             panelClass: 'dark-theme-dialog',
             data: { 
                 prompt: this.editingScenePrompt?.prompt || '', 
+                videoPrompt: this.editingScenePrompt?.videoPrompt || '',
                 targetName: 'Apply to Scene Prompt',
                 controlImageUrl: this.editingScenePrompt?.controlImageUrl || null
             }

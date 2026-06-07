@@ -841,14 +841,17 @@ export class GenaiService {
         let refBase64DataUri = '';
         let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
-            const firstImg = referenceImages[0];
-            refBase64Raw = firstImg.image?.imageBytes || (typeof firstImg === 'string' ? firstImg : '');
-            if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
-                refBase64DataUri = `data:image/png;base64,${refBase64Raw}`;
-            } else if (refBase64Raw.startsWith('data:')) {
-                refBase64DataUri = refBase64Raw;
-                refMimeType = refBase64Raw.substring(5, refBase64Raw.indexOf(';'));
-                refBase64Raw = refBase64Raw.split(',')[1];
+            // Đối với Video AI, chỉ lấy START_FRAME. Bỏ qua CONTROL_IMAGE (khung xương) vì Video AI không hỗ trợ ControlNet.
+            const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD');
+            if (startImg) {
+                refBase64Raw = startImg.image?.imageBytes || (typeof startImg === 'string' ? startImg : '');
+                if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
+                    refBase64DataUri = `data:image/png;base64,${refBase64Raw}`;
+                } else if (refBase64Raw.startsWith('data:')) {
+                    refBase64DataUri = refBase64Raw;
+                    refMimeType = refBase64Raw.substring(5, refBase64Raw.indexOf(';'));
+                    refBase64Raw = refBase64Raw.split(',')[1];
+                }
             }
         }
 
@@ -1290,10 +1293,12 @@ export class GenaiService {
                             if (typeof errMessage === 'string') {
                                 if (errMessage.toLowerCase().includes('violate') || errMessage.toLowerCase().includes('safety')) {
                                     errMessage = "Nội dung vi phạm tiêu chuẩn an toàn của AI (bạo lực, nhạy cảm...). Vui lòng thử từ khoá khác.";
+                                } else if (errMessage.includes('size must be between 0 and 2500')) {
+                                    errMessage = "Tổng độ dài prompt gửi lên hệ thống bị giới hạn ở mức 2500 ký tự. Vui lòng rút gọn nội dung kịch bản hoặc Master Prompt.";
                                 }
                             }
 
-                            throw new Error(`${errMessage}`);
+                            throw new Error(`Video task failed: ${errMessage}`);
                         }
                     } else {
                         console.warn(`[Poll HTTP Error] Kiểm tra trạng thái trả về: ${response.status}`);
