@@ -30,6 +30,76 @@ export class GenaiService {
         private multiAccountService: MultiAccountService
     ) { }
 
+    /**
+     * Upload ảnh base64 lên CDN (cdn1.type.vn) và trả về URL HTTPS.
+     * CDN server chạy ở localhost:3333, endpoint POST /upload, field name 'files'.
+     * Dùng cho Kling API vì UModelverse proxy không hỗ trợ ConvertImageRequest.
+     */
+    private async uploadBase64ToCdn(base64Data: string, filename?: string): Promise<string | null> {
+        try {
+            // Chuyển base64 thành Blob
+            let mimeType = 'image/jpeg';
+            let rawBase64 = base64Data;
+            if (base64Data.startsWith('data:')) {
+                const match = base64Data.match(/^data:(image\/[^;]+);base64,/);
+                if (match) mimeType = match[1];
+                rawBase64 = base64Data.split(',')[1];
+            }
+            
+            const byteChars = atob(rawBase64);
+            const byteArray = new Uint8Array(byteChars.length);
+            for (let i = 0; i < byteChars.length; i++) {
+                byteArray[i] = byteChars.charCodeAt(i);
+            }
+            const blob = new Blob([byteArray], { type: mimeType });
+
+            // Tạo File + FormData
+            const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+            const fname = filename || `kling_ref_${Date.now()}.${ext}`;
+            const file = new File([blob], fname, { type: mimeType });
+            
+            const formData = new FormData();
+            formData.append('files', file); // CDN server dùng multer.array('files')
+
+            // Upload lên CDN server (cdn1.type.vn)
+            const uploadUrl = 'https://cdn1.type.vn/upload';
+            console.log(`[CDN Upload] Uploading ${fname} (${Math.round(rawBase64.length / 1024)}KB) to ${uploadUrl}...`);
+
+            const response = await fetch(uploadUrl, {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                console.error(`[CDN Upload] HTTP ${response.status}: ${await response.text()}`);
+                return null;
+            }
+
+            const result = await response.json();
+            
+            // Server trả về { url: "origin/public/filename", filename: "timestamp.ext" }
+            if (result?.filename) {
+                const cdnUrl = `https://cdn1.type.vn/public/${result.filename}`;
+                console.log(`[CDN Upload] Thành công! URL: ${cdnUrl}`);
+                return cdnUrl;
+            }
+
+            // Fallback: nếu server trả url trực tiếp
+            if (result?.url) {
+                // Thay origin bằng domain CDN thật
+                const cdnUrl = result.url.replace(/^https?:\/\/[^\/]+/, 'https://cdn1.type.vn');
+                console.log(`[CDN Upload] Thành công (fallback)! URL: ${cdnUrl}`);
+                return cdnUrl;
+            }
+
+            console.warn('[CDN Upload] Không tìm thấy filename/url trong response:', result);
+            return null;
+        } catch (err) {
+            console.error('[CDN Upload] Lỗi upload:', err);
+            return null;
+        }
+    }
+
     public get googleAi(): GoogleGenAI | null {
         if (!this._aiInstance && !this.isUModelverseEnabled()) {
             this.syncConfigFromStorage();
@@ -827,13 +897,85 @@ export class GenaiService {
             }
 
             let payload: any;
-            if (config.payloadFormat === 'nested_input') {
+            if (config.payloadFormat === 'kling_v3') {
+                let klingImageList: any[] = [];
+                let modifiedPrompt = prompt;
+                
+                if (referenceImages && referenceImages.length > 0) {
+                    for (const ref of referenceImages) {
+                        let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
+                        
+                        // Strip prefix data:image/... nếu có (cần raw base64 cho cả upload CDN lẫn fallback)
+                        let imgForUpload = imgRaw; // Giữ nguyên cho upload CDN (cần prefix để detect mime)
+                        if (imgRaw.startsWith('data:')) {
+                            imgRaw = imgRaw.split(',')[1]; // Raw base64 không prefix
+                        }
+                        
+                        // Log kích thước
+                        const sizeKB = Math.round(imgRaw.length / 1024);
+                        console.log(`[Kling image_list] type=${ref.referenceType}, base64 size=${sizeKB}KB`);
+                        
+                        // Kiểm tra kích thước: Kling giới hạn <= 10MB
+                        if (sizeKB / 1024 > 10) {
+                            console.warn(`[Kling] Ảnh quá nặng (${(sizeKB/1024).toFixed(1)}MB > 10MB)! Bỏ qua.`);
+                            continue;
+                        }
+                        
+                        // Upload base64 lên CDN lấy URL HTTPS
+                        // (UModelverse proxy không hỗ trợ ConvertImageRequest để tự chuyển base64 -> URL)
+                        let imageUrl: string = imgRaw; // Fallback: raw base64
+                        try {
+                            const cdnUrl = await this.uploadBase64ToCdn(imgForUpload, `kling_${ref.referenceType || 'ref'}_${Date.now()}.jpg`);
+                            if (cdnUrl) {
+                                imageUrl = cdnUrl;
+                                console.log(`[Kling] Đã upload ảnh lên CDN: ${cdnUrl}`);
+                            } else {
+                                console.warn(`[Kling] Upload CDN thất bại, fallback về raw base64`);
+                            }
+                        } catch (uploadErr) {
+                            console.warn(`[Kling] Upload CDN lỗi, fallback về raw base64:`, uploadErr);
+                        }
+                        
+                        if (ref.referenceType === 'START_FRAME') {
+                            klingImageList.push({ image_url: imageUrl, type: "first_frame" });
+                        } else if (ref.referenceType === 'END_FRAME') {
+                            klingImageList.push({ image_url: imageUrl, type: "end_frame" });
+                        } else if (ref.referenceType === 'CONTROL_IMAGE') {
+                            klingImageList.push({ image_url: imageUrl });
+                            // Ảnh khung xương: ép AI chỉ lấy tư thế, không bắt chước nét vẽ
+                            modifiedPrompt = `<<<image_${klingImageList.length}>>> [CRITICAL: The reference image is a pose/skeleton/sketch control image. DO NOT draw a skeleton or sketch. ONLY use it as a strict reference for the character's body pose, camera angle, and scene composition. Render the final output in the requested visual style.] ${modifiedPrompt}`;
+                        } else {
+                            klingImageList.push({ image_url: imageUrl });
+                            // Ảnh nhân vật/phong cách
+                            modifiedPrompt = `<<<image_${klingImageList.length}>>> ${modifiedPrompt}`;
+                        }
+                    }
+                }
+                
+                payload = {
+                    model: model,
+                    input: {
+                        prompt: modifiedPrompt
+                    },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        // Kling API yêu cầu duration là SỐ NGUYÊN (int), không chấp nhận float (3.4 → lỗi!)
+                        // Giá trị hợp lệ: 3 đến 15 giây
+                        duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
+                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+                    }
+                };
+                
+                if (klingImageList.length > 0) {
+                    payload.parameters.image_list = klingImageList;
+                }
+            } else if (config.payloadFormat === 'nested_input') {
                 payload = {
                     model: model,
                     input: inputPayload,
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        duration: duration || config.defaultDuration || 5,
+                        duration: Math.ceil(duration || config.defaultDuration || 5),
                         ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
                 };
@@ -842,7 +984,7 @@ export class GenaiService {
                     model: model,
                     ...inputPayload,
                     aspect_ratio: aspectRatio || '16:9',
-                    duration: duration || config.defaultDuration || 5,
+                    duration: Math.ceil(duration || config.defaultDuration || 5),
                     ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                 };
             } else if (config.payloadFormat === 'google_sdk') {
@@ -862,7 +1004,7 @@ export class GenaiService {
                         aspect_ratio: aspectRatio || '16:9',
                         resolution: '720p',
                         generate_audio: false,
-                        duration: duration || config.defaultDuration || 6
+                        duration: Math.ceil(duration || config.defaultDuration || 6)
                     }
                 };
             }
@@ -892,7 +1034,7 @@ export class GenaiService {
                         aspect_ratio: aspectRatio || '16:9',
                         resolution: '720p',
                         generate_audio: false,
-                        duration: (duration === 4 || duration === 6 || duration === 8) ? duration : 6
+                        duration: Math.ceil((duration === 4 || duration === 6 || duration === 8) ? duration : 6)
                     }
                 },
                 // Option 1: Nested standard with Data URI (phổ biến nhất cho Wan/Kling/Vidu trên proxy)
@@ -913,7 +1055,7 @@ export class GenaiService {
                     },
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        duration: duration || 5
+                        duration: Math.ceil(duration || 5)
                     }
                 },
                 // Option 1: Nested standard with raw base64
@@ -933,7 +1075,7 @@ export class GenaiService {
                     },
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        duration: duration || 5
+                        duration: Math.round(duration || 5)
                     }
                 },
                 // Option 2: Flat payload standard with Data URI
@@ -941,7 +1083,7 @@ export class GenaiService {
                     model: model,
                     prompt: prompt,
                     aspect_ratio: aspectRatio || '16:9',
-                    duration: duration || 5,
+                    duration: Math.ceil(duration || 5),
                     ...(refBase64DataUri ? {
                         image: refBase64DataUri,
                         image_url: refBase64DataUri,
@@ -958,7 +1100,7 @@ export class GenaiService {
                     model: model,
                     prompt: prompt,
                     aspect_ratio: aspectRatio || '16:9',
-                    duration: duration || 5,
+                    duration: Math.round(duration || 5),
                     ...(refBase64Raw ? {
                         image: refBase64Raw,
                         image_url: refBase64Raw
@@ -1011,6 +1153,22 @@ export class GenaiService {
             for (let i = 0; i < candidateTaskRequests.length; i++) {
                 if (taskId) break;
                 const currentBody = candidateTaskRequests[i];
+                
+                // DEBUG: Gửi payload sang CDN server để log (vì DevTools bị khóa)
+                try {
+                    await fetch('https://cdn1.type.vn/debug-log', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            event: 'SENDING_TO_UMODELVERSE',
+                            endpoint: endpoint,
+                            payloadOption: i,
+                            payload: currentBody,
+                            timestamp: new Date().toISOString()
+                        })
+                    });
+                } catch (debugErr) { /* ignore debug errors */ }
+                
                 console.log(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
                 try {
                     const response = await fetch(endpoint, {
@@ -1019,8 +1177,36 @@ export class GenaiService {
                         body: JSON.stringify(currentBody)
                     });
                     
+                    const responseText = await response.text();
+                    
+                    // DEBUG: Log response
+                    try {
+                        await fetch('https://cdn1.type.vn/debug-log', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                event: 'UMODELVERSE_RESPONSE',
+                                endpoint: endpoint,
+                                payloadOption: i,
+                                status: response.status,
+                                responseBody: responseText.substring(0, 2000),
+                                timestamp: new Date().toISOString()
+                            })
+                        });
+                    } catch (debugErr) { /* ignore */ }
+                    
                     if (response.ok) {
-                        const data = await response.json();
+                        let data: any;
+                        try { data = JSON.parse(responseText); } catch { data = {}; }
+                        
+                        // Kiểm tra response OK nhưng body chứa lỗi
+                        const errorInBody = data?.message || data?.error?.message || data?.output?.error_message || '';
+                        if (errorInBody && errorInBody.toLowerCase().includes('error')) {
+                            console.warn(`[Task Warning] HTTP 200 nhưng body chứa lỗi: ${errorInBody}`);
+                            lastErrorMsg = errorInBody;
+                            continue; // Thử payload tiếp theo
+                        }
+                        
                         const idVal = data.task_id || data.id || data.output?.task_id || data.data?.task_id || data.data?.id;
                         if (idVal) {
                             taskId = idVal;
@@ -1029,8 +1215,8 @@ export class GenaiService {
                             break;
                         }
                     } else {
-                        const errText = await response.text();
-                        console.warn(`[Task Failed] Endpoint ${endpoint} trả về HTTP ${response.status}:`, errText);
+                        console.warn(`[Task Failed] Endpoint ${endpoint} trả về HTTP ${response.status}:`, responseText);
+                        lastErrorMsg = responseText;
                     }
                 } catch (e) {
                     console.warn(`[Task Exception] Ngoại lệ tại ${endpoint}:`, e);
@@ -1067,6 +1253,25 @@ export class GenaiService {
                         const statusVal = (data.task_status || data.status || data.state || data.data?.status || data.data?.task_status || data.output?.status || data.output?.task_status || '').toLowerCase();
                         
                         console.log(`[Poll Response] Task status: ${statusVal}`);
+                        
+                        // Debug log mỗi 6 poll (30s) để không spam
+                        if (pollCount % 6 === 1) {
+                            try {
+                                await fetch('https://cdn1.type.vn/debug-log', {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        event: 'POLL_STATUS',
+                                        pollCount,
+                                        checkUrl,
+                                        statusVal,
+                                        responseKeys: Object.keys(data),
+                                        rawResponse: JSON.stringify(data).substring(0, 500),
+                                        timestamp: new Date().toISOString()
+                                    })
+                                });
+                            } catch (debugErr) { /* ignore */ }
+                        }
 
                         if (statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'completed' || statusVal === 'done') {
                             const videoUrl = data.video_url || data.url || data.output?.video_url || data.output?.url || data.output?.video || data.data?.url || (data.output?.urls && data.output.urls[0]) || data.data?.video_url;

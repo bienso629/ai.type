@@ -8,7 +8,8 @@
             <h2 class="text-[16px] font-medium m-0 cursor-pointer transition-all duration-200"
                 [ngClass]="activeTab === 'controlnet' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-2 -mb-[10px]' : 'text-gray-500 hover:text-gray-700'"
                 (click)="activeTab = 'controlnet'">Khung xương & Bố cục</h2>
-            <h2 *ngIf="data.targetName === 'Apply to Master Prompt'" class="text-[16px] font-medium m-0 cursor-pointer transition-all duration-200"
+            <h2 *ngIf="data.targetName === 'Apply to Master Prompt'"
+                class="text-[16px] font-medium m-0 cursor-pointer transition-all duration-200"
                 [ngClass]="activeTab === 'context' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-2 -mb-[10px]' : 'text-gray-500 hover:text-gray-700'"
                 (click)="activeTab = 'context'">Bối cảnh & Nhân vật</h2>
         </div>
@@ -20,7 +21,8 @@
     </div>
 
     <!-- Content body -->
-    <div class="flex-1 p-1 bg-white overflow-y-auto max-h-[75vh] pr-2 scrollbar-hide" style="-ms-overflow-style: none; scrollbar-width: none;">
+    <div class="flex-1 p-1 bg-white overflow-y-auto max-h-[75vh] pr-2 scrollbar-hide"
+        style="-ms-overflow-style: none; scrollbar-width: none;">
 
         <!-- Tab Camera -->
         <div *ngIf="activeTab === 'camera'" class="grid grid-cols-1 gap-2">
@@ -31,9 +33,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Thời gian trong ngày</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.timeOfDay; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.timeOfDay === opt" (click)="select('timeOfDay', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.timeOfDay === opt" (click)="select('timeOfDay', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -44,9 +50,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Ánh sáng</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.lighting; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.lighting === opt" (click)="select('lighting', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.lighting === opt" (click)="select('lighting', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -57,15 +67,18 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Chất liệu phim</h3>
 
                     <div class="flex gap-2 mb-3 bg-gray-200 p-1 rounded-lg">
-                        <div class="toggle-btn flex items-center justify-center gap-2" [class.selected]="selections.filmStockColor === 'Full color'"
+                        <div class="toggle-btn flex items-center justify-center gap-2"
+                            [class.selected]="selections.filmStockColor === 'Full color'"
                             (click)="selections.filmStockColor = 'Full color'">
                             <div class="w-3 h-3 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500">
                             </div>
                             Có màu
                         </div>
-                        <div class="toggle-btn flex items-center justify-center gap-2" [class.selected]="selections.filmStockColor === 'Black & White'"
+                        <div class="toggle-btn flex items-center justify-center gap-2"
+                            [class.selected]="selections.filmStockColor === 'Black & White'"
                             (click)="selections.filmStockColor = 'Black & White'">
-                            <div class="w-3 h-3 rounded-full bg-gradient-to-tr from-gray-700 via-gray-400 to-white border border-gray-300">
+                            <div
+                                class="w-3 h-3 rounded-full bg-gradient-to-tr from-gray-700 via-gray-400 to-white border border-gray-300">
                             </div>
                             Trắng đen
                         </div>
@@ -73,10 +86,13 @@
 
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.filmStockType; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.filmStockType === opt"
-                            (click)="select('filmStockType', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.filmStockType === opt" (click)="select('filmStockType', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -87,9 +103,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Độ sâu trường ảnh</h3>
                     <div class="grid grid-cols-3 gap-2">
                         @for (opt of categories.focusDepth; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.focusDepth === opt" (click)="select('focusDepth', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.focusDepth === opt" (click)="select('focusDepth', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -100,9 +120,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Tốc độ quay</h3>
                     <div class="grid grid-cols-3 gap-2">
                         @for (opt of categories.cameraSpeed; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.cameraSpeed === opt" (click)="select('cameraSpeed', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.cameraSpeed === opt" (click)="select('cameraSpeed', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -116,9 +140,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Bố cục</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.composition; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.composition === opt" (click)="select('composition', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.composition === opt" (click)="select('composition', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -128,9 +156,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Góc đặt máy</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.cameraAngle; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.cameraAngle === opt" (click)="select('cameraAngle', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight truncate w-full" [matTooltip]="labels[opt] || opt">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.cameraAngle === opt" (click)="select('cameraAngle', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight truncate w-full"
+                                [matTooltip]="labels[opt] || opt">{{labels[opt] || opt}}</span>
                         </div>
                         }
                     </div>
@@ -142,9 +174,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Cỡ cảnh</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.shotSize; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.shotSize === opt" (click)="select('shotSize', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight truncate w-full" [matTooltip]="labels[opt] || opt">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.shotSize === opt" (click)="select('shotSize', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight truncate w-full"
+                                [matTooltip]="labels[opt] || opt">{{labels[opt] || opt}}</span>
                         </div>
                         }
                     </div>
@@ -155,9 +191,13 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Ống kính</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.lenses; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.lenses === opt" (click)="select('lenses', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.lenses === opt" (click)="select('lenses', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
@@ -168,25 +208,35 @@
                     <h3 class="text-gray-800 font-bold text-[13px] mb-2">Chuyển động máy quay</h3>
                     <div class="grid grid-cols-5 gap-2 mb-3">
                         @for (opt of categories.movementType; track opt) {
-                        <div class="option-item flex flex-col items-center cursor-pointer" [class.selected]="selections.movementType === opt" (click)="select('movementType', opt)">
-                            <div class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">{{ getInitials(opt) }}</div>
-                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] || opt}}</span>
+                        <div class="option-item flex flex-col items-center cursor-pointer"
+                            [class.selected]="selections.movementType === opt" (click)="select('movementType', opt)">
+                            <div
+                                class="option-img mb-1 flex items-center justify-center text-[24px] tracking-wide font-medium text-slate-500 uppercase bg-slate-100">
+                                {{ getInitials(opt) }}</div>
+                            <span class="text-[11px] text-gray-600 text-center leading-tight">{{labels[opt] ||
+                                opt}}</span>
                         </div>
                         }
                     </div>
 
                     <div class="flex gap-2 mb-2 bg-gray-200 p-1 rounded-lg">
-                        <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Subtle'" (click)="selections.movementSpeed = 'Subtle'">Nhẹ nhàng</div>
-                        <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Standard movement'" (click)="selections.movementSpeed = 'Standard movement'">Bình
+                        <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Subtle'"
+                            (click)="selections.movementSpeed = 'Subtle'">Nhẹ nhàng</div>
+                        <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Standard movement'"
+                            (click)="selections.movementSpeed = 'Standard movement'">Bình
                             thường</div>
-                        <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Intense'" (click)="selections.movementSpeed = 'Intense'">Mạnh mẽ</div>
+                        <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Intense'"
+                            (click)="selections.movementSpeed = 'Intense'">Mạnh mẽ</div>
                     </div>
 
                     <div class="flex gap-2 bg-gray-200 p-1 rounded-lg">
-                        <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Linear'" (click)="selections.movementEasing = 'Linear'">Đều đặn</div>
-                        <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Standard easing'" (click)="selections.movementEasing = 'Standard easing'">Bình
+                        <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Linear'"
+                            (click)="selections.movementEasing = 'Linear'">Đều đặn</div>
+                        <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Standard easing'"
+                            (click)="selections.movementEasing = 'Standard easing'">Bình
                             thường</div>
-                        <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Natural'" (click)="selections.movementEasing = 'Natural'">Tự nhiên</div>
+                        <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Natural'"
+                            (click)="selections.movementEasing = 'Natural'">Tự nhiên</div>
                     </div>
                 </div>
 
@@ -196,9 +246,11 @@
         <!-- Tab ControlNet -->
         <div *ngIf="activeTab === 'controlnet'" class="flex flex-col gap-4 py-4 min-h-[300px]">
             <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl text-sm border border-indigo-100 flex gap-3">
-                <mat-icon [svgIcon]="'heroicons_outline:information-circle'" class="text-indigo-500 shrink-0"></mat-icon>
+                <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
+                    class="text-indigo-500 shrink-0"></mat-icon>
                 <div>
-                    <strong>ControlNet (Structure Reference):</strong> Tính năng này cho phép bạn tải lên một bức ảnh phác thảo (sketch) hoặc khung xương (pose). AI sẽ dựa vào đó
+                    <strong>ControlNet (Structure Reference):</strong> Tính năng này cho phép bạn tải lên một bức ảnh
+                    phác thảo (sketch) hoặc khung xương (pose). AI sẽ dựa vào đó
                     để tạo ra khung hình chính xác theo bố cục bạn muốn.
                 </div>
             </div>
@@ -206,9 +258,11 @@
             <!-- Upload Area -->
             <div class="flex-1 w-full flex flex-col items-center justify-center p-8 border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors relative"
                 *ngIf="!controlImageUrl">
-                <input type="file" (change)="onControlImageSelected($event)" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                <input type="file" (change)="onControlImageSelected($event)" accept="image/*"
+                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                 <div *ngIf="!isUploadingControlImage && !isPromptingForPose" class="flex flex-col items-center">
-                    <mat-icon [svgIcon]="'heroicons_outline:cloud-upload'" class="text-gray-400 w-16 h-16 mb-4"></mat-icon>
+                    <mat-icon [svgIcon]="'heroicons_outline:cloud-upload'"
+                        class="text-gray-400 w-16 h-16 mb-4"></mat-icon>
                     <p class="text-gray-600 font-medium mb-1">Kéo thả hoặc click để tải lên</p>
                     <p class="text-gray-400 text-xs mb-4">Hỗ trợ JPG, PNG (Tối đa 5MB)</p>
 
@@ -217,15 +271,20 @@
                         <mat-label class="ml-2">Tự tạo bằng AI</mat-label>
                     </button>
                 </div>
-                
-                <div *ngIf="!isUploadingControlImage && isPromptingForPose" class="flex flex-col items-center w-full max-w-sm z-20 bg-white p-4 rounded-xl shadow border border-gray-200" (click)="$event.stopPropagation()">
+
+                <div *ngIf="!isUploadingControlImage && isPromptingForPose"
+                    class="flex flex-col items-center w-full max-w-sm z-20 bg-white p-4 rounded-xl shadow border border-gray-200"
+                    (click)="$event.stopPropagation()">
                     <p class="text-sm font-semibold text-gray-700 mb-2 w-full">Mô tả tư thế / bố cục bạn muốn tạo:</p>
-                    <textarea [(ngModel)]="posePromptText" class="w-full border border-gray-300 rounded-lg p-3 mb-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none" rows="3" placeholder="Ví dụ: Góc máy ngang tầm mắt, trung cảnh (Medium Shot). Một kiếm khách đang đứng thủ thế, tay phải cầm kiếm hướng về phía trước, tay trái đưa lên cao..."></textarea>
+                    <textarea [(ngModel)]="posePromptText"
+                        class="w-full border border-gray-300 rounded-lg p-3 mb-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
+                        rows="3"
+                        placeholder="Ví dụ: Góc máy ngang tầm mắt, trung cảnh (Medium Shot). Một kiếm khách đang đứng thủ thế, tay phải cầm kiếm hướng về phía trước, tay trái đưa lên cao..."></textarea>
                     <div class="flex gap-2 w-full justify-end">
                         <button mat-button (click)="isPromptingForPose = false">Hủy</button>
                         <button mat-flat-button color="primary" (click)="submitGeneratePose($event)">
                             <mat-icon [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
-                            Tạo ảnh
+                            <mat-label class="ml-2">Tạo ảnh</mat-label>
                         </button>
                     </div>
                 </div>
@@ -239,7 +298,8 @@
             <div *ngIf="controlImageUrl"
                 class="w-full relative rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-gray-50 flex items-center justify-center h-[350px]">
                 <img [src]="getSafeUrl(controlImageUrl)" class="max-w-full max-h-full object-contain">
-                <button mat-mini-fab color="warn" class="absolute top-4 right-4 z-10 shadow-md" (click)="removeControlImage()" matTooltip="Xóa ảnh">
+                <button mat-mini-fab color="warn" class="absolute top-4 right-4 z-10 shadow-md"
+                    (click)="removeControlImage()" matTooltip="Xóa ảnh">
                     <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                 </button>
             </div>
@@ -247,9 +307,11 @@
         <!-- Tab Context & Seed -->
         <div *ngIf="activeTab === 'context'" class="flex flex-col gap-6 py-4 px-2 min-h-[300px]">
             <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl text-sm border border-indigo-100 flex gap-3">
-                <mat-icon [svgIcon]="'heroicons_outline:information-circle'" class="text-indigo-500 shrink-0"></mat-icon>
+                <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
+                    class="text-indigo-500 shrink-0"></mat-icon>
                 <div>
-                    <strong>Bối cảnh & Nhân vật (Global Context):</strong> Các thiết lập tại đây sẽ được áp dụng cho toàn bộ các phân cảnh trong video (trừ khi bạn ghi đè cấu hình ở từng cảnh riêng biệt).
+                    <strong>Bối cảnh & Nhân vật (Global Context):</strong> Các thiết lập tại đây sẽ được áp dụng cho
+                    toàn bộ các phân cảnh trong video (trừ khi bạn ghi đè cấu hình ở từng cảnh riêng biệt).
                 </div>
             </div>
 
@@ -258,36 +320,51 @@
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-col gap-2">
                         <label class="font-semibold text-gray-800 text-sm">Seed (Hạt giống ngẫu nhiên)</label>
-                        <p class="text-xs text-gray-500 mb-1">Dùng chung 1 số Seed giúp các phân cảnh có sự đồng nhất cao hơn về bố cục và màu sắc.</p>
-                        <input type="number" [(ngModel)]="globalContext.seed" placeholder="Ví dụ: 123456 (Để trống để ngẫu nhiên)" class="border border-gray-300 rounded-lg p-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none w-full">
+                        <p class="text-xs text-gray-500 mb-1">Dùng chung 1 số Seed giúp các phân cảnh có sự đồng nhất
+                            cao hơn về bố cục và màu sắc.</p>
+                        <input type="number" [(ngModel)]="globalContext.seed"
+                            placeholder="Ví dụ: 123456 (Để trống để ngẫu nhiên)"
+                            class="border border-gray-300 rounded-lg p-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none w-full">
                     </div>
 
                     <div class="flex flex-col gap-2 mt-2">
-                        <label class="font-semibold text-gray-800 text-sm">Mô tả Môi trường chung (Global Environment)</label>
-                        <p class="text-xs text-gray-500 mb-1">Đoạn text này sẽ được tự động thêm vào cuối prompt của mọi phân cảnh.</p>
-                        <textarea [(ngModel)]="globalContext.environmentPrompt" class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none" rows="5" placeholder="Ví dụ: Trong một con hẻm cyberpunk tối tăm, trời mưa lất phất, đèn neon đỏ và xanh biển lấp lánh..."></textarea>
+                        <label class="font-semibold text-gray-800 text-sm">Mô tả Môi trường chung (Global
+                            Environment)</label>
+                        <p class="text-xs text-gray-500 mb-1">Đoạn text này sẽ được tự động thêm vào cuối prompt của mọi
+                            phân cảnh.</p>
+                        <textarea [(ngModel)]="globalContext.environmentPrompt"
+                            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
+                            rows="5"
+                            placeholder="Ví dụ: Trong một con hẻm cyberpunk tối tăm, trời mưa lất phất, đèn neon đỏ và xanh biển lấp lánh..."></textarea>
                     </div>
                 </div>
 
                 <!-- Cột phải: Reference Image -->
                 <div class="flex flex-col gap-2">
                     <label class="font-semibold text-gray-800 text-sm">Nhân vật / Phong cách tham chiếu</label>
-                    <p class="text-xs text-gray-500 mb-1">Tải lên một bức ảnh để AI giữ nguyên nhân vật hoặc phong cách này cho toàn bộ video.</p>
-                    
+                    <p class="text-xs text-gray-500 mb-1">Tải lên một bức ảnh để AI giữ nguyên nhân vật hoặc phong cách
+                        này cho toàn bộ video.</p>
+
                     <div class="w-full aspect-square relative border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden"
                         *ngIf="!globalContext.referenceImageUrl">
-                        <input type="file" (change)="onReferenceImageSelected($event)" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
+                        <input type="file" (change)="onReferenceImageSelected($event)" accept="image/*"
+                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
                         <div class="flex flex-col items-center">
-                            <mat-icon [svgIcon]="'heroicons_outline:photo'" class="text-gray-400 w-12 h-12 mb-2"></mat-icon>
+                            <mat-icon [svgIcon]="'heroicons_outline:photo'"
+                                class="text-gray-400 w-12 h-12 mb-2"></mat-icon>
                             <p class="text-gray-600 font-medium text-sm mb-1">Tải ảnh tham chiếu</p>
                             <p class="text-gray-400 text-xs">JPG, PNG</p>
                         </div>
                     </div>
 
-                    <div *ngIf="globalContext.referenceImageUrl" class="relative w-full aspect-square border border-gray-200 rounded-2xl overflow-hidden group">
+                    <div *ngIf="globalContext.referenceImageUrl"
+                        class="relative w-full aspect-square border border-gray-200 rounded-2xl overflow-hidden group">
                         <img [src]="getSafeUrl(globalContext.referenceImageUrl)" class="w-full h-full object-cover">
-                        <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button mat-icon-button class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors" (click)="removeReferenceImage()">
+                        <div
+                            class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <button mat-icon-button
+                                class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors"
+                                (click)="removeReferenceImage()">
                                 <mat-icon class="icon-size-5">delete</mat-icon>
                             </button>
                         </div>
@@ -300,7 +377,8 @@
 
     <!-- Footer Actions -->
     <div class="px-0 mt-4 flex justify-end gap-2">
-        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName === 'Apply to Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName
+        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName === 'Apply to
+            Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName
             === 'Apply to Scene Prompt' ? 'Áp dụng vào Phân cảnh' : 'Áp dụng') }}</button>
     </div>
 </div>

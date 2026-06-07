@@ -1,6 +1,6 @@
 // Dùng chung cho cả cấu hình Video và Image
 export interface VideoModelConfig {
-    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat';
+    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3';
     promptKey: string;
     imageKey?: string;         // e.g., 'image_url', 'first_frame_image', 'image'
     endImageKey?: string;      // e.g., 'last_frame_image', 'image_end', 'end_image_url'
@@ -23,11 +23,10 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
     },
     // Kling Series (Kling-v3, Kling-O3, Kling-v3-Motion-Control)
     'kling': {
-        payloadFormat: 'nested_input',
+        payloadFormat: 'kling_v3',
         promptKey: 'prompt',
-        imageKey: 'image_url',       // Kling API thường dùng image_url
-        endImageKey: 'last_frame_image',
-        useDataUri: true,            // Thường cần Data URI
+        imageKey: 'image_list',      // Not used in standard way, but keep for type
+        useDataUri: false,           // Tắt cờ này để Kling API nhận raw base64 (tránh lỗi ConvertImageRequest do proxy không hiểu data URI)
         defaultDuration: 5
     },
     // Vidu Series
