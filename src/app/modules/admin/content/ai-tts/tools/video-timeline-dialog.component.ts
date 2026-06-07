@@ -12,12 +12,15 @@ import {
     AfterViewInit
 } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
+import { GoogleGenAI } from '@google/genai';
 import {
     MAT_DIALOG_DATA,
     MatDialogRef,
     MatDialog,
     MatDialogModule,
 } from '@angular/material/dialog';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
@@ -60,6 +63,8 @@ interface electron {
         MatInputModule,
         DragDropModule,
         ScrollingModule,
+        MatProgressSpinnerModule,
+        MatTooltipModule
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
@@ -120,6 +125,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         } else {
             this.playTimeline();
         }
+    }
+
+    onReferenceImageSelectedOut(event: any, video: any, sceneIdx: number, tIdx: number) {
+        const file = event.target.files[0];
+        if (file) {
+            video.aiReferenceImageLocalUrl = URL.createObjectURL(file);
+            this.autoGenerateStoryboard(video, sceneIdx, tIdx);
+        }
+        event.target.value = '';
     }
 
     togglePreviewPlay() {
@@ -1051,7 +1065,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         });
     }
 
-    private async autoGenerateStoryboard(video: any, sceneIdx: number, vIdx: number) {
+    async autoGenerateStoryboard(video: any, sceneIdx: number, vIdx: number) {
         if (!video.prompt) return;
 
         const electron = (window as any).electron;
@@ -1059,6 +1073,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         const apiKey = this.getGeminiKey();
         if (!apiKey) return;
+
+        video.isGeneratingImage = true;
+        this.cd.detectChanges();
 
         try {
             this.toastr.info(`Đang tự động vẽ Storyboard cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`, 'Hệ thống');
@@ -1073,6 +1090,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
 
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
+
+            // Gắn thêm ảnh tham khảo do người dùng tải lên (nếu có từ nút Tải ảnh mẫu)
+            if (video.aiReferenceImageLocalUrl) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(video.aiReferenceImageLocalUrl);
+                    requestParts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: 'image/png'
+                        }
+                    });
+                    video.aiReferenceImageLocalUrl = null; // consume it
+                } catch (e) {
+                    console.error('Không thể đọc ảnh reference upload', e);
+                }
+            }
 
             // Gắn thêm ảnh reference của nhân vật được tick nếu có
             // Tìm các nhân vật có tên xuất hiện trong prompt
@@ -1122,8 +1155,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const result = await electron.saveBase64({
                     base64: base64Data,
                     fileName: fileName,
-                    folder: 'scenes',
-                    username: 'ai_type'
+                    customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
                 });
 
                 if (result && result.success) {
@@ -1136,6 +1168,183 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         } catch (error) {
             console.error('Lỗi tự động tạo Storyboard:', error);
+        } finally {
+            video.isGeneratingImage = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    async autoGenerateVideo(scene: any, video: any, sceneIdx: number, vIdx: number) {
+        if (!video.prompt) {
+            this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo video!');
+            return;
+        }
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.saveBase64) {
+            this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+            return;
+        }
+
+        video.isGeneratingVideo = true;
+        this.cd.detectChanges();
+
+        try {
+            this.toastr.info(`Đang tự động tạo Video cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}...`, 'Hệ thống', { timeOut: 5000 });
+            let base64 = '';
+
+            const isProxy = this._genaiService.isUModelverseEnabled();
+            
+            let referenceImages: any[] = [];
+            // Gắn thêm ảnh Storyboard làm reference
+            if (video.imageUrl) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(video.imageUrl);
+                    referenceImages.push({
+                        image: { imageBytes: base64Data, mimeType: 'image/png' },
+                        referenceType: 'START_FRAME'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc ảnh Storyboard làm reference cho video:', e);
+                }
+            }
+
+            // [NEW] Gắn thêm ảnh cuối từ video liên kết (nếu có)
+            if (video.linkedTo) {
+                const targetScene = this.projectData?.scenes?.[video.linkedTo.sceneIndex];
+                const targetVideo = targetScene?.videos?.[video.linkedTo.videoIndex];
+                if (targetVideo && targetVideo.imageUrl) {
+                    try {
+                        const base64DataEnd = await this.getBase64FromImageUrl(targetVideo.imageUrl);
+                        referenceImages.push({
+                            image: { imageBytes: base64DataEnd, mimeType: 'image/png' },
+                            referenceType: 'END_FRAME'
+                        });
+                    } catch (e) {
+                        console.error('Không thể đọc ảnh đích làm reference cho video:', e);
+                    }
+                }
+            }
+
+            // Gắn nhân vật
+            if (this.projectData?.characters) {
+                for (const char of this.projectData.characters) {
+                    const charName = char.name || char.role;
+                    if (charName && video.prompt.includes(`[Character '${charName}'`)) {
+                        const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
+                        if (imgUrl) {
+                            try {
+                                const base64Data = await this.getBase64FromImageUrl(imgUrl);
+                                referenceImages.push({
+                                    image: { imageBytes: base64Data, mimeType: 'image/png' },
+                                    referenceType: 'ASSET'
+                                });
+                            } catch (e) {
+                                console.error('Không thể đọc ảnh reference cho video:', char.name, e);
+                            }
+                        }
+                    }
+                }
+            }
+
+            let promptText = video.prompt || '';
+            const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+            let finalPrompt = master ? `${master}\n\n${promptText}` : promptText;
+            
+            if (video.duration) {
+                finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${video.duration} seconds]`;
+            }
+
+            if (isProxy) {
+                base64 = await this._genaiService.generateVideoUModelverse(
+                    finalPrompt,
+                    this.projectData?.aspectRatio || '16:9',
+                    referenceImages,
+                    video.duration
+                );
+            } else {
+                const apiKey = this.getGeminiKey();
+                if (!apiKey) {
+                    this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
+                    return;
+                }
+
+                const ai = this._genaiService.googleAi || new GoogleGenAI({ apiKey: apiKey });
+                let operation: any;
+                const videoConfig: any = {};
+                if (this.projectData?.aspectRatio) {
+                    videoConfig.aspectRatio = this.projectData.aspectRatio;
+                }
+                if (referenceImages.length > 0) {
+                    // Google SDK might strictly require ASSET or specific enum values
+                    videoConfig.referenceImages = referenceImages.slice(0, 3).map(img => {
+                        return {
+                            ...img,
+                            referenceType: 'ASSET'
+                        };
+                    });
+                }
+
+                operation = await ai.models.generateVideos({
+                    model: 'veo-3.1-generate-preview',
+                    prompt: finalPrompt,
+                    config: videoConfig
+                });
+
+                let pollCount = 0;
+                const MAX_POLLS = 60; 
+
+                while (!operation.done) {
+                    if (pollCount >= MAX_POLLS) throw new Error('Quá thời gian chờ tạo video (10 phút).');
+                    await new Promise(resolve => setTimeout(resolve, 10000));
+                    operation = await ai.operations.getVideosOperation({ operation: operation });
+                    pollCount++;
+                }
+
+                if (!operation.response || !operation.response.generatedVideos || operation.response.generatedVideos.length === 0) {
+                    throw new Error('Không nhận được video từ AI.');
+                }
+
+                const videoUri = operation.response.generatedVideos[0].video.uri;
+                if (!videoUri) throw new Error('Không tìm thấy URI tải video.');
+
+                this.toastr.info('Đang tải video về máy...', 'Hệ thống');
+                const res = await fetch(videoUri, { headers: { "x-goog-api-key": apiKey } });
+                if (!res.ok) throw new Error('Không thể tải file video từ Google.');
+
+                const buffer = await res.arrayBuffer();
+                const bytes = new Uint8Array(buffer);
+                const len = bytes.byteLength;
+                const chunkSize = 8192;
+                for (let i = 0; i < len; i += chunkSize) {
+                    base64 += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+                }
+                base64 = btoa(base64);
+            }
+
+            const fileName = `scene_video_${Date.now()}_${sceneIdx}_${vIdx}.mp4`;
+            const result = await electron.saveBase64({
+                base64: base64,
+                fileName: fileName,
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+            });
+
+            if (result && result.success) {
+                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                video.videoUrl = finalPath;
+                this.saveData();
+                this.cd.detectChanges();
+                this.toastr.success(`Đã tự động tạo Video cho Scene ${sceneIdx + 1} - Phần ${vIdx + 1}!`);
+            } else {
+                throw new Error(result.error || 'Lỗi lưu file video.');
+            }
+        } catch (error: any) {
+            console.error('Lỗi tự động tạo Video:', error);
+            const errorMsg = error.message || 'Có lỗi xảy ra.';
+            this.toastr.error('Lỗi tạo video AI: ' + errorMsg);
+        } finally {
+            video.isGeneratingVideo = false;
+            this.cd.detectChanges();
         }
     }
 
@@ -1168,11 +1377,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.toastr.success(`Đã tạo liên kết thành công!`);
 
         // Tự động tạo Storyboard cho cả 2 video nếu chưa có ảnh
+        let missingImage = false;
         if (!sourceVideo.imageUrl) {
             this.autoGenerateStoryboard(sourceVideo, sourceSceneIdx, sourceVIdx);
+            missingImage = true;
         }
         if (!targetVideo.imageUrl) {
             this.autoGenerateStoryboard(targetVideo, targetSceneIdx, targetVIdx);
+            missingImage = true;
+        }
+
+        // Tự động tạo Video nếu cả 2 video đã có ảnh
+        if (!missingImage) {
+            const scene = this.projectData?.scenes?.[sourceSceneIdx];
+            if (scene) {
+                this.autoGenerateVideo(scene, sourceVideo, sourceSceneIdx, sourceVIdx);
+            }
         }
 
         this.cancelLinking();
@@ -2222,6 +2442,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         // Backward compatibility: Convert old scenes to grouped videos format
         if (this.projectData && this.projectData.scenes) {
             this.projectData.scenes.forEach((scene: any) => {
+                // Clear any stale generating flags
+                if (scene.videos) {
+                    scene.videos.forEach((video: any) => {
+                        video.isGeneratingImage = false;
+                        video.isGeneratingVideo = false;
+                    });
+                }
+
                 if (!scene.videos || scene.videos.length === 0) {
                     let defaultDuration = scene.forcedDuration || 5;
                     if (!scene.forcedDuration && scene.subtitles) {

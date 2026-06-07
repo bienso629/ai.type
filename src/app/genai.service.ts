@@ -5,6 +5,7 @@ import {
     type GenerateContentResponse,
 } from '@google/genai';
 import { MultiAccountService } from './modules/_services/multi-account.service';
+import { getModelverseConfig, getTextModelConfig } from './modelverse.config';
 
 type Scope = string | number;
 
@@ -192,18 +193,7 @@ export class GenaiService {
     private async generateChatUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
         const messages: any[] = [];
 
-        // Xử lý systemInstruction
-        if (params.config && params.config.systemInstruction) {
-            let sysContent = '';
-            if (typeof params.config.systemInstruction === 'string') {
-                sysContent = params.config.systemInstruction;
-            } else if ((params.config.systemInstruction as any).parts) {
-                sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
-            }
-            if (sysContent) {
-                messages.push({ role: 'system', content: sysContent });
-            }
-        }
+
 
         // Xử lý contents
         if (params.contents) {
@@ -245,38 +235,99 @@ export class GenaiService {
         }
 
         const overrideModel = params.model === 'gemini-3-flash-preview' ? null : params.model;
-        
         const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
-        
-        const body: any = {
-            model: targetModel,
-            messages: messages,
-            temperature: params.config?.temperature,
-            top_p: params.config?.topP,
-        };
+        const config = getTextModelConfig(targetModel);
 
-        const isReasoningModel = targetModel.includes('gpt-5') || targetModel.includes('o1') || targetModel.includes('o3') || targetModel.includes('deepseek-reasoner') || targetModel.includes('kimi') || targetModel.includes('qwq') || targetModel.includes('r1');
+        let endpointPath = config.endpointOverride || '/chat/completions';
+        let body: any = {};
+        let isReasoningModel = false;
 
-        if (params.config?.maxOutputTokens) {
-            if (isReasoningModel) {
-                // Các model reasoning cần lượng token rất lớn. Nếu code set cứng 8192 thì sẽ bị cắt ngang (finish_reason: "length").
-                // Nên ta bỏ qua mức trần 8192 này để mô hình tự do output.
-                if (params.config.maxOutputTokens !== 8192) {
-                    body.max_completion_tokens = params.config.maxOutputTokens;
-                }
-            } else {
-                body.max_tokens = params.config.maxOutputTokens;
+        // Xử lý systemInstruction chung cho các format OpenAI / Claude
+        let sysContent = '';
+        if (params.config && params.config.systemInstruction) {
+            if (typeof params.config.systemInstruction === 'string') {
+                sysContent = params.config.systemInstruction;
+            } else if ((params.config.systemInstruction as any).parts) {
+                sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
             }
-        } else if (!isReasoningModel) {
-            // Không giới hạn 8192 mặc định đối với các model reasoning vì chúng cần token ẩn rất lớn để suy luận
-            body.max_tokens = 8192;
         }
 
-        if (params.config?.responseMimeType === 'application/json') {
-            body.response_format = { type: 'json_object' };
+        if (config.apiFormat === 'gemini') {
+            if (!config.endpointOverride) {
+                endpointPath = `/v1beta/models/${targetModel}:generateContent`;
+            }
+            body = {
+                contents: params.contents,
+                generationConfig: {
+                    temperature: params.config?.temperature,
+                    topP: params.config?.topP,
+                    maxOutputTokens: params.config?.maxOutputTokens
+                }
+            };
+            if (sysContent) {
+                body.systemInstruction = { parts: [{ text: sysContent }] };
+            }
+            if (params.config?.responseMimeType === 'application/json') {
+                body.generationConfig.responseMimeType = 'application/json';
+            }
+            if (config.extraParams) {
+                Object.assign(body, config.extraParams);
+            }
+        } else if (config.apiFormat === 'anthropic') {
+            if (!config.endpointOverride) {
+                endpointPath = '/v1/messages';
+            }
+            body = {
+                model: targetModel,
+                messages: messages, // Các message user/assistant đã gom ở trên
+                max_tokens: params.config?.maxOutputTokens || 8192,
+                temperature: params.config?.temperature,
+                top_p: params.config?.topP
+            };
+            if (sysContent) {
+                body.system = sysContent;
+            }
+            if (config.extraParams) {
+                Object.assign(body, config.extraParams);
+            }
+        } else {
+            // Chuẩn OpenAI mặc định
+            if (sysContent) {
+                messages.unshift({ role: 'system', content: sysContent });
+            }
+            body = {
+                model: targetModel,
+                messages: messages,
+                temperature: params.config?.temperature,
+                top_p: params.config?.topP,
+            };
+
+            isReasoningModel = config.useMaxCompletionTokens || targetModel.includes('gpt-5') || targetModel.includes('o1') || targetModel.includes('o3') || targetModel.includes('deepseek-reasoner') || targetModel.includes('kimi') || targetModel.includes('qwq') || targetModel.includes('r1');
+
+            if (params.config?.maxOutputTokens) {
+                if (isReasoningModel) {
+                    if (params.config.maxOutputTokens !== 8192) {
+                        body.max_completion_tokens = params.config.maxOutputTokens;
+                    }
+                } else {
+                    body.max_tokens = params.config.maxOutputTokens;
+                }
+            } else if (!isReasoningModel) {
+                body.max_tokens = 8192;
+            }
+
+            if (params.config?.responseMimeType === 'application/json') {
+                body.response_format = { type: 'json_object' };
+            }
+
+            if (config.extraParams) {
+                Object.assign(body, config.extraParams);
+            }
         }
 
-        const response = await fetch(`${url}/chat/completions`, {
+
+
+        const response = await fetch(`${url}${endpointPath}`, {
             method: 'POST',
             headers,
             body: JSON.stringify(body)
@@ -287,13 +338,26 @@ export class GenaiService {
             throw new Error((data.error && data.error.message) || `HTTP Error: ${response.status}`);
         }
 
-        const choice = data.choices?.[0];
-        const message = choice?.message;
-        const replyText = message?.content || '';
+        let replyText = '';
+        let finishReason = '';
+
+        if (config.apiFormat === 'gemini') {
+            const candidate = data.candidates?.[0];
+            replyText = candidate?.content?.parts?.[0]?.text || '';
+            finishReason = candidate?.finishReason || '';
+        } else if (config.apiFormat === 'anthropic') {
+            replyText = data.content?.[0]?.text || '';
+            finishReason = data.stop_reason || '';
+        } else {
+            // OpenAI format
+            const choice = data.choices?.[0];
+            replyText = choice?.message?.content || '';
+            finishReason = choice?.finish_reason || '';
+        }
 
         return {
             get text() { 
-                if (choice?.finish_reason === 'length' && !replyText) {
+                if ((finishReason === 'length' || finishReason === 'max_tokens') && !replyText) {
                     throw new Error(`Model ${targetModel} đã đạt giới hạn độ dài (max tokens) trong quá trình suy luận và bị ngắt giữa chừng. Hãy dùng một model khác (VD: gpt-4o, claude-3-5-sonnet) cho kịch bản dài này.`);
                 }
                 return replyText; 
@@ -714,106 +778,219 @@ export class GenaiService {
             }
         }
 
-        // --- BƯỚC 1: THỬ QUA CÁC ENDPOINT ASYNC TASK (PHÙ HỢP CHO VIDEO MODELS TRÊN UMODELVERSE) ---
-        const candidateTaskRequests: any[] = [
-            // Option 0: Format chuẩn cho Veo-3.1 (Astraflow/Google)
-            {
-                model: model,
-                input: {
-                    prompt: prompt,
-                    ...(refBase64Raw ? {
-                        image: {
-                            bytesBase64Encoded: refBase64Raw,
-                            mimeType: refMimeType
-                        }
-                    } : {})
-                },
-                parameters: {
-                    aspect_ratio: aspectRatio || '16:9',
-                    resolution: '720p',
-                    generate_audio: false,
-                    duration: (duration === 4 || duration === 6 || duration === 8) ? duration : 6
-                    // Bắt buộc truyền duration hợp lệ vì UModelverse có thể tự gán default=5 gây lỗi với Veo
+        // [NEW] Xử lý ảnh cuối (END_FRAME) cho Luma/Kling/Wan
+        let endRefBase64Raw = '';
+        let endRefBase64DataUri = '';
+        let endRefMimeType = 'image/png';
+        if (referenceImages && referenceImages.length > 1) {
+            const endImg = referenceImages.find(img => img.referenceType === 'END_FRAME');
+            if (endImg) {
+                endRefBase64Raw = endImg.image?.imageBytes || (typeof endImg === 'string' ? endImg : '');
+                if (endRefBase64Raw && !endRefBase64Raw.startsWith('data:')) {
+                    endRefBase64DataUri = `data:image/png;base64,${endRefBase64Raw}`;
+                } else if (endRefBase64Raw.startsWith('data:')) {
+                    endRefBase64DataUri = endRefBase64Raw;
+                    endRefMimeType = endRefBase64Raw.substring(5, endRefBase64Raw.indexOf(';'));
+                    endRefBase64Raw = endRefBase64Raw.split(',')[1];
                 }
-            },
-            // Option 1: Nested standard with Data URI (phổ biến nhất cho Wan/Kling/Vidu trên proxy)
-            {
-                model: model,
-                input: {
+            }
+        }
+
+        // --- XÂY DỰNG PAYLOAD DỰA TRÊN CONFIG ---
+        let candidateTaskRequests: any[] = [];
+        const config = getModelverseConfig(model);
+
+        if (config) {
+            console.log(`[UModelverse Async Video] Tìm thấy config cho model ${model}:`, config);
+            const inputPayload: any = {
+                [config.promptKey]: prompt
+            };
+
+            // Gắn ảnh bắt đầu
+            if (refBase64DataUri || refBase64Raw) {
+                if (config.imageKey) {
+                    inputPayload[config.imageKey] = config.useDataUri ? refBase64DataUri : refBase64Raw;
+                }
+            }
+
+            // Gắn ảnh kết thúc (nếu có)
+            if (endRefBase64DataUri || endRefBase64Raw) {
+                if (config.endImageKey) {
+                    inputPayload[config.endImageKey] = config.useDataUri ? endRefBase64DataUri : endRefBase64Raw;
+                }
+            }
+
+            // Thêm các tham số extra nếu có
+            if (config.extraParams) {
+                Object.assign(inputPayload, config.extraParams);
+            }
+
+            let payload: any;
+            if (config.payloadFormat === 'nested_input') {
+                payload = {
+                    model: model,
+                    input: inputPayload,
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: duration || config.defaultDuration || 5
+                    }
+                };
+            } else if (config.payloadFormat === 'flat') {
+                payload = {
+                    model: model,
+                    ...inputPayload,
+                    aspect_ratio: aspectRatio || '16:9',
+                    duration: duration || config.defaultDuration || 5
+                };
+            } else if (config.payloadFormat === 'google_sdk') {
+                // Xử lý riêng cho Veo / Google SDK format
+                payload = {
+                    model: model,
+                    input: {
+                        prompt: prompt,
+                        ...(refBase64Raw ? {
+                            image: {
+                                bytesBase64Encoded: refBase64Raw,
+                                mimeType: refMimeType
+                            }
+                        } : {})
+                    },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        resolution: '720p',
+                        generate_audio: false,
+                        duration: duration || config.defaultDuration || 6
+                    }
+                };
+            }
+
+            if (payload) {
+                candidateTaskRequests.push(payload);
+            }
+        }
+
+        // --- FALLBACK NẾU KHÔNG CÓ CONFIG HOẶC ĐỂ DỰ PHÒNG ---
+        if (candidateTaskRequests.length === 0) {
+            console.log(`[UModelverse Async Video] KHÔNG tìm thấy config cụ thể cho ${model}, dùng fallback options...`);
+            candidateTaskRequests = [
+                // Option 0: Format chuẩn cho Veo-3.1 (Astraflow/Google)
+                {
+                    model: model,
+                    input: {
+                        prompt: prompt,
+                        ...(refBase64Raw ? {
+                            image: {
+                                bytesBase64Encoded: refBase64Raw,
+                                mimeType: refMimeType
+                            }
+                        } : {})
+                    },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        resolution: '720p',
+                        generate_audio: false,
+                        duration: (duration === 4 || duration === 6 || duration === 8) ? duration : 6
+                    }
+                },
+                // Option 1: Nested standard with Data URI (phổ biến nhất cho Wan/Kling/Vidu trên proxy)
+                {
+                    model: model,
+                    input: {
+                        prompt: prompt,
+                        ...(refBase64DataUri ? {
+                            image: refBase64DataUri,
+                            image_url: refBase64DataUri,
+                            ref_image: refBase64DataUri
+                        } : {}),
+                        ...(endRefBase64DataUri ? {
+                            image_end: endRefBase64DataUri,
+                            last_frame_image: endRefBase64DataUri,
+                            end_image_url: endRefBase64DataUri
+                        } : {})
+                    },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: duration || 5
+                    }
+                },
+                // Option 1: Nested standard with raw base64
+                {
+                    model: model,
+                    input: {
+                        prompt: prompt,
+                        ...(refBase64Raw ? {
+                            image: refBase64Raw,
+                            image_url: refBase64Raw
+                        } : {}),
+                        ...(endRefBase64Raw ? {
+                            image_end: endRefBase64Raw,
+                            last_frame_image: endRefBase64Raw,
+                            end_image_url: endRefBase64Raw
+                        } : {})
+                    },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: duration || 5
+                    }
+                },
+                // Option 2: Flat payload standard with Data URI
+                {
+                    model: model,
                     prompt: prompt,
+                    aspect_ratio: aspectRatio || '16:9',
+                    duration: duration || 5,
                     ...(refBase64DataUri ? {
                         image: refBase64DataUri,
                         image_url: refBase64DataUri,
-                        ref_image: refBase64DataUri
+                        first_frame_image: refBase64DataUri
+                    } : {}),
+                    ...(endRefBase64DataUri ? {
+                        image_end: endRefBase64DataUri,
+                        last_frame_image: endRefBase64DataUri,
+                        end_image_url: endRefBase64DataUri
                     } : {})
                 },
-                parameters: {
-                    aspect_ratio: aspectRatio || '16:9',
-                    duration: duration || 5
-                }
-            },
-            // Option 1: Nested standard with raw base64
-            {
-                model: model,
-                input: {
+                // Option 3: Flat payload with raw base64
+                {
+                    model: model,
                     prompt: prompt,
+                    aspect_ratio: aspectRatio || '16:9',
+                    duration: duration || 5,
                     ...(refBase64Raw ? {
                         image: refBase64Raw,
                         image_url: refBase64Raw
+                    } : {}),
+                    ...(endRefBase64Raw ? {
+                        image_end: endRefBase64Raw,
+                        last_frame_image: endRefBase64Raw,
+                        end_image_url: endRefBase64Raw
                     } : {})
                 },
-                parameters: {
-                    aspect_ratio: aspectRatio || '16:9',
-                    duration: duration || 5
-                }
-            },
-            // Option 2: Flat payload standard with Data URI
-            {
-                model: model,
-                prompt: prompt,
-                aspect_ratio: aspectRatio || '16:9',
-                duration: duration || 5,
-                ...(refBase64DataUri ? {
-                    image: refBase64DataUri,
-                    image_url: refBase64DataUri,
-                    first_frame_image: refBase64DataUri
-                } : {})
-            },
-            // Option 3: Flat payload with raw base64
-            {
-                model: model,
-                prompt: prompt,
-                aspect_ratio: aspectRatio || '16:9',
-                duration: duration || 5,
-                ...(refBase64Raw ? {
-                    image: refBase64Raw,
-                    image_url: refBase64Raw
-                } : {})
-            },
-            // Option 4: Nested with full referenceImages array (kiểu Google SDK)
-            {
-                model: model,
-                input: {
-                    prompt: prompt,
-                    reference_images: referenceImages
+                // Option 4: Nested with full referenceImages array (kiểu Google SDK)
+                {
+                    model: model,
+                    input: {
+                        prompt: prompt,
+                        reference_images: referenceImages
+                    },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9'
+                    }
                 },
-                parameters: {
-                    aspect_ratio: aspectRatio || '16:9'
-                }
-            },
-            // Option 5: Minimal nested only prompt
-            {
-                model: model,
-                input: {
+                // Option 5: Minimal nested only prompt
+                {
+                    model: model,
+                    input: {
+                        prompt: prompt
+                    }
+                },
+                // Option 6: Minimal flat only prompt
+                {
+                    model: model,
                     prompt: prompt
                 }
-            },
-            // Option 6: Minimal flat only prompt
-            {
-                model: model,
-                prompt: prompt
-            }
-        ];
+            ];
+        }
 
         let taskId = '';
         let taskEndpointUsed = '';
