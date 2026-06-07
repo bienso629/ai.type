@@ -117,14 +117,16 @@
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngIf="scene.videos && scene.videos.length > tIdx">
                                 <ng-container *ngIf="scene.videos[tIdx] as video">
-                                    <div class="absolute top-2 bottom-2 bg-gray-700 rounded-lg shadow-md group flex flex-col transition-opacity"
+                                    <div class="absolute top-2 bottom-2 bg-gray-700 rounded shadow-md group flex flex-col transition-opacity"
                                         [ngClass]="video.disabled ? 'opacity-30 grayscale' : 'opacity-100'"
                                         [style.left.px]="(video.startTime || 0) * pixelsPerSecond + 128"
                                         [style.width.px]="(video.duration || 5) * pixelsPerSecond"
-                                        [id]="'video_' + sceneIdx + '_' + tIdx">
+                                        [id]="'video_' + sceneIdx + '_' + tIdx"
+                                        [attr.data-scene-idx]="sceneIdx"
+                                        [attr.data-v-idx]="tIdx">
 
                                         <!-- Khung chứa ảnh/video -->
-                                        <div class="w-full h-full relative overflow-hidden rounded-lg transition-all"
+                                        <div class="w-full h-full relative overflow-hidden rounded transition-all"
                                             [ngClass]="{
                                     'ring-2 ring-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.5)]': activeItem === video
                                 }" (click)="setActiveItem(video, $event)">
@@ -156,7 +158,7 @@
 
                                             <!-- Nhãn thời gian -->
                                             <div
-                                                class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-1 py-0.5 z-10 rounded-br-lg pointer-events-none select-none">
+                                                class="absolute top-0 left-0 bg-black/60 text-white font-mono text-[10px] px-1 py-0.5 z-10 rounded-br pointer-events-none select-none">
                                                 {{video.duration | number:'1.0-1'}}s
                                             </div>
 
@@ -167,8 +169,8 @@
                                         </div>
 
                                         <!-- Thanh công cụ hover (đặt ngoài overflow-hidden để block nhỏ không bị đè) -->
-                                        <div
-                                            class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg border border-gray-700 shadow-xl">
+                                        <div *ngIf="!isDraggingLink"
+                                            class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded border border-gray-700 shadow-xl">
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
                                                 matTooltip="Thêm Scene nối tiếp"
@@ -176,25 +178,26 @@
                                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:plus'"></mat-icon>
                                             </button>
                                             <button mat-icon-button
-                                                class="bg-white/10 hover:bg-blue-500 transition-colors icon-size-6 rounded"
-                                                matTooltip="Copy Prompt"
-                                                (click)="$event.stopPropagation(); generateImage(scene, video, sceneIdx)">
-                                                <mat-icon class="icon-size-4 text-white"
-                                                    [svgIcon]="'feather:copy'"></mat-icon>
+                                                class="bg-white/10 hover:bg-purple-500 transition-colors icon-size-6 rounded"
+                                                matTooltip="Tải ảnh mẫu cho AI (Img2Img)"
+                                                (click)="$event.stopPropagation(); refImageInputOut.click()">
+                                                <mat-icon class="icon-size-4 text-white">add_photo_alternate</mat-icon>
                                             </button>
                                             <button mat-icon-button
-                                                class="bg-white/10 hover:bg-pink-500 transition-colors icon-size-6 rounded"
-                                                matTooltip="Upload"
-                                                (click)="$event.stopPropagation(); fileInput.click()">
-                                                <mat-icon class="icon-size-4 text-white"
-                                                    [svgIcon]="'feather:upload'"></mat-icon>
+                                                class="bg-white/10 hover:bg-blue-500 transition-colors icon-size-6 rounded flex items-center justify-center"
+                                                matTooltip="AI Tạo Video"
+                                                (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, tIdx)">
+                                                <div *ngIf="video.isGeneratingVideo" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                                <mat-icon *ngIf="!video.isGeneratingVideo" class="icon-size-4 text-white">movie</mat-icon>
                                             </button>
                                             <button mat-icon-button
-                                                class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
-                                                matTooltip="Delete Video"
-                                                (click)="$event.stopPropagation(); removeVideo(sceneIdx, tIdx)">
-                                                <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
+                                                class="bg-white/10 hover:bg-pink-500 transition-colors icon-size-6 rounded flex items-center justify-center"
+                                                matTooltip="AI Tạo Hình Ảnh"
+                                                (click)="$event.stopPropagation(); autoGenerateStoryboard(video, sceneIdx, tIdx)">
+                                                <div *ngIf="video.isGeneratingImage" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                                                <mat-icon *ngIf="!video.isGeneratingImage" class="icon-size-4 text-white">image</mat-icon>
                                             </button>
+
                                             <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)" mat-icon-button
                                                 class="bg-white/10 hover:bg-orange-500 transition-colors icon-size-6 rounded"
                                                 [matTooltip]="video.muted ? 'Unmute' : 'Mute'"
@@ -218,14 +221,23 @@
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-gray-500 transition-colors icon-size-6 rounded"
-                                                [matTooltip]="video.disabled ? 'Bật hiển thị' : 'Tắt (Disable)'"
+                                                [matTooltip]="video.disabled ? 'Bật hiển thị' : 'Tắt hiển thị'"
                                                 (click)="$event.stopPropagation(); video.disabled = !video.disabled">
                                                 <mat-icon class="icon-size-4"
                                                     [ngClass]="video.disabled ? 'text-red-400' : 'text-white'">{{
                                                     video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
                                             </button>
+                                            <button mat-icon-button
+                                                class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
+                                                matTooltip="Delete Video"
+                                                (click)="$event.stopPropagation(); removeVideo(sceneIdx, tIdx)">
+                                                <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
+                                            </button>
                                             <input #fileInput type="file"
                                                 (change)="onFileSelected($event, scene, video)" accept="image/*,video/*"
+                                                class="hidden">
+                                            <input #refImageInputOut type="file"
+                                                (change)="onReferenceImageSelectedOut($event, video, sceneIdx, tIdx)" accept="image/*"
                                                 class="hidden">
                                         </div>
 
@@ -248,15 +260,21 @@
 
                                         <!-- Nút Play Preview (Đặt đè lên drag area) -->
                                         <button *ngIf="video.videoUrl || video.imageUrl" mat-icon-button
-                                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 text-white bg-black/40 hover:bg-black/80 icon-size-8 rounded-full pointer-events-auto"
+                                            class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 text-white icon-size-8 rounded-full pointer-events-auto"
+                                            [ngClass]="video.videoUrl ? 'bg-black/40 hover:bg-black/80' : 'drop-shadow-md hover:scale-110 transition-transform'"
                                             (click)="$event.stopPropagation(); playPreview(video)">
                                             <mat-icon class="icon-size-6">{{ video.videoUrl ? 'play_arrow' :
-                                                'visibility' }}</mat-icon>
+                                                'image' }}</mat-icon>
                                         </button>
 
                                         <!-- Node link Top -->
                                         <div
-                                            class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-indigo-500 rounded-full border-2 border-white shadow-sm z-50 pointer-events-auto opacity-0 group-hover:opacity-100 transition-opacity">
+                                            class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-indigo-500 rounded-full border-2 border-white shadow-sm z-50 pointer-events-auto transition-all"
+                                            [ngClass]="isDraggingLink || hasIncomingLink(sceneIdx, tIdx) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
+                                            [class.ring-4]="isDraggingLink"
+                                            [class.ring-indigo-500]="isDraggingLink"
+                                            [class.ring-opacity-50]="isDraggingLink"
+                                            [class.scale-125]="isDraggingLink">
                                         </div>
                                         <!-- Node link Bottom -->
                                         <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-white shadow-sm z-50 pointer-events-auto flex items-center justify-center cursor-crosshair group/node"
@@ -391,7 +409,7 @@
 
                                     <!-- Thanh công cụ hover -->
                                     <div
-                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg shadow-xl border border-gray-700">
+                                        class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded shadow-xl border border-gray-700">
                                         <button mat-icon-button
                                             class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
                                             matTooltip="Delete Audio"

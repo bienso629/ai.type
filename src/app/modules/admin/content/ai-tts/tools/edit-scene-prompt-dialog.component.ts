@@ -34,6 +34,18 @@ export class EditScenePromptDialogComponent {
     isGeneratingImage: boolean = false;
     isGeneratingVideo: boolean = false;
 
+    aiReferenceImageLocalUrl: string | null = null;
+    
+    onReferenceImageSelected(event: any) {
+        const file = event.target.files[0];
+        if (file) {
+            this.aiReferenceImageLocalUrl = URL.createObjectURL(file);
+            this.generateImage();
+        }
+        // Reset file input
+        event.target.value = '';
+    }
+
     selectedAspectRatio: string = '9:16';
     aspectRatios = [
         { value: '16:9', label: '16:9 (Ngang)' },
@@ -508,6 +520,23 @@ Instructions:
             const noSplitScreenConstraint = "\n\n[MANDATORY: Generate exactly ONE single, unified frame. Do NOT generate multiple panels, split screens, storyboards, comic strips, collages, or grids. This must be a single cohesive image.]";
 
             let requestParts: any[] = [{ text: promptText + noSplitScreenConstraint }];
+
+            // Gắn thêm ảnh tham khảo do người dùng tải lên
+            if (this.aiReferenceImageLocalUrl) {
+                try {
+                    const base64Data = await this.getBase64FromImageUrl(this.aiReferenceImageLocalUrl);
+                    requestParts.push({
+                        inlineData: {
+                            data: base64Data,
+                            mimeType: 'image/png'
+                        }
+                    });
+                    // Reset reference image sau khi đã dùng để tránh dùng lại ở lần generate sau
+                    this.aiReferenceImageLocalUrl = null;
+                } catch (e) {
+                    console.error('Không thể đọc ảnh reference upload', e);
+                }
+            }
 
             // Gắn thêm ảnh reference của nhân vật vào parts
             for (const char of this.selectedReferenceChars) {
