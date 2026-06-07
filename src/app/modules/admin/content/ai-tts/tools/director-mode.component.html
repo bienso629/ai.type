@@ -245,13 +245,27 @@
 
         <!-- Tab ControlNet -->
         <div *ngIf="activeTab === 'controlnet'" class="flex flex-col gap-4 py-4 min-h-[300px]">
-            <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl text-sm border border-indigo-100 flex gap-3">
-                <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
-                    class="text-indigo-500 shrink-0"></mat-icon>
-                <div>
-                    <strong>ControlNet (Structure Reference):</strong> Tính năng này cho phép bạn tải lên một bức ảnh
-                    phác thảo (sketch) hoặc khung xương (pose). AI sẽ dựa vào đó
-                    để tạo ra khung hình chính xác theo bố cục bạn muốn.
+
+
+            <!-- Saved Templates Select -->
+            <div *ngIf="savedControlTemplates.length > 0" class="flex flex-col gap-2">
+                <label class="font-semibold text-gray-800 text-sm">Chọn từ bố cục đã lưu:</label>
+                <div class="flex flex-wrap gap-2">
+                    <div *ngFor="let template of savedControlTemplates"
+                        class="relative w-24 h-24 rounded-lg overflow-hidden border-2 cursor-pointer group hover:border-indigo-500 transition-colors"
+                        [ngClass]="{'border-indigo-600': controlImageUrl === template.imageUrl, 'border-gray-200': controlImageUrl !== template.imageUrl}"
+                        (click)="selectControlTemplate(template)" [title]="template.prompt">
+                        <img [src]="getSafeUrl(template.imageUrl)" class="w-full h-full object-cover">
+                        <div
+                            class="absolute bottom-0 inset-x-0 bg-black/60 p-1 text-[10px] text-white truncate text-center">
+                            {{ template.prompt }}
+                        </div>
+                        <button
+                            class="absolute top-1 right-1 bg-red-500/80 hover:bg-red-600 text-white rounded-full w-5 h-5 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                            (click)="deleteControlTemplate(template.id, $event)" title="Xoá">
+                            <mat-icon class="text-[14px] w-[14px] h-[14px] text-white">close</mat-icon>
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -295,13 +309,21 @@
             </div>
 
             <!-- Preview Area -->
-            <div *ngIf="controlImageUrl"
-                class="w-full relative rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-gray-50 flex items-center justify-center h-[350px]">
-                <img [src]="getSafeUrl(controlImageUrl)" class="max-w-full max-h-full object-contain">
-                <button mat-mini-fab color="warn" class="absolute top-4 right-4 z-10 shadow-md"
-                    (click)="removeControlImage()" matTooltip="Xóa ảnh">
-                    <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
-                </button>
+            <div *ngIf="controlImageUrl" class="flex flex-col gap-2">
+                <div
+                    class="w-full relative rounded-2xl overflow-hidden border border-gray-200 shadow-sm bg-gray-50 flex items-center justify-center h-[350px]">
+                    <img [src]="getSafeUrl(controlImageUrl)" class="max-w-full max-h-full object-contain">
+                    <div class="absolute top-4 right-4 z-10 flex gap-2">
+                        <button mat-mini-fab color="primary" class="shadow-md" (click)="saveCurrentControlAsTemplate()"
+                            matTooltip="Lưu làm bố cục mẫu">
+                            <mat-icon [svgIcon]="'heroicons_outline:bookmark'"></mat-icon>
+                        </button>
+                        <button mat-mini-fab color="warn" class="shadow-md" (click)="removeControlImage()"
+                            matTooltip="Xóa ảnh">
+                            <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
         <!-- Tab Context & Seed -->

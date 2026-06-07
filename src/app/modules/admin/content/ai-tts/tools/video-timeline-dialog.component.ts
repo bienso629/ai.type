@@ -1312,13 +1312,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
             let promptText = video.prompt || '';
             const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
-            let finalPrompt = master ? `${master}\n\n${promptText}` : promptText;
+            let basePrompt = master ? `${master}\n\n${promptText}` : promptText;
             
+            let mandatoryTags = '';
             if (video.duration) {
-                finalPrompt += `\n[MANDATORY: Generate video with exact duration of ${video.duration} seconds]`;
+                mandatoryTags += `\n[MANDATORY: Generate video with exact duration of ${video.duration} seconds]`;
             }
 
+            if (referenceImages && referenceImages.length > 0) {
+                mandatoryTags += `\n[MANDATORY: Strictly follow layout, skeleton & character references 100%. No hallucinations or extra details.]`;
+            }
 
+            let finalPrompt = basePrompt + mandatoryTags;
+            let byteLength = new TextEncoder().encode(finalPrompt).length;
+
+            if (byteLength > 2500 && isProxy) {
+                this.toastr.warning(`Đoạn video có tổng độ dài prompt (${byteLength} bytes) vượt quá 2500 của hệ thống. Đã bỏ qua đoạn này.`);
+                return;
+            }
             if (isProxy) {
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
@@ -1892,7 +1903,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 masterControlImageUrl: this.projectData?.masterControlImageUrl || '',
                 globalContext: this.projectData?.globalContext || null,
                 mediaDir: this.projectData?.mediaDir || '',
-                uuid: this.projectData?.uuid || this.data?.uuid
+                uuid: this.projectData?.uuid || this.data?.uuid,
+                username: this.projectData?.username || this.data?.username
             },
             width: '75vw',
             maxWidth: '90vw',
