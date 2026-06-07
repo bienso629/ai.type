@@ -21,6 +21,20 @@ const path = require("path");
 const http = require("http");
 const fs = require("fs");
 
+// Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ điều hành và app khác
+app.on('web-contents-created', (e, webContents) => {
+    webContents.on('before-input-event', (event, input) => {
+        if ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i') {
+            webContents.toggleDevTools();
+            event.preventDefault();
+        }
+        if (input.key === 'F12') {
+            webContents.toggleDevTools();
+            event.preventDefault();
+        }
+    });
+});
+
 protocol.registerSchemesAsPrivileged([
     {
         scheme: 'mediacors',
@@ -4035,9 +4049,7 @@ app.whenReady().then(async () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });
 
-    globalShortcut.register("CommandOrControl+Shift+I", () => {
-        if (mainWindow) mainWindow.webContents.toggleDevTools();
-    });
+    // (Đã chuyển web-contents-created lên đầu file)
 
     globalShortcut.register("CommandOrControl+C+G", () => {
         if (targetWindow) targetWindow.close();

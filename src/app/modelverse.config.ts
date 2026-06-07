@@ -165,15 +165,18 @@ export interface TextModelConfig {
 export const TEXT_MODEL_CONFIGS: Record<string, TextModelConfig> = {
     'claude': {
         apiFormat: 'anthropic',
-        // endpointOverride: '/v1/messages', // Bỏ comment nếu Astraflow yêu cầu endpoint riêng cho Claude
+        endpointOverride: '/v1/messages', // Astraflow requires /v1/messages for Claude
     },
     'gemini': {
         apiFormat: 'gemini',
-        // endpointOverride: '/v1beta/models/{model}:generateContent', // Bỏ comment nếu Astraflow yêu cầu endpoint riêng cho Gemini
+        endpointOverride: '/v1beta/models/{model}:generateContent', // Astraflow requires specific endpoint for Gemini
     },
     'deepseek-reasoner': {
         apiFormat: 'openai',
         useMaxCompletionTokens: true
+    },
+    'deepseek': {
+        apiFormat: 'openai'
     },
     'o1': {
         apiFormat: 'openai',
@@ -184,8 +187,7 @@ export const TEXT_MODEL_CONFIGS: Record<string, TextModelConfig> = {
         useMaxCompletionTokens: true
     },
     'doubao': {
-        apiFormat: 'openai',
-        // extraParams: { search_enabled: true } // Ví dụ nếu doubao cần param search
+        apiFormat: 'openai'
     }
 };
 

@@ -308,7 +308,10 @@ export class GenaiService {
         const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
         const config = getTextModelConfig(targetModel);
 
-        let endpointPath = config.endpointOverride || '/chat/completions';
+        let endpointPath = config.endpointOverride || '/v1/chat/completions';
+        if (endpointPath.includes('{model}')) {
+            endpointPath = endpointPath.replace('{model}', targetModel);
+        }
         let body: any = {};
         let isReasoningModel = false;
 
@@ -323,9 +326,6 @@ export class GenaiService {
         }
 
         if (config.apiFormat === 'gemini') {
-            if (!config.endpointOverride) {
-                endpointPath = `/v1beta/models/${targetModel}:generateContent`;
-            }
             body = {
                 contents: params.contents,
                 generationConfig: {
@@ -344,9 +344,6 @@ export class GenaiService {
                 Object.assign(body, config.extraParams);
             }
         } else if (config.apiFormat === 'anthropic') {
-            if (!config.endpointOverride) {
-                endpointPath = '/v1/messages';
-            }
             body = {
                 model: targetModel,
                 messages: messages, // Các message user/assistant đã gom ở trên
@@ -395,9 +392,15 @@ export class GenaiService {
             }
         }
 
+        let finalUrl = url;
+        if (finalUrl.endsWith('/')) {
+            finalUrl = finalUrl.slice(0, -1);
+        }
+        if (finalUrl.endsWith('/v1') && (endpointPath.startsWith('/v1/') || endpointPath.startsWith('/v1beta/'))) {
+            finalUrl = finalUrl.slice(0, -3);
+        }
 
-
-        const response = await fetch(`${url}${endpointPath}`, {
+        const response = await fetch(`${finalUrl}${endpointPath}`, {
             method: 'POST',
             headers,
             body: JSON.stringify(body)

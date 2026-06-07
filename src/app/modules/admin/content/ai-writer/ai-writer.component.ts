@@ -1648,13 +1648,20 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3-flash-preview',
-                contents: [{ role: 'user', parts: parts }],
+                contents: [{ role: 'user', parts: parts }]
             });
 
             const jsonText = response.text;
             if (jsonText) {
-                const cleanedJson = jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
-                const data = JSON.parse(cleanedJson);
+                let data: any;
+                try {
+                    const match = jsonText.match(/\{[\s\S]*\}/);
+                    const cleanedJson = match ? match[0] : jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+                    data = JSON.parse(cleanedJson);
+                } catch (e) {
+                    console.error("Lỗi parse JSON từ AI:", e, jsonText);
+                    throw new Error("AI không trả về định dạng JSON hợp lệ.");
+                }
 
                 if (data) {
                     this.seo.description.text = data.description;
@@ -1757,12 +1764,20 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3-flash-preview',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
             const jsonText = response.text;
             if (jsonText) {
-                const data = JSON.parse(jsonText);
+                let data: any;
+                try {
+                    const match = jsonText.match(/\{[\s\S]*\}/);
+                    const cleanedJson = match ? match[0] : jsonText.replace(/```json/g, '').replace(/```/g, '').trim();
+                    data = JSON.parse(cleanedJson);
+                } catch (e) {
+                    console.error("Lỗi parse JSON từ AI:", e, jsonText);
+                    throw new Error("AI không trả về định dạng JSON hợp lệ.");
+                }
 
                 if (data) {
                     this.seo.description.text = data.description;
