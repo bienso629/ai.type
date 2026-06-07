@@ -1,6 +1,13 @@
-<h2 mat-dialog-title class="text-xl font-bold text-slate-800 m-0 p-0 mb-4">
-    {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
-</h2>
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-indigo-900 m-0">
+        {{ isEditMode ? 'Sửa' : 'Thêm' }} Nhân Vật
+    </h2>
+    <div class="flex items-center gap-2">
+        <button mat-icon-button mat-dialog-close>
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
+    </div>
+</div>
 
 <mat-dialog-content class="flex flex-col gap-2 p-0 scrollbar-hide !max-h-none">
         @if (!showFullForm) {
@@ -13,9 +20,9 @@
             </mat-form-field>
 
             <div class="flex items-center gap-3 flex-wrap">
-                <button mat-flat-button (click)="aiAvatarInput.click()" class="bg-green-500 text-white">
-                    <mat-icon class="icon-size-5 text-gray-500 mr-2">upload_file</mat-icon>
-                    <mat-label class="ml-2">Tải ảnh mẫu (Tuỳ chọn)</mat-label>
+                <button type="button" class="text-blue-600 hover:text-blue-800 font-medium inline-flex items-center text-sm" (click)="aiAvatarInput.click()">
+                    <mat-icon class="icon-size-4 mr-1">upload_file</mat-icon>
+                    <span class="underline">Tải ảnh mẫu (Tuỳ chọn)</span>
                 </button>
                 <input #aiAvatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
                     class="hidden">
@@ -33,11 +40,8 @@
             </div>
 
             <div class="flex justify-between items-center mt-2">
-                <button mat-button class="bg-blue-500 text-white" (click)="showFullForm = true">Nhập thủ
-                    công</button>
+                <button type="button" class="text-blue-600 hover:text-blue-800 font-medium text-sm underline" (click)="showFullForm = true">Nhập thủ công</button>
                 <div class="flex items-center gap-2">
-                    <button mat-button mat-dialog-close>Hủy</button>
-
                     <button mat-flat-button color="primary" class="px-6" (click)="generateProfileByAI()"
                         [disabled]="isGeneratingProfile">
                         <mat-icon class="icon-size-5" *ngIf="!isGeneratingProfile">auto_awesome</mat-icon>
@@ -185,7 +189,6 @@
 
 @if (showFullForm) {
 <mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-1">
-        <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" [disabled]="!editingChar.name && !editingChar.role" (click)="save()">
             Lưu thông tin
         </button>
