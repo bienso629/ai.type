@@ -5238,26 +5238,24 @@ ipcMain.handle('extract-last-frame', async (event, videoPath) => {
         if (!fs.existsSync(videoPathDecoded)) return { success: false, error: 'Video file not found: ' + videoPathDecoded };
         
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
-        const tempImage = path.join(os.tmpdir(), `frame_${Date.now()}.png`);
+        const imgDir = path.dirname(videoPathDecoded);
+        const ext = path.extname(videoPathDecoded);
+        const baseName = path.basename(videoPathDecoded, ext);
+        const outputPath = path.join(imgDir, `${baseName}_last_frame.png`);
         
         return new Promise((resolve) => {
-            const args = ['-sseof', '-0.5', '-i', videoPathDecoded, '-update', '1', '-q:v', '2', tempImage];
+            const args = ['-sseof', '-0.5', '-i', videoPathDecoded, '-update', '1', '-q:v', '2', '-y', outputPath];
             const child = spawn(ffmpegPath, args);
             child.on('close', (code) => {
-                if (fs.existsSync(tempImage)) {
-                    const base64 = fs.readFileSync(tempImage, { encoding: 'base64' });
-                    fs.unlinkSync(tempImage);
-                    resolve({ success: true, base64 });
+                if (fs.existsSync(outputPath)) {
+                    resolve({ success: true, path: outputPath });
                 } else {
                     // Try getting the first frame if the previous method fails (e.g., video too short)
-                    const tempImage2 = path.join(os.tmpdir(), `frame_first_${Date.now()}.png`);
-                    const args2 = ['-i', videoPathDecoded, '-vframes', '1', '-q:v', '2', tempImage2];
+                    const args2 = ['-i', videoPathDecoded, '-vframes', '1', '-q:v', '2', '-y', outputPath];
                     const child2 = spawn(ffmpegPath, args2);
                     child2.on('close', () => {
-                        if (fs.existsSync(tempImage2)) {
-                            const base64 = fs.readFileSync(tempImage2, { encoding: 'base64' });
-                            fs.unlinkSync(tempImage2);
-                            resolve({ success: true, base64 });
+                        if (fs.existsSync(outputPath)) {
+                            resolve({ success: true, path: outputPath });
                         } else {
                             resolve({ success: false, error: 'Cannot extract frame' });
                         }

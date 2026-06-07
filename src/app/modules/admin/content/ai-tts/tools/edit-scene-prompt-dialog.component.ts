@@ -1159,11 +1159,15 @@ Instructions:
 
     isImageType(url: string): boolean {
         if (!url) return false;
+        if (url.startsWith('data:image')) return true;
+        
         const imageExtensions = [
             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
         ];
         const cleanUrl = url.replace('file://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
+        
+        if (!url.includes('.') && !url.startsWith('data:')) return true; // Handle paths without extensions just in case
         return fileExtension ? imageExtensions.includes(fileExtension) : true;
     }
 
