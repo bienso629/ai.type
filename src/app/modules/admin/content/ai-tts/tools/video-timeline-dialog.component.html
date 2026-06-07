@@ -117,8 +117,11 @@
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngIf="scene.videos && scene.videos.length > tIdx">
                                 <ng-container *ngIf="scene.videos[tIdx] as video">
-                                    <div class="absolute top-2 bottom-2 bg-gray-700 rounded shadow-md group flex flex-col transition-opacity"
-                                        [ngClass]="video.disabled ? 'opacity-30 grayscale' : 'opacity-100'"
+                                    <div class="absolute top-2 bottom-2 bg-gray-700 rounded-lg shadow-md group flex flex-col transition-all"
+                                        [ngClass]="{
+                                            'opacity-30 grayscale': video.disabled,
+                                            'opacity-100': !video.disabled
+                                        }"
                                         [style.left.px]="(video.startTime || 0) * pixelsPerSecond + 128"
                                         [style.width.px]="(video.duration || 5) * pixelsPerSecond"
                                         [id]="'video_' + sceneIdx + '_' + tIdx"
@@ -126,10 +129,13 @@
                                         [attr.data-v-idx]="tIdx">
 
                                         <!-- Khung chứa ảnh/video -->
-                                        <div class="w-full h-full relative overflow-hidden rounded transition-all"
-                                            [ngClass]="{
-                                    'ring-2 ring-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.5)]': activeItem === video
-                                }" (click)="setActiveItem(video, $event)">
+                                        <div class="w-full h-full relative overflow-hidden rounded-lg transition-all"
+                                            (click)="setActiveItem(video, $event)">
+
+                                            <!-- Lớp viền active (Hiển thị đè lên trên video/ảnh) -->
+                                            <div class="absolute inset-0 pointer-events-none rounded-lg z-30 transition-all"
+                                                 [ngClass]="{'ring-2 ring-inset ring-indigo-400 shadow-[inset_0_0_20px_rgba(129,140,248,0.6)]': activeItem === video}">
+                                            </div>
 
                                             <!-- Background Image/Video -->
                                             @if (video.videoUrl) {
@@ -173,26 +179,22 @@
                                             class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded border border-gray-700 shadow-xl">
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
-                                                matTooltip="Thêm Scene nối tiếp"
                                                 (click)="$event.stopPropagation(); addNewScene(sceneIdx)">
                                                 <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:plus'"></mat-icon>
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-purple-500 transition-colors icon-size-6 rounded"
-                                                matTooltip="Tải ảnh mẫu cho AI (Img2Img)"
                                                 (click)="$event.stopPropagation(); refImageInputOut.click()">
                                                 <mat-icon class="icon-size-4 text-white">add_photo_alternate</mat-icon>
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-blue-500 transition-colors icon-size-6 rounded flex items-center justify-center"
-                                                matTooltip="AI Tạo Video"
                                                 (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, tIdx)">
                                                 <div *ngIf="video.isGeneratingVideo" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                                                 <mat-icon *ngIf="!video.isGeneratingVideo" class="icon-size-4 text-white">movie</mat-icon>
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-pink-500 transition-colors icon-size-6 rounded flex items-center justify-center"
-                                                matTooltip="AI Tạo Hình Ảnh"
                                                 (click)="$event.stopPropagation(); autoGenerateStoryboard(video, sceneIdx, tIdx)">
                                                 <div *ngIf="video.isGeneratingImage" class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
                                                 <mat-icon *ngIf="!video.isGeneratingImage" class="icon-size-4 text-white">image</mat-icon>
@@ -200,7 +202,6 @@
 
                                             <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)" mat-icon-button
                                                 class="bg-white/10 hover:bg-orange-500 transition-colors icon-size-6 rounded"
-                                                [matTooltip]="video.muted ? 'Unmute' : 'Mute'"
                                                 (click)="$event.stopPropagation(); toggleMute(video)">
                                                 <mat-icon class="icon-size-4 text-white">{{ video.muted ? 'volume_off' :
                                                     'volume_up' }}</mat-icon>
@@ -208,20 +209,17 @@
                                             <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)"
                                                 mat-icon-button
                                                 class="bg-white/10 hover:bg-purple-500 transition-colors icon-size-6 rounded"
-                                                matTooltip="Tách Audio"
                                                 (click)="$event.stopPropagation(); extractAudio(video, sceneIdx)">
                                                 <mat-icon class="icon-size-4 text-white">music_note</mat-icon>
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-green-500 transition-colors icon-size-6 rounded"
-                                                matTooltip="Edit Prompt"
                                                 (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx, tIdx)">
                                                 <mat-icon class="icon-size-4 text-white"
                                                     [svgIcon]="'feather:edit'"></mat-icon>
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-white/10 hover:bg-gray-500 transition-colors icon-size-6 rounded"
-                                                [matTooltip]="video.disabled ? 'Bật hiển thị' : 'Tắt hiển thị'"
                                                 (click)="$event.stopPropagation(); video.disabled = !video.disabled">
                                                 <mat-icon class="icon-size-4"
                                                     [ngClass]="video.disabled ? 'text-red-400' : 'text-white'">{{
@@ -229,7 +227,6 @@
                                             </button>
                                             <button mat-icon-button
                                                 class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
-                                                matTooltip="Delete Video"
                                                 (click)="$event.stopPropagation(); removeVideo(sceneIdx, tIdx)">
                                                 <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
                                             </button>
@@ -305,17 +302,20 @@
                         <!-- Audio Blocks -->
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngFor="let sub of scene.subtitles; let subIdx = index">
-                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
+                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
                                     [ngClass]="{
                                         'opacity-30 grayscale': sub.disabled,
-                                        'opacity-100': !sub.disabled,
-                                        'ring-2 ring-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.5)]': activeItem === sub
+                                        'opacity-100': !sub.disabled
                                     }" [style.left.px]="(sub.startTime || 0) * pixelsPerSecond + 128"
                                     [style.width.px]="(sub.duration || 2) * pixelsPerSecond" [title]="sub.text"
                                     (click)="setActiveItem(sub, $event); !sub.disabled && playWaveform('sub', sceneIdx, subIdx)">
 
                                     <!-- Label -->
                                     <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
+                                        <!-- Lớp viền active -->
+                                        <div class="absolute inset-0 pointer-events-none rounded-lg z-30 transition-all"
+                                             [ngClass]="{'ring-2 ring-inset ring-indigo-400 shadow-[inset_0_0_20px_rgba(129,140,248,0.6)]': activeItem === sub}">
+                                        </div>
                                         <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
                                             <div
                                                 class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
@@ -344,13 +344,11 @@
                                         class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded-lg shadow-xl border border-gray-700">
                                         <button mat-icon-button
                                             class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
-                                            matTooltip="Delete Audio"
                                             (click)="$event.stopPropagation(); removeSubtitle(sceneIdx, subIdx)">
                                             <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
                                         </button>
                                         <button mat-icon-button
                                             class="bg-white/10 hover:bg-gray-500 transition-colors icon-size-6 rounded"
-                                            [matTooltip]="sub.disabled ? 'Bật hiển thị' : 'Tắt (Disable)'"
                                             (click)="$event.stopPropagation(); sub.disabled = !sub.disabled">
                                             <mat-icon class="icon-size-4"
                                                 [ngClass]="sub.disabled ? 'text-red-400' : 'text-white'">{{
@@ -374,17 +372,20 @@
                         <!-- Audio Blocks -->
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
-                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
+                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
                                     [ngClass]="{
                                         'opacity-30 grayscale': audio.disabled,
-                                        'opacity-100': !audio.disabled,
-                                        'ring-2 ring-indigo-400 shadow-[0_0_10px_rgba(129,140,248,0.5)]': activeItem === audio
+                                        'opacity-100': !audio.disabled
                                     }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond + 128"
                                     [style.width.px]="(audio.duration || 5) * pixelsPerSecond" [title]="audio.text"
                                     (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx)">
 
                                     <!-- Label -->
                                     <div class="w-full h-full flex flex-col p-1.5 justify-center relative">
+                                        <!-- Lớp viền active -->
+                                        <div class="absolute inset-0 pointer-events-none rounded-lg z-30 transition-all"
+                                             [ngClass]="{'ring-2 ring-inset ring-indigo-400 shadow-[inset_0_0_20px_rgba(129,140,248,0.6)]': activeItem === audio}">
+                                        </div>
                                         <div class="flex flex-row items-center justify-between w-full mb-0.5 gap-2">
                                             <div
                                                 class="text-[10px] text-indigo-200 font-medium truncate flex items-center gap-1">
@@ -412,13 +413,11 @@
                                         class="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded shadow-xl border border-gray-700">
                                         <button mat-icon-button
                                             class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
-                                            matTooltip="Delete Audio"
                                             (click)="$event.stopPropagation(); removeExtractedAudio(sceneIdx, aIdx)">
                                             <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
                                         </button>
                                         <button mat-icon-button
                                             class="bg-white/10 hover:bg-gray-500 transition-colors icon-size-6 rounded"
-                                            [matTooltip]="audio.disabled ? 'Bật hiển thị' : 'Tắt (Disable)'"
                                             (click)="$event.stopPropagation(); audio.disabled = !audio.disabled">
                                             <mat-icon class="icon-size-4"
                                                 [ngClass]="audio.disabled ? 'text-red-400' : 'text-white'">{{

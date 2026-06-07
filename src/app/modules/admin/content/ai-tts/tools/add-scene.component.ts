@@ -28,10 +28,14 @@ import { GenaiService } from 'app/genai.service';
     ],
     template: `
     <div class="min-w-[480px] bg-white rounded-lg">
-        <div class="flex items-center justify-between mb-2">
-            <div class="flex items-center text-xl font-semibold text-primary">
-                <mat-icon class="mr-2 text-primary">add_to_photos</mat-icon>
+        <div class="flex items-center justify-between mb-4">
+            <h2 class="text-lg font-bold text-indigo-900 m-0">
                 Thêm Scene mới thủ công
+            </h2>
+            <div class="flex items-center gap-2">
+                <button mat-icon-button (click)="onCancel()">
+                    <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                </button>
             </div>
         </div>
         
@@ -62,7 +66,6 @@ import { GenaiService } from 'app/genai.service';
         </div>
         
         <div mat-dialog-actions class="flex justify-end gap-1 mt-8 p-0 pt-4 border-t border-gray-100">
-            <button mat-flat-button color="accent" (click)="onCancel()">Hủy bỏ</button>
             <button mat-flat-button color="primary" 
                     [mat-dialog-close]="data" 
                     [disabled]="!data.selectedClip || !data.prompt?.trim()">

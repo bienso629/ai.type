@@ -1,19 +1,12 @@
 <div class="light-theme flex flex-col font-sans bg-white">
     <!-- Header -->
-    <div class="flex items-center justify-between p-0 mb-3 bg-white">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-indigo-900 m-0">Chế độ Đạo diễn</h2>
         <div class="flex items-center gap-2">
-            <mat-icon class="text-indigo-600 text-3xl">movie_creation</mat-icon>
-            <div>
-                <h2 class="flex gap-2 text-indigo-600 text-xl font-bold m-0 items-center">
-                    Chế độ Đạo diễn
-                    <span class="text-gray-500 font-normal text-sm">Tuỳ chỉnh góc máy và ánh sáng như chuyên gia</span>
-                </h2>
-            </div>
+            <button mat-icon-button (click)="dialogRef.close()">
+                <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            </button>
         </div>
-
-        <button mat-icon-button class="text-gray-400 hover:text-gray-700" (click)="dialogRef.close()">
-            <mat-icon>close</mat-icon>
-        </button>
     </div>
 
     <!-- Content body -->
@@ -180,7 +173,6 @@
 
     <!-- Footer Actions -->
     <div class="px-0 mt-4 flex justify-end gap-2">
-        <button mat-button (click)="dialogRef.close()">Hủy</button>
         <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName === 'Apply to Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName === 'Apply to Scene Prompt' ? 'Áp dụng vào Phân cảnh' : 'Áp dụng') }}</button>
     </div>
 </div>

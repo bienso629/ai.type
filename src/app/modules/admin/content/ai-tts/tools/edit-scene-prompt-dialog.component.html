@@ -1,7 +1,14 @@
-<h2 mat-dialog-title class="text-xl font-bold text-slate-800 m-0 p-0 mb-4">
-    Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
-    <ng-container *ngIf="editingVideoIndex >= 0">- Phần {{ editingVideoIndex + 1 }}</ng-container>
-</h2>
+<div class="flex items-center justify-between mb-4">
+    <h2 class="text-lg font-bold text-indigo-900 m-0">
+        Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
+        <ng-container *ngIf="editingVideoIndex >= 0">- Phần {{ editingVideoIndex + 1 }}</ng-container>
+    </h2>
+    <div class="flex items-center gap-2">
+        <button mat-icon-button mat-dialog-close>
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
+    </div>
+</div>
 
 <mat-dialog-content class="flex flex-col gap-4 p-0 overflow-x-hidden scrollbar-hide !max-h-none">
         <!-- Reference Images Section -->
@@ -174,6 +181,5 @@
             </a>
         </div>
 
-        <button mat-button mat-dialog-close>Hủy</button>
         <button mat-flat-button color="primary" (click)="save()">Lưu thông tin</button>
 </mat-dialog-actions>
