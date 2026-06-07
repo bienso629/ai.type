@@ -947,9 +947,14 @@ export class GenaiService {
                         } else if (ref.referenceType === 'END_FRAME') {
                             klingImageList.push({ image_url: imageUrl, type: "end_frame" });
                         } else if (ref.referenceType === 'CONTROL_IMAGE') {
-                            klingImageList.push({ image_url: imageUrl });
-                            // Ảnh khung xương: ép AI chỉ lấy tư thế, không bắt chước nét vẽ
-                            modifiedPrompt = `<<<image_${klingImageList.length}>>> [CRITICAL: The reference image is a pose/skeleton/sketch control image. DO NOT draw a skeleton or sketch. ONLY use it as a strict reference for the character's body pose, camera angle, and scene composition. Render the final output in the requested visual style.] ${modifiedPrompt}`;
+                            const hasStartFrame = referenceImages.some((r: any) => r.referenceType === 'START_FRAME');
+                            if (!hasStartFrame) {
+                                klingImageList.push({ image_url: imageUrl });
+                                // Ảnh khung xương: ép AI chỉ lấy tư thế, không bắt chước nét vẽ
+                                modifiedPrompt = `<<<image_${klingImageList.length}>>> [CRITICAL: The reference image is a pose/skeleton/sketch control image. DO NOT draw a skeleton or sketch. ONLY use it as a strict reference for the character's body pose, camera angle, and scene composition. Render the final output in the requested visual style.] ${modifiedPrompt}`;
+                            } else {
+                                console.log('[Kling] Bỏ qua CONTROL_IMAGE vì đã có START_FRAME (tránh xung đột khung xương)');
+                            }
                         } else {
                             klingImageList.push({ image_url: imageUrl });
                             // Ảnh nhân vật/phong cách

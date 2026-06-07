@@ -5248,14 +5248,16 @@ ipcMain.handle('extract-last-frame', async (event, videoPath) => {
             const child = spawn(ffmpegPath, args);
             child.on('close', (code) => {
                 if (fs.existsSync(outputPath)) {
-                    resolve({ success: true, path: outputPath });
+                    const base64 = fs.readFileSync(outputPath, { encoding: 'base64' });
+                    resolve({ success: true, path: outputPath, base64 });
                 } else {
                     // Try getting the first frame if the previous method fails (e.g., video too short)
                     const args2 = ['-i', videoPathDecoded, '-vframes', '1', '-q:v', '2', '-y', outputPath];
                     const child2 = spawn(ffmpegPath, args2);
                     child2.on('close', () => {
                         if (fs.existsSync(outputPath)) {
-                            resolve({ success: true, path: outputPath });
+                            const base64 = fs.readFileSync(outputPath, { encoding: 'base64' });
+                            resolve({ success: true, path: outputPath, base64 });
                         } else {
                             resolve({ success: false, error: 'Cannot extract frame' });
                         }
