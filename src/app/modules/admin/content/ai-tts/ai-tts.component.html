@@ -79,6 +79,7 @@
 
             <mat-form-field class="w-28 field-hidden-subscript fuse-mat-dense" appearance="fill">
                 <mat-select [(ngModel)]="maxDuration" (ngModelChange)="saveToLocal()" placeholder="Thời lượng">
+                    <mat-option [value]="0">Tự do</mat-option>
                     <mat-option [value]="4">4s</mat-option>
                     <mat-option [value]="6">6s</mat-option>
                     <mat-option [value]="8">8s</mat-option>

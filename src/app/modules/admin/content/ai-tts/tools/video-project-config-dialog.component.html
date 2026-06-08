@@ -35,19 +35,6 @@
     </mat-form-field>
     }
 
-    <!-- Script Section -->
-    @if (fullScript) {
-        <div class="flex items-center justify-between mb-2 mt-6">
-            <div class="flex items-center">
-                <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
-                <h3 class="font-bold text-indigo-800 text-sm">Nội dung Kịch bản gốc</h3>
-            </div>
-        </div>
-        <div class="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-4 max-h-[250px] overflow-y-auto mb-4 text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap leading-relaxed font-serif">
-            {{ fullScript }}
-        </div>
-    }
-
     <!-- Characters Section -->
     <div class="flex items-center justify-between mb-4 mt-6">
         <div class="flex items-center">

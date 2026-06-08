@@ -93,20 +93,7 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
     }
-    fullScript: string = '';
-
-    ngOnInit(): void {
-        if (this.projectData?.uuid) {
-            const storageKey = `ai_type_audio_merger_data_${this.projectData.uuid}`;
-            const data = this.multiAccountService.getItem(storageKey);
-            if (data && data.clips) {
-                this.fullScript = data.clips.map((c: any) => {
-                    const text = c.description || c.name || '';
-                    return `[Cảnh ${c.id}] ${text.trim()}`;
-                }).join('\n\n');
-            }
-        }
-    }
+    ngOnInit(): void { }
 
     close() {
         this.dialogRef.close(this.projectData);

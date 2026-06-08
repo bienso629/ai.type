@@ -1084,8 +1084,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         // Rút gọn format đầu vào để AI dễ đọc. Phân biệt rõ dòng nào có thoại (có số giây), dòng nào hành động (NO_AUDIO)
+        // Nếu chọn "Tự do" (maxDuration === 0), giấu luôn số giây để AI không cố gắng cộng trừ cho khớp
         const continuousText = allClips
-            .map((c: any) => `[${c.id} | ${c.localFilePath ? (c.duration + 's') : 'NO_AUDIO'}] ${c.description}`)
+            .map((c: any) => {
+                if (this.maxDuration === 0) {
+                    return `[${c.id}] ${c.description}`;
+                }
+                return `[${c.id} | ${c.localFilePath ? (c.duration + 's') : 'NO_AUDIO'}] ${c.description}`;
+            })
             .join('\n');
 
         // Lấy định dạng từ select box
@@ -1132,13 +1138,27 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (isVideo) {
             // LUẬT KHẮT KHE CHO VIDEO (Để AI render không bị lỗi)
-            timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
+            if (this.maxDuration > 0) {
+                timeConstraintPrompt = `Tôi có kịch bản thoại với TỔNG THỜI LƯỢNG CHÍNH XÁC: ${durationString} (${totalSecs}s).`;
+            } else {
+                timeConstraintPrompt = `Tôi có kịch bản thoại chi tiết. Bạn hoàn toàn làm chủ nhịp điệu.`;
+            }
 
-            maxDurationRule = `
+            if (this.maxDuration > 0) {
+                maxDurationRule = `
             - GIỚI HẠN THỜI GIAN: Tối đa ${this.maxDuration} GIÂY cho mỗi Phân cảnh.
             - ⚠️ NGOẠI LỆ BẮT BUỘC: Nếu bản thân MỘT đoạn thoại (1 ID) đã có thời lượng dài hơn ${this.maxDuration} giây, BẠN PHẢI xếp ID đó đứng một mình trong một scene. VÀ BẮT BUỘC trong nội dung "prompt" của scene đó, bạn phải chủ động chia thành nhiều câu prompt nhỏ (mỗi prompt đại diện cho tối đa ${this.maxDuration}s, kết hợp thay đổi góc máy để sinh động) để người dùng có thể tạo nhiều video nối tiếp. 
               (Ví dụ: "Prompt 1 (${this.maxDuration}s): Góc máy rộng... \\nPrompt 2 (6s): Góc máy cận cảnh..."). 
             TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene riêng biệt trong JSON.`;
+            } else {
+                maxDurationRule = `
+            - THỜI LƯỢNG TỰ DO: Bạn TỰ QUYẾT ĐỊNH thời lượng hợp lý (thường từ 3s đến 8s) cho mỗi video clip dựa vào nội dung. ĐẶC BIỆT chú ý:
+              + TỐI GIẢN HOÁ CẢNH QUAY: Phân tích ĐOẠN VĂN và gom nhóm triệt để các ID thoại thành chung 1 scene nếu chúng miêu tả cùng một chuỗi hành động/bối cảnh. CÀNG SÚC TÍCH, CÔ ĐỌNG CÀNG TỐT (VD: một chuỗi dài chỉ cần 1-3 cảnh là đủ).
+              + TUYỆT ĐỐI KHÔNG CHIA NHỎ MÔ TẢ: Không bao giờ được chia nhỏ 1 mô tả ra thành nhiều đoạn "Prompt 1", "Prompt 2" ở trong JSON. Mỗi scene trong JSON chỉ được chứa MỘT câu prompt duy nhất.
+              + LƯỢC BỎ TỪ NGỮ THỪA THÃI: Rút gọn prompt cực kỳ ngắn gọn (Tối đa 15-20 từ). Chỉ tập trung vào Danh từ (Chủ thể, Đạo cụ) và Động từ (Hành động). Bỏ qua những chi tiết rườm rà.
+              + TẬP TRUNG VÀO HÀNH ĐỘNG CỐT LÕI: Nếu câu thoại dài lê thê nhưng hình ảnh chỉ diễn tả MỘT CẢNH TĨNH hoặc hành động lặp lại, hãy CHỈ VIẾT 1 PROMPT DUY NHẤT và gán thời gian vừa đủ cho hành động đó (VD: 5s). KHÔNG CẦN cố đẻ thêm hình ảnh để lấp đầy thời gian đọc thoại.
+              + BẮT BUỘC ghi rõ thời lượng ước tính "estimatedDuration" cho mỗi scene. TUYỆT ĐỐI KHÔNG tự ý chia cắt 1 ID ra nhiều scene riêng biệt.`;
+            }
 
             if (isVertical) {
                 formatInstruction = `\n👉 HƯỚNG DẪN CHO VIDEO DỌC (9:16): Mỗi "scene" là một phân cảnh khung hình dọc. Hãy đảm bảo chủ thể luôn được đặt ở trung tâm.`;
@@ -1191,8 +1211,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               (Ví dụ: "Maria typing on a laptop, close-up shot on hands, dark office background, cinematic lighting, dramatic shadows, 4k, photorealistic").
             - 🎬 TÁCH BIỆT "BỐI CẢNH" (imagePrompt) VÀ "HÀNH ĐỘNG" (prompt) THEO CÔNG THỨC:
               + "imagePrompt": Bản thiết kế bối cảnh. PHẢI LÀ CẢNH TRỐNG (Empty Set). Chỉ bao gồm: [Bối cảnh] + [Góc máy] + [Ánh sáng] + [Phong cách]. TUYỆT ĐỐI KHÔNG CÓ CON NGƯỜI HAY NHÂN VẬT.
-              + "prompt": Bản thiết kế hành động. Gom đủ 6 yếu tố của CÔNG THỨC TRÊN. Phải bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM Chủ thể, Hành động, Chuyển động camera (vd: Tracking shot, Slow-motion, Pan). Hành động càng cụ thể, đơn hướng càng tốt.
-            - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia" (VD: không viết "phong cách Pixar hoặc Dreamworks" mà chỉ được chọn 1). TUYỆT ĐỐI KHÔNG miêu tả lại Art style ở phần scene.
+              + "prompt": Bản thiết kế hành động. Gom đủ 6 yếu tố của CÔNG THỨC TRÊN. Phải bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM Chủ thể, Hành động, Chuyển động camera. Hãy TỐI GIẢN HOÁ, chỉ cần 15-20 từ.
+            - 🌓 NHẤT QUÁN BỐI CẢNH & THỜI GIAN (TUYỆT ĐỐI QUAN TRỌNG): Xuyên suốt toàn bộ câu chuyện, bạn PHẢI phân tích bối cảnh chung và giữ CỐ ĐỊNH Thời gian (VD: "night time", "daylight") và Thiết lập Ánh sáng (VD: "cinematic lighting", "bright sunlight"). NẾU ĐÃ LÀ BAN ĐÊM, TẤT CẢ CÁC CẢNH TIẾP THEO PHẢI CÓ "night time" trong prompt, KHÔNG ĐƯỢC để tự động chuyển sang ban ngày.
+            - 🎥 CHẤT LƯỢNG HÌNH ẢNH (REALISTIC VIDEO): BẮT BUỘC chèn cụm từ "photorealistic, hyper-realistic, live-action, 8k resolution, shot on 35mm lens" vào cuối MỌI PROMPT để đảm bảo video có chất lượng giống cảnh quay người thật (trừ khi master prompt yêu cầu thể loại khác như anime/comic).
+            - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia".
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
             - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. Bạn phải tự tưởng tượng một cảnh hành động như vậy tốn bao nhiêu giây trong thực tế để gán số (ví dụ: 2, 3.5, 5). KHÔNG cộng dồn thời gian một cách vô lý.
@@ -1218,7 +1240,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                   "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN ENGLISH, EMPTY SCENE NO CHARACTERS)",
                   "prompt": "[Subject (Character Name)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN ENGLISH)",
                   "subtitleIds": ["id1", "id2"],
-                  "estimatedDuration": 3 // CHỈ BẮT BUỘC NẾU tất cả subtitleIds đều là NO_AUDIO (nhập số giây ước tính thực tế, vd: 2, 3.5)
+                  "estimatedDuration": 3 // BẮT BUỘC (nhập số giây ước lượng cho shot hình này, vd: 2, 3.5, 4.2)
                 }
               ]
             }
@@ -1308,7 +1330,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     };
                 });
 
-                if (!hasAnyAudio && scene.estimatedDuration) {
+                if (this.maxDuration === 0 && scene.estimatedDuration) {
+                    exactSceneDuration = scene.estimatedDuration;
+                } else if (!hasAnyAudio && scene.estimatedDuration) {
                     exactSceneDuration = scene.estimatedDuration;
                 }
 
@@ -1356,17 +1380,34 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 let videos = [];
                 const maxVideoLength = this.maxDuration;
 
-                // Cố gắng tách các "Prompt 1:", "Prompt 2:" ra nếu AI có sinh ra
+                // Cố gắng tách các "Prompt 1 (5s):", "Prompt 2:" ra nếu AI có sinh ra
                 let individualPrompts: string[] = [];
+                let individualDurations: number[] = [];
+                
                 const splitRegex = /(?:Prompt|Phân đoạn|Phần|Cảnh|Part)\s*\d+[^:]*:/gi;
-                if (splitRegex.test(originalScenePrompt)) {
-                    // Reset lại lastIndex do dùng global (/g) flag
-                    splitRegex.lastIndex = 0;
-                    individualPrompts = originalScenePrompt.split(splitRegex).map(s => s.trim()).filter(s => s.length > 0);
+                let match;
+                let headers = [];
+                while ((match = splitRegex.exec(originalScenePrompt)) !== null) {
+                    headers.push({ index: match.index, text: match[0] });
+                }
+                
+                if (headers.length > 0) {
+                    for (let i = 0; i < headers.length; i++) {
+                        const header = headers[i];
+                        const startIndex = header.index + header.text.length;
+                        const endIndex = (i + 1 < headers.length) ? headers[i+1].index : originalScenePrompt.length;
+                        
+                        const promptText = originalScenePrompt.substring(startIndex, endIndex).trim();
+                        if (promptText) {
+                            individualPrompts.push(promptText);
+                            const timeMatch = header.text.match(/\(([\d\.]+)[sS]?\)/);
+                            individualDurations.push(timeMatch && timeMatch[1] ? parseFloat(timeMatch[1]) : 0);
+                        }
+                    }
                 }
 
                 // Chỉ gắn thời lượng chính xác nếu định dạng là VIDEO
-                if (isVideo && roundedDuration > maxVideoLength) {
+                if (isVideo && maxVideoLength > 0 && roundedDuration > maxVideoLength) {
                     const parts = Math.ceil(roundedDuration / maxVideoLength);
 
                     for (let i = 0; i < parts; i++) {
@@ -1392,21 +1433,55 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             duration: partDuration
                         });
                     }
+                } else if (isVideo && maxVideoLength === 0 && individualPrompts.length > 1) {
+                    for (let i = 0; i < individualPrompts.length; i++) {
+                        let partDuration = individualDurations[i] || 5; // Mặc định 5s nếu AI không ghi rõ
+                        // GIỚI HẠN CỨNG: Không để clip nào quá 10s dù AI có ảo giác ghi số lớn
+                        if (partDuration > 10) {
+                            partDuration = 10;
+                        }
+                        videos.push({
+                            id: i + 1,
+                            prompt: `${individualPrompts[i]}\n\n(Constraints: ${constraintStr})\n[NOTE: Auto-split scene based on story pacing]`,
+                            imagePrompt: finalImagePrompt,
+                            imageUrl: null,
+                            duration: partDuration
+                        });
+                    }
                 } else {
                     let singlePrompt = finalScenePrompt;
                     let cleanImagePrompt = finalImagePrompt;
                     
-                    if (isVideo) {
-                        singlePrompt += `\n[MANDATORY: Generate video with exact duration of ${roundedDuration} seconds]`;
-                    }
+                    if (isVideo && maxVideoLength === 0) {
+                        let partDuration = roundedDuration > 0 ? roundedDuration : 5; // Lấy từ estimatedDuration do AI quyết định
+                        // Cố gắng tìm (5s) hoặc (6.5s) trong prompt phòng trường hợp AI vẫn nhét vào
+                        const timeMatch = singlePrompt.match(/\(([\d\.]+)[sS]?\)/);
+                        if (timeMatch && timeMatch[1]) {
+                            partDuration = parseFloat(timeMatch[1]);
+                        }
+                        // GIỚI HẠN CỨNG: Không quá 10s
+                        if (partDuration > 10) partDuration = 10;
 
-                    videos.push({
-                        id: 1,
-                        prompt: singlePrompt,
-                        imagePrompt: cleanImagePrompt,
-                        imageUrl: null,
-                        duration: roundedDuration
-                    });
+                        videos.push({
+                            id: 1,
+                            prompt: singlePrompt,
+                            imagePrompt: cleanImagePrompt,
+                            imageUrl: null,
+                            duration: partDuration
+                        });
+                    } else {
+                        if (isVideo) {
+                            singlePrompt += `\n[MANDATORY: Generate video with exact duration of ${roundedDuration} seconds]`;
+                        }
+
+                        videos.push({
+                            id: 1,
+                            prompt: singlePrompt,
+                            imagePrompt: cleanImagePrompt,
+                            imageUrl: null,
+                            duration: roundedDuration
+                        });
+                    }
                 }
 
                 return {
