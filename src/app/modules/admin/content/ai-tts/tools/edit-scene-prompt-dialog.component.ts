@@ -16,11 +16,12 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
 import { MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
 
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule, MatProgressSpinnerModule, MatTooltipModule, MatSelectModule],
+    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule, MatProgressSpinnerModule, MatTooltipModule, MatSelectModule, MatMenuModule],
     templateUrl: './edit-scene-prompt-dialog.component.html'
 })
 export class EditScenePromptDialogComponent {
@@ -558,8 +559,8 @@ Instructions:
         this.cd.markForCheck();
 
         try {
-            // Thay vì dùng prompt cho video, ta dùng prompt đã clean của ảnh
-            let promptText = this.getFullImagePrompt();
+            // Sử dụng prompt video để AI vẽ ảnh bám sát mô tả của video
+            let promptText = this.getFullVideoPrompt();
             
             if (this.globalContext?.environmentPrompt) {
                 promptText += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
@@ -1115,7 +1116,8 @@ Instructions:
                 prompt: this.editingScenePrompt?.prompt || '', 
                 videoPrompt: this.editingScenePrompt?.videoPrompt || '',
                 targetName: 'Apply to Scene Prompt',
-                controlImageUrl: this.editingScenePrompt?.controlImageUrl || null
+                controlImageUrl: this.editingScenePrompt?.controlImageUrl || null,
+                aspectRatio: this.selectedAspectRatio || '16:9'
             }
         });
 

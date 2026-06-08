@@ -24,13 +24,15 @@ const fs = require("fs");
 // Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ điều hành và app khác
 app.on('web-contents-created', (e, webContents) => {
     webContents.on('before-input-event', (event, input) => {
-        if ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i') {
-            webContents.toggleDevTools();
-            event.preventDefault();
-        }
-        if (input.key === 'F12') {
-            webContents.toggleDevTools();
-            event.preventDefault();
+        if (!app.isPackaged) {
+            if ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i') {
+                webContents.toggleDevTools();
+                event.preventDefault();
+            }
+            if (input.key === 'F12') {
+                webContents.toggleDevTools();
+                event.preventDefault();
+            }
         }
     });
 });
@@ -1747,6 +1749,20 @@ function createMainWindow() {
                     { role: "delete" },
                     { role: "selectall" },
                 ],
+            },
+            {
+                label: "Hiển thị",
+                submenu: [
+                    { role: "reload", label: "Tải lại", accelerator: "CmdOrCtrl+R" },
+                    { role: "forceReload", label: "Tải lại toàn bộ", accelerator: "CmdOrCtrl+Shift+R" },
+                    ...(app.isPackaged ? [] : [{ role: "toggleDevTools", label: "Công cụ cho nhà phát triển" }]),
+                    { type: "separator" },
+                    { role: "resetZoom", label: "Khôi phục thu phóng" },
+                    { role: "zoomIn", label: "Phóng to" },
+                    { role: "zoomOut", label: "Thu nhỏ" },
+                    { type: "separator" },
+                    { role: "togglefullscreen", label: "Toàn màn hình" }
+                ]
             },
             { label: "Cửa sổ", role: "windowMenu" },
         ]),
@@ -3603,7 +3619,7 @@ app.whenReady().then(async () => {
     }
 
     // ===== EXTRACT LAST FRAME IPC =====
-    ipcMain.handle("extract-last-frame", async (_event, videoPath) => {
+    ipcMain.handle("extract-last-frame-old", async (_event, videoPath) => {
         return new Promise((resolve, reject) => {
             if (!binaries.ffmpeg) {
                 return reject(new Error("Không tìm thấy FFmpeg"));
@@ -3636,6 +3652,78 @@ app.whenReady().then(async () => {
                 child.on("close", (code) => {
                     if (code === 0) {
                         resolve({ success: true, path: outputPath });
+                    } else {
+                        sendToRenderer("tools-log", `[FFmpeg Error] ${stderrOutput}`);
+                        reject(new Error(`FFmpeg exited with code ${code}`));
+                    }
+                });
+                
+                child.on("error", (err) => {
+                    reject(err);
+                });
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+    // ===== EXTRACT VIDEO FRAMES IPC =====
+    ipcMain.handle("extract-video-frames", async (_event, videoPath) => {
+        return new Promise((resolve, reject) => {
+            if (!binaries.ffmpeg) {
+                return reject(new Error("Không tìm thấy FFmpeg"));
+            }
+            try {
+                const videoPathDecoded = videoPath.replace('file://', '');
+                const stats = fs.statSync(videoPathDecoded);
+                const fileSize = stats.size;
+                const baseName = path.basename(videoPathDecoded, path.extname(videoPathDecoded)).replace(/[^a-zA-Z0-9_-]/g, '_');
+                const cacheDirName = `_frames_${baseName}_${fileSize}`;
+                
+                const downloadsPath = app.getPath('downloads');
+                const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+                if (!fs.existsSync(aiTypingDir)) {
+                    fs.mkdirSync(aiTypingDir, { recursive: true });
+                }
+                
+                const tempDir = path.join(aiTypingDir, cacheDirName);
+                
+                // Caching logic
+                if (fs.existsSync(tempDir)) {
+                    const allFiles = fs.readdirSync(tempDir);
+                    const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
+                    if (frameFiles.length > 0) {
+                        sendToRenderer("tools-log", `[FFmpeg] Sử dụng lại frames đã trích xuất: ${tempDir}`);
+                        const framePaths = frameFiles.map(f => path.join(tempDir, f));
+                        return resolve({ success: true, paths: framePaths });
+                    }
+                } else {
+                    fs.mkdirSync(tempDir, { recursive: true });
+                }
+                
+                const framePattern = path.join(tempDir, 'frame_%03d.jpg');
+                const ffmpegPath = binaries.ffmpeg;
+                const args = [
+                    "-y",
+                    "-i", videoPath,
+                    "-vf", "fps=1,scale=720:-1",
+                    "-q:v", "2",
+                    framePattern
+                ];
+                
+                sendToRenderer("tools-log", `[FFmpeg] Trích xuất frames: ${args.join(" ")}`);
+                const child = spawn(ffmpegPath, args);
+                
+                let stderrOutput = "";
+                child.stderr.on("data", (data) => {
+                    stderrOutput += data.toString();
+                });
+                
+                child.on("close", (code) => {
+                    if (code === 0) {
+                        const allFiles = fs.readdirSync(tempDir);
+                        const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
+                        const framePaths = frameFiles.map(f => path.join(tempDir, f));
+                        resolve({ success: true, paths: framePaths });
                     } else {
                         sendToRenderer("tools-log", `[FFmpeg Error] ${stderrOutput}`);
                         reject(new Error(`FFmpeg exited with code ${code}`));
@@ -4065,13 +4153,8 @@ app.whenReady().then(async () => {
         }
     });
 
-    // Đăng ký phím tắt CTRL+R hoặc Command+R
-    globalShortcut.register('CommandOrControl+Shift+R', () => {
-        if (mainWindow) {
-            mainWindow.reload(); // Làm mới cửa sổ chính
-            console.log('Đã làm mới trình duyệt');
-        }
-    });
+    // Tắt phím tắt global CTRL+SHIFT+R để tránh xung đột
+    // Tính năng refresh được xử lý qua Menu "Hiển thị" (View Menu)
 
     // ==========================================
     // AUTO UPDATER (CẬP NHẬT TỰ ĐỘNG)

@@ -1,6 +1,6 @@
 // Dùng chung cho cả cấu hình Video và Image
 export interface VideoModelConfig {
-    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3';
+    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3' | 'doubao_sdk';
     promptKey: string;
     imageKey?: string;         // e.g., 'image_url', 'first_frame_image', 'image'
     endImageKey?: string;      // e.g., 'last_frame_image', 'image_end', 'end_image_url'
@@ -79,10 +79,10 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
     },
     // Doubao (Seedance / Seedream)
     'doubao': {
-        payloadFormat: 'nested_input',
+        payloadFormat: 'doubao_sdk',
         promptKey: 'prompt',
         imageKey: 'image_url',
-        useDataUri: true,
+        useDataUri: false,
         defaultDuration: 5
     },
     // ----------------------
@@ -168,8 +168,7 @@ export const TEXT_MODEL_CONFIGS: Record<string, TextModelConfig> = {
         endpointOverride: '/v1/messages', // Astraflow requires /v1/messages for Claude
     },
     'gemini': {
-        apiFormat: 'gemini',
-        endpointOverride: '/v1beta/models/{model}:generateContent', // Astraflow requires specific endpoint for Gemini
+        apiFormat: 'openai',
     },
     'deepseek-reasoner': {
         apiFormat: 'openai',
