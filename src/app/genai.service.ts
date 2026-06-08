@@ -220,7 +220,8 @@ export class GenaiService {
 
         this._start(scope);
         try {
-            if (this.isUModelverseEnabled()) {
+            const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
+            if (this.isUModelverseEnabled() && !bypassUModelverse) {
                 return await this.generateWithUModelverse(params);
             } else {
                 if (!this._currentKey) {
@@ -337,9 +338,10 @@ export class GenaiService {
             if (sysContent) {
                 body.systemInstruction = { parts: [{ text: sysContent }] };
             }
-            if (params.config?.responseMimeType === 'application/json') {
-                body.generationConfig.responseMimeType = 'application/json';
-            }
+            // Tạm thời tắt để tránh lỗi regex trên UModelverse proxy
+            // if (params.config?.responseMimeType === 'application/json') {
+            //     body.generationConfig.responseMimeType = 'application/json';
+            // }
             if (config.extraParams) {
                 Object.assign(body, config.extraParams);
             }
@@ -383,9 +385,10 @@ export class GenaiService {
                 body.max_tokens = 8192;
             }
 
-            if (params.config?.responseMimeType === 'application/json') {
-                body.response_format = { type: 'json_object' };
-            }
+            // Tạm thời tắt để tránh lỗi regex trên UModelverse proxy
+            // if (params.config?.responseMimeType === 'application/json' && !isReasoningModel) {
+            //     body.response_format = { type: 'json_object' };
+            // }
 
             if (config.extraParams) {
                 Object.assign(body, config.extraParams);
@@ -403,7 +406,7 @@ export class GenaiService {
         const response = await fetch(`${finalUrl}${endpointPath}`, {
             method: 'POST',
             headers,
-            body: JSON.stringify(body)
+            body: JSON.stringify(body, null, 2)
         });
 
         const data = await response.json();
@@ -1018,6 +1021,34 @@ export class GenaiService {
                         duration: Math.ceil(duration || config.defaultDuration || 6)
                     }
                 };
+            } else if (config.payloadFormat === 'doubao_sdk') {
+                const contentArr: any[] = [];
+                if (prompt) {
+                    contentArr.push({ type: 'text', text: prompt });
+                }
+                if (refBase64Raw) {
+                    contentArr.push({ type: 'image_url', image_url: { url: `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` }, role: 'first_frame' });
+                }
+                if (endRefBase64Raw) {
+                    contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` }, role: 'last_frame' });
+                }
+                let parsedSeed = undefined;
+                if (seed !== undefined && seed !== null && String(seed).trim() !== '') {
+                    const num = Number(seed);
+                    if (!isNaN(num)) {
+                        parsedSeed = num;
+                    }
+                }
+                
+                payload = {
+                    model: model,
+                    input: { content: contentArr },
+                    parameters: {
+                        ratio: aspectRatio || '16:9',
+                        duration: Math.ceil(duration || config.defaultDuration || 5),
+                        ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
+                    }
+                };
             }
 
             if (payload) {
@@ -1226,11 +1257,21 @@ export class GenaiService {
                             break;
                         }
                     } else {
-                        console.warn(`[Task Failed] Endpoint ${endpoint} trả về HTTP ${response.status}:`, responseText);
+                        console.error(`[Task Failed] Endpoint ${endpoint} trả về HTTP ${response.status}:`, responseText);
                         lastErrorMsg = responseText;
+                        
+                        // Nếu là lỗi an toàn/nhạy cảm, ném lỗi luôn không thử các payload/endpoint khác nữa
+                        const errStr = responseText.toLowerCase();
+                        if (errStr.includes('sensitive') || errStr.includes('privacyinformation') || errStr.includes('real person') || errStr.includes('violate') || errStr.includes('safety')) {
+                            throw new Error("Hình ảnh hoặc nội dung vi phạm tiêu chuẩn an toàn của AI (có thể AI nhận diện nhầm là ảnh người thật, bạo lực, nhạy cảm...). Vui lòng thử hình/từ khoá khác.");
+                        }
                     }
-                } catch (e) {
+                } catch (e: any) {
                     console.warn(`[Task Exception] Ngoại lệ tại ${endpoint}:`, e);
+                    // Bắt luôn lỗi safety được ném ra từ bên trong để break hẳn ra ngoài vòng lặp
+                    if (e.message && e.message.includes('tiêu chuẩn an toàn của AI')) {
+                        throw e;
+                    }
                 }
             }
         }
@@ -1318,6 +1359,13 @@ export class GenaiService {
                 await new Promise(resolve => setTimeout(resolve, 5000));
             }
             throw new Error(`Quá thời gian chờ tạo video qua proxy (10 phút). Task ID: ${taskId}`);
+        }
+
+        if (!taskId && lastErrorMsg) {
+            const errStr = lastErrorMsg.toLowerCase();
+            if (errStr.includes('sensitive') || errStr.includes('privacyinformation') || errStr.includes('real person') || errStr.includes('violate') || errStr.includes('safety')) {
+                throw new Error("Hình ảnh hoặc nội dung vi phạm tiêu chuẩn an toàn của AI (có thể AI nhận diện nhầm là ảnh người thật, bạo lực, nhạy cảm...). Vui lòng thử hình/từ khoá khác.");
+            }
         }
 
         // --- BƯỚC 2: FALLBACK SANG CƠ CHẾ SYNCHRONOUS TRUYỀN THỐNG (IMAGES/GENERATIONS) ---

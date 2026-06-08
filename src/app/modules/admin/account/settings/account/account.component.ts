@@ -362,22 +362,38 @@ export class SettingsAccountComponent implements OnInit {
                 if (data && data.data) {
                     const allModels = data.data.map((m: any) => m.id);
                     
-                    const videoKeywords = ['video', 'vidu', 'kling', 'sora', 'veo', 'wan', 'i2v', 't2v', 'r2v', 'luma', 'cogvideo', 'runway', 'pika', 'haiper', 'seedream', 'mimo', 'pixverse'];
+                    const videoKeywords = ['video', 'vidu', 'kling', 'sora', 'veo', 'wan', 'i2v', 't2v', 'r2v', 'luma', 'cogvideo', 'runway', 'pika', 'haiper', 'seedream', 'mimo', 'pixverse', 'hailuo', 'happyhorse', 'seedance'];
                     const imageKeywords = ['image', 'dall-e', 'flux', 'midjourney', 'mj', 'sd', 'stable-diffusion', 'qwen-image'];
-                    const audioKeywords = ['tts', 'speech', 'suno', 'music', 'sound', 'voice', 'lip-sync', 'seedance', 'indextts'];
+                    const excludeKeywords = ['tts', 'speech', 'suno', 'music', 'sound', 'voice', 'lip-sync', 'indextts', 'embedding', 'rerank', 'reranker', 'ocr', 'easydoc', 'parse', 'extract'];
 
                     const rawChat: string[] = [];
                     const rawImage: string[] = [];
                     const rawVideo: string[] = [];
+                    
+                    // Loại bỏ các model trùng lặp có chứa prefix (ví dụ: openai/gpt-4o và gpt-4o)
+                    const uniqueModels = new Set(allModels);
+                    const cleanModels = allModels.filter((id: string) => {
+                        if (id.includes('/')) {
+                            const baseName = id.split('/').pop();
+                            if (baseName && uniqueModels.has(baseName)) {
+                                return false;
+                            }
+                        }
+                        return true;
+                    });
 
-                    allModels.forEach((id: string) => {
+                    cleanModels.forEach((id: string) => {
                         const lowerId = id.toLowerCase();
+                        
+                        // Bỏ qua các model không liên quan (âm thanh, nhúng, ocr...)
+                        if (excludeKeywords.some(kw => lowerId.includes(kw))) {
+                            return;
+                        }
+                        
                         if (videoKeywords.some(kw => lowerId.includes(kw))) {
                             rawVideo.push(id);
                         } else if (imageKeywords.some(kw => lowerId.includes(kw))) {
                             rawImage.push(id);
-                        } else if (audioKeywords.some(kw => lowerId.includes(kw))) {
-                            // Do nothing for audio models, they don't have a select box here
                         } else {
                             rawChat.push(id);
                         }
@@ -399,14 +415,16 @@ export class SettingsAccountComponent implements OnInit {
                             'Alibaba (Qwen/Wan)': [],
                             'DeepSeek': [],
                             'MiniMax (Hailuo)': [],
-                            'ByteDance (Doubao)': [],
+                            'ByteDance (Doubao/Mimo)': [],
                             'Kuaishou (Kling)': [],
+                            'Tencent (Hunyuan/HappyHorse)': [],
                             'Shengshu (Vidu)': [],
                             'Zhipu (GLM)': [],
                             'Moonshot (Kimi)': [],
                             'Baidu (Ernie)': [],
                             'Black Forest (Flux)': [],
                             'Midjourney': [],
+                            'PixVerse': [],
                             'Khác (Others)': []
                         };
 
@@ -424,10 +442,12 @@ export class SettingsAccountComponent implements OnInit {
                                 groups['DeepSeek'].push(m);
                             } else if (lower.includes('minimax') || lower.includes('hailuo')) {
                                 groups['MiniMax (Hailuo)'].push(m);
-                            } else if (lower.includes('doubao')) {
-                                groups['ByteDance (Doubao)'].push(m);
+                            } else if (lower.includes('doubao') || lower.includes('mimo')) {
+                                groups['ByteDance (Doubao/Mimo)'].push(m);
                             } else if (lower.includes('kling')) {
                                 groups['Kuaishou (Kling)'].push(m);
+                            } else if (lower.includes('happyhorse') || lower.includes('hunyuan') || lower.includes('tencent')) {
+                                groups['Tencent (Hunyuan/HappyHorse)'].push(m);
                             } else if (lower.includes('vidu')) {
                                 groups['Shengshu (Vidu)'].push(m);
                             } else if (lower.includes('glm')) {
@@ -440,6 +460,8 @@ export class SettingsAccountComponent implements OnInit {
                                 groups['Black Forest (Flux)'].push(m);
                             } else if (lower.includes('midjourney') || lower.includes('mj')) {
                                 groups['Midjourney'].push(m);
+                            } else if (lower.includes('pixverse')) {
+                                groups['PixVerse'].push(m);
                             } else {
                                 groups['Khác (Others)'].push(m);
                             }

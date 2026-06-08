@@ -39,16 +39,11 @@
 
     <!-- Storyboard Area -->
     <div class="flex items-start gap-4 mb-2 mt-2">
-        <div *ngIf="editingScenePrompt.videoUrl || (editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl))"
+        <div *ngIf="editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl)"
             class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group transition-all duration-300"
             [ngStyle]="getAspectRatioStyle()">
 
-            @if (editingScenePrompt.videoUrl) {
-            <video [src]="getSafeUrl(editingScenePrompt.videoUrl)" class="w-full h-full object-cover rounded-lg"
-                [loop]="true" muted autoplay playsinline></video>
-            } @else {
             <img [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="w-full h-full object-cover rounded-lg">
-            }
 
             <button mat-icon-button
                 class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
@@ -57,26 +52,32 @@
             </button>
         </div>
 
-        <div *ngIf="!editingScenePrompt.videoUrl && (!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl))"
-            class="relative shrink-0 rounded-lg border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
+        <div *ngIf="(!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl))"
+            class="relative shrink-0 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
             [ngStyle]="getAspectRatioStyle()">
-            <button mat-icon-button class="bg-green-50 hover:bg-green-100" (click)="imageInput.click()">
-                <mat-icon class="icon-size-4 text-green-600">upload_file</mat-icon>
+            
+            @if (isGeneratingImage) {
+            <mat-spinner diameter="24"></mat-spinner>
+            } @else {
+            <button mat-icon-button [matMenuTriggerFor]="imageMenu" class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full" matTooltip="Tùy chọn hình ảnh">
+                <mat-icon class="text-slate-600">more_horiz</mat-icon>
             </button>
+            }
 
-            <button mat-icon-button class="bg-purple-50 hover:bg-purple-100" (click)="refImageInput.click()"
-                matTooltip="Tải ảnh mẫu lên cho AI vẽ lại (Img2Img)">
-                <mat-icon class="icon-size-4 text-purple-500">add_photo_alternate</mat-icon>
-            </button>
-
-            <button mat-icon-button class="bg-blue-50 hover:bg-blue-100" (click)="generateImage()"
-                matTooltip="AI vẽ ảnh mới từ Prompt">
-                @if (isGeneratingImage) {
-                <mat-spinner diameter="16"></mat-spinner>
-                } @else {
-                <mat-icon class="icon-size-4 text-blue-500">auto_awesome</mat-icon>
-                }
-            </button>
+            <mat-menu #imageMenu="matMenu" class="custom-image-menu">
+                <button mat-menu-item (click)="generateImage()">
+                    <mat-icon class="text-blue-500">auto_awesome</mat-icon>
+                    <span>AI vẽ ảnh mới từ Prompt</span>
+                </button>
+                <button mat-menu-item (click)="imageInput.click()">
+                    <mat-icon class="text-green-600">upload_file</mat-icon>
+                    <span>Tải ảnh lên từ máy tính</span>
+                </button>
+                <button mat-menu-item (click)="refImageInput.click()">
+                    <mat-icon class="text-purple-500">add_photo_alternate</mat-icon>
+                    <span>Tải ảnh mẫu cho AI (Img2Img)</span>
+                </button>
+            </mat-menu>
         </div>
 
         <input #imageInput type="file" (change)="onImageSelected($event)" accept="image/*" class="hidden">

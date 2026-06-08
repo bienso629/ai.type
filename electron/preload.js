@@ -64,6 +64,7 @@ contextBridge.exposeInMainWorld('electron', {
     },
     extractAudio: (videoPath) => ipcRenderer.invoke('extract-audio', videoPath),
     extractLastFrame: (videoPath) => ipcRenderer.invoke('extract-last-frame', videoPath),
+    extractVideoFrames: (videoPath) => ipcRenderer.invoke('extract-video-frames', videoPath),
     selectLocalFile: (filePath, customDir) => ipcRenderer.invoke('select-local-file', { filePath, customDir }),
     resizeWindow: (width, height) => ipcRenderer.send('resize-window', { width, height }),
     onWebviewDownloadComplete: (callback) => ipcRenderer.on('webview-download-complete', (event, data) => callback(data)),

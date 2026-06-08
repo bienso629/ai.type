@@ -2423,7 +2423,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             data: { 
                 prompt: this.projectData?.masterPrompt || '', 
                 targetName: 'Apply to Master Prompt',
-                globalContext: this.projectData?.globalContext || null
+                globalContext: this.projectData?.globalContext || null,
+                aspectRatio: this.projectData?.aspectRatio || '16:9'
             }
         });
 
