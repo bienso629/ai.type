@@ -488,51 +488,41 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 max = scene.videos.length;
             }
         }
-        return max;
+        return Math.min(max, 2);
     }
 
     packTimeline(save: boolean = true) {
         if (!this.projectData || !this.projectData.scenes) return;
 
         let currentTime = 0;
+        let currentAudioTime = 0;
         for (const scene of this.projectData.scenes) {
             if (scene.videos && scene.videos.length > 0) {
-                const sceneStartTime = currentTime;
-
-                // Videos nối tiếp nhau
-                let videoTime = sceneStartTime;
+                // Videos nối tiếp nhau độc lập
                 for (let i = 0; i < scene.videos.length; i++) {
                     const v = scene.videos[i];
                     if (v) {
-                        v.startTime = videoTime;
-                        videoTime += (v.duration || 5);
+                        v.startTime = currentTime;
+                        currentTime += (v.duration || 5);
                     }
                 }
+            }
 
-                // Subtitles bắt đầu từ đầu scene và nối tiếp nhau
-                let subTime = sceneStartTime;
-                if (scene.subtitles) {
-                    for (const sub of scene.subtitles) {
-                        sub.startTime = subTime;
-                        subTime += (sub.duration || 0);
-                    }
+            // Subtitles bắt đầu tuần tự độc lập, không bị kéo theo video nữa
+            if (scene.subtitles) {
+                for (const sub of scene.subtitles) {
+                    sub.startTime = currentAudioTime;
+                    currentAudioTime += (sub.duration || 0);
                 }
+            }
 
-                // Audio bắt đầu từ đầu scene và nối tiếp nhau
-                let extTime = sceneStartTime;
-                if (scene.extractedAudios) {
-                    for (const ext of scene.extractedAudios) {
-                        ext.startTime = extTime;
-                        extTime += (ext.duration || 0);
-                    }
+            // Extracted audio (âm thanh gốc) đi theo video đầu tiên của scene nếu có
+            let extTime = scene.videos && scene.videos.length > 0 ? (scene.videos[0].startTime || 0) : currentTime;
+            if (scene.extractedAudios) {
+                for (const ext of scene.extractedAudios) {
+                    ext.startTime = extTime;
+                    extTime += (ext.duration || 0);
                 }
-
-                // Scene tiếp theo sẽ bắt đầu sau khi MỌI media của scene hiện tại kết thúc
-                let maxEndTime = videoTime;
-                if (subTime > maxEndTime) maxEndTime = subTime;
-                if (extTime > maxEndTime) maxEndTime = extTime;
-
-                currentTime = maxEndTime;
             }
         }
 
@@ -543,9 +533,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    initializeTimeline() {
+    normalizeData() {
         if (!this.projectData || !this.projectData.scenes) return;
+
         let currentTime = 0;
+        let currentAudioTime = 0;
         for (const scene of this.projectData.scenes) {
             // Dọn dẹp các [Âm thanh gốc] cũ vô tình bị lưu vào subtitles
             if (scene.subtitles) {
@@ -607,9 +599,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 currentTime = Math.max(currentTime, video.startTime + video.duration);
             }
 
-            // Gán startTime cho các phần tử audio/subtitle trong scene
-            if (scene.subtitles && scene.videos.length > 0) {
-                let subTime = scene.videos[0].startTime || 0;
+            // Gán startTime cho các phần tử audio/subtitle độc lập với video
+            if (scene.subtitles) {
                 for (const sub of scene.subtitles) {
                     let subDur = sub.duration;
                     if (!subDur || isNaN(subDur) || subDur <= 0) {
@@ -619,8 +610,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     if (sub.maxDuration === undefined && sub.audioUrl) {
                         sub.maxDuration = sub.duration;
                     }
-                    sub.startTime = subTime;
-                    subTime += subDur;
+                    
+                    if (sub.startTime === undefined || isNaN(sub.startTime) || sub.startTime === null) {
+                        sub.startTime = currentAudioTime;
+                    } else {
+                        let start = parseFloat(String(sub.startTime));
+                        if (isNaN(start) || start > 100000 || !isFinite(start)) start = currentAudioTime;
+                        if (start < 0) start = 0;
+                        sub.startTime = start;
+                    }
+                    
+                    currentAudioTime = Math.max(currentAudioTime, sub.startTime + subDur);
                 }
             }
         }
@@ -1052,6 +1052,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 return;
             }
 
+            let finalUrl = url;
+            if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
+                finalUrl = finalUrl.replace(/^unsafe:/, '');
+                let originalPath = finalUrl.split('?')[0];
+                originalPath = originalPath.replace(/^file:\/\//i, '');
+                const mediaDir = ''; // Need to extract this from somewhere, or just leave empty and rely on uuid
+                finalUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=default`;
+            }
+
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
@@ -1108,7 +1117,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
             };
             img.onerror = error => reject(error);
-            img.src = url;
+            img.src = finalUrl;
         });
     }
 
@@ -1218,6 +1227,57 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         } finally {
             video.isGeneratingImage = false;
             this.cd.detectChanges();
+        }
+    }
+
+    triggerUploadVideo(video: any) {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'video/*';
+        input.onchange = (e: any) => this.onUploadVideoFromPC(e, video);
+        input.click();
+    }
+
+    async onUploadVideoFromPC(event: any, video: any) {
+        const file = event.target.files[0];
+        if (file) {
+            const electron = (window as any).electron;
+            if (!electron || !electron.getPathForFile) {
+                this.toastr.error('Tính năng này yêu cầu môi trường Desktop (Electron) để thao tác.');
+                return;
+            }
+            try {
+                const originalPath = electron.getPathForFile(file);
+                if (!originalPath) {
+                    this.toastr.error('Không thể xác nhận đường dẫn file.');
+                    return;
+                }
+                const uuid = this.projectData?.uuid || this.data?.uuid;
+                const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+                const localFilePath = await electron.selectLocalFile(originalPath, customDir);
+                const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+                video.videoUrl = finalPath;
+                video.imageUrl = null;
+                
+                const videoObj = document.createElement('video');
+                videoObj.src = video.videoUrl;
+                videoObj.addEventListener('loadedmetadata', () => {
+                    if (videoObj.duration && !isNaN(videoObj.duration)) {
+                        video.duration = parseFloat(videoObj.duration.toFixed(1));
+                        video.maxDuration = video.duration;
+                        this.saveData();
+                        this.cd.detectChanges();
+                    }
+                });
+
+                this.saveData();
+                this.toastr.success('Đã tải lên video thành công!');
+                this.cd.detectChanges();
+            } catch (error: any) {
+                console.error('Error uploading video:', error);
+                this.toastr.error('Lỗi khi tải video: ' + error.message);
+            }
         }
     }
 
@@ -2219,7 +2279,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
 
                 // Cập nhật lại thời gian cho các cảnh do đã chèn vào giữa
-                this.initializeTimeline();
+                this.normalizeData();
                 this.saveData();
 
                 // Tự động focus vào video mới tạo
@@ -2302,7 +2362,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.toastr.success('Đã tách âm thanh thành công!');
             this.saveData();
             setTimeout(() => this.initWaveSurfers(), 500); // Initialize wavesurfers after DOM update
-            this.initializeTimeline();
+            this.normalizeData();
         } catch (err: any) {
             console.error('Extract audio error', err);
             this.toastr.error(`Lỗi khi tách âm thanh: ${err.message}`);
@@ -2580,7 +2640,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
 
         // Khởi tạo Timeline (gán startTime cho các video)
-        this.initializeTimeline();
+        this.normalizeData();
 
         // Select the first video by default
         if (this.projectData && this.projectData.scenes && this.projectData.scenes.length > 0) {

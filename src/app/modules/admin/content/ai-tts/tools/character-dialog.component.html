@@ -69,26 +69,35 @@
                 </div>
 
                 <div
-                    class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-row items-center justify-center gap-2 bg-slate-50">
-                    <button mat-icon-button
-                        class="bg-green-50 hover:bg-green-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
-                        (click)="avatarInput.click()" matTooltip="Tải ảnh lên">
-                        <mat-icon class="icon-size-4 text-green-600">upload_file</mat-icon>
+                    class="relative w-36 h-36 shrink-0 rounded-md border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300">
+                    
+                    @if (isGeneratingAvatar) {
+                    <mat-spinner diameter="24"></mat-spinner>
+                    } @else {
+                    <button mat-icon-button [matMenuTriggerFor]="imageMenu" class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full" matTooltip="Tùy chọn hình ảnh">
+                        <mat-icon class="text-slate-600">more_horiz</mat-icon>
                     </button>
+                    }
 
-                    <button mat-icon-button
-                        class="bg-blue-50 hover:bg-blue-100 w-8 h-8 min-h-8 min-w-8 flex items-center justify-center rounded-full"
-                        (click)="generateAvatar()" [disabled]="isGeneratingAvatar" matTooltip="Tạo hình AI">
-                        @if (isGeneratingAvatar) {
-                        <mat-spinner diameter="16"></mat-spinner>
-                        } @else {
-                        <mat-icon class="icon-size-4 text-blue-500">auto_awesome</mat-icon>
-                        }
-                    </button>
+                    <mat-menu #imageMenu="matMenu" class="custom-image-menu">
+                        <button mat-menu-item (click)="generateAvatar()">
+                            <mat-icon class="text-blue-500">auto_awesome</mat-icon>
+                            <span>AI vẽ ảnh mới từ Prompt</span>
+                        </button>
+                        <button mat-menu-item (click)="avatarInput.click()">
+                            <mat-icon class="text-green-600">upload_file</mat-icon>
+                            <span>Tải ảnh lên từ máy tính</span>
+                        </button>
+                        <button mat-menu-item (click)="refImageInput.click()">
+                            <mat-icon class="text-purple-500">add_photo_alternate</mat-icon>
+                            <span>Tải ảnh mẫu cho AI (Img2Img)</span>
+                        </button>
+                    </mat-menu>
                 </div>
 
                 <input #avatarInput type="file" multiple (change)="onAvatarSelected($event)" accept="image/*"
                     class="hidden">
+                <input #refImageInput type="file" (change)="onReferenceImageSelected($event)" accept="image/*" class="hidden">
             </div>
 
             <!-- Form Inputs -->

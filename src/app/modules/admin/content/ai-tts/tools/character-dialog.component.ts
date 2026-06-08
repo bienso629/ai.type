@@ -12,11 +12,13 @@ import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-character-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatSelectModule, MatProgressSpinnerModule],
+    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatSelectModule, MatProgressSpinnerModule, MatMenuModule, MatTooltipModule],
     templateUrl: './character-dialog.component.html'
 })
 export class CharacterDialogComponent {
@@ -98,6 +100,15 @@ export class CharacterDialogComponent {
                 return;
             }
 
+            let finalUrl = url;
+            if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
+                finalUrl = finalUrl.replace(/^unsafe:/, '');
+                let originalPath = finalUrl.split('?')[0];
+                originalPath = originalPath.replace(/^file:\/\//i, '');
+                const mediaDir = ''; // Need to extract this from somewhere, or just leave empty and rely on uuid
+                finalUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=default`;
+            }
+
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
@@ -110,7 +121,7 @@ export class CharacterDialogComponent {
                 resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
             };
             img.onerror = error => reject(error);
-            img.src = url;
+            img.src = finalUrl;
         });
     }
 
@@ -165,6 +176,15 @@ export class CharacterDialogComponent {
         }
     }
 
+    onReferenceImageSelected(event: any) {
+        const file = event.target.files[0];
+        if (file) {
+            this.referenceImageUrl = URL.createObjectURL(file);
+            this.generateAvatar();
+        }
+        event.target.value = '';
+    }
+
     async generateAvatar() {
         if (!this.editingChar.prompt && !this.editingChar.appearance) {
             this.toastr.warning('Vui lòng điền Prompt Tạo hình hoặc Ngoại hình trước khi tạo ảnh!');
@@ -195,8 +215,6 @@ export class CharacterDialogComponent {
         this.cd.markForCheck();
 
         try {
-            // const ai = new GoogleGenAI({ apiKey: apiKey });
-            
             // Build the prompt
             let promptPartsText = [];
             if (this.editingChar.name || this.editingChar.role) promptPartsText.push(`Subject: ${this.editingChar.name || this.editingChar.role}`);
@@ -322,6 +340,7 @@ export class CharacterDialogComponent {
             this.toastr.error('Lỗi tạo ảnh AI: ' + errorMsg);
         } finally {
             this.isGeneratingAvatar = false;
+            this.referenceImageUrl = null;
             this.cd.markForCheck();
         }
     }

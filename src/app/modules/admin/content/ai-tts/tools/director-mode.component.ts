@@ -112,7 +112,8 @@ export class DirectorModeComponent implements OnInit {
         cameraSpeed: '',
         movementType: '',
         movementSpeed: 'Standard movement',
-        movementEasing: 'Standard easing'
+        movementEasing: 'Standard easing',
+        artStyle: ''
     };
 
     categories = {
@@ -125,10 +126,22 @@ export class DirectorModeComponent implements OnInit {
         shotSize: ['Extreme close-up', 'Close-up', 'Medium', 'Wide', 'Extreme wide'],
         lenses: ['Wide angle', 'Standard', 'Telephoto', 'Macro'],
         movementType: ['Static', 'Tilt', 'Dolly', 'Tracking', 'Orbit'],
-        cameraSpeed: ['Real-time', 'Slow motion', 'Hyperlapse']
+        cameraSpeed: ['Real-time', 'Slow motion', 'Hyperlapse'],
+        artStyle: ['Cinematic', 'Photorealistic', '3D Render', 'Unreal Engine 5', 'CGI', 'Anime', 'Animation', 'Illustration', 'Oil Painting', 'Smooth Skin']
     };
 
     labels: any = {
+        'Cinematic': 'Điện ảnh',
+        'Photorealistic': 'Chân thực',
+        '3D Render': '3D Render',
+        'Unreal Engine 5': 'Unreal Engine',
+        'CGI': 'Kỹ xảo CGI',
+        'Anime': 'Anime',
+        'Animation': 'Hoạt hình',
+        'Illustration': 'Minh họa 2D',
+        'Oil Painting': 'Tranh sơn dầu',
+        'Smooth Skin': 'Mịn da (Beauty)',
+
         'Golden hour': 'Giờ vàng',
         'Midday': 'Trưa nắng',
         'Twilight': 'Chạng vạng',
@@ -289,33 +302,6 @@ export class DirectorModeComponent implements OnInit {
         }
     }
 
-    saveCurrentControlAsTemplate() {
-        if (!this.controlImageUrl) {
-            this.toastr.warning('Vui lòng đảm bảo đã có ảnh bố cục.');
-            return;
-        }
-        
-        const promptName = this.posePromptText?.trim() || 'Bố cục tuỳ chỉnh';
-
-        const newTemplate: ControlTemplate = {
-            id: 'template_' + Date.now(),
-            prompt: promptName,
-            imageUrl: this.controlImageUrl,
-            createdAt: Date.now()
-        };
-
-        this.savedControlTemplates.push(newTemplate);
-        localStorage.setItem('saved_control_templates', JSON.stringify(this.savedControlTemplates));
-        
-        this.toastr.success('Đã lưu bố cục mẫu thành công!');
-    }
-
-    deleteControlTemplate(id: string, event: Event) {
-        event.stopPropagation();
-        this.savedControlTemplates = this.savedControlTemplates.filter(t => t.id !== id);
-        localStorage.setItem('saved_control_templates', JSON.stringify(this.savedControlTemplates));
-    }
-
     selectControlTemplate(template: ControlTemplate) {
         this.controlImageUrl = template.imageUrl;
     }
@@ -359,306 +345,6 @@ export class DirectorModeComponent implements OnInit {
         const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
-    }
-
-    async onControlImageSelected(event: any) {
-        const fileInput = event.target as HTMLInputElement;
-        if (fileInput.files && fileInput.files.length > 0) {
-            try {
-                this.isUploadingControlImage = true;
-                const electron = (window as any).electron;
-
-                if (!electron || !electron.getPathForFile) {
-                    const file = fileInput.files[0];
-                    this.controlImageUrl = URL.createObjectURL(file);
-                    this.isUploadingControlImage = false;
-                    return;
-                }
-
-                const file = fileInput.files[0];
-                const originalPath = electron.getPathForFile(file);
-
-                if (originalPath) {
-                    const uuid = this.data?.uuid;
-                    const username = this.data?.username || 'anonymous';
-                    const customDir = uuid ? `tts/${username}/${uuid}` : undefined;
-                    
-                    const localFilePath = await electron.selectLocalFile(originalPath, customDir);
-                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
-                    this.controlImageUrl = finalPath;
-                }
-                this.isUploadingControlImage = false;
-                this.cd.detectChanges();
-            } catch (error) {
-                console.error('Process error:', error);
-                this.isUploadingControlImage = false;
-                this.cd.detectChanges();
-            }
-        }
-    }
-
-    triggerVideoUpload(event: Event) {
-        event.stopPropagation();
-        this.videoUploadInput.nativeElement.click();
-    }
-
-    async onVideoSelected(event: any) {
-        const fileInput = event.target as HTMLInputElement;
-        if (fileInput.files && fileInput.files.length > 0) {
-            try {
-                this.isUploadingControlImage = true;
-                this.loadingMessage = 'Đang trích xuất khung hình từ Video (có thể mất vài chục giây)...';
-                this.cd.detectChanges();
-
-                const electron = (window as any).electron;
-                if (!electron || !electron.getPathForFile || !electron.extractVideoFrames) {
-                    this.toastr.error('Tính năng này yêu cầu môi trường Desktop (Electron).');
-                    this.isUploadingControlImage = false;
-                    return;
-                }
-
-                const file = fileInput.files[0];
-                const originalPath = electron.getPathForFile(file);
-
-                if (originalPath) {
-                    const result = await electron.extractVideoFrames(originalPath);
-                    if (result && result.success && result.paths && result.paths.length > 0) {
-                        this.extractedFrames = result.paths.map((p: string) => p.startsWith('file://') ? p : `file://${p.replace(/\\/g, '/')}`);
-                        localStorage.setItem('last_extracted_frames', JSON.stringify(this.extractedFrames)); // Lưu lại để lần sau mở còn thấy
-                        this.toastr.success(`Đã trích xuất ${result.paths.length} khung hình.`);
-                    } else {
-                        this.toastr.warning('Không tìm thấy khung hình nào.');
-                    }
-                }
-            } catch (error: any) {
-                console.error('Lỗi trích xuất video:', error);
-                this.toastr.error('Lỗi khi trích xuất video: ' + error.message);
-            } finally {
-                this.isUploadingControlImage = false;
-                this.loadingMessage = '';
-                // Reset input
-                fileInput.value = '';
-                this.cd.detectChanges();
-            }
-        }
-    }
-
-    onFramesScroll(event: WheelEvent) {
-        if (event.deltaY !== 0) {
-            const el = event.currentTarget as HTMLElement;
-            el.scrollLeft += event.deltaY;
-            event.preventDefault();
-        }
-    }
-
-    async selectExtractedFrame(frameUrl: string) {
-        // Không xóa extractedFrames để người dùng có thể đổi ý chọn hình khác sau khi xóa ControlImage hiện tại
-        this.isUploadingControlImage = true;
-        this.loadingMessage = 'Đang dùng AI để chuyển đổi khung hình thành bản phác thảo chuẩn mực...';
-        this.cd.detectChanges();
-
-        const electron = (window as any).electron;
-        if (!electron || !electron.saveBase64) {
-            this.toastr.error('Tính năng này yêu cầu môi trường Desktop (Electron) để lưu ảnh.');
-            this.isUploadingControlImage = false;
-            return;
-        }
-
-        try {
-            // 1. Fetch the local frame image and convert to base64
-            const cleanUrl = frameUrl.replace('file://', '').replace(/\\/g, '/');
-            const response = await fetch(frameUrl);
-            const blob = await response.blob();
-            const reader = new FileReader();
-            const base64Promise = new Promise<string>((resolve) => {
-                reader.onloadend = () => {
-                    const base64data = reader.result as string;
-                    resolve(base64data.split(',')[1]);
-                };
-            });
-            reader.readAsDataURL(blob);
-            const base64DataStr = await base64Promise;
-
-            // 2. Call Vision AI (gemini-3-flash-preview) to analyze the image
-            this.loadingMessage = 'Đang phân tích bối cảnh và dáng người bằng AI Vision...';
-            this.cd.detectChanges();
-            
-            const visionPrompt = `Analyze this image in EXTREME detail for the purpose of recreating its exact structural composition in a storyboard sketch.
-Focus ONLY on:
-1. Camera angle and shot type (e.g., medium shot, low angle, wide shot).
-2. The environment/background elements and their positions.
-3. The exact physical poses, body language, and spatial relationships of all people/characters. Describe where their arms, legs, and heads are positioned, and which direction they are facing.
-Do NOT describe colors, clothing style, facial features, or lighting.`;
-
-            const visionResponse = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
-                contents: [{ 
-                    role: 'user', 
-                    parts: [
-                        { text: visionPrompt },
-                        { inlineData: { mimeType: 'image/jpeg', data: base64DataStr } }
-                    ] 
-                }],
-                config: {
-                    bypassUModelverse: true // Ép dùng API miễn phí của Google (bỏ qua Mì Tôm AI)
-                } as any
-            });
-            
-            const sceneDescription = visionResponse?.candidates?.[0]?.content?.parts?.[0]?.text;
-            if (!sceneDescription) throw new Error('Vision AI failed to describe the image.');
-
-            // 3. Call Image Generation AI to draw the sketch
-            this.loadingMessage = 'Đang vẽ phác thảo chuẩn mực...';
-            this.cd.detectChanges();
-
-            const aiPrompt = `Draw a detailed professional storyboard sketch representing EXACTLY this scene layout and character poses:
-"${sceneDescription}"
-
-[MANDATORY: Make it a clear, high-quality storyboard sketch in grayscale or black-and-white. It MUST accurately reflect the environment and specific character poses described above. CRITICAL: Do NOT draw specific clothing, outfits, or detailed facial features for the characters. Draw all characters as simple 3D mannequins, wooden dummies, or blank base meshes. This is to ensure it only captures the POSE and STRUCTURAL COMPOSITION.]`;
-
-            const aiResponse = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-image-preview',
-                contents: [{ 
-                    role: 'user', 
-                    parts: [
-                        { text: aiPrompt }
-                    ] 
-                }],
-                config: {
-                    aspectRatio: this.data?.aspectRatio || '16:9',
-                    responseModalities: ['IMAGE']
-                } as any
-            });
-
-            let newBase64Data = null;
-            if (aiResponse.candidates && aiResponse.candidates.length > 0) {
-                for (const part of aiResponse.candidates[0].content.parts) {
-                    if (part.inlineData) {
-                        newBase64Data = part.inlineData.data;
-                        break;
-                    }
-                }
-            }
-
-            if (!newBase64Data) {
-                throw new Error('AI did not return any image data.');
-            }
-
-            // 3. Save new AI sketch to local
-            const fileName = `pose_reference_from_video_${Date.now()}.png`;
-            const result = await electron.saveBase64({
-                base64: newBase64Data,
-                fileName: fileName,
-                folder: 'tts',
-                username: this.data?.username || 'admin'
-            });
-
-            if (result && result.success) {
-                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
-                this.controlImageUrl = finalPath;
-                this.toastr.success('Đã tạo ảnh phác thảo chuẩn mực thành công!');
-            } else {
-                throw new Error(result.error || 'Failed to save local file');
-            }
-
-        } catch (error: any) {
-            console.error('Error generating sketch from frame:', error);
-            this.toastr.error('Lỗi khi chuyển đổi bằng AI: ' + error.message);
-        } finally {
-            this.isUploadingControlImage = false;
-            this.loadingMessage = '';
-            this.cd.detectChanges();
-        }
-    }
-
-    isPromptingForPose: boolean = false;
-    posePromptText: string = '';
-
-    openPosePrompt(event: Event) {
-        event.stopPropagation();
-        this.isPromptingForPose = true;
-        let basePrompt = '';
-        if (this.data && (this.data.prompt || this.data.videoPrompt)) {
-            let combined = '';
-            if (this.data.prompt) combined += this.data.prompt.trim();
-            if (this.data.videoPrompt) combined += (combined ? '\n\n' : '') + this.data.videoPrompt.trim();
-            
-            basePrompt = combined;
-            basePrompt = basePrompt.replace(/\[(?:Director|Cinematography|MANDATORY):.*?\]/g, '').replace(/\n{2,}/g, '\n').trim();
-        }
-        if (!basePrompt) {
-            basePrompt = "Góc máy ngang tầm mắt, trung cảnh (Medium Shot). Một người đàn ông đang đứng khoanh tay suy nghĩ.";
-        }
-        this.posePromptText = basePrompt;
-        this.cd.detectChanges();
-    }
-
-    async submitGeneratePose(event: Event) {
-        event.stopPropagation();
-        const promptInput = this.posePromptText.trim();
-        if (!promptInput) return;
-
-        this.isPromptingForPose = false;
-
-        const electron = (window as any).electron;
-        if (!electron || !electron.saveBase64) {
-            this.toastr.error('Tính năng này yêu cầu môi trường Desktop (Electron) để lưu ảnh.');
-            return;
-        }
-
-        try {
-            this.isUploadingControlImage = true;
-            this.cd.detectChanges();
-
-            const aiPrompt = `Draw a detailed professional storyboard sketch representing EXACTLY this scene/layout: "${promptInput}". 
-[MANDATORY: Make it a clear, high-quality storyboard sketch in grayscale or black-and-white. It MUST include details of the environment, background, and specific character poses described in the prompt. CRITICAL: Do NOT draw specific clothing, outfits, or detailed facial features for the characters. Draw all characters as simple 3D mannequins, wooden dummies, or blank base meshes. This is to ensure it only captures the POSE and STRUCTURAL COMPOSITION without polluting the final video's clothing style.]`;
-
-            const response = await this._genaiService.generateContent({
-                model: 'gemini-3.1-flash-image-preview',
-                contents: [{ role: 'user', parts: [{ text: aiPrompt }] }],
-                config: {
-                    aspectRatio: this.data?.aspectRatio || '16:9',
-                    responseModalities: ['IMAGE']
-                } as any
-            });
-
-            let base64Data = null;
-            if (response.candidates && response.candidates.length > 0) {
-                for (const part of response.candidates[0].content.parts) {
-                    if (part.inlineData) {
-                        base64Data = part.inlineData.data;
-                        break;
-                    }
-                }
-            }
-
-            if (!base64Data) {
-                throw new Error('AI did not return any image data.');
-            }
-
-            const fileName = `pose_reference_${Date.now()}.png`;
-            const result = await electron.saveBase64({
-                base64: base64Data,
-                fileName: fileName,
-                folder: 'tts',
-                username: this.data.username || 'admin'
-            });
-
-            if (result && result.success) {
-                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
-                this.controlImageUrl = finalPath;
-                this.toastr.success('Đã tạo ảnh phác thảo thành công!');
-            } else {
-                throw new Error(result.error || 'Failed to save local file');
-            }
-
-        } catch (error: any) {
-            console.error('Error generating pose:', error);
-            this.toastr.error('Lỗi khi tạo ảnh phác thảo: ' + error.message);
-        } finally {
-            this.isUploadingControlImage = false;
-            this.cd.detectChanges();
-        }
     }
 
     removeControlImage() {
