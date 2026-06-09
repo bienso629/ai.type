@@ -1427,7 +1427,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         videos.push({
                             id: i + 1,
-                            prompt: `${basePrompt}\n[NOTE: This scene is ${partDuration} seconds long. Generate video continuation Part ${i + 1}/${parts}]`,
+                            prompt: `${basePrompt}\n[NOTE: This scene is ${partDuration} seconds long. Generate video continuation Part ${i + 1}/${parts}. MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]`,
                             imagePrompt: baseImagePrompt,
                             imageUrl: null,
                             duration: partDuration
@@ -1442,7 +1442,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         }
                         videos.push({
                             id: i + 1,
-                            prompt: `${individualPrompts[i]}\n\n(Constraints: ${constraintStr})\n[NOTE: Auto-split scene based on story pacing]`,
+                            prompt: `${individualPrompts[i]}\n\n(Constraints: ${constraintStr})\n[NOTE: Auto-split scene based on story pacing. MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]`,
                             imagePrompt: finalImagePrompt,
                             imageUrl: null,
                             duration: partDuration

@@ -86,6 +86,12 @@
                     style="-webkit-appearance: none; appearance: none; background: transparent;">
             </div>
 
+            <button mat-icon-button [matMenuTriggerFor]="imageMenu"
+                class="absolute -top-2 -left-2 bg-white text-slate-700 shadow-md border border-slate-200 rounded-full w-8 h-8 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 transition-colors z-10"
+                matTooltip="Tùy chọn hình ảnh">
+                <mat-icon class="icon-size-5 text-slate-600">more_horiz</mat-icon>
+            </button>
+
             <button mat-icon-button
                 class="absolute -top-2 -right-2 bg-red-500 text-white shadow-md rounded-full w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-red-600 transition-colors z-10"
                 (click)="removeMedia()">
@@ -106,22 +112,22 @@
                 <mat-icon class="text-slate-600">more_horiz</mat-icon>
             </button>
             }
-
-            <mat-menu #imageMenu="matMenu" class="custom-image-menu">
-                <button mat-menu-item (click)="generateImage()">
-                    <mat-icon class="text-blue-500">auto_awesome</mat-icon>
-                    <span>AI vẽ ảnh mới từ Prompt</span>
-                </button>
-                <button mat-menu-item (click)="imageInput.click()">
-                    <mat-icon class="text-green-600">upload_file</mat-icon>
-                    <span>Tải ảnh lên từ máy tính</span>
-                </button>
-                <button mat-menu-item (click)="refImageInput.click()">
-                    <mat-icon class="text-purple-500">add_photo_alternate</mat-icon>
-                    <span>Tải ảnh mẫu cho AI (Img2Img)</span>
-                </button>
-            </mat-menu>
         </div>
+
+        <mat-menu #imageMenu="matMenu" class="custom-image-menu">
+            <button mat-menu-item (click)="generateImage()">
+                <mat-icon class="text-blue-500">auto_awesome</mat-icon>
+                <span>AI vẽ ảnh mới từ Prompt</span>
+            </button>
+            <button mat-menu-item (click)="imageInput.click()">
+                <mat-icon class="text-green-600">upload_file</mat-icon>
+                <span>Tải ảnh lên từ máy tính</span>
+            </button>
+            <button mat-menu-item (click)="refImageInput.click()">
+                <mat-icon class="text-purple-500">add_photo_alternate</mat-icon>
+                <span>Tải ảnh mẫu cho AI (Img2Img)</span>
+            </button>
+        </mat-menu>
 
         <input #imageInput type="file" (change)="onImageSelected($event)" accept="image/*" class="hidden">
         <input #refImageInput type="file" (change)="onReferenceImageSelected($event)" accept="image/*" class="hidden">

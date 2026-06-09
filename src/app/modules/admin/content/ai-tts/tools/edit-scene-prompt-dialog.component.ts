@@ -1065,6 +1065,7 @@ Instructions:
     }
 
     async onUsePreviousFrameChange(checked: boolean) {
+        const constraintMsg = '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
         if (checked && this.previousVideoUrl) {
             try {
                 this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
@@ -1089,6 +1090,11 @@ Instructions:
 
                     if (finalUrl) {
                         this.editingScenePrompt.imageUrl = finalUrl;
+                        if (this.editingScenePrompt.prompt && !this.editingScenePrompt.prompt.includes('Seamless continuous motion from previous frame')) {
+                            this.editingScenePrompt.prompt += constraintMsg;
+                        } else if (!this.editingScenePrompt.prompt) {
+                            this.editingScenePrompt.prompt = constraintMsg.trim();
+                        }
                         this.cd.markForCheck();
                         this.toastr.success('Đã trích xuất và gán khung hình nối tiếp thành công!');
                     } else {
@@ -1109,8 +1115,11 @@ Instructions:
             // Khi bỏ check, xoá ảnh kế thừa đi (nếu đó là ảnh last_frame)
             if (this.editingScenePrompt.imageUrl && this.editingScenePrompt.imageUrl.includes('_last_frame.jpg')) {
                 this.editingScenePrompt.imageUrl = null;
-                this.cd.markForCheck();
             }
+            if (this.editingScenePrompt.prompt && this.editingScenePrompt.prompt.includes('Seamless continuous motion from previous frame')) {
+                this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(constraintMsg, '').replace(constraintMsg.trim(), '').trim();
+            }
+            this.cd.markForCheck();
         }
     }
 
