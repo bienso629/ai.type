@@ -137,8 +137,8 @@
                                             <div class="w-full h-full relative overflow-hidden rounded-lg transition-all"
                                                 (click)="setActiveItem(video, $event)">
 
-                                                <!-- Lớp viền active (Hiển thị đè lên trên video/ảnh) -->
-                                                <div class="absolute inset-0 pointer-events-none rounded-lg z-30 transition-all"
+                                                <!-- Lớp viền active/hover (Hiển thị đè lên trên video/ảnh) -->
+                                                <div class="absolute inset-0 pointer-events-none rounded-lg z-30 transition-all group-hover:ring-2 group-hover:ring-inset group-hover:ring-indigo-400 group-hover:shadow-[inset_0_0_20px_rgba(129,140,248,0.6)]"
                                                     [ngClass]="{'ring-2 ring-inset ring-indigo-400 shadow-[inset_0_0_20px_rgba(129,140,248,0.6)]': activeItem === video}">
                                                 </div>
 
