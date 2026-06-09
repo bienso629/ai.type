@@ -457,6 +457,10 @@ export class EditScenePromptDialogComponent {
     }
 
     openControlNetDialog() {
+        let cleanPrompt = this.editingScenePrompt.prompt || '';
+        // Bỏ các thẻ hướng dẫn để tránh làm nhiễu AI vẽ khung xương
+        cleanPrompt = cleanPrompt.replace(/\[[^\]]+\]/g, '').trim();
+
         const dialogRef = this.dialog.open(ControlNetDialogComponent, {
             width: '800px',
             maxWidth: '90vw',
@@ -464,13 +468,25 @@ export class EditScenePromptDialogComponent {
                 projectId: this.data?.uuid,
                 mediaDir: this.data?.mediaDir,
                 username: this.data?.username,
-                controlImageUrl: this.editingScenePrompt.controlImageUrl
+                controlImageUrl: this.editingScenePrompt.controlImageUrl,
+                prompt: cleanPrompt
             }
         });
 
         dialogRef.afterClosed().subscribe(result => {
             if (result !== undefined && result.controlImageUrl !== undefined) {
                 this.editingScenePrompt.controlImageUrl = result.controlImageUrl;
+                
+                // Tự động append pose prompt vào video prompt
+                if (result.posePromptText) {
+                    const currentPrompt = this.editingScenePrompt.prompt || '';
+                    if (!currentPrompt.includes(result.posePromptText)) {
+                        this.editingScenePrompt.prompt = currentPrompt 
+                            ? currentPrompt + '\n' + result.posePromptText
+                            : result.posePromptText;
+                    }
+                }
+                
                 this.cd.detectChanges();
             }
         });
@@ -541,6 +557,22 @@ Instructions:
                 }
             });
             systemPrompt += `\n(Also referring to the attached image for context)`;
+        }
+
+        let finalControlImage = this.editingScenePrompt.controlImageUrl || this.data?.masterControlImageUrl;
+        if (finalControlImage) {
+            try {
+                const base64Data = await this.getBase64FromImageUrl(finalControlImage);
+                parts.push({
+                    inlineData: {
+                        mimeType: 'image/jpeg',
+                        data: base64Data
+                    }
+                });
+                systemPrompt += `\n[IMPORTANT INSTRUCTION: A ControlNet/Pose Sketch image is attached. This sketch illustrates the exact sequence of actions or movements of the character. Please analyze this sketch and extract the actions chronologically. Incorporate these precise movements into the final Video Prompt to ensure the character's animation matches the sketch.]`;
+            } catch(e) {
+                console.error("Error reading control image for auto fix", e);
+            }
         }
 
         try {

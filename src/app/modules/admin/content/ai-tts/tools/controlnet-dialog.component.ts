@@ -58,6 +58,11 @@ export class ControlNetDialogComponent implements OnInit {
         this.controlImageUrl = data.controlImageUrl || null;
         this.projectId = data.projectId || null;
         this.selectedAspectRatio = data.aspectRatio || '16:9';
+        
+        let initialPrompt = data.prompt || '';
+        // Remove tags like [Cinematography: ...] or [Director: ...]
+        initialPrompt = initialPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').trim();
+        this.posePromptText = initialPrompt;
     }
 
     ngOnInit() {
@@ -162,8 +167,15 @@ export class ControlNetDialogComponent implements OnInit {
         });
     }
 
+    get currentProjectId(): string {
+        if (this.projectId) return this.projectId;
+        const parts = window.location.href.split('/');
+        return parts[parts.length - 1] || 'default';
+    }
+
     loadSavedControlTemplates() {
-        const saved = localStorage.getItem('saved_control_templates');
+        const key = `saved_control_templates_${this.currentProjectId}`;
+        const saved = localStorage.getItem(key);
         if (saved) {
             try {
                 this.savedControlTemplates = JSON.parse(saved);
@@ -204,19 +216,14 @@ export class ControlNetDialogComponent implements OnInit {
             return;
         }
 
-        const electron = (window as any).electron;
-        if (!electron || !electron.saveBase64) {
-            this.toastr.error('Cần chạy trên ứng dụng Desktop (Electron) để lưu ảnh.');
-            return;
-        }
+
 
         this.isUploadingControlImage = true;
         this.loadingMessage = 'Đang vẽ phác thảo...';
         this.cd.markForCheck();
 
         try {
-            let requestParts: any[] = [{ text: "Create a simple, clear skeleton/pose reference sketch for video generation based on this description. " + this.posePromptText }];
-            
+            let requestParts: any[] = [{ text: "Create a highly detailed skeleton/pose reference sketch for video generation. It is CRITICAL that the sketch EXACTLY captures the specific pose and illustrates the full sequence of actions or movements of the character from the beginning to the end, as described in this prompt: " + this.posePromptText }];
             if (this.poseReferenceImageUrl) {
                 try {
                     const base64Data = await this.getBase64FromImageUrl(this.poseReferenceImageUrl);
@@ -255,22 +262,39 @@ export class ControlNetDialogComponent implements OnInit {
             }
 
             const fileName = `control_${Date.now()}.png`;
-            const result = await electron.saveBase64({
-                base64: base64Data,
-                fileName: fileName,
-                folder: 'scenes',
-                username: 'ai_type',
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
-            });
+            const electron = (window as any).electron;
+            if (electron && electron.saveBase64) {
+                const result = await electron.saveBase64({
+                    base64: base64Data,
+                    fileName: fileName,
+                    folder: 'scenes',
+                    username: 'ai_type',
+                    customDir: `tts/${this.data?.username || 'anonymous'}/${this.currentProjectId}`
+                });
 
-            if (result && result.success) {
-                const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
-                this.controlImageUrl = finalPath;
+                if (result && result.success) {
+                    const finalPath = `file://${result.path.replace(/\\/g, '/')}`;
+                    this.autoSaveControlTemplate(finalPath, this.posePromptText || 'AI Phác thảo');
+                    this.isPromptingForPose = false;
+                    this.toastr.success('Đã tạo ảnh phác thảo thành công!');
+                    this.controlImageUrl = finalPath;
+                    this.dialogRef.close({ 
+                        controlImageUrl: finalPath,
+                        posePromptText: this.posePromptText
+                    });
+                } else {
+                    throw new Error(result.error || 'Lỗi lưu file.');
+                }
+            } else {
+                const finalPath = `data:image/jpeg;base64,${base64Data}`;
                 this.autoSaveControlTemplate(finalPath, this.posePromptText || 'AI Phác thảo');
                 this.isPromptingForPose = false;
                 this.toastr.success('Đã tạo ảnh phác thảo thành công!');
-            } else {
-                throw new Error(result.error || 'Lỗi lưu file.');
+                this.controlImageUrl = finalPath;
+                this.dialogRef.close({ 
+                    controlImageUrl: finalPath,
+                    posePromptText: this.posePromptText
+                });
             }
         } catch (err: any) {
             console.error('Lỗi khi AI vẽ phác thảo:', err);
@@ -290,13 +314,86 @@ export class ControlNetDialogComponent implements OnInit {
         }
     }
 
+    async extractFramesFromVideoBrowser(file: File, frameCount: number = 5): Promise<string[]> {
+        return new Promise((resolve, reject) => {
+            const video = document.createElement('video');
+            video.src = URL.createObjectURL(file);
+            video.crossOrigin = 'anonymous';
+            video.muted = true;
+            
+            video.addEventListener('loadedmetadata', () => {
+                const duration = video.duration;
+                if (!duration) {
+                    reject('Không thể lấy độ dài video.');
+                    return;
+                }
+                
+                const interval = duration / (frameCount + 1);
+                const times: number[] = [];
+                for (let i = 1; i <= frameCount; i++) {
+                    times.push(interval * i);
+                }
+                
+                const frames: string[] = [];
+                let currentTimeIndex = 0;
+                
+                const captureFrame = () => {
+                    const canvas = document.createElement('canvas');
+                    canvas.width = video.videoWidth;
+                    canvas.height = video.videoHeight;
+                    const ctx = canvas.getContext('2d');
+                    if (ctx) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        frames.push(canvas.toDataURL('image/jpeg', 0.8));
+                    }
+                    
+                    currentTimeIndex++;
+                    if (currentTimeIndex < times.length) {
+                        video.currentTime = times[currentTimeIndex];
+                    } else {
+                        URL.revokeObjectURL(video.src);
+                        resolve(frames);
+                    }
+                };
+                
+                video.addEventListener('seeked', captureFrame);
+                video.currentTime = times[0];
+            });
+            
+            video.addEventListener('error', (e: any) => {
+                reject('Lỗi load video: ' + (e?.message || 'Unknown error'));
+            });
+        });
+    }
+
     async onVideoSelected(event: any) {
         const file = event.target.files[0];
         if (!file) return;
 
         const electron = (window as any).electron;
         if (!electron || !electron.extractFramesFromVideo) {
-            this.toastr.error('Chức năng này chỉ hoạt động trên bản Desktop (Electron).');
+            this.isUploadingControlImage = true;
+            this.loadingMessage = 'Đang trích xuất khung hình...';
+            this.cd.markForCheck();
+            try {
+                const frames = await this.extractFramesFromVideoBrowser(file, 5);
+                if (frames && frames.length > 0) {
+                    this.extractedFrames = frames;
+                    this.toastr.success(`Đã trích xuất ${this.extractedFrames.length} khung hình.`);
+                } else {
+                    throw new Error('Không có khung hình nào được trích xuất.');
+                }
+            } catch (err: any) {
+                console.error('Extract frames error:', err);
+                this.toastr.error('Lỗi trích xuất: ' + (err.message || err));
+            } finally {
+                this.isUploadingControlImage = false;
+                this.loadingMessage = '';
+                if (this.videoUploadInput && this.videoUploadInput.nativeElement) {
+                    this.videoUploadInput.nativeElement.value = '';
+                }
+                this.cd.markForCheck();
+            }
             return;
         }
 
@@ -310,7 +407,7 @@ export class ControlNetDialogComponent implements OnInit {
                 frameCount: 5,
                 folder: 'scenes',
                 username: 'ai_type',
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.currentProjectId}`
             });
 
             if (result && result.success && result.frames && result.frames.length > 0) {
@@ -337,6 +434,7 @@ export class ControlNetDialogComponent implements OnInit {
         this.controlImageUrl = frameUrl;
         this.extractedFrames = [];
         this.autoSaveControlTemplate(frameUrl, 'Frame Video');
+        this.close();
     }
 
     onFramesScroll(event: WheelEvent) {
@@ -351,7 +449,16 @@ export class ControlNetDialogComponent implements OnInit {
 
         const electron = (window as any).electron;
         if (!electron || !electron.uploadLocalFile) {
-            this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+            const reader = new FileReader();
+            reader.onload = (e: any) => {
+                this.controlImageUrl = e.target.result;
+                this.autoSaveControlTemplate(this.controlImageUrl, file.name);
+                this.toastr.success('Tải ảnh bố cục thành công!');
+                event.target.value = '';
+                this.close();
+                this.cd.markForCheck();
+            };
+            reader.readAsDataURL(file);
             return;
         }
 
@@ -366,7 +473,7 @@ export class ControlNetDialogComponent implements OnInit {
                 fileName: fileName,
                 folder: 'scenes',
                 username: 'ai_type',
-                customDir: `tts/${this.data?.username || 'anonymous'}/${this.data?.uuid || 'default'}`
+                customDir: `tts/${this.data?.username || 'anonymous'}/${this.currentProjectId}`
             });
 
             if (result && result.success) {
@@ -374,6 +481,7 @@ export class ControlNetDialogComponent implements OnInit {
                 this.controlImageUrl = finalPath;
                 this.autoSaveControlTemplate(finalPath, file.name);
                 this.toastr.success('Tải ảnh bố cục thành công!');
+                this.close();
             } else {
                 throw new Error(result.error || 'Lỗi lưu file.');
             }
@@ -397,7 +505,8 @@ export class ControlNetDialogComponent implements OnInit {
                 prompt: promptText
             };
             this.savedControlTemplates.push(newTemplate);
-            localStorage.setItem('saved_control_templates', JSON.stringify(this.savedControlTemplates));
+            const key = `saved_control_templates_${this.currentProjectId}`;
+            localStorage.setItem(key, JSON.stringify(this.savedControlTemplates));
         }
     }
 
@@ -408,15 +517,13 @@ export class ControlNetDialogComponent implements OnInit {
             this.controlImageUrl = null;
         }
         this.savedControlTemplates = this.savedControlTemplates.filter(t => t.id !== id);
-        localStorage.setItem('saved_control_templates', JSON.stringify(this.savedControlTemplates));
+        const key = `saved_control_templates_${this.currentProjectId}`;
+        localStorage.setItem(key, JSON.stringify(this.savedControlTemplates));
     }
 
     selectControlTemplate(template: any) {
-        if (this.controlImageUrl === template.imageUrl) {
-            this.controlImageUrl = null;
-        } else {
-            this.controlImageUrl = template.imageUrl;
-        }
+        this.controlImageUrl = template.imageUrl;
+        this.close();
     }
     
     close() {

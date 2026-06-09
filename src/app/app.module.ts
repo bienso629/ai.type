@@ -52,9 +52,9 @@ const routerConfig: ExtraOptions = {
         // ToastrModule added
         ToastrModule.forRoot({
             timeOut: 3000,
-            positionClass: 'toast-bottom-left',
-            preventDuplicates: false,
-            countDuplicates: false,
+            positionClass: 'toast-top-right',
+            preventDuplicates: true,
+            countDuplicates: true,
             progressBar: false
         }),
     ],

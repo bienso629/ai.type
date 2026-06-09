@@ -33,9 +33,9 @@
                     </div>
                 </div>
 
-                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="true" [rows]="n8nWorkflows"
-                    [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" rowHeight="50"
-                    [loadingIndicator]="n8nLoading" [limit]="10" [selected]="n8nSelected"
+                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="true"
+                    [rows]="n8nWorkflows" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
+                    rowHeight="50" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="n8nSelected"
                     [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
                     (select)="onN8nSelect($event)">
 
@@ -58,7 +58,7 @@
 
                     <ngx-datatable-column name="Trạng thái" prop="active">
                         <ng-template ngx-datatable-cell-template let-value="value">
-                            <span class="px-2 py-1 rounded text-base font-bold"
+                            <span class="px-2 py-1 rounded text-base font-semibold"
                                 [ngClass]="{'bg-green-100 text-green-800': value, 'bg-gray-100 text-gray-800': !value}">
                                 {{ value ? 'Active' : 'Inactive' }}
                             </span>
@@ -138,10 +138,10 @@
                 </div>
             </div>
 
-            <ngx-datatable [virtualization]="true" class="material fullscreen" [selected]="selected" [selectionType]="SelectionType.checkbox"
-                [selectAllRowsOnPage]="false" [displayCheck]="displayCheck" (select)="onSelect($event)"
-                class="material border rounded-lg mt-4 shadow-none" [headerHeight]="50" [columnMode]="ColumnMode.force"
-                [footerHeight]="70" [limit]="10" rowHeight="auto" [rows]="users">
+            <ngx-datatable [virtualization]="true" class="material fullscreen" [selected]="selected"
+                [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false" [displayCheck]="displayCheck"
+                (select)="onSelect($event)" class="material border rounded-lg mt-4 shadow-none" [headerHeight]="50"
+                [columnMode]="ColumnMode.force" [footerHeight]="70" [limit]="10" rowHeight="auto" [rows]="users">
                 <!-- Column Templates -->
                 <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                     [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>

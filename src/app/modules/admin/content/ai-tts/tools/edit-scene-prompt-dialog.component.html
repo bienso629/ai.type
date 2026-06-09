@@ -1,5 +1,5 @@
 <div class="flex items-center justify-between mb-4">
-    <h2 class="text-lg font-bold text-indigo-900 m-0">
+    <h2 class="text-lg font-semibold m-0">
         Sửa Prompt Phân Cảnh #{{ editingSceneIndex + 1 }}
         <ng-container *ngIf="editingVideoIndex >= 0">- Phần {{ editingVideoIndex + 1 }}</ng-container>
     </h2>
@@ -14,7 +14,7 @@
     <!-- Reference Images Section -->
     @if (characters && characters.length > 0) {
     <div class="flex flex-col mt-2">
-        <!-- <span class="font-bold text-slate-800 text-sm mb-1">Ảnh nhân vật tham khảo (Dành cho tạo ảnh Storyboard)</span> -->
+        <!-- <span class="font-semibold text-slate-800 text-sm mb-1">Ảnh nhân vật tham khảo (Dành cho tạo ảnh Storyboard)</span> -->
         <div class="flex flex-wrap gap-2">
             @for (char of characters; track char) {
             @if (char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)) {
@@ -41,16 +41,20 @@
 
     <!-- Storyboard Area -->
     <div class="flex items-start gap-4 mb-2 mt-2">
-        <div *ngIf="editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl)"
+        <div *ngIf="(editingScenePrompt.imageUrl && isImageType(editingScenePrompt.imageUrl)) || editingScenePrompt.controlImageUrl"
             class="relative shrink-0 rounded-lg flex items-center justify-center bg-gray-50 overflow-visible group transition-all duration-300"
             [ngStyle]="getAspectRatioStyle()">
 
             <!-- Normal Image if no ControlNet -->
-            <img *ngIf="!editingScenePrompt.controlImageUrl" [src]="getSafeUrl(editingScenePrompt.imageUrl)"
+            <img *ngIf="!editingScenePrompt.controlImageUrl && editingScenePrompt.imageUrl" [src]="getSafeUrl(editingScenePrompt.imageUrl)"
                 class="w-full h-full object-cover rounded-lg">
 
-            <!-- Before/After Slider if ControlNet exists -->
-            <div *ngIf="editingScenePrompt.controlImageUrl"
+            <!-- ControlNet Image ONLY if no Normal Image -->
+            <img *ngIf="editingScenePrompt.controlImageUrl && !editingScenePrompt.imageUrl" [src]="getSafeUrl(editingScenePrompt.controlImageUrl)"
+                class="w-full h-full object-cover rounded-lg">
+
+            <!-- Before/After Slider if BOTH exist -->
+            <div *ngIf="editingScenePrompt.controlImageUrl && editingScenePrompt.imageUrl"
                 class="relative w-full h-full select-none rounded-lg overflow-hidden group/slider">
                 <!-- After Image (Generated) -->
                 <img [src]="getSafeUrl(editingScenePrompt.imageUrl)" class="absolute inset-0 w-full h-full object-cover"
@@ -89,7 +93,7 @@
             </button>
         </div>
 
-        <div *ngIf="(!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl))"
+        <div *ngIf="(!editingScenePrompt.imageUrl || !isImageType(editingScenePrompt.imageUrl)) && !editingScenePrompt.controlImageUrl"
             class="relative shrink-0 rounded-lg border-2 border-dashed border-slate-300 flex flex-col items-center justify-center gap-2 bg-slate-50 transition-all duration-300"
             [ngStyle]="getAspectRatioStyle()">
 

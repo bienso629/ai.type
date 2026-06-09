@@ -1,5 +1,5 @@
 <div class="flex items-center justify-between">
-    <h2 class="text-lg font-bold text-indigo-900">Cấu hình</h2>
+    <h2 class="text-lg font-semibold">Cấu hình</h2>
     <div class="flex items-center gap-2">
 
         <button mat-icon-button (click)="close()">
@@ -13,14 +13,17 @@
     <div class="flex items-center justify-between mt-4 mb-2">
         <div class="flex items-center">
             <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:color-swatch'"></mat-icon>
-            <h3 class="font-bold text-indigo-800 text-sm">Master Prompt</h3>
+            <h3 class="font-semibold text-indigo-800 text-sm">Master Prompt</h3>
         </div>
         <div class="flex items-center gap-0">
-            <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt" (click)="toggleEditMasterPrompt()" [disabled]="isReanalyzingScenes">
-                <mat-icon class="icon-size-4" *ngIf="!isReanalyzingScenes">{{ isEditingMasterPrompt ? 'check' : 'edit' }}</mat-icon>
+            <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt"
+                (click)="toggleEditMasterPrompt()" [disabled]="isReanalyzingScenes">
+                <mat-icon class="icon-size-4" *ngIf="!isReanalyzingScenes">{{ isEditingMasterPrompt ? 'check' : 'edit'
+                    }}</mat-icon>
                 <mat-icon class="icon-size-4 animate-spin" *ngIf="isReanalyzingScenes">autorenew</mat-icon>
             </button>
-            <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode" (click)="openDirectorMode()">
+            <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Director mode"
+                (click)="openDirectorMode()">
                 <mat-icon class="icon-size-4">movie_creation</mat-icon>
             </button>
         </div>
@@ -31,7 +34,8 @@
         projectData?.masterPrompt }}"</p>
     } @else {
     <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-4 bg-white rounded" [subscriptSizing]="'dynamic'">
-        <textarea matInput class="px-2 py-1 text-base text-gray-800 leading-relaxed" [(ngModel)]="projectData.masterPrompt" cdkTextareaAutosize></textarea>
+        <textarea matInput class="px-2 py-1 text-base text-gray-800 leading-relaxed"
+            [(ngModel)]="projectData.masterPrompt" cdkTextareaAutosize></textarea>
     </mat-form-field>
     }
 
@@ -39,10 +43,11 @@
     <div class="flex items-center justify-between mb-4 mt-6">
         <div class="flex items-center">
             <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:users'"></mat-icon>
-            <h3 class="font-bold text-indigo-800 text-sm">Tạo hình Nhân vật (Casting)</h3>
+            <h3 class="font-semibold text-indigo-800 text-sm">Tạo hình Nhân vật (Casting)</h3>
         </div>
 
-        <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100" matTooltip="Thêm nhân vật" (click)="openCharacterDialog()">
+        <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100"
+            matTooltip="Thêm nhân vật" (click)="openCharacterDialog()">
             <mat-icon class="icon-size-4">person_add</mat-icon>
         </button>
     </div>
@@ -52,45 +57,57 @@
         <swiper-container fmSwiper [config]="swipe" init="false" class="w-full pb-8">
             @for (char of projectData?.characters; track char; let charIdx = $index) {
             <swiper-slide class="w-[320px] max-w-[85vw] h-auto">
-                <div class="bg-white h-full p-4 rounded-xl group relative flex flex-col gap-3 border border-gray-200 hover:border-indigo-300 transition-colors flex-shrink-0">
+                <div
+                    class="bg-white h-full p-4 rounded-xl group relative flex flex-col gap-3 border border-gray-200 hover:border-indigo-300 transition-colors flex-shrink-0">
                     <div class="flex-1 min-w-0 w-full">
                         <div class="flex justify-between items-start mb-3 border-b border-gray-50 pb-2">
-                            <span class="font-bold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
+                            <span
+                                class="font-semibold text-indigo-900 text-sm flex-1 flex flex-wrap items-center gap-1">
                                 {{ char.name || char.role }}
                                 @if (char.variant) {
-                                <span class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0.5 rounded-full whitespace-nowrap">{{
+                                <span
+                                    class="text-[10px] font-normal text-white bg-indigo-500 px-2 py-0.5 rounded-full whitespace-nowrap">{{
                                     char.variant }}</span>
                                 }
                             </span>
 
                             <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button mat-icon-button class="icon-size-7 text-gray-400 hover:text-green-600 hover:bg-green-50" matTooltip="Nhân bản (Tạo phiên bản mới)"
-                                    (click)="duplicateCharacter(char)" [disabled]="isGeneratingCharacter">
-                                    <mat-icon class="icon-size-3.5" *ngIf="!isGeneratingCharacter">content_copy</mat-icon>
-                                    <mat-icon class="icon-size-3.5 animate-spin" *ngIf="isGeneratingCharacter">autorenew</mat-icon>
+                                <button mat-icon-button
+                                    class="icon-size-7 text-gray-400 hover:text-green-600 hover:bg-green-50"
+                                    matTooltip="Nhân bản (Tạo phiên bản mới)" (click)="duplicateCharacter(char)"
+                                    [disabled]="isGeneratingCharacter">
+                                    <mat-icon class="icon-size-3.5"
+                                        *ngIf="!isGeneratingCharacter">content_copy</mat-icon>
+                                    <mat-icon class="icon-size-3.5 animate-spin"
+                                        *ngIf="isGeneratingCharacter">autorenew</mat-icon>
                                 </button>
 
-                                <button mat-icon-button class="icon-size-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50" matTooltip="Sửa nhân vật"
-                                    (click)="openCharacterDialog(char, charIdx)">
+                                <button mat-icon-button
+                                    class="icon-size-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
+                                    matTooltip="Sửa nhân vật" (click)="openCharacterDialog(char, charIdx)">
                                     <mat-icon class="icon-size-3.5">edit</mat-icon>
                                 </button>
 
-                                <button mat-icon-button class="icon-size-7 text-gray-400 hover:text-red-600 hover:bg-red-50" matTooltip="Xoá nhân vật"
-                                    (click)="removeCharacter(charIdx)">
+                                <button mat-icon-button
+                                    class="icon-size-7 text-gray-400 hover:text-red-600 hover:bg-red-50"
+                                    matTooltip="Xoá nhân vật" (click)="removeCharacter(charIdx)">
                                     <mat-icon class="icon-size-3.5">delete</mat-icon>
                                 </button>
                             </div>
                         </div>
 
                         <div class="text-xs text-gray-700 leading-relaxed space-y-2">
-                            <div class="flex items-start gap-1"><span class="font-semibold text-gray-900 min-w-[70px]">Vai
+                            <div class="flex items-start gap-1"><span
+                                    class="font-semibold text-gray-900 min-w-[70px]">Vai
                                     trò:</span> <span>{{ char.role }}</span></div>
-                            <div class="flex items-start gap-1"><span class="font-semibold text-gray-900 min-w-[70px]">Ngoại
+                            <div class="flex items-start gap-1"><span
+                                    class="font-semibold text-gray-900 min-w-[70px]">Ngoại
                                     hình:</span>
                                 <span class="line-clamp-3">{{ char.appearance ||
                                     'Đang cập nhật' }}</span>
                             </div>
-                            <div class="flex items-start gap-1"><span class="font-semibold text-gray-900 min-w-[70px]">Tính
+                            <div class="flex items-start gap-1"><span
+                                    class="font-semibold text-gray-900 min-w-[70px]">Tính
                                     cách:</span>
                                 <span class="line-clamp-2">{{ char.personality }}</span>
                             </div>
@@ -113,7 +130,8 @@
         </swiper-container>
 
         @if (!projectData?.characters || projectData?.characters.length === 0) {
-        <div class="w-full text-xs text-gray-500 italic text-center py-8 bg-white/50 rounded-xl border border-dashed border-gray-300">
+        <div
+            class="w-full text-xs text-gray-500 italic text-center py-8 bg-white/50 rounded-xl border border-dashed border-gray-300">
             Chưa có nhân vật nào được tạo hình. Bấm vào nút + để tạo nhân vật đầu tiên.
         </div>
         }

@@ -2,14 +2,9 @@
     <!-- Header -->
     <div class="flex items-center justify-between mb-4">
         <div class="flex gap-6 items-center">
-            <h2 class="text-[16px] font-medium m-0 cursor-pointer transition-all duration-200"
-                [ngClass]="activeTab === 'camera' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-2 -mb-[10px]' : 'text-gray-500 hover:text-gray-700'"
-                (click)="activeTab = 'camera'">Cấu hình Góc máy & Ánh sáng</h2>
-
-            <h2 *ngIf="data.targetName === 'Apply to Master Prompt'"
-                class="text-[16px] font-medium m-0 cursor-pointer transition-all duration-200"
-                [ngClass]="activeTab === 'context' ? 'text-indigo-600 border-b-2 border-indigo-600 pb-2 -mb-[10px]' : 'text-gray-500 hover:text-gray-700'"
-                (click)="activeTab = 'context'">Bối cảnh & Nhân vật</h2>
+            <h2 class="text-lg font-semibold">
+                Cấu hình Góc máy & Ánh sáng
+            </h2>
         </div>
         <div class="flex items-center gap-2">
             <button mat-icon-button (click)="dialogRef.close()">
@@ -19,16 +14,16 @@
     </div>
 
     <!-- Content body -->
-    <div class="flex-1 p-1 bg-white overflow-y-auto max-h-[75vh] pr-2 scrollbar-hide"
+    <div class="flex-1 bg-white overflow-y-auto max-h-[75vh] pr-2 scrollbar-hide"
         style="-ms-overflow-style: none; scrollbar-width: none;">
 
         <!-- Tab Camera -->
-        <div *ngIf="activeTab === 'camera'" class="grid grid-cols-1 gap-2">
+        <div class="grid grid-cols-1 gap-2">
             <!-- LEFT COLUMN -->
             <div class="flex flex-col">
                 <!-- Art Style -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Phong cách đồ họa / Rendering</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Phong cách đồ họa / Rendering</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.artStyle; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -45,7 +40,7 @@
 
                 <!-- Time of day -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Thời gian trong ngày</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Thời gian trong ngày</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.timeOfDay; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -62,7 +57,7 @@
 
                 <!-- Lighting -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Ánh sáng</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Ánh sáng</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.lighting; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -79,7 +74,7 @@
 
                 <!-- Film stock -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Chất liệu phim</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Chất liệu phim</h3>
 
                     <div class="flex gap-2 mb-3 bg-gray-200 p-1 rounded-lg">
                         <div class="toggle-btn flex items-center justify-center gap-2"
@@ -115,7 +110,7 @@
 
                 <!-- Focus depth -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Độ sâu trường ảnh</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Độ sâu trường ảnh</h3>
                     <div class="grid grid-cols-3 gap-2">
                         @for (opt of categories.focusDepth; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -132,7 +127,7 @@
 
                 <!-- Camera speed -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Tốc độ quay</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Tốc độ quay</h3>
                     <div class="grid grid-cols-3 gap-2">
                         @for (opt of categories.cameraSpeed; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -152,7 +147,7 @@
             <div class="flex flex-col">
                 <!-- Composition -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Bố cục</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Bố cục</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.composition; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -168,7 +163,7 @@
                 </div>
                 <!-- Camera Angle -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Góc đặt máy</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Góc đặt máy</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.cameraAngle; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -186,7 +181,7 @@
 
                 <!-- Shot size -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Cỡ cảnh</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Cỡ cảnh</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.shotSize; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -203,7 +198,7 @@
 
                 <!-- Lenses -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Ống kính</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Ống kính</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.lenses; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -220,7 +215,7 @@
 
                 <!-- Movement -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-bold text-[13px] mb-2">Chuyển động máy quay</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Chuyển động máy quay</h3>
                     <div class="grid grid-cols-5 gap-2 mb-3">
                         @for (opt of categories.movementType; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -259,7 +254,9 @@
         </div>
 
         <!-- Tab Context & Seed -->
-        <div *ngIf="activeTab === 'context'" class="flex flex-col gap-6 py-4 px-2 min-h-[300px]">
+        <div *ngIf="data.targetName === 'Apply to Master Prompt'" class="flex flex-col gap-6 py-4 px-2 min-h-[300px]">
+            <h2 class="text-[16px] font-medium m-0 mt-4 text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-2">Bối cảnh
+                & Nhân vật</h2>
             <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl text-sm border border-indigo-100 flex gap-3">
                 <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
                     class="text-indigo-500 shrink-0"></mat-icon>

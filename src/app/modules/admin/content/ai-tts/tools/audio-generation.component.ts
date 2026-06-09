@@ -133,7 +133,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
                             class="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"
                         ></div>
                         <span
-                            class="text-[10px] font-bold text-gray-400 uppercase tracking-widest"
+                            class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest"
                             >Đang chạy ngầm</span
                         >
                     </div>

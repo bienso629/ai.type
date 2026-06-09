@@ -29,7 +29,7 @@ import { GenaiService } from 'app/genai.service';
     template: `
     <div class="min-w-[480px] bg-white rounded-lg">
         <div class="flex items-center justify-between mb-4">
-            <h2 class="text-lg font-bold text-indigo-900 m-0">
+            <h2 class="text-lg font-semibold m-0">
                 Thêm Scene mới thủ công
             </h2>
             <div class="flex items-center gap-2">

@@ -235,7 +235,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         // Mở dialog confirm đẹp
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa Workflow',
-            message: `Bạn có chắc chắn muốn xóa vĩnh viễn workflow <span class="font-bold">${row.name}</span> không?<br>Hành động này không thể hoàn tác!`,
+            message: `Bạn có chắc chắn muốn xóa vĩnh viễn workflow <span class="font-semibold">${row.name}</span> không?<br>Hành động này không thể hoàn tác!`,
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
@@ -282,7 +282,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
 
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa nhiều Workflow',
-            message: `Bạn đang chọn xóa <span class="font-bold text-red-500">${count}</span> workflows.<br>Bạn có chắc chắn muốn tiếp tục không?`,
+            message: `Bạn đang chọn xóa <span class="font-semibold text-red-500">${count}</span> workflows.<br>Bạn có chắc chắn muốn tiếp tục không?`,
             icon: {
                 show: true,
                 name: 'feather:trash-2',
