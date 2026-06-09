@@ -844,8 +844,9 @@ export class GenaiService {
         let refBase64DataUri = '';
         let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
-            // Đối với Video AI, chỉ lấy START_FRAME. Bỏ qua CONTROL_IMAGE (khung xương) vì Video AI không hỗ trợ ControlNet.
-            const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD');
+            // Lấy START_FRAME hoặc STORYBOARD. Nếu không có, lấy CONTROL_IMAGE làm fallback.
+            const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD') 
+                          || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE');
             if (startImg) {
                 refBase64Raw = startImg.image?.imageBytes || (typeof startImg === 'string' ? startImg : '');
                 if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
@@ -906,61 +907,39 @@ export class GenaiService {
             }
 
             let payload: any;
-            if (config.payloadFormat === 'kling_v3') {
+            if (config.payloadFormat === 'kling_v3_omni') {
                 let klingImageList: any[] = [];
                 let modifiedPrompt = prompt;
                 
                 if (referenceImages && referenceImages.length > 0) {
                     for (const ref of referenceImages) {
                         let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
-                        
-                        // Strip prefix data:image/... nếu có (cần raw base64 cho cả upload CDN lẫn fallback)
-                        let imgForUpload = imgRaw; // Giữ nguyên cho upload CDN (cần prefix để detect mime)
+                        let imgForUpload = imgRaw; 
                         if (imgRaw.startsWith('data:')) {
-                            imgRaw = imgRaw.split(',')[1]; // Raw base64 không prefix
+                            imgRaw = imgRaw.split(',')[1];
                         }
                         
-                        // Log kích thước
                         const sizeKB = Math.round(imgRaw.length / 1024);
-                        console.log(`[Kling image_list] type=${ref.referenceType}, base64 size=${sizeKB}KB`);
+                        if (sizeKB / 1024 > 10) continue;
                         
-                        // Kiểm tra kích thước: Kling giới hạn <= 10MB
-                        if (sizeKB / 1024 > 10) {
-                            console.warn(`[Kling] Ảnh quá nặng (${(sizeKB/1024).toFixed(1)}MB > 10MB)! Bỏ qua.`);
-                            continue;
-                        }
-                        
-                        // Upload base64 lên CDN lấy URL HTTPS
-                        // (UModelverse proxy không hỗ trợ ConvertImageRequest để tự chuyển base64 -> URL)
-                        let imageUrl: string = imgRaw; // Fallback: raw base64
+                        let imageUrl: string = imgRaw;
                         try {
                             const cdnUrl = await this.uploadBase64ToCdn(imgForUpload, `kling_${ref.referenceType || 'ref'}_${Date.now()}.jpg`);
-                            if (cdnUrl) {
-                                imageUrl = cdnUrl;
-                                console.log(`[Kling] Đã upload ảnh lên CDN: ${cdnUrl}`);
-                            } else {
-                                console.warn(`[Kling] Upload CDN thất bại, fallback về raw base64`);
-                            }
-                        } catch (uploadErr) {
-                            console.warn(`[Kling] Upload CDN lỗi, fallback về raw base64:`, uploadErr);
-                        }
+                            if (cdnUrl) imageUrl = cdnUrl;
+                        } catch (uploadErr) {}
                         
-                        if (ref.referenceType === 'START_FRAME') {
+                        if (ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD') {
                             klingImageList.push({ image_url: imageUrl, type: "first_frame" });
                         } else if (ref.referenceType === 'END_FRAME') {
                             klingImageList.push({ image_url: imageUrl, type: "end_frame" });
                         } else if (ref.referenceType === 'CONTROL_IMAGE') {
-                            const hasStartFrame = referenceImages.some((r: any) => r.referenceType === 'START_FRAME');
+                            const hasStartFrame = referenceImages.some((r: any) => r.referenceType === 'START_FRAME' || r.referenceType === 'STORYBOARD');
                             if (!hasStartFrame) {
                                 klingImageList.push({ image_url: imageUrl });
-                                // Ảnh khung xương: ép AI chỉ lấy tư thế, không bắt chước nét vẽ
                                 modifiedPrompt = `<<<image_${klingImageList.length}>>> [CRITICAL: The reference image is a pose/skeleton/sketch control image. DO NOT draw a skeleton or sketch. ONLY use it as a strict reference for the character's body pose, camera angle, and scene composition. Render the final output in the requested visual style.] ${modifiedPrompt}`;
-                            } else {
-                                console.log('[Kling] Bỏ qua CONTROL_IMAGE vì đã có START_FRAME (tránh xung đột khung xương)');
                             }
                         } else {
                             klingImageList.push({ image_url: imageUrl });
-                            // Ảnh nhân vật/phong cách
                             modifiedPrompt = `<<<image_${klingImageList.length}>>> ${modifiedPrompt}`;
                         }
                     }
@@ -968,13 +947,9 @@ export class GenaiService {
                 
                 payload = {
                     model: model,
-                    input: {
-                        prompt: modifiedPrompt
-                    },
+                    input: { prompt: modifiedPrompt },
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        // Kling API yêu cầu duration là SỐ NGUYÊN (int), không chấp nhận float (3.4 → lỗi!)
-                        // Giá trị hợp lệ: 3 đến 15 giây
                         duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
                         ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
@@ -982,6 +957,39 @@ export class GenaiService {
                 
                 if (klingImageList.length > 0) {
                     payload.parameters.image_list = klingImageList;
+                }
+            } else if (config.payloadFormat === 'kling_v3') {
+                payload = {
+                    model: model,
+                    input: { prompt: prompt },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
+                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+                    }
+                };
+                if (refBase64Raw) {
+                    payload.parameters.image = refBase64Raw;
+                }
+                if (endRefBase64Raw) {
+                    payload.parameters.image_tail = endRefBase64Raw;
+                }
+            } else if (config.payloadFormat === 'kling_v3_motion') {
+                payload = {
+                    model: model,
+                    input: { prompt: prompt },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
+                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+                    }
+                };
+                if (refBase64Raw) {
+                    payload.input.img_url = refBase64Raw;
+                    payload.parameters.character_orientation = "image";
+                }
+                if (endRefBase64Raw) {
+                    payload.input.video_url = endRefBase64Raw;
                 }
             } else if (config.payloadFormat === 'nested_input') {
                 payload = {
@@ -1026,12 +1034,33 @@ export class GenaiService {
                 if (prompt) {
                     contentArr.push({ type: 'text', text: prompt });
                 }
-                if (refBase64Raw) {
-                    contentArr.push({ type: 'image_url', image_url: { url: `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` }, role: 'first_frame' });
+                
+                if (referenceImages && referenceImages.length > 0) {
+                    for (const ref of referenceImages) {
+                        let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
+                        let imgUri = imgRaw;
+                        if (imgRaw && !imgRaw.startsWith('data:')) {
+                            imgUri = `data:image/png;base64,${imgRaw}`;
+                        }
+                        if (ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD') {
+                            contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'first_frame' });
+                        } else if (ref.referenceType === 'END_FRAME') {
+                            contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'last_frame' });
+                        } else {
+                            // Any other reference image is treated as a character/style reference
+                            contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'reference_image' });
+                        }
+                    }
+                } else {
+                    // Fallback using single image references
+                    if (refBase64Raw) {
+                        contentArr.push({ type: 'image_url', image_url: { url: `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` }, role: 'first_frame' });
+                    }
+                    if (endRefBase64Raw) {
+                        contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` }, role: 'last_frame' });
+                    }
                 }
-                if (endRefBase64Raw) {
-                    contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` }, role: 'last_frame' });
-                }
+                
                 let parsedSeed = undefined;
                 if (seed !== undefined && seed !== null && String(seed).trim() !== '') {
                     const num = Number(seed);

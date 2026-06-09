@@ -900,6 +900,10 @@ Instructions:
 
             if (referenceImages && referenceImages.length > 0) {
                 mandatoryTags += `\n[MANDATORY: Strictly follow layout, skeleton & character references 100%. No hallucinations or extra details.]`;
+                const hasControlImage = referenceImages.some(img => img.referenceType === 'CONTROL_IMAGE');
+                if (hasControlImage) {
+                    mandatoryTags += `\n[CRITICAL INSTRUCTION: The attached reference image is a SKETCH/StoryBoard layout. DO NOT render the video in a sketch, drawing, or wireframe style. Use the image ONLY for pose, composition, and framing. The final video MUST be highly photorealistic and cinematic according to the prompt.]`;
+                }
             }
 
             let finalPrompt = basePrompt + mandatoryTags;
