@@ -1,6 +1,6 @@
 // Dùng chung cho cả cấu hình Video và Image
 export interface VideoModelConfig {
-    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3' | 'doubao_sdk';
+    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3' | 'kling_v3_omni' | 'kling_v3_motion' | 'doubao_sdk';
     promptKey: string;
     imageKey?: string;         // e.g., 'image_url', 'first_frame_image', 'image'
     endImageKey?: string;      // e.g., 'last_frame_image', 'image_end', 'end_image_url'
@@ -22,11 +22,34 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         defaultDuration: 5
     },
     // Kling Series (Kling-v3, Kling-O3, Kling-v3-Motion-Control)
-    'kling': {
+    'kling-v3-motion': {
+        payloadFormat: 'kling_v3_motion',
+        promptKey: 'prompt',
+        imageKey: 'img_url',
+        useDataUri: false,
+        defaultDuration: 5
+    },
+    'kling-v3-omni': { // Kling-O3
+        payloadFormat: 'kling_v3_omni',
+        promptKey: 'prompt',
+        imageKey: 'image_list',      
+        useDataUri: false,           
+        defaultDuration: 5
+    },
+    'kling-v3': { // Standard Kling-v3 without omni
         payloadFormat: 'kling_v3',
         promptKey: 'prompt',
-        imageKey: 'image_list',      // Not used in standard way, but keep for type
-        useDataUri: false,           // Tắt cờ này để Kling API nhận raw base64 (tránh lỗi ConvertImageRequest do proxy không hiểu data URI)
+        imageKey: 'image',
+        endImageKey: 'image_tail',
+        useDataUri: false,           
+        defaultDuration: 5
+    },
+    'kling': { // Fallback standard
+        payloadFormat: 'kling_v3',
+        promptKey: 'prompt',
+        imageKey: 'image',
+        endImageKey: 'image_tail',
+        useDataUri: false,           
         defaultDuration: 5
     },
     // Vidu Series
@@ -82,7 +105,7 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         payloadFormat: 'doubao_sdk',
         promptKey: 'prompt',
         imageKey: 'image_url',
-        useDataUri: false,
+        useDataUri: true,
         defaultDuration: 5
     },
     // ----------------------

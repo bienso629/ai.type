@@ -16,8 +16,26 @@
             <span class="truncate max-w-[50vw] tooltip" [title]="projectData?.title || projectData?.extraPrompt">{{
                 projectData?.title || projectData?.extraPrompt || 'Thiết kế video' }}</span>
         </div>
+        <!-- Character Grid -->
+        <div class="flex-1 flex items-center justify-center mx-6 overflow-x-auto scene-scroll-area">
+            <div class="flex gap-2 items-center">
+                <ng-container *ngFor="let char of projectData?.characters || []">
+                    <img *ngIf="char.avatarUrls && char.avatarUrls.length > 0" 
+                         [src]="getSafeUrl(char.avatarUrls[0])" 
+                         class="w-10 h-10 rounded-xl object-cover border-2 border-gray-600 hover:border-indigo-400 cursor-pointer transition-colors shadow-sm"
+                         [title]="char.name || char.role"
+                         (click)="openConfigDialog()">
+                    <div *ngIf="!char.avatarUrls || char.avatarUrls.length === 0"
+                         class="w-10 h-10 rounded-xl bg-gray-700 border-2 border-gray-600 flex items-center justify-center text-xs text-gray-400 hover:border-indigo-400 cursor-pointer transition-colors shadow-sm"
+                         [title]="char.name || char.role"
+                         (click)="openConfigDialog()">
+                         {{ (char.name || char.role)?.substring(0, 1) | uppercase }}
+                    </div>
+                </ng-container>
+            </div>
+        </div>
 
-        <div class="flex items-center gap-1">
+        <div class="flex items-center gap-1 flex-shrink-0">
             <button *ngIf="!projectData?.scenes?.length" mat-icon-button
                 class="text-gray-400 hover:text-white transition-colors" matTooltip="Thêm Track (Scene)"
                 (click)="addNewScene()">
