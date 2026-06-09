@@ -38,6 +38,8 @@ export class EditScenePromptDialogComponent {
     usePreviousSceneFrame: boolean = false;
     selectedReferenceChars = new Set<any>();
 
+    sliderValue: number = 50;
+
     isGeneratingImage: boolean = false;
     isGeneratingVideo: boolean = false;
 
@@ -64,12 +66,12 @@ export class EditScenePromptDialogComponent {
 
     getAspectRatioStyle() {
         switch (this.selectedAspectRatio) {
-            case '16:9': return { 'width': '192px', 'height': '108px' };
-            case '9:16': return { 'width': '108px', 'height': '192px' };
-            case '4:3': return { 'width': '160px', 'height': '120px' };
-            case '3:4': return { 'width': '120px', 'height': '160px' };
-            case '1:1': return { 'width': '144px', 'height': '144px' };
-            default: return { 'width': '192px', 'height': '108px' };
+            case '16:9': return { 'width': '384px', 'height': '216px' };
+            case '9:16': return { 'width': '216px', 'height': '384px' };
+            case '4:3': return { 'width': '320px', 'height': '240px' };
+            case '3:4': return { 'width': '240px', 'height': '320px' };
+            case '1:1': return { 'width': '288px', 'height': '288px' };
+            default: return { 'width': '384px', 'height': '216px' };
         }
     }
 
