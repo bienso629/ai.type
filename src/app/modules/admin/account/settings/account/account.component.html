@@ -71,7 +71,7 @@
                     <!-- Divider -->
                     <div class="mt-10 mb-2 border-t"></div>
 
-                    <mat-label class="font-bold text-base mt-3">Kết nối MXH</mat-label>
+                    <mat-label class="font-semibold text-base mt-3">Kết nối MXH</mat-label>
 
                     <div class="mt-2 flex flex-row items-center">
                         <a class="bg-blue-600 hover:opacity-50 flex items-center justify-self-stretch h-7 leading-7 px-3 cursor-pointer rounded-full text-xs font-semibold"
@@ -277,7 +277,8 @@
                                 <mat-label>Model văn bản (Tùy chọn)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'"
                                     matPrefix></mat-icon>
-                                <mat-select [formControlName]="'umodelverseChatModel'" placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
+                                <mat-select [formControlName]="'umodelverseChatModel'"
+                                    placeholder="VD: gpt-4o, claude-3, kimi-k2.6">
                                     <mat-optgroup *ngFor="let group of chatModels" [label]="group.name">
                                         <mat-option *ngFor="let model of group.models" [value]="model">
                                             {{model}}
@@ -295,7 +296,8 @@
                                 <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'"
                                     matPrefix></mat-icon>
-                                <mat-select [formControlName]="'umodelverseImageModel'" placeholder="VD: flux, qwen-vl, dall-e-3">
+                                <mat-select [formControlName]="'umodelverseImageModel'"
+                                    placeholder="VD: flux, qwen-vl, dall-e-3">
                                     <mat-optgroup *ngFor="let group of imageModels" [label]="group.name">
                                         <mat-option *ngFor="let model of group.models" [value]="model">
                                             {{model}}
@@ -313,7 +315,8 @@
                                 <mat-label>Model tạo video (Tùy chọn)</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"
                                     matPrefix></mat-icon>
-                                <mat-select [formControlName]="'umodelverseVideoModel'" placeholder="VD: cogvideox-5b, luma-dream-machine">
+                                <mat-select [formControlName]="'umodelverseVideoModel'"
+                                    placeholder="VD: cogvideox-5b, luma-dream-machine">
                                     <mat-optgroup *ngFor="let group of videoModels" [label]="group.name">
                                         <mat-option *ngFor="let model of group.models" [value]="model">
                                             {{model}}

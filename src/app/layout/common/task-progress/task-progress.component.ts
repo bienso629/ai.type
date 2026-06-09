@@ -28,7 +28,7 @@ import { TaskProgressService, TaskProgressState } from './task-progress.service'
                 
                 <!-- Content -->
                 <div class="flex-1 min-w-0 flex flex-col justify-center">
-                    <p class="text-sm font-bold text-gray-800 truncate">{{ state.title }}</p>
+                    <p class="text-sm font-semibold text-gray-800 truncate">{{ state.title }}</p>
                     <p class="text-xs text-gray-500 mt-1 break-words whitespace-pre-wrap">{{ state.message }}</p>
                 </div>
                 

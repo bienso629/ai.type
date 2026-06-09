@@ -1,24 +1,29 @@
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-gray-100 dark:bg-gray-900">
 
-    <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
+    <div
+        class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-gray-100 dark:bg-transparent">
         <div class="flex-1 min-w-0 overflow-hidden">
             <div class="hidden sm:flex items-center font-medium min-w-0">
                 <div class="flex items-center whitespace-nowrap shrink-0">
                     <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
                 </div>
                 <div class="flex items-center ml-1 min-w-0 shrink-0">
-                    <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <a class="ml-1 text-base text-primary-500 whitespace-nowrap cursor-pointer" href="javascript:history.back()">công việc đang làm của bạn</a>
+                    <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;"
+                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                    <a class="ml-1 text-base text-primary-500 whitespace-nowrap cursor-pointer"
+                        href="javascript:history.back()">công việc đang làm của bạn</a>
                 </div>
                 <div class="flex items-center ml-1 min-w-0 overflow-hidden">
-                    <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                    <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;"
+                        [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                     <span class="ml-1 text-base truncate block w-full" [title]="projectTitle">
                         {{ projectTitle }} ({{ totalDuration | number }}s)
                     </span>
                 </div>
             </div>
             <div class="flex sm:hidden">
-                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer" href="javascript:history.back()">
+                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer"
+                    href="javascript:history.back()">
                     <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                     <span class="ml-1 text-base">quay lại</span>
                 </a>
@@ -27,33 +32,36 @@
 
         <div class="flex items-center gap-2 mt-4 sm:mt-0">
             <button mat-icon-button (click)="exportProject()" matTooltip="Xuất dự án (.ait)">
-                <mat-icon class="icon-size-5 text-gray-500 hover:text-primary-500" [svgIcon]="'heroicons_outline:save'"></mat-icon>
+                <mat-icon class="icon-size-5 text-gray-500 hover:text-primary-500"
+                    [svgIcon]="'heroicons_outline:save'"></mat-icon>
             </button>
 
 
             <div
                 class="relative flex items-center w-48 sm:w-64 focus-within:w-80 md:focus-within:w-[400px] lg:focus-within:w-[600px] xl:focus-within:w-[800px] transition-all duration-300 ease-in-out">
-                <input type="text" [(ngModel)]="extraPrompt" (ngModelChange)="saveToLocal()" [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
+                <input type="text" [(ngModel)]="extraPrompt" (ngModelChange)="saveToLocal()"
+                    [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
                     class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 dark:bg-gray-800 bg-white placeholder-gray-400 transition-all duration-300"
                     placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
 
                 <div class="absolute right-1 flex items-center">
                     <button mat-icon-button
                         class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 w-8 h-8 min-h-8 flex items-center justify-center relative"
-                        matTooltip="Đính kèm hình ảnh/tài liệu tham khảo" (click)="videoAttachment.click()" [disabled]="isAnalyzing">
+                        matTooltip="Đính kèm hình ảnh/tài liệu tham khảo" (click)="videoAttachment.click()"
+                        [disabled]="isAnalyzing">
                         <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
                         <span *ngIf="attachedVideoFiles.length > 0"
-                            class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold z-10">
+                            class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold z-10">
                             {{ attachedVideoFiles.length }}
                         </span>
 
-                        <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md" (change)="onVideoAttachmentSelected($event)" class="hidden"
-                            title="Đính kèm tài liệu">
+                        <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md"
+                            (change)="onVideoAttachmentSelected($event)" class="hidden" title="Đính kèm tài liệu">
                     </button>
 
                     <button *ngIf="attachedVideoFiles.length > 0" mat-icon-button
-                        class="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 min-h-8 flex items-center justify-center ml-1" (click)="attachedVideoFiles = []"
-                        matTooltip="Xóa file đính kèm">
+                        class="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 min-h-8 flex items-center justify-center ml-1"
+                        (click)="attachedVideoFiles = []" matTooltip="Xóa file đính kèm">
                         <mat-icon class="icon-size-4">close</mat-icon>
                     </button>
                 </div>
@@ -90,14 +98,16 @@
             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
             <button class="bg-green-500 text-white" (click)="createVideo()" mat-flat-button [disabled]="isAnalyzing">
-                <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white" [svgIcon]="'feather:loader'"></mat-icon>
+                <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
+                    [svgIcon]="'feather:loader'"></mat-icon>
                 <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
                 <mat-label class="ml-2 text-white">
                     {{ isAnalyzing ? 'Đang phân tích...' : 'Dựng video' }}
                 </mat-label>
             </button>
 
-            <button *ngIf="videoProject" class="bg-blue-600 hover:bg-blue-700 text-white" (click)="openTimelineDialog(videoProject)" mat-flat-button>
+            <button *ngIf="videoProject" class="bg-blue-600 hover:bg-blue-700 text-white"
+                (click)="openTimelineDialog(videoProject)" mat-flat-button>
                 <mat-icon class="icon-size-5 text-white" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
                 <mat-label class="ml-2 text-white">Kịch bản</mat-label>
             </button>
@@ -118,37 +128,44 @@
 
                     <div class="flex items-center justify-between">
                         <div class="flex flex-wrap items-center gap-4">
-                            <div class="text-sm font-bold text-primary-600 flex items-center">
-                                <mat-icon class="mr-2 text-primary" [svgIcon]="'heroicons_outline:collection'"></mat-icon>
+                            <div class="text-sm font-semibold text-primary-600 flex items-center">
+                                <mat-icon class="mr-2 text-primary"
+                                    [svgIcon]="'heroicons_outline:collection'"></mat-icon>
                                 Danh sách phát ({{ audioList.length }})
                             </div>
                         </div>
                         <!-- <span class="text-sm text-gray-400 mr-1">Kéo thả để sắp xếp</span> -->
                         <div class="flex items-center">
                             <!-- Removed bulk setting dropdowns and "Cài đặt" button as requested -->
-                            <button mat-icon-button class="ml-0" (click)="clear()" *ngIf="audioList.length > 0" matTooltip="Làm mới nội dung">
+                            <button mat-icon-button class="ml-0" (click)="clear()" *ngIf="audioList.length > 0"
+                                matTooltip="Làm mới nội dung">
                                 <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
                             </button>
 
                             <button mat-icon-button class="ml-0" matTooltip="Thêm Audio từ máy tính">
                                 <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:mic'"></mat-icon>
-                                <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
+                                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
                                     title="Thêm audio">
                             </button>
 
-                            <button mat-icon-button class="ml-0" (click)="addEmptyClip()" matTooltip="Thêm câu thoại mới">
+                            <button mat-icon-button class="ml-0" (click)="addEmptyClip()"
+                                matTooltip="Thêm câu thoại mới">
                                 <mat-icon class="icon-size-4 text-green-700" [svgIcon]="'feather:type'"></mat-icon>
                             </button>
 
                             <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
 
-                            <button mat-flat-button color="warn" (click)="cancelProcessing()" *ngIf="isGlobalProcessing" class="ml-2">
+                            <button mat-flat-button color="warn" (click)="cancelProcessing()" *ngIf="isGlobalProcessing"
+                                class="ml-2">
                                 <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
                                 <span class="ml-2">Dừng</span>
                             </button>
 
-                            <button mat-flat-button color="primary" (click)="generateAll()" [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0" class="ml-2">
-                                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white" [svgIcon]="'feather:loader'"></mat-icon>
+                            <button mat-flat-button color="primary" (click)="generateAll()"
+                                [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0" class="ml-2">
+                                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
+                                    [svgIcon]="'feather:loader'"></mat-icon>
                                 <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
                                 <span class="ml-2">Tạo giọng đọc</span>
                             </button>
@@ -156,48 +173,66 @@
                     </div>
                 </div>
 
-                <div cdkDropList [cdkDropListData]="audioList" (cdkDropListDropped)="drop($event)" class="flex flex-col gap-3 p-6 pt-0">
-                    <div *ngFor="let clip of audioList; let i = index" cdkDrag (click)="selectedAudioIndex = selectedAudioIndex === i ? -1 : i"
+                <div cdkDropList [cdkDropListData]="audioList" (cdkDropListDropped)="drop($event)"
+                    class="flex flex-col gap-3 p-6 pt-0">
+                    <div *ngFor="let clip of audioList; let i = index" cdkDrag
+                        (click)="selectedAudioIndex = selectedAudioIndex === i ? -1 : i"
                         class="group bg-white dark:bg-gray-700 border rounded-lg p-3 hover:shadow-md transition-all flex flex-col sm:flex-row gap-4 relative cursor-pointer"
                         [ngClass]="selectedAudioIndex === i ? 'border-green-500' : 'border-gray-200 hover:border-primary-300'">
 
-                        <div class="flex items-center min-w-[50px] cursor-grab active:cursor-grabbing border-r border-gray-100 dark:border-gray-600 pr-3">
+                        <div
+                            class="flex items-center min-w-[50px] cursor-grab active:cursor-grabbing border-r border-gray-100 dark:border-gray-600 pr-3">
                             <div class="text-gray-400 font-mono text-sm mr-2 w-4 text-center">{{ i + 1 }}</div>
-                            <mat-icon class="text-gray-300 group-hover:text-primary" [svgIcon]="'heroicons_solid:menu'"></mat-icon>
+                            <mat-icon class="text-gray-300 group-hover:text-primary"
+                                [svgIcon]="'heroicons_solid:menu'"></mat-icon>
                         </div>
 
                         <div class="flex items-center w-100 overflow-hidden">
                             <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0 mr-3 transition-colors cursor-pointer"
                                 (click)="$event.stopPropagation(); playClip(clip)"
                                 [ngClass]="clip.url ? 'bg-indigo-100 text-indigo-600 hover:bg-indigo-200' : 'bg-gray-100 text-gray-500'">
-                                <mat-icon *ngIf="clip.url || clip.audioFileName" [svgIcon]="'heroicons_solid:play'"></mat-icon>
-                                <mat-icon *ngIf="!clip.url && !clip.audioFileName" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
+                                <mat-icon *ngIf="clip.url || clip.audioFileName"
+                                    [svgIcon]="'heroicons_solid:play'"></mat-icon>
+                                <mat-icon *ngIf="!clip.url && !clip.audioFileName"
+                                    [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
                             </div>
                             <div class="overflow-hidden flex-1 min-w-0 group" *ngIf="!clip.isEditing">
-                                <div class="font-bold text-sm text-gray-900 dark:text-gray-100 flex items-center" [title]="clip.description">
+                                <div class="font-semibold text-sm text-gray-900 dark:text-gray-100 flex items-center"
+                                    [title]="clip.description">
                                     <span class="truncate">{{ clip.name }}</span>
-                                    <button mat-icon-button class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                    <button mat-icon-button
+                                        class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                                         (click)="$event.stopPropagation(); editClip(clip)" matTooltip="Sửa nội dung">
-                                        <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
+                                        <mat-icon class="icon-size-4 text-blue-500"
+                                            [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
                                     </button>
-                                    <button mat-icon-button class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                                        (click)="$event.stopPropagation(); splitClip(clip, i)" matTooltip="Tự động chia nhỏ">
-                                        <mat-icon class="icon-size-4 text-orange-500" [svgIcon]="'heroicons_outline:scissors'"></mat-icon>
+                                    <button mat-icon-button
+                                        class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                                        (click)="$event.stopPropagation(); splitClip(clip, i)"
+                                        matTooltip="Tự động chia nhỏ">
+                                        <mat-icon class="icon-size-4 text-orange-500"
+                                            [svgIcon]="'heroicons_outline:scissors'"></mat-icon>
                                     </button>
                                 </div>
                                 <div class="text-xs text-gray-400 truncate mt-0.5">{{clip.username}}</div>
                             </div>
 
                             <div class="flex-1 min-w-0 w-full flex items-start gap-2" *ngIf="clip.isEditing">
-                                <textarea [(ngModel)]="clip.tempDescription" spellcheck="false" cdkTextareaAutosize cdkAutosizeMinRows="4" cdkAutosizeMaxRows="15"
+                                <textarea [(ngModel)]="clip.tempDescription" spellcheck="false" cdkTextareaAutosize
+                                    cdkAutosizeMinRows="4" cdkAutosizeMaxRows="15"
                                     class="flex-1 px-3 py-2 text-base text-gray-900 dark:text-gray-100 bg-gray-100 dark:bg-gray-800 border-0 rounded-md focus:outline-none focus:ring-0 resize-y min-h-[100px] transition-colors leading-relaxed"
                                     rows="4"></textarea>
                                 <div class="flex flex-col gap-1 flex-shrink-0">
-                                    <button mat-icon-button class="w-6 h-6 min-h-6 bg-green-100 rounded hover:bg-green-200" (click)="$event.stopPropagation(); saveClipEdit(clip)">
-                                        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                                    <button mat-icon-button
+                                        class="w-6 h-6 min-h-6 bg-green-100 rounded hover:bg-green-200"
+                                        (click)="$event.stopPropagation(); saveClipEdit(clip)">
+                                        <mat-icon class="icon-size-4 text-green-600"
+                                            [svgIcon]="'heroicons_outline:check'"></mat-icon>
                                     </button>
-                                    <button mat-icon-button class="w-6 h-6 min-h-6 bg-red-100 rounded hover:bg-red-200" (click)="$event.stopPropagation(); cancelClipEdit(clip)">
-                                        <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                                    <button mat-icon-button class="w-6 h-6 min-h-6 bg-red-100 rounded hover:bg-red-200"
+                                        (click)="$event.stopPropagation(); cancelClipEdit(clip)">
+                                        <mat-icon class="icon-size-4 text-red-600"
+                                            [svgIcon]="'heroicons_outline:x'"></mat-icon>
                                     </button>
                                 </div>
                             </div>
@@ -206,16 +241,21 @@
                         <div class="flex-1 flex-row gap-4 items-center">
                             <div class="flex flex-row justify-start gap-1">
                                 <ng-container>
-                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                                        <mat-select [(ngModel)]="clip.voice" (selectionChange)="saveToLocal()" (mousedown)="$event.stopPropagation()">
+                                    <mat-form-field
+                                        class="w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
+                                        appearance="fill">
+                                        <mat-select [(ngModel)]="clip.voice" (selectionChange)="saveToLocal()"
+                                            (mousedown)="$event.stopPropagation()">
                                             <mat-option *ngFor="let v of voiceList" [value]="v.id">
                                                 {{v.name}}
                                             </mat-option>
                                         </mat-select>
                                     </mat-form-field>
 
-                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                                        <mat-select [(ngModel)]="clip.rate" (selectionChange)="saveToLocal()" (mousedown)="$event.stopPropagation()" [placeholder]="'Tốc độ'">
+                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
+                                        appearance="fill">
+                                        <mat-select [(ngModel)]="clip.rate" (selectionChange)="saveToLocal()"
+                                            (mousedown)="$event.stopPropagation()" [placeholder]="'Tốc độ'">
                                             <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
                                             <mat-option [value]="0.6">0.6x</mat-option>
                                             <mat-option [value]="0.7">0.7x</mat-option>
@@ -232,8 +272,10 @@
                                         </mat-select>
                                     </mat-form-field>
 
-                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                                        <mat-select [(ngModel)]="clip.pitch" (selectionChange)="saveToLocal()" (mousedown)="$event.stopPropagation()" [placeholder]="'Cao độ'">
+                                    <mat-form-field class="w-40 field-hidden-subscript fuse-mat-dense"
+                                        appearance="fill">
+                                        <mat-select [(ngModel)]="clip.pitch" (selectionChange)="saveToLocal()"
+                                            (mousedown)="$event.stopPropagation()" [placeholder]="'Cao độ'">
                                             <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
                                             <mat-option [value]="-15">-15</mat-option>
                                             <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
@@ -250,16 +292,22 @@
                                 </ng-container>
 
                                 <div class="flex justify-start">
-                                    <button *ngIf="i === 0" mat-icon-button (click)="$event.stopPropagation(); syncSettingsFromFirst()"
+                                    <button *ngIf="i === 0" mat-icon-button
+                                        (click)="$event.stopPropagation(); syncSettingsFromFirst()"
                                         matTooltip="Đồng bộ Cài đặt xuống các dòng dưới">
-                                        <mat-icon class="icon-size-5 text-indigo-500 hover:text-indigo-600 focus:text-indigo-600"
+                                        <mat-icon
+                                            class="icon-size-5 text-indigo-500 hover:text-indigo-600 focus:text-indigo-600"
                                             [svgIcon]="'heroicons_outline:arrow-down'"></mat-icon>
                                     </button>
 
-                                    <button mat-icon-button [disabled]="clip.isProcessing" (click)="$event.stopPropagation(); generateAudio(clip)" class="transition-colors"
+                                    <button mat-icon-button [disabled]="clip.isProcessing"
+                                        (click)="$event.stopPropagation(); generateAudio(clip)"
+                                        class="transition-colors"
                                         [matTooltip]="clip.localFilePath ? 'Tạo lại Audio' : 'Tạo Audio'">
-                                        <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5" [svgIcon]="'feather:loader'"></mat-icon>
-                                        <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5" [ngClass]="clip.localFilePath ? 'text-green-500' : 'text-blue-500'"
+                                        <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
+                                            [svgIcon]="'feather:loader'"></mat-icon>
+                                        <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
+                                            [ngClass]="clip.localFilePath ? 'text-green-500' : 'text-blue-500'"
                                             [svgIcon]="clip.localFilePath ? 'heroicons_outline:refresh' : 'heroicons_outline:microphone'">
                                         </mat-icon>
                                     </button>
@@ -272,33 +320,41 @@
                                         </button> -->
 
                                     <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
-                                        (click)="$event.stopPropagation(); createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)" matTooltip="Tạo ảnh từ Prompt">
-                                        <mat-icon class="icon-size-5 text-purple-500" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
+                                        (click)="$event.stopPropagation(); createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
+                                        matTooltip="Tạo ảnh từ Prompt">
+                                        <mat-icon class="icon-size-5 text-purple-500"
+                                            [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                     </button>
                                 </div>
                             </div>
                         </div>
 
-                        <div class="absolute top-2 right-2 sm:relative sm:top-0 sm:right-0 sm:ml-2 flex items-center gap-1">
-                            <span *ngIf="clip.duration" class="text-xs font-medium text-gray-400 mr-2 whitespace-nowrap hidden sm:block">
+                        <div
+                            class="absolute top-2 right-2 sm:relative sm:top-0 sm:right-0 sm:ml-2 flex items-center gap-1">
+                            <span *ngIf="clip.duration"
+                                class="text-xs font-medium text-gray-400 mr-2 whitespace-nowrap hidden sm:block">
                                 {{ clip.duration }}s
                             </span>
-                            <button *ngIf="clip.url" (click)="$event.stopPropagation(); downloadClip(clip)" mat-icon-button
-                                class="text-gray-300 hover:text-blue-500 transition-colors">
+                            <button *ngIf="clip.url" (click)="$event.stopPropagation(); downloadClip(clip)"
+                                mat-icon-button class="text-gray-300 hover:text-blue-500 transition-colors">
                                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:download'"></mat-icon>
                             </button>
-                            <button (click)="$event.stopPropagation(); removeClip(i)" mat-icon-button class="transition-colors">
-                                <mat-icon class="icon-size-5 text-red-500 hover:text-red-600" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                            <button (click)="$event.stopPropagation(); removeClip(i)" mat-icon-button
+                                class="transition-colors">
+                                <mat-icon class="icon-size-5 text-red-500 hover:text-red-600"
+                                    [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                             </button>
                         </div>
 
                         <div *cdkDragPreview class="bg-primary text-white p-4 rounded-2xl shadow-2xl w-80 opacity-95">
-                            <div class="font-bold text-lg truncate mb-1">{{ clip.name }}</div>
+                            <div class="font-semibold text-lg truncate mb-1">{{ clip.name }}</div>
                         </div>
                     </div>
 
-                    <div *ngIf="audioList.length === 0" class="flex flex-col items-center justify-center py-16 text-gray-400 rounded-lg bg-gray-50 dark:bg-gray-800/50">
-                        <mat-icon class="icon-size-12 mb-3 opacity-30" [svgIcon]="'heroicons_outline:music-note'"></mat-icon>
+                    <div *ngIf="audioList.length === 0"
+                        class="flex flex-col items-center justify-center py-16 text-gray-400 rounded-lg bg-gray-50 dark:bg-gray-800/50">
+                        <mat-icon class="icon-size-12 mb-3 opacity-30"
+                            [svgIcon]="'heroicons_outline:music-note'"></mat-icon>
                         <span class="text-lg font-medium">Danh sách trống</span>
                     </div>
                 </div>

@@ -31,7 +31,7 @@
                         <mat-icon class="animate-spin icon-size-3" svgIcon="feather:loader"></mat-icon>
                         Đang xử lý...
                     </span>
-                    <span class="text-blue-600 text-[11px] font-bold">{{ progressPercent }}%</span>
+                    <span class="text-blue-600 text-[11px] font-semibold">{{ progressPercent }}%</span>
                 </div>
                 <div class="w-full bg-blue-200 rounded-full h-1.5 overflow-hidden">
                     <div class="bg-blue-600 h-1.5 rounded-full transition-all duration-500 ease-out"
@@ -73,8 +73,8 @@
         [resizeable]="true">
         <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
             <div class="flex items-center gap-1">
-                <button mat-icon-button (click)="downloadPdf(row.doc_type, row.filename)"
-                    matTooltipPosition="above" [matTooltip]="'Tải xuống tài liệu này'">
+                <button mat-icon-button (click)="downloadPdf(row.doc_type, row.filename)" matTooltipPosition="above"
+                    [matTooltip]="'Tải xuống tài liệu này'">
                     <mat-icon class="icon-size-4 text-blue-600" svgIcon="feather:download"></mat-icon>
                 </button>
 

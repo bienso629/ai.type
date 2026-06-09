@@ -225,21 +225,29 @@ export class DirectorModeComponent implements OnInit {
             if (match && match[1]) {
                 const parts = match[1].split(',').map((p: string) => p.trim());
                 parts.forEach((part: string) => {
-                    if (this.categories.timeOfDay.includes(part)) this.selections.timeOfDay = part;
-                    else if (this.categories.lighting.includes(part)) this.selections.lighting = part;
-                    else if (this.categories.focusDepth.includes(part)) this.selections.focusDepth = part;
-                    else if (this.categories.composition.includes(part)) this.selections.composition = part;
-                    else if (this.categories.shotSize.includes(part)) this.selections.shotSize = part;
-                    else if (this.categories.lenses.includes(part)) this.selections.lenses = part;
-                    else if (part === 'Static camera') {
+                    let cleanPart = part;
+                    if (cleanPart.endsWith(' shot')) {
+                        cleanPart = cleanPart.replace(' shot', '');
+                    }
+                    
+                    if (this.categories.timeOfDay.includes(cleanPart)) this.selections.timeOfDay = cleanPart;
+                    else if (this.categories.lighting.includes(cleanPart)) this.selections.lighting = cleanPart;
+                    else if (this.categories.focusDepth.includes(cleanPart)) this.selections.focusDepth = cleanPart;
+                    else if (this.categories.composition.includes(cleanPart)) this.selections.composition = cleanPart;
+                    else if (this.categories.shotSize.includes(cleanPart)) this.selections.shotSize = cleanPart;
+                    else if (this.categories.cameraAngle.includes(cleanPart)) this.selections.cameraAngle = cleanPart;
+                    else if (this.categories.lenses.includes(cleanPart)) this.selections.lenses = cleanPart;
+                    else if (this.categories.cameraSpeed.includes(cleanPart)) this.selections.cameraSpeed = cleanPart;
+                    else if (this.categories.artStyle.includes(cleanPart)) this.selections.artStyle = cleanPart;
+                    else if (cleanPart === 'Static camera' || cleanPart === 'Static') {
                         this.selections.movementType = 'Static';
                     }
                     else {
                         let foundMovement = false;
                         for (const type of this.categories.movementType) {
-                            if (part.includes(` ${type} with `)) {
+                            if (cleanPart.includes(` ${type} with `)) {
                                 this.selections.movementType = type;
-                                const mParts = part.split(` ${type} with `);
+                                const mParts = cleanPart.split(` ${type} with `);
                                 this.selections.movementSpeed = mParts[0];
                                 this.selections.movementEasing = mParts[1];
                                 foundMovement = true;
@@ -250,9 +258,9 @@ export class DirectorModeComponent implements OnInit {
 
                         let foundFilmStock = false;
                         for (const type of this.categories.filmStockType) {
-                            if (part.endsWith(type)) {
+                            if (cleanPart.endsWith(type)) {
                                 this.selections.filmStockType = type;
-                                const colorStr = part.replace(` ${type}`, '').trim();
+                                const colorStr = cleanPart.replace(` ${type}`, '').trim();
                                 if (colorStr) {
                                     this.selections.filmStockColor = colorStr;
                                 }
@@ -261,8 +269,8 @@ export class DirectorModeComponent implements OnInit {
                             }
                         }
                         if (!foundFilmStock) {
-                            if (part === 'Black & White' || part === 'Full color') {
-                                this.selections.filmStockColor = part;
+                            if (cleanPart === 'Black & White' || cleanPart === 'Full color') {
+                                this.selections.filmStockColor = cleanPart;
                             }
                         }
                     }
