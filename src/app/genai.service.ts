@@ -41,7 +41,7 @@ export class GenaiService {
             let mimeType = 'image/jpeg';
             let rawBase64 = base64Data;
             if (base64Data.startsWith('data:')) {
-                const match = base64Data.match(/^data:(image\/[^;]+);base64,/);
+                const match = base64Data.match(/^data:([a-zA-Z0-9]+\/[^;]+);base64,/);
                 if (match) mimeType = match[1];
                 rawBase64 = base64Data.split(',')[1];
             }
@@ -54,8 +54,13 @@ export class GenaiService {
             const blob = new Blob([byteArray], { type: mimeType });
 
             // Tạo File + FormData
-            const ext = mimeType === 'image/png' ? 'png' : 'jpg';
-            const fname = filename || `kling_ref_${Date.now()}.${ext}`;
+            let ext = 'jpg';
+            if (mimeType.includes('png')) ext = 'png';
+            else if (mimeType.includes('mp4')) ext = 'mp4';
+            else if (mimeType.includes('webm')) ext = 'webm';
+            else if (mimeType.includes('quicktime')) ext = 'mov';
+            
+            const fname = filename || `kling_upload_${Date.now()}.${ext}`;
             const file = new File([blob], fname, { type: mimeType });
             
             const formData = new FormData();
@@ -224,13 +229,51 @@ export class GenaiService {
             if (this.isUModelverseEnabled() && !bypassUModelverse) {
                 return await this.generateWithUModelverse(params);
             } else {
-                if (!this._currentKey) {
+                const settingsRaw = this.multiAccountService.getItem('settings');
+                const keys = settingsRaw?.secretKey ? settingsRaw.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
+                
+                if (keys.length === 0) {
                     console.error("API Key is missing in localStorage.");
                     throw new Error("API Key không hợp lệ hoặc chưa được cấu hình.");
                 }
-                const aiInstance = this.googleAi;
-                if (!aiInstance) throw new Error("GoogleGenAI chưa được khởi tạo.");
-                return await aiInstance.models.generateContent(params);
+
+                // Xáo trộn mảng keys để random load balancing (vẫn ưu tiên key hiện tại nếu nó đang dùng tốt)
+                const shuffledKeys = [...keys].sort(() => Math.random() - 0.5);
+                // Đưa _currentKey lên đầu nếu có để ưu tiên thử lại key đang sống
+                if (this._currentKey && shuffledKeys.includes(this._currentKey)) {
+                    shuffledKeys.splice(shuffledKeys.indexOf(this._currentKey), 1);
+                    shuffledKeys.unshift(this._currentKey);
+                }
+
+                let lastError: any;
+                for (let i = 0; i < shuffledKeys.length; i++) {
+                    const key = shuffledKeys[i];
+                    try {
+                        let aiInstance = this._aiInstance;
+                        if (key !== this._currentKey || !aiInstance) {
+                            aiInstance = new GoogleGenAI({ apiKey: key });
+                        }
+                        
+                        // Thử gọi API
+                        const result = await aiInstance.models.generateContent(params);
+                        
+                        // Nếu thành công thì lưu lại key này làm key mặc định cho các lượt tiếp theo
+                        if (key !== this._currentKey) {
+                            this._currentKey = key;
+                            this._aiInstance = aiInstance;
+                            console.log(`GenaiService: Đã chuyển sang Key an toàn (${key.substring(0, 8)}...)`);
+                        }
+                        return result;
+                    } catch (error: any) {
+                        console.warn(`GenaiService: Lỗi với API Key ${key.substring(0, 8)}... - Thử key tiếp theo nếu có.`, error);
+                        lastError = error;
+                        // Nếu là lỗi cuối cùng thì ném ra ngoài
+                        if (i === shuffledKeys.length - 1) {
+                            throw lastError;
+                        }
+                    }
+                }
+                throw lastError;
             }
         } catch (error) {
             console.error("Lỗi AI API:", error);
@@ -282,20 +325,26 @@ export class GenaiService {
                             if (p.inlineData) {
                                 const mimeType = p.inlineData.mimeType || '';
                                 if (mimeType.startsWith('audio/')) {
-                                    let format = 'mp3';
-                                    if (mimeType.includes('wav')) format = 'wav';
+                                    if (config.apiFormat !== 'gemini' && config.apiFormat !== 'anthropic') {
+                                        console.warn("Bỏ qua âm thanh vì model hiện tại không hỗ trợ dạng input_audio");
+                                        return { type: 'text', text: '[Audio Omitted]' };
+                                    } else {
+                                        let format = 'mp3';
+                                        if (mimeType.includes('wav')) format = 'wav';
+                                        return {
+                                            type: 'input_audio',
+                                            input_audio: {
+                                                data: p.inlineData.data,
+                                                format: format
+                                            }
+                                        };
+                                    }
+                                } else {
                                     return {
-                                        type: 'input_audio',
-                                        input_audio: {
-                                            data: p.inlineData.data,
-                                            format: format
-                                        }
+                                        type: 'image_url',
+                                        image_url: { url: `data:${mimeType};base64,${p.inlineData.data}` }
                                     };
                                 }
-                                return {
-                                    type: 'image_url',
-                                    image_url: { url: `data:${mimeType};base64,${p.inlineData.data}` }
-                                };
                             }
                             return { type: 'text', text: p.text || '' };
                         });
@@ -786,13 +835,14 @@ export class GenaiService {
         aspectRatio?: string,
         referenceImages?: any[],
         duration?: number,
-        seed?: number
+        seed?: number,
+        overrideModel?: string
     ): Promise<string> {
         this.syncConfigFromStorage();
         
         const url = this._umodelverseUrl;
         const key = this._umodelverseKey;
-        const model = this._umodelverseVideoModel || 'cogvideox-5b';
+        const model = overrideModel || this._umodelverseVideoModel || 'cogvideox-5b';
         
         const headers = {
             'Content-Type': 'application/json',
@@ -863,16 +913,31 @@ export class GenaiService {
         let endRefBase64Raw = '';
         let endRefBase64DataUri = '';
         let endRefMimeType = 'image/png';
-        if (referenceImages && referenceImages.length > 1) {
-            const endImg = referenceImages.find(img => img.referenceType === 'END_FRAME');
+        if (referenceImages && referenceImages.length > 0) {
+            // Lấy END_FRAME hoặc REFERENCE_VIDEO
+            const endImg = referenceImages.find(img => img.referenceType === 'END_FRAME' || img.referenceType === 'REFERENCE_VIDEO');
             if (endImg) {
                 endRefBase64Raw = endImg.image?.imageBytes || (typeof endImg === 'string' ? endImg : '');
                 if (endRefBase64Raw && !endRefBase64Raw.startsWith('data:')) {
-                    endRefBase64DataUri = `data:image/png;base64,${endRefBase64Raw}`;
+                    const mime = endImg.referenceType === 'REFERENCE_VIDEO' ? 'video/mp4' : 'image/png';
+                    endRefBase64DataUri = `data:${mime};base64,${endRefBase64Raw}`;
                 } else if (endRefBase64Raw.startsWith('data:')) {
                     endRefBase64DataUri = endRefBase64Raw;
                     endRefMimeType = endRefBase64Raw.substring(5, endRefBase64Raw.indexOf(';'));
                     endRefBase64Raw = endRefBase64Raw.split(',')[1];
+                }
+                
+                // Nếu là video, ép buộc upload lên CDN lấy URL vì API thường không nhận Base64 cho video quá nặng
+                if (endImg.referenceType === 'REFERENCE_VIDEO') {
+                    try {
+                        const videoUrl = await this.uploadBase64ToCdn(endRefBase64DataUri, `kling_video_${Date.now()}.mp4`);
+                        if (videoUrl) {
+                            endRefBase64Raw = videoUrl;
+                            endRefBase64DataUri = videoUrl;
+                        }
+                    } catch (e) {
+                        console.error("Lỗi upload video mẫu lên CDN:", e);
+                    }
                 }
             }
         }

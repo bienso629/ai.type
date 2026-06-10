@@ -7,6 +7,7 @@ import {
     OnInit,
     ViewChild,
     ViewEncapsulation,
+    HostListener,
 } from '@angular/core';
 import {
     UntypedFormBuilder,
@@ -77,7 +78,7 @@ interface JobState {
     jobId: number;
     transcript_id: string;
     status: 'waiting' | 'processing' | 'done' | 'error';
-    status_step: 'waiting' | 'processing' | 'done' | 'error';
+    status_step: string;
     total_chunks: number;
     done_chunks: number;
 }
@@ -240,6 +241,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     intervalAutoSave: any;
 
     // dành cho việc điều khiển trạng thái biến video thành bài viết
+    videoExtractInterval: number = 1;
     jobStateMap = new Map<number, JobState>();
     jobStates: JobState[] = [];
     jobSubscriptions: Map<number, Subscription> = new Map();
@@ -1454,6 +1456,38 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         }
     };
 
+    // Xử lý dán hình ảnh khi focus vào section "Biến Hình ảnh thành Bài"
+    onPaste(e: ClipboardEvent) {
+        const files: FileList | null = e.clipboardData?.files || null;
+        if (files && files.length > 0) {
+            let hasImage = false;
+            const imageFiles: File[] = [];
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type.startsWith('image/')) {
+                    hasImage = true;
+                    imageFiles.push(files[i]);
+                }
+            }
+
+            if (hasImage) {
+                const target = e.target as HTMLElement;
+                if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                    // if user is actively typing in a form field, don't hijack unless they want to.
+                    // Wait, sometimes they want to paste into contenteditable.
+                    // Actually, if they are just pasting an image anywhere, uploading it to the AI image writer is highly likely the intent.
+                }
+
+                // create a mock event for createImg
+                
+                // Create a DataTransfer object to hold the image files if we want to mimic FileList, 
+                // but our createImg just iterates over e.target.files which behaves like an array.
+                const mockEvent = { target: { files: imageFiles } };
+                this.createImg(mockEvent);
+                e.preventDefault();
+            }
+        }
+    }
+
     /**
      * Tạo a mới bằng cách gõ nhập
      */
@@ -1475,12 +1509,40 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     /**
      * Bắt đầu auto refresh 1 job
      */
-    insertVideo() {
-        this.source.playlist[0]['youtube'].push(
-            `<p id="source-youtube-${uuid.v4()}"></p>`,
-        );
-        const lastIndex = this.source.playlist[0]['youtube'].length - 1;
-        this.edit(this.source.playlist[0]['youtube'], lastIndex);
+    async insertVideo() {
+        let electronApi = null;
+        if (window && (window as any).electron) {
+            electronApi = (window as any).electron;
+        }
+
+        if (electronApi) {
+            // Chạy trong môi trường Electron: Dùng native dialog để lấy đường dẫn tuyệt đối chuẩn xác
+            const filePath = await electronApi.invoke('select-video-file');
+            if (filePath) {
+                this.source.playlist[0]['youtube'].unshift(
+                    `<p id="source-youtube-${uuid.v4()}">${filePath}</p>`
+                );
+                this.toastr.success('Đã thêm video từ máy tính vào danh sách.');
+                this.cd.markForCheck();
+            }
+        } else {
+            // Chạy trên web bình thường (fallback)
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'video/*';
+            input.onchange = (e: any) => {
+                const file = e.target.files[0];
+                if (file) {
+                    const filePath = file.path || file.name;
+                    this.source.playlist[0]['youtube'].unshift(
+                        `<p id="source-youtube-${uuid.v4()}">${filePath}</p>`
+                    );
+                    this.toastr.success('Đã thêm video từ máy tính vào danh sách.');
+                    this.cd.markForCheck();
+                }
+            };
+            input.click();
+        }
     }
 
     startTracking(transcript_id: string, jobId: number) {
@@ -1547,7 +1609,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        let content = this.removeHTML.transform(item);
+        let content = this.removeHTML.transform(item).trim();
+        if (content.startsWith('local-video:')) {
+            content = content.substring('local-video:'.length);
+        }
 
         // Khởi tạo state cho job (giả lập giống cách cũ để UI không bị vỡ)
         this.jobStates.push({
@@ -1608,9 +1673,50 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             }
 
             if (electronApi) {
-                this.toastr.info('Đang tải và cắt cảnh video ở dưới nền...');
-                const result = await electronApi.invoke('analyze-video-local', { url: content });
-                if (result.success && result.frames && result.frames.length > 0) {
+                this.toastr.info('Đang khởi tạo quá trình phân tích video ở dưới nền...');
+                
+                let unsubscribeLog: any = null;
+                let lastToastTime = 0;
+                if (electronApi.onToolsLog) {
+                    unsubscribeLog = electronApi.onToolsLog((msg: string) => {
+                        if (msg && msg.includes('[AI Analyze]')) {
+                            const cleanMsg = msg.replace('[AI Analyze]', '').trim();
+                            
+                            let shortMsg = cleanMsg;
+                            if (shortMsg.includes('Bắt đầu trích xuất')) shortMsg = 'Đang trích xuất frames...';
+                            else if (shortMsg.includes('Sử dụng video')) shortMsg = 'Đang đọc video...';
+                            else if (shortMsg.includes('Trích xuất thành công')) shortMsg = 'Hoàn tất trích xuất...';
+                            else if (shortMsg.includes('[download]')) shortMsg = 'Đang tải video...';
+                            else shortMsg = shortMsg.substring(0, 30) + '...';
+
+                            this.updateJobState(jobId, { status_step: shortMsg });
+
+                            if (cleanMsg.includes('[download]')) {
+                                // Throttle download logs to avoid spam
+                                const now = Date.now();
+                                if (now - lastToastTime > 5000) {
+                                    this.toastr.info(cleanMsg);
+                                    lastToastTime = now;
+                                }
+                            } else {
+                                this.toastr.info(cleanMsg);
+                            }
+                        }
+                    });
+                }
+
+                let result: any;
+                try {
+                    result = await electronApi.invoke('analyze-video-local', { url: content, extractInterval: this.videoExtractInterval });
+                } finally {
+                    if (unsubscribeLog) unsubscribeLog();
+                }
+                
+                if (!result.success) {
+                    throw new Error(result.error || 'Lỗi khi trích xuất video');
+                }
+
+                if (result.frames && result.frames.length > 0) {
                     this.toastr.info(`Đã trích xuất ${result.frames.length} cảnh. Đang đưa cho AI phân tích...`);
                     // Thêm từng frame vào Gemini
                     for (const frameBase64 of result.frames) {
@@ -1642,7 +1748,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
 
                 } else {
-                    this.toastr.warning('Không lấy được hình ảnh từ video, AI sẽ chỉ dự đoán dựa trên đường link.');
+                    throw new Error('Không lấy được hình ảnh từ video.');
                 }
             }
 
@@ -1706,8 +1812,10 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             this.loading = false;
             this.cd.detectChanges();
         } catch (error) {
+            console.error('Lỗi khi convertVideo2Post:', error);
             this.loading = false;
-            this.toastr.error('Lỗi khi phân tích video. Vui lòng kiểm tra lại link hoặc AI Model.');
+            const errMsg = error?.message || error || 'Lỗi không xác định';
+            this.toastr.error('Lỗi khi phân tích video: ' + errMsg);
             this.updateJobState(jobId, {
                 status: 'error',
                 status_step: 'error',

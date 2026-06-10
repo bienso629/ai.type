@@ -831,7 +831,7 @@
                                         </div>
                                     </mat-expansion-panel>
 
-                                    <mat-expansion-panel [expanded]="expanded">
+                                    <mat-expansion-panel [expanded]="expanded" tabindex="0" class="focus:outline-none" (paste)="onPaste($event)">
                                         <mat-expansion-panel-header #panelH5>
                                             <mat-panel-title (click)="panelH5._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-green-500"
@@ -916,19 +916,20 @@
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelPlaylistYoutube>
                                             <mat-panel-title (click)="panelPlaylistYoutube._toggle()"
-                                                class="flex flex-row items-center">
+                                                class="flex flex-row items-center w-full">
                                                 <mat-icon class="icon-size-4 mr-2 text-red-500"
                                                     [svgIcon]="'feather:video'"></mat-icon>
                                                 <mat-label class="font-semibold">Biến Video thành Bài
                                                     ({{source.playlist[0].youtube.length}})</mat-label>
 
-                                                <!-- <mat-label
-                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Thêm video mới"
-                                                    (click)="insertVideo()">thêm</mat-label> -->
+                                                <div class="ml-auto flex items-center justify-end" (click)="$event.stopPropagation()">
+                                                    <span class="text-xs font-medium text-gray-500 mr-2">Tần suất cắt ảnh:</span>
+                                                    <input type="number" [(ngModel)]="videoExtractInterval" min="0.1" max="60" step="0.5" class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
+                                                    <span class="text-xs text-gray-500 mr-4">giây/frame</span>
+                                                </div>
 
-                                                <button mat-icon-button class="ml-auto icon-size-8"
-                                                    (click)="insertVideo()" matTooltipPosition="above"
+                                                <button mat-icon-button class="icon-size-8"
+                                                    (click)="insertVideo(); $event.stopPropagation()" matTooltipPosition="above"
                                                     matTooltip="Thêm video mới">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
@@ -956,7 +957,8 @@
                                                                 [diameter]="16" [strokeWidth]="2"
                                                                 [mode]="'indeterminate'"
                                                                 class="mr-2"></mat-progress-spinner>
-                                                            {{ job?.done_chunks }}/{{ job?.total_chunks }}</mat-label>
+                                                            <span *ngIf="job?.status_step && job?.status !== 'done'" class="mr-2 font-medium">{{ job?.status_step }}</span>
+                                                        </mat-label>
                                                     </div>
                                                 </ng-container>
 

@@ -47,6 +47,12 @@
 
         <!-- Components -->
         <div class="flex items-center pl-0 ml-auto space-x-1 sm:space-x-1">
+            <div class="flex items-center px-3 hidden sm:flex" matTooltip="Tắt để sử dụng mô hình gốc">
+                <mat-slide-toggle [checked]="enableUmodelverse" (change)="toggleUmodelverse()" [color]="'primary'">
+                    <span class="font-semibold text-sm">Mì Tôm AI</span>
+                </mat-slide-toggle>
+            </div>
+
             <!-- <languages></languages> -->
             <notifications></notifications>
             <chatgpt2s></chatgpt2s>
