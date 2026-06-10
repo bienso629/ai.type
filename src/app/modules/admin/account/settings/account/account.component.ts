@@ -276,6 +276,21 @@ export class SettingsAccountComponent implements OnInit {
                 this.user = user;
             });
 
+        // Lắng nghe thay đổi settings từ header (ThinLayoutComponent)
+        this.multiAccountService.activeAccount$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((data: any) => {
+                if (data && data.settings && this.accountForm) {
+                    const currentVal = this.accountForm.get('enableUmodelverse').value;
+                    if (currentVal !== data.settings.enableUmodelverse) {
+                        this.accountForm.patchValue({
+                            enableUmodelverse: data.settings.enableUmodelverse
+                        }, { emitEvent: false });
+                        this.cd.markForCheck();
+                    }
+                }
+            });
+
         // Nhận phản hồi
         this.unsubscribeRes = (window as any).electron.onToolsResponse((data: any) => {
             if (data.action === 'get-facebook-cookies' && data.success) {

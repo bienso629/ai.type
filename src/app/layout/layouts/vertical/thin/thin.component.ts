@@ -16,9 +16,14 @@ import { ChangeDetectorRef } from '@angular/core';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 
+import { UserClientService } from 'app/modules/_services/user';
+import { UserService } from 'app/core/user/user.service';
+import { User } from 'app/core/user/user.types';
+
 @Component({
     selector: 'thin-layout',
     templateUrl: './thin.component.html',
+    providers: [UserClientService],
     encapsulation: ViewEncapsulation.None
 })
 export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, AfterContentInit {
@@ -35,6 +40,7 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
     public direction: Direction = 'up';
     public animationMode: AnimationMode = 'fling';
 
+    user: User;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     // -----------------------------------------------------------------------------------------------------
@@ -60,6 +66,40 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
 
     public doAction(event: string): void {
         console.log(event);
+    }
+
+    get enableUmodelverse(): boolean {
+        const settings = this.multiAccountService.getItem('settings');
+        return settings ? (settings.enableUmodelverse === true) : false;
+    }
+
+    set enableUmodelverse(value: boolean) {
+        let settings = this.multiAccountService.getItem('settings') || {};
+        settings.enableUmodelverse = value;
+        this.multiAccountService.setItem('settings', settings);
+    }
+
+    toggleUmodelverse(): void {
+        this.enableUmodelverse = !this.enableUmodelverse;
+        
+        // Cập nhật trạng thái lên máy chủ để không bị mất khi F5
+        if (this.user) {
+            let settings = this.multiAccountService.getItem('settings') || {};
+            const editor = this.multiAccountService.getItem('editor');
+            const following_users = this.multiAccountService.getItem('following_users');
+
+            this._userClientService.updateProfile({
+                profile: {
+                    settings: settings,
+                    active_info: this.multiAccountService.getItem('active_info'),
+                    editor: (editor && editor != 'undefined') ? editor : {},
+                    following_users: (following_users && following_users != 'undefined') ? following_users : [],
+                },
+                username: this.user.name
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe();
+        }
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -161,7 +201,9 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
         private _fuseMediaWatcherService: FuseMediaWatcherService,
         private _fuseNavigationService: FuseNavigationService,
         private _changeDetectorRef: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _userService: UserService,
+        private _userClientService: UserClientService
     ) { 
         const activeInfo = this.multiAccountService.getItem('active_info');
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
@@ -185,6 +227,14 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
                 this.appVersion = v;
             });
         }
+
+        // Subscribe to user changes
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+            });
+
         this._recordingStateListener = (event: any) => {
             this.isRecording = event.detail;
             this._changeDetectorRef.detectChanges();

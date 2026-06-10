@@ -44,6 +44,9 @@ export class EditScenePromptDialogComponent {
     isGeneratingVideo: boolean = false;
 
     aiReferenceImageLocalUrl: string | null = null;
+    aiReferenceVideoLocalUrl: string | null = null;
+    aiReferenceVideoBase64: string | null = null;
+    
     
     onReferenceImageSelected(event: any) {
         const file = event.target.files[0];
@@ -53,6 +56,24 @@ export class EditScenePromptDialogComponent {
         }
         // Reset file input
         event.target.value = '';
+    }
+
+    onReferenceVideoSelected(event: any) {
+        const file = event.target.files[0];
+        if (file) {
+            this.aiReferenceVideoLocalUrl = URL.createObjectURL(file);
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.aiReferenceVideoBase64 = e.target?.result as string;
+            };
+            reader.readAsDataURL(file);
+        }
+        event.target.value = '';
+    }
+
+    removeReferenceVideo() {
+        this.aiReferenceVideoLocalUrl = null;
+        this.aiReferenceVideoBase64 = null;
     }
 
     selectedAspectRatio: string = '9:16';
@@ -819,6 +840,16 @@ Instructions:
                 }
             }
 
+            if (this.aiReferenceVideoBase64) {
+                referenceImages.push({
+                    image: {
+                        imageBytes: this.aiReferenceVideoBase64,
+                        mimeType: 'video/mp4'
+                    },
+                    referenceType: 'REFERENCE_VIDEO'
+                });
+            }
+
             // Fetch character reference images if selected
             for (const char of this.selectedReferenceChars) {
                 const imgUrl = char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0 ? char.avatarUrls[0] : null);
@@ -920,7 +951,14 @@ Instructions:
 
             if (isProxy) {
                 // Sử dụng Mì Tôm AI (Proxy) để tạo Video
-                const modelName = this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
+                let modelName = this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
+                
+                // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu
+                if (this.aiReferenceVideoBase64) {
+                    modelName = 'kling-v3-motion-control';
+                    this.toastr.info('Phát hiện Video Mẫu, tự động chuyển sang model Kling V3 Motion Control.', 'Hệ thống');
+                }
+
                 this.toastr.info(`Đang gửi yêu cầu tạo video qua Mì Tôm AI (Base URL: ${this._genaiService.umodelverseUrl}, Model: ${modelName})...`, 'Hệ thống', { timeOut: 5000 });
 
                 base64 = await this._genaiService.generateVideoUModelverse(
@@ -928,7 +966,8 @@ Instructions:
                     this.selectedAspectRatio,
                     referenceImages,
                     this.editingScenePrompt.duration,
-                    seedToUse
+                    seedToUse,
+                    modelName // Truyền thẳng modelName đã ghi đè vào service
                 );
             } else {
                 // Chạy trực tiếp qua máy chủ Google bằng SDK chính thức

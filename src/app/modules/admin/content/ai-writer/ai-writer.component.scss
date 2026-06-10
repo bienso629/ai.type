@@ -300,14 +300,11 @@
     background-color: rgb(253, 253, 253);
     // box-shadow: 0 0px 10px 0px rgba(0, 0, 0, 0.05);
     overflow: hidden;
+    opacity: 0.7;
 
     div.flex-1 {
         * {
-            font-size: 11px;
-        }
-
-        p {
-            padding: 20px;
+            font-size: 12px;
         }
 
         // max-width: 500px;
@@ -393,6 +390,7 @@ ng-select {
         .ng-select-container {
             border-color: #cbd5e1 !important;
         }
+
         &.has-prefix {
             .ng-select-container {
                 padding-left: 28px !important;
@@ -412,6 +410,7 @@ mat-list-option {
         overflow: auto !important;
     }
 }
+
 ::ng-deep .edit-before-export-quill .ql-editor table {
     width: 100%;
     border-collapse: collapse;

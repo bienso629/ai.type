@@ -1,5 +1,6 @@
 import { NgModule } from '@angular/core';
 import { HttpClientModule } from '@angular/common/http';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDividerModule } from '@angular/material/divider';
@@ -31,6 +32,7 @@ import { EcoFabSpeedDialModule } from '@ecodev/fab-speed-dial';
         MatDividerModule,
         MatIconModule,
         MatMenuModule,
+        MatSlideToggleModule,
         FuseFullscreenModule,
         FuseLoadingBarModule,
         FuseNavigationModule,

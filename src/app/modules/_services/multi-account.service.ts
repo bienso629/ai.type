@@ -80,6 +80,8 @@ export class MultiAccountService {
         if (this.currentAccountId) {
             this.saveToBackground();
         }
+        
+        this.activeAccountSubject.next(this.currentSessionData);
     }
 
     /**
