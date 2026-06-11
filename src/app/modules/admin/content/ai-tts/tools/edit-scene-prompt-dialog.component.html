@@ -264,6 +264,20 @@
                 }
             </span>
         </a>
+
+        @if (data?.video?.videoUrl) {
+        <div class="w-px h-4 bg-slate-300"></div>
+
+        <a href="javascript:void(0)" class="text-pink-600 text-sm hover:text-pink-800" (click)="generateKlingFromTrimmed()">
+            <span class="flex items-center">
+                @if (isGeneratingVideo) {
+                <mat-spinner diameter="16" class="mr-2 text-pink-600"></mat-spinner> Đang render Kling...
+                } @else {
+                <mat-icon class="icon-size-4 mr-2 text-pink-600">movie_creation</mat-icon> Kling (Tạo từ Video này)
+                }
+            </span>
+        </a>
+        }
     </div>
 
     <button mat-flat-button color="primary" (click)="save()">Lưu thông tin</button>

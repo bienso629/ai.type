@@ -1273,7 +1273,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             for (let i = 0; i < retries; i++) {
                 try {
                     response = await this._genaiService.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3.5-flash',
                         contents: finalContents,
                         config: {
                             responseMimeType: "application/json",

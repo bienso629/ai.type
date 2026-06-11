@@ -210,8 +210,8 @@ export class GenaiService {
         this.syncConfigFromStorage();
 
         // Restore model compatibility with existing UModelverse config
-        if (params.model === 'gemini-2.5-flash') {
-            params.model = 'gemini-2.5-flash';
+        if (params.model === 'gemini-3.5-flash') {
+            params.model = 'gemini-3.5-flash';
         } else if (
             params.model === 'gemini-3.1-flash-image-preview' ||
             params.model === 'imagen-3.0-generate-001' ||
@@ -366,7 +366,7 @@ export class GenaiService {
             }
         }
 
-        const overrideModel = params.model === 'gemini-2.5-flash' ? null : params.model;
+        const overrideModel = params.model === 'gemini-3.5-flash' ? null : params.model;
         const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
         const config = getTextModelConfig(targetModel);
 
@@ -1035,38 +1035,41 @@ export class GenaiService {
                 if (klingImageList.length > 0) {
                     payload.parameters.image_list = klingImageList;
                 }
-            } else if (config.payloadFormat === 'kling_v3') {
-                payload = {
-                    model: model,
-                    input: { prompt: prompt },
-                    parameters: {
-                        aspect_ratio: aspectRatio || '16:9',
-                        duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
-                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+            } else if (config.payloadFormat === 'kling_v3' || config.payloadFormat === 'kling_v3_motion') {
+                // Tự động nâng cấp lên kling_v3_motion nếu có video mẫu
+                if (config.payloadFormat === 'kling_v3_motion' || endRefMimeType === 'video/mp4') {
+                    payload = {
+                        model: model,
+                        input: { prompt: prompt },
+                        parameters: {
+                            aspect_ratio: aspectRatio || '16:9',
+                            duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
+                            ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+                        }
+                    };
+                    if (refBase64Raw) {
+                        payload.input.img_url = refBase64Raw;
+                        payload.parameters.character_orientation = "image";
                     }
-                };
-                if (refBase64Raw) {
-                    payload.parameters.image = refBase64Raw;
-                }
-                if (endRefBase64Raw) {
-                    payload.parameters.image_tail = endRefBase64Raw;
-                }
-            } else if (config.payloadFormat === 'kling_v3_motion') {
-                payload = {
-                    model: model,
-                    input: { prompt: prompt },
-                    parameters: {
-                        aspect_ratio: aspectRatio || '16:9',
-                        duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
-                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+                    if (endRefBase64Raw) {
+                        payload.input.video_url = endRefBase64Raw;
                     }
-                };
-                if (refBase64Raw) {
-                    payload.input.img_url = refBase64Raw;
-                    payload.parameters.character_orientation = "image";
-                }
-                if (endRefBase64Raw) {
-                    payload.input.video_url = endRefBase64Raw;
+                } else {
+                    payload = {
+                        model: model,
+                        input: { prompt: prompt },
+                        parameters: {
+                            aspect_ratio: aspectRatio || '16:9',
+                            duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
+                            ...(seed !== undefined && seed !== null ? { seed: seed } : {})
+                        }
+                    };
+                    if (refBase64Raw) {
+                        payload.parameters.image = refBase64Raw;
+                    }
+                    if (endRefBase64Raw) {
+                        payload.parameters.image_tail = endRefBase64Raw;
+                    }
                 }
             } else if (config.payloadFormat === 'nested_input') {
                 payload = {

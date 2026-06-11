@@ -10,14 +10,14 @@
     }
 </style>
 <div class="flex flex-col w-full h-full !p-0 bg-gray-900">
-    <div class="flex flex-row justify-between items-center pb-4 mb-0 flex-shrink-0 px-4 pt-4 border-b border-gray-800">
-        <div class="flex items-center text-xl font-normal text-gray-100 tracking-tight">
+    <div class="flex flex-row justify-between items-center pb-4 mb-0 flex-shrink-0 px-4 pt-4 border-b border-gray-800 relative">
+        <div class="flex items-center text-xl font-normal text-gray-100 tracking-tight z-10">
             <mat-icon class="mr-2 icon-size-5 text-green-400 flex-shrink-0" [svgIcon]="'feather:edit-3'"></mat-icon>
-            <span class="truncate max-w-[50vw] tooltip" [title]="projectData?.title || projectData?.extraPrompt">{{
+            <span class="truncate max-w-[30vw] md:max-w-[40vw] tooltip" [title]="projectData?.title || projectData?.extraPrompt">{{
                 projectData?.title || projectData?.extraPrompt || 'Thiết kế video' }}</span>
         </div>
         <!-- Character Grid -->
-        <div class="flex-1 flex items-center justify-center mx-6 overflow-x-auto scene-scroll-area">
+        <div class="absolute left-1/2 -translate-x-1/2 flex items-center justify-center overflow-x-auto scene-scroll-area z-0">
             <div class="flex gap-2 items-center">
                 <ng-container *ngFor="let char of projectData?.characters || []">
                     <img *ngIf="char.avatarUrls && char.avatarUrls.length > 0" 
@@ -35,7 +35,7 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-1 flex-shrink-0">
+        <div class="flex items-center gap-1 flex-shrink-0 z-10">
             <button *ngIf="!projectData?.scenes?.length" mat-icon-button
                 class="text-gray-400 hover:text-white transition-colors" matTooltip="Thêm Track (Scene)"
                 (click)="addNewScene()">
@@ -141,7 +141,6 @@
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngIf="scene.videos">
                                 <ng-container *ngFor="let video of scene.videos; let vIdx = index">
-                                    <ng-container *ngIf="(tIdx === 0 && vIdx === 0) || (tIdx === 1 && vIdx > 0)">
                                         <div class="absolute top-2 bottom-2 bg-gray-700 rounded-lg shadow-md group flex flex-col transition-all"
                                             [ngClass]="{
                                             'opacity-30 grayscale': video.disabled,
@@ -172,7 +171,7 @@
                                                 <!-- Background Image/Video -->
                                                 @if (video.videoUrl) {
                                                 <div class="w-full h-full bg-black/20 absolute inset-0"></div>
-                                                <video #videoEl [src]="getSafeUrl(video.videoUrl)"
+                                                <video #videoEl [src]="getSafeUrl(video.videoUrl + '#t=' + (video.trimStart ? video.trimStart : 0.001))"
                                                     class="w-full h-full block object-cover opacity-50 pointer-events-none"
                                                     muted playsinline></video>
                                                 } @else if (video.imageUrl) {
@@ -272,6 +271,12 @@
                                                         [ngClass]="video.disabled ? 'text-red-400' : 'text-white'">{{
                                                         video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
                                                 </button>
+                                                <button *ngIf="isTrimmed(video)" mat-icon-button
+                                                    class="bg-white/10 hover:bg-cyan-600 transition-colors icon-size-6 rounded"
+                                                    (click)="$event.stopPropagation(); trimVideo(video, $event)"
+                                                    matTooltip="Áp dụng cắt video">
+                                                    <mat-icon class="icon-size-4 text-white">content_cut</mat-icon>
+                                                </button>
                                                 <button mat-icon-button
                                                     class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); removeVideo(sceneIdx, vIdx)">
@@ -327,7 +332,6 @@
                                                 }
                                             </div>
                                         </div>
-                                    </ng-container>
                                 </ng-container>
                             </ng-container>
                         </ng-container>

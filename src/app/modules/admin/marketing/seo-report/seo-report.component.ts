@@ -682,7 +682,7 @@ KHÔNG DÙNG MARKDOWN. KHÔNG ĐÓNG DẤU \`\`\`html hoặc \`\`\` quanh bài v
 Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạn".`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
             let responseText = response.text || '';
@@ -926,7 +926,7 @@ Với mỗi từ khóa, hãy:
 Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiểu cho marketer.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 

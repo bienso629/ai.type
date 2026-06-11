@@ -66,8 +66,8 @@ export class NoAuthGuard  {
                 switchMap((authenticated) => {
                     // If the user is authenticated...
                     if (authenticated) {
-                        // Redirect to the root
-                        this._router.navigate(['']);
+                        // Redirect to the dashboard
+                        this._router.navigate(['dashboard']);
 
                         // Prevent the access
                         return of(false);

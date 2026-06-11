@@ -48,6 +48,13 @@
     }
 }
 
+.full-screen-dialog {
+    .mat-mdc-dialog-surface {
+        padding: 0px !important;
+        border-radius: 0px !important;
+    }
+}
+
 .overlay-styles {
     height: 100%;
     width: 100%;
