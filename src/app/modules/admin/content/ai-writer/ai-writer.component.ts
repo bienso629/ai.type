@@ -615,7 +615,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -1151,7 +1151,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                                 // Call AI to generate content
                                 const response = await this._genaiService.generateContent({
-                                    model: 'gemini-3-flash-preview',
+                                    model: 'gemini-2.5-flash',
                                     contents: [{ role: 'user', parts: parts }],
                                 });
 
@@ -1257,7 +1257,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         contents: [{ role: 'user', parts: [{ text: promptText }] }],
                         config: { responseModalities: ['IMAGE'] }
                     } as any);
-                    
+
                     let base64Str = '';
                     const parts = response.candidates?.[0]?.content?.parts || [];
                     for (const part of parts) {
@@ -1296,7 +1296,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                                 folder: 'thumbnails',
                                 username: this.user.name
                             });
-                        } catch(e) {}
+                        } catch (e) { }
                     }
                 }
             } catch (err: any) {
@@ -1399,7 +1399,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Call AI to generate content
                 const response = await this._genaiService.generateContent({
-                    model: 'gemini-3-flash-preview',
+                    model: 'gemini-2.5-flash',
                     contents: [{ role: 'user', parts: parts }],
                 });
 
@@ -1478,7 +1478,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 // create a mock event for createImg
-                
+
                 // Create a DataTransfer object to hold the image files if we want to mimic FileList, 
                 // but our createImg just iterates over e.target.files which behaves like an array.
                 const mockEvent = { target: { files: imageFiles } };
@@ -1504,6 +1504,28 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         this.source.a.push(`<p id="source-a-${uuid.v4()}"></p>`);
         const lastIndex = this.source.a.length - 1;
         this.edit(this.source.a, lastIndex);
+    }
+
+    /**
+     * Bắt đầu auto refresh 1 job
+     */
+    showInputUrl: boolean = false;
+    videoUrl: string = '';
+
+    insertVideoUrlSubmit() {
+        if (this.videoUrl && this.videoUrl.trim() !== '') {
+            this.source.playlist[0]['youtube'].unshift(
+                `<p id="source-youtube-${uuid.v4()}">${this.videoUrl.trim()}</p>`
+            );
+            this.toastr.success('Đã thêm đường dẫn video vào danh sách.');
+            this.videoUrl = '';
+            this.showInputUrl = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    insertVideoUrl() {
+        this.showInputUrl = !this.showInputUrl;
     }
 
     /**
@@ -1674,14 +1696,14 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
             if (electronApi) {
                 this.toastr.info('Đang khởi tạo quá trình phân tích video ở dưới nền...');
-                
+
                 let unsubscribeLog: any = null;
                 let lastToastTime = 0;
                 if (electronApi.onToolsLog) {
                     unsubscribeLog = electronApi.onToolsLog((msg: string) => {
                         if (msg && msg.includes('[AI Analyze]')) {
                             const cleanMsg = msg.replace('[AI Analyze]', '').trim();
-                            
+
                             let shortMsg = cleanMsg;
                             if (shortMsg.includes('Bắt đầu trích xuất')) shortMsg = 'Đang trích xuất frames...';
                             else if (shortMsg.includes('Sử dụng video')) shortMsg = 'Đang đọc video...';
@@ -1711,7 +1733,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 } finally {
                     if (unsubscribeLog) unsubscribeLog();
                 }
-                
+
                 if (!result.success) {
                     throw new Error(result.error || 'Lỗi khi trích xuất video');
                 }
@@ -1753,7 +1775,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: parts }]
             });
 
@@ -1871,7 +1893,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 

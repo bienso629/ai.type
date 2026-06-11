@@ -454,7 +454,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             ip_address: "192.168.1.1",
             sender_info: "Chrome on Windows",
             google_api_key: geminiKey,
-            llm_model: "gemini-3-flash-preview",
+            llm_model: "gemini-2.5-flash",
             simple_chatbot_data_source: this.selectedDataSource || 'documents',
             index_dir: `faiss_pdf_index`
         };
@@ -583,7 +583,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
         if (!file) return;
 
         if (!file) return;
-        
+
         const triggerIndex = (filename: string) => {
             const secretKeys = this.settings?.secretKey ? this.settings.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
             const geminiKey = secretKeys.length > 0 ? secretKeys[Math.floor(Math.random() * secretKeys.length)] : '';
@@ -591,7 +591,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             const payload = {
                 username: this.user.name,
                 google_api_key: geminiKey,
-                llm_model: "gemini-3-flash-preview",
+                llm_model: "gemini-2.5-flash",
                 index_dir: `faiss_pdf_index`,
                 filename: filename,
                 doc_type: this.currentDocType
@@ -640,10 +640,10 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         if (settings && settings.umodelverseUrl) {
                             serverApiUrl = settings.umodelverseUrl;
                         }
-                    } catch (e) {}
-                    
+                    } catch (e) { }
+
                     serverApiUrl = serverApiUrl.replace(/\/$/, ''); // Xoá dấu gạch chéo cuối nếu có
-                    
+
                     let result: any;
                     this.taskProgress.updateMessage(`Đang gửi qua Server Chatbot (${serverApiUrl})...`);
                     const response = await fetch(`${serverApiUrl}/analyze_pdf`, {
@@ -659,10 +659,10 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                         throw new Error(resData.message || 'Lỗi phân tích từ server.py');
                     }
                     result = typeof resData.data === 'string' ? resData.data : JSON.stringify(resData.data);
-                    
+
                     this.taskProgress.done('Phân tích hoàn tất! Đang lưu lên hệ thống...');
                     console.log("Kết quả phân tích từ AI:", result);
-                    
+
                     // Đẩy kết quả phân tích JSON về Server
                     this._chatbotService.uploadMinerUResult({
                         username: this.user.name,
@@ -683,7 +683,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                             this.toastr.error('Không kết nối được với máy chủ để lưu file');
                         }
                     });
-                    
+
                 } catch (error: any) {
                     console.error("Lỗi phân tích:", error);
                     // Nếu lỗi do user cancel (ví dụ API trả về 499) thì không hiển thị lỗi đỏ
@@ -754,7 +754,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 rows: result.files,
                                 username: this.user.name,
                                 google_api_key: geminiKey,
-                                llm_model: "gemini-3-flash-preview",
+                                llm_model: "gemini-2.5-flash",
                                 index_dir: `faiss_pdf_index`,
                             }
                         });

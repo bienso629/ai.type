@@ -235,7 +235,7 @@ Focus ONLY on:
 Do NOT describe colors, clothing style, facial features, or lighting.`;
 
             const visionResponse = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ 
                     role: 'user', 
                     parts: [

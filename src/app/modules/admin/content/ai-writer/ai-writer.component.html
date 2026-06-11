@@ -929,6 +929,12 @@
                                                 </div>
 
                                                 <button mat-icon-button class="icon-size-8"
+                                                    (click)="insertVideoUrl(); $event.stopPropagation()" matTooltipPosition="above"
+                                                    matTooltip="Thêm link Youtube/Facebook">
+                                                    <mat-icon class="icon-size-4 text-blue-500"
+                                                        [svgIcon]="'feather:link'"></mat-icon>
+                                                </button>
+                                                <button mat-icon-button class="icon-size-8"
                                                     (click)="insertVideo(); $event.stopPropagation()" matTooltipPosition="above"
                                                     matTooltip="Thêm video mới">
                                                     <mat-icon class="icon-size-4 text-primary"
@@ -936,6 +942,14 @@
                                                 </button>
                                             </mat-panel-title>
                                         </mat-expansion-panel-header>
+
+                                        <!-- Form nhập link -->
+                                        <div *ngIf="showInputUrl" class="flex flex-row items-center p-3 border-b mb-2 bg-slate-50 rounded">
+                                            <mat-form-field class="flex-1 fuse-mat-dense m-0" [subscriptSizing]="'dynamic'">
+                                                <input matInput [(ngModel)]="videoUrl" placeholder="Nhập đường dẫn Youtube hoặc Facebook..." (keydown.enter)="insertVideoUrlSubmit()">
+                                            </mat-form-field>
+                                            <button mat-flat-button color="primary" class="ml-4" (click)="insertVideoUrlSubmit()">Thêm Link</button>
+                                        </div>
 
                                         <div cdkDropList #sourceYoutubeList="cdkDropList"
                                             [cdkDropListData]="source.playlist[0].youtube"
@@ -953,11 +967,13 @@
                                                             (click)="retryConvertVideo2Post(item, i)"
                                                             [ngClass]="{'bg-gray-200 hover:bg-grey-300': job?.status !== 'done', 'bg-primary-400 hover:bg-primary-500 text-white': job?.status === 'done'}">
                                                             <mat-progress-spinner
-                                                                *ngIf="job?.status !== 'done' || loading"
+                                                                *ngIf="job?.status !== 'done'"
                                                                 [diameter]="16" [strokeWidth]="2"
                                                                 [mode]="'indeterminate'"
                                                                 class="mr-2"></mat-progress-spinner>
                                                             <span *ngIf="job?.status_step && job?.status !== 'done'" class="mr-2 font-medium">{{ job?.status_step }}</span>
+                                                            <span *ngIf="job?.status === 'done'" class="mr-2 font-medium">Hoàn tất</span>
+                                                            <mat-icon *ngIf="job?.status === 'done'" class="icon-size-4" svgIcon="feather:check"></mat-icon>
                                                         </mat-label>
                                                     </div>
                                                 </ng-container>
@@ -2614,10 +2630,9 @@
                                             <div cdkDropList #doneList="cdkDropList" [cdkDropListData]="done"
                                                 [cdkDropListConnectedTo]="[emptyList]"
                                                 class="pt-2 pb-1 example-list text" (cdkDropListDropped)="drop($event)">
-                                                <div class="example-box-result p-1"
-                                                    *ngFor="let item of done; let i = index" (dblclick)="edit(done, i)"
-                                                    cdkDrag>
-                                                    <div class="flex-1 text-base w-full"
+                                                <div class="example-box-result p-2 flex flex-row items-start relative mb-2"
+                                                    *ngFor="let item of done; let i = index" cdkDrag (dblclick)="edit(done, i)">
+                                                    <div class="flex-1 text-base w-full min-w-0"
                                                         [class.cdk-drag-selected]="isSelected(item)"
                                                         (click)="toggleSelection($event, item)">
                                                         <ng-container *ngIf="item | isObject">{{item |

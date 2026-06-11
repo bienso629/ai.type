@@ -454,7 +454,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             this.chatHistory.push({ role: "user", parts: [{ text: messageToSend }] });
 
             const result = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: this.chatHistory
             });
             const jsonMatch = result.text;
