@@ -180,7 +180,7 @@ Nhiệm vụ của bạn là:
 ]`;
 
             const aiRes = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -221,9 +221,9 @@ Nhiệm vụ của bạn là:
 
     openDirectorMode() {
         const dialogRef = this.dialog.open(DirectorModeComponent, {
-            data: { 
+            data: {
                 prompt: this.projectData.masterPrompt,
-                controlImageUrl: this.projectData.masterControlImageUrl 
+                controlImageUrl: this.projectData.masterControlImageUrl
             },
             width: '600px'
         });
@@ -231,7 +231,7 @@ Nhiệm vụ của bạn là:
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
                 let promptResult = typeof result === 'string' ? result : result.prompt;
-                
+
                 if (!this.projectData) this.projectData = {};
                 let currentPrompt = this.projectData.masterPrompt ? this.projectData.masterPrompt.trim() : '';
                 currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
@@ -241,11 +241,11 @@ Nhiệm vụ của bạn là:
                 } else {
                     this.projectData.masterPrompt = '[Cinematography: ' + promptResult + ']';
                 }
-                
+
                 if (typeof result !== 'string' && result.controlImageUrl) {
                     this.projectData.masterControlImageUrl = result.controlImageUrl;
                 }
-                
+
                 this.save();
             }
         });
@@ -275,7 +275,7 @@ ${this.projectData.characters?.map((c: any) => `- ${c.name || c.role}: ${c.appea
 Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào khác.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     temperature: 0.7,
@@ -425,7 +425,7 @@ Yêu cầu trả về định dạng JSON thuần túy (không có markdown \`\`
 Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào khác.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
                 config: {
                     temperature: 0.7,

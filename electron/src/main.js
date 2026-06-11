@@ -1353,7 +1353,7 @@ ipcMain.handle('transcribe-system-audio', async (event, payload) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-3-flash-preview" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         const base64Data = fs.readFileSync(audioPath).toString("base64");
 
@@ -2265,7 +2265,7 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         if (event.sender) {
             event.sender.send('pdf-analysis-progress', 'Đang gửi trực tiếp file PDF lên hệ thống AI...');
         }
-        
+
         console.log("RECEIVED configData:", configData);
 
         const openai = new OpenAI({
@@ -2274,7 +2274,7 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         });
 
         const completion = await openai.chat.completions.create({
-            model: "gemini-3-flash-preview",
+            model: "gemini-2.5-flash",
             messages: [
                 { role: "system", content: "You are a helpful assistant. Extract and format the content from the provided PDF document into a structured JSON array representing sections or paragraphs. Output ONLY valid JSON array. Do not include markdown tags like ```json" },
                 {
@@ -2330,7 +2330,7 @@ ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
 
         // Tạo một tên file duy nhất để tránh bị trùng (ví dụ: timestamp_filename)
         const uniqueFileName = `${Date.now()}_${fileName}`;
-        
+
         let destinationPath;
         if (customDir) {
             const saveDir = path.join(docPath, "ai.type", "data", customDir);
@@ -2432,7 +2432,7 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
             }
             try {
                 targetPath = decodeURIComponent(targetPath);
-            } catch (e) {}
+            } catch (e) { }
         }
 
         // Nếu filepath chỉ là tên file (basename) thì targetPath (absolute) ban đầu không tồn tại (sẽ failed fs.existsSync).
@@ -2444,7 +2444,7 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
         if (!targetPath && filename) {
             const documentsPath = app.getPath("documents");
             const userFolder = path.join(documentsPath, "ai.type", "data", "tts", username || "anonymous");
-            
+
             // TH1: Tìm trong thư mục dự án hiện tại (targetUuid) - Hỗ trợ Import Project
             if (targetUuid) {
                 const projectPath = path.join(userFolder, targetUuid, filename);
@@ -2452,7 +2452,7 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
                     targetPath = projectPath;
                 }
             }
-            
+
             // TH2: Tìm trong thư mục global (TTS cache chung)
             if (!targetPath) {
                 targetPath = path.join(userFolder, filename);
@@ -2891,7 +2891,7 @@ app.whenReady().then(async () => {
 
             // Rút trích basename, bỏ timestamp prefix nếu có
             let basename = originalPath ? require('path').basename(originalPath).replace(/^\d{13}_/, '') : '';
-            
+
             // Khôi phục drive letter bị Chromium lowercase
             let testPath = originalPath;
             if (testPath) {
@@ -2937,7 +2937,7 @@ app.whenReady().then(async () => {
             // Quét từng thư mục
             for (const dir of searchDirs) {
                 if (!fs.existsSync(dir)) continue;
-                
+
                 // Thử trực tiếp
                 const directPath = require('path').join(dir, basename);
                 if (fs.existsSync(directPath)) return directPath;
@@ -3020,7 +3020,7 @@ app.whenReady().then(async () => {
     protocol.handle('mediacors', async (request) => {
         const url = request.url.replace('mediacors://', '');
         const targetPath = resolveMediaPath(url);
-        
+
         try {
             const fileUrl = require('url').pathToFileURL(targetPath).toString();
             const response = await net.fetch(fileUrl, {
@@ -3030,7 +3030,7 @@ app.whenReady().then(async () => {
             const headers = new Headers(response.headers);
             headers.set('Access-Control-Allow-Origin', '*');
             headers.set('Access-Control-Allow-Headers', '*');
-            
+
             return new Response(response.body, {
                 status: response.status,
                 statusText: response.statusText,
@@ -3630,7 +3630,7 @@ app.whenReady().then(async () => {
                 const baseName = path.basename(videoPath, ext);
                 const outputFileName = `${baseName}_last_frame.jpg`;
                 const outputPath = path.join(imgDir, outputFileName);
-                
+
                 const ffmpegPath = binaries.ffmpeg;
                 const args = [
                     "-sseof", "-0.1",
@@ -3640,15 +3640,15 @@ app.whenReady().then(async () => {
                     "-y",
                     outputPath
                 ];
-                
+
                 sendToRenderer("tools-log", `[FFmpeg] Trích xuất last frame: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
-                
+
                 let stderrOutput = "";
                 child.stderr.on("data", (data) => {
                     stderrOutput += data.toString();
                 });
-                
+
                 child.on("close", (code) => {
                     if (code === 0) {
                         resolve({ success: true, path: outputPath });
@@ -3657,7 +3657,7 @@ app.whenReady().then(async () => {
                         reject(new Error(`FFmpeg exited with code ${code}`));
                     }
                 });
-                
+
                 child.on("error", (err) => {
                     reject(err);
                 });
@@ -3678,15 +3678,15 @@ app.whenReady().then(async () => {
                 const fileSize = stats.size;
                 const baseName = path.basename(videoPathDecoded, path.extname(videoPathDecoded)).replace(/[^a-zA-Z0-9_-]/g, '_');
                 const cacheDirName = `_frames_${baseName}_${fileSize}`;
-                
+
                 const downloadsPath = app.getPath('downloads');
                 const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
                 if (!fs.existsSync(aiTypingDir)) {
                     fs.mkdirSync(aiTypingDir, { recursive: true });
                 }
-                
+
                 const tempDir = path.join(aiTypingDir, cacheDirName);
-                
+
                 // Caching logic
                 if (fs.existsSync(tempDir)) {
                     const allFiles = fs.readdirSync(tempDir);
@@ -3699,7 +3699,7 @@ app.whenReady().then(async () => {
                 } else {
                     fs.mkdirSync(tempDir, { recursive: true });
                 }
-                
+
                 const framePattern = path.join(tempDir, 'frame_%03d.jpg');
                 const ffmpegPath = binaries.ffmpeg;
                 const args = [
@@ -3709,15 +3709,15 @@ app.whenReady().then(async () => {
                     "-q:v", "2",
                     framePattern
                 ];
-                
+
                 sendToRenderer("tools-log", `[FFmpeg] Trích xuất frames: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
-                
+
                 let stderrOutput = "";
                 child.stderr.on("data", (data) => {
                     stderrOutput += data.toString();
                 });
-                
+
                 child.on("close", (code) => {
                     if (code === 0) {
                         const allFiles = fs.readdirSync(tempDir);
@@ -3729,7 +3729,7 @@ app.whenReady().then(async () => {
                         reject(new Error(`FFmpeg exited with code ${code}`));
                     }
                 });
-                
+
                 child.on("error", (err) => {
                     reject(err);
                 });
@@ -3751,7 +3751,7 @@ app.whenReady().then(async () => {
                 const baseName = path.basename(videoPath, ext);
                 const outputFileName = `${baseName}_audio.mp3`;
                 const outputPath = path.join(audioDir, outputFileName);
-                
+
                 const ffmpegPath = binaries.ffmpeg;
                 const args = [
                     "-i", videoPath,
@@ -3761,15 +3761,15 @@ app.whenReady().then(async () => {
                     "-y", // Overwrite
                     outputPath
                 ];
-                
+
                 sendToRenderer("tools-log", `[FFmpeg] Tách audio: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
-                
+
                 let stderrOutput = "";
                 child.stderr.on("data", (data) => {
                     stderrOutput += data.toString();
                 });
-                
+
                 child.on("close", (code) => {
                     if (code === 0) {
                         resolve(outputPath);
@@ -3777,7 +3777,7 @@ app.whenReady().then(async () => {
                         reject(new Error(`FFmpeg error (code ${code}): ${stderrOutput}`));
                     }
                 });
-                
+
                 child.on("error", (err) => {
                     reject(err);
                 });
@@ -3942,7 +3942,7 @@ app.whenReady().then(async () => {
                     const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({
-                        model: "gemini-3-flash-preview",
+                        model: "gemini-2.5-flash",
                     });
 
                     createTargetWindow(
@@ -4165,25 +4165,25 @@ app.whenReady().then(async () => {
     autoUpdater.on('checking-for-update', () => {
         sendToRenderer("tools-log", '[AutoUpdate] Đang kiểm tra phiên bản mới...');
     });
-    
+
     autoUpdater.on('update-available', (info) => {
         sendToRenderer("tools-log", `[AutoUpdate] Tìm thấy phiên bản mới: ${info.version}`);
     });
-    
+
     autoUpdater.on('update-not-available', (info) => {
         sendToRenderer("tools-log", '[AutoUpdate] Bạn đang dùng phiên bản mới nhất.');
     });
-    
+
     autoUpdater.on('error', (err) => {
         sendToRenderer("tools-log", `[AutoUpdate] Lỗi kiểm tra cập nhật: ${err.message}`);
     });
-    
+
     autoUpdater.on('download-progress', (progressObj) => {
         const speed = Math.round(progressObj.bytesPerSecond / 1024);
         const percent = Math.round(progressObj.percent);
         sendToRenderer("tools-log", `[AutoUpdate] Tốc độ tải: ${speed}KB/s - Đã tải ${percent}%`);
     });
-    
+
     autoUpdater.on('update-downloaded', (info) => {
         sendToRenderer("tools-log", '[AutoUpdate] Tải hoàn tất! Ứng dụng sẽ được cập nhật.');
         dialog.showMessageBox({
@@ -4203,8 +4203,8 @@ app.whenReady().then(async () => {
         try {
             const pkg = require(require('path').join(__dirname, '..', 'package.json'));
             app.getVersion = () => pkg.version; // Ép app đọc đúng version từ package.json thay vì version của lõi Electron
-        } catch (e) {}
-        
+        } catch (e) { }
+
         autoUpdater.forceDevUpdateConfig = true;
         autoUpdater.setFeedURL("https://ai.type.vn/phan-mem/");
     }
@@ -4638,7 +4638,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         // --- BƯỚC 1: XỬ LÝ TỪNG SCENE ---
         for (let i = 0; i < projectData.scenes.length; i++) {
             const scene = projectData.scenes[i];
-            
+
             // Hỗ trợ cấu trúc mới: hình ảnh có thể nằm trong mảng videos
             let sceneImg = scene.imageUrl;
             if (!sceneImg && scene.videos && scene.videos.length > 0) {
@@ -5191,9 +5191,9 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             // Bổ sung cookie từ trình duyệt Chrome đối với Facebook để tránh bị chặn
             const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
             const cookiesJsonPath = path.join(__dirname, 'cookies.json');
-            
+
             let hasCustomCookies = false;
-            
+
             if (fs.existsSync(cookiesTxtPath)) {
                 ytdlpArgs.push('--cookies', cookiesTxtPath);
                 hasCustomCookies = true;
@@ -5244,7 +5244,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             const files = fs.readdirSync(tempDir);
             const foundVideoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.vtt') && !f.endsWith('.srt') && !f.endsWith('.lrc') && !f.endsWith('.json'));
             const subtitleFile = files.find(f => f.startsWith('video.') && (f.endsWith('.vtt') || f.endsWith('.srt')));
-            
+
             if (!foundVideoFile) {
                 throw new Error('Không tìm thấy video tải về.');
             }
@@ -5256,7 +5256,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                     const subPath = path.join(tempDir, subtitleFile);
                     subtitlesText = fs.readFileSync(subPath, 'utf8');
                     sendToRenderer("tools-log", `[AI Analyze] Đã lấy được phụ đề của video.`);
-                } catch (e) {}
+                } catch (e) { }
             }
         }
 
@@ -5306,7 +5306,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
         // Đọc các frame
         const allFiles = fs.readdirSync(tempDir);
         const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
-        
+
         // Giới hạn tối đa 100 frames (trải đều khắp video) để AI nhìn được tổng quan mà không bị quá tải token
         const maxFrames = 100;
         let selectedFrames = [];
@@ -5321,7 +5321,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             // Loại bỏ các phần tử trùng lặp (nếu có do làm tròn)
             selectedFrames = [...new Set(selectedFrames)];
         }
-        
+
         const base64Frames = [];
         for (const frameFile of selectedFrames) {
             const framePath = path.join(tempDir, frameFile);
@@ -5342,19 +5342,19 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             finalVideoPath = path.join(aiTypingDir, `analyze_video_${timestamp}${path.extname(videoFile)}`);
             fs.renameSync(videoPath, finalVideoPath);
         }
-        
+
         // Xóa thư mục tạm (chứa các file jpg)
-        try {
-            fs.rmSync(tempDir, { recursive: true, force: true });
-        } catch(e) {}
+        // try {
+        //     fs.rmSync(tempDir, { recursive: true, force: true });
+        // } catch(e) {}
 
         sendToRenderer("tools-log", `[AI Analyze] Đã hoàn tất! Video được lưu/sử dụng tại ${finalVideoPath}`);
 
-        return { 
-            success: true, 
-            frames: base64Frames, 
-            audio: audioBase64, 
-            subtitles: subtitlesText 
+        return {
+            success: true,
+            frames: base64Frames,
+            audio: audioBase64,
+            subtitles: subtitlesText
         };
 
     } catch (err) {
@@ -5382,13 +5382,13 @@ ipcMain.handle('extract-last-frame', async (event, videoPath) => {
     try {
         const videoPathDecoded = videoPath.replace('file://', '');
         if (!fs.existsSync(videoPathDecoded)) return { success: false, error: 'Video file not found: ' + videoPathDecoded };
-        
+
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
         const imgDir = path.dirname(videoPathDecoded);
         const ext = path.extname(videoPathDecoded);
         const baseName = path.basename(videoPathDecoded, ext);
         const outputPath = path.join(imgDir, `${baseName}_last_frame.png`);
-        
+
         return new Promise((resolve) => {
             const args = ['-sseof', '-0.5', '-i', videoPathDecoded, '-update', '1', '-q:v', '2', '-y', outputPath];
             const child = spawn(ffmpegPath, args);

@@ -46,8 +46,8 @@ export class EditScenePromptDialogComponent {
     aiReferenceImageLocalUrl: string | null = null;
     aiReferenceVideoLocalUrl: string | null = null;
     aiReferenceVideoBase64: string | null = null;
-    
-    
+
+
     onReferenceImageSelected(event: any) {
         const file = event.target.files[0];
         if (file) {
@@ -262,18 +262,18 @@ export class EditScenePromptDialogComponent {
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                
+
                 // Đảm bảo kích thước tối thiểu và tỷ lệ khung hình an toàn cho Kling V3 (tránh lỗi ConvertImageRequest do server cố tự resize)
                 let targetW = img.width;
                 let targetH = img.height;
-                
+
                 // Nếu ảnh quá nhỏ, scale lên tối thiểu 512
                 if (targetW < 512 || targetH < 512) {
                     const scale = Math.max(512 / targetW, 512 / targetH);
                     targetW = Math.round(targetW * scale);
                     targetH = Math.round(targetH * scale);
                 }
-                
+
                 // Khống chế kích thước tối đa 1536 để tránh file quá nặng
                 if (targetW > 1536 || targetH > 1536) {
                     const scale = Math.min(1536 / targetW, 1536 / targetH);
@@ -286,7 +286,7 @@ export class EditScenePromptDialogComponent {
                 let finalW = targetW;
                 let finalH = targetH;
                 const ratio = targetW / targetH;
-                
+
                 if (ratio > 2) {
                     // Quá rộng -> thêm viền trên dưới
                     finalH = Math.round(targetW / 2);
@@ -302,7 +302,7 @@ export class EditScenePromptDialogComponent {
                     // Lót nền trắng để tránh bị đen do ảnh PNG trong suốt chuyển sang JPEG
                     ctx.fillStyle = '#ffffff';
                     ctx.fillRect(0, 0, finalW, finalH);
-                    
+
                     // Vẽ ảnh vào giữa canvas
                     const offsetX = (finalW - targetW) / 2;
                     const offsetY = (finalH - targetH) / 2;
@@ -346,7 +346,7 @@ export class EditScenePromptDialogComponent {
                 const charName = char.name || char.role;
                 if (charName && this.editingScenePrompt.prompt.includes(charName)) {
                     this.selectedReferenceChars.add(char);
-                    
+
                     // Tự động chèn thông tin nhân vật vào textarea cho người dùng thấy rõ
                     const charToken = `[Character '${charName}'`;
                     if (!this.editingScenePrompt.prompt.includes(charToken)) {
@@ -497,17 +497,17 @@ export class EditScenePromptDialogComponent {
         dialogRef.afterClosed().subscribe(result => {
             if (result !== undefined && result.controlImageUrl !== undefined) {
                 this.editingScenePrompt.controlImageUrl = result.controlImageUrl;
-                
+
                 // Tự động append pose prompt vào video prompt
                 if (result.posePromptText) {
                     const currentPrompt = this.editingScenePrompt.prompt || '';
                     if (!currentPrompt.includes(result.posePromptText)) {
-                        this.editingScenePrompt.prompt = currentPrompt 
+                        this.editingScenePrompt.prompt = currentPrompt
                             ? currentPrompt + '\n' + result.posePromptText
                             : result.posePromptText;
                     }
                 }
-                
+
                 this.cd.detectChanges();
             }
         });
@@ -591,14 +591,14 @@ Instructions:
                     }
                 });
                 systemPrompt += `\n[IMPORTANT INSTRUCTION: A ControlNet/Pose Sketch image is attached. This sketch illustrates the exact sequence of actions or movements of the character. Please analyze this sketch and extract the actions chronologically. Incorporate these precise movements into the final Video Prompt to ensure the character's animation matches the sketch.]`;
-            } catch(e) {
+            } catch (e) {
                 console.error("Error reading control image for auto fix", e);
             }
         }
 
         try {
             let result = await this._genaiService.generateText({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: parts }],
                 config: {
                     temperature: 0.7
@@ -643,7 +643,7 @@ Instructions:
         try {
             // Sử dụng prompt video để AI vẽ ảnh bám sát mô tả của video
             let promptText = this.getFullVideoPrompt();
-            
+
             if (this.globalContext?.environmentPrompt) {
                 promptText += `\n[Global Environment: ${this.globalContext.environmentPrompt}]`;
             }
@@ -662,7 +662,7 @@ Instructions:
                     if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
                         cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
                     }
-                    
+
                     const extractResult = await electron.extractLastFrame(cleanUrl);
                     if (extractResult && extractResult.success) {
                         const base64Data = await this.getBase64FromImageUrl('file://' + extractResult.path);
@@ -673,10 +673,10 @@ Instructions:
                             }
                         });
                         usedPreviousFrame = true;
-                        
+
                         // Hiển thị trực quan ảnh nối tiếp trên UI
                         this.editingScenePrompt.imageUrl = 'file://' + extractResult.path;
-                        
+
                         this.toastr.success('Đã trích xuất khung hình nối tiếp thành công!');
                     }
                 } catch (e) {
@@ -824,7 +824,7 @@ Instructions:
 
             // Fetch storyboard image if exists
             let referenceImages: any[] = [];
-            
+
             if (this.editingScenePrompt.imageUrl && this.isImageType(this.editingScenePrompt.imageUrl)) {
                 try {
                     const base64Data = await this.getBase64FromImageUrl(this.editingScenePrompt.imageUrl);
@@ -952,7 +952,7 @@ Instructions:
             if (isProxy) {
                 // Sử dụng Mì Tôm AI (Proxy) để tạo Video
                 let modelName = this._genaiService.umodelverseVideoModel || 'cogvideox-5b';
-                
+
                 // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu
                 if (this.aiReferenceVideoBase64) {
                     modelName = 'kling-v3-motion-control';
@@ -1116,7 +1116,7 @@ Instructions:
                 if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
                     cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
                 }
-                
+
                 // @ts-ignore
                 const extractResult = await electron.extractLastFrame(cleanUrl);
                 if (extractResult && extractResult.success) {
@@ -1225,8 +1225,8 @@ Instructions:
             width: '650px',
             maxWidth: '95vw',
             panelClass: 'dark-theme-dialog',
-            data: { 
-                prompt: this.editingScenePrompt?.prompt || '', 
+            data: {
+                prompt: this.editingScenePrompt?.prompt || '',
                 videoPrompt: this.editingScenePrompt?.videoPrompt || '',
                 targetName: 'Apply to Scene Prompt',
                 controlImageUrl: this.editingScenePrompt?.controlImageUrl || null,
@@ -1237,7 +1237,7 @@ Instructions:
         dialogRef.afterClosed().subscribe((result) => {
             if (result) {
                 let promptResult = typeof result === 'string' ? result : result.prompt;
-                
+
                 if (typeof result !== 'string' && result.controlImageUrl !== undefined) {
                     this.editingScenePrompt.controlImageUrl = result.controlImageUrl;
                 }
@@ -1275,13 +1275,13 @@ Instructions:
     isImageType(url: string): boolean {
         if (!url) return false;
         if (url.startsWith('data:image')) return true;
-        
+
         const imageExtensions = [
             'jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg',
         ];
         const cleanUrl = url.replace('file://', '');
         const fileExtension = cleanUrl.split('.').pop()?.toLowerCase();
-        
+
         if (!url.includes('.') && !url.startsWith('data:')) return true; // Handle paths without extensions just in case
         return fileExtension ? imageExtensions.includes(fileExtension) : true;
     }

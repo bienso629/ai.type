@@ -580,14 +580,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         resolveCallback?: () => void,
     ) {
         clip.isProcessing = false;
-        
+
         // Reset properties to ensure it doesn't look like it's done if it failed
         clip.localFilePath = null;
         clip.audioFileName = null;
         clip.url = null;
         clip.rawUrl = null;
         clip.duration = 0;
-        
+
         this.calculateTotalDuration();
         this.cd.markForCheck();
 
@@ -793,7 +793,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // CHỈ KHI NÀO KHÔNG CÓ localFilePath THÌ MỚI GẮN LINK SERVER
                     let userFolder =
                         item.username || this.user?.name || 'anonymous';
-                                        let baseUrl = this.SERVER_AUDIO_URL || '';
+                    let baseUrl = this.SERVER_AUDIO_URL || '';
                     if (baseUrl && !baseUrl.endsWith('/')) baseUrl += '/';
 
                     if (baseUrl) {
@@ -826,7 +826,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // Hàm trung gian: Kiểm tra file tồn tại trên ổ cứng -> Gán trực tiếp file:/// protocol vào Clip
 
-        async loadLocalAudioContent(
+    async loadLocalAudioContent(
         clip: AudioClip,
         retryCount = 0,
     ): Promise<boolean> {
@@ -1103,7 +1103,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const isSlide = this.videoFormat === 'slide';
         const isPodcast = this.videoFormat === 'podcast';
         const isVideo = this.videoFormat === 'video';
-        
+
         // Nhận diện tỉ lệ dọc để tinh chỉnh nhắc nhở AI
         const isVertical = this.aspectRatio === '9:16' || this.aspectRatio === '3:4';
 
@@ -1273,7 +1273,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             for (let i = 0; i < retries; i++) {
                 try {
                     response = await this._genaiService.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: 'gemini-2.5-flash',
                         contents: finalContents,
                         config: {
                             responseMimeType: "application/json",
@@ -1383,20 +1383,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Cố gắng tách các "Prompt 1 (5s):", "Prompt 2:" ra nếu AI có sinh ra
                 let individualPrompts: string[] = [];
                 let individualDurations: number[] = [];
-                
+
                 const splitRegex = /(?:Prompt|Phân đoạn|Phần|Cảnh|Part)\s*\d+[^:]*:/gi;
                 let match;
                 let headers = [];
                 while ((match = splitRegex.exec(originalScenePrompt)) !== null) {
                     headers.push({ index: match.index, text: match[0] });
                 }
-                
+
                 if (headers.length > 0) {
                     for (let i = 0; i < headers.length; i++) {
                         const header = headers[i];
                         const startIndex = header.index + header.text.length;
-                        const endIndex = (i + 1 < headers.length) ? headers[i+1].index : originalScenePrompt.length;
-                        
+                        const endIndex = (i + 1 < headers.length) ? headers[i + 1].index : originalScenePrompt.length;
+
                         const promptText = originalScenePrompt.substring(startIndex, endIndex).trim();
                         if (promptText) {
                             individualPrompts.push(promptText);
@@ -1451,7 +1451,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 } else {
                     let singlePrompt = finalScenePrompt;
                     let cleanImagePrompt = finalImagePrompt;
-                    
+
                     if (isVideo && maxVideoLength === 0) {
                         let partDuration = roundedDuration > 0 ? roundedDuration : 5; // Lấy từ estimatedDuration do AI quyết định
                         // Cố gắng tìm (5s) hoặc (6.5s) trong prompt phòng trường hợp AI vẫn nhét vào
@@ -1567,7 +1567,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             sub.duration = originalClip.duration || sub.duration;
                             if (originalClip.localFilePath) {
                                 try {
-                                    const result = await (window as any).electron.invoke('check-local-file-exists', { 
+                                    const result = await (window as any).electron.invoke('check-local-file-exists', {
                                         path: originalClip.localFilePath,
                                         filename: originalClip.audioFileName,
                                         username: this.user?.name || 'admin',
@@ -1746,7 +1746,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-                // 3. Nếu chưa có gì cả -> Gọi hàm load từ ổ cứng
+        // 3. Nếu chưa có gì cả -> Gọi hàm load từ ổ cứng
         if (clip.audioFileName && (window as any).electron) {
             // this.toastr.info('Đang đọc file...', 'System');
             const success = await this.loadLocalAudioContent(clip);
@@ -1847,7 +1847,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
     async exportProject() {
         const mediaPaths: string[] = [];
-        
+
         const processPath = (filePath: string) => {
             if (!filePath) return null;
             if (filePath.startsWith('http') || filePath.startsWith('data:') || filePath.startsWith('blob:')) return filePath;
@@ -1872,7 +1872,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         // Clone videoProject to avoid modifying the current state
         if (this.videoProject) {
             exportData.videoProject = JSON.parse(JSON.stringify(this.videoProject));
-            
+
             // Đảm bảo lấy danh sách nhân vật mới nhất từ localStorage casting_list_${this.uuid}
             const localCharacters = this.multiAccountService.getItem(`casting_list_${this.uuid}`);
             if (localCharacters) {
@@ -1947,11 +1947,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         });
 
         const jsonStr = JSON.stringify(exportData, null, 2);
-        
+
         this.toastr.info('Đang đóng gói dự án...', 'Export');
         try {
-            const res = await (window as any).electron.invoke('export-project', { 
-                projectJSON: jsonStr, 
+            const res = await (window as any).electron.invoke('export-project', {
+                projectJSON: jsonStr,
                 mediaPaths,
                 username: this.user?.name || 'admin'
             });
@@ -1972,11 +1972,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 currentUuid: this.uuid,
                 username: this.user?.name || 'admin'
             });
-            
+
             if (res.success) {
                 this.toastr.info('Đang nạp dự án...', 'Import');
                 const data = res.projectData;
-                
+
                 // Kiểm tra xem kịch bản này đã từng tồn tại trong chương trình chưa
                 const storageKey = `${this.STORAGE_AUDIO_KEY}_${res.targetUuid}`;
                 const isExistingScenario = !!this.multiAccountService.getItem(storageKey);
@@ -1991,7 +1991,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (data.videoFormat !== undefined) this.videoFormat = data.videoFormat;
                 if (data.aspectRatio !== undefined) this.aspectRatio = data.aspectRatio;
                 if (data.maxDuration !== undefined) this.maxDuration = data.maxDuration;
-                
+
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;
                     // Đồng bộ hóa danh sách nhân vật vào localStorage casting_list_${this.uuid}
@@ -1999,19 +1999,19 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.multiAccountService.setItem(`casting_list_${this.uuid}`, this.videoProject.characters);
                     }
                 }
-                
+
                 if (data.clips) {
                     this.restoreClips(data.clips);
                 }
-                
+
                 this.saveToLocal();
                 this.toastr.success(
-                    isExistingScenario 
-                        ? `Đã cập nhật dữ liệu kịch bản: ${this.projectTitle}` 
-                        : `Đã nhập thành kịch bản mới: ${this.projectTitle}`, 
+                    isExistingScenario
+                        ? `Đã cập nhật dữ liệu kịch bản: ${this.projectTitle}`
+                        : `Đã nhập thành kịch bản mới: ${this.projectTitle}`,
                     'Import'
                 );
-                
+
                 if (res.isNewScenario && res.targetUuid) {
                     // Chuyển hướng sang route mới của kịch bản mới vừa import
                     const routeName = this.currentName || this.user?.name || 'admin';
@@ -2022,7 +2022,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         this.loadAudiosFromLocal(this.uuid);
                     }, 500);
                 }
-                
+
             } else if (!res.canceled) {
                 this.toastr.error(`Lỗi nhập dự án: ${res.error}`, 'Import');
             }
@@ -2351,11 +2351,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             }, []);
 
         const result: string[] = [];
-        
+
         for (let sentence of sentences) {
             sentence = sentence.trim();
             if (!sentence) continue;
-            
+
             if (sentence.length <= maxLength) {
                 result.push(sentence);
             } else {
@@ -2407,7 +2407,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         const parts = this.splitClipText(clip.description, 300);
-        
+
         if (parts.length <= 1) {
             this.toastr.info("Đoạn văn này đã đủ ngắn, không cần chia nhỏ.");
             return;
@@ -2430,7 +2430,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         this.audioList.splice(index, 1, ...newClips);
         this.audioList = [...this.audioList];
-        
+
         this.selectedAudioIndex = -1;
         this.saveToLocal();
         this.update(false);

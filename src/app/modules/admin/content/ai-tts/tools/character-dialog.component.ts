@@ -27,11 +27,11 @@ export class CharacterDialogComponent {
     isGeneratingAvatar: boolean = false;
     masterPrompt: string = '';
     referenceImageUrl: string | null = null;
-    
+
     aiProfilePrompt: string = '';
     isGeneratingProfile: boolean = false;
     showFullForm: boolean = false;
-    
+
     private safeUrlCache: { [url: string]: SafeUrl } = {};
 
     constructor(
@@ -45,19 +45,19 @@ export class CharacterDialogComponent {
     ) {
         this.isEditMode = data.index >= 0;
         this.showFullForm = this.isEditMode;
-        this.editingChar = data.char ? { 
+        this.editingChar = data.char ? {
             ...data.char,
             avatarUrls: data.char.avatarUrls ? [...data.char.avatarUrls] : []
         } : { name: '', variant: '', role: '', appearance: '', personality: '', prompt: '', avatarUrl: null, avatarUrls: [] };
         this.masterPrompt = data.masterPrompt || '';
-        
+
         // Backward compatibility: if avatarUrl exists but avatarUrls is empty
         if (this.editingChar.avatarUrl && (!this.editingChar.avatarUrls || this.editingChar.avatarUrls.length === 0)) {
             this.editingChar.avatarUrls = [this.editingChar.avatarUrl];
         } else if (!this.editingChar.avatarUrls) {
             this.editingChar.avatarUrls = [];
         }
-        
+
         this.updateAvailableReferenceImages();
     }
 
@@ -83,7 +83,7 @@ export class CharacterDialogComponent {
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
-        
+
         const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
         this.safeUrlCache[cleanUrl] = safeUrl;
         return safeUrl;
@@ -140,7 +140,7 @@ export class CharacterDialogComponent {
         const existingChars = this.data.existingCharacters || [];
         const result: { url: string, name: string, variant: string }[] = [];
         const seenUrls = new Set<string>();
-        
+
         existingChars.forEach((c: any, idx: number) => {
             // Include all characters except the current one being edited
             if (idx !== this.data.index || c.variant !== this.editingChar.variant) {
@@ -167,9 +167,9 @@ export class CharacterDialogComponent {
                 return aMatch - bMatch;
             });
         }
-        
+
         this.availableReferenceImages = result;
-        
+
         // If the current reference image is not in the list anymore, clear it
         if (this.referenceImageUrl && !result.find(img => img.url === this.referenceImageUrl)) {
             this.referenceImageUrl = null;
@@ -208,7 +208,7 @@ export class CharacterDialogComponent {
             this.toastr.warning('Bạn chưa cung cấp API Key hợp lệ.');
             return;
         }
-        
+
         const apiKey = keys[Math.floor(Math.random() * keys.length)];
 
         this.isGeneratingAvatar = true;
@@ -221,14 +221,14 @@ export class CharacterDialogComponent {
             if (this.editingChar.appearance) promptPartsText.push(`Appearance: ${this.editingChar.appearance}`);
             if (this.editingChar.personality) promptPartsText.push(`Personality/Expression: ${this.editingChar.personality}`);
             if (this.editingChar.prompt) promptPartsText.push(`Style/Additional Prompt: ${this.editingChar.prompt}`);
-            
+
             let finalPrompt = promptPartsText.join('\n');
-            
+
             // Lấy phong cách visual từ master prompt (master prompt quy định style toàn bộ project)
             if (this.masterPrompt && this.masterPrompt.trim()) {
                 finalPrompt += `\n\n[VISUAL STYLE FROM PROJECT: ${this.masterPrompt.trim()}]\n[IMPORTANT: The character avatar MUST strictly follow the visual style described above. Match the same art style, rendering technique, and aesthetic.]`;
             }
-            
+
             finalPrompt += '\n\n[MANDATORY: Generate a professional "Character Reference Sheet" showing the character from multiple angles (front, side, back) on a single cohesive canvas. Neutral background.]';
 
             let requestParts: any[] = [{ text: finalPrompt }];
@@ -247,13 +247,13 @@ export class CharacterDialogComponent {
                 refImgUrl = this.editingChar.avatarUrl;
             } else if (this.editingChar.avatarUrls && this.editingChar.avatarUrls.length > 0) {
                 refImgUrl = this.editingChar.avatarUrls[0];
-            } 
+            }
             // 2. Ưu tiên 2: Nếu chưa có ảnh, tìm nhân vật gốc cùng tên để đồng bộ gương mặt chéo giữa các phiên bản
             else {
                 const existingChars = this.data.existingCharacters || [];
-                const originalChar = existingChars.find((c: any, idx: number) => 
+                const originalChar = existingChars.find((c: any, idx: number) =>
                     c.name && this.editingChar.name &&
-                    this.cleanName(c.name) === targetCleanName && 
+                    this.cleanName(c.name) === targetCleanName &&
                     (c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0)) &&
                     idx !== this.data.index &&
                     c.variant !== this.editingChar.variant
@@ -325,11 +325,11 @@ export class CharacterDialogComponent {
                     this.editingChar.avatarUrls = [];
                 }
                 this.editingChar.avatarUrls.push(finalPath);
-                
+
                 if (this.editingChar.avatarUrls.length === 1) {
                     this.editingChar.avatarUrl = this.editingChar.avatarUrls[0];
                 }
-                
+
                 this.toastr.success('Đã tạo ảnh nhân vật thành công!');
             } else {
                 throw new Error(result.error || 'Lỗi lưu file.');
@@ -347,7 +347,7 @@ export class CharacterDialogComponent {
 
     private formatGeminiError(error: any): string {
         let msg = error.message || error.toString() || 'Lỗi không xác định';
-        
+
         // Cố gắng parse JSON nếu Google trả về cục JSON error gộp trong string
         try {
             const match = msg.match(/\{"error":.*\}/);
@@ -357,7 +357,7 @@ export class CharacterDialogComponent {
                     msg = parsed.error.message;
                 }
             }
-        } catch {}
+        } catch { }
 
         if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
             return 'Tài khoản API Key đã hết hạn mức (Quota Exceeded) hoặc bị giới hạn tốc độ. Vui lòng thiết lập thẻ thanh toán trên Google AI Studio hoặc thử lại sau.';
@@ -422,7 +422,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview', // Use a model capable of reading images
+                model: 'gemini-2.5-flash', // Use a model capable of reading images
                 contents: [{ role: 'user', parts: requestParts }],
                 config: { temperature: 0.7 }
             });
@@ -432,13 +432,13 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                 const jsonMatch = text.match(/```json\n([\s\S]*?)\n```/) || text.match(/{[\s\S]*}/);
                 if (jsonMatch) {
                     const charData = JSON.parse(jsonMatch[1] || jsonMatch[0]);
-                    
+
                     this.editingChar.name = charData.name || this.editingChar.name;
                     this.editingChar.role = charData.role || this.editingChar.role;
                     this.editingChar.appearance = charData.appearance || this.editingChar.appearance;
                     this.editingChar.personality = charData.personality || this.editingChar.personality;
                     this.editingChar.prompt = charData.prompt || this.editingChar.prompt;
-                    
+
                     this.showFullForm = true;
                     this.toastr.success('AI đã tạo xong hồ sơ nhân vật!');
                     this.cd.markForCheck();
@@ -479,7 +479,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                         const uuid = this.data?.uuid;
                         const username = this.data?.username || 'anonymous';
                         const customDir = uuid ? `tts/${username}/${uuid}` : undefined;
-                        
+
                         const localFilePath = await electron.selectLocalFile(originalPath, customDir);
                         const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath}`;
                         if (!this.editingChar.avatarUrls.includes(finalPath)) {
@@ -487,7 +487,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                         }
                     }
                 }
-                
+
                 if (this.editingChar.avatarUrls.length > 0) {
                     this.editingChar.avatarUrl = this.editingChar.avatarUrls[0];
                 }

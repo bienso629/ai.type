@@ -45,7 +45,7 @@ export class GenaiService {
                 if (match) mimeType = match[1];
                 rawBase64 = base64Data.split(',')[1];
             }
-            
+
             const byteChars = atob(rawBase64);
             const byteArray = new Uint8Array(byteChars.length);
             for (let i = 0; i < byteChars.length; i++) {
@@ -59,10 +59,10 @@ export class GenaiService {
             else if (mimeType.includes('mp4')) ext = 'mp4';
             else if (mimeType.includes('webm')) ext = 'webm';
             else if (mimeType.includes('quicktime')) ext = 'mov';
-            
+
             const fname = filename || `kling_upload_${Date.now()}.${ext}`;
             const file = new File([blob], fname, { type: mimeType });
-            
+
             const formData = new FormData();
             formData.append('files', file); // CDN server dùng multer.array('files')
 
@@ -81,7 +81,7 @@ export class GenaiService {
             }
 
             const result = await response.json();
-            
+
             // Server trả về { url: "origin/public/filename", filename: "timestamp.ext" }
             if (result?.filename) {
                 const cdnUrl = `https://cdn1.type.vn/public/${result.filename}`;
@@ -124,7 +124,7 @@ export class GenaiService {
             }
 
             const settings = settingsRaw;
-            
+
             // Cập nhật cấu hình Mì Tôm AI
             this._enableUmodelverse = settings.enableUmodelverse === true;
             this._umodelverseUrl = settings.umodelverseUrl?.trim() || '';
@@ -132,7 +132,7 @@ export class GenaiService {
             this._umodelverseChatModel = settings.umodelverseChatModel?.trim() || '';
             this._umodelverseImageModel = settings.umodelverseImageModel?.trim() || '';
             this._umodelverseVideoModel = settings.umodelverseVideoModel?.trim() || '';
-            
+
             // Nếu umodelverseUrl bị thiếu giao thức, thêm vào (mặc định https)
             if (this._umodelverseUrl && !this._umodelverseUrl.startsWith('http')) {
                 this._umodelverseUrl = 'https://' + this._umodelverseUrl;
@@ -210,11 +210,11 @@ export class GenaiService {
         this.syncConfigFromStorage();
 
         // Restore model compatibility with existing UModelverse config
-        if (params.model === 'gemini-3-flash-preview') {
-            params.model = 'gemini-3-flash-preview';
+        if (params.model === 'gemini-2.5-flash') {
+            params.model = 'gemini-2.5-flash';
         } else if (
-            params.model === 'gemini-3.1-flash-image-preview' || 
-            params.model === 'imagen-3.0-generate-001' || 
+            params.model === 'gemini-3.1-flash-image-preview' ||
+            params.model === 'imagen-3.0-generate-001' ||
             params.model === 'gemini-3-pro-image-preview' ||
             params.model?.includes('image') ||
             params.model?.includes('imagen')
@@ -231,7 +231,7 @@ export class GenaiService {
             } else {
                 const settingsRaw = this.multiAccountService.getItem('settings');
                 const keys = settingsRaw?.secretKey ? settingsRaw.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
-                
+
                 if (keys.length === 0) {
                     console.error("API Key is missing in localStorage.");
                     throw new Error("API Key không hợp lệ hoặc chưa được cấu hình.");
@@ -253,10 +253,22 @@ export class GenaiService {
                         if (key !== this._currentKey || !aiInstance) {
                             aiInstance = new GoogleGenAI({ apiKey: key });
                         }
-                        
+
                         // Thử gọi API
-                        const result = await aiInstance.models.generateContent(params);
-                        
+                        let result;
+                        try {
+                            result = await aiInstance.models.generateContent(params);
+                        } catch (apiError: any) {
+                            const errStr = String(apiError);
+                            if (errStr.includes('503') || errStr.includes('high demand') || errStr.includes('UNAVAILABLE')) {
+                                console.warn(`[Fallback] Model ${params.model} bị quá tải (503), đang tự động chuyển sang gemini-2.0-flash...`);
+                                const fallbackParams = { ...params, model: 'gemini-2.0-flash' };
+                                result = await aiInstance.models.generateContent(fallbackParams);
+                            } else {
+                                throw apiError;
+                            }
+                        }
+
                         // Nếu thành công thì lưu lại key này làm key mặc định cho các lượt tiếp theo
                         if (key !== this._currentKey) {
                             this._currentKey = key;
@@ -317,7 +329,7 @@ export class GenaiService {
                 for (const content of params.contents) {
                     const role = (content as any).role === 'model' ? 'assistant' : 'user';
                     const parts = (content as any).parts;
-                    
+
                     if (parts && parts.length === 1 && parts[0].text && !parts[0].inlineData) {
                         messages.push({ role, content: parts[0].text });
                     } else if (parts && parts.length > 0) {
@@ -354,7 +366,7 @@ export class GenaiService {
             }
         }
 
-        const overrideModel = params.model === 'gemini-3-flash-preview' ? null : params.model;
+        const overrideModel = params.model === 'gemini-2.5-flash' ? null : params.model;
         const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
         const config = getTextModelConfig(targetModel);
 
@@ -481,16 +493,16 @@ export class GenaiService {
         }
 
         return {
-            get text() { 
+            get text() {
                 if ((finishReason === 'length' || finishReason === 'max_tokens') && !replyText) {
                     throw new Error(`Model ${targetModel} đã đạt giới hạn độ dài (max tokens) trong quá trình suy luận và bị ngắt giữa chừng. Hãy dùng một model khác (VD: gpt-4o, claude-3-5-sonnet) cho kịch bản dài này.`);
                 }
-                return replyText; 
+                return replyText;
             },
             candidates: [
                 {
                     content: {
-                        parts: [ { text: replyText } ],
+                        parts: [{ text: replyText }],
                         role: 'model'
                     }
                 }
@@ -514,7 +526,7 @@ export class GenaiService {
                     .filter((p: any) => p.text)
                     .map((p: any) => p.text)
                     .join(' ');
-                
+
                 // Trích xuất ảnh gốc (nếu có) để gửi cho các model hỗ trợ Image-to-Image qua chuẩn OpenAI
                 const imgPart = firstContent.parts.find((p: any) => p.inlineData);
                 if (imgPart && imgPart.inlineData) {
@@ -541,7 +553,7 @@ export class GenaiService {
         }
 
         let activeModel = params.model || 'dall-e-3';
-        
+
         // Auto-correct model names for UModelverse / Astraflow
         if (activeModel === 'gemini-3-pro-image') {
             activeModel = 'gemini-3-pro-image-preview'; // Sửa theo chuẩn tên phổ biến nhất của Google
@@ -550,54 +562,54 @@ export class GenaiService {
         // --- XỬ LÝ RIÊNG CHO GEMINI MODELS BẰNG GEMINI COMPATIBLE INTERFACE ---
         if (activeModel.includes('gemini')) {
             console.log(`[UModelverse Image] Dùng Gemini Compatible Interface cho model: ${activeModel}`);
-            
+
             // Chuyển đổi url từ /v1 sang /v1beta để gọi API Gemini chuẩn của proxy
             let baseUrl = url.replace(/\/v1\/?$/, '');
             const geminiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent`;
-            
+
             try {
                 const geminiBody: any = {
-                contents: [
-                    {
-                        parts: [{ text: promptText }]
-                    }
-                ]
-            };
+                    contents: [
+                        {
+                            parts: [{ text: promptText }]
+                        }
+                    ]
+                };
 
-            // Cập nhật generationConfig chuẩn
-            geminiBody.generationConfig = {
-                responseModalities: ["IMAGE"],
-                imageConfig: {}
-            };
+                // Cập nhật generationConfig chuẩn
+                geminiBody.generationConfig = {
+                    responseModalities: ["IMAGE"],
+                    imageConfig: {}
+                };
 
-            // Nếu user có setting configRatio
-            if (configRatio) {
-                geminiBody.generationConfig.imageConfig.aspectRatio = String(configRatio).trim();
+                // Nếu user có setting configRatio
+                if (configRatio) {
+                    geminiBody.generationConfig.imageConfig.aspectRatio = String(configRatio).trim();
+                }
+
+                const geminiResponse = await fetch(geminiUrl, {
+                    method: 'POST',
+                    headers, // Giữ nguyên Authorization Bearer proxy key
+                    body: JSON.stringify(geminiBody)
+                });
+
+                const geminiResponseText = await geminiResponse.text();
+                let geminiData: any = {};
+                try {
+                    geminiData = JSON.parse(geminiResponseText);
+                } catch (e) {
+                    throw new Error(`Proxy trả về dữ liệu không hợp lệ (Mã lỗi ${geminiResponse.status})`);
+                }
+
+                if (geminiResponse.ok && geminiData.candidates && geminiData.candidates.length > 0) {
+                    console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
+                    return geminiData;
+                } else {
+                    console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại, tự động chuyển sang OpenAI Compatible Interface. Lỗi:`, geminiData?.error?.message || geminiResponse.status);
+                }
+            } catch (e: any) {
+                console.warn(`[UModelverse Image] Lỗi khi gọi Gemini Interface, chuyển sang OpenAI Interface:`, e.message);
             }
-
-            const geminiResponse = await fetch(geminiUrl, {
-                method: 'POST',
-                headers, // Giữ nguyên Authorization Bearer proxy key
-                body: JSON.stringify(geminiBody)
-            });
-
-            const geminiResponseText = await geminiResponse.text();
-            let geminiData: any = {};
-            try {
-                geminiData = JSON.parse(geminiResponseText);
-            } catch (e) {
-                throw new Error(`Proxy trả về dữ liệu không hợp lệ (Mã lỗi ${geminiResponse.status})`);
-            }
-            
-            if (geminiResponse.ok && geminiData.candidates && geminiData.candidates.length > 0) {
-                console.log(`[UModelverse Image] Tạo ảnh thành công bằng Gemini Compatible Interface!`);
-                return geminiData;
-            } else {
-                console.warn(`[UModelverse Image] Gemini Compatible Interface thất bại, tự động chuyển sang OpenAI Compatible Interface. Lỗi:`, geminiData?.error?.message || geminiResponse.status);
-            }
-        } catch(e: any) {
-             console.warn(`[UModelverse Image] Lỗi khi gọi Gemini Interface, chuyển sang OpenAI Interface:`, e.message);
-        }
         }
         // --- KẾT THÚC XỬ LÝ GEMINI ---
 
@@ -672,9 +684,9 @@ export class GenaiService {
 
                 if (response.ok) {
                     console.log(`[UModelverse Image] Cấu hình request ${i} thành công!`);
-                    
+
                     let b64 = data.data?.[0]?.b64_json;
-                    
+
                     // Nếu không có b64_json nhưng trả về url, tải ảnh từ URL và chuyển sang base64
                     if (!b64 && data.data?.[0]?.url) {
                         const imageUrl = data.data[0].url;
@@ -723,7 +735,7 @@ export class GenaiService {
                 } else {
                     lastErrorMsg = (data?.error && data.error.message) || `HTTP Error: ${response.status}`;
                     console.warn(`[UModelverse Image] Cấu hình request ${i} thất bại:`, lastErrorMsg);
-                    
+
                     // Nếu lỗi do model không tồn tại thì không cần thử các format payload nữa, break ra để fallback model
                     if (lastErrorMsg.includes('does not exist') || lastResponseStatus === 404) {
                         break;
@@ -756,17 +768,17 @@ export class GenaiService {
                         const lid = id.toLowerCase();
                         return (lid.includes('flux') || lid.includes('dall') || lid.includes('sdxl') || lid.includes('stable-diffusion') || lid.includes('playground') || lid.includes('art') || lid.includes('mj') || lid.includes('midjourney')) && id !== activeModel;
                     });
-                    
+
                     if (alternativeModel) {
                         console.log(`[UModelverse Image Fallback] Tìm thấy model thay thế: '${alternativeModel}'. Bắt đầu thử tạo lại với payload cơ bản...`);
-                        
+
                         const retryBody = {
                             model: alternativeModel,
                             prompt: promptText,
                             n: 1,
                             size: size
                         };
-                        
+
                         const retryResponse = await fetch(`${url}/images/generations`, {
                             method: 'POST',
                             headers,
@@ -776,8 +788,8 @@ export class GenaiService {
                         let retryData: any = {};
                         try {
                             retryData = JSON.parse(retryText);
-                        } catch(e) {}
-                        
+                        } catch (e) { }
+
                         if (retryResponse.ok) {
                             let b64 = retryData.data?.[0]?.b64_json;
                             if (!b64 && retryData.data?.[0]?.url) {
@@ -839,11 +851,11 @@ export class GenaiService {
         overrideModel?: string
     ): Promise<string> {
         this.syncConfigFromStorage();
-        
+
         const url = this._umodelverseUrl;
         const key = this._umodelverseKey;
         const model = overrideModel || this._umodelverseVideoModel || 'cogvideox-5b';
-        
+
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${key}`
@@ -863,17 +875,17 @@ export class GenaiService {
                 if (modelsData && Array.isArray(modelsData.data)) {
                     const modelIds = modelsData.data.map((m: any) => m.id);
                     console.log("[UModelverse] Danh sách model được hỗ trợ trên API proxy:", modelIds);
-                    
+
                     const isSupported = modelIds.includes(model);
                     if (!isSupported) {
-                        const videoModels = modelIds.filter((id: string) => 
-                            id.toLowerCase().includes('video') || 
-                            id.toLowerCase().includes('veo') || 
-                            id.toLowerCase().includes('cog') || 
-                            id.toLowerCase().includes('kling') || 
-                            id.toLowerCase().includes('luma') || 
-                            id.toLowerCase().includes('vidu') || 
-                            id.toLowerCase().includes('wan') || 
+                        const videoModels = modelIds.filter((id: string) =>
+                            id.toLowerCase().includes('video') ||
+                            id.toLowerCase().includes('veo') ||
+                            id.toLowerCase().includes('cog') ||
+                            id.toLowerCase().includes('kling') ||
+                            id.toLowerCase().includes('luma') ||
+                            id.toLowerCase().includes('vidu') ||
+                            id.toLowerCase().includes('wan') ||
                             id.toLowerCase().includes('sora') ||
                             id.toLowerCase().includes('mimo') ||
                             id.toLowerCase().includes('runway')
@@ -895,8 +907,8 @@ export class GenaiService {
         let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
             // Lấy START_FRAME hoặc STORYBOARD. Nếu không có, lấy CONTROL_IMAGE làm fallback.
-            const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD') 
-                          || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE');
+            const startImg = referenceImages.find(img => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD')
+                || referenceImages.find(img => img.referenceType === 'CONTROL_IMAGE');
             if (startImg) {
                 refBase64Raw = startImg.image?.imageBytes || (typeof startImg === 'string' ? startImg : '');
                 if (refBase64Raw && !refBase64Raw.startsWith('data:')) {
@@ -926,7 +938,7 @@ export class GenaiService {
                     endRefMimeType = endRefBase64Raw.substring(5, endRefBase64Raw.indexOf(';'));
                     endRefBase64Raw = endRefBase64Raw.split(',')[1];
                 }
-                
+
                 // Nếu là video, ép buộc upload lên CDN lấy URL vì API thường không nhận Base64 cho video quá nặng
                 if (endImg.referenceType === 'REFERENCE_VIDEO') {
                     try {
@@ -975,24 +987,24 @@ export class GenaiService {
             if (config.payloadFormat === 'kling_v3_omni') {
                 let klingImageList: any[] = [];
                 let modifiedPrompt = prompt;
-                
+
                 if (referenceImages && referenceImages.length > 0) {
                     for (const ref of referenceImages) {
                         let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
-                        let imgForUpload = imgRaw; 
+                        let imgForUpload = imgRaw;
                         if (imgRaw.startsWith('data:')) {
                             imgRaw = imgRaw.split(',')[1];
                         }
-                        
+
                         const sizeKB = Math.round(imgRaw.length / 1024);
                         if (sizeKB / 1024 > 10) continue;
-                        
+
                         let imageUrl: string = imgRaw;
                         try {
                             const cdnUrl = await this.uploadBase64ToCdn(imgForUpload, `kling_${ref.referenceType || 'ref'}_${Date.now()}.jpg`);
                             if (cdnUrl) imageUrl = cdnUrl;
-                        } catch (uploadErr) {}
-                        
+                        } catch (uploadErr) { }
+
                         if (ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD') {
                             klingImageList.push({ image_url: imageUrl, type: "first_frame" });
                         } else if (ref.referenceType === 'END_FRAME') {
@@ -1009,7 +1021,7 @@ export class GenaiService {
                         }
                     }
                 }
-                
+
                 payload = {
                     model: model,
                     input: { prompt: modifiedPrompt },
@@ -1019,7 +1031,7 @@ export class GenaiService {
                         ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
                 };
-                
+
                 if (klingImageList.length > 0) {
                     payload.parameters.image_list = klingImageList;
                 }
@@ -1099,7 +1111,7 @@ export class GenaiService {
                 if (prompt) {
                     contentArr.push({ type: 'text', text: prompt });
                 }
-                
+
                 if (referenceImages && referenceImages.length > 0) {
                     for (const ref of referenceImages) {
                         let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
@@ -1125,7 +1137,7 @@ export class GenaiService {
                         contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` }, role: 'last_frame' });
                     }
                 }
-                
+
                 let parsedSeed = undefined;
                 if (seed !== undefined && seed !== null && String(seed).trim() !== '') {
                     const num = Number(seed);
@@ -1133,7 +1145,7 @@ export class GenaiService {
                         parsedSeed = num;
                     }
                 }
-                
+
                 payload = {
                     model: model,
                     input: { content: contentArr },
@@ -1276,7 +1288,7 @@ export class GenaiService {
         let taskId = '';
         let taskEndpointUsed = '';
         let lastErrorMsg = '';
-        
+
         const taskEndpoints = [
             `${url}/tasks/submit`,
             `${url}/tasks`,
@@ -1289,7 +1301,7 @@ export class GenaiService {
             for (let i = 0; i < candidateTaskRequests.length; i++) {
                 if (taskId) break;
                 const currentBody = candidateTaskRequests[i];
-                
+
                 // DEBUG: Gửi payload sang CDN server để log (vì DevTools bị khóa)
                 try {
                     await fetch('https://cdn1.type.vn/debug-log', {
@@ -1304,7 +1316,7 @@ export class GenaiService {
                         })
                     });
                 } catch (debugErr) { /* ignore debug errors */ }
-                
+
                 console.log(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
                 try {
                     const response = await fetch(endpoint, {
@@ -1312,9 +1324,9 @@ export class GenaiService {
                         headers,
                         body: JSON.stringify(currentBody)
                     });
-                    
+
                     const responseText = await response.text();
-                    
+
                     // DEBUG: Log response
                     try {
                         await fetch('https://cdn1.type.vn/debug-log', {
@@ -1330,11 +1342,11 @@ export class GenaiService {
                             })
                         });
                     } catch (debugErr) { /* ignore */ }
-                    
+
                     if (response.ok) {
                         let data: any;
                         try { data = JSON.parse(responseText); } catch { data = {}; }
-                        
+
                         // Kiểm tra response OK nhưng body chứa lỗi
                         const errorInBody = data?.message || data?.error?.message || data?.output?.error_message || '';
                         if (errorInBody && errorInBody.toLowerCase().includes('error')) {
@@ -1342,7 +1354,7 @@ export class GenaiService {
                             lastErrorMsg = errorInBody;
                             continue; // Thử payload tiếp theo
                         }
-                        
+
                         const idVal = data.task_id || data.id || data.output?.task_id || data.data?.task_id || data.data?.id;
                         if (idVal) {
                             taskId = idVal;
@@ -1353,7 +1365,7 @@ export class GenaiService {
                     } else {
                         console.error(`[Task Failed] Endpoint ${endpoint} trả về HTTP ${response.status}:`, responseText);
                         lastErrorMsg = responseText;
-                        
+
                         // Nếu là lỗi an toàn/nhạy cảm, ném lỗi luôn không thử các payload/endpoint khác nữa
                         const errStr = responseText.toLowerCase();
                         if (errStr.includes('sensitive') || errStr.includes('privacyinformation') || errStr.includes('real person') || errStr.includes('violate') || errStr.includes('safety')) {
@@ -1375,7 +1387,7 @@ export class GenaiService {
             console.log(`[UModelverse Poll] Bắt đầu kiểm tra trạng thái video sinh từ Task ID: ${taskId}...`);
             const maxPolls = 120; // Chờ tối đa 10 phút (120 * 5s)
             let pollCount = 0;
-            
+
             // Xây dựng các format URL check status
             let checkUrl = taskEndpointUsed.includes('/tasks/submit') || taskEndpointUsed.includes('/tasks')
                 ? `${url}/tasks/status?task_id=${taskId}`
@@ -1386,7 +1398,7 @@ export class GenaiService {
                 console.log(`[Poll Attempt ${pollCount}/${maxPolls}] Querying: ${checkUrl}`);
                 try {
                     let response = await fetch(checkUrl, { method: 'GET', headers });
-                    
+
                     // Fallback thử cả dạng path param /tasks/:id nếu bị 404
                     if (!response.ok) {
                         const fallbackUrl = `${url}/tasks/${taskId}`;
@@ -1397,9 +1409,9 @@ export class GenaiService {
                     if (response.ok) {
                         const data = await response.json();
                         const statusVal = (data.task_status || data.status || data.state || data.data?.status || data.data?.task_status || data.output?.status || data.output?.task_status || '').toLowerCase();
-                        
+
                         console.log(`[Poll Response] Task status: ${statusVal}`);
-                        
+
                         // Debug log mỗi 6 poll (30s) để không spam
                         if (pollCount % 6 === 1) {
                             try {
@@ -1429,7 +1441,7 @@ export class GenaiService {
                             }
                         } else if (statusVal === 'failed' || statusVal === 'failure' || statusVal === 'error') {
                             let errMessage = data.error_message || data.output?.error_message || data.error?.message || data.output?.error || data.message || "Task thất bại.";
-                            
+
                             if (typeof errMessage === 'string') {
                                 if (errMessage.toLowerCase().includes('violate') || errMessage.toLowerCase().includes('safety')) {
                                     errMessage = "Nội dung vi phạm tiêu chuẩn an toàn của AI (bạo lực, nhạy cảm...). Vui lòng thử từ khoá khác.";
@@ -1449,7 +1461,7 @@ export class GenaiService {
                         throw err;
                     }
                 }
-                
+
                 await new Promise(resolve => setTimeout(resolve, 5000));
             }
             throw new Error(`Quá thời gian chờ tạo video qua proxy (10 phút). Task ID: ${taskId}`);
@@ -1464,7 +1476,7 @@ export class GenaiService {
 
         // --- BƯỚC 2: FALLBACK SANG CƠ CHẾ SYNCHRONOUS TRUYỀN THỐNG (IMAGES/GENERATIONS) ---
         console.log(`[UModelverse Sync Fallback] Không tìm thấy hoặc lỗi tạo Asynchronous Task. Fallback qua /images/generations...`);
-        
+
         let sizeVal = '1280x720';
         if (aspectRatio === '9:16') {
             sizeVal = '720x1280';

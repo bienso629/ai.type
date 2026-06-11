@@ -682,7 +682,7 @@ KHÔNG DÙNG MARKDOWN. KHÔNG ĐÓNG DẤU \`\`\`html hoặc \`\`\` quanh bài v
 Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạn".`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
             let responseText = response.text || '';
@@ -840,7 +840,7 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
             document.head.appendChild(printStyle);
 
             this.toastr.info('Đang kết xuất báo cáo thành File PDF Vector...');
-            
+
             // 4. Gửi lệnh qua Electron để tiến hành kêt xuất PDF Native (Chromium)
             await (window as any).electron.exportGscPdf({
                 siteUrl: this.siteUrl,
@@ -854,7 +854,7 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
             darkElements.forEach(el => el.classList.add('dark'));
             htmlTag.style.backgroundColor = originalHtmlBg;
             bodyTag.style.backgroundColor = originalBodyBg;
-            
+
             this.toastr.success('✅ Đã xuất File Báo Cáo thành công!');
 
         } catch (e: any) {
@@ -926,7 +926,7 @@ Với mỗi từ khóa, hãy:
 Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiểu cho marketer.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3-flash-preview',
+                model: 'gemini-2.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 

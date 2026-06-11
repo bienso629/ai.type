@@ -177,7 +177,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
      */
     statistic() {
         if (!this.user) return;
-        
+
         this._chatGPTService
             .total({
                 username: this.user.name
@@ -264,7 +264,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         const start = this.apiFetchedCount;
                         let newTotal = this.totalElements || 0;
                         const apiPageSize = 25;
-                        
+
                         if (docs.length < apiPageSize) {
                             newTotal = start + docs.length;
                         } else if (start + docs.length > newTotal) {
@@ -285,10 +285,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                         const rows = [...this.chatgpt2s];
                         rows.splice(start, docs.length, ...docs);
-                        
+
                         this.chatgpt2s = rows;
                         this.apiFetchedCount += docs.length;
-                        
+
                         if (isCouchDB) {
                             this.currentBookmark = bookmark;
                         } else if (docs.length > 0) {
@@ -335,7 +335,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
 
                     const result = await this._genaiService.generateContent({
-                        model: 'gemini-3-flash-preview',
+                        model: 'gemini-2.5-flash',
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
 
