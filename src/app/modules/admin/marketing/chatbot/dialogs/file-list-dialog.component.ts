@@ -23,7 +23,7 @@ export class FileListDialogComponent implements AfterViewInit {
 
     username: string = '';
     google_api_key: string = '';
-    llm_model: string = "gemini-2.5-flash";
+    llm_model: string = "gemini-3.5-flash";
     index_dir: string = `faiss_pdf_index`;
 
     // THÊM: Các biến quản lý thanh tiến trình

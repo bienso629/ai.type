@@ -42,6 +42,7 @@ import { GenaiService } from 'app/genai.service';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
 import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech/ai-text2speech.component';
+import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/tools/video-timeline-dialog.component';
 import { CopyPasteDialog } from 'app/modules/admin/content/ai-writer/tools/copy-paste-dialog';
 import { GeminiImageDialog } from 'app/modules/admin/content/ai-writer/tools/gemini-image-dialog';
 import { WordDataDialog } from 'app/modules/admin/content/ai-writer/tools/word-data-dialog';
@@ -615,7 +616,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -1151,7 +1152,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                                 // Call AI to generate content
                                 const response = await this._genaiService.generateContent({
-                                    model: 'gemini-2.5-flash',
+                                    model: 'gemini-3.5-flash',
                                     contents: [{ role: 'user', parts: parts }],
                                 });
 
@@ -1399,7 +1400,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // Call AI to generate content
                 const response = await this._genaiService.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3.5-flash',
                     contents: [{ role: 'user', parts: parts }],
                 });
 
@@ -1775,7 +1776,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: [{ role: 'user', parts: parts }]
             });
 
@@ -1893,7 +1894,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -2469,6 +2470,96 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     /**
      * Xoá một đoạn văn
      */
+    async editVideo(item: any) {
+        let localFilePath = this.removeHTML.transform(item);
+        if (!localFilePath || typeof localFilePath !== 'string') return;
+        localFilePath = localFilePath.trim();
+
+        let fileUrl = localFilePath;
+
+        // Nếu là URL web, tìm file local trong thư mục Downloads/AI.TYPING
+        if (localFilePath.startsWith('http')) {
+            let electronApi = null;
+            if (window && (window as any).electron) {
+                electronApi = (window as any).electron;
+            }
+            if (electronApi) {
+                const foundPath = await electronApi.invoke('find-latest-analyzed-video');
+                if (foundPath) {
+                    fileUrl = foundPath;
+                } else {
+                    this.toastr.warning('Không tìm thấy video đã tải về. Vui lòng chọn thủ công.');
+                    const manualPath = await electronApi.invoke('select-video-file');
+                    if (manualPath) {
+                        fileUrl = manualPath;
+                    } else {
+                        return; // User cancelled
+                    }
+                }
+            } else {
+                this.toastr.error('Chỉ hỗ trợ trên ứng dụng Desktop.');
+                return;
+            }
+        }
+
+        // Ensure localFilePath has file:// protocol
+        if (!fileUrl.startsWith('file://')) {
+            fileUrl = `file://${fileUrl.replace(/\\/g, '/')}`;
+        }
+
+        // Lấy thời lượng thực tế của video
+        let actualDuration = 5;
+        try {
+            actualDuration = await new Promise<number>((resolve) => {
+                const video = document.createElement('video');
+                video.onloadedmetadata = () => {
+                    resolve(video.duration);
+                };
+                video.onerror = () => {
+                    resolve(5); // fallback
+                };
+                video.src = fileUrl;
+            });
+        } catch (e) {
+            actualDuration = 5;
+        }
+
+        const randomUuid = uuid.v4();
+        const projectData = {
+            uuid: randomUuid,
+            aspectRatio: '16:9',
+            scenes: [
+                {
+                    videos: [
+                        {
+                            id: 1,
+                            videoUrl: fileUrl,
+                            duration: actualDuration,
+                            maxDuration: actualDuration
+                        }
+                    ]
+                }
+            ]
+        };
+
+        this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
+
+        const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
+            width: '100vw',
+            maxWidth: '100vw',
+            height: '100vh',
+            maxHeight: '100vh',
+            panelClass: 'full-screen-dialog',
+            data: {
+                uuid: randomUuid,
+                projectData: projectData,
+                audioList: [],
+                videoFormat: 'video'
+            },
+            disableClose: true,
+        });
+    }
+
     clearitem(i: number, data?: any, backup?: string) {
         if (data) {
             this.trash.push(data[i]);

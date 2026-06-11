@@ -1353,7 +1353,7 @@ ipcMain.handle('transcribe-system-audio', async (event, payload) => {
 
     try {
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-3.5-flash" });
 
         const base64Data = fs.readFileSync(audioPath).toString("base64");
 
@@ -1663,6 +1663,8 @@ function createMainWindow() {
             preload: resolvePreload(),
         },
     });
+
+    mainWindow.maximize();
 
     const targetURL = "http://localhost:4200";
     const fallbackURL = `http://localhost:${fallbackPort}`;
@@ -2274,7 +2276,7 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         });
 
         const completion = await openai.chat.completions.create({
-            model: "gemini-2.5-flash",
+            model: "gemini-3.5-flash",
             messages: [
                 { role: "system", content: "You are a helpful assistant. Extract and format the content from the provided PDF document into a structured JSON array representing sections or paragraphs. Output ONLY valid JSON array. Do not include markdown tags like ```json" },
                 {
@@ -3942,7 +3944,7 @@ app.whenReady().then(async () => {
                     const apiKey = "AIzaSyAKUojwbty61HGbsL4rCm4Wby2ujggVm-0";
                     const genAI = new GoogleGenerativeAI(apiKey);
                     const model = genAI.getGenerativeModel({
-                        model: "gemini-2.5-flash",
+                        model: "gemini-3.5-flash",
                     });
 
                     createTargetWindow(
@@ -5128,6 +5130,36 @@ ipcMain.handle('select-video-file', async (event) => {
     return null;
 });
 
+ipcMain.handle('find-latest-analyzed-video', async (event) => {
+    try {
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            return null;
+        }
+        
+        const files = fs.readdirSync(aiTypingDir);
+        let latestFile = null;
+        let latestTime = 0;
+        
+        for (const file of files) {
+            if (file.startsWith('analyze_video_') && file.match(/\.(mp4|mkv|avi|mov|webm|flv)$/i)) {
+                const filePath = path.join(aiTypingDir, file);
+                const stats = fs.statSync(filePath);
+                if (stats.mtimeMs > latestTime) {
+                    latestTime = stats.mtimeMs;
+                    latestFile = filePath;
+                }
+            }
+        }
+        
+        return latestFile;
+    } catch (e) {
+        console.error('Error finding latest analyzed video:', e);
+        return null;
+    }
+});
+
 // =====================================================================
 // IPC HANDLER: TẢI VÀ PHÂN TÍCH VIDEO OFFLINE BẰNG YT-DLP VÀ FFMPEG
 // =====================================================================
@@ -5411,6 +5443,67 @@ ipcMain.handle('extract-last-frame', async (event, videoPath) => {
                 }
             });
         });
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('trim-video', async (event, payload) => {
+    try {
+        let { videoUrl, trimStart, duration } = payload;
+        
+        // Remove file://
+        const videoPath = videoUrl.replace('file://', '');
+        if (!fs.existsSync(videoPath)) {
+            return { success: false, error: 'File gốc không tồn tại: ' + videoPath };
+        }
+
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+        const dir = path.dirname(videoPath);
+        const ext = path.extname(videoPath);
+        const baseName = path.basename(videoPath, ext);
+        const timestamp = new Date().getTime();
+        const outputPath = path.join(dir, `${baseName}_trimmed_${timestamp}${ext}`);
+
+        const args = [
+            '-ss', trimStart.toString(),
+            '-i', videoPath,
+            '-t', duration.toString(),
+            '-c:v', 'libx264',
+            '-c:a', 'aac',
+            '-preset', 'fast',
+            '-y',
+            outputPath
+        ];
+
+        return new Promise((resolve) => {
+            const child = spawn(ffmpegPath, args);
+            
+            child.on('close', (code) => {
+                if (code === 0 && fs.existsSync(outputPath)) {
+                    resolve({ success: true, path: outputPath });
+                } else {
+                    resolve({ success: false, error: `FFmpeg process exited with code ${code}` });
+                }
+            });
+            
+            child.on('error', (err) => {
+                resolve({ success: false, error: err.message });
+            });
+        });
+
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('open-external', async (event, targetPath) => {
+    try {
+        if (fs.existsSync(targetPath)) {
+            shell.showItemInFolder(targetPath);
+            return { success: true };
+        }
+        return { success: false, error: 'File không tồn tại' };
     } catch (e) {
         return { success: false, error: e.message };
     }

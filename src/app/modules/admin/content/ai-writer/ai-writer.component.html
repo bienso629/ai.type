@@ -14,7 +14,8 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <a class="ml-1 text-base text-primary-500 cursor-pointer" href="javascript:history.back()">công việc đang làm của
+                    <a class="ml-1 text-base text-primary-500 cursor-pointer" href="javascript:history.back()">công việc
+                        đang làm của
                         bạn</a>
                 </div>
                 <div class="flex items-center ml-1 whitespace-nowrap relative">
@@ -34,7 +35,8 @@
                 </div>
             </div>
             <div class="flex sm:hidden">
-                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer" href="javascript:history.back()">
+                <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer"
+                    href="javascript:history.back()">
                     <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
                     <span class="ml-1 text-base">quay lại</span>
                 </a>
@@ -831,7 +833,8 @@
                                         </div>
                                     </mat-expansion-panel>
 
-                                    <mat-expansion-panel [expanded]="expanded" tabindex="0" class="focus:outline-none" (paste)="onPaste($event)">
+                                    <mat-expansion-panel [expanded]="expanded" tabindex="0" class="focus:outline-none"
+                                        (paste)="onPaste($event)">
                                         <mat-expansion-panel-header #panelH5>
                                             <mat-panel-title (click)="panelH5._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-green-500"
@@ -922,21 +925,25 @@
                                                 <mat-label class="font-semibold">Biến Video thành Bài
                                                     ({{source.playlist[0].youtube.length}})</mat-label>
 
-                                                <div class="ml-auto flex items-center justify-end" (click)="$event.stopPropagation()">
-                                                    <span class="text-xs font-medium text-gray-500 mr-2">Tần suất cắt ảnh:</span>
-                                                    <input type="number" [(ngModel)]="videoExtractInterval" min="0.1" max="60" step="0.5" class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
+                                                <div class="ml-auto flex items-center justify-end"
+                                                    (click)="$event.stopPropagation()">
+                                                    <span class="text-xs font-medium text-gray-500 mr-2">Tần suất cắt
+                                                        ảnh:</span>
+                                                    <input type="number" [(ngModel)]="videoExtractInterval" min="0.1"
+                                                        max="60" step="0.5"
+                                                        class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
                                                     <span class="text-xs text-gray-500 mr-4">giây/frame</span>
                                                 </div>
 
                                                 <button mat-icon-button class="icon-size-8"
-                                                    (click)="insertVideoUrl(); $event.stopPropagation()" matTooltipPosition="above"
-                                                    matTooltip="Thêm link Youtube/Facebook">
+                                                    (click)="insertVideoUrl(); $event.stopPropagation()"
+                                                    matTooltipPosition="above" matTooltip="Thêm link Youtube/Facebook">
                                                     <mat-icon class="icon-size-4 text-blue-500"
                                                         [svgIcon]="'feather:link'"></mat-icon>
                                                 </button>
                                                 <button mat-icon-button class="icon-size-8"
-                                                    (click)="insertVideo(); $event.stopPropagation()" matTooltipPosition="above"
-                                                    matTooltip="Thêm video mới">
+                                                    (click)="insertVideo(); $event.stopPropagation()"
+                                                    matTooltipPosition="above" matTooltip="Thêm video mới">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -944,11 +951,16 @@
                                         </mat-expansion-panel-header>
 
                                         <!-- Form nhập link -->
-                                        <div *ngIf="showInputUrl" class="flex flex-row items-center p-3 border-b mb-2 bg-slate-50 rounded">
-                                            <mat-form-field class="flex-1 fuse-mat-dense m-0" [subscriptSizing]="'dynamic'">
-                                                <input matInput [(ngModel)]="videoUrl" placeholder="Nhập đường dẫn Youtube hoặc Facebook..." (keydown.enter)="insertVideoUrlSubmit()">
+                                        <div *ngIf="showInputUrl"
+                                            class="flex flex-row items-center p-3 border-b mb-2 bg-slate-50 rounded">
+                                            <mat-form-field class="flex-1 fuse-mat-dense m-0"
+                                                [subscriptSizing]="'dynamic'">
+                                                <input matInput [(ngModel)]="videoUrl"
+                                                    placeholder="Nhập đường dẫn Youtube hoặc Facebook..."
+                                                    (keydown.enter)="insertVideoUrlSubmit()">
                                             </mat-form-field>
-                                            <button mat-flat-button color="primary" class="ml-4" (click)="insertVideoUrlSubmit()">Thêm Link</button>
+                                            <button mat-flat-button color="primary" class="ml-4"
+                                                (click)="insertVideoUrlSubmit()">Thêm Link</button>
                                         </div>
 
                                         <div cdkDropList #sourceYoutubeList="cdkDropList"
@@ -966,14 +978,16 @@
                                                             class="flex flex-row items-center h-7 px-3 rounded-full text-sm leading-7 cursor-pointer mx-1"
                                                             (click)="retryConvertVideo2Post(item, i)"
                                                             [ngClass]="{'bg-gray-200 hover:bg-grey-300': job?.status !== 'done', 'bg-primary-400 hover:bg-primary-500 text-white': job?.status === 'done'}">
-                                                            <mat-progress-spinner
-                                                                *ngIf="job?.status !== 'done'"
+                                                            <mat-progress-spinner *ngIf="job?.status !== 'done'"
                                                                 [diameter]="16" [strokeWidth]="2"
                                                                 [mode]="'indeterminate'"
                                                                 class="mr-2"></mat-progress-spinner>
-                                                            <span *ngIf="job?.status_step && job?.status !== 'done'" class="mr-2 font-medium">{{ job?.status_step }}</span>
-                                                            <span *ngIf="job?.status === 'done'" class="mr-2 font-medium">Hoàn tất</span>
-                                                            <mat-icon *ngIf="job?.status === 'done'" class="icon-size-4" svgIcon="feather:check"></mat-icon>
+                                                            <span *ngIf="job?.status_step && job?.status !== 'done'"
+                                                                class="mr-2 font-medium">{{ job?.status_step }}</span>
+                                                            <span *ngIf="job?.status === 'done'"
+                                                                class="mr-2 font-medium">Hoàn tất</span>
+                                                            <mat-icon *ngIf="job?.status === 'done'" class="icon-size-4"
+                                                                svgIcon="feather:check"></mat-icon>
                                                         </mat-label>
                                                     </div>
                                                 </ng-container>
@@ -994,6 +1008,12 @@
                                                                 svgIcon="feather:file-text"></mat-icon>
                                                             <span>Phân tích video</span>
                                                         </button>
+                                                        <button mat-menu-item [color]="'primary'" type="button"
+                                                            (click)="editVideo(item)">
+                                                            <mat-icon class="icon-size-4"
+                                                                svgIcon="feather:edit"></mat-icon>
+                                                            <span>Chỉnh sửa Video</span>
+                                                        </button>
                                                         <button mat-menu-item [cdkCopyToClipboard]="item | removeHTML"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
@@ -1011,13 +1031,13 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa video</span>
+                                                            <span>Chỉnh sửa link</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.playlist[0].youtube)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá video</span>
+                                                            <span>Xoá link</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1235,11 +1255,11 @@
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                         <button mat-icon-button class="icon-size-8"
-                                                            *ngIf="!loadingDreamina[i]"
-                                                            [matMenuTriggerFor]="menu">
+                                                            *ngIf="!loadingDreamina[i]" [matMenuTriggerFor]="menu">
                                                             <mat-icon>more_horiz</mat-icon>
                                                         </button>
-                                                        <mat-spinner *ngIf="loadingDreamina[i]" [diameter]="20" class="m-1"></mat-spinner>
+                                                        <mat-spinner *ngIf="loadingDreamina[i]" [diameter]="20"
+                                                            class="m-1"></mat-spinner>
 
                                                         <mat-menu #menu="matMenu">
                                                             <button mat-menu-item
@@ -1285,13 +1305,15 @@
                                                                     [svgIcon]="'feather:tag'"></mat-icon>
                                                                 <span>Từ khoá</span>
                                                             </button>
-                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, false, i)"
+                                                            <button mat-menu-item
+                                                                (click)="createImgWithDreamina('https://dreamina.capcut.com', item, false, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:image'"></mat-icon>
                                                                 <span>Tạo hình ảnh</span>
                                                             </button>
-                                                            <button mat-menu-item (click)="createImgWithDreamina('https://dreamina.capcut.com', item, true, i)"
+                                                            <button mat-menu-item
+                                                                (click)="createImgWithDreamina('https://dreamina.capcut.com', item, true, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:video'"></mat-icon>
@@ -2631,7 +2653,8 @@
                                                 [cdkDropListConnectedTo]="[emptyList]"
                                                 class="pt-2 pb-1 example-list text" (cdkDropListDropped)="drop($event)">
                                                 <div class="example-box-result p-2 flex flex-row items-start relative mb-2"
-                                                    *ngFor="let item of done; let i = index" cdkDrag (dblclick)="edit(done, i)">
+                                                    *ngFor="let item of done; let i = index" cdkDrag
+                                                    (dblclick)="edit(done, i)">
                                                     <div class="flex-1 text-base w-full min-w-0"
                                                         [class.cdk-drag-selected]="isSelected(item)"
                                                         (click)="toggleSelection($event, item)">

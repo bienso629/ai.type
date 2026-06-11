@@ -374,8 +374,15 @@ export class EditScenePromptDialogComponent {
         if (typeof url !== 'string') return url;
         let cleanUrl = url;
 
+        let hash = '';
+        const hashIndex = cleanUrl.indexOf('#');
+        if (hashIndex !== -1) {
+            hash = cleanUrl.substring(hashIndex);
+            cleanUrl = cleanUrl.substring(0, hashIndex);
+        }
+
         if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
-            // do nothing
+            cleanUrl = cleanUrl + hash;
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             // Loại bỏ query string cũ nếu có để tránh lỗi và bỏ prefix file://
@@ -389,7 +396,7 @@ export class EditScenePromptDialogComponent {
                 projectUuid = parts[parts.length - 1];
             }
 
-            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}&_t=${this.cacheBuster}`;
+            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}&_t=${this.cacheBuster}${hash}`;
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
@@ -598,7 +605,7 @@ Instructions:
 
         try {
             let result = await this._genaiService.generateText({
-                model: 'gemini-2.5-flash',
+                model: 'gemini-3.5-flash',
                 contents: [{ role: 'user', parts: parts }],
                 config: {
                     temperature: 0.7
@@ -937,6 +944,12 @@ Instructions:
                 }
             }
 
+            // Determine model based on aiReferenceVideoBase64 presence
+            let overrideModel = undefined;
+            if (this.aiReferenceVideoBase64) {
+                overrideModel = 'kling-v3-motion';
+            }
+
             let finalPrompt = basePrompt + mandatoryTags;
             let byteLength = new TextEncoder().encode(finalPrompt).length;
 
@@ -955,7 +968,7 @@ Instructions:
 
                 // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu
                 if (this.aiReferenceVideoBase64) {
-                    modelName = 'kling-v3-motion-control';
+                    modelName = 'kling-v3';
                     this.toastr.info('Phát hiện Video Mẫu, tự động chuyển sang model Kling V3 Motion Control.', 'Hệ thống');
                 }
 
@@ -1326,6 +1339,76 @@ Instructions:
             console.error('Lỗi khi copy:', err);
             this.toastr.error('Lỗi khi copy!');
         });
+    }
+
+    async generateKlingFromTrimmed() {
+        if (!this.data || !this.data.video || !this.data.video.videoUrl) {
+            this.toastr.warning('Video này không hợp lệ để tạo Kling Motion Control.');
+            return;
+        }
+
+        const electron = (window as any).electron;
+        if (!electron || !electron.invoke) {
+            this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+            return;
+        }
+
+        this.isGeneratingVideo = true;
+        this.cd.markForCheck();
+
+        try {
+            this.toastr.info('Đang trích xuất đoạn video làm mẫu...', 'Hệ thống');
+
+            // 1. Trích xuất video
+            const payload = {
+                videoUrl: this.data.video.videoUrl,
+                trimStart: this.data.video.trimStart || 0,
+                duration: this.data.video.duration || 5
+            };
+
+            const extractResult = await electron.invoke('trim-video', payload);
+            if (!extractResult || !extractResult.success) {
+                throw new Error(extractResult?.error || 'Lỗi trích xuất video');
+            }
+
+            // 2. Lấy Base64 của video đã cắt
+            const localVideoPath = 'file://' + extractResult.path.replace(/\\/g, '/');
+            
+            const res = await fetch(localVideoPath);
+            const blob = await res.blob();
+            
+            const reader = new FileReader();
+            const base64Promise = new Promise<string>((resolve, reject) => {
+                reader.onloadend = () => {
+                    const base64data = (reader.result as string).split(',')[1];
+                    resolve(base64data);
+                };
+                reader.onerror = reject;
+            });
+            reader.readAsDataURL(blob);
+            
+            const base64Video = await base64Promise;
+
+            // 3. Gán vào aiReferenceVideoBase64 và aiReferenceVideoLocalUrl để generateVideo sử dụng
+            this.aiReferenceVideoBase64 = base64Video;
+            this.aiReferenceVideoLocalUrl = localVideoPath;
+
+            this.toastr.success('Trích xuất thành công, bắt đầu gửi tới Kling...');
+
+            // 4. Gọi generateVideo (generateVideo sẽ bắt cờ aiReferenceVideoBase64 và tự dùng Kling v3)
+            await this.generateVideo();
+
+            // 5. Nếu tạo thành công, video mới tạo ra đã là bản ngắn, cần reset trimStart về 0
+            if (this.editingScenePrompt && this.editingScenePrompt.videoUrl) {
+                this.editingScenePrompt.trimStart = 0;
+            }
+
+        } catch (e: any) {
+            console.error('Error generating from trimmed video:', e);
+            this.toastr.error('Lỗi khi tạo từ video cắt: ' + (e.message || e));
+            this.isGeneratingVideo = false;
+            this.cd.markForCheck();
+        }
     }
 
     save() {

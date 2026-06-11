@@ -297,7 +297,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 setTimeout(() => {
                     if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement && this.previewVideoUrl) {
                         const vidEl = this.mainVideoPlayer.nativeElement;
-                        vidEl.currentTime = this.currentTimelineTime - (foundVideo.startTime || 0);
+                        vidEl.currentTime = this.currentTimelineTime - (foundVideo.startTime || 0) + (foundVideo.trimStart || 0);
                         vidEl.muted = !!foundVideo.muted;
                         if (this.isPlayingTimeline) {
                             vidEl.play().catch(e => console.error("Error playing video:", e));
@@ -314,7 +314,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             // Liên tục đồng bộ hóa phòng trường hợp bị khựng
             if (this.mainVideoPlayer && this.mainVideoPlayer.nativeElement) {
                 const vidEl = this.mainVideoPlayer.nativeElement;
-                const expectedTime = this.currentTimelineTime - (this.activeVideo.startTime || 0);
+                const expectedTime = this.currentTimelineTime - (this.activeVideo.startTime || 0) + (this.activeVideo.trimStart || 0);
                 const threshold = this.isPlayingTimeline ? 0.5 : 0.1;
                 if (Math.abs(vidEl.currentTime - expectedTime) > threshold) {
                     if (!vidEl.seeking) {
@@ -419,9 +419,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     // --- Scrubber Drag Logic ---
     isDraggingScrubber: boolean = false;
 
+    wasPlayingBeforeDrag: boolean = false;
+
     onScrubberMouseDown(e: MouseEvent) {
         e.preventDefault();
         e.stopPropagation();
+        this.wasPlayingBeforeDrag = this.isPlayingTimeline;
+        this.pauseTimeline();
         this.setActiveItem(null); // Clear active item so timeline takes priority
         this.isDraggingScrubber = true;
         document.addEventListener('mousemove', this.onScrubberMouseMove);
@@ -440,6 +444,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     onTimeRulerMouseDown(e: MouseEvent) {
         e.preventDefault();
+        this.wasPlayingBeforeDrag = this.isPlayingTimeline;
         this.pauseTimeline(); // Pause while dragging
         this.setActiveItem(null); // Clear active item so timeline takes priority
         this.isDraggingScrubber = true;
@@ -458,7 +463,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.isDraggingScrubber = false;
         document.removeEventListener('mousemove', this.onScrubberMouseMove);
         document.removeEventListener('mouseup', this.onScrubberMouseUp);
-        this.playTimeline(); // Start playing when released
+        if (this.wasPlayingBeforeDrag) {
+            this.playTimeline(); // Resume playing if it was playing before
+        }
     }
 
     seekTimelineToMouse(e: MouseEvent) {
@@ -479,16 +486,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    // Tính toán số Track hiển thị (dựa trên scene nào có nhiều video nhất)
+    // Tính toán số Track hiển thị
     get trackCount(): number {
-        if (!this.projectData || !this.projectData.scenes) return 1;
-        let max = 1;
-        for (const scene of this.projectData.scenes) {
-            if (scene.videos && scene.videos.length > max) {
-                max = scene.videos.length;
-            }
-        }
-        return Math.min(max, 2);
+        return 1;
     }
 
     packTimeline(save: boolean = true) {
@@ -720,6 +720,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         document.addEventListener('mouseup', this.onTimelineMouseUp);
     }
 
+    dragStartTrim: number = 0;
+
     onResizeStart(e: MouseEvent, video: any, type: 'left' | 'right') {
         if (e.button !== 0) return;
         e.stopPropagation();
@@ -729,6 +731,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.dragStartX = e.clientX;
         this.dragStartLeft = video.startTime || 0;
         this.dragStartWidth = video.duration || 5;
+        this.dragStartTrim = video.trimStart || 0;
 
         document.addEventListener('mousemove', this.onTimelineMouseMove);
         document.addEventListener('mouseup', this.onTimelineMouseUp);
@@ -868,18 +871,44 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 maxAllowable = Infinity;
             } else if (!maxAllowable) {
                 maxAllowable = this.dragStartWidth;
+            } else {
+                // Trimming from left means we can't expand beyond maxDuration
+                maxAllowable = maxAllowable - (this.draggingVideo.trimStart || 0); // Not strictly correct for left, wait
             }
-            if (newDuration > maxAllowable) {
-                newDuration = maxAllowable;
-                newStart = this.dragStartLeft + this.dragStartWidth - newDuration;
+
+            // A more precise maxAllowable logic for left drag:
+            let trueMaxAllowable = this.draggingVideo.maxDuration || this.dragStartWidth;
+            if (!this.draggingVideo.videoUrl && !this.draggingVideo.audioUrl) {
+                trueMaxAllowable = Infinity;
+            }
+            
+            // Limit how far left we can drag (can't go below trimStart = 0)
+            let appliedDelta = newStart - this.dragStartLeft;
+            let newTrimStart = this.dragStartTrim + appliedDelta;
+
+            if (newTrimStart < 0) {
+                newTrimStart = 0;
+                newStart = this.dragStartLeft - this.dragStartTrim;
+                newDuration = this.dragStartWidth + this.dragStartTrim;
+            }
+            
+            // Limit how far right we can drag (duration >= 1)
+            if (newDuration < 1) {
+                newDuration = 1;
+                newStart = this.dragStartLeft + this.dragStartWidth - 1;
+                newTrimStart = this.dragStartTrim + (this.dragStartWidth - 1);
             }
 
             if (newStart < 0) {
                 newStart = 0;
                 newDuration = this.dragStartWidth + this.dragStartLeft;
+                newTrimStart = this.dragStartTrim - this.dragStartLeft;
+                if (newTrimStart < 0) newTrimStart = 0;
             }
+            
             this.draggingVideo.startTime = newStart;
             this.draggingVideo.duration = newDuration;
+            this.draggingVideo.trimStart = newTrimStart;
         } else if (this.dragType === 'right') {
             let newDuration = this.dragStartWidth + deltaSeconds;
             let newEnd = this.dragStartLeft + newDuration;
@@ -906,6 +935,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 maxAllowable = Infinity;
             } else if (!maxAllowable) {
                 maxAllowable = this.dragStartWidth;
+            } else {
+                maxAllowable = maxAllowable - (this.draggingVideo.trimStart || 0);
             }
             if (newDuration > maxAllowable) {
                 newDuration = maxAllowable;
@@ -1570,12 +1601,67 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return false;
     }
 
-    @HostListener('document:keydown.escape', ['$event'])
+    @HostListener('document:keydown', ['$event'])
     onKeydownHandler(event: KeyboardEvent) {
-        if (this.linkingSourceVideo) {
-            this.cancelLinking();
-            this.toastr.info('Đã hủy tạo liên kết.');
+        if (event.key === 'Escape') {
+            if (this.linkingSourceVideo) {
+                this.cancelLinking();
+                this.toastr.info('Đã hủy tạo liên kết.');
+            }
+        } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B')) {
+            event.preventDefault();
+            this.splitVideoAtPlayhead();
         }
+    }
+
+    splitVideoAtPlayhead() {
+        const time = this.currentTimelineTime;
+        
+        for (let sceneIdx = 0; sceneIdx < this.projectData.scenes.length; sceneIdx++) {
+            const scene = this.projectData.scenes[sceneIdx];
+            if (!scene.videos) continue;
+            
+            for (let vIdx = 0; vIdx < scene.videos.length; vIdx++) {
+                const video = scene.videos[vIdx];
+                const start = video.startTime || 0;
+                const duration = video.duration || 0;
+                const end = start + duration;
+                
+                // Cut if playhead is strictly inside the clip (give 0.2s margin)
+                if (time > start + 0.2 && time < end - 0.2) {
+                    const splitPointInSecs = time - start;
+                    
+                    // Clone video
+                    const newVideo = JSON.parse(JSON.stringify(video));
+                    
+                    // Modify old
+                    video.duration = splitPointInSecs;
+                    
+                    // Modify new
+                    newVideo.videoId = 'vid_' + Math.random().toString(36).substr(2, 9);
+                    newVideo.trimStart = (newVideo.trimStart || 0) + splitPointInSecs;
+                    newVideo.duration = duration - splitPointInSecs;
+                    newVideo.startTime = start + splitPointInSecs; // Ensure it starts exactly after the first part
+                    
+                    // Insert
+                    scene.videos.splice(vIdx + 1, 0, newVideo);
+                    
+                    this.normalizeData();
+                    this.saveData();
+                    this.toastr.success('Đã cắt video tại vị trí thanh đỏ.');
+                    
+                    // Focus new video
+                    setTimeout(() => {
+                        this.setActiveItem(newVideo);
+                        this.cd.detectChanges();
+                    });
+                    
+                    return; // Done
+                }
+            }
+        }
+        
+        this.toastr.warning('Không tìm thấy đoạn video nào dưới thanh đỏ để cắt.');
     }
 
     @HostListener('window:resize', ['$event'])
@@ -1990,6 +2076,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     }
                     if (result.usePreviousSceneFrame !== undefined) video.usePreviousSceneFrame = result.usePreviousSceneFrame;
                     if (result.controlImageUrl !== undefined) video.controlImageUrl = result.controlImageUrl;
+                    if (result.trimStart !== undefined) video.trimStart = result.trimStart;
                     this.saveData();
                     this.cd.detectChanges();
                     this.toastr.success('Đã lưu Prompt phân cảnh!');
@@ -2430,6 +2517,83 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         });
     }
 
+    async trimVideo(video: any, event: Event) {
+        event.stopPropagation();
+        
+        const duration = video.duration || 5;
+        const trimStart = video.trimStart || 0;
+        const maxDur = video.maxDuration || duration;
+
+        // If not really trimmed
+        if (trimStart === 0 && duration >= maxDur) {
+            this.toastr.info('Video này chưa bị cắt.');
+            return;
+        }
+
+        this.alert({
+            title: 'Cắt Video',
+            message: `Hệ thống sẽ dùng FFmpeg để cắt file gốc. Bạn muốn xuất file mới hay lưu đè đoạn đã cắt vào Timeline?`,
+            confirm: 'Lưu vào Timeline',
+            cancel: 'Chỉ xuất File',
+            cb: async () => {
+                // Thay thế vào timeline
+                await this.executeTrim(video, true);
+            },
+            cc: async () => {
+                // Chỉ xuất file
+                await this.executeTrim(video, false);
+            }
+        });
+    }
+
+    async executeTrim(video: any, replaceTimeline: boolean) {
+        if (!video.videoUrl) return;
+        
+        video.isGeneratingVideo = true;
+        this.cd.detectChanges();
+
+        try {
+            const electron = (window as any).electron;
+            const payload = {
+                videoUrl: video.videoUrl,
+                trimStart: video.trimStart || 0,
+                duration: video.duration || 5
+            };
+
+            const result = await electron.invoke('trim-video', payload);
+            if (result && result.success) {
+                if (replaceTimeline) {
+                    video.videoUrl = 'file://' + result.path;
+                    video.trimStart = 0;
+                    video.maxDuration = video.duration;
+                    this.saveData();
+                    this.toastr.success('Đã lưu đoạn cắt đè lên Timeline.');
+                } else {
+                    this.toastr.success('Cắt video thành công!');
+                    electron.invoke('open-external', result.path); // Open the folder/file
+                }
+            } else {
+                this.toastr.error('Cắt video thất bại!');
+                console.error(result?.error);
+            }
+        } catch (e) {
+            console.error(e);
+            this.toastr.error('Có lỗi xảy ra khi cắt video.');
+        } finally {
+            video.isGeneratingVideo = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    isTrimmed(video: any): boolean {
+        if (!video || !video.videoUrl) return false;
+        const trimStart = video.trimStart || 0;
+        const duration = video.duration || 0;
+        const maxDuration = video.maxDuration || duration;
+        
+        return trimStart > 0 || duration < maxDuration;
+    }
+
     removeVideo(sceneIdx: number, vIdx: number) {
         const scene = this.projectData.scenes[sceneIdx];
         if (!scene || !scene.videos || !scene.videos[vIdx]) return;
@@ -2570,8 +2734,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         if (typeof url !== 'string') return url;
         let cleanUrl = url;
 
+        let hash = '';
+        const hashIndex = cleanUrl.indexOf('#');
+        if (hashIndex !== -1) {
+            hash = cleanUrl.substring(hashIndex);
+            cleanUrl = cleanUrl.substring(0, hashIndex);
+        }
+
         if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
-            // do nothing
+            cleanUrl = cleanUrl + hash;
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             const originalPath = cleanUrl;
@@ -2583,7 +2754,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 projectUuid = parts[parts.length - 1];
             }
 
-            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
+            cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}${hash}`;
         }
 
         if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];

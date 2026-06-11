@@ -16,7 +16,7 @@ export const appRoutes: Route[] = [
     // After the user signs in, the sign in page will redirect the user to the 'signed-in-redirect'
     // path. Below is another redirection for that path to redirect the user to the desired
     // location. This is a small convenience to keep all main routes together here on this file.
-    { path: 'signed-in-redirect', pathMatch: 'full', redirectTo: 'app' },
+    { path: 'signed-in-redirect', pathMatch: 'full', redirectTo: 'dashboard' },
     { path: 'json', loadChildren: () => import('app/modules/microsites/json/json.module').then(m => m.ReadJsonModule) },
 
     // Auth routes for guests
@@ -45,7 +45,7 @@ export const appRoutes: Route[] = [
             layout: 'empty'
         },
         children: [
-            { path: 'app', loadChildren: () => import('app/modules/microsites/home/home.module').then(m => m.LandingAppModule) },
+            { canActivate: [NoAuthGuard], path: 'app', loadChildren: () => import('app/modules/microsites/home/home.module').then(m => m.LandingAppModule) },
             { path: 'read', loadChildren: () => import('app/modules/microsites/read/read.module').then(m => m.ReadModule) },
             { path: 'livestream', loadChildren: () => import('app/modules/microsites/livestream/livestream.module').then(m => m.LivestreamModule) },
             {

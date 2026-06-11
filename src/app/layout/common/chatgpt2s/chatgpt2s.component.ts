@@ -335,7 +335,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
 
                     const result = await this._genaiService.generateContent({
-                        model: 'gemini-2.5-flash',
+                        model: 'gemini-3.5-flash',
                         contents: [{ role: 'user', parts: [{ text: prompt }] }],
                     });
 
