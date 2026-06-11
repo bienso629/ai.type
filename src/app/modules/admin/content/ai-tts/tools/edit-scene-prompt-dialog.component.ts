@@ -387,7 +387,7 @@ export class EditScenePromptDialogComponent {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             // Loại bỏ query string cũ nếu có để tránh lỗi và bỏ prefix file://
             let originalPath = cleanUrl.split('?')[0];
-            originalPath = originalPath.replace(/^file:\/\//i, '');
+            originalPath = originalPath.replace(/^file:\/{2,3}/i, '');
 
             const mediaDir = this.data?.mediaDir || '';
             let projectUuid = this.data?.uuid;
@@ -947,7 +947,7 @@ Instructions:
             // Determine model based on aiReferenceVideoBase64 presence
             let overrideModel = undefined;
             if (this.aiReferenceVideoBase64) {
-                overrideModel = 'kling-v3-motion';
+                overrideModel = 'kling-v3-motion-control';
             }
 
             let finalPrompt = basePrompt + mandatoryTags;
@@ -968,7 +968,7 @@ Instructions:
 
                 // Bắt buộc chuyển sang Kling-v3 nếu có đính kèm video mẫu
                 if (this.aiReferenceVideoBase64) {
-                    modelName = 'kling-v3';
+                    modelName = 'kling-v3-motion-control';
                     this.toastr.info('Phát hiện Video Mẫu, tự động chuyển sang model Kling V3 Motion Control.', 'Hệ thống');
                 }
 
@@ -1372,9 +1372,15 @@ Instructions:
             }
 
             // 2. Lấy Base64 của video đã cắt
-            const localVideoPath = 'file://' + extractResult.path.replace(/\\/g, '/');
+            const originalPath = extractResult.path.replace(/\\/g, '/');
+            const localVideoPath = 'file://' + originalPath;
             
-            const res = await fetch(localVideoPath);
+            const mediaDir = this.data?.mediaDir || '';
+            const projectUuid = this.data?.uuid || 'default';
+            // Gọi media://SMART_FIND/ để lách qua CORS và Local File Restriction của browser
+            const fetchUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid)}`;
+            
+            const res = await fetch(fetchUrl);
             const blob = await res.blob();
             
             const reader = new FileReader();

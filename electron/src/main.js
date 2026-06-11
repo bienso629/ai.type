@@ -5462,8 +5462,9 @@ ipcMain.handle('trim-video', async (event, payload) => {
         const dir = path.dirname(videoPath);
         const ext = path.extname(videoPath);
         const baseName = path.basename(videoPath, ext);
+        let originalBaseName = baseName.replace(/_trimmed_\d+/g, '');
         const timestamp = new Date().getTime();
-        const outputPath = path.join(dir, `${baseName}_trimmed_${timestamp}${ext}`);
+        const outputPath = path.join(dir, `${originalBaseName}_trimmed_${timestamp}${ext}`);
 
         const args = [
             '-ss', trimStart.toString(),
@@ -5481,6 +5482,9 @@ ipcMain.handle('trim-video', async (event, payload) => {
             
             child.on('close', (code) => {
                 if (code === 0 && fs.existsSync(outputPath)) {
+                    if (baseName.includes('_trimmed_')) {
+                        try { fs.unlinkSync(videoPath); } catch (e) {}
+                    }
                     resolve({ success: true, path: outputPath });
                 } else {
                     resolve({ success: false, error: `FFmpeg process exited with code ${code}` });
