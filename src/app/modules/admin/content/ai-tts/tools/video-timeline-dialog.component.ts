@@ -657,7 +657,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             barWidth: 2,
                             interact: false
                         });
-                        ws.load(audio.audioUrl);
+                        
+                        let playUrl = audio.audioUrl;
+                        if (playUrl.startsWith('file://')) {
+                            const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
+                            let projectUuid = this.projectData?.uuid || this.data?.uuid;
+                            if (!projectUuid) {
+                                const parts = window.location.href.split('/');
+                                projectUuid = parts[parts.length - 1];
+                            }
+                            let originalPath = playUrl.replace(/^file:\/\//i, '').split('?')[0];
+                            playUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
+                        } else {
+                            playUrl = playUrl.replace('media://', 'mediacors://');
+                        }
+                        
+                        ws.load(playUrl);
                         this.wavesurfers[containerId] = ws;
                     }
                 }
@@ -679,7 +694,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             barWidth: 2,
                             interact: false
                         });
-                        ws.load(sub.audioUrl);
+                        
+                        let playUrl = sub.audioUrl;
+                        if (playUrl.startsWith('file://')) {
+                            const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
+                            let projectUuid = this.projectData?.uuid || this.data?.uuid;
+                            if (!projectUuid) {
+                                const parts = window.location.href.split('/');
+                                projectUuid = parts[parts.length - 1];
+                            }
+                            let originalPath = playUrl.replace(/^file:\/\//i, '').split('?')[0];
+                            playUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
+                        } else {
+                            playUrl = playUrl.replace('media://', 'mediacors://');
+                        }
+                        
+                        ws.load(playUrl);
                         this.wavesurfers[containerId] = ws;
                     }
                 }
@@ -1292,7 +1322,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 video.imageUrl = null;
                 
                 const videoObj = document.createElement('video');
-                videoObj.src = video.videoUrl;
+                videoObj.src = this.getRawMediaUrl(video.videoUrl) as string;
                 videoObj.addEventListener('loadedmetadata', () => {
                     if (videoObj.duration && !isNaN(videoObj.duration)) {
                         video.duration = parseFloat(videoObj.duration.toFixed(1));
@@ -1908,7 +1938,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             const localPath = await electron.selectLocalFile(originalPath);
             sub.audioUrl = localPath.startsWith('file://') ? localPath : `file://${localPath}`;
 
-            const audioObj = new Audio(sub.audioUrl);
+            const audioObj = new Audio(this.getRawMediaUrl(sub.audioUrl) as string);
             audioObj.addEventListener('loadedmetadata', () => {
                 sub.duration = audioObj.duration;
                 sub.maxDuration = sub.duration;
@@ -2173,7 +2203,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
                 if (sub.audioUrl) {
                     const p = new Promise<void>((resolve) => {
-                        const audioObj = new Audio(sub.audioUrl);
+                        const audioObj = new Audio(this.getRawMediaUrl(sub.audioUrl) as string);
                         audioObj.addEventListener('loadedmetadata', () => {
                             sub.duration = audioObj.duration;
                             sub.maxDuration = sub.duration;
@@ -2255,7 +2285,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|avi|mov)$/i)) {
                     video.videoUrl = finalPath;
                     const videoObj = document.createElement('video');
-                    videoObj.src = video.videoUrl;
+                    videoObj.src = this.getRawMediaUrl(video.videoUrl) as string;
                     videoObj.addEventListener('loadedmetadata', () => {
                         if (videoObj.duration && !isNaN(videoObj.duration)) {
                             video.duration = parseFloat(videoObj.duration.toFixed(1));
@@ -2729,7 +2759,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     ) { }
 
     private safeUrlCache: { [url: string]: SafeUrl } = {};
-    getSafeUrl(url: string | null): SafeUrl | string | null {
+    getRawMediaUrl(url: string | null): string | null {
         if (!url) return url;
         if (typeof url !== 'string') return url;
         let cleanUrl = url;
@@ -2745,7 +2775,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             cleanUrl = cleanUrl + hash;
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
-            const originalPath = cleanUrl;
+            let originalPath = cleanUrl.split('?')[0];
+            originalPath = originalPath.replace(/^file:\/{2,3}/i, '');
 
             const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
             let projectUuid = this.projectData?.uuid || this.data?.uuid;
@@ -2753,14 +2784,24 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const parts = window.location.href.split('/');
                 projectUuid = parts[parts.length - 1];
             }
-
             cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}${hash}`;
         }
+        return cleanUrl;
+    }
 
-        if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
-
-        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
-        this.safeUrlCache[cleanUrl] = safeUrl;
+    getSafeUrl(url: string | null): SafeUrl | string | null {
+        if (!url) return url;
+        if (typeof url !== 'string') return url;
+        
+        if (this.safeUrlCache[url]) {
+            return this.safeUrlCache[url];
+        }
+        
+        const rawUrl = this.getRawMediaUrl(url);
+        if (!rawUrl) return url;
+        
+        const safeUrl = this.sanitizer.bypassSecurityTrustUrl(rawUrl);
+        this.safeUrlCache[url] = safeUrl;
         return safeUrl;
     }
 

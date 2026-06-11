@@ -22,7 +22,7 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         defaultDuration: 5
     },
     // Kling Series (Kling-v3, Kling-O3, Kling-v3-Motion-Control)
-    'kling-v3-motion': {
+    'kling-v3-motion-control': {
         payloadFormat: 'kling_v3_motion',
         promptKey: 'prompt',
         imageKey: 'img_url',

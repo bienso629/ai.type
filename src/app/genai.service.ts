@@ -563,7 +563,8 @@ export class GenaiService {
         if (activeModel.includes('gemini')) {
             console.log(`[UModelverse Image] Dùng Gemini Compatible Interface cho model: ${activeModel}`);
 
-            // Chuyển đổi url từ /v1 sang /v1beta để gọi API Gemini chuẩn của proxy
+            // Proxy UModelverse dùng đường dẫn /v1beta/models/{model}:generateContent
+            // Base URL là .../v1 nên cần bỏ /v1 rồi thêm /v1beta/models/...
             let baseUrl = url.replace(/\/v1\/?$/, '');
             const geminiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent`;
 
@@ -571,15 +572,17 @@ export class GenaiService {
                 const geminiBody: any = {
                     contents: [
                         {
+                            role: 'user',
                             parts: [{ text: promptText }]
                         }
-                    ]
+                    ],
+                    tools: [{ google_search: {} }]
                 };
 
-                // Cập nhật generationConfig chuẩn
+                // Cập nhật generationConfig theo tài liệu mới nhất của proxy
                 geminiBody.generationConfig = {
-                    responseModalities: ["IMAGE"],
-                    imageConfig: {}
+                    responseModalities: ["TEXT", "IMAGE"],
+                    imageConfig: { imageSize: "1K" }
                 };
 
                 // Nếu user có setting configRatio
@@ -587,9 +590,16 @@ export class GenaiService {
                     geminiBody.generationConfig.imageConfig.aspectRatio = String(configRatio).trim();
                 }
 
+                // Proxy Gemini endpoint dùng x-goog-api-key thay vì Authorization Bearer
+                const apiKey = (headers['Authorization'] || '').replace('Bearer ', '');
+                const geminiHeaders = {
+                    'Content-Type': 'application/json',
+                    'x-goog-api-key': apiKey
+                };
+
                 const geminiResponse = await fetch(geminiUrl, {
                     method: 'POST',
-                    headers, // Giữ nguyên Authorization Bearer proxy key
+                    headers: geminiHeaders,
                     body: JSON.stringify(geminiBody)
                 });
 
@@ -856,6 +866,10 @@ export class GenaiService {
         const key = this._umodelverseKey;
         const model = overrideModel || this._umodelverseVideoModel || 'cogvideox-5b';
 
+        // DEBUG: Hiển thị thông tin xác thực (che bớt key) để xác minh cấu hình
+        const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : '(EMPTY)';
+        console.error(`[UModelverse Auth Debug] URL: ${url}, Key: ${maskedKey}, Key Length: ${key?.length || 0}, Model: ${model}`);
+
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${key}`
@@ -903,7 +917,9 @@ export class GenaiService {
 
         // Chuẩn hoá referenceImages sang các định dạng phổ biến cho Video model
         let refBase64Raw = '';
+        let refBase64RawOriginal = ''; // Giữ lại bản base64 gốc cho các model cần (Kling v3 motion)
         let refBase64DataUri = '';
+        let refBase64CdnUrl = ''; // URL CDN sau khi upload
         let refMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
             // Lấy START_FRAME hoặc STORYBOARD. Nếu không có, lấy CONTROL_IMAGE làm fallback.
@@ -917,6 +933,23 @@ export class GenaiService {
                     refBase64DataUri = refBase64Raw;
                     refMimeType = refBase64Raw.substring(5, refBase64Raw.indexOf(';'));
                     refBase64Raw = refBase64Raw.split(',')[1];
+                }
+                refBase64RawOriginal = refBase64Raw; // Lưu bản base64 gốc
+                
+                // Upload ảnh lên CDN để tránh gửi chuỗi base64 quá lớn làm lỗi API proxy
+                try {
+                    let imgHash = 0;
+                    for (let i = 0; i < refBase64DataUri.length; i += 100) {
+                        imgHash = (imgHash << 5) - imgHash + refBase64DataUri.charCodeAt(i);
+                        imgHash |= 0;
+                    }
+                    const imgUrl = await this.uploadBase64ToCdn(refBase64DataUri, `kling_img_${Math.abs(imgHash)}.png`);
+                    if (imgUrl) {
+                        refBase64CdnUrl = imgUrl;
+                        refBase64Raw = imgUrl; // Các model khác dùng URL
+                    }
+                } catch (e) {
+                    console.error("[UModelverse Image Upload Exception]", e);
                 }
             }
         }
@@ -938,18 +971,21 @@ export class GenaiService {
                     endRefMimeType = endRefBase64Raw.substring(5, endRefBase64Raw.indexOf(';'));
                     endRefBase64Raw = endRefBase64Raw.split(',')[1];
                 }
-
-                // Nếu là video, ép buộc upload lên CDN lấy URL vì API thường không nhận Base64 cho video quá nặng
-                if (endImg.referenceType === 'REFERENCE_VIDEO') {
-                    try {
-                        const videoUrl = await this.uploadBase64ToCdn(endRefBase64DataUri, `kling_video_${Date.now()}.mp4`);
-                        if (videoUrl) {
-                            endRefBase64Raw = videoUrl;
-                            endRefBase64DataUri = videoUrl;
-                        }
-                    } catch (e) {
-                        console.error("Lỗi upload video mẫu lên CDN:", e);
+                // Upload ảnh/video lên CDN để tránh gửi chuỗi base64 quá lớn làm lỗi API proxy
+                try {
+                    let hash = 0;
+                    for (let i = 0; i < endRefBase64DataUri.length; i += 100) {
+                        hash = (hash << 5) - hash + endRefBase64DataUri.charCodeAt(i);
+                        hash |= 0;
                     }
+                    const ext = endImg.referenceType === 'REFERENCE_VIDEO' ? 'mp4' : 'png';
+                    const fileUrl = await this.uploadBase64ToCdn(endRefBase64DataUri, `kling_ref_${Math.abs(hash)}.${ext}`);
+                    if (fileUrl) {
+                        endRefBase64Raw = fileUrl;
+                        endRefBase64DataUri = fileUrl;
+                    }
+                } catch (e) {
+                    console.error("[UModelverse Ref Upload Exception]", e);
                 }
             }
         }
@@ -1027,7 +1063,7 @@ export class GenaiService {
                     input: { prompt: modifiedPrompt },
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
-                        duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
+                        duration: 5,
                         ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
                 };
@@ -1035,42 +1071,46 @@ export class GenaiService {
                 if (klingImageList.length > 0) {
                     payload.parameters.image_list = klingImageList;
                 }
-            } else if (config.payloadFormat === 'kling_v3' || config.payloadFormat === 'kling_v3_motion') {
-                // Tự động nâng cấp lên kling_v3_motion nếu có video mẫu
-                if (config.payloadFormat === 'kling_v3_motion' || endRefMimeType === 'video/mp4') {
-                    payload = {
-                        model: model,
-                        input: { prompt: prompt },
-                        parameters: {
-                            aspect_ratio: aspectRatio || '16:9',
-                            duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
-                            ...(seed !== undefined && seed !== null ? { seed: seed } : {})
-                        }
-                    };
-                    if (refBase64Raw) {
-                        payload.input.img_url = refBase64Raw;
-                        payload.parameters.character_orientation = "image";
+            } else if (config.payloadFormat === 'kling_v3') {
+                payload = {
+                    model: model,
+                    input: { prompt: prompt },
+                    parameters: {
+                        aspect_ratio: aspectRatio || '16:9',
+                        duration: 5,
+                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
-                    if (endRefBase64Raw) {
-                        payload.input.video_url = endRefBase64Raw;
-                    }
-                } else {
-                    payload = {
-                        model: model,
-                        input: { prompt: prompt },
-                        parameters: {
-                            aspect_ratio: aspectRatio || '16:9',
-                            duration: Math.max(3, Math.min(15, Math.ceil(duration || config.defaultDuration || 5))),
-                            ...(seed !== undefined && seed !== null ? { seed: seed } : {})
-                        }
-                    };
-                    if (refBase64Raw) {
-                        payload.parameters.image = refBase64Raw;
-                    }
-                    if (endRefBase64Raw) {
-                        payload.parameters.image_tail = endRefBase64Raw;
-                    }
+                };
+                if (refBase64Raw) {
+                    payload.parameters.image = refBase64Raw;
                 }
+                if (endRefBase64Raw) {
+                    payload.parameters.image_tail = endRefBase64Raw;
+                }
+            } else if (config.payloadFormat === 'kling_v3_motion') {
+                // Format theo tài liệu chính thức Astraflow:
+                // https://astraflow.scloudsg.com/en-us/docs/modelverse/modelverse/video_api/Kling-v3-Motion-Control
+                const motionControlPayload: any = {
+                    model: 'kling-v3-motion-control',
+                    input: {
+                        prompt: prompt
+                    },
+                    parameters: {
+                        character_orientation: 'image',
+                        mode: 'pro',
+                        duration: Math.ceil(duration || 5),
+                        aspect_ratio: aspectRatio || '16:9'
+                    }
+                };
+                // img_url: ảnh nhân vật tham chiếu (bắt buộc theo doc)
+                if (refBase64CdnUrl || refBase64Raw) {
+                    motionControlPayload.input.img_url = refBase64CdnUrl || refBase64Raw;
+                }
+                // video_url: video tham chiếu chuyển động (bắt buộc theo doc)
+                if (endRefBase64Raw) {
+                    motionControlPayload.input.video_url = endRefBase64Raw;
+                }
+                candidateTaskRequests.push(motionControlPayload);
             } else if (config.payloadFormat === 'nested_input') {
                 payload = {
                     model: model,
@@ -1305,22 +1345,8 @@ export class GenaiService {
                 if (taskId) break;
                 const currentBody = candidateTaskRequests[i];
 
-                // DEBUG: Gửi payload sang CDN server để log (vì DevTools bị khóa)
-                try {
-                    await fetch('https://cdn1.type.vn/debug-log', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            event: 'SENDING_TO_UMODELVERSE',
-                            endpoint: endpoint,
-                            payloadOption: i,
-                            payload: currentBody,
-                            timestamp: new Date().toISOString()
-                        })
-                    });
-                } catch (debugErr) { /* ignore debug errors */ }
 
-                console.log(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
+                console.error(`[Task Attempt] endpoint: ${endpoint}, payload Option ${i}:`, JSON.stringify(currentBody));
                 try {
                     const response = await fetch(endpoint, {
                         method: 'POST',
@@ -1475,6 +1501,11 @@ export class GenaiService {
             if (errStr.includes('sensitive') || errStr.includes('privacyinformation') || errStr.includes('real person') || errStr.includes('violate') || errStr.includes('safety')) {
                 throw new Error("Hình ảnh hoặc nội dung vi phạm tiêu chuẩn an toàn của AI (có thể AI nhận diện nhầm là ảnh người thật, bạo lực, nhạy cảm...). Vui lòng thử hình/từ khoá khác.");
             }
+        }
+
+        // Nếu là motion-control model, không fallback sang /images/generations
+        if (!taskId && config && config.payloadFormat === 'kling_v3_motion') {
+            throw new Error(`Lỗi tạo video Motion Control: ${lastErrorMsg || 'Proxy không phản hồi. Kiểm tra API key và quyền truy cập model.'}`);
         }
 
         // --- BƯỚC 2: FALLBACK SANG CƠ CHẾ SYNCHRONOUS TRUYỀN THỐNG (IMAGES/GENERATIONS) ---
