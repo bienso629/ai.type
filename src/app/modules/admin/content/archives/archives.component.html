@@ -59,11 +59,11 @@
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
         <ngx-datatable [virtualization]="true" #table class="material fullscreen transition-opacity duration-300"
-            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected"
-            [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false" [displayCheck]="displayCheck"
-            (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
-            [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
-            [scrollbarV]="true" [rows]="rows">
+            [columnMode]="ColumnMode.force" [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
+            [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+            [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
+            [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
+            [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
             <!-- Column Templates -->
             <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
@@ -83,15 +83,15 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tiêu đề" [width]="400" [sortable]="false" [canAutoResize]="false"
+            <ngx-datatable-column name="Tiêu đề" [width]="500" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row">
                         <div class="flex items-center w-full">
                             <p class="font-normal truncate hover:text-clip flex-1">{{row.title}}</p>
-                            
-                            <span *ngIf="row.source?.wp_post_id"
-                                matTooltipPosition="above" matTooltip="Đã đồng bộ WordPress"
+
+                            <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
+                                matTooltip="Đã đồng bộ WordPress"
                                 class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
                                 WP: {{row.source.wp_post_id}}
                             </span>
@@ -149,10 +149,10 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
+            <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+                [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-self-stretch gap-1">
+                    <div *ngIf="row" class="flex items-center justify-end gap-1 w-full pr-2">
                         <button *ngIf="permissionScriptCommentLike" mat-icon-button [routerLink]="['/amxh']"
                             [routerLink]="['/amxh']" [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
                             class="transition-colors">
