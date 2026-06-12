@@ -10,6 +10,7 @@ import { ColumnMode } from '@swimlane/ngx-datatable';
 import { WP2MDService } from 'app/modules/_services/wp2md';
 import { DomainService } from 'app/modules/_services/domain';
 import { WordpressService } from 'app/modules/_services/wordpress';
+import { CrawlService } from 'app/modules/_services/crawl';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
@@ -22,7 +23,7 @@ const xml2js = require("xml2js");
     styleUrls: ['./sitemap.component.scss'],
     templateUrl: './sitemap.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [WP2MDService, DomainService, WordpressService]
+    providers: [WP2MDService, DomainService, WordpressService, CrawlService]
 })
 export class SitemapComponent implements OnInit, OnDestroy {
     xml: any;
@@ -44,6 +45,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
     posts: any[] = [];
     selected: any[] = [];
 
+    keyword: string = '';
+    categories: any[] = [];
+    selectedCategory: any = '';
+
     compareDomainFn(d1: any, d2: any): boolean {
         return d1 && d2 ? d1.domain === d2.domain : d1 === d2;
     }
@@ -51,6 +56,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
     onDomainChange(event: any) {
         this.selectedDomain = event.value;
         localStorage.setItem('sitemap_selected_domain', this.selectedDomain.domain);
+        this.keyword = '';
+        this.selectedCategory = '';
+        this.categories = [];
+        this.fetchCategories();
         this.fetchPosts();
     }
 
@@ -68,9 +77,19 @@ export class SitemapComponent implements OnInit, OnDestroy {
             hostname = this.selectedDomain.domain;
         }
 
-        this._wordpressService.posts({
+        const queryPayload: any = {
             domain: this.selectedDomain.domain
-        })
+        };
+        
+        if (this.keyword && this.keyword.trim() !== '') {
+            queryPayload.keyword = this.keyword.trim();
+        }
+        
+        if (this.selectedCategory) {
+            queryPayload.category = this.selectedCategory;
+        }
+
+        this._wordpressService.posts(queryPayload)
         .pipe(takeUntil(this._unsubscribeAll))
         .subscribe({
             next: (result: any) => {
@@ -98,9 +117,51 @@ export class SitemapComponent implements OnInit, OnDestroy {
         });
     }
 
+    fetchCategories() {
+        if (!this.selectedDomain) return;
+
+        this._wordpressService.categories({
+            domain: this.selectedDomain.domain
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result: any) => {
+                if (result && Array.isArray(result)) {
+                    this.categories = result;
+                } else {
+                    this.categories = [];
+                }
+                this.cd.markForCheck();
+            },
+            error: () => {
+                this.categories = [];
+                this.cd.markForCheck();
+            }
+        });
+    }
+
     editPost(row: any) {
-        this.router.navigate(['/ai-writer'], {
-            state: { wpPost: row }
+        this._crawlService.archiveWpCheck({
+            wp_post_id: row.id,
+            wp_domain: row.domain,
+            username: this.user.name
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result: any) => {
+                if (result && result.success && result.data && result.data.uuid) {
+                    this.router.navigate(['/ai-writer', this.user.name, result.data.uuid]);
+                } else {
+                    this.router.navigate(['/ai-writer'], {
+                        state: { wpPost: row }
+                    });
+                }
+            },
+            error: () => {
+                this.router.navigate(['/ai-writer'], {
+                    state: { wpPost: row }
+                });
+            }
         });
     }
 
@@ -258,7 +319,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
         private clipboard: Clipboard,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
-        private _fuseConfigService: FuseConfigService
+        private _fuseConfigService: FuseConfigService,
+        private _crawlService: CrawlService
     ) {
         this.titleService.setTitle(`wordpress importer | ai.type - công cụ tạo content`);
 
@@ -302,6 +364,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
                             this.selectedDomain = this.domains[0];
                         }
 
+                        this.fetchCategories();
                         this.fetchPosts();
                         this.cd.markForCheck();
                     }

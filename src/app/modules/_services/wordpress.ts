@@ -84,7 +84,13 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${dataForm.domain}/wp-json/wp/v2/posts?per_page=100&_embed=1`;
+        let url = `${dataForm.domain}/wp-json/wp/v2/posts?per_page=100&_embed=1`;
+        if (dataForm.keyword) {
+            url += `&search=${encodeURIComponent(dataForm.keyword)}`;
+        }
+        if (dataForm.category) {
+            url += `&categories=${dataForm.category}`;
+        }
 
         let options = {
             headers: new HttpHeaders({

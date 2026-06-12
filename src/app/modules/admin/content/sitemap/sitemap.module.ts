@@ -6,6 +6,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
 import { SharedModule } from 'app/shared.module';
 import { SitemapComponent } from 'app/modules/admin/content/sitemap/sitemap.component';
 
@@ -28,6 +29,7 @@ const Routes: Route[] = [
         MatStepperModule,
         MatSidenavModule,
         MatSelectModule,
+        MatInputModule,
         SharedModule,
     ]
 })

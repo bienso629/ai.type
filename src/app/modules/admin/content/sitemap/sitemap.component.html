@@ -32,11 +32,30 @@
         </div>
 
         <!-- Actions -->
-        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+        <div class="flex flex-wrap shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 gap-2">
+
+            <!-- Keyword Search -->
+            <mat-form-field *ngIf="selectedDomain"
+                class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:search'"></mat-icon>
+                <input matInput (keyup.enter)="fetchPosts()" [(ngModel)]="keyword" placeholder="Tìm kiếm bài viết">
+            </mat-form-field>
+
+            <!-- Category Filter -->
+            <mat-form-field *ngIf="categories && categories.length > 0"
+                class="min-w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-select (selectionChange)="fetchPosts()" [(ngModel)]="selectedCategory">
+                    <mat-option value="">Tất cả</mat-option>
+                    <mat-option *ngFor="let cat of categories" [value]="cat.id">{{cat.name}}</mat-option>
+                </mat-select>
+            </mat-form-field>
+
+            <!-- Domain Select -->
             <mat-form-field *ngIf="domains && domains.length > 0"
-                class="min-w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                class="min-w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                 <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
-                <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)" [(ngModel)]="selectedDomain">
+                <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)"
+                    [(ngModel)]="selectedDomain">
                     <ng-container *ngFor="let item of domains; let i = index">
                         <mat-option [value]="item">{{item.domain}}</mat-option>
                     </ng-container>
@@ -49,9 +68,9 @@
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
         <ngx-datatable [virtualization]="true" class="material fullscreen transition-opacity duration-300"
-            [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
-            [scrollbarV]="true" [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)">
-            
+            [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
+            [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)">
+
             <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
 
@@ -59,14 +78,16 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
                         <p class="font-normal truncate hover:text-clip" [innerHTML]="row?.title"></p>
-                        <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center ml-2 cursor-pointer hover:bg-gray-200 transition-colors shrink-0" (click)="editPost(row)" matTooltip="Chỉnh sửa bài viết">
-                            <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:edit-2'"></mat-icon>
-                        </div>
+                        <button mat-icon-button (click)="editPost(row)" matTooltip="Chỉnh sửa bài viết"
+                            class="flex items-center justify-center ml-2 transition-colors shrink-0">
+                            <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                        </button>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Link gốc" prop="link" [width]="250" [sortable]="true" [canAutoResize]="false" [draggable]="false" [resizeable]="false" headerClass="text-right">
+            <ngx-datatable-column name="Link gốc" prop="link" [width]="250" [sortable]="true" [canAutoResize]="false"
+                [draggable]="false" [resizeable]="false" headerClass="text-right">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row" class="flex items-center justify-end w-full">
                         <a [href]="row.link" target="_blank"
@@ -77,7 +98,8 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Ngày tạo" prop="date" [width]="150" [sortable]="true" [canAutoResize]="false" headerClass="text-right">
+            <ngx-datatable-column name="Ngày tạo" prop="date" [width]="150" [sortable]="true" [canAutoResize]="false"
+                headerClass="text-right">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-end w-full">
                         <span class="text-gray-500">{{ row?.date | date:'short' }}</span>
@@ -92,7 +114,8 @@
                     <div class="flex w-full sm:items-center sm:justify-between px-4">
                         <div class="flex-1 min-w-0">
                             <div class="page-count text-sm">
-                                Đã chọn {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} trong {{ (rowCount) ? rowCount.toLocaleString() : 0 }} bài viết
+                                Đã chọn {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} trong {{ (rowCount) ?
+                                rowCount.toLocaleString() : 0 }} bài viết
                             </div>
                         </div>
                     </div>
