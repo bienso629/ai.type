@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, signal, AfterViewInit, ChangeDetectorRef } from '@angular/core';
+import { Component, OnDestroy, OnInit, signal, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
@@ -29,69 +29,26 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     private readonly ONE_HOUR_MS = 1000 * 60 * 5;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
-    // ===== UI Split-Pane State =====
-    // 3 mức snap: 100 (ẩn webview), 75 (1/4 webview), 50 (2/4 webview)
-    leftPaneWidth: number = 100; // Mặc định ẩn webview
-    isDragging: boolean = false;
-    private dragStartX: number = 0;
-
-    get isWebviewVisible(): boolean {
-        return this.leftPaneWidth < 100;
-    }
-
-    startDragging(event: MouseEvent) {
-        this.isDragging = true;
-        this.dragStartX = event.clientX;
-        event.preventDefault();
-    }
-
-    stopDragging() {
-        if (this.isDragging) {
-            this.isDragging = false;
-            // Snap vào mức gần nhất: 50%, 75%, 100%
-            this.snapToNearest();
-        }
-    }
-
-    onDrag(event: MouseEvent) {
-        if (!this.isDragging) return;
-        const newWidth = (event.clientX / window.innerWidth) * 100;
-        // Cho phép kéo tự do trong khoảng 40-100
-        if (newWidth >= 40 && newWidth <= 100) {
-            this.leftPaneWidth = newWidth;
-            this.updateRootCssVar();
-        }
-    }
-
-    // Đồng bộ CSS variable lên :root để cdk-overlay-container (nằm ở body) đọc được
-    private updateRootCssVar() {
-        document.documentElement.style.setProperty('--main-pane-width', this.leftPaneWidth + 'vw');
-    }
-
-    private snapToNearest() {
-        // Snap vào mức gần nhất
-        const snapPoints = [50, 75, 100];
-        let closest = snapPoints[0];
-        let minDist = Math.abs(this.leftPaneWidth - closest);
-        for (const point of snapPoints) {
-            const dist = Math.abs(this.leftPaneWidth - point);
-            if (dist < minDist) {
-                minDist = dist;
-                closest = point;
-            }
-        }
-        this.leftPaneWidth = closest;
-        this.updateRootCssVar();
-    }
+    // ===== UI Gemini Popup State =====
+    isWebviewVisible = false;
+    popupTitle = 'Mở rộng';
+    popupFavicon = '';
+    isDraggingWebview = false;
+    isResizingWebview = false;
+    private resizeObserver: ResizeObserver | null = null;
+    private resizeTimeout: any;
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
-        if (this.leftPaneWidth >= 100) {
-            this.leftPaneWidth = 75;
-        } else {
-            this.leftPaneWidth = 100;
+        this.isWebviewVisible = !this.isWebviewVisible;
+    }
+
+    // Nút quay lại trang trước trong webview
+    webviewGoBack() {
+        const webview: any = document.querySelector('#webview-container-div webview');
+        if (webview && typeof webview.goBack === 'function' && webview.canGoBack()) {
+            webview.goBack();
         }
-        this.updateRootCssVar();
     }
 
 
@@ -133,7 +90,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private router: Router,
         private multiAccountService: MultiAccountService,
         private cdr: ChangeDetectorRef,
-        private toastr: ToastrService
+        private toastr: ToastrService,
+        private ngZone: NgZone
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
@@ -171,11 +129,29 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
             this.multiAccountService.setItem('settings', settings);
         }
+
+        const popupEl = document.querySelector('.gemini-popup');
+        if (popupEl) {
+            this.resizeObserver = new ResizeObserver(() => {
+                if (!this.isResizingWebview && this.isWebviewVisible) {
+                    this.isResizingWebview = true;
+                    // Kích hoạt change detection nếu cần (nhưng ngZone.run sẽ làm việc này)
+                    this.ngZone.run(() => {}); 
+                }
+                clearTimeout(this.resizeTimeout);
+                this.resizeTimeout = setTimeout(() => {
+                    this.ngZone.run(() => {
+                        this.isResizingWebview = false;
+                    });
+                }, 250); // Hết kéo 250ms thì bỏ overlay
+            });
+            this.resizeObserver.observe(popupEl);
+        }
     }
 
     ngOnInit() {
-        // Set CSS variable ban đầu cho cdk-overlay-container
-        this.updateRootCssVar();
+        // Xoá CSS variable gây lỗi co rút các Dialog của Angular Material (luôn set 100vw)
+        document.documentElement.style.setProperty('--main-pane-width', '100vw');
 
         // 2. Thiết lập bộ đếm (Timer)
         // this.intervalId = setInterval(() => {
@@ -202,12 +178,65 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         // Lắng nghe sự kiện qua DOM event từ chuỗi button bên Layout
         window.addEventListener('toggle-gemini', (e: any) => {
             if (e && e.detail && e.detail.forceOpen) {
-                this.leftPaneWidth = 75;
-                this.updateRootCssVar();
+                this.isWebviewVisible = true;
             } else {
                 this.toggleWebview();
             }
             this.cdr.detectChanges();
+        });
+
+        // Gửi sang Google Flow
+        window.addEventListener('send-to-google-flow', (e: any) => {
+            const prompt = e.detail?.prompt;
+            if (prompt) {
+                this.isWebviewVisible = true;
+                this.cdr.detectChanges();
+
+                const webview: any = document.querySelector('#webview-container-div webview');
+                if (webview) {
+                    const url = 'https://labs.google/fx/tools/flow';
+                    const currentUrl = webview.getURL();
+                    
+                    const injectScript = () => {
+                        const safePrompt = prompt.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
+                        webview.executeJavaScript(`
+                            setTimeout(() => {
+                                // Google Flow đặt toàn bộ giao diện trong một Iframe bảo mật chéo nguồn (Cross-Origin),
+                                // khiến việc dùng code can thiệp trực tiếp từ bên ngoài bị trình duyệt chặn hoàn toàn.
+                                // Do đó, cách ổn định nhất là chép vào Clipboard để người dùng tự Paste.
+                                
+                                navigator.clipboard.writeText(\`${safePrompt}\`).then(() => {
+                                    // Tạo một thông báo nổi (Toast) nhỏ góc màn hình
+                                    const toast = document.createElement('div');
+                                    toast.innerHTML = '✨ <b>Đã copy Prompt!</b><br>Bạn hãy nhấp vào ô "Bạn muốn tạo gì?" và bấm <b>Ctrl + V</b> nhé.';
+                                    toast.style.cssText = 'position: fixed; bottom: 30px; right: 30px; background: #4f46e5; color: white; padding: 15px 20px; border-radius: 8px; font-family: sans-serif; box-shadow: 0 4px 12px rgba(0,0,0,0.3); z-index: 999999; animation: slideIn 0.3s ease-out;';
+                                    
+                                    const style = document.createElement('style');
+                                    style.innerHTML = '@keyframes slideIn { from { transform: translateY(100px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }';
+                                    document.head.appendChild(style);
+                                    document.body.appendChild(toast);
+                                    
+                                    setTimeout(() => {
+                                        toast.style.opacity = '0';
+                                        toast.style.transition = 'opacity 0.5s';
+                                        setTimeout(() => toast.remove(), 500);
+                                    }, 5000);
+                                }).catch(e => console.log('Clipboard error: ', e));
+                            }, 1000);
+                        `);
+                    };
+
+                    if (!currentUrl.includes('labs.google/fx/tools/flow')) {
+                        webview.loadURL(url);
+                        webview.addEventListener('did-stop-loading', function handler() {
+                            webview.removeEventListener('did-stop-loading', handler);
+                            injectScript();
+                        });
+                    } else {
+                        injectScript();
+                    }
+                }
+            }
         });
 
         // Lắng nghe sự kiện thu âm hệ thống
@@ -409,9 +438,48 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                     setTimeout(() => { webview.style.opacity = '1'; }, 50);
                 });
 
+                // Hàm cập nhật tiêu đề đáng tin cậy hơn
+                const updateTitle = () => {
+                    try {
+                        const title = (webview as any).getTitle();
+                        if (title && title !== this.popupTitle) {
+                            this.popupTitle = title;
+                            this.cdr.detectChanges();
+                        }
+                    } catch (err) {}
+                };
+
+                webview.addEventListener('did-stop-loading', updateTitle);
+                webview.addEventListener('did-navigate', updateTitle);
+                webview.addEventListener('did-navigate-in-page', updateTitle);
+
+                // Cập nhật tiêu đề dựa trên trang web hiện tại
+                webview.addEventListener('page-title-updated', (e: any) => {
+                    if (e.title) {
+                        this.popupTitle = e.title;
+                        this.cdr.detectChanges();
+                    }
+                });
+
+                // Cập nhật favicon dựa trên trang web hiện tại
+                webview.addEventListener('page-favicon-updated', (e: any) => {
+                    if (e.favicons && e.favicons.length > 0) {
+                        this.popupFavicon = e.favicons[0];
+                        this.cdr.detectChanges();
+                    }
+                });
+
                 container.appendChild(webview);
             }
         }, 500); // Đợi DOM sẵn sàng chút xíu
+    }
+
+    onPopupDragStart() {
+        this.isDraggingWebview = true;
+    }
+
+    onPopupDragEnd() {
+        this.isDraggingWebview = false;
     }
 
     ngOnDestroy() {

@@ -2651,7 +2651,20 @@ app.on("web-contents-created", (_event, contents) => {
                 `[WindowOpenHandler] Lỗi khi xử lý window.open(${url}): ${e.message}`,
             );
         }
-        return { action: "allow" };
+        return { 
+            action: "allow",
+            overrideBrowserWindowOptions: {
+                title: 'Loading...'
+            }
+        };
+    });
+
+    contents.on('did-create-window', (window, details) => {
+        window.webContents.on('page-title-updated', (e, title) => {
+            if (window && !window.isDestroyed()) {
+                window.setTitle(title);
+            }
+        });
     });
 });
 

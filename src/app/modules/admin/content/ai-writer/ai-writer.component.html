@@ -160,7 +160,7 @@
                                         accept="image/*,video/*">
                                 </div>
 
-                                <div class="flex flex-col p-2 rounded-xl border border-dashed border-gray-10 min-h-[60px]"
+                                <div class="flex flex-col p-2 rounded-xl border border-dashed border-gray-10"
                                     [class.items-center]="thumbnailsList.length === 0"
                                     [class.justify-center]="thumbnailsList.length === 0">
 
@@ -189,14 +189,14 @@
                                                 {{ getFileName(file) }}
                                             </span>
                                         </div>
-                                        <div class="flex items-center">
-                                            <button mat-icon-button (click)="replaceThumbnailIndex = i; replaceFileInput.click()"
-                                                class="text-blue-500 flex-shrink-0" type="button"
+                                        <div class="flex items-center gap-1">
+                                            <button (click)="replaceThumbnailIndex = i; replaceFileInput.click()"
+                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-blue-50 text-blue-500 transition-colors focus:outline-none" type="button"
                                                 matTooltip="Thay thế file này">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                             </button>
-                                            <button mat-icon-button (click)="removeThumbnail(i)"
-                                                class="text-red-500 flex-shrink-0 ml-2" type="button"
+                                            <button (click)="removeThumbnail(i)"
+                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 text-red-500 transition-colors focus:outline-none" type="button"
                                                 matTooltip="Xoá file này">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                                             </button>

@@ -1,5 +1,6 @@
 import { APP_INITIALIZER, importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA } from '@angular/core';
 import { BrowserModule, DomSanitizer } from '@angular/platform-browser';
+import { DragDropModule } from '@angular/cdk/drag-drop';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ExtraOptions, PreloadAllModules, RouterModule } from '@angular/router';
 import { FuseModule } from '@fuse';
@@ -36,6 +37,7 @@ const routerConfig: ExtraOptions = {
     imports: [
         BrowserModule,
         BrowserAnimationsModule,
+        DragDropModule,
         RouterModule.forRoot(appRoutes, routerConfig),
 
         // Fuse, FuseConfig & FuseMockAPI

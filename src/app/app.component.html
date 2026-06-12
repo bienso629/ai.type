@@ -1,29 +1,43 @@
-<div class="app-split-container" [class.is-dragging]="isDragging" (mousemove)="onDrag($event)"
-  (mouseup)="stopDragging()" [style.--webview-width]="(100 - leftPaneWidth) + 'vw'"
-  [style.--main-pane-width]="leftPaneWidth + 'vw'" style="position: absolute; inset: 0; width: 100vw; height: 100vh;">
-
-  <!-- Overlay chặn webview cướp chuột khi đang kéo -->
-  <div *ngIf="isDragging" style="position: absolute; inset: 0; z-index: 999; cursor: col-resize;"></div>
-
-  <!-- Cột chính: Ứng dụng gốc -->
-  <div class="split-pane main-pane" [style.width.%]="leftPaneWidth"
-    style="position: absolute; left: 0; top: 0; bottom: 0;">
+<div class="app-container" style="position: absolute; inset: 0; width: 100vw; height: 100vh;">
+  
+  <!-- Cột chính: Ứng dụng gốc (Full width) -->
+  <div class="main-pane" style="width: 100%; height: 100%;">
     <router-outlet></router-outlet>
   </div>
 
+  <!-- Gemini Webview Popup -->
+  <div class="gemini-popup mat-elevation-z8" 
+       [style.display]="isWebviewVisible ? 'flex' : 'none'" 
+       cdkDrag 
+       (cdkDragStarted)="onPopupDragStart()"
+       (cdkDragEnded)="onPopupDragEnd()"
+       style="position: absolute; top: 20px; left: calc(100vw - 420px); width: 400px; height: 600px; background: #1a1a1a; z-index: 99999; border-radius: 12px; overflow: hidden; flex-direction: column; border: 1px solid #333; box-shadow: 0 8px 32px rgba(0,0,0,0.5); resize: both; min-width: 300px; min-height: 400px;">
+    
+    <!-- Header để kéo thả -->
+    <div class="gemini-popup-header" 
+         cdkDragHandle 
+         style="height: 40px; background: #2c2c2c; display: flex; align-items: center; padding: 0 12px; cursor: move; user-select: none;">
+      <div style="color: #fff; font-size: 13px; font-weight: 500; display: flex; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; max-width: 300px;">
+        <svg *ngIf="!popupFavicon" xmlns="http://www.w3.org/2000/svg" style="color: #4285f4; margin-right: 6px; width: 18px; height: 18px; flex-shrink: 0;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+        <img *ngIf="popupFavicon" [src]="popupFavicon" style="width: 16px; height: 16px; margin-right: 6px; flex-shrink: 0;" />
+        <span style="overflow: hidden; text-overflow: ellipsis;">{{ popupTitle }}</span>
+      </div>
+      <div style="flex: 1;"></div>
+      <!-- Nút Back -->
+      <button (click)="webviewGoBack()" style="background: none; border: none; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px; margin-right: 4px;">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 16px; height: 16px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <!-- Nút đóng -->
+      <button (click)="toggleWebview()" style="background: none; border: none; color: #aaa; cursor: pointer; display: flex; align-items: center; justify-content: center; padding: 4px; border-radius: 4px;">
+        <svg xmlns="http://www.w3.org/2000/svg" style="width: 18px; height: 18px;" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+      </button>
+    </div>
 
-  <!-- Vách ngăn ở giữa -->
-  <div class="split-resizer" [style.display]="isWebviewVisible ? 'block' : 'none'" (mousedown)="startDragging($event)"
-    [style.left.%]="leftPaneWidth" style="position: absolute; top: 0; bottom: 0; z-index: 1000;">
-  </div>
-
-  <!-- Cột phụ: Gemini Webview -->
-  <div class="split-pane webview-pane" [style.left.%]="leftPaneWidth" [class.webview-hidden]="!isWebviewVisible"
-    style="position: absolute; right: 0; top: 0; bottom: 0; padding-left: 6px;">
-
-
-    <div id="webview-container-div"
-      style="width: 100%; height: 100%; border: none; display: flex; flex: 1; background: #1a1a1a;"></div>
+    <!-- Container cho webview -->
+    <div id="webview-container-div" style="width: 100%; flex: 1; border: none; display: flex; background: #1a1a1a; position: relative;">
+      <!-- Lớp phủ trong suốt chống Webview "nuốt" chuột khi kéo/resize -->
+      <div *ngIf="isDraggingWebview || isResizingWebview" style="position: absolute; inset: 0; z-index: 10000; background: transparent;"></div>
+    </div>
   </div>
 
 </div>

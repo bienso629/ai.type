@@ -130,6 +130,10 @@ export class WordpressService {
             content: dataForm.content
         };
         
+        if (dataForm.excerpt !== undefined) {
+            payload.excerpt = dataForm.excerpt;
+        }
+        
         if (dataForm.categories && dataForm.categories.length > 0) {
             payload.categories = dataForm.categories;
         }

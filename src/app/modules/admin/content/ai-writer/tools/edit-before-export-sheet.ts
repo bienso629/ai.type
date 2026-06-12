@@ -371,7 +371,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success && result.data && result.data.id) {
                         // this.money(result.data);
-                        this._bottomSheetRef.dismiss();
+                        this._bottomSheetRef.dismiss(result);
                         this.toastr.success(`Đăng bài ID POST ${result.data.id}!`);
                     } else {
                         this.toastr.warning('Đăng bài thất bại.');
@@ -403,7 +403,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.id) {
-                        this._bottomSheetRef.dismiss();
+                        this._bottomSheetRef.dismiss(result);
                         this.toastr.success(`Cập nhật thành công bài viết ID ${result.id}!`);
                     } else {
                         this.toastr.warning('Cập nhật thất bại.');
