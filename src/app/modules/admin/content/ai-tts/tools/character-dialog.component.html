@@ -148,6 +148,12 @@
                 <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
                     [svgIcon]="'feather:copy'"></mat-icon>
             </button>
+            <button mat-icon-button
+                class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 rounded-full"
+                (click)="sendToFlow(editingChar.prompt); $event.preventDefault(); $event.stopPropagation()"
+                matTooltip="Gửi sang Google Flow">
+                <mat-icon class="icon-size-4 text-blue-500">send</mat-icon>
+            </button>
         </div>
 
         @if (availableReferenceImages.length > 0) {

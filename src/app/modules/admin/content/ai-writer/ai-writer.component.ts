@@ -2674,6 +2674,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 wp_password: apppass,
                 title: this.detectForm.get('step1').get('title').value,
                 content: formattedContent,
+                excerpt: this.detectForm.get('step1').get('description').value,
                 thumbnail: this.detectForm.get('step1').get('thumbnail').value
             };
 
@@ -3084,6 +3085,23 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         bottomSheetRef.afterDismissed().subscribe((content) => {
             // Restore focus to an appropriate element for the user's workflow here.
             if (content) {
+                // Kiểm tra xem có ID trả về từ WordPress không
+                let wpId = null;
+                if (content.success && content.data && content.data.id) {
+                    wpId = content.data.id;
+                } else if (content.id) {
+                    wpId = content.id;
+                }
+
+                if (wpId) {
+                    if (!this.source) this.source = {};
+                    this.source.wp_post_id = wpId;
+                    if (this.domain && this.domain['domain']) {
+                        this.source.wp_domain = this.domain['domain'];
+                    }
+                    this.update(false); // Lưu lại WP ID vào CSDL ngay
+                }
+
                 // tinh toan lai done
                 this.seo = this.seoScore.transform({
                     done: this.done,

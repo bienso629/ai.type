@@ -516,16 +516,16 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
         this.dialogRef.close(this.editingChar);
     }
 
-    copyPrompt(text: string) {
-        if (!text) {
-            this.toastr.warning('Không có nội dung để copy.');
-            return;
-        }
-
-        navigator.clipboard.writeText(text.trim()).then(() => {
+    copyPrompt(prompt: string) {
+        if (!prompt) return;
+        navigator.clipboard.writeText(prompt).then(() => {
             this.toastr.success('Đã copy Prompt!');
-        }).catch(err => {
-            this.toastr.error('Lỗi khi copy: ' + err);
         });
+    }
+
+    sendToFlow(prompt: string) {
+        if (!prompt) return;
+        window.dispatchEvent(new CustomEvent('send-to-google-flow', { detail: { prompt } }));
+        this.toastr.success('Đã gửi Prompt sang Google Flow!');
     }
 }
