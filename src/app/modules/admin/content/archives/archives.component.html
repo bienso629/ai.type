@@ -87,8 +87,15 @@
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row">
-                        <p *ngIf="row.seo" class="font-normal truncate hover:text-clip">{{row.title}}</p>
-                        <p class="font-normal truncate hover:text-clip" *ngIf="!row.seo">{{row.title}}</p>
+                        <div class="flex items-center w-full">
+                            <p class="font-normal truncate hover:text-clip flex-1">{{row.title}}</p>
+                            
+                            <span *ngIf="row.source?.wp_post_id"
+                                matTooltipPosition="above" matTooltip="Đã đồng bộ WordPress"
+                                class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                WP: {{row.source.wp_post_id}}
+                            </span>
+                        </div>
                     </ng-container>
                 </ng-template>
             </ngx-datatable-column>

@@ -40,6 +40,7 @@ import { ChatGPTQuestionSheet } from 'app/modules/admin/content/ai-writer/tools/
 import { KeywordGoogleDataDialog } from 'app/modules/admin/content/ai-writer/tools/keyword-google-data-dialog';
 import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools/edit-before-export-sheet';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
+import { WordpressService } from 'app/modules/_services/wordpress';
 
 const Routes: Route[] = [{
     path: ':name/:uuid',
@@ -118,6 +119,9 @@ const Routes: Route[] = [{
         TimeagoModule.forRoot(),
         DragDropModule,
         SharedModule
+    ],
+    providers: [
+        WordpressService
     ],
     exports: [CopyPasteDialog, GeminiImageDialog, WordDataDialog, CommentDialog, EditBeforeExportSheet, ChatGPTDataDialog, ChatGPTQuestionSheet, KeywordGoogleDataDialog, MediaDataDialog],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],

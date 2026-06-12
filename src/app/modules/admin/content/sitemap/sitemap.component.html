@@ -33,87 +33,71 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <!-- <button mat-icon-button [color]="'primary'">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:cloud-snow'"></mat-icon>
-            </button> -->
+            <mat-form-field *ngIf="domains && domains.length > 0"
+                class="min-w-60 ml-2 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
+                <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:globe'"></mat-icon>
+                <mat-select [compareWith]="compareDomainFn" (selectionChange)="onDomainChange($event)" [(ngModel)]="selectedDomain">
+                    <ng-container *ngFor="let item of domains; let i = index">
+                        <mat-option [value]="item">{{item.domain}}</mat-option>
+                    </ng-container>
+                </mat-select>
+            </mat-form-field>
         </div>
     </div>
 
     <!-- Main -->
-    <div class="flex-auto overflow-y-auto" cdkScrollable>
+    <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <mat-drawer-container class="flex-auto h-full bg-white place-items-center">
-            <!-- Drawer -->
-            <!-- <mat-drawer class="w-160 bg-gray-50 border-0 dark:bg-transparent" [autoFocus]="false" [mode]="drawerMode"
-                [opened]="drawerOpened" #matDrawer>
-                <div class="flex flex-col flex-auto shrink-0 pt-4 px-8 pb-4">
-                    <mat-accordion>
-                    
-                </div>
-            </mat-drawer> -->
+        <ngx-datatable [virtualization]="true" class="material fullscreen transition-opacity duration-300"
+            [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
+            [scrollbarV]="true" [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)">
+            
+            <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
 
-            <!-- Content -->
-            <mat-drawer-content class="mx-auto w-full bg-transparent">
-                <mat-vertical-stepper [linear]="isLinear" class="h-full" #stepper>
-                    <mat-step label="XML từ Wordpress">
-                        <div class="flex items-start justify-start h-full">
-                            <div class="inline-block pt-8">
-                                <button mat-flat-button color="primary" (click)="uploader.click()">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:file'"></mat-icon>
-                                    <mat-label class="ml-2">Nhập file XML</mat-label>
-                                </button>
-        
-                                <input hidden #uploader id="file" name="file" (change)="readFile($event)" type="file" />
-        
-                                <!-- <div>
-                                    <button mat-button matStepperPrevious>Back</button>
-                                    <button mat-button (click)="stepper.reset()">Reset</button>
-                                </div> -->
+            <ngx-datatable-column name="Tiêu đề" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center w-full">
+                        <p class="font-normal truncate hover:text-clip" [innerHTML]="row?.title"></p>
+                        <div class="w-7 h-7 rounded-full bg-gray-100 flex items-center justify-center ml-2 cursor-pointer hover:bg-gray-200 transition-colors shrink-0" (click)="editPost(row)" matTooltip="Chỉnh sửa bài viết">
+                            <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:edit-2'"></mat-icon>
+                        </div>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Link gốc" prop="link" [width]="250" [sortable]="true" [canAutoResize]="false" [draggable]="false" [resizeable]="false" headerClass="text-right">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div *ngIf="row" class="flex items-center justify-end w-full">
+                        <a [href]="row.link" target="_blank"
+                            class="h-7 leading-7 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-semibold truncate hover:text-clip">
+                            {{row.link}}
+                        </a>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Ngày tạo" prop="date" [width]="150" [sortable]="true" [canAutoResize]="false" headerClass="text-right">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center justify-end w-full">
+                        <span class="text-gray-500">{{ row?.date | date:'short' }}</span>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-footer>
+                <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
+                    let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
+                    let-isVisible="isVisible">
+                    <div class="flex w-full sm:items-center sm:justify-between px-4">
+                        <div class="flex-1 min-w-0">
+                            <div class="page-count text-sm">
+                                Đã chọn {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} trong {{ (rowCount) ? rowCount.toLocaleString() : 0 }} bài viết
                             </div>
                         </div>
-                    </mat-step>
-        
-                    <mat-step label="Bài viết">
-                        <!-- CONTENT GOES HERE -->
-                        <div class="flex items-start justify-start min-h-160 relative mt-8">
-                            <ngx-datatable [virtualization]="true"  #mydatatable class="material fullscreen shadow-none w-1/2 border rounded-lg" [headerHeight]="50"
-                               [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight"
-                                rowHeight="auto" [scrollbarV]="true" [rows]="rows">
-                                <ngx-datatable-column name="Title" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                                    [resizeable]="false">
-                                    <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value"
-                                        let-row="row">
-                                        <span>
-                                            {{ value }}
-                                        </span>
-                                    </ng-template>
-                                </ngx-datatable-column>
-                            </ngx-datatable>
-                        </div>
-                    </mat-step>
-        
-                    <mat-step label="Công cụ">
-                        <!-- CONTENT GOES HERE -->
-                        <div class="flex items-start justify-start h-full">
-                            <div class="inline-block pt-8">
-                                <button mat-flat-button color="primary" (click)="store()">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:database'"></mat-icon>
-                                    <mat-label class="ml-2">Lưu trữ vào kho</mat-label>
-                                </button>
-        
-                                <button *ngIf="links.length > 0" mat-flat-button color="" class="ml-2" (click)="download(links)">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
-                                    <mat-label class="ml-2">Download nodes.json</mat-label>
-                                </button>
-        
-                                <a *ngIf="downloadJsonHref" mat-icon-button [href]="downloadJsonHref" download="links.json" [color]="'primary'" class="ml-2">
-                                    <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
-                                  </a>
-                            </div>
-                        </div>
-                    </mat-step>
-                </mat-vertical-stepper>
-            </mat-drawer-content>
-        </mat-drawer-container>
+                    </div>
+                </ng-template>
+            </ngx-datatable-footer>
+        </ngx-datatable>
     </div>
 </div>
