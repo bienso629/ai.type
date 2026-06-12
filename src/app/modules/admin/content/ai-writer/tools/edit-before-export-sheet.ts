@@ -35,10 +35,15 @@ declare var TurndownService: any;
             <mat-label class="self-center">Thêm nội dung</mat-label>
         </div>
 
+        <div *ngIf="data.function === 'update'" class="text-xl my-4 font-normal text-gray-500 tracking-tight flex items-stretch">
+            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+            <mat-label class="self-center">Cập nhật lên WordPress</mat-label>
+        </div>
+
         <div mat-dialog-content class="mt-6 p-0 overflow-hidden" style="max-height: none;">
             <form [formGroup]="editorForm">
                 <div class="flex flex-col p-0 bg-white rounded-md">
-                    <div class="my-1 flex flex-row" *ngIf="data.function === 'share'">
+                    <div class="my-1 flex flex-row" *ngIf="data.function === 'share' || data.function === 'update'">
                         <ng-select class="custom-select-ai-writer"
                             placeholder="Chọn danh mục" [items]="categoryitems" multiple="true" bindLabel="name" bindValue="id" [clearable]="true" [formControlName]="'categories'" [dropdownPosition]="'bottom'" [addTag]="addCategory" (clear)="onClearCategory()" (add)="onAddCategory($event)" (remove)="onRemoveCategory($event)" (change)="onChangeCategory($event)" [loading]="loading" appendTo="body">
                             <ng-template ng-tag-tmp let-search="searchTerm">
@@ -77,6 +82,11 @@ declare var TurndownService: any;
             <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
                 <mat-label class="ml-2">Đăng bài</mat-label>
+            </button>
+
+            <button mat-flat-button *ngIf="data.function === 'update'" [color]="'primary'" (click)="update($event)" [disabled]="categoryitems.length == 0">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                <mat-label class="ml-2">Cập nhật</mat-label>
             </button>
 
             <button mat-flat-button *ngIf="data.function === 'edit'" color="primary" (click)="save($event)">
@@ -387,6 +397,39 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         event.preventDefault();
     }
 
+    update(event: MouseEvent): void {
+        this._wordpressService.update_post(this.editorForm.value)
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.id) {
+                        this._bottomSheetRef.dismiss();
+                        this.toastr.success(`Cập nhật thành công bài viết ID ${result.id}!`);
+                    } else {
+                        this.toastr.warning('Cập nhật thất bại.');
+                    }
+                },
+                error: (err) => {
+                    this.toastr.error('Lỗi khi cập nhật bài viết.');
+                    console.error('Update Error:', err);
+                },
+                complete: () => {
+                    if (this.editorForm.get('save').value) {
+                        const oha: String = this._h.encrypt({
+                            username: this.editorForm.get('username').value,
+                            apppass: this.editorForm.get('apppass').value
+                        }, `${this.domain['domain']}.account.key`);
+
+                        localStorage.setItem(`${this.domain['domain']}.account`, `${oha}`);
+                    } else {
+                        localStorage.removeItem(`${this.domain['domain']}.account`);
+                    }
+                }
+            });
+
+        event.preventDefault();
+    }
+
     money(post: any) {
         this._crawlService.archiveUpdate({
             money: {
@@ -438,15 +481,17 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         this.editorForm = this._formBuilder.group({
             title: [this.data.title],
             description: [this.data.description],
-            tags: [[]],
-            categories: [[], Validators.required],
+            tags: [this.data.tags || []],
+            categories: [this.data.categories || [], Validators.required],
             content: ['', Validators.required],
             excerpt: [this.data.description, Validators.required],
-            username: [this.domain['username']],
-            apppass: [this.domain['password']],
+            username: [this.data.wp_username || this.domain['username']],
+            apppass: [this.data.wp_password || this.domain['password']],
             status: ['pending', Validators.required],
             save: [true],
-            domain: [this.domain['domain'], Validators.required]
+            domain: [this.domain['domain'], Validators.required],
+            wp_post_id: [this.data.wp_post_id],
+            thumbnail: [this.data.thumbnail]
         });
 
         this.data.content.map((item: string) => {
@@ -470,7 +515,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             this.editorForm.controls['apppass'].setValue(domainacc.apppass);
         }
 
-        if (this.data.function === 'share') {
+        if (this.data.function === 'share' || this.data.function === 'update') {
             // lấy danh mục
             this.categories();
 

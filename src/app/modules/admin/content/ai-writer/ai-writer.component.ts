@@ -55,6 +55,7 @@ import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools
 
 import { forkJoin } from 'rxjs'; // RxJS 6 syntax
 import { DomainService } from 'app/modules/_services/domain';
+import { WordpressService } from 'app/modules/_services/wordpress';
 import { Clipboard } from '@angular/cdk/clipboard';
 
 import * as _ from 'lodash';
@@ -453,7 +454,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         if (img) {
             this.uploadImage(img.replace('file:///', '')).subscribe(
                 (result) => {
-                    if (result && result.data.source_url) {
+                    if (result && result?.data?.source_url) {
                         this.done[event.currentIndex] = this.done[
                             event.currentIndex
                         ].replace(img, result.data.source_url);
@@ -2606,6 +2607,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                             this._h.updateStatistics('writing', 1);
 
                             this.toastr.success(`Văn bản đã được lưu trữ.`);
+                            
+                            if (this.source && this.source.wp_post_id) {
+                                this.export();
+                            } else {
+                                this.syncToWordpress();
+                            }
 
                             // làm mới lại giao diện
                             this.router.navigate([
@@ -2624,6 +2631,66 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         } else {
             this.toastr.warning(`Lưu trữ chưa có tiêu đề.`);
             this.stepper.selectedIndex = 0;
+        }
+    }
+
+    syncToWordpress() {
+        if (this.source.wp_post_id && this.source.wp_domain) {
+            let formattedContent = '';
+            this.done.forEach((item: any) => {
+                let formattedItem = typeof item === 'string' ? item : JSON.stringify(item);
+                if (formattedItem) {
+                    formattedItem = formattedItem.replace(/(?:<p><br><\/p>\s*)+<table/gi, '<table');
+                    formattedItem = formattedItem.replace(/(?:<br\s*\/?>\s*)+<table/gi, '<table');
+                    formattedItem = formattedItem.replace(/<th/gi, '<td').replace(/<\/th>/gi, '</td>');
+                    formattedItem = formattedItem.replace(/<thead/gi, '<tbody').replace(/<\/thead>/gi, '</tbody>');
+                    formattedItem = formattedItem.replace(/<\/p>\s*<table/gi, '</p><table');
+                }
+                formattedContent += formattedItem;
+            });
+
+            if (!formattedContent || formattedContent.trim() === '') {
+                formattedContent = this.source.text.join('');
+            }
+
+            let apppass = this.source.wp_password;
+            let username = this.source.wp_username;
+
+            let domainacc: any = localStorage.getItem(`${this.source.wp_domain}.account`);
+            if (domainacc) {
+                try {
+                    domainacc = this._h.decrypt(domainacc, `${this.source.wp_domain}.account.key`);
+                    if (!username) username = domainacc.username;
+                    if (!apppass) apppass = domainacc.apppass;
+                } catch (e) {
+                    console.error('Decryption error for domain account', e);
+                }
+            }
+
+            const wpData = {
+                wp_post_id: this.source.wp_post_id,
+                domain: this.source.wp_domain,
+                wp_username: username,
+                wp_password: apppass,
+                title: this.detectForm.get('step1').get('title').value,
+                content: formattedContent,
+                thumbnail: this.detectForm.get('step1').get('thumbnail').value
+            };
+
+            this._wordpressService.update_post(wpData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                next: (res) => {
+                    // Because wordpress.ts swallows errors returning empty array [], we check for it
+                    if (res && res.id) {
+                        this.toastr.success('Đã đồng bộ lên WordPress thành công!');
+                    } else {
+                        this.toastr.error('Đồng bộ thất bại, vui lòng kiểm tra lại quyền truy cập hoặc cấu hình.');
+                    }
+                },
+                error: (err) => {
+                    this.toastr.error('Lỗi khi đồng bộ lên WordPress.');
+                    console.error('WP Sync Error:', err);
+                }
+            });
         }
     }
 
@@ -2743,6 +2810,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                         }
 
                         this.toastr.success(`Văn bản đã được lưu trữ.`);
+                        this.syncToWordpress();
                     }
 
                     // lam moi lai giao dien
@@ -2991,12 +3059,13 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Xem trước bài đăng
      */
     export() {
+        const isUpdate = this.source && this.source.wp_post_id;
+        
         const bottomSheetRef = this._bottomSheet.open(EditBeforeExportSheet, {
             panelClass: 'edit2export',
             data: {
                 title: this.detectForm.get('step1').get('title').value,
-                description: this.detectForm.get('step1').get('description')
-                    .value,
+                description: this.detectForm.get('step1').get('description').value,
                 content: this.done,
                 uuid: this.uuid,
                 domain: this.domain,
@@ -3004,7 +3073,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 tags: [],
                 categories: [],
                 mainkey: this.detectForm.get('step5').get('mainkey').value,
-                function: 'share',
+                function: isUpdate ? 'update' : 'share',
+                wp_post_id: isUpdate ? this.source.wp_post_id : null,
+                wp_username: isUpdate ? this.source.wp_username : null,
+                wp_password: isUpdate ? this.source.wp_password : null,
+                thumbnail: this.detectForm.get('step1').get('thumbnail').value
             },
         });
 
@@ -3758,7 +3831,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         private _bottomSheet: MatBottomSheet,
         private multiAccountService: MultiAccountService,
         private sanitizer: DomSanitizer,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        public _wordpressService: WordpressService
     ) {
         this.route.params.subscribe((params: Params) => {
             if (params['uuid']) {
@@ -3929,6 +4003,32 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 mainkey: ['', Validators.required],
             }),
         });
+
+        const state = history.state;
+        if (state && state.wpPost) {
+            const post = state.wpPost;
+            
+            if (post.title) {
+                this.detectForm.get('step1.title').setValue(post.title);
+            }
+            
+            if (post.content) {
+                this.source.text = [post.content];
+            }
+            
+            if (post.thumbnail) {
+                this.detectForm.get('step1.thumbnail').setValue(post.thumbnail);
+                this.source.img = [`<p id="source-img-${uuid.v4()}"><img src="${post.thumbnail}" /></p>`];
+            }
+
+            if (post.id) {
+                this.source.wp_post_id = post.id;
+            }
+
+            if (post.domain) {
+                this.source.wp_domain = post.domain;
+            }
+        }
     }
 
     ngAfterViewInit(): void {
@@ -4034,34 +4134,138 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         return this.sanitizer.bypassSecurityTrustUrl('file://' + safePath);
     }
 
+    replaceThumbnailIndex: number = -1;
+
+    private async processLocalFile(file: any): Promise<string> {
+        return new Promise((resolve) => {
+            if (file.type && file.type.startsWith('video/')) {
+                if (file.path) {
+                    resolve(`local-video:${file.path}`);
+                } else {
+                    this.multiAccountService.saveMemoryFile(file.name, file);
+                    resolve(`memory-video:${file.name}`);
+                }
+            } else if (file.type && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e: any) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        const MAX_WIDTH = 1200;
+                        const MAX_HEIGHT = 1200;
+
+                        if (width > height) {
+                            if (width > MAX_WIDTH) {
+                                height *= MAX_WIDTH / width;
+                                width = MAX_WIDTH;
+                            }
+                        } else {
+                            if (height > MAX_HEIGHT) {
+                                width *= MAX_HEIGHT / height;
+                                height = MAX_HEIGHT;
+                            }
+                        }
+
+                        canvas.width = width;
+                        canvas.height = height;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        const result = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.85);
+                        const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
+                        const modifiedResult = result.replace(/;?base64,/, nameParam);
+                        resolve(modifiedResult);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            } else {
+                const reader = new FileReader();
+                reader.onload = (e: any) => {
+                    const result = e.target.result as string;
+                    const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
+                    const modifiedResult = result.replace(/;?base64,/, nameParam);
+                    resolve(modifiedResult);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+    }
+
+    onThumbnailReplaced(event: any) {
+        if (event.target.files && event.target.files.length > 0 && this.replaceThumbnailIndex >= 0) {
+            const file = event.target.files[0]; // Only take the first file for replacement
+
+            this.processLocalFile(file).then(b64 => {
+                const b64Key = b64;
+                if (b64Key.startsWith('memory-video:')) {
+                    this.objectUrls[b64Key] = URL.createObjectURL(file);
+                } else if (this.isImage(file.name) || (b64Key.includes('data:video')) || b64Key.startsWith('local-video:')) {
+                    this.objectUrls[b64Key] = b64;
+                }
+
+                const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
+                let thumbnails = existingValue.split('\n').filter((t: string) => t.trim() !== '');
+                
+                let oldB64Key = '';
+                if (this.replaceThumbnailIndex < thumbnails.length) {
+                    oldB64Key = thumbnails[this.replaceThumbnailIndex];
+                    thumbnails[this.replaceThumbnailIndex] = b64Key;
+                }
+
+                if (oldB64Key && oldB64Key !== b64Key) {
+                    if (this.source && this.source.img) {
+                        for (let i = 0; i < this.source.img.length; i++) {
+                            if (typeof this.source.img[i] === 'string') {
+                                this.source.img[i] = this.source.img[i].split(oldB64Key).join(b64Key);
+                            }
+                        }
+                    }
+                    if (this.done) {
+                        for (let i = 0; i < this.done.length; i++) {
+                            if (typeof this.done[i] === 'string') {
+                                this.done[i] = this.done[i].split(oldB64Key).join(b64Key);
+                            }
+                        }
+                    }
+                }
+
+                // Force update matching index in source.img
+                if (this.replaceThumbnailIndex >= 0 && this.source && this.source.img && this.source.img.length > this.replaceThumbnailIndex) {
+                    if (typeof this.source.img[this.replaceThumbnailIndex] === 'string') {
+                        const match = this.source.img[this.replaceThumbnailIndex].match(/src=["']([^"']+)["']/);
+                        const oldSrc = match ? match[1] : null;
+                        
+                        this.source.img[this.replaceThumbnailIndex] = this.source.img[this.replaceThumbnailIndex].replace(/src="[^"]+"/, `src="${b64Key}"`).replace(/src='[^']+'/, `src='${b64Key}'`);
+
+                        if (oldSrc && oldSrc !== b64Key && this.done) {
+                            for (let i = 0; i < this.done.length; i++) {
+                                if (typeof this.done[i] === 'string') {
+                                    this.done[i] = this.done[i].split(oldSrc).join(b64Key);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                this.detectForm.get('step1').get('thumbnail').setValue(thumbnails.join('\n'));
+                this.update(false); // Lưu ngay lập tức
+                this.toastr.success(`Đã thay thế tệp thành công!`);
+                this.cd.markForCheck();
+                
+                event.target.value = '';
+                this.replaceThumbnailIndex = -1;
+            });
+        }
+    }
+
     onThumbnailSelected(event: any) {
         if (event.target.files && event.target.files.length > 0) {
             const files = Array.from(event.target.files);
 
-            const processFile = (file: any): Promise<string> => {
-                return new Promise((resolve) => {
-                    if (file.type && file.type.startsWith('video/')) {
-                        // Tránh lưu Base64 của video lớn vào DB CouchDB
-                        if (file.path) {
-                            resolve(`local-video:${file.path}`);
-                        } else {
-                            this.multiAccountService.saveMemoryFile(file.name, file);
-                            resolve(`memory-video:${file.name}`);
-                        }
-                    } else {
-                        const reader = new FileReader();
-                        reader.onload = (e: any) => {
-                            const result = e.target.result as string;
-                            const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
-                            const modifiedResult = result.replace(/;?base64,/, nameParam);
-                            resolve(modifiedResult);
-                        };
-                        reader.readAsDataURL(file);
-                    }
-                });
-            };
-
-            Promise.all(files.map(processFile)).then(base64Strings => {
+            Promise.all(files.map(f => this.processLocalFile(f))).then(base64Strings => {
                 const paths = base64Strings.map((b64: string, index: number) => {
                     const file = files[index] as any;
                     const b64Key = b64;

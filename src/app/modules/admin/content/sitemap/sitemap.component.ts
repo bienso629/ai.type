@@ -8,6 +8,8 @@ import { Clipboard } from '@angular/cdk/clipboard';
 
 import { ColumnMode } from '@swimlane/ngx-datatable';
 import { WP2MDService } from 'app/modules/_services/wp2md';
+import { DomainService } from 'app/modules/_services/domain';
+import { WordpressService } from 'app/modules/_services/wordpress';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
@@ -20,7 +22,7 @@ const xml2js = require("xml2js");
     styleUrls: ['./sitemap.component.scss'],
     templateUrl: './sitemap.component.html',
     encapsulation: ViewEncapsulation.None,
-    providers: [WP2MDService]
+    providers: [WP2MDService, DomainService, WordpressService]
 })
 export class SitemapComponent implements OnInit, OnDestroy {
     xml: any;
@@ -37,15 +39,83 @@ export class SitemapComponent implements OnInit, OnDestroy {
     downloadJsonHref: any;
     ColumnMode = ColumnMode;
 
-    fetch(cb) {
-        const req = new XMLHttpRequest();
-        req.open('GET', `assets/data/domain.json`);
+    domains: any[] = [];
+    selectedDomain: any;
+    posts: any[] = [];
+    selected: any[] = [];
 
-        req.onload = () => {
-            cb(JSON.parse(req.response));
-        };
+    compareDomainFn(d1: any, d2: any): boolean {
+        return d1 && d2 ? d1.domain === d2.domain : d1 === d2;
+    }
 
-        req.send();
+    onDomainChange(event: any) {
+        this.selectedDomain = event.value;
+        localStorage.setItem('sitemap_selected_domain', this.selectedDomain.domain);
+        this.fetchPosts();
+    }
+
+    onSelect({ selected }: any) {
+        this.selected = [...selected];
+    }
+
+    fetchPosts() {
+        if (!this.selectedDomain) return;
+        
+        let hostname = '';
+        try {
+            hostname = new URL(this.selectedDomain.domain).hostname;
+        } catch (e) {
+            hostname = this.selectedDomain.domain;
+        }
+
+        this._wordpressService.posts({
+            domain: this.selectedDomain.domain
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result: any) => {
+                if (result && Array.isArray(result)) {
+                    this.posts = result.map((doc: any) => ({
+                        title: this.decodeHTMLEntities(doc.title?.rendered || doc.title || ''),
+                        link: doc.link || doc.url || '',
+                        date: doc.date || new Date().toISOString(),
+                        content: doc.content?.rendered || '',
+                        thumbnail: doc._embedded?.['wp:featuredmedia']?.[0]?.source_url || '',
+                        id: doc.id,
+                        domain: this.selectedDomain.domain,
+                        wp_username: this.selectedDomain.username,
+                        wp_password: this.selectedDomain.password
+                    }));
+                } else {
+                    this.posts = [];
+                }
+                this.cd.markForCheck();
+            },
+            error: () => {
+                this.posts = [];
+                this.cd.markForCheck();
+            }
+        });
+    }
+
+    editPost(row: any) {
+        this.router.navigate(['/ai-writer'], {
+            state: { wpPost: row }
+        });
+    }
+
+    decodeHTMLEntities(text: string): string {
+        if (!text) return '';
+        let decoded = text;
+        // Handle double encoding by doing it twice
+        for (let i = 0; i < 2; i++) {
+            const textarea = document.createElement('textarea');
+            textarea.innerHTML = decoded;
+            decoded = textarea.value;
+            // Regex fallback
+            decoded = decoded.replace(/&#(\d+);/g, (match, dec) => String.fromCharCode(dec));
+        }
+        return decoded;
     }
 
     getRowHeight(row: any) {
@@ -180,6 +250,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
         private titleService: Title,
         private _userService: UserService,
         private _wp2mdService: WP2MDService,
+        private _domainService: DomainService,
+        private _wordpressService: WordpressService,
         private toastr: ToastrService,
         private sanitizer: DomSanitizer,
         private cd: ChangeDetectorRef,
@@ -212,6 +284,31 @@ export class SitemapComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        this._domainService
+            .fetch({
+                username: this.user.name,
+            })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result: any) => {
+                    if (result && result.success && result.data.length > 0) {
+                        this.domains = result.data;
+                        
+                        const savedDomain = localStorage.getItem('sitemap_selected_domain');
+                        if (savedDomain) {
+                            const found = this.domains.find(d => d.domain === savedDomain);
+                            this.selectedDomain = found ? found : this.domains[0];
+                        } else {
+                            this.selectedDomain = this.domains[0];
+                        }
+
+                        this.fetchPosts();
+                        this.cd.markForCheck();
+                    }
+                },
+                error: () => { },
+                complete: () => { },
+            });
     }
 
     ngOnDestroy(): void {

@@ -250,6 +250,14 @@
     border-radius: 12px;
     margin-left: 6px;
     background: white;
+    word-break: break-word;
+    overflow-wrap: break-word;
+
+    img, iframe, video {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+    }
 }
 
 .example-box-result {
@@ -271,7 +279,14 @@
     padding-right: 10px !important;
     margin-left: 6px;
     background: white;
-    // overflow: hidden;
+    word-break: break-word;
+    overflow-wrap: break-word;
+
+    img, iframe, video {
+        max-width: 100%;
+        height: auto;
+        border-radius: 8px;
+    }
 }
 
 .example-box,
