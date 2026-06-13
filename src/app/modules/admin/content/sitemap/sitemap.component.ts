@@ -67,8 +67,23 @@ export class SitemapComponent implements OnInit, OnDestroy {
         this.selected = [...selected];
     }
 
-    fetchPosts() {
+    page: number = 1;
+    loadingPosts: boolean = false;
+    hasMorePosts: boolean = true;
+
+    fetchPosts(reset: boolean = true) {
         if (!this.selectedDomain) return;
+
+        if (reset) {
+            this.page = 1;
+            this.hasMorePosts = true;
+            this.posts = [];
+        }
+
+        if (!this.hasMorePosts || this.loadingPosts) return;
+
+        this.loadingPosts = true;
+        this.cd.markForCheck();
         
         let hostname = '';
         try {
@@ -78,7 +93,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
         }
 
         const queryPayload: any = {
-            domain: this.selectedDomain.domain
+            domain: this.selectedDomain.domain,
+            page: this.page
         };
         
         if (this.keyword && this.keyword.trim() !== '') {
@@ -93,8 +109,12 @@ export class SitemapComponent implements OnInit, OnDestroy {
         .pipe(takeUntil(this._unsubscribeAll))
         .subscribe({
             next: (result: any) => {
+                this.loadingPosts = false;
                 if (result && Array.isArray(result)) {
-                    this.posts = result.map((doc: any) => ({
+                    if (result.length < 100) {
+                        this.hasMorePosts = false;
+                    }
+                    const newPosts = result.map((doc: any) => ({
                         title: this.decodeHTMLEntities(doc.title?.rendered || doc.title || ''),
                         link: doc.link || doc.url || '',
                         date: doc.date || new Date().toISOString(),
@@ -105,16 +125,40 @@ export class SitemapComponent implements OnInit, OnDestroy {
                         wp_username: this.selectedDomain.username,
                         wp_password: this.selectedDomain.password
                     }));
+
+                    if (reset) {
+                        this.posts = newPosts;
+                    } else {
+                        this.posts = [...this.posts, ...newPosts];
+                    }
                 } else {
-                    this.posts = [];
+                    this.hasMorePosts = false;
+                    if (reset) {
+                        this.posts = [];
+                    }
                 }
                 this.cd.markForCheck();
             },
             error: () => {
-                this.posts = [];
+                this.loadingPosts = false;
+                if (reset) {
+                    this.posts = [];
+                }
                 this.cd.markForCheck();
             }
         });
+    }
+
+    onScroll(event: any) {
+        const rowHeight = 50;
+        const totalHeight = this.posts.length * rowHeight;
+        
+        if (event.offsetY > 0 && event.offsetY >= totalHeight - 1000) {
+            if (!this.loadingPosts && this.hasMorePosts) {
+                this.page++;
+                this.fetchPosts(false);
+            }
+        }
     }
 
     fetchCategories() {

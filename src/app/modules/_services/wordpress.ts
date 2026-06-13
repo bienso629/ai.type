@@ -85,6 +85,9 @@ export class WordpressService {
         dataForm.appToken = activeInfo['user']['appToken'];
 
         let url = `${dataForm.domain}/wp-json/wp/v2/posts?per_page=100&_embed=1`;
+        if (dataForm.page) {
+            url += `&page=${dataForm.page}`;
+        }
         if (dataForm.keyword) {
             url += `&search=${encodeURIComponent(dataForm.keyword)}`;
         }
