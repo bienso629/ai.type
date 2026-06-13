@@ -75,7 +75,8 @@
         <!-- CONTENT GOES HERE -->
         <ngx-datatable [virtualization]="true" class="material fullscreen transition-opacity duration-300"
             [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
-            [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)">
+            [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)"
+            (scroll)="onScroll($event)">
 
             <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
