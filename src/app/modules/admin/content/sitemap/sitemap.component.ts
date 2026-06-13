@@ -165,6 +165,14 @@ export class SitemapComponent implements OnInit, OnDestroy {
         });
     }
 
+    editAllSelected() {
+        if (!this.selected || this.selected.length === 0) return;
+        
+        this.router.navigate(['/ai-writer'], {
+            state: { wpPosts: this.selected }
+        });
+    }
+
     decodeHTMLEntities(text: string): string {
         if (!text) return '';
         let decoded = text;

@@ -61,6 +61,12 @@
                     </ng-container>
                 </mat-select>
             </mat-form-field>
+
+            <!-- Sửa toàn bộ -->
+            <button mat-flat-button color="primary" *ngIf="selected && selected.length > 0" (click)="editAllSelected()">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
+                <mat-label class="ml-2">Sửa toàn bộ</mat-label>
+            </button>
         </div>
     </div>
 

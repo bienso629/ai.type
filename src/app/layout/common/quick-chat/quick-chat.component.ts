@@ -183,7 +183,13 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         }
 
         // Cập nhật isWebviewVisible (phát sự kiện toggle)
-        window.dispatchEvent(new CustomEvent('toggle-gemini', { detail: { forceOpen: true } }));
+        window.dispatchEvent(new CustomEvent('toggle-gemini', { 
+            detail: { 
+                forceOpen: true,
+                title: tool.name,
+                url: tool.url
+            } 
+        }));
         // Đóng panel sau khi chọn
         this.close();
     }
