@@ -31,8 +31,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
     // ===== UI Gemini Popup State =====
     isWebviewVisible = false;
-    popupTitle = 'Mở rộng';
-    popupFavicon = '';
+    popupTitle = 'Gemini';
+    popupFavicon = 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
     isDraggingWebview = false;
     isResizingWebview = false;
     private resizeObserver: ResizeObserver | null = null;
@@ -179,6 +179,17 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         window.addEventListener('toggle-gemini', (e: any) => {
             if (e && e.detail && e.detail.forceOpen) {
                 this.isWebviewVisible = true;
+                if (e.detail.title) {
+                    this.popupTitle = e.detail.title;
+                }
+                if (e.detail.url) {
+                    try {
+                        const domain = new URL(e.detail.url).hostname;
+                        this.popupFavicon = `https://www.google.com/s2/favicons?domain=${domain}&sz=64`;
+                    } catch (err) {
+                        this.popupFavicon = './assets/images/logo/favicon.svg';
+                    }
+                }
             } else {
                 this.toggleWebview();
             }
@@ -438,36 +449,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                     setTimeout(() => { webview.style.opacity = '1'; }, 50);
                 });
 
-                // Hàm cập nhật tiêu đề đáng tin cậy hơn
-                const updateTitle = () => {
-                    try {
-                        const title = (webview as any).getTitle();
-                        if (title && title !== this.popupTitle) {
-                            this.popupTitle = title;
-                            this.cdr.detectChanges();
-                        }
-                    } catch (err) {}
-                };
-
-                webview.addEventListener('did-stop-loading', updateTitle);
-                webview.addEventListener('did-navigate', updateTitle);
-                webview.addEventListener('did-navigate-in-page', updateTitle);
-
-                // Cập nhật tiêu đề dựa trên trang web hiện tại
-                webview.addEventListener('page-title-updated', (e: any) => {
-                    if (e.title) {
-                        this.popupTitle = e.title;
-                        this.cdr.detectChanges();
-                    }
-                });
-
-                // Cập nhật favicon dựa trên trang web hiện tại
-                webview.addEventListener('page-favicon-updated', (e: any) => {
-                    if (e.favicons && e.favicons.length > 0) {
-                        this.popupFavicon = e.favicons[0];
-                        this.cdr.detectChanges();
-                    }
-                });
+                // Hàm cập nhật tiêu đề đã được gỡ bỏ vì người dùng muốn sử dụng tên hiển thị tĩnh.
+                // Favicon cũng sẽ được cập nhật tĩnh thông qua sự kiện toggle-gemini.
 
                 container.appendChild(webview);
             }

@@ -1114,7 +1114,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Tự động viết nội dung nhanh
      */
     createShortBlog(item: any, index: number) {
-        const img = $(item[index]).find('img:first').attr('src');
+        let img = '';
+        try {
+            if (typeof item[index] === 'string' && item[index].trim().startsWith('<')) {
+                img = $($.parseHTML(item[index])).find('img:first').attr('src') || '';
+            }
+        } catch (e) { }
 
         const dialogRef = this.dialog.open(GeminiImageDialog, {
             width: '680px',
@@ -2013,11 +2018,26 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 // }
 
                 // chính chủ đã chỉnh sửa
-                const id = $(item[index]).attr('id');
+                let id = null;
+                try {
+                    if (typeof item[index] === 'string' && item[index].trim().startsWith('<')) {
+                        id = $($.parseHTML(item[index])).attr('id');
+                    }
+                } catch (e) { }
 
-                if (id) {
-                    const value = $(result.content).prop('id', id);
-                    item[index] = value.prop('outerHTML');
+                if (id && typeof result.content === 'string') {
+                    try {
+                        const $parsed = $(`<div>${result.content}</div>`);
+                        const firstChild = $parsed.children().first();
+                        if (firstChild.length > 0) {
+                            firstChild.attr('id', id);
+                            item[index] = $parsed.html();
+                        } else {
+                            item[index] = `<p id="${id}">${result.content}</p>`;
+                        }
+                    } catch (e) {
+                        item[index] = result.content;
+                    }
                 } else {
                     item[index] = result.content;
                 }
@@ -2608,7 +2628,9 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
                             this.toastr.success(`Văn bản đã được lưu trữ.`);
                             
-                            if (this.source && this.source.wp_post_id) {
+                            if (this.source && this.source.wpPosts && this.source.wpPosts.length > 0) {
+                                this.syncToWordpress();
+                            } else if (this.source && this.source.wp_post_id) {
                                 this.export();
                             } else {
                                 this.syncToWordpress();
@@ -2635,7 +2657,14 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     syncToWordpress() {
-        if (this.source.wp_post_id && this.source.wp_domain) {
+        let postsToUpdate: any[] = [];
+        if (this.source.wpPosts && this.source.wpPosts.length > 0) {
+            postsToUpdate = this.source.wpPosts;
+        } else if (this.source.wp_post_id && this.source.wp_domain) {
+            postsToUpdate = [this.source];
+        }
+
+        if (postsToUpdate.length > 0) {
             let formattedContent = '';
             this.done.forEach((item: any) => {
                 let formattedItem = typeof item === 'string' ? item : JSON.stringify(item);
@@ -2653,44 +2682,66 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                 formattedContent = this.source.text.join('');
             }
 
-            let apppass = this.source.wp_password;
-            let username = this.source.wp_username;
+            postsToUpdate.forEach((post: any) => {
+                let apppass = post.wp_password;
+                let username = post.wp_username;
+                let postDomain = post.wp_domain || post.domain;
+                let postId = post.wp_post_id || post.id;
 
-            let domainacc: any = localStorage.getItem(`${this.source.wp_domain}.account`);
-            if (domainacc) {
-                try {
-                    domainacc = this._h.decrypt(domainacc, `${this.source.wp_domain}.account.key`);
-                    if (!username) username = domainacc.username;
-                    if (!apppass) apppass = domainacc.apppass;
-                } catch (e) {
-                    console.error('Decryption error for domain account', e);
-                }
-            }
-
-            const wpData = {
-                wp_post_id: this.source.wp_post_id,
-                domain: this.source.wp_domain,
-                wp_username: username,
-                wp_password: apppass,
-                title: this.detectForm.get('step1').get('title').value,
-                content: formattedContent,
-                excerpt: this.detectForm.get('step1').get('description').value,
-                thumbnail: this.detectForm.get('step1').get('thumbnail').value
-            };
-
-            this._wordpressService.update_post(wpData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                next: (res) => {
-                    // Because wordpress.ts swallows errors returning empty array [], we check for it
-                    if (res && res.id) {
-                        this.toastr.success('Đã đồng bộ lên WordPress thành công!');
-                    } else {
-                        this.toastr.error('Đồng bộ thất bại, vui lòng kiểm tra lại quyền truy cập hoặc cấu hình.');
+                let domainacc: any = localStorage.getItem(`${postDomain}.account`);
+                if (domainacc) {
+                    try {
+                        domainacc = this._h.decrypt(domainacc, `${postDomain}.account.key`);
+                        if (!username) username = domainacc.username;
+                        if (!apppass) apppass = domainacc.apppass;
+                    } catch (e) {
+                        console.error('Decryption error for domain account', e);
                     }
-                },
-                error: (err) => {
-                    this.toastr.error('Lỗi khi đồng bộ lên WordPress.');
-                    console.error('WP Sync Error:', err);
                 }
+
+                if (!username || !apppass) {
+                    let selectedDomain: any = null;
+                    if (this.domains && this.domains.length > 0) {
+                        selectedDomain = this.domains.find((d: any) => d.domain === postDomain);
+                    }
+                    
+                    if (!selectedDomain && this.domain && this.domain['domain'] === postDomain) {
+                        selectedDomain = this.domain;
+                    }
+                    
+                    if (!username && selectedDomain && selectedDomain.username) {
+                        username = selectedDomain.username;
+                    }
+                    if (!apppass && selectedDomain && selectedDomain.password) {
+                        apppass = selectedDomain.password;
+                    }
+                }
+
+                const wpData = {
+                    wp_post_id: postId,
+                    domain: postDomain,
+                    wp_username: username,
+                    wp_password: apppass,
+                    title: this.detectForm.get('step1').get('title').value,
+                    content: formattedContent,
+                    excerpt: this.detectForm.get('step1').get('description').value,
+                    thumbnail: this.detectForm.get('step1').get('thumbnail').value
+                };
+
+                this._wordpressService.update_post(wpData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                    next: (res) => {
+                        // Because wordpress.ts swallows errors returning empty array [], we check for it
+                        if (res && res.id) {
+                            this.toastr.success(`Đã đồng bộ bài viết ${res.id} lên WordPress thành công!`);
+                        } else {
+                            this.toastr.error(`Đồng bộ bài viết ${postId} thất bại, vui lòng kiểm tra lại quyền truy cập.`);
+                        }
+                    },
+                    error: (err) => {
+                        this.toastr.error(`Lỗi khi đồng bộ bài viết ${postId} lên WordPress.`);
+                        console.error('WP Sync Error:', err);
+                    }
+                });
             });
         }
     }
@@ -3615,7 +3666,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Viết comment cho mỗi block
      */
     comment(_data: any, item: any, _i: number) {
-        const id = $(item).attr('id');
+        let id = null;
+        try {
+            if (typeof item === 'string' && item.trim().startsWith('<')) {
+                id = $($.parseHTML(item)).attr('id');
+            }
+        } catch (e) { }
 
         if (id) {
             const dialogRef = this.dialog.open(CommentDialog, {
@@ -3724,12 +3780,29 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         const winWidth = window.innerWidth;
         const winHeight = window.innerHeight;
 
-        const id = $(item).attr('id');
+        let id = null;
+        let safeItem: any = item;
+        try {
+            if (typeof item === 'string') {
+                if (item.trim().startsWith('<')) {
+                    safeItem = $($.parseHTML(item));
+                    id = safeItem.attr('id');
+                } else {
+                    safeItem = $('<span>').text(item);
+                }
+            } else {
+                safeItem = $(item);
+                id = safeItem.attr('id');
+            }
+        } catch (e) {
+            safeItem = $('<span>').text(item);
+        }
+
         const cloneid = 'klon-' + id;
         const overlay = $('<div></div>');
         const close = $('<div></div>').append('<label>Close</label>');
         const content = $('<div></div>')
-            .append($(item).clone())
+            .append($(safeItem).clone())
             .prop('id', cloneid);
 
         $(`body`).append(overlay);
@@ -4023,7 +4096,33 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         });
 
         const state = history.state;
-        if (state && state.wpPost) {
+        if (state && state.wpPosts && state.wpPosts.length > 0) {
+            this.source.wpPosts = state.wpPosts;
+            
+            const post = state.wpPosts[0];
+            if (post.title) {
+                this.detectForm.get('step1.title').setValue(post.title);
+            }
+            if (post.content) {
+                this.source.text = [post.content];
+            }
+            if (post.thumbnail) {
+                this.detectForm.get('step1.thumbnail').setValue(post.thumbnail);
+                this.source.img = [`<p id="source-img-${uuid.v4()}"><img src="${post.thumbnail}" /></p>`];
+            }
+            if (post.id) {
+                this.source.wp_post_id = post.id;
+            }
+            if (post.domain) {
+                this.source.wp_domain = post.domain;
+            }
+            if (post.wp_username) {
+                this.source.wp_username = post.wp_username;
+            }
+            if (post.wp_password) {
+                this.source.wp_password = post.wp_password;
+            }
+        } else if (state && state.wpPost) {
             const post = state.wpPost;
             
             if (post.title) {
