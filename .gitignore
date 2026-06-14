@@ -17,6 +17,7 @@
 /electron/views
 /electron/pkg-macos
 /electron/my-pm2-cli
+/electron/crm
 
 *build
 

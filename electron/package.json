@@ -32,6 +32,7 @@
             "yt-dlp-*",
             "edge-tts-*",
             "type-lite-*",
+            "crm/**/*",
             {
                 "from": "bin",
                 "to": "bin"
