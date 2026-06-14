@@ -9,9 +9,13 @@
   <div class="gemini-popup mat-elevation-z8" 
        [style.display]="isWebviewVisible ? 'flex' : 'none'" 
        cdkDrag 
-       (cdkDragStarted)="onPopupDragStart()"
-       (cdkDragEnded)="onPopupDragEnd()"
-       style="position: absolute; top: 20px; left: calc(100vw - 420px); width: 400px; height: 600px; background: #1a1a1a; z-index: 99999; border-radius: 12px; overflow: hidden; flex-direction: column; border: 1px solid #333; box-shadow: 0 8px 32px rgba(0,0,0,0.5); resize: both; min-width: 300px; min-height: 400px;">
+       cdkDragBoundary=".app-container"
+       style="position: absolute; top: 20px; left: calc(100vw - 420px); width: 400px; height: 600px; background: #1a1a1a; z-index: 99999; border-radius: 12px; overflow: hidden; flex-direction: column; border: 1px solid #333; box-shadow: 0 8px 32px rgba(0,0,0,0.5); min-width: 300px; min-height: 400px; max-width: calc(100vw - 40px); max-height: calc(100vh - 40px);">
+    
+    <!-- Custom Resize Handle (Góc phải dưới) -->
+    <div class="gemini-resize-handle" style="position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; cursor: nwse-resize; z-index: 100000; display: flex; align-items: flex-end; justify-content: flex-end; padding: 4px; background: transparent;">
+      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2h-4"/><path d="M21 8V4a2 2 0 0 0-2-2h-4"/><path d="M3 15v4a2 2 0 0 0 2 2h4"/><path d="M3 8V4a2 2 0 0 1 2-2h4"/></svg>
+    </div>
     
     <!-- Header để kéo thả -->
     <div class="gemini-popup-header" 
@@ -35,8 +39,6 @@
 
     <!-- Container cho webview -->
     <div id="webview-container-div" style="width: 100%; flex: 1; border: none; display: flex; background: #1a1a1a; position: relative;">
-      <!-- Lớp phủ trong suốt chống Webview "nuốt" chuột khi kéo/resize -->
-      <div *ngIf="isDraggingWebview || isResizingWebview" style="position: absolute; inset: 0; z-index: 10000; background: transparent;"></div>
     </div>
   </div>
 

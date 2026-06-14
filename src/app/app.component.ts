@@ -33,10 +33,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     isWebviewVisible = false;
     popupTitle = 'Gemini';
     popupFavicon = 'https://www.google.com/s2/favicons?domain=gemini.google.com&sz=64';
-    isDraggingWebview = false;
-    isResizingWebview = false;
-    private resizeObserver: ResizeObserver | null = null;
-    private resizeTimeout: any;
 
     // Toggle webview: ẩn/hiện nhanh
     toggleWebview() {
@@ -130,23 +126,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             this.multiAccountService.setItem('settings', settings);
         }
 
-        const popupEl = document.querySelector('.gemini-popup');
-        if (popupEl) {
-            this.resizeObserver = new ResizeObserver(() => {
-                if (!this.isResizingWebview && this.isWebviewVisible) {
-                    this.isResizingWebview = true;
-                    // Kích hoạt change detection nếu cần (nhưng ngZone.run sẽ làm việc này)
-                    this.ngZone.run(() => {}); 
-                }
-                clearTimeout(this.resizeTimeout);
-                this.resizeTimeout = setTimeout(() => {
-                    this.ngZone.run(() => {
-                        this.isResizingWebview = false;
-                    });
-                }, 250); // Hết kéo 250ms thì bỏ overlay
-            });
-            this.resizeObserver.observe(popupEl);
-        }
+        // We use native DOM events in ngAfterViewInit instead of ResizeObserver to prevent lag
     }
 
     ngOnInit() {
@@ -403,8 +383,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 webview.setAttribute('partition', 'persist:gemini-webview');
                 webview.setAttribute('src', 'https://gemini.google.com/app?hl=vi');
                 webview.setAttribute('allowpopups', 'true');
-                // Sử dụng User Agent gốc từ Electron main process (đã được lọc sạch) để tránh mismatch Client Hints
-                webview.setAttribute('useragent', 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+                // Tạo User Agent sạch (từ UA thực của hệ thống) để tránh lệch phiên bản Client Hints với Chrome thực tế
+                // Xóa chữ Electron và tên ứng dụng đi để Google không chặn đăng nhập (lỗi Cookie)
+                let cleanUA = navigator.userAgent.replace(/ Electron\/[\d\.]+/, '').replace(/ ai\.type\/[\d\.]+/, '');
+                webview.setAttribute('useragent', cleanUA);
 
                 webview.style.width = '100%';
                 webview.style.height = '100%';
@@ -445,24 +427,68 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                         console.warn('Không thể inject CSS vào webview:', e);
                     }
                     
-                    // Hiện webview sau khi đã tiêm CSS
-                    setTimeout(() => { webview.style.opacity = '1'; }, 50);
+                // Hiện webview sau khi đã tiêm CSS
+                setTimeout(() => { webview.style.opacity = '1'; }, 50);
+            });
+
+            container.appendChild(webview);
+
+            // Xử lý chống lag mượt mà khi kéo viền (resize) hoặc kéo thanh tiêu đề (drag)
+            const popupEl = document.querySelector('.gemini-popup') as HTMLElement;
+            if (popupEl) {
+                // Giữ mousedown chung để tắt pointer-events khi kéo thanh tiêu đề
+                popupEl.addEventListener('mousedown', () => {
+                    webview.style.pointerEvents = 'none';
                 });
 
-                // Hàm cập nhật tiêu đề đã được gỡ bỏ vì người dùng muốn sử dụng tên hiển thị tĩnh.
-                // Favicon cũng sẽ được cập nhật tĩnh thông qua sự kiện toggle-gemini.
+                // Logic Custom Resize bắt theo chuỗi sự kiện chuột toàn cục
+                const resizeHandle = document.querySelector('.gemini-resize-handle') as HTMLElement;
+                if (resizeHandle) {
+                    let isResizing = false;
+                    let startX = 0;
+                    let startY = 0;
+                    let startWidth = 0;
+                    let startHeight = 0;
 
-                container.appendChild(webview);
+                    resizeHandle.addEventListener('mousedown', (e: MouseEvent) => {
+                        isResizing = true;
+                        startX = e.clientX;
+                        startY = e.clientY;
+                        startWidth = popupEl.offsetWidth;
+                        startHeight = popupEl.offsetHeight;
+                        
+                        webview.style.pointerEvents = 'none';
+                        document.body.style.cursor = 'nwse-resize';
+                        document.body.style.userSelect = 'none'; // Ngăn bôi đen chữ khi kéo nhanh
+                        
+                        e.preventDefault();
+                        e.stopPropagation();
+                    });
+
+                    window.addEventListener('mousemove', (e: MouseEvent) => {
+                        if (!isResizing) return;
+                        
+                        const newWidth = Math.max(300, startWidth + (e.clientX - startX));
+                        const newHeight = Math.max(400, startHeight + (e.clientY - startY));
+                        
+                        popupEl.style.width = newWidth + 'px';
+                        popupEl.style.height = newHeight + 'px';
+                    });
+
+                    window.addEventListener('mouseup', () => {
+                        if (isResizing) {
+                            isResizing = false;
+                            document.body.style.cursor = '';
+                            document.body.style.userSelect = '';
+                        }
+                    });
+                }
             }
-        }, 500); // Đợi DOM sẵn sàng chút xíu
-    }
-
-    onPopupDragStart() {
-        this.isDraggingWebview = true;
-    }
-
-    onPopupDragEnd() {
-        this.isDraggingWebview = false;
+            window.addEventListener('mouseup', () => {
+                webview.style.pointerEvents = 'auto';
+            });
+        }
+    }, 500); // Đợi DOM sẵn sàng chút xíu
     }
 
     ngOnDestroy() {

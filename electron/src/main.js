@@ -3081,6 +3081,7 @@ app.whenReady().then(async () => {
     // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
     app.userAgentFallback = trueAgent;
     session.defaultSession.setUserAgent(trueAgent);
+    session.fromPartition('persist:gemini-webview').setUserAgent(trueAgent); // Sửa lỗi Cookie cho webview
 
     const filter = {
         urls: [
@@ -3105,6 +3106,14 @@ app.whenReady().then(async () => {
 
             if (details.requestHeaders['Sec-CH-UA']) details.requestHeaders['Sec-CH-UA'] = newChUa;
             if (details.requestHeaders['sec-ch-ua']) details.requestHeaders['sec-ch-ua'] = newChUa;
+        }
+
+        // Triệt để xoá Electron khỏi User-Agent ở cấp độ Network Request (Bắt buộc để trị lỗi Cookie Google)
+        const ua = details.requestHeaders['User-Agent'] || details.requestHeaders['user-agent'];
+        if (ua) {
+            let cleanUA = ua.replace(/Electron\/[\d.]+ /g, '').replace(/ai.type\/[\d.]+ /g, '');
+            if (details.requestHeaders['User-Agent']) details.requestHeaders['User-Agent'] = cleanUA;
+            if (details.requestHeaders['user-agent']) details.requestHeaders['user-agent'] = cleanUA;
         }
 
         if (details.url.includes('type.vn')) {
