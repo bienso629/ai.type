@@ -230,18 +230,15 @@
                                                         class="icon-size-4 text-white">movie</mat-icon>
                                                 </button>
                                                 <button mat-icon-button
+                                                    class="bg-fuchsia-600/50 border border-fuchsia-400 hover:bg-fuchsia-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(217,70,239,0.6)]"
+                                                    (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, vIdx, true)"
+                                                    title="Magic Kling v3 Motion Control (Max 10s)">
+                                                    <mat-icon class="icon-size-4 text-white">auto_awesome</mat-icon>
+                                                </button>
+                                                <button mat-icon-button
                                                     class="bg-white/10 hover:bg-yellow-500 transition-colors icon-size-6 rounded flex items-center justify-center"
                                                     (click)="$event.stopPropagation(); triggerUploadVideo(video)">
                                                     <mat-icon class="icon-size-4 text-white">upload_file</mat-icon>
-                                                </button>
-                                                <button mat-icon-button
-                                                    class="bg-white/10 hover:bg-pink-500 transition-colors icon-size-6 rounded flex items-center justify-center"
-                                                    (click)="$event.stopPropagation(); autoGenerateStoryboard(video, sceneIdx, vIdx)">
-                                                    <div *ngIf="video.isGeneratingImage"
-                                                        class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent">
-                                                    </div>
-                                                    <mat-icon *ngIf="!video.isGeneratingImage"
-                                                        class="icon-size-4 text-white">image</mat-icon>
                                                 </button>
 
                                                 <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)"
