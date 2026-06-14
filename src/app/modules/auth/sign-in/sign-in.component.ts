@@ -51,8 +51,9 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
 
     foods = [
         // { value: 'local', viewValue: 'Máy tính cá nhân' },
-        { value: 'vn.s1', viewValue: 'Việt Nam - TP.HCM/S1 (ổn định)' },
-        { value: 'vn.s2', viewValue: 'Việt Nam - TP.HCM/S2 (ổn định)' },
+        { value: 'vn.s1', viewValue: 'Việt Nam - TP.HCM/S1 (đang sửa chữa)' },
+        { value: 'vn.s2', viewValue: 'Việt Nam - TP.HCM/S2 (đang sửa chữa)' },
+        { value: 'vn.s3', viewValue: 'Việt Nam - TP.HCM/S3 (ổn định)' },
     ];
 
     members = [];
@@ -249,7 +250,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         this.signInForm = this._formBuilder.group({
             username: ['', [Validators.required, Validators.email]],
             password: ['', Validators.required],
-            server: ['vn.s2', Validators.required],
+            server: ['vn.s3', Validators.required],
             rememberMe: [true],
         });
 

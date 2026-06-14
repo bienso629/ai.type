@@ -84,6 +84,7 @@ export const appConfig: AppConfig = {
             'local': 'http://localhost:1122/v1',
             'vn.s1': 'https://apiv1.type.vn/v1',
             'vn.s2': 'https://apiv2.type.vn/v1',
+            'vn.s3': 'https://apiv3.type.vn/v1',
         },
         gen: '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8'
     }
