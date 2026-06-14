@@ -1107,7 +1107,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     private getBase64FromImageUrl(url: string): Promise<string> {
-        return new Promise((resolve, reject) => {
+        return new Promise(async (resolve, reject) => {
             if (!url) {
                 reject('Empty URL');
                 return;
@@ -1118,28 +1118,40 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 finalUrl = finalUrl.replace(/^unsafe:/, '');
                 let originalPath = finalUrl.split('?')[0];
                 originalPath = originalPath.replace(/^file:\/\//i, '');
-                const mediaDir = ''; // Need to extract this from somewhere, or just leave empty and rely on uuid
+                const mediaDir = ''; 
                 finalUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=default`;
+            }
+
+            try {
+                if (finalUrl.startsWith('media://') || finalUrl.startsWith('blob:') || finalUrl.startsWith('data:video/')) {
+                    const res = await fetch(finalUrl);
+                    const blob = await res.blob();
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const result = reader.result as string;
+                        resolve(result.split(',')[1]);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                    return;
+                }
+            } catch (e) {
+                console.warn('Fetch fallback failed, trying Image element...', e);
             }
 
             const img = new Image();
             img.crossOrigin = 'Anonymous';
             img.onload = () => {
                 const canvas = document.createElement('canvas');
-                
-                // Đảm bảo kích thước tối thiểu và tỷ lệ khung hình an toàn cho Kling V3
-                // (tránh lỗi ConvertImageRequest do server proxy cố tự resize ảnh không hợp lệ)
                 let targetW = img.width;
                 let targetH = img.height;
                 
-                // Nếu ảnh quá nhỏ, scale lên tối thiểu 512
                 if (targetW < 512 || targetH < 512) {
                     const scale = Math.max(512 / targetW, 512 / targetH);
                     targetW = Math.round(targetW * scale);
                     targetH = Math.round(targetH * scale);
                 }
                 
-                // Khống chế kích thước tối đa 1536 để tránh file quá nặng
                 if (targetW > 1536 || targetH > 1536) {
                     const scale = Math.min(1536 / targetW, 1536 / targetH);
                     targetW = Math.round(targetW * scale);
@@ -1342,10 +1354,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
-    async autoGenerateVideo(scene: any, video: any, sceneIdx: number, vIdx: number) {
+    async autoGenerateVideo(scene: any, video: any, sceneIdx: number, vIdx: number, isMagic: boolean = false) {
         if (!video.prompt) {
             this.toastr.warning('Vui lòng nhập prompt phân cảnh trước khi tạo video!');
             return;
+        }
+        
+        if (isMagic && video.duration > 10) {
+            video.duration = 10;
         }
 
         const electron = (window as any).electron;
@@ -1408,6 +1424,48 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 }
             }
 
+            // Gắn thêm video hiện tại làm tham chiếu chuyển động (Motion Control)
+            if (isMagic && video.videoUrl) {
+                try {
+                    let finalVideoUrl = video.videoUrl;
+                    
+                    // Kling v3 Motion Control chỉ hỗ trợ tối đa 10s, cắt nếu vượt quá
+                    if (video.duration > 10) {
+                        const electron = (window as any).electron;
+                        if (electron && electron.invoke) {
+                            try {
+                                this.toastr.info('Đang tự động cắt video xuống 10s cho Motion Control...');
+                                const trimRes = await electron.invoke('trim-video', {
+                                    videoUrl: video.videoUrl,
+                                    trimStart: 0,
+                                    duration: 10
+                                });
+                                if (trimRes && trimRes.success) {
+                                    finalVideoUrl = trimRes.path.replace(/\\/g, '/');
+                                } else {
+                                    console.warn('Lỗi cắt video:', trimRes?.error);
+                                }
+                            } catch (e) {
+                                console.error('Lỗi gọi cắt video:', e);
+                            }
+                        }
+                    }
+
+                    // Nếu là URL local hoặc có file, ta có thể phải tải về để lấy base64. 
+                    // Tạm thời nếu là URL http thì có thể truyền trực tiếp hoặc phải getBase64.
+                    // Sử dụng hàm getBase64FromImageUrl tạm để đọc (nếu video < vài MB) hoặc truyền thẳng URL.
+                    // Vì API UModelverse ở backend xử lý được data:video/mp4;base64,... 
+                    const base64Video = await this.getBase64FromImageUrl(finalVideoUrl);
+                    referenceImages.push({
+                        image: { imageBytes: base64Video, mimeType: 'video/mp4' },
+                        referenceType: 'REFERENCE_VIDEO'
+                    });
+                } catch (e) {
+                    console.error('Không thể đọc video hiện tại làm reference cho Kling:', e);
+                    this.toastr.warning('Lỗi khi nạp video tham chiếu. Sẽ tiếp tục không có video.');
+                }
+            }
+
             // Gắn ảnh avatar nhân vật để giữ nhất quán nhân vật giữa các video
             let hasCharacterRef = false;
             if (this.projectData?.characters) {
@@ -1455,12 +1513,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.toastr.warning(`Đoạn video có tổng độ dài prompt (${byteLength} bytes) vượt quá 2500 của hệ thống. Đã bỏ qua đoạn này.`);
                 return;
             }
-            if (isProxy) {
+            if (isProxy || isMagic) {
                 base64 = await this._genaiService.generateVideoUModelverse(
                     finalPrompt,
                     this.projectData?.aspectRatio || '16:9',
                     referenceImages,
-                    video.duration
+                    video.duration,
+                    undefined,
+                    isMagic ? 'kling-v3-motion-control' : undefined
                 );
             } else {
                 const apiKey = this.getGeminiKey();

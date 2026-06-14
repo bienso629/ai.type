@@ -1087,18 +1087,18 @@ export class GenaiService {
                 if (endRefBase64Raw) {
                     payload.parameters.image_tail = endRefBase64Raw;
                 }
-            } else if (config.payloadFormat === 'kling_v3_motion') {
-                // Format theo tài liệu chính thức Astraflow:
-                // https://astraflow.scloudsg.com/en-us/docs/modelverse/modelverse/video_api/Kling-v3-Motion-Control
+            } else if (config.payloadFormat === 'kling_v3_motion' || model === 'kling-v3-motion-control') {
+                // Đổi format chuẩn xác theo như generate_kling.py
                 const motionControlPayload: any = {
-                    model: 'kling-v3-motion-control',
+                    model: 'kling-v3',
                     input: {
                         prompt: prompt
                     },
                     parameters: {
+                        kling_v3_type: 'motion_control',
                         character_orientation: 'image',
-                        mode: 'pro',
-                        duration: Math.ceil(duration || 5),
+                        mode: 'std',
+                        duration: Math.ceil(duration || 10),
                         aspect_ratio: aspectRatio || '16:9'
                     }
                 };
