@@ -90,11 +90,20 @@
                         <div class="flex items-center w-full">
                             <p class="font-normal truncate hover:text-clip flex-1">{{row.title}}</p>
 
-                            <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
-                                matTooltip="Đã đồng bộ WordPress"
-                                class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
-                                WP: {{row.source.wp_post_id}}
-                            </span>
+                            <ng-container *ngIf="row.source?.wpPosts && row.source.wpPosts.length > 0; else singleWP">
+                                <span *ngFor="let wp of row.source.wpPosts" matTooltipPosition="above"
+                                    [matTooltip]="'Đã đồng bộ WordPress ' + (wp.domain ? '(' + wp.domain + ')' : '')"
+                                    class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                    WP: {{wp.id || wp.wp_post_id}}
+                                </span>
+                            </ng-container>
+                            <ng-template #singleWP>
+                                <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
+                                    matTooltip="Đã đồng bộ WordPress"
+                                    class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                    WP: {{row.source.wp_post_id}}
+                                </span>
+                            </ng-template>
                         </div>
                     </ng-container>
                 </ng-template>

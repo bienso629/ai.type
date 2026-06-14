@@ -100,7 +100,8 @@
                     <!-- Image -->
                     <ng-container *ngIf="notification.image">
                         <img class="shrink-0 w-8 h-8 mr-4 rounded-full overflow-hidden object-cover object-center"
-                            [src]="notification.image" [alt]="'Notification image'">
+                            [src]="notification.image" [alt]="'Notification image'"
+                            (error)="notification.image = null; notification.icon = notification.icon || 'heroicons_outline:bell'">
                     </ng-container>
 
                     <!-- Title, description & time -->
