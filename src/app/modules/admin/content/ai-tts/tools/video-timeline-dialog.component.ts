@@ -1430,36 +1430,63 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     let finalVideoUrl = video.videoUrl;
                     
                     // Kling v3 Motion Control chỉ hỗ trợ tối đa 10s, cắt nếu vượt quá
-                    if (video.duration > 10) {
+                    const originalDuration = parseFloat(video.maxDuration) || 999;
+                    let targetDuration = parseFloat(video.duration);
+                    if (isNaN(targetDuration) || targetDuration > 10) targetDuration = 10;
+                    
+                    if (originalDuration >= targetDuration || (video.trimStart && video.trimStart > 0) || originalDuration >= 10 || targetDuration >= 10) {
                         const electron = (window as any).electron;
                         if (electron && electron.invoke) {
                             try {
-                                this.toastr.info('Đang tự động cắt video xuống 10s cho Motion Control...');
+                                this.toastr.info(`Đang tự động cắt video tham chiếu xuống ${targetDuration}s...`);
                                 const trimRes = await electron.invoke('trim-video', {
                                     videoUrl: video.videoUrl,
-                                    trimStart: 0,
-                                    duration: 10
+                                    trimStart: video.trimStart || 0,
+                                    duration: targetDuration
                                 });
                                 if (trimRes && trimRes.success) {
                                     finalVideoUrl = trimRes.path.replace(/\\/g, '/');
+                                    
+                                    // Bổ sung upload lên CDN ngay sau khi cắt
+                                    try {
+                                        this.toastr.info(`Đang tải video 10s lên hệ thống...`);
+                                        const base64Trimmed = await this.getBase64FromImageUrl(finalVideoUrl);
+                                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(`data:video/mp4;base64,${base64Trimmed}`, `trimmed_video_${Date.now()}.mp4`);
+                                        if (cdnUrl) {
+                                            video.videoUrl = cdnUrl; // Cập nhật lại UI luôn
+                                            finalVideoUrl = cdnUrl;
+                                        }
+                                    } catch (uploadErr) {
+                                        console.error('Lỗi upload video sau khi cắt:', uploadErr);
+                                        this.toastr.warning('Không thể upload video đã cắt, sẽ dùng file local.');
+                                    }
                                 } else {
                                     console.warn('Lỗi cắt video:', trimRes?.error);
+                                    this.toastr.error('Lỗi khi cắt video: ' + trimRes?.error);
+                                    throw new Error('Không thể cắt video tham chiếu xuống dưới 10s.');
                                 }
                             } catch (e) {
                                 console.error('Lỗi gọi cắt video:', e);
+                                this.toastr.error('Ứng dụng Electron không phản hồi khi gọi lệnh cắt video.');
+                                throw new Error('Không thể gọi lệnh cắt video qua Electron.');
                             }
                         }
                     }
 
                     // Nếu là URL local hoặc có file, ta có thể phải tải về để lấy base64. 
                     // Tạm thời nếu là URL http thì có thể truyền trực tiếp hoặc phải getBase64.
-                    // Sử dụng hàm getBase64FromImageUrl tạm để đọc (nếu video < vài MB) hoặc truyền thẳng URL.
-                    // Vì API UModelverse ở backend xử lý được data:video/mp4;base64,... 
-                    const base64Video = await this.getBase64FromImageUrl(finalVideoUrl);
-                    referenceImages.push({
-                        image: { imageBytes: base64Video, mimeType: 'video/mp4' },
-                        referenceType: 'REFERENCE_VIDEO'
-                    });
+                    if (finalVideoUrl.startsWith('http')) {
+                        referenceImages.push({
+                            image: { imageBytes: finalVideoUrl, mimeType: 'video/mp4' },
+                            referenceType: 'REFERENCE_VIDEO'
+                        });
+                    } else {
+                        const base64Video = await this.getBase64FromImageUrl(finalVideoUrl);
+                        referenceImages.push({
+                            image: { imageBytes: base64Video, mimeType: 'video/mp4' },
+                            referenceType: 'REFERENCE_VIDEO'
+                        });
+                    }
                 } catch (e) {
                     console.error('Không thể đọc video hiện tại làm reference cho Kling:', e);
                     this.toastr.warning('Lỗi khi nạp video tham chiếu. Sẽ tiếp tục không có video.');

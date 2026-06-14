@@ -1,4 +1,4 @@
-﻿const {
+const {
     app,
     protocol,
     BrowserWindow,
@@ -5475,27 +5475,62 @@ ipcMain.handle('trim-video', async (event, payload) => {
     try {
         let { videoUrl, trimStart, duration } = payload;
         
+        trimStart = parseFloat(trimStart) || 0;
+        let parsedDuration = parseFloat(duration);
+        if (isNaN(parsedDuration) || parsedDuration > 10) parsedDuration = 10;
+        duration = parsedDuration;
+
         // Remove file://
         const videoPath = videoUrl.replace('file://', '');
-        if (!fs.existsSync(videoPath)) {
-            return { success: false, error: 'File gá»‘c khÃ´ng tá»“n táº¡i: ' + videoPath };
+        const isHttp = videoPath.startsWith('http://') || videoPath.startsWith('https://');
+        
+        if (!isHttp && !fs.existsSync(videoPath)) {
+            return { success: false, error: 'File gốc không tồn tại: ' + videoPath };
         }
 
         const ffmpegPath = binaries.ffmpeg || "ffmpeg";
-        const dir = path.dirname(videoPath);
-        const ext = path.extname(videoPath);
-        const baseName = path.basename(videoPath, ext);
-        let originalBaseName = baseName.replace(/_trimmed_\d+/g, '');
+        let outputPath;
+        let localInputPath = videoPath;
+        let baseName = '';
         const timestamp = new Date().getTime();
-        const outputPath = path.join(dir, `${originalBaseName}_trimmed_${timestamp}${ext}`);
+        const tempDir = path.join(app.getPath('temp'), 'type_video_trim');
+        if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
+
+        // Download file if it's http
+        if (isHttp) {
+            let urlPathname = new URL(videoPath).pathname;
+            const ext = path.extname(urlPathname) || '.mp4';
+            baseName = path.basename(urlPathname, ext) || 'video';
+            localInputPath = path.join(tempDir, `download_${timestamp}${ext}`);
+            outputPath = path.join(tempDir, `trimmed_${timestamp}${ext}`);
+            
+            await new Promise((resolve, reject) => {
+                const https = require(videoPath.startsWith('https') ? 'https' : 'http');
+                const file = fs.createWriteStream(localInputPath);
+                https.get(videoPath, (response) => {
+                    response.pipe(file);
+                    file.on('finish', () => { file.close(resolve); });
+                }).on('error', (err) => {
+                    fs.unlink(localInputPath, () => {});
+                    reject(err);
+                });
+            });
+        } else {
+            const dir = path.dirname(videoPath);
+            const ext = path.extname(videoPath);
+            baseName = path.basename(videoPath, ext);
+            let originalBaseName = baseName.replace(/_trimmed_\d+/g, '');
+            outputPath = path.join(dir, `${originalBaseName}_trimmed_${timestamp}${ext}`);
+        }
 
         const args = [
             '-ss', trimStart.toString(),
-            '-i', videoPath,
+            '-i', localInputPath,
             '-t', duration.toString(),
             '-c:v', 'libx264',
-            '-c:a', 'aac',
+            '-crf', '28',
             '-preset', 'fast',
+            '-c:a', 'aac',
             '-y',
             outputPath
         ];
@@ -5504,8 +5539,9 @@ ipcMain.handle('trim-video', async (event, payload) => {
             const child = spawn(ffmpegPath, args);
             
             child.on('close', (code) => {
+                if (isHttp) { try { fs.unlinkSync(localInputPath); } catch (e) {} }
                 if (code === 0 && fs.existsSync(outputPath)) {
-                    if (baseName.includes('_trimmed_')) {
+                    if (!isHttp && baseName.includes('_trimmed_')) {
                         try { fs.unlinkSync(videoPath); } catch (e) {}
                     }
                     resolve({ success: true, path: outputPath });
@@ -5515,6 +5551,7 @@ ipcMain.handle('trim-video', async (event, payload) => {
             });
             
             child.on('error', (err) => {
+                if (isHttp) { try { fs.unlinkSync(localInputPath); } catch (e) {} }
                 resolve({ success: false, error: err.message });
             });
         });

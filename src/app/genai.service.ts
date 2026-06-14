@@ -35,7 +35,7 @@ export class GenaiService {
      * CDN server chạy ở localhost:3333, endpoint POST /upload, field name 'files'.
      * Dùng cho Kling API vì UModelverse proxy không hỗ trợ ConvertImageRequest.
      */
-    private async uploadBase64ToCdn(base64Data: string, filename?: string): Promise<string | null> {
+    public async uploadBase64ToCdn(base64Data: string, filename?: string): Promise<string | null> {
         try {
             // Chuyển base64 thành Blob
             let mimeType = 'image/jpeg';
@@ -963,7 +963,10 @@ export class GenaiService {
             const endImg = referenceImages.find(img => img.referenceType === 'END_FRAME' || img.referenceType === 'REFERENCE_VIDEO');
             if (endImg) {
                 endRefBase64Raw = endImg.image?.imageBytes || (typeof endImg === 'string' ? endImg : '');
-                if (endRefBase64Raw && !endRefBase64Raw.startsWith('data:')) {
+                if (endRefBase64Raw && endRefBase64Raw.startsWith('http')) {
+                    // Nếu là URL http thì bỏ qua upload và gán thẳng
+                    endRefBase64DataUri = endRefBase64Raw;
+                } else if (endRefBase64Raw && !endRefBase64Raw.startsWith('data:')) {
                     const mime = endImg.referenceType === 'REFERENCE_VIDEO' ? 'video/mp4' : 'image/png';
                     endRefBase64DataUri = `data:${mime};base64,${endRefBase64Raw}`;
                 } else if (endRefBase64Raw.startsWith('data:')) {
@@ -971,21 +974,24 @@ export class GenaiService {
                     endRefMimeType = endRefBase64Raw.substring(5, endRefBase64Raw.indexOf(';'));
                     endRefBase64Raw = endRefBase64Raw.split(',')[1];
                 }
+                
                 // Upload ảnh/video lên CDN để tránh gửi chuỗi base64 quá lớn làm lỗi API proxy
-                try {
-                    let hash = 0;
-                    for (let i = 0; i < endRefBase64DataUri.length; i += 100) {
-                        hash = (hash << 5) - hash + endRefBase64DataUri.charCodeAt(i);
-                        hash |= 0;
+                if (!endRefBase64Raw.startsWith('http')) {
+                    try {
+                        let hash = 0;
+                        for (let i = 0; i < endRefBase64DataUri.length; i += 100) {
+                            hash = (hash << 5) - hash + endRefBase64DataUri.charCodeAt(i);
+                            hash |= 0;
+                        }
+                        const ext = endImg.referenceType === 'REFERENCE_VIDEO' ? 'mp4' : 'png';
+                        const fileUrl = await this.uploadBase64ToCdn(endRefBase64DataUri, `kling_ref_${Math.abs(hash)}.${ext}`);
+                        if (fileUrl) {
+                            endRefBase64Raw = fileUrl;
+                            endRefBase64DataUri = fileUrl;
+                        }
+                    } catch (e) {
+                        console.error("[UModelverse Ref Upload Exception]", e);
                     }
-                    const ext = endImg.referenceType === 'REFERENCE_VIDEO' ? 'mp4' : 'png';
-                    const fileUrl = await this.uploadBase64ToCdn(endRefBase64DataUri, `kling_ref_${Math.abs(hash)}.${ext}`);
-                    if (fileUrl) {
-                        endRefBase64Raw = fileUrl;
-                        endRefBase64DataUri = fileUrl;
-                    }
-                } catch (e) {
-                    console.error("[UModelverse Ref Upload Exception]", e);
                 }
             }
         }
