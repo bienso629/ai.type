@@ -83,29 +83,38 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tiêu đề" [width]="500" [sortable]="false" [canAutoResize]="false"
-                [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Tiêu đề" [width]="300" [sortable]="false" [canAutoResize]="true"
+                [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row">
                         <div class="flex items-center w-full">
-                            <p class="font-normal truncate hover:text-clip flex-1">{{row.title}}</p>
-
-                            <ng-container *ngIf="row.source?.wpPosts && row.source.wpPosts.length > 0; else singleWP">
-                                <span *ngFor="let wp of row.source.wpPosts" matTooltipPosition="above"
-                                    [matTooltip]="'Đã đồng bộ WordPress ' + (wp.domain ? '(' + wp.domain + ')' : '')"
-                                    class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
-                                    WP: {{wp.id || wp.wp_post_id}}
-                                </span>
-                            </ng-container>
-                            <ng-template #singleWP>
-                                <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
-                                    matTooltip="Đã đồng bộ WordPress"
-                                    class="ml-2 shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
-                                    WP: {{row.source.wp_post_id}}
-                                </span>
-                            </ng-template>
+                            <p class="font-normal truncate flex-1" [matTooltip]="row.title">{{row.title}}</p>
                         </div>
                     </ng-container>
+                </ng-template>
+            </ngx-datatable-column>
+
+            <!-- Column Templates -->
+            <ngx-datatable-column name="WordPress" [width]="200" [sortable]="false" [canAutoResize]="true"
+                [draggable]="false" [resizeable]="true">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div *ngIf="row" class="flex items-center gap-1 w-full overflow-x-auto h-full" 
+                         style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
+                        <ng-container *ngIf="row.source?.wpPosts && row.source.wpPosts.length > 0; else singleWP">
+                            <span *ngFor="let wp of row.source.wpPosts" matTooltipPosition="above"
+                                [matTooltip]="'Đã đồng bộ WordPress ' + (wp.domain ? '(' + wp.domain + ')' : '')"
+                                class="shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                WP: {{wp.id || wp.wp_post_id}}
+                            </span>
+                        </ng-container>
+                        <ng-template #singleWP>
+                            <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
+                                matTooltip="Đã đồng bộ WordPress"
+                                class="shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                WP: {{row.source.wp_post_id}}
+                            </span>
+                        </ng-template>
+                    </div>
                 </ng-template>
             </ngx-datatable-column>
 
