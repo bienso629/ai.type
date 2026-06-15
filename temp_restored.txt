@@ -1,0 +1,70 @@
+analyze-video-local', async (event, payload) => {
+    try {
+        let { url, extractInterval } = payload;
+        if (!url) {
+            return { success: false, error: 'Không có URL hợp l�!' };
+        }
+        url = url.trim();
+
+        const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            fs.mkdirSync(aiTypingDir, { recursive: true });
+        }
+
+        // Tạo m�"t thư mục tạm thời riêng cho task này
+        const timestamp = Date.now();
+        const tempDir = path.join(aiTypingDir, `_temp_${timestamp}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        let isLocalFile = false;
+        let videoPath = '';
+        let subtitlesText = "";
+        let videoFile = "";
+
+        // KiỒm tra xem URL có phải là file local không
+        if (fs.existsSync(url) && fs.statSync(url).isFile()) {
+            isLocalFile = true;
+            videoPath = url;
+            videoFile = path.basename(url);
+            sendToRenderer("tools-log", `[AI Analyze] Sử dụng video từ máy tính: ${url}`);
+        } else {
+            // Nếu url gi�ng m�"t �ường dẫn máy tính (bắt �ầu bằng �" �ĩa C:\ hoặc D:\ hoặc /) nhưng không t�n tại file
+            if (/^[a-zA-Z]:\\/.test(url) || url.startsWith('/')) {
+                return { success: false, error: `Không tìm thấy file video trên máy tính tại: ${url}. Có thỒ file �ã b�9 xóa hoặc ��"i tên.` };
+            }
+
+            // Tải video ��" phân giải vừa �ủ �Ồ tĒng t�c, K��M THEO PHỤ ĐỬ
+            const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+
+            sendToRenderer("tools-log", `[AI Analyze] Đang tải video từ YouTube �Ồ phân tích...`);
+
+            const ytdlpArgs = [
+                '-o', outputTemplate,
+                '--newline',
+                '--ignore-errors',
+                '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+                '--write-auto-subs',
+                '--write-subs',
+                '--sub-lang', 'vi,en.*'
+            ];
+            if (binaries.ffmpeg) {
+                ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
+            }
+
+            // B�" sung cookie từ trình duy�!t Chrome ��i v�:i Facebook �Ồ tránh b�9 chặn
+            const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
+            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+
+            let hasCustomCookies = false;
+
+            if (fs.existsSync(cookiesTxtPath)) {
+                ytdlpArgs.push('--cookies', cookiesTxtPath);
+                hasCustomCookies = true;
+            } else if (fs.existsSync(cookiesJsonPath)) {
+                try {
+                    const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
+    

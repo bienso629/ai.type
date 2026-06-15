@@ -317,6 +317,10 @@ export class GenaiService {
     }
 
     private async generateChatUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
+        const overrideModel = params.model === 'gemini-3.5-flash' ? null : params.model;
+        const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
+        const config = getTextModelConfig(targetModel);
+
         const messages: any[] = [];
 
 
@@ -366,9 +370,6 @@ export class GenaiService {
             }
         }
 
-        const overrideModel = params.model === 'gemini-3.5-flash' ? null : params.model;
-        const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
-        const config = getTextModelConfig(targetModel);
 
         let endpointPath = config.endpointOverride || '/v1/chat/completions';
         if (endpointPath.includes('{model}')) {
