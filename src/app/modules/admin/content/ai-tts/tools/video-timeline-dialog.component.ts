@@ -1434,7 +1434,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     let targetDuration = parseFloat(video.duration);
                     if (isNaN(targetDuration) || targetDuration > 10) targetDuration = 10;
                     
-                    if (originalDuration >= targetDuration || (video.trimStart && video.trimStart > 0) || originalDuration >= 10 || targetDuration >= 10) {
+                    let needsTrim = false;
+                    if ((video.trimStart && video.trimStart > 0) || originalDuration > 10) {
+                        needsTrim = true;
+                    } else if (originalDuration > targetDuration + 0.1) {
+                        needsTrim = true;
+                    }
+
+                    if (needsTrim) {
                         const electron = (window as any).electron;
                         if (electron && electron.invoke) {
                             try {
@@ -1446,20 +1453,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 });
                                 if (trimRes && trimRes.success) {
                                     finalVideoUrl = trimRes.path.replace(/\\/g, '/');
-                                    
-                                    // Bổ sung upload lên CDN ngay sau khi cắt
-                                    try {
-                                        this.toastr.info(`Đang tải video 10s lên hệ thống...`);
-                                        const base64Trimmed = await this.getBase64FromImageUrl(finalVideoUrl);
-                                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(`data:video/mp4;base64,${base64Trimmed}`, `trimmed_video_${Date.now()}.mp4`);
-                                        if (cdnUrl) {
-                                            video.videoUrl = cdnUrl; // Cập nhật lại UI luôn
-                                            finalVideoUrl = cdnUrl;
-                                        }
-                                    } catch (uploadErr) {
-                                        console.error('Lỗi upload video sau khi cắt:', uploadErr);
-                                        this.toastr.warning('Không thể upload video đã cắt, sẽ dùng file local.');
-                                    }
                                 } else {
                                     console.warn('Lỗi cắt video:', trimRes?.error);
                                     this.toastr.error('Lỗi khi cắt video: ' + trimRes?.error);
@@ -1470,6 +1463,22 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 this.toastr.error('Ứng dụng Electron không phản hồi khi gọi lệnh cắt video.');
                                 throw new Error('Không thể gọi lệnh cắt video qua Electron.');
                             }
+                        }
+                    }
+
+                    // Luôn luôn upload lên CDN nếu file là local
+                    if (!finalVideoUrl.startsWith('http')) {
+                        try {
+                            this.toastr.info(`Đang tải video lên hệ thống CDN...`);
+                            const base64Video = await this.getBase64FromImageUrl(finalVideoUrl);
+                            const cdnUrl = await this._genaiService.uploadBase64ToCdn(`data:video/mp4;base64,${base64Video}`, `reference_video_${Date.now()}.mp4`);
+                            if (cdnUrl) {
+                                video.videoUrl = cdnUrl; // Cập nhật lại UI luôn
+                                finalVideoUrl = cdnUrl;
+                            }
+                        } catch (uploadErr) {
+                            console.error('Lỗi upload video:', uploadErr);
+                            this.toastr.warning('Không thể upload video, sẽ dùng file local.');
                         }
                     }
 
