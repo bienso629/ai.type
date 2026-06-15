@@ -72,6 +72,9 @@ export class GenaiService {
 
             const response = await fetch(uploadUrl, {
                 method: 'POST',
+                headers: {
+                    'x-api-key': 'type-vn-secret-key-2026-yenai-dep-trai'
+                },
                 body: formData
             });
 

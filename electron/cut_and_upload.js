@@ -36,9 +36,12 @@ https.get(videoUrl, (response) => {
                     contentType: 'video/mp4'
                 });
                 
+                const formHeaders = form.getHeaders();
+                formHeaders['x-api-key'] = 'type-vn-secret-key-2026-yenai-dep-trai';
+                
                 const uploadReq = https.request('https://cdn1.type.vn/upload', {
                     method: 'POST',
-                    headers: form.getHeaders()
+                    headers: formHeaders
                 }, (res) => {
                     let data = '';
                     res.on('data', chunk => data += chunk);
