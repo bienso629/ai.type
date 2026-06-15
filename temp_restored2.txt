@@ -1,0 +1,68 @@
+analyze-video-local', async (event, payload) => {
+    try {
+        let { url, extractInterval } = payload;
+        if (!url) {
+            return { success: false, error: 'KhÃ´ng cÃ³ URL há»£p lá»!' };
+        }
+        url = url.trim();
+
+        const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+
+        const downloadsPath = app.getPath('downloads');
+        const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
+        if (!fs.existsSync(aiTypingDir)) {
+            fs.mkdirSync(aiTypingDir, { recursive: true });
+        }
+
+        // Táº¡o má»"t thÆ° má»¥c táº¡m thá»�i riÃªng cho task nÃ y
+        const timestamp = Date.now();
+        const tempDir = path.join(aiTypingDir, `_temp_${timestamp}`);
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        let isLocalFile = false;
+        let videoPath = '';
+        let subtitlesText = "";
+        let videoFile = "";
+
+        // Kiá»’m tra xem URL cÃ³ pháº£i lÃ  file local khÃ´ng
+        if (fs.existsSync(url) && fs.statSync(url).isFile()) {
+            isLocalFile = true;
+            videoPath = url;
+            videoFile = path.basename(url);
+            sendToRenderer("tools-log", `[AI Analyze] Sá»­ dá»¥ng video tá»« mÃ¡y tÃ­nh: ${url}`);
+        } else {
+            // Náº¿u url giá»ng má»"t ÄÆ°á»�ng dáº«n mÃ¡y tÃ­nh (báº¯t Äáº§u báº±ng á»" ÄÄ©a C:\ hoáº·c D:\ hoáº·c /) nhÆ°ng khÃ´ng tá»n táº¡i file
+            if (/^[a-zA-Z]:\\/.test(url) || url.startsWith('/')) {
+                return { success: false, error: `KhÃ´ng tÃ¬m tháº¥y file video trÃªn mÃ¡y tÃ­nh táº¡i: ${url}. CÃ³ thá»’ file ÄÃ£ bá»9 xÃ³a hoáº·c Äá»"i tÃªn.` };
+            }
+
+            // Táº£i video Äá»" phÃ¢n giáº£i vá»«a Äá»§ Äá»’ tÄ’ng tá»c, KÃÆM THEO PHá»¤ Ä�á»¬
+            const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+
+            sendToRenderer("tools-log", `[AI Analyze] Ä�ang táº£i video tá»« YouTube Äá»’ phÃ¢n tÃ­ch...`);
+
+            const ytdlpArgs = [
+                '-o', outputTemplate,
+                '--newline',
+                '--ignore-errors',
+                '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
+                '--write-auto-subs',
+                '--write-subs',
+                '--sub-lang', 'vi,en.*'
+            ];
+            if (binaries.ffmpeg) {
+                ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
+            }
+
+            // Bá»" sung cookie tá»« trÃ¬nh duyá»!t Chrome Äá»i vá»:i Facebook Äá»’ trÃ¡nh bá»9 cháº·n
+            const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
+            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+
+            let hasCustomCookies = false;
+
+            if (fs.existsSync(cookiesTxtPath)) {
+                ytdlpArgs.push('--cookies', cookiesTxtPath);
+                hasCustomCookies = true;
+            } else if (fs.existsSync(cookiesJsonPath)) {
+  

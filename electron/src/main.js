@@ -5190,7 +5190,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
     try {
         let { url, extractInterval } = payload;
         if (!url) {
-            return { success: false, error: 'KhÃ´ng cÃ³ URL há»£p lá»‡' };
+            return { success: false, error: 'Không có URL hợp lệ' };
         }
         url = url.trim();
 
@@ -5203,7 +5203,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             fs.mkdirSync(aiTypingDir, { recursive: true });
         }
 
-        // Táº¡o má»™t thÆ° má»¥c táº¡m thá»i riÃªng cho task nÃ y
+        // Tạo một thư mục tạm thời riêng cho task này
         const timestamp = Date.now();
         const tempDir = path.join(aiTypingDir, `_temp_${timestamp}`);
         fs.mkdirSync(tempDir, { recursive: true });
@@ -5213,22 +5213,22 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
         let subtitlesText = "";
         let videoFile = "";
 
-        // Kiá»ƒm tra xem URL cÃ³ pháº£i lÃ  file local khÃ´ng
+        // Kiểm tra xem URL có phải là file local không
         if (fs.existsSync(url) && fs.statSync(url).isFile()) {
             isLocalFile = true;
             videoPath = url;
             videoFile = path.basename(url);
-            sendToRenderer("tools-log", `[AI Analyze] Sá»­ dá»¥ng video tá»« mÃ¡y tÃ­nh: ${url}`);
+            sendToRenderer("tools-log", `[AI Analyze] Sử dụng video từ máy tính: ${url}`);
         } else {
-            // Náº¿u url giá»‘ng má»™t Ä‘Æ°á»ng dáº«n mÃ¡y tÃ­nh (báº¯t Ä‘áº§u báº±ng á»• Ä‘Ä©a C:\ hoáº·c D:\ hoáº·c /) nhÆ°ng khÃ´ng tá»“n táº¡i file
+            // Nếu url giống một đường dẫn máy tính (bắt đầu bằng ổ đĩa C:\ hoặc D:\ hoặc /) nhưng không tồn tại file
             if (/^[a-zA-Z]:\\/.test(url) || url.startsWith('/')) {
-                return { success: false, error: `KhÃ´ng tÃ¬m tháº¥y file video trÃªn mÃ¡y tÃ­nh táº¡i: ${url}. CÃ³ thá»ƒ file Ä‘Ã£ bá»‹ xÃ³a hoáº·c Ä‘á»•i tÃªn.` };
+                return { success: false, error: `Không tìm thấy file video trên máy tính tại: ${url}. Có thể file đã bị xóa hoặc đổi tên.` };
             }
 
-            // Táº£i video Ä‘á»™ phÃ¢n giáº£i vá»«a Ä‘á»§ Ä‘á»ƒ tÄƒng tá»‘c, KÃˆM THEO PHá»¤ Äá»€
+            // Tải video độ phân giải vừa đủ để tăng tốc, KÈM THEO PHỤ ĐỀ
             const outputTemplate = path.join(tempDir, 'video.%(ext)s');
 
-            sendToRenderer("tools-log", `[AI Analyze] Äang táº£i video tá»« YouTube Ä‘á»ƒ phÃ¢n tÃ­ch...`);
+            sendToRenderer("tools-log", `[AI Analyze] Đang tải video từ YouTube để phân tích...`);
 
             const ytdlpArgs = [
                 '-o', outputTemplate,
@@ -5243,7 +5243,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
             }
 
-            // Bá»• sung cookie tá»« trÃ¬nh duyá»‡t Chrome Ä‘á»‘i vá»›i Facebook Ä‘á»ƒ trÃ¡nh bá»‹ cháº·n
+            // Bổ sung cookie từ trình duyệt Chrome đối với Facebook để tránh bị chặn
             const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
             const cookiesJsonPath = path.join(__dirname, 'cookies.json');
 
@@ -5269,11 +5269,11 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                     ytdlpArgs.push('--cookies', tempCookiePath);
                     hasCustomCookies = true;
                 } catch (err) {
-                    console.error("Lá»—i Ä‘á»c file cookies.json", err);
+                    console.error("Lỗi đọc file cookies.json", err);
                 }
             }
 
-            // Náº¿u khÃ´ng cÃ³ file cookie nÃ o Ä‘Æ°á»£c xuáº¥t, thÃ¬ má»›i dÃ¹ng cookie tá»« trÃ¬nh duyá»‡t Chrome
+            // Nếu không có file cookie nào được xuất, thì mới dùng cookie từ trình duyệt Chrome
             if (!hasCustomCookies && (url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com'))) {
                 ytdlpArgs.push('--cookies-from-browser', 'chrome');
             }
@@ -5295,13 +5295,13 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 });
             });
 
-            // TÃ¬m file video vÃ  phá»¥ Ä‘á» vá»«a táº£i vá» trong thÆ° má»¥c táº¡m
+            // Tìm file video và phụ đề vừa tải về trong thư mục tạm
             const files = fs.readdirSync(tempDir);
             const foundVideoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.vtt') && !f.endsWith('.srt') && !f.endsWith('.lrc') && !f.endsWith('.json'));
             const subtitleFile = files.find(f => f.startsWith('video.') && (f.endsWith('.vtt') || f.endsWith('.srt')));
 
             if (!foundVideoFile) {
-                throw new Error('KhÃ´ng tÃ¬m tháº¥y video táº£i vá».');
+                throw new Error('Không tìm thấy video tải về.');
             }
 
             videoFile = foundVideoFile;
@@ -5310,19 +5310,19 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 try {
                     const subPath = path.join(tempDir, subtitleFile);
                     subtitlesText = fs.readFileSync(subPath, 'utf8');
-                    sendToRenderer("tools-log", `[AI Analyze] ÄÃ£ láº¥y Ä‘Æ°á»£c phá»¥ Ä‘á» cá»§a video.`);
+                    sendToRenderer("tools-log", `[AI Analyze] Đã lấy được phụ đề của video.`);
                 } catch (e) { }
             }
         }
 
-        sendToRenderer("tools-log", `[AI Analyze] Báº¯t Ä‘áº§u trÃ­ch xuáº¥t phÃ¢n cáº£nh vÃ  Ã¢m thanh...`);
+        sendToRenderer("tools-log", `[AI Analyze] Bắt đầu trích xuất phân cảnh và âm thanh...`);
 
         const framePattern = path.join(tempDir, 'frame_%03d.jpg');
         const audioPath = path.join(tempDir, 'audio.mp3');
 
-        // Lá»‡nh FFmpeg: Cáº¯t frame áº£nh
+        // Lệnh FFmpeg: Cắt frame ảnh
         const interval = parseFloat(extractInterval) || 1;
-        const fps = (1 / interval).toFixed(4); // vÃ­ dá»¥: 5s/frame => fps=0.2
+        const fps = (1 / interval).toFixed(4); // ví dụ: 5s/frame => fps=0.2
 
         const ffmpegFrameArgs = [
             '-y',
@@ -5337,18 +5337,18 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             });
             child.on('close', (code) => {
                 if (code === 0) resolve();
-                else reject(new Error(`TrÃ­ch xuáº¥t phÃ¢n cáº£nh tháº¥t báº¡i vá»›i mÃ£ thoÃ¡t: ${code}`));
+                else reject(new Error(`Trích xuất phân cảnh thất bại với mã thoát: ${code}`));
             });
         });
 
-        // Lá»‡nh FFmpeg: Cáº¯t Ã¢m thanh
+        // Lệnh FFmpeg: Cắt âm thanh
         const ffmpegAudioArgs = [
             '-y',
             '-i', videoPath,
             '-vn', '-ac', '1', '-ar', '16000', '-b:a', '32k', audioPath
         ];
 
-        // Láº¥y Ã¢m thanh nhÆ°ng khÃ´ng lÃ m há»ng tiáº¿n trÃ¬nh náº¿u video khÃ´ng cÃ³ tiáº¿ng
+        // Lấy âm thanh nhưng không làm hỏng tiến trình nếu video không có tiếng
         await new Promise((resolve) => {
             const child = spawn(ffmpegPath, ffmpegAudioArgs);
             child.on('close', () => {
@@ -5356,13 +5356,13 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             });
         });
 
-        sendToRenderer("tools-log", `[AI Analyze] TrÃ­ch xuáº¥t thÃ nh cÃ´ng. Äang Ä‘Ã³ng gÃ³i dá»¯ liá»‡u gá»­i cho AI...`);
+        sendToRenderer("tools-log", `[AI Analyze] Trích xuất thành công. Đang đóng gói dữ liệu gửi cho AI...`);
 
-        // Äá»c cÃ¡c frame
+        // Đọc các frame
         const allFiles = fs.readdirSync(tempDir);
         const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
 
-        // Giá»›i háº¡n tá»‘i Ä‘a 100 frames (tráº£i Ä‘á»u kháº¯p video) Ä‘á»ƒ AI nhÃ¬n Ä‘Æ°á»£c tá»•ng quan mÃ  khÃ´ng bá»‹ quÃ¡ táº£i token
+        // Giới hạn tối đa 100 frames (trải đều khắp video) để AI nhìn được tổng quan mà không bị quá tải token
         const maxFrames = 100;
         let selectedFrames = [];
         if (frameFiles.length <= maxFrames) {
@@ -5373,7 +5373,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 const index = Math.min(Math.floor(i * step), frameFiles.length - 1);
                 selectedFrames.push(frameFiles[index]);
             }
-            // Loáº¡i bá» cÃ¡c pháº§n tá»­ trÃ¹ng láº·p (náº¿u cÃ³ do lÃ m trÃ²n)
+            // Loại bỏ các phần tử trùng lặp (nếu có do làm tròn)
             selectedFrames = [...new Set(selectedFrames)];
         }
 
@@ -5384,26 +5384,26 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             base64Frames.push(`data:image/jpeg;base64,${data.toString('base64')}`);
         }
 
-        // Äá»c audio
+        // Đọc audio
         let audioBase64 = "";
         if (fs.existsSync(audioPath)) {
             const audioData = fs.readFileSync(audioPath);
             audioBase64 = `data:audio/mp3;base64,${audioData.toString('base64')}`;
         }
 
-        // Move video ra thÆ° má»¥c AI.TYPING chÃ­nh náº¿u lÃ  video táº£i vá»
+        // Move video ra thư mục AI.TYPING chính nếu là video tải về
         let finalVideoPath = videoPath;
         if (!isLocalFile) {
             finalVideoPath = path.join(aiTypingDir, `analyze_video_${timestamp}${path.extname(videoFile)}`);
             fs.renameSync(videoPath, finalVideoPath);
         }
 
-        // XÃ³a thÆ° má»¥c táº¡m (chá»©a cÃ¡c file jpg)
+        // Xóa thư mục tạm (chứa các file jpg)
         // try {
         //     fs.rmSync(tempDir, { recursive: true, force: true });
         // } catch(e) {}
 
-        sendToRenderer("tools-log", `[AI Analyze] ÄÃ£ hoÃ n táº¥t! Video Ä‘Æ°á»£c lÆ°u/sá»­ dá»¥ng táº¡i ${finalVideoPath}`);
+        sendToRenderer("tools-log", `[AI Analyze] Đã hoàn tất! Video được lưu/sử dụng tại ${finalVideoPath}`);
 
         return {
             success: true,
@@ -5414,7 +5414,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
     } catch (err) {
         console.error("Analyze Video Local Error:", err);
-        sendToRenderer("tools-log", `[AI Analyze] Lá»—i: ${err.message}`);
+        sendToRenderer("tools-log", `[AI Analyze] Lỗi: ${err.message}`);
         return { success: false, error: err.message };
     }
 });

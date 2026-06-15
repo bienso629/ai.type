@@ -1,0 +1,1 @@
+﻿const fs = require('fs'); const txt = fs.readFileSync('c:/Users/Wing386/ai.type/electron/src/main.js', 'utf8'); const restored = Buffer.from(txt, 'latin1').toString('utf8'); fs.writeFileSync('c:/Users/Wing386/ai.type/temp_restored.txt', restored.substring(restored.indexOf('analyze-video-local'), restored.indexOf('analyze-video-local') + 3000));
