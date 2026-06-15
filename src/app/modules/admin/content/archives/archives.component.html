@@ -98,8 +98,8 @@
             <ngx-datatable-column name="WordPress" [width]="200" [sortable]="false" [canAutoResize]="true"
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center gap-1 w-full overflow-x-auto h-full" 
-                         style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
+                    <div *ngIf="row" class="flex items-center gap-1 w-full overflow-x-auto h-full"
+                        style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
                         <ng-container *ngIf="row.source?.wpPosts && row.source.wpPosts.length > 0; else singleWP">
                             <span *ngFor="let wp of row.source.wpPosts" matTooltipPosition="above"
                                 [matTooltip]="'Đã đồng bộ WordPress ' + (wp.domain ? '(' + wp.domain + ')' : '')"
@@ -182,7 +182,7 @@
                             <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'heroicons_outline:film'"></mat-icon>
                         </button>
 
-                        <button *ngIf="permissionScriptCommentLike" mat-icon-button [routerLink]="['/amxh']"
+                        <button mat-icon-button [routerLink]="['/amxh']"
                             [queryParams]="{ tab: 'share', uuid: row.uuid, user: user.name }" class="transition-colors">
                             <mat-icon class="icon-size-4 text-green-500" [svgIcon]="'feather:share-2'"></mat-icon>
                         </button>
