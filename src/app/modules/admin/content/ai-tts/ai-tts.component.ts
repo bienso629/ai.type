@@ -1330,8 +1330,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     };
                 });
 
-                if (this.maxDuration === 0 && scene.estimatedDuration) {
+                if (isVideo && this.maxDuration === 0 && scene.estimatedDuration) {
                     exactSceneDuration = scene.estimatedDuration;
+                } else if (!isVideo && hasAnyAudio) {
+                    // Cố định exactSceneDuration = tổng thời lượng các audio của scene này
+                    // Không lấy estimatedDuration từ AI để đảm bảo khớp tổng thời gian
                 } else if (!hasAnyAudio && scene.estimatedDuration) {
                     exactSceneDuration = scene.estimatedDuration;
                 }

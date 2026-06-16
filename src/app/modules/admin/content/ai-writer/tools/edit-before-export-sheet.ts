@@ -108,8 +108,9 @@ declare var TurndownService: any;
 })
 export class EditBeforeExportSheet implements OnInit, OnDestroy {
     loading: boolean = false;
-    quillModules: any = {};
-
+    quillModules: any = {
+        table: true
+    };
     quillEditorRef: any;
     maxUploadFileSize = 1000000;
 

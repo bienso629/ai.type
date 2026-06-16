@@ -277,8 +277,8 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                         const el = document.createElement('div');
                         el.innerHTML = result.data.object['content:encoded'];
 
-                        const p = [].map.call(el.querySelectorAll('p'), (p: any) => {
-                            return p.textContent;
+                        const p = Array.from(el.children).map((node: any) => {
+                            return node.outerHTML;
                         });
 
                         this.facePost2Node({

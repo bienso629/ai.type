@@ -101,17 +101,19 @@
                     <div *ngIf="row" class="flex items-center gap-1 w-full overflow-x-auto h-full"
                         style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
                         <ng-container *ngIf="row.source?.wpPosts && row.source.wpPosts.length > 0; else singleWP">
-                            <span *ngFor="let wp of row.source.wpPosts" matTooltipPosition="above"
+                            <span *ngFor="let wp of row.source.wpPosts; let i = index" matTooltipPosition="above"
                                 [matTooltip]="'Đã đồng bộ WordPress ' + (wp.domain ? '(' + wp.domain + ')' : '')"
-                                class="shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                class="shrink-0 h-5 leading-5 pl-2 pr-1 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default group flex items-center gap-1">
                                 WP: {{wp.id || wp.wp_post_id}}
+                                <mat-icon class="icon-size-3 cursor-pointer text-white hover:text-red-300 opacity-70 hover:opacity-100 transition-all" [svgIcon]="'feather:x'" (click)="$event.stopPropagation(); disconnectWP(row, i)" matTooltip="Hủy kết nối"></mat-icon>
                             </span>
                         </ng-container>
                         <ng-template #singleWP>
                             <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
-                                matTooltip="Đã đồng bộ WordPress"
-                                class="shrink-0 h-5 leading-5 px-2 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default">
+                                [matTooltip]="'Đã đồng bộ WordPress ' + (row.source.wp_domain ? '(' + row.source.wp_domain + ')' : (row.domain ? '(' + row.domain + ')' : ''))"
+                                class="shrink-0 h-5 leading-5 pl-2 pr-1 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default group flex items-center gap-1">
                                 WP: {{row.source.wp_post_id}}
+                                <mat-icon class="icon-size-3 cursor-pointer text-white hover:text-red-300 opacity-70 hover:opacity-100 transition-all" [svgIcon]="'feather:x'" (click)="$event.stopPropagation(); disconnectWP(row, -1)" matTooltip="Hủy kết nối"></mat-icon>
                             </span>
                         </ng-template>
                     </div>

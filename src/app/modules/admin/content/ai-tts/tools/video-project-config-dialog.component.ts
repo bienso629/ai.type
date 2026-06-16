@@ -330,20 +330,44 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
                     const oldChar = this.projectData.characters[index];
                     const oldPrompt = oldChar?.prompt ? oldChar.prompt.trim() : '';
                     const newPrompt = result.prompt ? result.prompt.trim() : '';
+                    const oldName = oldChar?.name ? oldChar.name.trim() : '';
+                    const newName = result.name ? result.name.trim() : '';
 
                     this.projectData.characters[index] = result;
+                    let replacedCount = 0;
 
-                    // Tự động tìm và thay thế (Replace) câu prompt cũ bằng câu mới ở tất cả mọi nơi
+                    // 1. Tự động tìm và thay thế (Replace) Tên nhân vật cũ bằng Tên mới
+                    if (oldName && newName && oldName !== newName) {
+                        if (this.projectData.scenes) {
+                            // Tạo Regex có boundary \b để thay thế từ nguyên vẹn (an toàn với tiếng Anh, vì prompt video thường là tiếng Anh)
+                            // Nếu tên có dấu tiếng Việt, \b có thể hoạt động không hoàn hảo, nhưng prompt AI trả về đa số là tên riêng độc lập
+                            // Để an toàn 100% với tên có dấu, ta dùng split join
+                            this.projectData.scenes.forEach((scene: any) => {
+                                if (scene.prompt && scene.prompt.includes(oldName)) {
+                                    scene.prompt = scene.prompt.split(oldName).join(newName);
+                                    replacedCount++;
+                                }
+                                if (scene.videos) {
+                                    scene.videos.forEach((video: any) => {
+                                        if (video.prompt && video.prompt.includes(oldName)) {
+                                            video.prompt = video.prompt.split(oldName).join(newName);
+                                            replacedCount++;
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    }
+
+                    // 2. Tự động tìm và thay thế (Replace) câu prompt tạo hình cũ bằng câu mới ở tất cả mọi nơi
                     if (oldPrompt && newPrompt && oldPrompt !== newPrompt) {
-                        let replacedCount = 0;
-
-                        // 1. Cập nhật Master Prompt
+                        // Cập nhật Master Prompt
                         if (this.projectData.masterPrompt && this.projectData.masterPrompt.includes(oldPrompt)) {
                             this.projectData.masterPrompt = this.projectData.masterPrompt.split(oldPrompt).join(newPrompt);
                             replacedCount++;
                         }
 
-                        // 2. Cập nhật tất cả các Phân cảnh (Scenes & Videos)
+                        // Cập nhật tất cả các Phân cảnh (Scenes & Videos)
                         if (this.projectData.scenes) {
                             this.projectData.scenes.forEach((scene: any) => {
                                 if (scene.prompt && scene.prompt.includes(oldPrompt)) {
@@ -360,10 +384,10 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
                                 }
                             });
                         }
+                    }
 
-                        if (replacedCount > 0) {
-                            this.toastr.info(`Đã tự động cập nhật tạo hình nhân vật này cho ${replacedCount} đoạn Prompt!`);
-                        }
+                    if (replacedCount > 0) {
+                        this.toastr.info(`Đã tự động cập nhật tạo hình/tên nhân vật này cho ${replacedCount} đoạn Prompt!`);
                     }
 
                 } else {
