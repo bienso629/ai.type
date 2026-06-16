@@ -141,7 +141,7 @@
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngIf="scene.videos">
                                 <ng-container *ngFor="let video of scene.videos; let vIdx = index">
-                                        <div class="absolute top-2 bottom-2 bg-gray-700 rounded-lg shadow-md group flex flex-col transition-all"
+                                        <div class="absolute top-2 bottom-2 bg-gray-700 rounded-lg shadow-md group flex flex-col transition-all z-10 hover:z-[100]"
                                             [ngClass]="{
                                             'opacity-30 grayscale': video.disabled,
                                             'opacity-100': !video.disabled
@@ -346,7 +346,7 @@
                         <!-- Audio Blocks -->
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngFor="let sub of scene.subtitles; let subIdx = index">
-                                <div *ngIf="sub.audioUrl" class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
+                                <div *ngIf="sub.audioUrl" class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group z-10 hover:z-[100]"
                                     [ngClass]="{
                                         'opacity-30 grayscale': sub.disabled,
                                         'opacity-100': !sub.disabled
@@ -417,7 +417,7 @@
                         <!-- Audio Blocks -->
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngFor="let audio of scene.extractedAudios; let aIdx = index">
-                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
+                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group z-10 hover:z-[100]"
                                     [ngClass]="{
                                         'opacity-30 grayscale': audio.disabled,
                                         'opacity-100': !audio.disabled

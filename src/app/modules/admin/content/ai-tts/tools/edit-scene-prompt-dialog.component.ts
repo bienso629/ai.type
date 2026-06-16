@@ -186,13 +186,21 @@ export class EditScenePromptDialogComponent {
     }
 
     addDialogueToPrompt() {
-        const dialogue = this.getDialogueForThisPart();
+        let dialogue = this.getDialogueForThisPart();
         if (!dialogue) {
-            this.toastr.warning('Không tìm thấy lời thoại nào trong khoảng thời gian của phần này.');
-            return;
+            dialogue = "Nhập lời thoại của bạn vào đây...";
+            this.toastr.info('Không tìm thấy lời thoại, đã thêm đoạn mẫu để bạn tự nhập.');
         }
 
-        const dialogText = `[Dialogue: "${dialogue}"]`;
+        let speaker = "Tên_nhân_vật";
+        if (this.selectedReferenceChars.size === 1) {
+            const char = Array.from(this.selectedReferenceChars)[0] as any;
+            speaker = char.name || char.role || "Tên_nhân_vật";
+        } else if (this.selectedReferenceChars.size > 1) {
+            speaker = "Tên_nhân_vật_đang_nói";
+        }
+
+        const dialogText = `[${speaker} says: "${dialogue}"]`;
         if (this.editingScenePrompt.prompt) {
             if (this.editingScenePrompt.prompt.includes(dialogText)) {
                 this.toastr.info('Lời thoại đã được thêm vào prompt trước đó rồi.');
