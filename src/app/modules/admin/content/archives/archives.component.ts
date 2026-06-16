@@ -126,6 +126,75 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             });
     }
 
+    disconnectWP(row: any, index: number) {
+        if (!row || !row.source) return;
+
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Hủy kết nối WordPress',
+            message: 'Bạn có chắc chắn muốn hủy kết nối đồng bộ WordPress cho bài viết này?',
+            icon: { show: true, name: 'heroicons_outline:exclamation', color: 'warn' },
+            actions: {
+                confirm: { show: true, label: 'Hủy kết nối', color: 'warn' },
+                cancel: { show: true, label: 'Đóng' }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this._crawlService.detail({ uuid: row.uuid, username: this.user.name })
+                    .pipe(takeUntil(this._unsubscribeAll))
+                    .subscribe({
+                        next: (res: any) => {
+                            if (res && res.success && res.data) {
+                                const fullDoc = res.data;
+                                
+                                if (!fullDoc.source) fullDoc.source = {};
+                                
+                                if (index === -1) {
+                                    fullDoc.source.wp_post_id = "";
+                                    fullDoc.source.wp_post_link = "";
+                                } else if (fullDoc.source.wpPosts) {
+                                    fullDoc.source.wpPosts.splice(index, 1);
+                                    if (fullDoc.source.wpPosts.length === 0) {
+                                        fullDoc.source.wpPosts = [];
+                                    }
+                                }
+
+                                fullDoc.new_version = -1;
+                                fullDoc.username = this.user.name;
+
+                                this._crawlService.archiveUpdate(fullDoc).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                                    next: () => {
+                                        this.toastr.success('Đã hủy kết nối WordPress thành công.');
+                                        
+                                        if (index === -1) {
+                                            row.source.wp_post_id = "";
+                                            row.source.wp_post_link = "";
+                                        } else if (row.source.wpPosts) {
+                                            row.source.wpPosts.splice(index, 1);
+                                            if (row.source.wpPosts.length === 0) {
+                                                row.source.wpPosts = [];
+                                            }
+                                        }
+                                        this.cd.markForCheck();
+                                    },
+                                    error: () => {
+                                        this.toastr.error('Có lỗi xảy ra khi hủy kết nối.');
+                                    }
+                                });
+                            } else {
+                                this.toastr.error('Không thể lấy thông tin chi tiết bài viết.');
+                            }
+                        },
+                        error: () => {
+                            this.toastr.error('Lỗi khi tải dữ liệu bài viết.');
+                        }
+                    });
+            }
+        });
+    }
+
     /**
      * Hàm Tìm kiếm Node - Reset toàn bộ dấu mốc bookmark
      */
