@@ -105,6 +105,13 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             scene.extractedAudios && scene.extractedAudios.length > 0
         );
     }
+
+    get hasAnySubtitle(): boolean {
+        if (!this.projectData || !this.projectData.scenes) return false;
+        return this.projectData.scenes.some((scene: any) => 
+            scene.subtitles && scene.subtitles.some((sub: any) => sub.audioUrl)
+        );
+    }
     currentTimelineTime: number = 0;
     timelineTimer: any = null;
     activeVideo: any = null;

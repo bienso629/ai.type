@@ -74,8 +74,8 @@
                 </div>
 
                 <p class="text-sm font-medium text-slate-600 mb-2 w-full">Mô tả tư thế / bố cục bạn muốn tạo:</p>
-                <textarea [(ngModel)]="posePromptText"
-                    class="w-full border border-slate-300 rounded-lg p-3 mb-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
+                <textarea [(ngModel)]="posePromptText" cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="8"
+                    class="w-full border border-slate-300 rounded-lg p-3 mb-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
                     rows="3"
                     placeholder="Ví dụ: Góc máy ngang tầm mắt, trung cảnh (Medium Shot). Một kiếm khách đang đứng thủ thế..."></textarea>
 
