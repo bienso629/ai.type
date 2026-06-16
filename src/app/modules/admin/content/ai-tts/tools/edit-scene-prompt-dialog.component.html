@@ -139,11 +139,7 @@
                 <mat-icon class="text-purple-500">add_photo_alternate</mat-icon>
                 <span>Tải ảnh mẫu cho AI</span>
             </button>
-            <hr class="my-1 border-slate-200">
-            <button mat-menu-item (click)="refVideoInput.click()">
-                <mat-icon class="text-pink-500">video_call</mat-icon>
-                <span>Tải video mẫu cho AI</span>
-            </button>
+
         </mat-menu>
 
         <input #imageInput type="file" (change)="onImageSelected($event)" accept="image/*" class="hidden">
@@ -253,17 +249,7 @@
             </span>
         </a>
 
-        <div class="w-px h-4 bg-slate-300"></div>
 
-        <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900" (click)="generateVideo()">
-            <span class="flex items-center">
-                @if (isGeneratingVideo) {
-                <mat-spinner diameter="16" class="mr-2 text-teal-600"></mat-spinner> Đang render...
-                } @else {
-                <mat-icon class="icon-size-4 mr-2 text-teal-600">movie</mat-icon> Render Video bằng AI
-                }
-            </span>
-        </a>
 
 
     </div>

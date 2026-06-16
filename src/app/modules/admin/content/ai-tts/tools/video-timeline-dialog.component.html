@@ -215,13 +215,13 @@
                                             <div *ngIf="!isDraggingLink"
                                                 class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-900/80 backdrop-blur-sm p-1.5 rounded border border-gray-700 shadow-xl">
                                                 <button mat-icon-button
-                                                    class="bg-white/10 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
+                                                    class="bg-indigo-600 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); addNewScene(sceneIdx)">
                                                     <mat-icon class="icon-size-4 text-white"
                                                         [svgIcon]="'feather:plus'"></mat-icon>
                                                 </button>
                                                 <button mat-icon-button
-                                                    class="bg-white/10 hover:bg-blue-500 transition-colors icon-size-6 rounded flex items-center justify-center"
+                                                    class="bg-blue-600 hover:bg-blue-500 transition-colors icon-size-6 rounded flex items-center justify-center"
                                                     (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, vIdx)">
                                                     <div *ngIf="video.isGeneratingVideo"
                                                         class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent">
@@ -229,21 +229,21 @@
                                                     <mat-icon *ngIf="!video.isGeneratingVideo"
                                                         class="icon-size-4 text-white">movie</mat-icon>
                                                 </button>
-                                                <button mat-icon-button
-                                                    class="bg-fuchsia-600/50 border border-fuchsia-400 hover:bg-fuchsia-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(217,70,239,0.6)]"
+                                                <button *ngIf="video.videoUrl" mat-icon-button
+                                                    class="bg-fuchsia-600 border border-fuchsia-400 hover:bg-fuchsia-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(217,70,239,0.6)]"
                                                     (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, vIdx, true)"
                                                     title="Magic Kling v3 Motion Control (Max 10s)">
                                                     <mat-icon class="icon-size-4 text-white">auto_awesome</mat-icon>
                                                 </button>
                                                 <button mat-icon-button
-                                                    class="bg-white/10 hover:bg-yellow-500 transition-colors icon-size-6 rounded flex items-center justify-center"
+                                                    class="bg-yellow-600 hover:bg-yellow-500 transition-colors icon-size-6 rounded flex items-center justify-center"
                                                     (click)="$event.stopPropagation(); triggerUploadVideo(video)">
                                                     <mat-icon class="icon-size-4 text-white">upload_file</mat-icon>
                                                 </button>
 
                                                 <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)"
                                                     mat-icon-button
-                                                    class="bg-white/10 hover:bg-orange-500 transition-colors icon-size-6 rounded"
+                                                    class="bg-orange-600 hover:bg-orange-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); toggleMute(video)">
                                                     <mat-icon class="icon-size-4 text-white">{{ video.muted ?
                                                         'volume_off' :
@@ -251,25 +251,25 @@
                                                 </button>
                                                 <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)"
                                                     mat-icon-button
-                                                    class="bg-white/10 hover:bg-purple-500 transition-colors icon-size-6 rounded"
+                                                    class="bg-purple-600 hover:bg-purple-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); extractAudio(video, sceneIdx)">
                                                     <mat-icon class="icon-size-4 text-white">music_note</mat-icon>
                                                 </button>
                                                 <button mat-icon-button
-                                                    class="bg-white/10 hover:bg-green-500 transition-colors icon-size-6 rounded"
+                                                    class="bg-green-600 hover:bg-green-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
                                                     <mat-icon class="icon-size-4 text-white"
                                                         [svgIcon]="'feather:edit'"></mat-icon>
                                                 </button>
                                                 <button mat-icon-button
-                                                    class="bg-white/10 hover:bg-gray-500 transition-colors icon-size-6 rounded"
+                                                    class="bg-gray-600 hover:bg-gray-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); video.disabled = !video.disabled">
                                                     <mat-icon class="icon-size-4"
                                                         [ngClass]="video.disabled ? 'text-red-400' : 'text-white'">{{
                                                         video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
                                                 </button>
                                                 <button *ngIf="isTrimmed(video)" mat-icon-button
-                                                    class="bg-white/10 hover:bg-cyan-600 transition-colors icon-size-6 rounded"
+                                                    class="bg-cyan-600 hover:bg-cyan-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); trimVideo(video, $event)"
                                                     matTooltip="Áp dụng cắt video">
                                                     <mat-icon class="icon-size-4 text-white">content_cut</mat-icon>
@@ -346,7 +346,7 @@
                         <!-- Audio Blocks -->
                         <ng-container *ngFor="let scene of projectData?.scenes; let sceneIdx = index">
                             <ng-container *ngFor="let sub of scene.subtitles; let subIdx = index">
-                                <div class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
+                                <div *ngIf="sub.audioUrl" class="absolute top-2 bottom-2 bg-indigo-900/30 rounded-lg flex flex-col overflow-hidden transition-all hover:bg-indigo-800/50 cursor-pointer group"
                                     [ngClass]="{
                                         'opacity-30 grayscale': sub.disabled,
                                         'opacity-100': !sub.disabled
