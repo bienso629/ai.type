@@ -6,7 +6,7 @@ import { CrawlService } from "app/modules/_services/crawl";
 import { WordpressService } from "app/modules/_services/wordpress";
 import { ToastrService } from "ngx-toastr";
 import { Clipboard } from '@angular/cdk/clipboard';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import Quill from 'quill';
 
 declare var TurndownService: any;
@@ -363,7 +363,48 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         event.preventDefault();
     }
 
-    share(event: MouseEvent): void {
+    async processBase64ImagesBeforeSave(): Promise<boolean> {
+        let content = this.editorForm.get('content').value;
+        const uname = this.editorForm.get('username').value;
+        const pass = this.editorForm.get('apppass').value;
+        const domain = this.editorForm.get('domain').value;
+
+        // Tìm tất cả các thẻ img có src là data:image
+        const regex = /<img[^>]+src="([^">]+)"/gi;
+        let match;
+        const b64Images = [];
+        while ((match = regex.exec(content)) !== null) {
+            if (match[1].startsWith('data:image/')) {
+                b64Images.push(match[1]);
+            }
+        }
+
+        if (b64Images.length > 0) {
+            this.loading = true;
+            this.cdr.markForCheck();
+            this.toastr.info(`Đang tải lên ${b64Images.length} hình ảnh...`);
+            for (let i = 0; i < b64Images.length; i++) {
+                try {
+                    const result = await firstValueFrom(this._wordpressService.upload_media(domain, b64Images[i], uname, pass));
+                    if (result && result.source_url) {
+                        content = content.replace(b64Images[i], result.source_url);
+                    }
+                } catch (e) {
+                    this.toastr.warning('Lỗi tải hình ảnh thứ ' + (i + 1));
+                }
+            }
+            this.editorForm.get('content').setValue(content);
+            this.loading = false;
+            this.cdr.markForCheck();
+        }
+
+        return true;
+    }
+
+    async share(event: MouseEvent): Promise<void> {
+        event.preventDefault();
+        await this.processBase64ImagesBeforeSave();
+
         this._wordpressService.create_post(this.editorForm.value)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -392,11 +433,12 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                     }
                 }
             });
-
-        event.preventDefault();
     }
 
-    update(event: MouseEvent): void {
+    async update(event: MouseEvent): Promise<void> {
+        event.preventDefault();
+        await this.processBase64ImagesBeforeSave();
+
         this._wordpressService.update_post(this.editorForm.value)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -425,8 +467,6 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                     }
                 }
             });
-
-        event.preventDefault();
     }
 
     money(post: any) {
