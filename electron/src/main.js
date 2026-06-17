@@ -7,7 +7,7 @@ const {
     screen,
     session,
     ipcMain,
-    dialog, // <--- ThÃªm cÃ¡i nÃ y vÃ o
+    dialog, // <--- Thêm cái này vào
     Notification,
     desktopCapturer,
     net
@@ -21,7 +21,7 @@ const path = require("path");
 const http = require("http");
 const fs = require("fs");
 
-// Báº¯t phÃ­m táº¯t ná»™i bá»™ thay vÃ¬ globalShortcut Ä‘á»ƒ trÃ¡nh xung Ä‘á»™t vá»›i há»‡ Ä‘iá»u hÃ nh vÃ  app khÃ¡c
+// Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ đi�?u hành và app khác
 app.on('web-contents-created', (e, webContents) => {
     webContents.on('before-input-event', (event, input) => {
         if (!app.isPackaged) {
@@ -57,7 +57,7 @@ protocol.registerSchemesAsPrivileged([
     }
 ]);
 
-// Cá» xÃ¡c Ä‘á»‹nh cÃ³ Ä‘ang á»Ÿ cháº¿ Ä‘á»™ dev hay khÃ´ng
+// C�? xác định có đang ở chế độ dev hay không
 const express = require("express");
 const cheerio = require("cheerio");
 const puppeteer = require("puppeteer-extra");
@@ -70,14 +70,14 @@ const execPromise = util.promisify(require('child_process').exec);
 
 const { google } = require("googleapis");
 const { OAuth2Client, GoogleAuth } = require("google-auth-library");
-const { version } = require("./../package.json"); // Láº¥y version tá»« file package.json
+const { version } = require("./../package.json"); // Lấy version từ file package.json
 
-// KhÃ´ng set cá»©ng User Agent á»Ÿ Ä‘Ã¢y ná»¯a, sáº½ tá»± Ä‘á»™ng bÃ³c tÃ¡ch tá»« Chromium gá»‘c á»Ÿ bÆ°á»›c khi App Ä‘Ã£ Ready
+// Không set cứng User Agent ở đây nữa, sẽ tự động bóc tách từ Chromium gốc ở bước khi App đã Ready
 
 let serviceProcess = null;
 const uploadsDir = path.join(app.getPath('userData'), 'uploads');
 
-// Táº¡o thÆ° má»¥c náº¿u nÃ³ chÆ°a tá»“n táº¡i
+// Tạo thư mục nếu nó chưa tồn tại
 if (!fs.existsSync(uploadsDir)) {
     fs.mkdirSync(uploadsDir);
 }
@@ -109,7 +109,7 @@ if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
     adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
 }
 
-// ==== QUáº¢N LÃ BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
+// ==== QUẢN L�? BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
 const binaries = {
     ffmpeg: null,
     ytdlp: null,
@@ -128,10 +128,10 @@ function loadBinaries() {
         let binPath = "";
 
         if (app.isPackaged) {
-            // Khi Ä‘Ã£ Ä‘Ã³ng gÃ³i, file náº±m tháº³ng trong thÆ° má»¥c resources
+            // Khi đã đóng gói, file nằm thẳng trong thư mục resources
             binPath = path.join(process.resourcesPath, fileName);
         } else {
-            // Khi cháº¡y DEV (npm start)
+            // Khi chạy DEV (npm start)
             binPath = path.resolve(__dirname, "..", fileName);
         }
 
@@ -142,7 +142,7 @@ function loadBinaries() {
             return binPath;
         } else {
             hasError = true;
-            results.push(`âŒ ${label}: KHÃ”NG TÃŒM THáº¤Y táº¡i ${binPath}`);
+            results.push(`�?� ${label}: KHÔNG TÌM THẤY tại ${binPath}`);
             return null;
         }
     };
@@ -155,8 +155,8 @@ function loadBinaries() {
     if (hasError) {
         dialog.showMessageBox({
             type: 'error',
-            title: 'Lá»—i Há»‡ Thá»‘ng',
-            message: 'PhÃ¡t hiá»‡n thiáº¿u file thá»±c thi quan trá»ng!',
+            title: 'Lỗi Hệ Thống',
+            message: 'Phát hiện thiếu file thực thi quan tr�?ng!',
             detail: results.join("\n"),
             buttons: ['OK']
         });
@@ -164,15 +164,15 @@ function loadBinaries() {
 }
 
 function sendNotification(title, body) {
-    // Kiá»ƒm tra xem há»‡ thá»‘ng cÃ³ há»— trá»£ thÃ´ng bÃ¡o khÃ´ng
+    // Kiểm tra xem hệ thống có hỗ trợ thông báo không
     if (Notification.isSupported()) {
         new Notification({
             title: title,
             body: body,
-            // icon: path.join(__dirname, 'assets/icon.png') // ThÃªm icon náº¿u muá»‘n
+            // icon: path.join(__dirname, 'assets/icon.png') // Thêm icon nếu muốn
         }).show();
     } else {
-        // Fallback sang log náº¿u khÃ´ng há»— trá»£
+        // Fallback sang log nếu không hỗ trợ
         console.log(`[Notification]: ${title} - ${body}`);
     }
 }
@@ -185,22 +185,22 @@ async function googleAdsGenerateKeywordIdeas({
 }) {
     if (!adsOauthClient) {
         throw new Error(
-            "ChÆ°a cáº¥u hÃ¬nh ADS_CLIENT_ID / ADS_CLIENT_SECRET / ADS_REFRESH_TOKEN",
+            "Chưa cấu hình ADS_CLIENT_ID / ADS_CLIENT_SECRET / ADS_REFRESH_TOKEN",
         );
     }
     if (!ADS_DEVELOPER_TOKEN) {
-        throw new Error("ChÆ°a cáº¥u hÃ¬nh ADS_DEVELOPER_TOKEN");
+        throw new Error("Chưa cấu hình ADS_DEVELOPER_TOKEN");
     }
     if (!customerId) {
-        throw new Error("Thiáº¿u ADS_CUSTOMER_ID");
+        throw new Error("Thiếu ADS_CUSTOMER_ID");
     }
     if (!keywordText) {
-        throw new Error("Thiáº¿u keywordText");
+        throw new Error("Thiếu keywordText");
     }
 
     const { token } = await adsOauthClient.getAccessToken();
     if (!token) {
-        throw new Error("KhÃ´ng láº¥y Ä‘Æ°á»£c access token cho Google Ads");
+        throw new Error("Không lấy được access token cho Google Ads");
     }
 
     const postData = JSON.stringify({
@@ -236,7 +236,7 @@ async function googleAdsGenerateKeywordIdeas({
                     if (!raw) {
                         return reject(
                             new Error(
-                                `Google Ads API tráº£ vá» body rá»—ng (status ${res.statusCode})`,
+                                `Google Ads API trả v�? body rỗng (status ${res.statusCode})`,
                             ),
                         );
                     }
@@ -248,8 +248,8 @@ async function googleAdsGenerateKeywordIdeas({
                     if (!contentType.includes("application/json")) {
                         return reject(
                             new Error(
-                                `Google Ads API tráº£ vá» ná»™i dung khÃ´ng pháº£i JSON (status ${res.statusCode}). ` +
-                                `CÃ³ thá»ƒ Developer Token / tÃ i khoáº£n chÆ°a Ä‘Æ°á»£c báº­t API. Preview: ${raw.slice(0, 200)}`,
+                                `Google Ads API trả v�? nội dung không phải JSON (status ${res.statusCode}). ` +
+                                `Có thể Developer Token / tài khoản chưa được bật API. Preview: ${raw.slice(0, 200)}`,
                             ),
                         );
                     }
@@ -269,7 +269,7 @@ async function googleAdsGenerateKeywordIdeas({
                     } catch (e) {
                         reject(
                             new Error(
-                                `KhÃ´ng parse Ä‘Æ°á»£c JSON tá»« Google Ads API (status ${res.statusCode}). Body: ${raw.slice(0, 200)}`,
+                                `Không parse được JSON từ Google Ads API (status ${res.statusCode}). Body: ${raw.slice(0, 200)}`,
                             ),
                         );
                     }
@@ -287,35 +287,35 @@ function startGoService() {
     const isPackaged = app.isPackaged;
     const platform = process.platform; // 'darwin' cho macOS, 'win32' cho Windows
 
-    // XÃ¡c Ä‘á»‹nh tÃªn file dá»±a trÃªn OS
+    // Xác định tên file dựa trên OS
     const binName =
         platform === "win32" ? "gologin-core-win.exe" : "gologin-core-macos";
 
-    // ÄÆ°á»ng dáº«n linh hoáº¡t: dev lÃ¹i ra ngoÃ i src/, packaged láº¥y tá»« Resources
+    // �?ư�?ng dẫn linh hoạt: dev lùi ra ngoài src/, packaged lấy từ Resources
     const binPath = isPackaged
         ? path.join(process.resourcesPath, binName)
         : path.join(__dirname, "..", "services", binName);
 
-    sendToRenderer("tools-log", `[DEBUG]: Khá»Ÿi cháº¡y core táº¡i ${binPath}`);
+    sendToRenderer("tools-log", `[DEBUG]: Khởi chạy core tại ${binPath}`);
 
     if (!fs.existsSync(binPath)) {
         sendToRenderer(
             "tools-log",
-            `[ERROR]: KhÃ´ng tÃ¬m tháº¥y binary: ${binName}`,
+            `[ERROR]: Không tìm thấy binary: ${binName}`,
         );
         return;
     }
 
-    // Cáº¥p quyá»n thá»±c thi (chá»‰ cáº§n thiáº¿t cho macOS)
+    // Cấp quy�?n thực thi (chỉ cần thiết cho macOS)
     if (platform !== "win32") {
         try {
             fs.chmodSync(binPath, "755");
         } catch (e) {
-            console.error("Lá»—i cáº¥p quyá»n macOS:", e);
+            console.error("Lỗi cấp quy�?n macOS:", e);
         }
     }
 
-    // Khá»Ÿi cháº¡y tiáº¿n trÃ¬nh
+    // Khởi chạy tiến trình
     serviceProcess = spawn(binPath, [], {
         cwd: path.dirname(binPath),
         stdio: ["inherit", "pipe", "pipe"],
@@ -325,7 +325,7 @@ function startGoService() {
         const msg = data.toString();
         sendToRenderer("tools-log", `[CORE]: ${msg}`);
         if (msg.includes("GO-SERVICE-READY")) {
-            sendToRenderer("tools-log", `[SYSTEM]: Core Engine Ä‘Ã£ sáºµn sÃ ng.`);
+            sendToRenderer("tools-log", `[SYSTEM]: Core Engine đã sẵn sàng.`);
         }
     });
 
@@ -336,16 +336,16 @@ function startGoService() {
 
 // ================= DOWNLOAD CORE =================
 
-// Cáº­p nháº­t hÃ m phá»¥ nÃ y Ä‘á»ƒ Ä‘oÃ¡n Ä‘uÃ´i file chÃ­nh xÃ¡c
+// Cập nhật hàm phụ này để đoán đuôi file chính xác
 function inferExtFromUrl(url) {
     try {
         const u = new URL(url);
-        // Kiá»ƒm tra link video Capcut/Dreamina
+        // Kiểm tra link video Capcut/Dreamina
         if (u.href.includes('video/tos') || u.href.includes('mime_type=video_mp4')) {
             return '.mp4';
         }
 
-        // Logic cÅ© cá»§a báº¡n cho áº£nh
+        // Logic cũ của bạn cho ảnh
         const base = path.basename(u.pathname);
         const m = base.match(/\.(webp|jpg|jpeg|png|gif|avif|mp4)$/i);
         if (m) return "." + m[1].toLowerCase();
@@ -353,21 +353,21 @@ function inferExtFromUrl(url) {
     return ".jpg";
 }
 
-// 2. HÃ m download giá»¯ nguyÃªn tÃªn, nhÆ°ng xá»­ lÃ½ Ä‘Æ°á»£c má»i loáº¡i file binary
+// 2. Hàm download giữ nguyên tên, nhưng xử lý được m�?i loại file binary
 function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
     return new Promise(async (resolve, reject) => {
         try {
             await fs.promises.mkdir(outDir, { recursive: true });
 
-            // Logic nháº­n diá»‡n Ä‘uÃ´i file má»Ÿ rá»™ng
+            // Logic nhận diện đuôi file mở rộng
             let ext = ".jpg";
             try {
                 const u = new URL(url);
-                // Kiá»ƒm tra náº¿u lÃ  link video tá»« Capcut/Dreamina
+                // Kiểm tra nếu là link video từ Capcut/Dreamina
                 if (u.href.includes('mime_type=video_mp4') || u.pathname.endsWith('.mp4')) {
                     ext = '.mp4';
                 } else {
-                    // DÃ¹ng hÃ m infer cá»§a báº¡n cho cÃ¡c trÆ°á»ng há»£p áº£nh
+                    // Dùng hàm infer của bạn cho các trư�?ng hợp ảnh
                     ext = inferExtFromUrl(url);
                 }
             } catch (e) {
@@ -387,7 +387,7 @@ function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
                     },
                 },
                 (res) => {
-                    // Xá»­ lÃ½ Redirect (náº¿u cÃ³)
+                    // Xử lý Redirect (nếu có)
                     if (res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
                         https.get(res.headers.location, (r2) => {
                             const ws = fs.createWriteStream(outPath);
@@ -415,7 +415,7 @@ function downloadImage(url, outDir, filenamePrefix = "dreamina_") {
 }
 
 // ================= DREAMINA ENTRY (AUTO DOWNLOAD) =================
-// FULL CODE hÃ m createImageByDreamina (giá»¯ nguyÃªn tÃªn)
+// FULL CODE hàm createImageByDreamina (giữ nguyên tên)
 function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
     const outDir = options.outDir || path.join(app.getPath("pictures"), "Dreamina");
     const maxImages = Number.isFinite(options.maxImages) ? options.maxImages : 100;
@@ -423,7 +423,7 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
 
     if (!targetWindow || targetWindow.isDestroyed()) return;
 
-    // --- Tá»± Ä‘á»™ng Paste Prompt ---
+    // --- Tự động Paste Prompt ---
     if (options.prompt) {
         const safePrompt = options.prompt.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$/g, '\\$');
         targetWindow.webContents.executeJavaScript(`
@@ -433,9 +433,9 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
                     editor.focus();
                     document.execCommand('insertText', false, \`${safePrompt}\`);
                     
-                    // Thá»­ tÃ¬m nÃºt Send vÃ  áº¥n tá»± Ä‘á»™ng luÃ´n sau 1 giÃ¢y
+                    // Thử tìm nút Send và ấn tự động luôn sau 1 giây
                     setTimeout(() => {
-                        const sendBtn = document.querySelector('button[aria-label*="Send message"], button[aria-label*="Gá»­i tin nháº¯n"], button.send-button');
+                        const sendBtn = document.querySelector('button[aria-label*="Send message"], button[aria-label*="Gửi tin nhắn"], button.send-button');
                         if (sendBtn && !sendBtn.disabled) sendBtn.click();
                     }, 1000);
                 }
@@ -453,17 +453,17 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
         seen.add(src);
 
         try {
-            // downloadImage sáº½ tá»± dÃ¹ng inferExtFromUrl Ä‘á»ƒ lÆ°u .mp4 hoáº·c .jpg
+            // downloadImage sẽ tự dùng inferExtFromUrl để lưu .mp4 hoặc .jpg
             const p = await downloadImage(src, outDir, filenamePrefix);
             saved += 1;
 
             const isVid = p.toLowerCase().endsWith('.mp4');
-            sendToRenderer("tools-log", `[Dreamina] ${isVid ? 'ðŸŽ¬ Video' : 'âœ… áº¢nh'} Ä‘Ã£ táº£i: ${path.basename(p)}`);
+            sendToRenderer("tools-log", `[Dreamina] ${isVid ? '🎬 Video' : '✅ Ảnh'} đã tải: ${path.basename(p)}`);
 
-            // Gá»­i action dreamina-downloaded Ä‘á»ƒ Renderer gáº¯n ngÆ°á»£c láº¡i chÆ°Æ¡ng trÃ¬nh
+            // Gửi action dreamina-downloaded để Renderer gắn ngược lại chương trình
             _evt.reply("tools-response", { action: "dreamina-downloaded", file: p, isVid });
         } catch (e) {
-            sendToRenderer("tools-log", `[Dreamina] âŒ Lá»—i: ${e.message}`);
+            sendToRenderer("tools-log", `[Dreamina] �?� Lỗi: ${e.message}`);
         }
     };
 
@@ -475,13 +475,13 @@ function createImageByDreamina(_targetUrlWithUniqueID, uniqueID, options = {}) {
     });
 }
 
-// HÃ m dÃ¹ng Ä‘á»ƒ set cookie vÃ o session
+// Hàm dùng để set cookie vào session
 async function setFacebookCookiesFromFile(cookieFilePath) {
     if (!fs.existsSync(cookieFilePath)) return false;
     const cookies = JSON.parse(fs.readFileSync(cookieFilePath, "utf-8"));
 
     for (const cookie of cookies) {
-        // Báº¯t buá»™c cÃ³ url khi set cookie cho Electron
+        // Bắt buộc có url khi set cookie cho Electron
         let url = "";
 
         if (cookie.secure) {
@@ -503,7 +503,7 @@ async function setFacebookCookiesFromFile(cookieFilePath) {
                 sameSite: cookie.sameSite,
             });
         } catch (err) {
-            console.log(`Set cookie ${cookie.name} lá»—i:`, err.message);
+            console.log(`Set cookie ${cookie.name} lỗi:`, err.message);
         }
     }
     return true;
@@ -512,7 +512,7 @@ async function setFacebookCookiesFromFile(cookieFilePath) {
 // ==== SCREENSHOT ====
 async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
     try {
-        sendToRenderer("tools-log", "[Screenshot] Báº¯t Ä‘áº§u...");
+        sendToRenderer("tools-log", "[Screenshot] Bắt đầu...");
 
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         const screenshotPath = path.join(
@@ -522,7 +522,7 @@ async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
 
         sendToRenderer(
             "tools-log",
-            "[Screenshot] Äang fetch Chrome remote debug...",
+            "[Screenshot] �?ang fetch Chrome remote debug...",
         );
 
         const res = await fetch("http://localhost:9999/json/version");
@@ -532,10 +532,10 @@ async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
             defaultViewport: null,
         });
 
-        sendToRenderer("tools-log", "[Screenshot] Puppeteer Ä‘Ã£ connect.");
+        sendToRenderer("tools-log", "[Screenshot] Puppeteer đã connect.");
 
         const pages = await browser.pages();
-        sendToRenderer("tools-log", `[Screenshot] CÃ³ ${pages.length} page.`);
+        sendToRenderer("tools-log", `[Screenshot] Có ${pages.length} page.`);
 
         let matchedPage = null;
         for (const page of pages) {
@@ -550,7 +550,7 @@ async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
         if (!matchedPage) {
             sendToRenderer(
                 "tools-log",
-                `[Screenshot] âŒ KhÃ´ng tÃ¬m tháº¥y page cÃ³ uniqueID=${uniqueID}`,
+                `[Screenshot] �?� Không tìm thấy page có uniqueID=${uniqueID}`,
             );
             await browser.disconnect();
             return;
@@ -563,7 +563,7 @@ async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
 
         sendToRenderer(
             "tools-log",
-            `[Screenshot] âœ… ÄÃ£ chá»¥p áº£nh: ${screenshotPath}`,
+            `[Screenshot] ✅ �?ã chụp ảnh: ${screenshotPath}`,
         );
 
         await browser.disconnect();
@@ -571,7 +571,7 @@ async function captureOnlyTargetWindow(targetUrlWithUniqueID, uniqueID) {
     } catch (err) {
         sendToRenderer(
             "tools-log",
-            `[Screenshot] âŒ Lá»—i khi chá»¥p áº£nh: ${err.message}`,
+            `[Screenshot] �?� Lỗi khi chụp ảnh: ${err.message}`,
         );
         if (targetWindow) targetWindow.close();
     }
@@ -581,7 +581,7 @@ async function getFacebookCookies(uniqueID, event) {
     try {
         sendToRenderer(
             "tools-log",
-            `[FB-GetCookie] Äang tÃ¬m page vá»›i uniqueID=${uniqueID}...`,
+            `[FB-GetCookie] �?ang tìm page với uniqueID=${uniqueID}...`,
         );
 
         const res = await fetch("http://localhost:9999/json/version");
@@ -605,17 +605,17 @@ async function getFacebookCookies(uniqueID, event) {
         if (!matchedPage) {
             sendToRenderer(
                 "tools-log",
-                `[FB-GetCookie] âŒ KhÃ´ng tÃ¬m tháº¥y page cÃ³ uniqueID=${uniqueID}`,
+                `[FB-GetCookie] �?� Không tìm thấy page có uniqueID=${uniqueID}`,
             );
             event.reply("tools-response", {
-                error: `KhÃ´ng tÃ¬m tháº¥y tab Ä‘Äƒng nháº­p Facebook!`,
+                error: `Không tìm thấy tab đăng nhập Facebook!`,
             });
             await browser.disconnect();
             return;
         }
 
         const cookies = await matchedPage.cookies();
-        // LÆ°u file vÃ o Documents
+        // Lưu file vào Documents
         const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
         const cookiePath = path.join(
             documentsDir,
@@ -625,10 +625,10 @@ async function getFacebookCookies(uniqueID, event) {
 
         sendToRenderer(
             "tools-log",
-            `[FB-GetCookie] ÄÃ£ lÆ°u cookies vÃ o: ${cookiePath}`,
+            `[FB-GetCookie] �?ã lưu cookies vào: ${cookiePath}`,
         );
 
-        // Tráº£ cookie vá» UI
+        // Trả cookie v�? UI
         event.reply("tools-response", {
             action: "get-facebook-cookies",
             success: true,
@@ -639,7 +639,7 @@ async function getFacebookCookies(uniqueID, event) {
         await browser.disconnect();
         if (targetWindow) targetWindow.close();
     } catch (err) {
-        sendToRenderer("tools-log", `[FB-GetCookie] âŒ Lá»—i: ${err.message}`);
+        sendToRenderer("tools-log", `[FB-GetCookie] �?� Lỗi: ${err.message}`);
         event.reply("tools-response", { error: err.message });
         if (targetWindow) targetWindow.close();
     }
@@ -647,7 +647,7 @@ async function getFacebookCookies(uniqueID, event) {
 
 async function connectApps(targetUrlWithUniqueID, uniqueID) {
     try {
-        sendToRenderer("tools-log", "[FB-Login] Báº¯t Ä‘áº§u...");
+        sendToRenderer("tools-log", "[FB-Login] Bắt đầu...");
 
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
@@ -656,10 +656,10 @@ async function connectApps(targetUrlWithUniqueID, uniqueID) {
             defaultViewport: null,
         });
 
-        sendToRenderer("tools-log", "[FB-Login] Puppeteer Ä‘Ã£ connect.");
+        sendToRenderer("tools-log", "[FB-Login] Puppeteer đã connect.");
 
         const pages = await browser.pages();
-        sendToRenderer("tools-log", `[FB-Login] CÃ³ ${pages.length} page.`);
+        sendToRenderer("tools-log", `[FB-Login] Có ${pages.length} page.`);
 
         let matchedPage = null;
         for (const page of pages) {
@@ -676,7 +676,7 @@ async function connectApps(targetUrlWithUniqueID, uniqueID) {
         if (!matchedPage) {
             sendToRenderer(
                 "tools-log",
-                `[FB-Login] âŒ KhÃ´ng tÃ¬m tháº¥y page cÃ³ uniqueID=${uniqueID}`,
+                `[FB-Login] �?� Không tìm thấy page có uniqueID=${uniqueID}`,
             );
             await browser.disconnect();
             return;
@@ -684,24 +684,24 @@ async function connectApps(targetUrlWithUniqueID, uniqueID) {
 
         sendToRenderer(
             "tools-log",
-            `[FB-Login] ÄÃ£ tÃ¬m tháº¥y tab Facebook cáº§n Ä‘Äƒng nháº­p!`,
+            `[FB-Login] �?ã tìm thấy tab Facebook cần đăng nhập!`,
         );
 
-        // TÃ¹y má»¥c tiÃªu, vÃ­ dá»¥: láº¥y cookie sau khi user tá»± login
-        // Chá» user login, báº¡n cÃ³ thá»ƒ chá» Ä‘áº¿n khi url Ä‘á»•i sang https://www.facebook.com/?sk=welcome hoáº·c cookie Ä‘áº§y Ä‘á»§
-        // á»ž Ä‘Ã¢y mÃ¬nh láº¥y cookies luÃ´n sau 20s (hoáº·c báº¡n cÃ³ thá»ƒ trigger báº±ng nÃºt trÃªn giao diá»‡n, hoáº·c logic thÃ´ng minh hÆ¡n)
+        // Tùy mục tiêu, ví dụ: lấy cookie sau khi user tự login
+        // Ch�? user login, bạn có thể ch�? đến khi url đổi sang https://www.facebook.com/?sk=welcome hoặc cookie đầy đủ
+        // Ở đây mình lấy cookies luôn sau 20s (hoặc bạn có thể trigger bằng nút trên giao diện, hoặc logic thông minh hơn)
         setTimeout(async () => {
             const cookies = await matchedPage.cookies();
             sendToRenderer(
                 "tools-log",
                 `[FB-Login] Cookie sau login: ${JSON.stringify(cookies)}`,
             );
-            // Báº¡n cÃ³ thá»ƒ lÆ°u cookies vÃ o file hoáº·c gá»­i tráº£ vá» renderer náº¿u cáº§n
+            // Bạn có thể lưu cookies vào file hoặc gửi trả v�? renderer nếu cần
             await browser.disconnect();
             if (targetWindow) targetWindow.close();
-        }, 200000); // chá» 200s, tuá»³ Ã½
+        }, 200000); // ch�? 200s, tuỳ ý
     } catch (err) {
-        sendToRenderer("tools-log", `[FB-Login] âŒ Lá»—i: ${err.message}`);
+        sendToRenderer("tools-log", `[FB-Login] �?� Lỗi: ${err.message}`);
         if (targetWindow) targetWindow.close();
     }
 }
@@ -713,7 +713,7 @@ async function websiteCrawl(
     model,
 ) {
     try {
-        sendToRenderer("tools-log", "[Website-Crawl] Báº¯t Ä‘áº§u...");
+        sendToRenderer("tools-log", "[Website-Crawl] Bắt đầu...");
 
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
@@ -730,7 +730,7 @@ async function websiteCrawl(
         if (!matchedPage) {
             sendToRenderer(
                 "tools-log",
-                `[Website-Crawl] âŒ KhÃ´ng tÃ¬m tháº¥y tab cÃ³ uniqueID=${uniqueID}`,
+                `[Website-Crawl] �?� Không tìm thấy tab có uniqueID=${uniqueID}`,
             );
             await browser.disconnect();
             return;
@@ -749,7 +749,7 @@ async function websiteCrawl(
                 } catch (err) {
                     sendToRenderer(
                         "tools-log",
-                        `[Gemini] âŒ Lá»—i xá»­ lÃ½ "${item.key}": ${err.message}`,
+                        `[Gemini] �?� Lỗi xử lý "${item.key}": ${err.message}`,
                     );
                     return { key: item.key, value: "" };
                 }
@@ -768,12 +768,12 @@ async function websiteCrawl(
         );
 
         fs.writeFileSync(jsonPath, JSON.stringify(data, null, 2), "utf-8");
-        sendToRenderer("tools-log", `âœ… ÄÃ£ lÆ°u dá»¯ liá»‡u JSON: ${jsonPath}`);
+        sendToRenderer("tools-log", `✅ �?ã lưu dữ liệu JSON: ${jsonPath}`);
 
         await browser.disconnect();
         if (targetWindow) targetWindow.close();
     } catch (err) {
-        sendToRenderer("tools-log", `[Website-Crawl] âŒ Lá»—i: ${err.message}`);
+        sendToRenderer("tools-log", `[Website-Crawl] �?� Lỗi: ${err.message}`);
         if (targetWindow) targetWindow.close();
     }
 }
@@ -786,7 +786,7 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
     $(postContainerSelector).each((index, element) => {
         const post = $(element);
 
-        // --- 1. Láº¤Y Máº¢NG HREF & Lá»ŒC THá»œI GIAN ---
+        // --- 1. LẤY MẢNG HREF & LỌC THỜI GIAN ---
         let postUrls = [];
         let timeText = "";
 
@@ -799,7 +799,7 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
                 postUrls.push(fullHref);
             }
 
-            if (/(vá»«a xong|just now|hÃ´m qua|yesterday)/i.test(txt) || /\d+\s*(phÃºt|giá»|ngÃ y|thÃ¡ng|nÄƒm|m|h|d|y|hr|hrs|mins|thg|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(txt)) {
+            if (/(vừa xong|just now|hôm qua|yesterday)/i.test(txt) || /\d+\s*(phút|gi�?|ngày|tháng|năm|m|h|d|y|hr|hrs|mins|thg|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)/i.test(txt)) {
                 timeText = txt;
             }
         });
@@ -807,7 +807,7 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
         if (!timeText) timeText = "Unknown time";
         postUrls = [...new Set(postUrls)];
 
-        // --- 2. Láº¤Y TÃC GIáº¢ ---
+        // --- 2. LẤY T�?C GIẢ ---
         let authorName = "N/A";
         let authorLink = "";
         const profileContainer = post.find(`[${profileNameSelector}]`);
@@ -822,41 +822,41 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
             }
         }
 
-        // --- 3. Láº¤Y Ná»˜I DUNG VÄ‚N Báº¢N (TEXT) ---
+        // --- 3. LẤY NỘI DUNG VĂN BẢN (TEXT) ---
         const contentEl = post.find(`[${storySelector}]`);
         const content = contentEl.text().trim();
 
-        // Kiá»ƒm tra bung "Xem thÃªm"
+        // Kiểm tra bung "Xem thêm"
         if (content.includes(seeMoreText)) return;
 
-        // --- 4. HÃŒNH áº¢NH (IMAGES) ---
+        // --- 4. HÌNH ẢNH (IMAGES) ---
         const images = [];
         post.find('img').each((i, img) => {
             const src = $(img).attr('src');
             const alt = $(img).attr('alt') || "";
-            if (src && src.includes('https://scontent') && !alt.toLowerCase().includes('há»“ sÆ¡') && !alt.toLowerCase().includes('profile')) {
+            if (src && src.includes('https://scontent') && !alt.toLowerCase().includes('hồ sơ') && !alt.toLowerCase().includes('profile')) {
                 images.push(src);
             }
         });
 
         const finalImages = [...new Set(images)];
 
-        // --- ÄIá»€U KIá»†N Má»šI: Bá»Ž QUA Náº¾U KHÃ”NG CÃ“ TEXT VÃ€ KHÃ”NG CÃ“ áº¢NH ---
+        // --- �?IỀU KIỆN MỚI: BỎ QUA NẾU KHÔNG CÓ TEXT VÀ KHÔNG CÓ ẢNH ---
         if (!content && finalImages.length === 0) {
-            return; // Bá» qua bÃ i post "trá»‘ng" (chá»‰ cÃ³ video hoáº·c chá»‰ cÃ³ sticker/link)
+            return; // B�? qua bài post "trống" (chỉ có video hoặc chỉ có sticker/link)
         }
 
         // --- 5. VIDEO LINK ---
         let videoUrl = post.find('a[href*="/videos/"], a[href*="/watch/"]').first().attr('href') || null;
         if (videoUrl && !videoUrl.startsWith('http')) videoUrl = `https://www.facebook.com${videoUrl}`;
 
-        // --- 6. TÆ¯Æ NG TÃC ---
-        const reactions = post.find('[aria-label*="cáº£m xÃºc"], [aria-label*="reactions"]').attr('aria-label') || "0";
+        // --- 6. TƯƠNG T�?C ---
+        const reactions = post.find('[aria-label*="cảm xúc"], [aria-label*="reactions"]').attr('aria-label') || "0";
         let commentCount = "0", shareCount = "0";
         post.find('div[role="button"]').each((i, btn) => {
             const txt = $(btn).text().toLowerCase();
-            if (txt.includes('bÃ¬nh luáº­n')) commentCount = txt.replace(/[^0-9kK]/g, '');
-            if (txt.includes('chia sáº»')) shareCount = txt.replace(/[^0-9kK]/g, '');
+            if (txt.includes('bình luận')) commentCount = txt.replace(/[^0-9kK]/g, '');
+            if (txt.includes('chia sẻ')) shareCount = txt.replace(/[^0-9kK]/g, '');
         });
 
         results.push({
@@ -891,7 +891,7 @@ async function facebookCrawl(args) {
     let count = 0;
 
     try {
-        sendToRenderer("tools-log", "[FB-Crawl] ðŸš€ Khá»Ÿi Ä‘á»™ng trÃ¬nh quÃ©t...");
+        sendToRenderer("tools-log", "[FB-Crawl] 🚀 Khởi động trình quét...");
 
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
@@ -912,20 +912,20 @@ async function facebookCrawl(args) {
 
             if (facebookPage) break;
 
-            sendToRenderer("tools-log", `â³ Äang Ä‘á»£i tab Facebook má»Ÿ... (${retries}s)`);
+            sendToRenderer("tools-log", `�?� �?ang đợi tab Facebook mở... (${retries}s)`);
             await new Promise(r => setTimeout(r, 2000));
             retries--;
         }
 
         if (!facebookPage) {
-            sendToRenderer("tools-log", "âŒ KhÃ´ng tÃ¬m tháº¥y tab Facebook.");
+            sendToRenderer("tools-log", "�?� Không tìm thấy tab Facebook.");
             return;
         }
 
         try {
             await facebookPage.bringToFront();
         } catch (e) {
-            // CÃ³ thá»ƒ bá» qua náº¿u lÃ  webview khÃ´ng há»— trá»£ bringToFront
+            // Có thể b�? qua nếu là webview không hỗ trợ bringToFront
         }
 
         let noNewPostLoops = 0;
@@ -939,7 +939,7 @@ async function facebookCrawl(args) {
             await facebookPage.mouse.wheel({ deltaY: 2000 });
             await new Promise(r => setTimeout(r, 3000));
 
-            // Click Xem thÃªm
+            // Click Xem thêm
             await facebookPage.evaluate(async (sel, txt) => {
                 const btns = Array.from(document.querySelectorAll(sel));
                 for (const btn of btns) {
@@ -970,9 +970,9 @@ async function facebookCrawl(args) {
                 if (key && !seenIds.has(key)) {
                     seenIds.add(key);
                     allPosts.push(post);
-                    sendToRenderer("tools-log", `[FB-Crawl] âœ… ÄÃ£ láº¥y: ${post.author.name} (${post.images.length} áº£nh)`);
+                    sendToRenderer("tools-log", `[FB-Crawl] ✅ �?ã lấy: ${post.author.name} (${post.images.length} ảnh)`);
 
-                    // PhÃ¡t luá»“ng trá»±c tiáº¿p vá» frontend
+                    // Phát luồng trực tiếp v�? frontend
                     sendToRenderer("tools-response", {
                         action: "facebook-crawl-stream",
                         success: true,
@@ -982,7 +982,7 @@ async function facebookCrawl(args) {
                 if (allPosts.length >= maxPosts) break;
             }
 
-            // Kiá»ƒm tra tiáº¿n Ä‘á»™ Ä‘á»ƒ trÃ¡nh vÃ²ng láº·p vÃ´ háº¡n
+            // Kiểm tra tiến độ để tránh vòng lặp vô hạn
             if (allPosts.length === previousPostCount) {
                 noNewPostLoops++;
             } else {
@@ -991,7 +991,7 @@ async function facebookCrawl(args) {
             previousPostCount = allPosts.length;
 
             if (noNewPostLoops >= 5) {
-                sendToRenderer("tools-log", `[FB-Crawl] âš ï¸ KhÃ´ng tÃ¬m tháº¥y bÃ i Ä‘Äƒng má»›i sau nhiá»u láº§n cuá»™n. Dá»«ng quÃ©t táº¡i ${allPosts.length} bÃ i.`);
+                sendToRenderer("tools-log", `[FB-Crawl] ⚠�? Không tìm thấy bài đăng mới sau nhi�?u lần cuộn. Dừng quét tại ${allPosts.length} bài.`);
                 break;
             }
 
@@ -1009,7 +1009,7 @@ async function facebookCrawl(args) {
             targetWindow.close();
         }
     } catch (err) {
-        sendToRenderer("tools-log", `âŒ Lá»—i: ${err.message}`);
+        sendToRenderer("tools-log", `�?� Lỗi: ${err.message}`);
         if (browser) await browser.disconnect();
     }
 }
@@ -1022,13 +1022,13 @@ function startFallbackServer() {
     const server = fallbackApp.listen(fallbackPort, () => {
         sendToRenderer(
             "tools-log",
-            `[âœ“] Fallback server cháº¡y táº¡i http://localhost:${fallbackPort}`,
+            `[✓] Fallback server chạy tại http://localhost:${fallbackPort}`,
         );
     });
 
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.log(`[Fallback] Cá»•ng ${fallbackPort} Ä‘ang báº­n, thá»­ dá»n dáº¹p...`);
+            console.log(`[Fallback] Cổng ${fallbackPort} đang bận, thử d�?n dẹp...`);
             killPort(fallbackPort);
             setTimeout(() => {
                 server.close();
@@ -1045,7 +1045,7 @@ if (!gotTheLock) {
     process.exit(0);
 } else {
     app.on('second-instance', (event, commandLine, workingDirectory) => {
-        // CÃ³ ngÆ°á»i dÃ¹ng má»Ÿ thÃªm app, focus vÃ o cá»­a sá»• hiá»‡n táº¡i
+        // Có ngư�?i dùng mở thêm app, focus vào cửa sổ hiện tại
         if (mainWindow) {
             if (mainWindow.isMinimized()) mainWindow.restore();
             mainWindow.focus();
@@ -1053,10 +1053,10 @@ if (!gotTheLock) {
     });
 }
 
-app.commandLine.appendSwitch("remote-debugging-port", "9999"); // Báº®T BUá»˜C cho puppeteer.connect()
-app.commandLine.appendSwitch("log-level", "3"); // Táº¯t cÃ¡c cáº£nh bÃ¡o khÃ´ng cáº§n thiáº¿t cá»§a Chromium DevTools (Autofill.enable, ...)
+app.commandLine.appendSwitch("remote-debugging-port", "9999"); // BẮT BUỘC cho puppeteer.connect()
+app.commandLine.appendSwitch("log-level", "3"); // Tắt các cảnh báo không cần thiết của Chromium DevTools (Autofill.enable, ...)
 
-// ThÃªm util nÃ y gáº§n Ä‘áº§u file:
+// Thêm util này gần đầu file:
 const fileExists = (p) => {
     try {
         return fs.existsSync(p);
@@ -1078,13 +1078,13 @@ let typeProcess = null;
 // ====== GOOGLE SEARCH CONSOLE OAUTH CONFIG ======
 const SCOPES_GSC = ["https://www.googleapis.com/auth/webmasters.readonly"];
 
-// TODO: thay báº±ng thÃ´ng tin real cá»§a OAuth Desktop App (Google Cloud Console)
+// TODO: thay bằng thông tin real của OAuth Desktop App (Google Cloud Console)
 const GSC_CLIENT_ID =
     "90514980593-9tqqkt4eobhee5aqrft3f6s5mpkakbp0.apps.googleusercontent.com";
 const GSC_CLIENT_SECRET = "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";
-const GSC_REDIRECT_URI = "http://localhost/google"; // redirect máº·c Ä‘á»‹nh cho Desktop App
+const GSC_REDIRECT_URI = "http://localhost/google"; // redirect mặc định cho Desktop App
 
-// LÆ°u token vÃ o thÆ° má»¥c userData cá»§a Electron
+// Lưu token vào thư mục userData của Electron
 const TOKEN_GSC_PATH = path.join(app.getPath("userData"), "gsc-token.json");
 
 const gscOauth2Client = new google.auth.OAuth2(
@@ -1101,7 +1101,7 @@ function gscLoadTokenIfExists() {
             gscOauth2Client.setCredentials(tokens);
         }
     } catch (e) {
-        sendToRenderer("tools-log", `[GSC] Lá»—i load token: ${e.message}`);
+        sendToRenderer("tools-log", `[GSC] Lỗi load token: ${e.message}`);
     }
 }
 
@@ -1112,9 +1112,9 @@ function gscSaveToken(tokens) {
             JSON.stringify(tokens, null, 2),
             "utf-8",
         );
-        sendToRenderer("tools-log", `[GSC] ÄÃ£ lÆ°u token vÃ o ${TOKEN_GSC_PATH}`);
+        sendToRenderer("tools-log", `[GSC] �?ã lưu token vào ${TOKEN_GSC_PATH}`);
     } catch (e) {
-        sendToRenderer("tools-log", `[GSC] Lá»—i lÆ°u token: ${e.message}`);
+        sendToRenderer("tools-log", `[GSC] Lỗi lưu token: ${e.message}`);
     }
 }
 
@@ -1172,14 +1172,14 @@ function getAuthHtml(title, message, isSuccess) {
             <div class="icon-wrapper">${icon}</div>
             <h1>${title}</h1>
             <p>${message}</p>
-            <button class="btn" onclick="window.close()">ÄÃ³ng cá»­a sá»• nÃ y</button>
+            <button class="btn" onclick="window.close()">�?óng cửa sổ này</button>
         </div>
         ${isSuccess ? '<script>setTimeout(() => window.close(), 3000);</script>' : ''}
     </body>
     </html>`;
 }
 
-// Má»Ÿ cá»­a sá»• login Google, láº¥y "code" rá»“i Ä‘á»•i sang access_token + refresh_token
+// Mở cửa sổ login Google, lấy "code" rồi đổi sang access_token + refresh_token
 async function gscDoLogin() {
     return new Promise((resolve, reject) => {
         const { shell } = require('electron');
@@ -1193,9 +1193,9 @@ async function gscDoLogin() {
                     const error = urlObj.searchParams.get("error");
 
                     if (error) {
-                        sendToRenderer("tools-log", `[GSC] Lá»—i OAuth: ${error}`);
+                        sendToRenderer("tools-log", `[GSC] Lỗi OAuth: ${error}`);
                         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                        res.end(getAuthHtml('Lá»—i xÃ¡c thá»±c', `QuÃ¡ trÃ¬nh Ä‘Äƒng nháº­p tháº¥t báº¡i: ${error}. Vui lÃ²ng thá»­ láº¡i.`, false));
+                        res.end(getAuthHtml('Lỗi xác thực', `Quá trình đăng nhập thất bại: ${error}. Vui lòng thử lại.`, false));
                         server.close();
                         reject(new Error(error));
                         return;
@@ -1203,22 +1203,22 @@ async function gscDoLogin() {
 
                     if (!code) {
                         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                        res.end(getAuthHtml('Lá»—i há»‡ thá»‘ng', `KhÃ´ng tÃ¬m tháº¥y mÃ£ xÃ¡c thá»±c tá»« Google tráº£ vá».`, false));
+                        res.end(getAuthHtml('Lỗi hệ thống', `Không tìm thấy mã xác thực từ Google trả v�?.`, false));
                         server.close();
                         reject(new Error("No code in redirect URL"));
                         return;
                     }
 
                     res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                    res.end(getAuthHtml('ThÃ nh cÃ´ng', 'QuÃ¡ trÃ¬nh xÃ¡c thá»±c hoÃ n táº¥t! Báº¡n cÃ³ thá»ƒ quay láº¡i app ai.type, cá»­a sá»• nÃ y sáº½ tá»± Ä‘Ã³ng láº¡i.', true));
+                    res.end(getAuthHtml('Thành công', 'Quá trình xác thực hoàn tất! Bạn có thể quay lại app ai.type, cửa sổ này sẽ tự đóng lại.', true));
                     server.close();
 
-                    sendToRenderer("tools-log", "[GSC] Nháº­n code tá»« trÃ¬nh duyá»‡t chÃ­nh, Ä‘ang Ä‘á»•i sang token...");
+                    sendToRenderer("tools-log", "[GSC] Nhận code từ trình duyệt chính, đang đổi sang token...");
                     const { tokens } = await gscOauth2Client.getToken(code);
                     gscOauth2Client.setCredentials(tokens);
                     gscSaveToken(tokens);
 
-                    sendToRenderer("tools-log", "[GSC] ÄÄƒng nháº­p thÃ nh cÃ´ng, Ä‘Ã£ lÆ°u token.");
+                    sendToRenderer("tools-log", "[GSC] �?ăng nhập thành công, đã lưu token.");
                     resolve();
                 } else {
                     res.writeHead(404);
@@ -1232,11 +1232,11 @@ async function gscDoLogin() {
             }
         });
 
-        // Láº¯ng nghe á»Ÿ port cá»‘ Ä‘á»‹nh 5455 Ä‘á»ƒ dá»… cáº¥u hÃ¬nh trÃªn Google Cloud Console
+        // Lắng nghe ở port cố định 5455 để dễ cấu hình trên Google Cloud Console
         server.listen(5455, '127.0.0.1', () => {
             const redirectUri = `http://localhost:5455/google`;
 
-            // Cáº­p nháº­t láº¡i redirectUri Ä‘á»ƒ Google OAuth cho phÃ©p
+            // Cập nhật lại redirectUri để Google OAuth cho phép
             gscOauth2Client._clientId = GSC_CLIENT_ID;
             gscOauth2Client._clientSecret = GSC_CLIENT_SECRET;
             gscOauth2Client.redirectUri = redirectUri;
@@ -1247,12 +1247,12 @@ async function gscDoLogin() {
                 prompt: "consent",
             });
 
-            sendToRenderer("tools-log", `[GSC] Má»Ÿ Chrome máº·c Ä‘á»‹nh: ${authUrl}`);
+            sendToRenderer("tools-log", `[GSC] Mở Chrome mặc định: ${authUrl}`);
             shell.openExternal(authUrl);
         });
 
         server.on('error', (e) => {
-            sendToRenderer("tools-log", `[GSC] Lá»—i server listen: ${e.message}`);
+            sendToRenderer("tools-log", `[GSC] Lỗi server listen: ${e.message}`);
             reject(e);
         });
     });
@@ -1263,15 +1263,15 @@ async function gscEnsureAuthenticated() {
     const creds = gscOauth2Client.credentials;
 
     if (!creds.access_token && !creds.refresh_token) {
-        // ChÆ°a tá»«ng login
+        // Chưa từng login
         await gscDoLogin();
     } else if (creds.refresh_token && !creds.access_token) {
-        // CÃ³ refresh token nhÆ°ng háº¿t access token
+        // Có refresh token nhưng hết access token
         await gscOauth2Client.getAccessToken();
     }
 }
 
-// ===== CHROME APP (STT) - CHá»ˆ Má»ž DUY NHáº¤T 1 Cá»¬A Sá»” =====
+// ===== CHROME APP (STT) - CHỈ MỞ DUY NHẤT 1 CỬA SỔ =====
 let chromeAppProcess = null;
 
 // WS server cho Chrome app (Angular 17 STT)
@@ -1279,7 +1279,7 @@ let sttWsServer = null;
 const sttWsClients = new Set();
 
 async function parseSelector({ instruction, html, model }) {
-    const prompt = `Báº¡n lÃ  AI chuyÃªn trÃ­ch xuáº¥t dá»¯ liá»‡u tá»« HTML theo hÆ°á»›ng dáº«n. HÃ£y Ä‘á»c Ä‘oáº¡n HTML sau vÃ  trÃ­ch ra dá»¯ liá»‡u theo yÃªu cáº§u:
+    const prompt = `Bạn là AI chuyên trích xuất dữ liệu từ HTML theo hướng dẫn. Hãy đ�?c đoạn HTML sau và trích ra dữ liệu theo yêu cầu:
 
     [INSTRUCTION]
     ${instruction}
@@ -1287,13 +1287,13 @@ async function parseSelector({ instruction, html, model }) {
     [HTML]
     ${html}
 
-    Tráº£ vá» JSON vá»›i 1 key duy nháº¥t lÃ  "value", vÃ­ dá»¥: { "value": "Káº¿t quáº£" }
-    Náº¿u khÃ´ng tÃ¬m tháº¥y, tráº£ vá»: { "value": "" }`;
+    Trả v�? JSON với 1 key duy nhất là "value", ví dụ: { "value": "Kết quả" }
+    Nếu không tìm thấy, trả v�?: { "value": "" }`;
 
     const result = await model.generateContent(prompt);
     let text = result.response.candidates?.[0]?.content?.parts?.[0]?.text || "";
 
-    // Loáº¡i bá» ```json ... ```
+    // Loại b�? ```json ... ```
     text = text.trim();
     if (text.startsWith("```json")) {
         text = text
@@ -1302,7 +1302,7 @@ async function parseSelector({ instruction, html, model }) {
             .trim();
     }
 
-    // Loáº¡i bá» náº¿u bá»‹ bá»c markdown kiá»ƒu khÃ¡c
+    // Loại b�? nếu bị b�?c markdown kiểu khác
     text = text.replace(/^```/, "").replace(/```$/, "").trim();
 
     // Parse JSON
@@ -1310,41 +1310,41 @@ async function parseSelector({ instruction, html, model }) {
         const json = JSON.parse(text);
         return { value: json.value || "" };
     } catch (e) {
-        // Náº¿u parse lá»—i thÃ¬ tráº£ láº¡i nguyÃªn vÄƒn (fallback)
+        // Nếu parse lỗi thì trả lại nguyên văn (fallback)
         return { value: text };
     }
 }
 
-// ==== AUDIO RECORDING Tá»ª WEBVIEW ====
+// ==== AUDIO RECORDING TỪ WEBVIEW ====
 let audioRecordStream = null;
 ipcMain.on('webview-audio-chunk', (event, buffer) => {
     if (!audioRecordStream) {
         const audioPath = path.join(app.getPath('userData'), 'meeting_audio.webm');
         audioRecordStream = fs.createWriteStream(audioPath);
-        console.log(`[Audio Recording] Báº¯t Ä‘áº§u ghi Ã¢m lÆ°u táº¡i: ${audioPath}`);
+        console.log(`[Audio Recording] Bắt đầu ghi âm lưu tại: ${audioPath}`);
     }
     audioRecordStream.write(buffer);
 });
 
 ipcMain.handle('init-system-audio', () => {
-    // KhÃ´ng cáº§n táº¡o stream ná»¯a vÃ¬ gá»­i 1 láº§n
+    // Không cần tạo stream nữa vì gửi 1 lần
     return true;
 });
 
 ipcMain.handle('save-system-audio', (event, uint8ArrayData) => {
-    // LÆ°u vÃ o Documents\ai.type\data\notes
+    // Lưu vào Documents\ai.type\data\notes
     const notesDir = path.join(app.getPath('documents'), 'ai.type', 'data', 'notes');
     if (!fs.existsSync(notesDir)) {
         fs.mkdirSync(notesDir, { recursive: true });
     }
 
-    // TÃªn file cÃ³ chá»©a má»‘c thá»i gian riÃªng biá»‡t
+    // Tên file có chứa mốc th�?i gian riêng biệt
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
     const audioPath = path.join(notesDir, `recording_${timestamp}.webm`);
 
     const buffer = Buffer.from(uint8ArrayData);
     fs.writeFileSync(audioPath, buffer);
-    console.log(`[Audio Recording] ÄÃ£ lÆ°u file Ã¢m thanh hoÃ n chá»‰nh táº¡i: ${audioPath}`);
+    console.log(`[Audio Recording] �?ã lưu file âm thanh hoàn chỉnh tại: ${audioPath}`);
     return audioPath;
 });
 
@@ -1364,17 +1364,17 @@ ipcMain.handle('transcribe-system-audio', async (event, payload) => {
                     mimeType: "audio/webm"
                 }
             },
-            { text: "HÃ£y nghe vÃ  viáº¿t láº¡i chÃ­nh xÃ¡c ná»™i dung vÄƒn báº£n tiáº¿ng Viá»‡t cá»§a Ä‘oáº¡n Ã¢m thanh nÃ y. Chá»‰ cáº§n tráº£ vá» ná»™i dung, khÃ´ng giáº£i thÃ­ch." }
+            { text: "Hãy nghe và viết lại chính xác nội dung văn bản tiếng Việt của đoạn âm thanh này. Chỉ cần trả v�? nội dung, không giải thích." }
         ]);
 
         return result.response.text();
     } catch (e) {
-        console.error('Lá»—i khi gá»i Gemini dá»‹ch Ã¢m thanh:', e);
+        console.error('Lỗi khi g�?i Gemini dịch âm thanh:', e);
         throw e;
     }
 });
 
-// ==== DESKTOP CAPTURER (CÃCH 2) ====
+// ==== DESKTOP CAPTURER (C�?CH 2) ====
 ipcMain.handle('desktop-capturer-get-sources', async (event, opts) => {
     const sources = await desktopCapturer.getSources(opts);
     return sources.map(s => ({
@@ -1404,10 +1404,10 @@ function killPort(port) {
         if (err)
             sendToRenderer(
                 "tools-log",
-                `KhÃ´ng thá»ƒ huá»· tiáº¿n trÃ¬nh: ${err.message}`,
+                `Không thể huỷ tiến trình: ${err.message}`,
             );
         else
-            sendToRenderer("tools-log", `ÄÃ£ huá»· tiáº¿n trÃ¬nh chiáº¿m port ${port}`);
+            sendToRenderer("tools-log", `�?ã huỷ tiến trình chiếm port ${port}`);
     });
 }
 
@@ -1453,7 +1453,7 @@ function startSttWebSocketServer(port = 7777) {
                     return;
                 }
 
-                // Handshake Ä‘Æ¡n giáº£n
+                // Handshake đơn giản
                 if (payload.type === "hello") {
                     sendToRenderer(
                         "tools-log",
@@ -1462,7 +1462,7 @@ function startSttWebSocketServer(port = 7777) {
                     return;
                 }
 
-                // Chrome app gá»­i caption
+                // Chrome app gửi caption
                 if (payload.type === "caption") {
                     sendToRenderer(
                         "tools-log",
@@ -1471,7 +1471,7 @@ function startSttWebSocketServer(port = 7777) {
                     sendToRenderer("stt-caption", payload);
                 }
 
-                // KÃªnh debug chung
+                // Kênh debug chung
                 sendToRenderer("stt-message", {
                     clientId,
                     payload,
@@ -1553,14 +1553,14 @@ function getChromePath() {
 }
 
 // Trong file main.js
-// ThÃªm tham sá»‘ width, height vÃ o hÃ m
+// Thêm tham số width, height vào hàm
 function openChromeApp(url, width = 400, height = 800) {
     const targetUrl = url || "http://localhost:7171/";
 
     if (chromeAppProcess && chromeAppProcess.killed) chromeAppProcess = null;
 
     if (sttWsClients.size > 0) {
-        sendToRenderer("tools-log", `[ChromeApp] Äang cháº¡y rá»“i, khÃ´ng má»Ÿ láº¡i.`);
+        sendToRenderer("tools-log", `[ChromeApp] �?ang chạy rồi, không mở lại.`);
         return;
     }
 
@@ -1568,7 +1568,7 @@ function openChromeApp(url, width = 400, height = 800) {
     if (!chromePath) {
         sendToRenderer(
             "tools-log",
-            `[ChromeApp] âŒ KhÃ´ng tÃ¬m tháº¥y Google Chrome!`,
+            `[ChromeApp] �?� Không tìm thấy Google Chrome!`,
         );
         return;
     }
@@ -1578,10 +1578,10 @@ function openChromeApp(url, width = 400, height = 800) {
 
         const args = [
             `--app=${targetUrl}`,
-            // --- THÃŠM DÃ’NG NÃ€Y Äá»‚ CHá»ˆNH KÃCH THÆ¯á»šC ---
+            // --- THÊM DÒNG NÀY �?Ể CHỈNH K�?CH THƯỚC ---
             `--window-size=${width},${height}`,
 
-            // Náº¿u muá»‘n chá»‰nh vá»‹ trÃ­ xuáº¥t hiá»‡n (tÃ¹y chá»n):
+            // Nếu muốn chỉnh vị trí xuất hiện (tùy ch�?n):
             // `--window-position=100,100`,
 
             "--new-window",
@@ -1592,7 +1592,7 @@ function openChromeApp(url, width = 400, height = 800) {
             "--disable-web-security",
             "--disable-site-isolation-trials",
 
-            // Táº¯t dá»‹ch & popup thá»«a
+            // Tắt dịch & popup thừa
             "--disable-features=IsolateOrigins,site-per-process,Translate,OptimizationGuideModelDownloading,OptimizationHints",
             "--disable-translate",
 
@@ -1605,7 +1605,7 @@ function openChromeApp(url, width = 400, height = 800) {
 
         sendToRenderer(
             "tools-log",
-            `[ChromeApp] Má»Ÿ size ${width}x${height} táº¡i: ${chromePath}`,
+            `[ChromeApp] Mở size ${width}x${height} tại: ${chromePath}`,
         );
 
         const child = spawn(chromePath, args, {
@@ -1617,26 +1617,26 @@ function openChromeApp(url, width = 400, height = 800) {
         child.unref();
         chromeAppProcess = child;
     } catch (err) {
-        sendToRenderer("tools-log", `[ChromeApp] âŒ Exception: ${err.message}`);
+        sendToRenderer("tools-log", `[ChromeApp] �?� Exception: ${err.message}`);
     }
 }
 
-// Tráº£ vá» Ä‘Æ°á»ng dáº«n Ä‘Ãºng cho preload á»Ÿ cáº£ dev (electron .) vÃ  app.asar
+// Trả v�? đư�?ng dẫn đúng cho preload ở cả dev (electron .) và app.asar
 function resolvePreload() {
-    // 1) Khi cháº¡y tá»« dist/main.js: __dirname = .../app.asar/dist (build) hoáº·c <proj>/dist (dev)
-    const candidate1 = path.join(__dirname, "..", "preload.js"); // <-- CHUáº¨N
+    // 1) Khi chạy từ dist/main.js: __dirname = .../app.asar/dist (build) hoặc <proj>/dist (dev)
+    const candidate1 = path.join(__dirname, "..", "preload.js"); // <-- CHUẨN
     if (fs.existsSync(candidate1)) return candidate1;
 
-    // 2) PhÃ²ng khi ai Ä‘Ã³ váº«n Ä‘á»ƒ preload cáº¡nh main.js (Ã­t gáº·p)
+    // 2) Phòng khi ai đó vẫn để preload cạnh main.js (ít gặp)
     const candidate2 = path.join(__dirname, "preload.js");
     if (fs.existsSync(candidate2)) return candidate2;
 
-    // 3) PhÃ²ng thÃªm case hiáº¿m trong khi dev cháº¡y tá»« root
+    // 3) Phòng thêm case hiếm trong khi dev chạy từ root
     const candidate3 = path.join(process.cwd(), "preload.js");
     if (fs.existsSync(candidate3)) return candidate3;
 
-    // 4) BÃ¡o lá»—i Ä‘á»ƒ cÃ²n biáº¿t
-    return candidate1; // váº«n tráº£ vá» candidate1 Ä‘á»ƒ log bÃ¡o lá»—i
+    // 4) Báo lỗi để còn biết
+    return candidate1; // vẫn trả v�? candidate1 để log báo lỗi
 }
 
 // ==== MAIN WINDOW ====
@@ -1671,11 +1671,11 @@ function createMainWindow() {
 
     const req = http.get(targetURL, (res) => {
         if (res.statusCode === 200) {
-            sendToRenderer("tools-log", "[âœ“] Angular app Ä‘Ã£ cháº¡y, loadURL");
+            sendToRenderer("tools-log", "[✓] Angular app đã chạy, loadURL");
             mainWindow.loadURL(targetURL);
         } else {
-            sendToRenderer("tools-log", "[!] KhÃ´ng mong muá»‘n, dÃ¹ng fallback");
-            mainWindow.webPreferences.devTools = false; // Táº¯t devtools cho main window (váº«n má»Ÿ Ä‘Æ°á»£c báº±ng shortcut náº¿u cáº§n)
+            sendToRenderer("tools-log", "[!] Không mong muốn, dùng fallback");
+            mainWindow.webPreferences.devTools = false; // Tắt devtools cho main window (vẫn mở được bằng shortcut nếu cần)
             loadFallback();
         }
     });
@@ -1683,7 +1683,7 @@ function createMainWindow() {
     req.on("error", () => {
         sendToRenderer(
             "tools-log",
-            "[x] KhÃ´ng káº¿t ná»‘i Ä‘Æ°á»£c Angular â†’ fallback",
+            "[x] Không kết nối được Angular → fallback",
         );
         loadFallback();
     });
@@ -1695,13 +1695,13 @@ function createMainWindow() {
             .then(() =>
                 sendToRenderer(
                     "tools-log",
-                    "[Fallback] Load fallback thÃ nh cÃ´ng",
+                    "[Fallback] Load fallback thành công",
                 ),
             )
             .catch((err) =>
                 sendToRenderer(
                     "tools-log",
-                    `[Fallback] Lá»—i khi load fallback: ${err.message}`,
+                    `[Fallback] Lỗi khi load fallback: ${err.message}`,
                 ),
             );
     }
@@ -1737,9 +1737,9 @@ function createMainWindow() {
 
     Menu.setApplicationMenu(
         Menu.buildFromTemplate([
-            { label: "á»¨ng dá»¥ng", submenu: [{ label: "ThoÃ¡t", role: "quit" }] },
+            { label: "Ứng dụng", submenu: [{ label: "Thoát", role: "quit" }] },
             {
-                label: "VÄƒn báº£n",
+                label: "Văn bản",
                 submenu: [
                     { role: "undo" },
                     { role: "redo" },
@@ -1753,20 +1753,20 @@ function createMainWindow() {
                 ],
             },
             {
-                label: "Hiá»ƒn thá»‹",
+                label: "Hiển thị",
                 submenu: [
-                    { role: "reload", label: "Táº£i láº¡i", accelerator: "CmdOrCtrl+R" },
-                    { role: "forceReload", label: "Táº£i láº¡i toÃ n bá»™", accelerator: "CmdOrCtrl+Shift+R" },
-                    ...(app.isPackaged ? [] : [{ role: "toggleDevTools", label: "CÃ´ng cá»¥ cho nhÃ  phÃ¡t triá»ƒn" }]),
+                    { role: "reload", label: "Tải lại", accelerator: "CmdOrCtrl+R" },
+                    { role: "forceReload", label: "Tải lại toàn bộ", accelerator: "CmdOrCtrl+Shift+R" },
+                    ...(app.isPackaged ? [] : [{ role: "toggleDevTools", label: "Công cụ cho nhà phát triển" }]),
                     { type: "separator" },
-                    { role: "resetZoom", label: "KhÃ´i phá»¥c thu phÃ³ng" },
-                    { role: "zoomIn", label: "PhÃ³ng to" },
-                    { role: "zoomOut", label: "Thu nhá»" },
+                    { role: "resetZoom", label: "Khôi phục thu phóng" },
+                    { role: "zoomIn", label: "Phóng to" },
+                    { role: "zoomOut", label: "Thu nh�?" },
                     { type: "separator" },
-                    { role: "togglefullscreen", label: "ToÃ n mÃ n hÃ¬nh" }
+                    { role: "togglefullscreen", label: "Toàn màn hình" }
                 ]
             },
-            { label: "Cá»­a sá»•", role: "windowMenu" },
+            { label: "Cửa sổ", role: "windowMenu" },
         ]),
     );
 }
@@ -1794,10 +1794,10 @@ function createTargetWindow(
     const preloadPath = resolvePreload();
     sendToRenderer(
         "tools-log",
-        `[Target] preload dÃ¹ng: ${preloadPath} (exists=${fs.existsSync(preloadPath)})`,
+        `[Target] preload dùng: ${preloadPath} (exists=${fs.existsSync(preloadPath)})`,
     );
 
-    // Gáº¯n uniqueID vÃ o URL
+    // Gắn uniqueID vào URL
     let targetUrlWithUniqueID = url;
     if (uniqueID) {
         if (url.includes("?")) {
@@ -1812,7 +1812,7 @@ function createTargetWindow(
         height: finalHeight,
         x: finalX,
         y: finalY,
-        title: "CÃ´ng cá»¥ AI",
+        title: "Công cụ AI",
         show: true, // show sau khi ready-to-show
         frame: false,
         resizable: false,
@@ -1839,7 +1839,7 @@ function createTargetWindow(
         },
     });
 
-    // DÃ¹ng chung User-Agent "sáº¡ch" Ä‘Ã£ Ä‘Æ°á»£c lá»c á»Ÿ app.whenReady Ä‘á»ƒ trÃ¡nh mismatch version vá»›i Client Hints
+    // Dùng chung User-Agent "sạch" đã được l�?c ở app.whenReady để tránh mismatch version với Client Hints
     targetWindow.webContents.setUserAgent(app.userAgentFallback);
 
     targetWindow.loadURL(targetUrlWithUniqueID);
@@ -1877,18 +1877,18 @@ function createTargetWindow(
     return targetWindow;
 }
 
-// --- thÃªm forward debug tá»« preload vá» UI (Ä‘áº·t trong app.whenReady() sau createMainWindow()) ---
+// --- thêm forward debug từ preload v�? UI (đặt trong app.whenReady() sau createMainWindow()) ---
 ipcMain.on("dreamina:debug", (_evt, msg) => {
     sendToRenderer("tools-log", String(msg));
 });
 
-// Nháº­n message tá»« renderer Angular vÃ  forward sang táº¥t cáº£ Chrome STT clients
+// Nhận message từ renderer Angular và forward sang tất cả Chrome STT clients
 ipcMain.on("stt-send-to-chrome", (_event, payload) => {
     const msg = JSON.stringify(payload || {});
     if (!sttWsServer || sttWsClients.size === 0) {
         sendToRenderer(
             "tools-log",
-            "[STT-WS] KhÃ´ng cÃ³ Chrome client nÃ o Ä‘á»ƒ gá»­i message",
+            "[STT-WS] Không có Chrome client nào để gửi message",
         );
         return;
     }
@@ -1900,7 +1900,7 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
             } catch (err) {
                 sendToRenderer(
                     "tools-log",
-                    `[STT-WS] Lá»—i khi send tá»›i client: ${err.message}`,
+                    `[STT-WS] Lỗi khi send tới client: ${err.message}`,
                 );
             }
         }
@@ -1908,18 +1908,18 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
 });
 
 // ============================================================
-// [Má»šI] EDGE TTS ENGINE (PURE NODE.JS - NO PYTHON REQUIRED)
+// [MỚI] EDGE TTS ENGINE (PURE NODE.JS - NO PYTHON REQUIRED)
 // ============================================================
 
 /**
- * HÃ m sinh audio tá»« Edge TTS báº±ng WebSocket thuáº§n.
- * KhÃ´ng cáº§n cÃ i Python, khÃ´ng cáº§n edge-tts cli.
+ * Hàm sinh audio từ Edge TTS bằng WebSocket thuần.
+ * Không cần cài Python, không cần edge-tts cli.
  */
 async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pitch) {
     return new Promise((resolve, reject) => {
         const exePath = binaries.edgeTts;
         if (!exePath) {
-            return reject(new Error("KhÃ´ng tÃ¬m tháº¥y file Edge TTS Core!"));
+            return reject(new Error("Không tìm thấy file Edge TTS Core!"));
         }
 
         const args = [
@@ -1937,7 +1937,7 @@ async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pi
             if (error) {
                 let errorMsg = stderr || error.message;
                 if (errorMsg.includes("No audio was received") && voice === "vi-VN-NamMinhNeural") {
-                    errorMsg = "Giá»ng Ä‘á»c Nam Minh cá»§a Microsoft bá»‹ giá»›i háº¡n Ä‘á»™ dÃ i kÃ½ tá»± ráº¥t ngáº¯n (dÆ°á»›i 80 kÃ½ tá»±/cÃ¢u). Vui lÃ²ng ngáº¯t Ä‘oáº¡n text nÃ y thÃ nh nhiá»u pháº§n ngáº¯n hÆ¡n, hoáº·c Ä‘á»•i sang giá»ng HoÃ i My Ä‘á»ƒ Ä‘á»c cÃ¡c Ä‘oáº¡n dÃ i liÃªn tá»¥c.";
+                    errorMsg = "Gi�?ng đ�?c Nam Minh của Microsoft bị giới hạn độ dài ký tự rất ngắn (dưới 80 ký tự/câu). Vui lòng ngắt đoạn text này thành nhi�?u phần ngắn hơn, hoặc đổi sang gi�?ng Hoài My để đ�?c các đoạn dài liên tục.";
                 }
                 sendToRenderer("tools-log", `[TTS-Exe] Error: ${errorMsg}`);
                 return reject(new Error(errorMsg));
@@ -1981,7 +1981,7 @@ const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, s
 
             fileStream.on('finish', () => {
                 fileStream.close();
-                if (sender) sender.send('pdf-analysis-progress', 'Äang giáº£i nÃ©n dá»¯ liá»‡u (Vui lÃ²ng Ä‘á»£i vÃ i phÃºt)...');
+                if (sender) sender.send('pdf-analysis-progress', '�?ang giải nén dữ liệu (Vui lòng đợi vài phút)...');
 
 
                 const { exec } = require('child_process');
@@ -1991,9 +1991,9 @@ const downloadAndExtractZip = async (url, destDir, zipPath, progressMsgPrefix, s
                     : `unzip -o '${zipPath}' -d '${destDir}'`;
 
                 exec(extractCmd, (error) => {
-                    try { fs.unlinkSync(zipPath); } catch (e) { } // Dá»n rÃ¡c
+                    try { fs.unlinkSync(zipPath); } catch (e) { } // D�?n rác
                     if (error) {
-                        return reject(new Error('Lá»—i giáº£i nÃ©n: ' + error.message));
+                        return reject(new Error('Lỗi giải nén: ' + error.message));
                     }
                     resolve();
                 });
@@ -2026,24 +2026,24 @@ ipcMain.handle('setup-mineru-model', async (event) => {
         const configPath = path.join(modelPath, 'config.json');
 
         if (fs.existsSync(configPath)) {
-            event.sender.send('pdf-analysis-progress', 'MÃ´ hÃ¬nh AI Ä‘Ã£ sáºµn sÃ ng.');
+            event.sender.send('pdf-analysis-progress', 'Mô hình AI đã sẵn sàng.');
             resolve();
             return;
         }
 
 
 
-        event.sender.send('pdf-analysis-progress', 'Äang káº¿t ná»‘i Ä‘á»ƒ táº£i mÃ´ hÃ¬nh AI...');
+        event.sender.send('pdf-analysis-progress', '�?ang kết nối để tải mô hình AI...');
         const modelsDir = path.join(app.getPath('userData'), 'models');
         const zipFile = path.join(modelsDir, 'model.zip');
         const url = 'https://cdn1.type.vn/assets/models--opendatalab--MinerU2.5-Pro-2604-1.2B.zip';
 
         try {
-            await downloadAndExtractZip(url, modelsDir, zipFile, 'Äang táº£i MÃ´ hÃ¬nh AI (~1.7GB)', event.sender);
-            event.sender.send('pdf-analysis-progress', 'MÃ´ hÃ¬nh AI Ä‘Ã£ sáºµn sÃ ng.');
+            await downloadAndExtractZip(url, modelsDir, zipFile, '�?ang tải Mô hình AI (~1.7GB)', event.sender);
+            event.sender.send('pdf-analysis-progress', 'Mô hình AI đã sẵn sàng.');
             resolve();
         } catch (e) {
-            reject(new Error(`Táº£i model tháº¥t báº¡i: ${e.message}`));
+            reject(new Error(`Tải model thất bại: ${e.message}`));
         }
     });
 });
@@ -2064,7 +2064,7 @@ ipcMain.handle('download-temp-pdf', async (event, url) => {
         try {
             const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
             const res = await fetch(url);
-            if (!res.ok) throw new Error(`Lá»—i táº£i file: HTTP ${res.status}`);
+            if (!res.ok) throw new Error(`Lỗi tải file: HTTP ${res.status}`);
 
             const tempDir = app.getPath('temp');
             const tempFile = path.join(tempDir, `temp_mineru_${Date.now()}.pdf`);
@@ -2088,12 +2088,12 @@ ipcMain.handle('download-temp-pdf', async (event, url) => {
 ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
     return new Promise(async (resolve, reject) => {
         currentPdfSender = event.sender;
-        currentPdfSender.send('pdf-analysis-progress', 'Äang kiá»ƒm tra API AI cá»¥c bá»™...');
+        currentPdfSender.send('pdf-analysis-progress', '�?ang kiểm tra API AI cục bộ...');
 
         currentAbortController = new AbortController();
         const signal = currentAbortController.signal;
 
-        // HÃ m gá»i API
+        // Hàm g�?i API
         const fetchApi = async (url, body = null) => {
             const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
             try {
@@ -2101,7 +2101,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: body ? JSON.stringify(body) : null,
-                    timeout: 0, // No timeout cho viá»‡c analyze
+                    timeout: 0, // No timeout cho việc analyze
                     signal
                 });
                 if (!res.ok) throw new Error(await res.text());
@@ -2112,18 +2112,18 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
             }
         };
 
-        // HÃ m kiá»ƒm tra vÃ  khá»Ÿi Ä‘á»™ng server náº¿u cáº§n
+        // Hàm kiểm tra và khởi động server nếu cần
         const ensureApiRunning = async () => {
             try {
-                // Thá»­ káº¿t ná»‘i
+                // Thử kết nối
                 const fetch = (...args) => import('node-fetch').then(({ default: fetch }) => fetch(...args));
                 await fetch('http://127.0.0.1:48921/openapi.json', { timeout: 1000 });
 
                 if (!pdfApiProcess) {
-                    // Náº¿u server Ä‘ang cháº¡y nhÆ°ng khÃ´ng pháº£i do instance hiá»‡n táº¡i táº¡o ra -> ÄÃ¢y lÃ  process zombie (thÆ°á»ng do nodemon khá»Ÿi Ä‘á»™ng láº¡i).
-                    // Process nÃ y sáº½ bá»‹ káº¹t stdout khiáº¿n progress khÃ´ng hiá»ƒn thá»‹ trÃªn UI. Pháº£i kill nÃ³ Ä‘i Ä‘á»ƒ táº¡o láº¡i!
-                    console.log("[PDF] PhÃ¡t hiá»‡n zombie process, Ä‘ang tiáº¿n hÃ nh kill...");
-                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Äang dá»n dáº¹p tiáº¿n trÃ¬nh cÅ©...');
+                    // Nếu server đang chạy nhưng không phải do instance hiện tại tạo ra -> �?ây là process zombie (thư�?ng do nodemon khởi động lại).
+                    // Process này sẽ bị kẹt stdout khiến progress không hiển thị trên UI. Phải kill nó đi để tạo lại!
+                    console.log("[PDF] Phát hiện zombie process, đang tiến hành kill...");
+                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', '�?ang d�?n dẹp tiến trình cũ...');
 
                     const { execSync } = require('child_process');
                     try {
@@ -2132,7 +2132,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                         } else {
                             execSync(`lsof -i :48921 -t | xargs kill -9`);
                         }
-                    } catch (e) { } // Bá» qua lá»—i náº¿u khÃ´ng tÃ¬m tháº¥y
+                    } catch (e) { } // B�? qua lỗi nếu không tìm thấy
 
                     await new Promise(r => setTimeout(r, 1000));
                     throw new Error("Killed zombie process");
@@ -2140,47 +2140,47 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
 
                 return true;
             } catch (e) {
-                // ChÆ°a cháº¡y -> Start
-                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Äang khá»Ÿi Ä‘á»™ng mÃ´ hÃ¬nh AI...');
+                // Chưa chạy -> Start
+                if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', '�?ang khởi động mô hình AI...');
 
                 const getMinerUExecutableInfoAsync = async () => {
                     const isWin = process.platform === 'win32';
                     const exeName = isWin ? 'mineru_api.exe' : 'mineru_api';
 
-                    // 1. Kiá»ƒm tra file trong resources (trÆ°á»ng há»£p app Ä‘Ã³ng gÃ³i cÃ³ nhÃºng sáºµn)
+                    // 1. Kiểm tra file trong resources (trư�?ng hợp app đóng gói có nhúng sẵn)
                     const exePath = path.join(__dirname, '..', 'bin', exeName);
                     if (fs.existsSync(exePath)) {
                         return { cmd: exePath, args: [], cwd: path.dirname(exePath) };
                     }
 
-                    // 2. Kiá»ƒm tra trong userData (app táº£i vá»)
+                    // 2. Kiểm tra trong userData (app tải v�?)
                     const mineruDir = path.join(app.getPath('userData'), 'mineru_api_bin');
                     const downloadedExe = path.join(mineruDir, exeName);
                     if (fs.existsSync(downloadedExe)) {
                         return { cmd: downloadedExe, args: [], cwd: mineruDir };
                     }
 
-                    // 3. Náº¿u Ä‘ang cháº¡y DEV mode vá»›i pdf.py, tráº£ vá» luÃ´n Ä‘á»ƒ dev
+                    // 3. Nếu đang chạy DEV mode với pdf.py, trả v�? luôn để dev
                     const basePath = app.isPackaged ? process.resourcesPath : path.join(__dirname, '..');
                     const scriptPath = path.join(basePath, 'scripts', 'pdf.py');
                     if (!app.isPackaged && fs.existsSync(scriptPath)) {
                         return { cmd: 'python', args: ['-u', scriptPath], cwd: path.dirname(scriptPath) };
                     }
 
-                    // 4. Náº¿u khÃ´ng cÃ³ á»Ÿ báº¥t kÃ¬ Ä‘Ã¢u, tiáº¿n hÃ nh Táº¢I Vá»€
-                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', 'Äang táº£i tá»‡p Engine AI (Chá»‰ táº£i 1 láº§n Ä‘áº§u tiÃªn)... 0%');
+                    // 4. Nếu không có ở bất kì đâu, tiến hành TẢI VỀ
+                    if (currentPdfSender) currentPdfSender.send('pdf-analysis-progress', '�?ang tải tệp Engine AI (Chỉ tải 1 lần đầu tiên)... 0%');
 
                     const zipUrl = isWin ? 'https://cdn1.type.vn/assets/mineru_api_win.zip' : 'https://cdn1.type.vn/assets/mineru_api_mac.zip';
                     const zipPath = path.join(app.getPath('userData'), 'mineru_api.zip');
 
                     try {
-                        await downloadAndExtractZip(zipUrl, mineruDir, zipPath, 'Äang táº£i tá»‡p Engine AI (~3.3GB)', currentPdfSender);
+                        await downloadAndExtractZip(zipUrl, mineruDir, zipPath, '�?ang tải tệp Engine AI (~3.3GB)', currentPdfSender);
                         if (!isWin) {
                             try { fs.chmodSync(downloadedExe, '755'); } catch (e) { }
                         }
                         return { cmd: downloadedExe, args: [], cwd: mineruDir };
                     } catch (err) {
-                        throw new Error('Lá»—i táº£i tá»‡p Engine: ' + err.message);
+                        throw new Error('Lỗi tải tệp Engine: ' + err.message);
                     }
                 };
 
@@ -2192,7 +2192,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
 
                 pdfApiProcess.stdout.on('data', (data) => {
                     const lines = data.toString('utf8');
-                    // Forward print() tá»›i UI
+                    // Forward print() tới UI
                     if (lines.trim() && currentPdfSender) {
                         currentPdfSender.send('pdf-analysis-progress', lines.trim());
                     }
@@ -2201,7 +2201,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 pdfApiProcess.stderr.on('data', (data) => {
                     const errLine = data.toString('utf8');
                     if (errLine.includes('%') || errLine.includes('it/s')) {
-                        // TÃ¡ch báº±ng \r hoáº·c \n Ä‘á»ƒ láº¥y dÃ²ng tráº¡ng thÃ¡i cuá»‘i cÃ¹ng
+                        // Tách bằng \r hoặc \n để lấy dòng trạng thái cuối cùng
                         const parts = errLine.split(/[\r\n]+/);
                         let lastPart = parts[parts.length - 1].trim();
                         if (!lastPart && parts.length > 1) {
@@ -2211,11 +2211,11 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                             currentPdfSender.send('pdf-analysis-progress', lastPart);
                         }
                     } else {
-                        console.error("Lá»—i tá»« pdf API:", errLine);
+                        console.error("Lỗi từ pdf API:", errLine);
                     }
                 });
 
-                // Chá» server boot (tá»‘i Ä‘a 30 giÃ¢y vÃ¬ import torch/transformers khÃ¡ náº·ng)
+                // Ch�? server boot (tối đa 30 giây vì import torch/transformers khá nặng)
                 let isReady = false;
                 for (let i = 0; i < 30; i++) {
                     await new Promise(r => setTimeout(r, 1000));
@@ -2228,7 +2228,7 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
                 }
 
                 if (!isReady) {
-                    throw new Error("KhÃ´ng thá»ƒ káº¿t ná»‘i Ä‘áº¿n AI Server, vui lÃ²ng thá»­ láº¡i!");
+                    throw new Error("Không thể kết nối đến AI Server, vui lòng thử lại!");
                 }
 
                 return true;
@@ -2238,15 +2238,15 @@ ipcMain.handle('run-pdf-analysis', async (event, filePath) => {
         try {
             await ensureApiRunning();
 
-            event.sender.send('pdf-analysis-progress', 'Äang náº¡p AI Model vÃ o bá»™ nhá»› (láº§n Ä‘áº§u cÃ³ thá»ƒ máº¥t vÃ i phÃºt)...');
+            event.sender.send('pdf-analysis-progress', '�?ang nạp AI Model vào bộ nhớ (lần đầu có thể mất vài phút)...');
             await fetchApi('/load_model');
 
-            event.sender.send('pdf-analysis-progress', 'Báº¯t Ä‘áº§u phÃ¢n tÃ­ch PDF...');
+            event.sender.send('pdf-analysis-progress', 'Bắt đầu phân tích PDF...');
             const result = await fetchApi('/analyze', { file_path: filePath });
 
             resolve(result.data);
         } catch (error) {
-            console.error("Lá»—i cháº¡y pdf API:", error);
+            console.error("Lỗi chạy pdf API:", error);
             reject(error.message || error);
         }
     });
@@ -2258,14 +2258,14 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         const { OpenAI } = require('openai');
 
         if (event.sender) {
-            event.sender.send('pdf-analysis-progress', 'Äang Ä‘á»c ná»™i dung file PDF...');
+            event.sender.send('pdf-analysis-progress', '�?ang đ�?c nội dung file PDF...');
         }
 
         const dataBuffer = fs.readFileSync(filePath);
         const pdfBase64 = dataBuffer.toString('base64');
 
         if (event.sender) {
-            event.sender.send('pdf-analysis-progress', 'Äang gá»­i trá»±c tiáº¿p file PDF lÃªn há»‡ thá»‘ng AI...');
+            event.sender.send('pdf-analysis-progress', '�?ang gửi trực tiếp file PDF lên hệ thống AI...');
         }
 
         console.log("RECEIVED configData:", configData);
@@ -2292,11 +2292,11 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
         const resultText = completion.choices[0].message.content.trim();
 
         if (event.sender) {
-            event.sender.send('pdf-analysis-progress', 'HoÃ n táº¥t phÃ¢n tÃ­ch AI!');
+            event.sender.send('pdf-analysis-progress', 'Hoàn tất phân tích AI!');
         }
 
         try {
-            // Loáº¡i bá» markdown code block náº¿u cÃ³
+            // Loại b�? markdown code block nếu có
             let cleanJson = resultText;
             if (cleanJson.startsWith('```json')) {
                 cleanJson = cleanJson.substring(7);
@@ -2304,25 +2304,25 @@ ipcMain.handle('run-pdf-analysis-openai', async (event, filePath, configData) =>
             if (cleanJson.endsWith('```')) {
                 cleanJson = cleanJson.substring(0, cleanJson.length - 3);
             }
-            // Parse rá»“i stringify láº¡i Ä‘á»ƒ Ä‘áº£m báº£o lÃ  chuá»—i JSON há»£p lá»‡, vÃ¬ API upload báº¯t buá»™c lÃ  string
+            // Parse rồi stringify lại để đảm bảo là chuỗi JSON hợp lệ, vì API upload bắt buộc là string
             return JSON.stringify(JSON.parse(cleanJson.trim()));
         } catch (e) {
-            return JSON.stringify({ raw_text: resultText }); // Fallback náº¿u khÃ´ng pháº£i JSON, chuyá»ƒn thÃ nh chuá»—i JSON
+            return JSON.stringify({ raw_text: resultText }); // Fallback nếu không phải JSON, chuyển thành chuỗi JSON
         }
     } catch (error) {
-        console.error("Lá»—i phÃ¢n tÃ­ch PDF báº±ng OpenAI:", error);
+        console.error("Lỗi phân tích PDF bằng OpenAI:", error);
         throw error;
     }
 });
 
-// Láº¯ng nghe sá»± kiá»‡n 'select-local-file' tá»« Renderer process
+// Lắng nghe sự kiện 'select-local-file' từ Renderer process
 ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
     try {
         const fileName = path.basename(filePath);
         const docPath = app.getPath("documents");
         const dataDir = path.join(docPath, "ai.type", "data");
 
-        // Náº¿u file Ä‘Ã£ náº±m trong thÆ° má»¥c data cá»§a app rá»“i thÃ¬ khÃ´ng cáº§n copy
+        // Nếu file đã nằm trong thư mục data của app rồi thì không cần copy
         const normalizedFilePath = path.normalize(filePath);
         const normalizedDataDir = path.normalize(dataDir);
         if (normalizedFilePath.startsWith(normalizedDataDir)) {
@@ -2330,7 +2330,7 @@ ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
             return `file://${path.resolve(filePath)}`;
         }
 
-        // Táº¡o má»™t tÃªn file duy nháº¥t Ä‘á»ƒ trÃ¡nh bá»‹ trÃ¹ng (vÃ­ dá»¥: timestamp_filename)
+        // Tạo một tên file duy nhất để tránh bị trùng (ví dụ: timestamp_filename)
         const uniqueFileName = `${Date.now()}_${fileName}`;
 
         let destinationPath;
@@ -2344,20 +2344,20 @@ ipcMain.handle('select-local-file', async (event, { filePath, customDir }) => {
             destinationPath = path.join(uploadsDir, uniqueFileName);
         }
 
-        // Copy file tá»« Ä‘Æ°á»ng dáº«n gá»‘c sang thÆ° má»¥c uploads/custom cá»§a app
+        // Copy file từ đư�?ng dẫn gốc sang thư mục uploads/custom của app
         fs.copyFileSync(filePath, destinationPath);
 
         console.log(`File copied from ${filePath} to ${destinationPath}`);
 
-        // Tráº£ vá» Ä‘Æ°á»ng dáº«n má»›i vá» Renderer process.
+        // Trả v�? đư�?ng dẫn mới v�? Renderer process.
         return `file://${path.resolve(destinationPath)}`;
     } catch (error) {
         console.error('Error selecting file:', error);
-        throw error; // Gá»­i lá»—i vá» Renderer process
+        throw error; // Gửi lỗi v�? Renderer process
     }
 });
 
-// 1. HÃ m táº¡o Audio - LÆ°u vÃ o Documents/ai.type/data/tts/...
+// 1. Hàm tạo Audio - Lưu vào Documents/ai.type/data/tts/...
 ipcMain.handle("tts-generate", async (event, payload) => {
     try {
         const { text, voice, rate, pitch, filename, username } = payload;
@@ -2367,7 +2367,7 @@ ipcMain.handle("tts-generate", async (event, payload) => {
         const formattedRate = rateVal >= 0 ? `+${rateVal}%` : `${rateVal}%`;
 
         // Format Pitch: 5 -> "+5Hz", -10 -> "-10Hz"
-        // Quan trá»ng: Dáº¥u trá»« cá»§a sá»‘ Ã¢m sáº½ tá»± xuáº¥t hiá»‡n khi chuyá»ƒn thÃ nh chuá»—i
+        // Quan tr�?ng: Dấu trừ của số âm sẽ tự xuất hiện khi chuyển thành chuỗi
         const formattedPitch = pitch >= 0 ? `+${pitch}Hz` : `${pitch}Hz`;
 
         const documentsPath = app.getPath("documents");
@@ -2388,13 +2388,13 @@ ipcMain.handle("tts-generate", async (event, payload) => {
             filename.endsWith(".mp3") ? filename : `${filename}.mp3`,
         );
 
-        // Táº¡o thÃªm Ä‘Æ°á»ng dáº«n cho file phá»¥ Ä‘á» (cÃ¹ng tÃªn, khÃ¡c Ä‘uÃ´i)
+        // Tạo thêm đư�?ng dẫn cho file phụ đ�? (cùng tên, khác đuôi)
         const subPath = path.join(
             saveDir,
             filename.endsWith(".mp3") ? filename.replace('.mp3', '.vtt') : `${filename}.vtt`
         );
 
-        // [THAY Äá»”I]: Truyá»n biáº¿n Ä‘Ã£ format vÃ o Ä‘Ã¢y
+        // [THAY �?ỔI]: Truy�?n biến đã format vào đây
         // await generateEdgeAudioByExe(text, voice, filePath, formattedRate, formattedPitch);
         await generateEdgeAudioByExe(text, voice, filePath, subPath, formattedRate, formattedPitch);
 
@@ -2405,7 +2405,7 @@ ipcMain.handle("tts-generate", async (event, payload) => {
                 filePath: filePath,
             };
         } else {
-            return { success: false, error: "File chÆ°a Ä‘Æ°á»£c táº¡o ra." };
+            return { success: false, error: "File chưa được tạo ra." };
         }
     } catch (error) {
         console.error("TTS Error:", error);
@@ -2413,7 +2413,7 @@ ipcMain.handle("tts-generate", async (event, payload) => {
     }
 });
 
-// 2. HÃ m Ä‘á»c file - Cáº­p nháº­t logic fallback (phÃ²ng há»)
+// 2. Hàm đ�?c file - Cập nhật logic fallback (phòng h�?)
 ipcMain.handle("check-local-file-exists", async (event, payload) => {
     try {
         const { path: filePath, filename, username, targetUuid } = payload;
@@ -2437,8 +2437,8 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
             } catch (e) { }
         }
 
-        // Náº¿u filepath chá»‰ lÃ  tÃªn file (basename) thÃ¬ targetPath (absolute) ban Ä‘áº§u khÃ´ng tá»“n táº¡i (sáº½ failed fs.existsSync).
-        // Ta cáº§n reset targetPath vá» rá»—ng náº¿u nÃ³ khÃ´ng pháº£i lÃ  absolute path Ä‘á»ƒ cháº¡y logic dá»± phÃ²ng bÃªn dÆ°á»›i.
+        // Nếu filepath chỉ là tên file (basename) thì targetPath (absolute) ban đầu không tồn tại (sẽ failed fs.existsSync).
+        // Ta cần reset targetPath v�? rỗng nếu nó không phải là absolute path để chạy logic dự phòng bên dưới.
         if (targetPath && !path.isAbsolute(targetPath)) {
             targetPath = null;
         }
@@ -2447,7 +2447,7 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
             const documentsPath = app.getPath("documents");
             const userFolder = path.join(documentsPath, "ai.type", "data", "tts", username || "anonymous");
 
-            // TH1: TÃ¬m trong thÆ° má»¥c dá»± Ã¡n hiá»‡n táº¡i (targetUuid) - Há»— trá»£ Import Project
+            // TH1: Tìm trong thư mục dự án hiện tại (targetUuid) - Hỗ trợ Import Project
             if (targetUuid) {
                 const projectPath = path.join(userFolder, targetUuid, filename);
                 if (fs.existsSync(projectPath)) {
@@ -2455,7 +2455,7 @@ ipcMain.handle("check-local-file-exists", async (event, payload) => {
                 }
             }
 
-            // TH2: TÃ¬m trong thÆ° má»¥c global (TTS cache chung)
+            // TH2: Tìm trong thư mục global (TTS cache chung)
             if (!targetPath) {
                 targetPath = path.join(userFolder, filename);
             }
@@ -2481,15 +2481,15 @@ ipcMain.handle("get-app-version", async () => {
 });
 
 ipcMain.on("app:relaunch", () => {
-    // Thiáº¿t láº­p á»©ng dá»¥ng sáº½ má»Ÿ láº¡i sau khi Ä‘Ã³ng
+    // Thiết lập ứng dụng sẽ mở lại sau khi đóng
     app.relaunch();
-    // ThoÃ¡t á»©ng dá»¥ng hiá»‡n táº¡i ngay láº­p tá»©c
+    // Thoát ứng dụng hiện tại ngay lập tức
     app.exit(0);
 });
 
-// main.js (Pháº§n xá»­ lÃ½ ipcMain save-base64)
+// main.js (Phần xử lý ipcMain save-base64)
 ipcMain.handle("save-base64", async (event, args) => {
-    // ThÃªm username vÃ o destructuring
+    // Thêm username vào destructuring
     const { base64, fileName, folder, username, customDir } = args;
 
     const docPath = app.getPath("documents");
@@ -2498,8 +2498,8 @@ ipcMain.handle("save-base64", async (event, args) => {
     if (customDir) {
         saveDir = path.join(docPath, "ai.type", "data", customDir);
     } else {
-        // Sá»¬A ÄÆ¯á»œNG DáºªN: ThÃªm username vÃ o cuá»‘i Ä‘Æ°á»ng dáº«n
-        // VÃ­ dá»¥: .../uploads/thumbnails/admin/
+        // SỬA �?ƯỜNG DẪN: Thêm username vào cuối đư�?ng dẫn
+        // Ví dụ: .../uploads/thumbnails/admin/
         saveDir = path.join(
             docPath,
             "ai.type",
@@ -2510,7 +2510,7 @@ ipcMain.handle("save-base64", async (event, args) => {
         );
     }
 
-    // Táº¡o thÆ° má»¥c (recursive: true sáº½ táº¡o cáº£ thÆ° má»¥c username náº¿u chÆ°a cÃ³)
+    // Tạo thư mục (recursive: true sẽ tạo cả thư mục username nếu chưa có)
     if (!fs.existsSync(saveDir)) {
         fs.mkdirSync(saveDir, { recursive: true });
     }
@@ -2528,16 +2528,16 @@ ipcMain.handle("save-base64", async (event, args) => {
 });
 
 /**
- * 2. HÃ m chá»¥p mÃ n hÃ¬nh App (Full window screenshot)
+ * 2. Hàm chụp màn hình App (Full window screenshot)
  */
 ipcMain.handle("capture-app", async (event, args) => {
     const { fileName, folder } = args;
     const win = BrowserWindow.getFocusedWindow();
 
     if (!win)
-        return { success: false, error: "KhÃ´ng tÃ¬m tháº¥y cá»­a sá»• á»©ng dá»¥ng" };
+        return { success: false, error: "Không tìm thấy cửa sổ ứng dụng" };
 
-    // 1. Chuáº©n bá»‹ Ä‘Æ°á»ng dáº«n lÆ°u file
+    // 1. Chuẩn bị đư�?ng dẫn lưu file
     const docPath = app.getPath("documents");
     const saveDir = path.join(
         docPath,
@@ -2555,40 +2555,40 @@ ipcMain.handle("capture-app", async (event, args) => {
     const filePath = path.join(saveDir, finalFileName);
 
     try {
-        // CÃCH 1: DÃ¹ng Puppeteer Ä‘á»ƒ chá»¥p FULL PAGE (Cháº¥t lÆ°á»£ng cao, láº¥y háº¿t chiá»u dÃ i)
-        // Káº¿t ná»‘i vÃ o chÃ­nh trÃ¬nh duyá»‡t Electron hiá»‡n táº¡i qua port 9999
+        // C�?CH 1: Dùng Puppeteer để chụp FULL PAGE (Chất lượng cao, lấy hết chi�?u dài)
+        // Kết nối vào chính trình duyệt Electron hiện tại qua port 9999
         const res = await fetch("http://localhost:9999/json/version");
         const json = await res.json();
 
-        // Káº¿t ná»‘i Puppeteer
+        // Kết nối Puppeteer
         const browser = await puppeteer.connect({
             browserWSEndpoint: json.webSocketDebuggerUrl,
-            defaultViewport: null, // Äá»ƒ null Ä‘á»ƒ láº¥y Ä‘Ãºng kÃ­ch thÆ°á»›c hiá»‡n táº¡i
+            defaultViewport: null, // �?ể null để lấy đúng kích thước hiện tại
         });
 
-        // Láº¥y danh sÃ¡ch cÃ¡c tab Ä‘ang má»Ÿ
+        // Lấy danh sách các tab đang mở
         const pages = await browser.pages();
 
-        // TÃ¬m tab Main Window (ThÆ°á»ng lÃ  tab khÃ´ng cÃ³ uniqueID hoáº·c lÃ  tab Ä‘áº§u tiÃªn)
-        // Logic: Láº¥y tab cÃ³ URL chá»©a localhost hoáº·c file:// vÃ  KHÃ”NG pháº£i lÃ  devtools
+        // Tìm tab Main Window (Thư�?ng là tab không có uniqueID hoặc là tab đầu tiên)
+        // Logic: Lấy tab có URL chứa localhost hoặc file:// và KHÔNG phải là devtools
         const page = pages.find((p) => {
             const u = p.url();
             return !u.startsWith("devtools://") && !u.includes("uniqueID=");
         });
 
         if (page) {
-            // Inject CSS Ä‘á»ƒ áº©n thanh cuá»™n (scrollbars) cho Ä‘áº¹p náº¿u cáº§n
+            // Inject CSS để ẩn thanh cuộn (scrollbars) cho đẹp nếu cần
             await page.addStyleTag({
                 content: "body { overflow-y: hidden !important; }",
             });
 
-            // Chá»¥p Full Page
+            // Chụp Full Page
             await page.screenshot({
                 path: filePath,
-                fullPage: true, // <--- ÄÃ‚Y LÃ€ CHÃŒA KHOÃ Äá»‚ CHá»¤P FULL HEIGHT
+                fullPage: true, // <--- �?ÂY LÀ CHÌA KHO�? �?Ể CHỤP FULL HEIGHT
             });
 
-            // Restore láº¡i thanh cuá»™n (náº¿u cáº§n)
+            // Restore lại thanh cuộn (nếu cần)
             await page.addStyleTag({
                 content: "body { overflow-y: auto !important; }",
             });
@@ -2597,7 +2597,7 @@ ipcMain.handle("capture-app", async (event, args) => {
 
             sendToRenderer(
                 "tools-log",
-                `[Screenshot] âœ… ÄÃ£ chá»¥p Full Height: ${filePath}`,
+                `[Screenshot] ✅ �?ã chụp Full Height: ${filePath}`,
             );
             return {
                 success: true,
@@ -2605,16 +2605,16 @@ ipcMain.handle("capture-app", async (event, args) => {
                 url: `file:///${filePath.replace(/\\/g, "/")}`,
             };
         } else {
-            // Náº¿u khÃ´ng tÃ¬m tháº¥y page qua Puppeteer thÃ¬ disconnect Ä‘á»ƒ fallback
+            // Nếu không tìm thấy page qua Puppeteer thì disconnect để fallback
             await browser.disconnect();
-            throw new Error("KhÃ´ng tÃ¬m tháº¥y Page qua Puppeteer");
+            throw new Error("Không tìm thấy Page qua Puppeteer");
         }
     } catch (e) {
-        // CÃCH 2: FALLBACK (Dá»± phÃ²ng)
-        // Náº¿u lá»—i Puppeteer thÃ¬ dÃ¹ng cÃ¡ch cÅ© chá»¥p Viewport
+        // C�?CH 2: FALLBACK (Dự phòng)
+        // Nếu lỗi Puppeteer thì dùng cách cũ chụp Viewport
         sendToRenderer(
             "tools-log",
-            `[Screenshot] âš ï¸ Lá»—i Puppeteer (${e.message}), chuyá»ƒn sang chá»¥p Viewport.`,
+            `[Screenshot] ⚠�? Lỗi Puppeteer (${e.message}), chuyển sang chụp Viewport.`,
         );
 
         try {
@@ -2627,7 +2627,7 @@ ipcMain.handle("capture-app", async (event, args) => {
                 url: `file:///${filePath.replace(/\\/g, "/")}`,
             };
         } catch (err2) {
-            console.error("Lá»—i chá»¥p mÃ n hÃ¬nh:", err2);
+            console.error("Lỗi chụp màn hình:", err2);
             return { success: false, error: err2.message };
         }
     }
@@ -2640,7 +2640,7 @@ app.on("web-contents-created", (_event, contents) => {
             if (url.startsWith("http://localhost:7171")) {
                 sendToRenderer(
                     "tools-log",
-                    `[WindowOpenHandler] Má»Ÿ Chrome app cho URL: ${url}`,
+                    `[WindowOpenHandler] Mở Chrome app cho URL: ${url}`,
                 );
                 openChromeApp(url);
                 return { action: "deny" };
@@ -2648,7 +2648,7 @@ app.on("web-contents-created", (_event, contents) => {
         } catch (e) {
             sendToRenderer(
                 "tools-log",
-                `[WindowOpenHandler] Lá»—i khi xá»­ lÃ½ window.open(${url}): ${e.message}`,
+                `[WindowOpenHandler] Lỗi khi xử lý window.open(${url}): ${e.message}`,
             );
         }
         return { 
@@ -2669,7 +2669,7 @@ app.on("web-contents-created", (_event, contents) => {
 });
 
 // ============================================================
-// [Cáº¬P NHáº¬T] SERVER PHá»¤C Vá»¤ CHROME APP STT (PORT 7171)
+// [CẬP NHẬT] SERVER PHỤC VỤ CHROME APP STT (PORT 7171)
 // ============================================================
 function startSttServer() {
     const sttApp = express();
@@ -2690,20 +2690,20 @@ function startSttServer() {
         /* Reset CSS */
         body { margin: 0; background: #000; color: #0f0; font-family: 'Segoe UI', sans-serif; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
         
-        /* [2] CUSTOM SCROLLBAR CHO Äáº¸P */
+        /* [2] CUSTOM SCROLLBAR CHO �?ẸP */
         ::-webkit-scrollbar {
-            width: 8px; /* Äá»™ rá»™ng thanh cuá»™n */
+            width: 8px; /* �?ộ rộng thanh cuộn */
             height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: #111; /* MÃ u ná»n Ä‘Æ°á»ng ray */
+            background: #111; /* Màu n�?n đư�?ng ray */
         }
         ::-webkit-scrollbar-thumb {
-            background: #333; /* MÃ u thanh kÃ©o */
-            border-radius: 4px; /* Bo trÃ²n */
+            background: #333; /* Màu thanh kéo */
+            border-radius: 4px; /* Bo tròn */
         }
         ::-webkit-scrollbar-thumb:hover {
-            background: #555; /* MÃ u khi di chuá»™t vÃ o */
+            background: #555; /* Màu khi di chuột vào */
         }
 
         /* Container Video */
@@ -2725,11 +2725,11 @@ function startSttServer() {
             z-index: 1;
         }
 
-        /* Khu vá»±c Logs */
+        /* Khu vực Logs */
         #logs { 
             height: 150px; 
             padding: 10px; 
-            overflow-y: auto; /* Scrollbar sáº½ hiá»‡n á»Ÿ Ä‘Ã¢y */
+            overflow-y: auto; /* Scrollbar sẽ hiện ở đây */
             background: #111; 
             border-top: 1px solid #333; 
             font-size: 14px; 
@@ -2759,8 +2759,8 @@ function startSttServer() {
             if (!text) return '';
             let s = text.trim();
             s = s.charAt(0).toUpperCase() + s.slice(1);
-            s = s.replace(/ pháº©y/gi, ',');
-            s = s.replace(/ cháº¥m/gi, '.');
+            s = s.replace(/ phẩy/gi, ',');
+            s = s.replace(/ chấm/gi, '.');
             const lastChar = s.slice(-1);
             if (!['.', '?', '!', ';', ','].includes(lastChar)) s += '.';
             return s;
@@ -2776,7 +2776,7 @@ function startSttServer() {
 
         function connectWs() {
             ws = new WebSocket('ws://127.0.0.1:7777');
-            ws.onopen = () => { log('âœ… Káº¿t ná»‘i WS thÃ nh cÃ´ng', 'info'); ws.send(JSON.stringify({type:'hello', role:'chrome'})); };
+            ws.onopen = () => { log('✅ Kết nối WS thành công', 'info'); ws.send(JSON.stringify({type:'hello', role:'chrome'})); };
             ws.onclose = () => setTimeout(connectWs, 2000);
             ws.onmessage = (e) => {
                 try {
@@ -2787,7 +2787,7 @@ function startSttServer() {
         }
 
         function loadVideo(url) {
-            log('â–¶ï¸ Äang táº£i nguá»“n: ' + url, 'info');
+            log('▶�? �?ang tải nguồn: ' + url, 'info');
             if(hls) { hls.destroy(); hls = null; }
 
             if (Hls.isSupported()) {
@@ -2795,7 +2795,7 @@ function startSttServer() {
                 hls.loadSource(url);
                 hls.attachMedia(video);
                 hls.on(Hls.Events.MANIFEST_PARSED, () => {
-                    log('âœ… ÄÃ£ nháº­n tÃ­n hiá»‡u Video', 'info');
+                    log('✅ �?ã nhận tín hiệu Video', 'info');
                     video.muted = false; 
                     video.play().catch(() => {
                         video.muted = true; 
@@ -2818,15 +2818,15 @@ function startSttServer() {
         }
 
         function startStt() {
-            if (!window.webkitSpeechRecognition) return log('âŒ TrÃ¬nh duyá»‡t khÃ´ng há»— trá»£ STT', 'err');
+            if (!window.webkitSpeechRecognition) return log('�?� Trình duyệt không hỗ trợ STT', 'err');
             
             recognition = new webkitSpeechRecognition();
             recognition.continuous = true;
             recognition.interimResults = true;
             recognition.lang = 'vi-VN';
 
-            recognition.onstart = () => log('ðŸŽ™ï¸ STT Ä‘ang láº¯ng nghe...', 'info');
-            recognition.onerror = (e) => { if (e.error !== 'no-speech') log('âš ï¸ Lá»—i Mic: ' + e.error, 'err'); };
+            recognition.onstart = () => log('🎙�? STT đang lắng nghe...', 'info');
+            recognition.onerror = (e) => { if (e.error !== 'no-speech') log('⚠�? Lỗi Mic: ' + e.error, 'err'); };
             recognition.onend = () => setTimeout(() => { try{recognition.start()}catch{} }, 1000);
             
             recognition.onresult = (e) => {
@@ -2840,7 +2840,7 @@ function startSttServer() {
                     if (finalRaw) {
                         const processedFinal = processText(finalRaw);
                         ws.send(JSON.stringify({ type:'caption', text: processedFinal, isFinal: true, source: video.src }));
-                        log('ðŸ“ ' + processedFinal, 'final');
+                        log('�? ' + processedFinal, 'final');
                     }
                     if (interimRaw) {
                         ws.send(JSON.stringify({ type:'caption', text: interimRaw, isFinal: false, source: video.src }));
@@ -2874,14 +2874,14 @@ function startSttServer() {
 
     server.on('error', (err) => {
         if (err.code === 'EADDRINUSE') {
-            console.log(`[STT-Server] Cá»•ng ${port} Ä‘ang bá»‹ chiáº¿m, thá»­ dá»n dáº¹p...`);
+            console.log(`[STT-Server] Cổng ${port} đang bị chiếm, thử d�?n dẹp...`);
             killPort(port);
             setTimeout(() => {
                 server.close();
                 server.listen(port);
             }, 1000);
         } else {
-            console.error(`[STT-Server] Lá»—i khÃ´ng xÃ¡c Ä‘á»‹nh:`, err);
+            console.error(`[STT-Server] Lỗi không xác định:`, err);
         }
     });
 }
@@ -2892,10 +2892,10 @@ app.whenReady().then(async () => {
         let targetPath = '';
         let url = decodeURIComponent(originalUrl);
 
-        // Chromium vá»›i standard:true sáº½ normalize URL:
+        // Chromium với standard:true sẽ normalize URL:
         //   media://AUTO_FIND/xxx  ->  media://auto_find/xxx   (lowercase hostname)
-        //   media:///C:/path       ->  media://c/path          (C: bá»‹ máº¥t dáº¥u hai cháº¥m)
-        // NÃªn ta cáº§n so khá»›p case-insensitive
+        //   media:///C:/path       ->  media://c/path          (C: bị mất dấu hai chấm)
+        // Nên ta cần so khớp case-insensitive
 
         if (url.toLowerCase().startsWith('smart_find/')) {
             const queryString = url.substring(url.indexOf('?') + 1);
@@ -2905,10 +2905,10 @@ app.whenReady().then(async () => {
             const mediaDir = params.get('dir') || '';
             const uuid = params.get('uuid') || 'default';
 
-            // RÃºt trÃ­ch basename, bá» timestamp prefix náº¿u cÃ³
+            // Rút trích basename, b�? timestamp prefix nếu có
             let basename = originalPath ? require('path').basename(originalPath).replace(/^\d{13}_/, '') : '';
 
-            // KhÃ´i phá»¥c drive letter bá»‹ Chromium lowercase
+            // Khôi phục drive letter bị Chromium lowercase
             let testPath = originalPath;
             if (testPath) {
                 const dm = testPath.match(/^([a-zA-Z])(:?)([\\/])/);
@@ -2916,7 +2916,7 @@ app.whenReady().then(async () => {
                     testPath = dm[1].toUpperCase() + ':' + testPath.substring(1);
                 }
                 if (fs.existsSync(testPath)) return testPath;
-                // Thá»­ vá»›i basename gá»‘c (chÆ°a strip timestamp)
+                // Thử với basename gốc (chưa strip timestamp)
                 const rawBasename = require('path').basename(originalPath);
                 if (rawBasename !== basename) {
                     const rawDir = require('path').dirname(testPath);
@@ -2928,16 +2928,16 @@ app.whenReady().then(async () => {
             const docPath = app.getPath('documents');
             const ttsAdminDir = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin');
 
-            // Chiáº¿n lÆ°á»£c tÃ¬m kiáº¿m theo thá»© tá»± Æ°u tiÃªn:
+            // Chiến lược tìm kiếm theo thứ tự ưu tiên:
             const searchDirs = [];
 
-            // 1. mediaDir (náº¿u cÃ³)
+            // 1. mediaDir (nếu có)
             if (mediaDir) searchDirs.push(mediaDir);
 
-            // 2. ThÆ° má»¥c uuid hiá»‡n táº¡i
+            // 2. Thư mục uuid hiện tại
             searchDirs.push(require('path').join(ttsAdminDir, uuid));
 
-            // 3. Táº¥t cáº£ thÆ° má»¥c project khÃ¡c trong tts/admin/
+            // 3. Tất cả thư mục project khác trong tts/admin/
             if (fs.existsSync(ttsAdminDir)) {
                 try {
                     const allDirs = fs.readdirSync(ttsAdminDir, { withFileTypes: true })
@@ -2947,18 +2947,18 @@ app.whenReady().then(async () => {
                 } catch (e) { /* ignore */ }
             }
 
-            // 4. ThÆ° má»¥c uploads
+            // 4. Thư mục uploads
             searchDirs.push(uploadsDir);
 
-            // QuÃ©t tá»«ng thÆ° má»¥c
+            // Quét từng thư mục
             for (const dir of searchDirs) {
                 if (!fs.existsSync(dir)) continue;
 
-                // Thá»­ trá»±c tiáº¿p
+                // Thử trực tiếp
                 const directPath = require('path').join(dir, basename);
                 if (fs.existsSync(directPath)) return directPath;
 
-                // Thá»­ tÃ¬m file cÃ³ timestamp prefix (vÃ­ dá»¥: 1779705618490_s1p3.mp4)
+                // Thử tìm file có timestamp prefix (ví dụ: 1779705618490_s1p3.mp4)
                 try {
                     const files = fs.readdirSync(dir);
                     const match = files.find(f => f.endsWith(`_${basename}`) || f === basename);
@@ -2966,11 +2966,11 @@ app.whenReady().then(async () => {
                 } catch (e) { /* ignore */ }
             }
 
-            // Fallback cuá»‘i: tráº£ vá» path máº·c Ä‘á»‹nh (dÃ¹ cÃ³ thá»ƒ khÃ´ng tá»“n táº¡i)
+            // Fallback cuối: trả v�? path mặc định (dù có thể không tồn tại)
             targetPath = require('path').join(ttsAdminDir, uuid, basename);
             return targetPath;
         } else if (url.toLowerCase().startsWith('auto_find/')) {
-            // Cáº¯t bá» pháº§n "auto_find/" (case-insensitive)
+            // Cắt b�? phần "auto_find/" (case-insensitive)
             const rest = url.substring('auto_find/'.length);
             const parts = rest.split('/');
             const uuid = parts[0];
@@ -2978,25 +2978,25 @@ app.whenReady().then(async () => {
             const docPath = app.getPath('documents');
             targetPath = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid, basename);
         } else {
-            // Xá»­ lÃ½ Ä‘Æ°á»ng dáº«n á»• Ä‘Ä©a bá»‹ Chromium bÃ³p mÃ©o
+            // Xử lý đư�?ng dẫn ổ đĩa bị Chromium bóp méo
             // "c/Users/..." -> "C:/Users/..."
             // "/c/Users/..." -> "C:/Users/..."
             // "/C:/Users/..." -> "C:/Users/..."
             let cleaned = url;
-            // Bá» dáº¥u / Ä‘áº§u náº¿u cÃ³
+            // B�? dấu / đầu nếu có
             if (cleaned.startsWith('/')) cleaned = cleaned.substring(1);
-            // KhÃ´i phá»¥c drive letter: "c/Users" -> "C:/Users"
+            // Khôi phục drive letter: "c/Users" -> "C:/Users"
             const driveMatch = cleaned.match(/^([a-zA-Z])(:?)\//);
             if (driveMatch) {
                 const driveLetter = driveMatch[1].toUpperCase();
-                // Náº¿u Ä‘Ã£ cÃ³ dáº¥u hai cháº¥m (C:/) thÃ¬ giá»¯, náº¿u khÃ´ng (c/) thÃ¬ thÃªm vÃ o
+                // Nếu đã có dấu hai chấm (C:/) thì giữ, nếu không (c/) thì thêm vào
                 if (driveMatch[2] === ':') {
                     cleaned = driveLetter + cleaned.substring(1);
                 } else {
                     cleaned = driveLetter + ':' + cleaned.substring(1);
                 }
             } else {
-                // TrÃªn macOS/Linux: KhÃ´i phá»¥c dáº¥u / á»Ÿ Ä‘áº§u Ä‘á»ƒ táº¡o thÃ nh absolute path
+                // Trên macOS/Linux: Khôi phục dấu / ở đầu để tạo thành absolute path
                 cleaned = '/' + cleaned;
             }
             targetPath = cleaned;
@@ -3004,7 +3004,7 @@ app.whenReady().then(async () => {
 
         targetPath = require('path').normalize(targetPath);
 
-        // Fallback: tÃ¬m file cÃ³ timestamp prefix
+        // Fallback: tìm file có timestamp prefix
         if (!fs.existsSync(targetPath)) {
             const dir = require('path').dirname(targetPath);
             const base = require('path').basename(targetPath);
@@ -3019,7 +3019,7 @@ app.whenReady().then(async () => {
         return targetPath;
     };
 
-    // Native file protocol cho <img>, <video>, <audio> (Há»— trá»£ stream, seeking hoÃ n háº£o)
+    // Native file protocol cho <img>, <video>, <audio> (Hỗ trợ stream, seeking hoàn hảo)
     protocol.registerFileProtocol('media', (request, callback) => {
         try {
             const url = request.url.replace('media://', '');
@@ -3027,12 +3027,12 @@ app.whenReady().then(async () => {
             console.log('[Media Protocol - File]', request.url, '-> targetPath:', targetPath);
             return callback({ path: targetPath });
         } catch (error) {
-            console.error('Lá»—i protocol media:', error);
+            console.error('Lỗi protocol media:', error);
             return callback({ error: -2 }); // -2 is FAILED
         }
     });
 
-    // Custom protocol cho Wavesurfer dÃ¹ng fetch() (cáº§n CORS)
+    // Custom protocol cho Wavesurfer dùng fetch() (cần CORS)
     protocol.handle('mediacors', async (request) => {
         const url = request.url.replace('mediacors://', '');
         const targetPath = resolveMediaPath(url);
@@ -3059,12 +3059,12 @@ app.whenReady().then(async () => {
 
     registerExportImportHandlers();
     if (process.platform === 'win32') {
-        app.setAppUserModelId("ai.type.vn"); // Thay báº±ng id app cá»§a báº¡n
+        app.setAppUserModelId("ai.type.vn"); // Thay bằng id app của bạn
     }
 
-    // [ANTI-BOT] Láº¥y User Agent Gá»C 100% cá»§a Chromium hiá»‡n táº¡i
+    // [ANTI-BOT] Lấy User Agent G�?C 100% của Chromium hiện tại
     let trueAgent = session.defaultSession.getUserAgent();
-    // BÃ³c Ä‘i 2 cÃ¡i Ä‘uÃ´i bÃ¡o danh "TÃ´i lÃ  á»©ng dá»¥ng Electron giáº£ láº­p"
+    // Bóc đi 2 cái đuôi báo danh "Tôi là ứng dụng Electron giả lập"
     trueAgent = trueAgent.replace(/Electron\/[\d.]+ /g, '')
         .replace(/ai.type\/[\d.]+ /g, '');
 
@@ -3079,10 +3079,10 @@ app.whenReady().then(async () => {
         }
     } catch (e) { }
 
-    // Ã‰p toÃ n bá»™ Session vÃ  á»©ng dá»¥ng dÃ¹ng Agent trong sáº¡ch nÃ y
+    // Ép toàn bộ Session và ứng dụng dùng Agent trong sạch này
     app.userAgentFallback = trueAgent;
     session.defaultSession.setUserAgent(trueAgent);
-    session.fromPartition('persist:gemini-webview').setUserAgent(trueAgent); // Sá»­a lá»—i Cookie cho webview
+    session.fromPartition('persist:gemini-webview').setUserAgent(trueAgent); // Sửa lỗi Cookie cho webview
 
     const filter = {
         urls: [
@@ -3097,9 +3097,9 @@ app.whenReady().then(async () => {
         ]
     };
 
-    // CÃ i Ä‘áº·t vÆ°á»£t rÃ o bot chung
+    // Cài đặt vượt rào bot chung
     const setupHeaders = (details, callback) => {
-        // XoÃ¡ dáº¥u váº¿t Electron khá»i Client Hints Ä‘á»ƒ qua máº·t Google/Labs
+        // Xoá dấu vết Electron kh�?i Client Hints để qua mặt Google/Labs
         const chUa = details.requestHeaders['Sec-CH-UA'] || details.requestHeaders['sec-ch-ua'];
         if (chUa) {
             let newChUa = chUa.replace(/,?\s*"Electron";\s*v="[^"]+"/, '').replace(/"Electron";\s*v="[^"]+"\s*,?/, '');
@@ -3109,7 +3109,7 @@ app.whenReady().then(async () => {
             if (details.requestHeaders['sec-ch-ua']) details.requestHeaders['sec-ch-ua'] = newChUa;
         }
 
-        // Triá»‡t Ä‘á»ƒ xoÃ¡ Electron khá»i User-Agent á»Ÿ cáº¥p Ä‘á»™ Network Request (Báº¯t buá»™c Ä‘á»ƒ trá»‹ lá»—i Cookie Google)
+        // Triệt để xoá Electron kh�?i User-Agent ở cấp độ Network Request (Bắt buộc để trị lỗi Cookie Google)
         const ua = details.requestHeaders['User-Agent'] || details.requestHeaders['user-agent'];
         if (ua) {
             let cleanUA = ua.replace(/Electron\/[\d.]+ /g, '').replace(/ai.type\/[\d.]+ /g, '');
@@ -3118,7 +3118,7 @@ app.whenReady().then(async () => {
         }
 
         if (details.url.includes('type.vn')) {
-            // Ã‰p Origin Ä‘á»ƒ NodeBB cho phÃ©p hiá»ƒn thá»‹ áº£nh tá»« localhost:5454
+            // Ép Origin để NodeBB cho phép hiển thị ảnh từ localhost:5454
             details.requestHeaders['Origin'] = 'https://type.vn';
             details.requestHeaders['Referer'] = 'https://type.vn/';
             delete details.requestHeaders['Sec-Fetch-Site'];
@@ -3126,28 +3126,28 @@ app.whenReady().then(async () => {
         callback({ requestHeaders: details.requestHeaders });
     };
 
-    // Ãp dá»¥ng cho session máº·c Ä‘á»‹nh
+    // �?p dụng cho session mặc định
     session.defaultSession.webRequest.onBeforeSendHeaders(filter, setupHeaders);
-    // Ãp dá»¥ng cho session cá»§a webview Ä‘á»ƒ Google khÃ´ng block (ERR_ABORTED)
+    // �?p dụng cho session của webview để Google không block (ERR_ABORTED)
     session.fromPartition('persist:gemini-webview').webRequest.onBeforeSendHeaders(filter, setupHeaders);
 
-    // Cháº¡y hÃ m load ngay khi khá»Ÿi táº¡o
+    // Chạy hàm load ngay khi khởi tạo
     loadBinaries();
 
     startGoService();
     startSttWebSocketServer();
-    startSttServer(); // <--- [THÃŠM] Gá»i hÃ m vá»«a táº¡o
+    startSttServer(); // <--- [THÊM] G�?i hàm vừa tạo
     createMainWindow();
 
     if (binaries.typeLite) {
         typeProcess = execFile(binaries.typeLite, [], (err, stdout, stderr) => {
-            if (err) sendToRenderer("tools-log", `âŒ Type lá»—i: ${err}`);
-            if (stdout) sendToRenderer("tools-log", `ðŸ“¥ Type: ${stdout}`);
-            if (stderr) sendToRenderer("tools-log", `âš ï¸ Type stderr: ${stderr}`);
+            if (err) sendToRenderer("tools-log", `�?� Type lỗi: ${err}`);
+            if (stdout) sendToRenderer("tools-log", `📥 Type: ${stdout}`);
+            if (stderr) sendToRenderer("tools-log", `⚠�? Type stderr: ${stderr}`);
         });
     }
 
-    // ===== IPC: XoÃ¡ toÃ n bá»™ cookie Google Ä‘á»ƒ Ä‘Äƒng nháº­p láº¡i =====
+    // ===== IPC: Xoá toàn bộ cookie Google để đăng nhập lại =====
     ipcMain.handle('clear-google-cookies', async () => {
         try {
             const cookies = await session.defaultSession.cookies.get({});
@@ -3160,16 +3160,16 @@ app.whenReady().then(async () => {
                 }
             }
 
-            // XoÃ¡ thÆ° má»¥c Chrome auth profile Ä‘á»ƒ láº§n sau Ä‘Äƒng nháº­p láº¡i tá»« Ä‘áº§u
+            // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
             const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
 
-            sendToRenderer("tools-log", `[Gemini-Auth] âœ… ÄÃ£ xoÃ¡ ${removedCount} cookie Google.`);
+            sendToRenderer("tools-log", `[Gemini-Auth] ✅ �?ã xoá ${removedCount} cookie Google.`);
             return { success: true, removed: removedCount };
         } catch (err) {
-            sendToRenderer("tools-log", `[Gemini-Auth] Lá»—i xoÃ¡ cookie: ${err.message}`);
+            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi xoá cookie: ${err.message}`);
             return { success: false, error: err.message };
         }
     });
@@ -3179,46 +3179,46 @@ app.whenReady().then(async () => {
             // Clear in defaultSession
             await session.defaultSession.clearStorageData();
 
-            // XoÃ¡ thÆ° má»¥c Chrome auth profile Ä‘á»ƒ láº§n sau Ä‘Äƒng nháº­p láº¡i tá»« Ä‘áº§u
+            // Xoá thư mục Chrome auth profile để lần sau đăng nhập lại từ đầu
             const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
 
-            // TÃ¬m webview Ä‘ang cháº¡y vÃ  xoÃ¡ storage cá»§a nÃ³ (náº¿u khÃ¡c defaultSession)
+            // Tìm webview đang chạy và xoá storage của nó (nếu khác defaultSession)
             if (targetWindow && targetWindow.webContents) {
                 await targetWindow.webContents.session.clearStorageData();
             }
 
-            sendToRenderer("tools-log", `[Gemini-Auth] âœ… ÄÃ£ xoÃ¡ toÃ n bá»™ Cookie vÃ  Storage cá»§a á»©ng dá»¥ng.`);
+            sendToRenderer("tools-log", `[Gemini-Auth] ✅ �?ã xoá toàn bộ Cookie và Storage của ứng dụng.`);
             return { success: true };
         } catch (err) {
-            sendToRenderer("tools-log", `[Gemini-Auth] Lá»—i xoÃ¡ táº¥t cáº£ cookie: ${err.message}`);
+            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi xoá tất cả cookie: ${err.message}`);
             return { success: false, error: err.message };
         }
     });
 
     ipcMain.handle('clear-webview-auth', async () => {
         try {
-            // XÃ³a session storage cá»§a webview
+            // Xóa session storage của webview
             await session.fromPartition('persist:gemini-webview').clearStorageData();
 
-            // Chá»‰ xÃ³a thÆ° má»¥c Chrome auth profile cá»§a Puppeteer
+            // Chỉ xóa thư mục Chrome auth profile của Puppeteer
             const googleAuthDir = path.join(app.getPath('userData'), 'google-auth-profile');
             if (fs.existsSync(googleAuthDir)) {
                 fs.rmSync(googleAuthDir, { recursive: true, force: true });
             }
             return { success: true };
         } catch (error) {
-            console.error('Lá»—i khi xoÃ¡ auth webview:', error);
+            console.error('Lỗi khi xoá auth webview:', error);
             return { success: false, error: error.message };
         }
     });
 
-    // Láº¯ng nghe Webview sinh ra tá»« giao diá»‡n Angular (náº¿u cÃ³) Ä‘á»ƒ Auto-map nÃ³ lÃ m Ä‘á»‘i tÆ°á»£ng láº¥y hÃ¬nh áº£nh
+    // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
     app.on('web-contents-created', (event, contents) => {
         if (contents.getType() === 'webview') {
-            // Duck-type tÆ°Æ¡ng thÃ­ch chá»©c nÄƒng (bao gá»“m EventEmitter methods)
+            // Duck-type tương thích chức năng (bao gồm EventEmitter methods)
             const EventEmitter = require('events');
             const fakeEmitter = new EventEmitter();
             targetWindow = {
@@ -3232,7 +3232,7 @@ app.whenReady().then(async () => {
                 emit: (...args) => fakeEmitter.emit(...args),
             };
 
-            // Bá»• sung menu chuá»™t pháº£i cho webview
+            // Bổ sung menu chuột phải cho webview
             contents.on('context-menu', (event, params) => {
                 const { Menu } = require('electron');
                 const template = [];
@@ -3292,17 +3292,17 @@ app.whenReady().then(async () => {
             });
 
             // ============================================================
-            // PUPPETEER STEALTH LOGIN: Má»Ÿ Chromium THáº¬T (khÃ´ng pháº£i Electron)
-            // Ä‘á»ƒ Ä‘Äƒng nháº­p Google, rá»“i chuyá»ƒn cookie vá» Electron.
-            // Google phÃ¡t hiá»‡n Electron qua JS fingerprinting nÃªn BrowserWindow
-            // luÃ´n bá»‹ cháº·n. Puppeteer Stealth patch háº¿t cÃ¡c dáº¥u hiá»‡u Ä‘Ã³.
+            // PUPPETEER STEALTH LOGIN: Mở Chromium THẬT (không phải Electron)
+            // để đăng nhập Google, rồi chuyển cookie v�? Electron.
+            // Google phát hiện Electron qua JS fingerprinting nên BrowserWindow
+            // luôn bị chặn. Puppeteer Stealth patch hết các dấu hiệu đó.
             // ============================================================
-            let isGeminiAuthRunning = false; // TrÃ¡nh má»Ÿ nhiá»u láº§n
+            let isGeminiAuthRunning = false; // Tránh mở nhi�?u lần
 
             const launchStealthLogin = async (loginUrl, webviewContents) => {
                 if (isGeminiAuthRunning) return;
                 isGeminiAuthRunning = true;
-                sendToRenderer("tools-log", "[Gemini-Auth] Äang má»Ÿ Chrome tháº­t Ä‘á»ƒ Ä‘Äƒng nháº­p...");
+                sendToRenderer("tools-log", "[Gemini-Auth] �?ang mở Chrome thật để đăng nhập...");
 
                 const CHROME_DEBUG_PORT = 9224;
                 let syncInterval = null;
@@ -3310,7 +3310,7 @@ app.whenReady().then(async () => {
                 try {
                     const realChromePath = getChromePath();
                     if (!realChromePath) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] âŒ KhÃ´ng tÃ¬m tháº¥y Chrome trÃªn mÃ¡y!");
+                        sendToRenderer("tools-log", "[Gemini-Auth] �?� Không tìm thấy Chrome trên máy!");
                         isGeminiAuthRunning = false;
                         return;
                     }
@@ -3329,18 +3329,18 @@ app.whenReady().then(async () => {
                         loginUrl
                     ];
 
-                    sendToRenderer("tools-log", `[Gemini-Auth] Má»Ÿ: ${realChromePath}`);
+                    sendToRenderer("tools-log", `[Gemini-Auth] Mở: ${realChromePath}`);
                     const chromeProcess = require('child_process').spawn(realChromePath, chromeArgs, {
                         detached: false,
                         stdio: 'ignore'
                     });
 
-                    // Chá» Chrome khá»Ÿi Ä‘á»™ng xong (2 giÃ¢y)
+                    // Ch�? Chrome khởi động xong (2 giây)
                     await new Promise(resolve => setTimeout(resolve, 3000));
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] Äang káº¿t ná»‘i vÃ o Chrome...");
+                    sendToRenderer("tools-log", "[Gemini-Auth] �?ang kết nối vào Chrome...");
 
-                    // Káº¿t ná»‘i vÃ o Chrome Ä‘ang cháº¡y qua remote debugging
+                    // Kết nối vào Chrome đang chạy qua remote debugging
                     let stealthBrowser;
                     try {
                         stealthBrowser = await puppeteer.connect({
@@ -3348,7 +3348,7 @@ app.whenReady().then(async () => {
                             defaultViewport: null
                         });
                     } catch (connectErr) {
-                        // Thá»­ láº¡i sau 3 giÃ¢y náº¿u Chrome chÆ°a sáºµn sÃ ng
+                        // Thử lại sau 3 giây nếu Chrome chưa sẵn sàng
                         await new Promise(resolve => setTimeout(resolve, 3000));
                         stealthBrowser = await puppeteer.connect({
                             browserURL: `http://127.0.0.1:${CHROME_DEBUG_PORT}`,
@@ -3356,9 +3356,9 @@ app.whenReady().then(async () => {
                         });
                     }
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] âœ… ÄÃ£ káº¿t ná»‘i Chrome! HÃ£y Ä‘Äƒng nháº­p Google...");
+                    sendToRenderer("tools-log", "[Gemini-Auth] ✅ �?ã kết nối Chrome! Hãy đăng nhập Google...");
 
-                    // DÃ¹ng vÃ²ng láº·p kiá»ƒm tra URL liÃªn tá»¥c trÃªn táº¥t cáº£ cÃ¡c tab
+                    // Dùng vòng lặp kiểm tra URL liên tục trên tất cả các tab
                     const startContinuousSync = async (browserInstance) => {
                         syncInterval = setInterval(async () => {
                             try {
@@ -3399,7 +3399,7 @@ app.whenReady().then(async () => {
 
                     startContinuousSync(stealthBrowser);
 
-                    // Äáº£m báº£o window ná»•i lÃªn trÃªn cÃ¹ng (focus)
+                    // �?ảm bảo window nổi lên trên cùng (focus)
                     try {
                         const pages = await stealthBrowser.pages();
                         if (pages.length > 0) {
@@ -3410,7 +3410,7 @@ app.whenReady().then(async () => {
                     try {
                         let isLoggedIn = false;
                         let checkCount = 0;
-                        while (!isLoggedIn && checkCount < 300) { // Timeout 5 phÃºt (300 * 1s)
+                        while (!isLoggedIn && checkCount < 300) { // Timeout 5 phút (300 * 1s)
                             await new Promise(r => setTimeout(r, 1000));
                             checkCount++;
                             const pages = await stealthBrowser.pages();
@@ -3428,7 +3428,7 @@ app.whenReady().then(async () => {
                         }
                         if (!isLoggedIn) throw new Error("Timeout waiting for login");
                     } catch (waitErr) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] Popup Ä‘Ã£ bá»‹ Ä‘Ã³ng hoáº·c háº¿t giá»!");
+                        sendToRenderer("tools-log", "[Gemini-Auth] Popup đã bị đóng hoặc hết gi�?!");
                         if (syncInterval) clearInterval(syncInterval);
                         try { await stealthBrowser.close(); } catch (e) { }
                         try { chromeProcess.kill(); } catch (e) { }
@@ -3440,9 +3440,9 @@ app.whenReady().then(async () => {
                         return;
                     }
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] ðŸŽ‰ ÄÄƒng nháº­p thÃ nh cÃ´ng! Äang xÃ¡c thá»±c vá»›i Gemini...");
+                    sendToRenderer("tools-log", "[Gemini-Auth] 🎉 �?ăng nhập thành công! �?ang xác thực với Gemini...");
 
-                    // QUAN TRá»ŒNG: Sau khi login Google, cáº§n truy cáº­p gemini.google Ä‘á»ƒ domain Ä‘Ã³ táº¡o cookie xÃ¡c thá»±c riÃªng
+                    // QUAN TRỌNG: Sau khi login Google, cần truy cập gemini.google để domain đó tạo cookie xác thực riêng
                     let activePage = loginPage;
                     try {
                         if (activePage.isClosed()) {
@@ -3451,25 +3451,25 @@ app.whenReady().then(async () => {
                         }
                         await activePage.goto('https://gemini.google.com/app?hl=vi', { waitUntil: 'networkidle2', timeout: 30000 });
                     } catch (navErr) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] âš ï¸ Gemini cháº­m táº£i, váº«n tiáº¿p tá»¥c láº¥y cookie...");
+                        sendToRenderer("tools-log", "[Gemini-Auth] ⚠�? Gemini chậm tải, vẫn tiếp tục lấy cookie...");
                         const pages = await stealthBrowser.pages();
                         if (pages.length > 0) activePage = pages[pages.length - 1];
                     }
 
-                    // Chá» thÃªm 2 giÃ¢y Ä‘á»ƒ cookie á»•n Ä‘á»‹nh
+                    // Ch�? thêm 2 giây để cookie ổn định
                     await new Promise(resolve => setTimeout(resolve, 2000));
 
-                    sendToRenderer("tools-log", "[Gemini-Auth] Äang chuyá»ƒn cookie...");
+                    sendToRenderer("tools-log", "[Gemini-Auth] �?ang chuyển cookie...");
 
                     if (!activePage || activePage.isClosed()) {
-                        throw new Error("KhÃ´ng tÃ¬m tháº¥y tab Ä‘á»ƒ láº¥y cookie!");
+                        throw new Error("Không tìm thấy tab để lấy cookie!");
                     }
 
-                    // Sync User-Agent Ä‘á»ƒ trÃ¡nh Google Ä‘Ã¡ vÄƒng do lá»‡ch fingerprint
+                    // Sync User-Agent để tránh Google đá văng do lệch fingerprint
                     try {
                         const chromeUA = await stealthBrowser.userAgent();
                         webviewContents.setUserAgent(chromeUA);
-                        sendToRenderer("tools-log", `[Gemini-Auth] ÄÃ£ Ä‘á»“ng bá»™ User-Agent: ${chromeUA.substring(0, 30)}...`);
+                        sendToRenderer("tools-log", `[Gemini-Auth] �?ã đồng bộ User-Agent: ${chromeUA.substring(0, 30)}...`);
 
                         try {
                             const fs = require('fs');
@@ -3477,19 +3477,19 @@ app.whenReady().then(async () => {
                             fs.writeFileSync(uaPath, chromeUA, 'utf-8');
                         } catch (e) { }
                     } catch (e) {
-                        sendToRenderer("tools-log", `[Gemini-Auth] Lá»—i Ä‘á»“ng bá»™ UA: ${e.message}`);
+                        sendToRenderer("tools-log", `[Gemini-Auth] Lỗi đồng bộ UA: ${e.message}`);
                     }
 
-                    // HÃºt TOÃ€N Bá»˜ cookie tá»« Chrome (khÃ´ng chá»‰ google.com)
+                    // Hút TOÀN BỘ cookie từ Chrome (không chỉ google.com)
                     const client = await activePage.createCDPSession();
                     const { cookies: allCookies } = await client.send('Network.getAllCookies');
 
-                    // Láº¥y toÃ n bá»™ cookie Ä‘á»ƒ há»— trá»£ cáº£ Youtube, bÃªn thá»© 3 (trÃ¡nh bá»‹ thiáº¿u cookie session)
+                    // Lấy toàn bộ cookie để hỗ trợ cả Youtube, bên thứ 3 (tránh bị thiếu cookie session)
                     const googleCookies = allCookies;
 
-                    sendToRenderer("tools-log", `[Gemini-Auth] Thu Ä‘Æ°á»£c ${googleCookies.length} cookie.`);
+                    sendToRenderer("tools-log", `[Gemini-Auth] Thu được ${googleCookies.length} cookie.`);
 
-                    // Import cookie vÃ o Electron
+                    // Import cookie vào Electron
                     let importedCount = 0;
                     for (const cookie of googleCookies) {
                         try {
@@ -3509,7 +3509,7 @@ app.whenReady().then(async () => {
                             if (cookie.expires && cookie.expires > 0) {
                                 cookieObj.expirationDate = cookie.expires;
                             } else {
-                                // Náº¿u lÃ  session cookie, gÃ¡n thá»i gian 1 nÄƒm Ä‘á»ƒ trÃ¡nh máº¥t khi táº¯t á»©ng dá»¥ng
+                                // Nếu là session cookie, gán th�?i gian 1 năm để tránh mất khi tắt ứng dụng
                                 cookieObj.expirationDate = Math.floor(Date.now() / 1000) + (60 * 60 * 24 * 365);
                             }
                             // __Host- cookies MUST NOT have a domain attribute
@@ -3522,15 +3522,15 @@ app.whenReady().then(async () => {
                             }
                             importedCount++;
                         } catch (cookieErr) {
-                            sendToRenderer("tools-log", `[Gemini-Auth] Lá»—i import cookie ${cookie.name}: ${cookieErr.message}`);
-                            console.log(`[Gemini-Auth] Lá»—i import cookie ${cookie.name}: ${cookieErr.message}`);
+                            sendToRenderer("tools-log", `[Gemini-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
+                            console.log(`[Gemini-Auth] Lỗi import cookie ${cookie.name}: ${cookieErr.message}`);
                         }
                     }
 
-                    sendToRenderer("tools-log", `[Gemini-Auth] âœ… ÄÃ£ import ${importedCount}/${googleCookies.length} cookie thÃ nh cÃ´ng!`);
+                    sendToRenderer("tools-log", `[Gemini-Auth] ✅ �?ã import ${importedCount}/${googleCookies.length} cookie thành công!`);
 
-                    // Äá»“ng bá»™ Local Storage vÃ  Session Storage láº§n cuá»‘i
-                    // [Bá»Ž QUA] TrÃ¡nh lÃ m há»ng IndexedDB
+                    // �?ồng bộ Local Storage và Session Storage lần cuối
+                    // [BỎ QUA] Tránh làm h�?ng IndexedDB
                     /*
                     try {
                         const lsData = await activePage.evaluate(() => JSON.stringify(localStorage));
@@ -3556,22 +3556,22 @@ app.whenReady().then(async () => {
                     } catch (e) { }
                     */
 
-                    // ÄÃ³ng Chrome
+                    // �?óng Chrome
                     try {
                         await stealthBrowser.close();
                     } catch (closeErr) {
-                        // Chrome cÃ³ thá»ƒ Ä‘Ã£ Ä‘Ã³ng
+                        // Chrome có thể đã đóng
                     }
                     try { chromeProcess.kill(); } catch (e) { }
 
                     // Reload webview
                     if (!webviewContents.isDestroyed()) {
-                        sendToRenderer("tools-log", "[Gemini-Auth] Äang táº£i láº¡i trang...");
+                        sendToRenderer("tools-log", "[Gemini-Auth] �?ang tải lại trang...");
                         webviewContents.reloadIgnoringCache();
                     }
 
                 } catch (err) {
-                    sendToRenderer("tools-log", `[Gemini-Auth] Lá»—i: ${err.message}`);
+                    sendToRenderer("tools-log", `[Gemini-Auth] Lỗi: ${err.message}`);
                 } finally {
                     if (syncInterval) clearInterval(syncInterval);
                     isGeminiAuthRunning = false;
@@ -3580,16 +3580,16 @@ app.whenReady().then(async () => {
 
 
 
-            // Báº¯t sá»± kiá»‡n khi user tá»± báº¥m vÃ o nÃºt Login tá»« lá»›p overlay
+            // Bắt sự kiện khi user tự bấm vào nút Login từ lớp overlay
             contents.on('will-navigate', (e, url) => {
                 if (url.includes('trigger-stealth-login')) {
                     e.preventDefault();
-                    // Láº¥y chÃ­nh URL hiá»‡n táº¡i (cÃ³ chá»©a tham sá»‘ continue=... cá»§a trang gá»‘c) Ä‘á»ƒ Ä‘Äƒng nháº­p
+                    // Lấy chính URL hiện tại (có chứa tham số continue=... của trang gốc) để đăng nhập
                     launchStealthLogin(contents.getURL(), contents);
                 }
             });
 
-            // Báº¯t sá»± kiá»‡n má»Ÿ popup má»›i (nÃºt Sign In cÃ³ thá»ƒ má»Ÿ popup)
+            // Bắt sự kiện mở popup mới (nút Sign In có thể mở popup)
             contents.setWindowOpenHandler(({ url }) => {
                 if (url.includes('accounts.google.com')) {
                     launchStealthLogin(url, contents);
@@ -3598,17 +3598,17 @@ app.whenReady().then(async () => {
                 return { action: 'allow' };
             });
 
-            // Báº¯t sá»± kiá»‡n ngÆ°á»i dÃ¹ng táº£i xuá»‘ng tá»« mÃ n hÃ¬nh phá»¥
+            // Bắt sự kiện ngư�?i dùng tải xuống từ màn hình phụ
             contents.session.on('will-download', (event, item, webContents) => {
                 const fileName = item.getFilename();
-                sendToRenderer("tools-log", `[Webview] Báº¯t Ä‘áº§u táº£i file: ${fileName}`);
+                sendToRenderer("tools-log", `[Webview] Bắt đầu tải file: ${fileName}`);
 
                 item.on('updated', (event, state) => {
                     if (state === 'interrupted') {
-                        sendToRenderer("tools-log", "[Webview] Táº£i xuá»‘ng bá»‹ giÃ¡n Ä‘oáº¡n.");
+                        sendToRenderer("tools-log", "[Webview] Tải xuống bị gián đoạn.");
                     } else if (state === 'progressing') {
                         if (item.isPaused()) {
-                            sendToRenderer("tools-log", "[Webview] Táº£i xuá»‘ng bá»‹ táº¡m dá»«ng.");
+                            sendToRenderer("tools-log", "[Webview] Tải xuống bị tạm dừng.");
                         }
                     }
                 });
@@ -3616,9 +3616,9 @@ app.whenReady().then(async () => {
                 item.once('done', (event, state) => {
                     if (state === 'completed') {
                         const localPath = item.getSavePath();
-                        sendToRenderer("tools-log", `[Webview] Táº£i xuá»‘ng hoÃ n táº¥t: ${localPath}`);
+                        sendToRenderer("tools-log", `[Webview] Tải xuống hoàn tất: ${localPath}`);
 
-                        // Gá»­i sá»± kiá»‡n cho Angular Frontend biáº¿t
+                        // Gửi sự kiện cho Angular Frontend biết
                         if (mainWindow) {
                             mainWindow.webContents.send('webview-download-complete', {
                                 file: localPath,
@@ -3626,20 +3626,20 @@ app.whenReady().then(async () => {
                             });
                         }
                     } else {
-                        sendToRenderer("tools-log", `[Webview] Táº£i xuá»‘ng tháº¥t báº¡i: ${state}`);
+                        sendToRenderer("tools-log", `[Webview] Tải xuống thất bại: ${state}`);
                     }
                 });
             });
 
-            sendToRenderer("tools-log", "[Webview] ÄÃ£ Ä‘Ã­nh kÃ¨m tháº» webview má»›i vÃ o luá»“ng Download áº¢nh tá»± Ä‘á»™ng!");
+            sendToRenderer("tools-log", "[Webview] �?ã đính kèm thẻ webview mới vào luồng Download Ảnh tự động!");
         }
     });
 
     if (binaries.downloader) {
         downloaderProcess = execFile(binaries.downloader, [], (err, stdout, stderr) => {
-            if (err) sendToRenderer("tools-log", `âŒ Downloader lá»—i: ${err}`);
-            if (stdout) sendToRenderer("tools-log", `ðŸ“¥ Downloader: ${stdout}`);
-            if (stderr) sendToRenderer("tools-log", `âš ï¸ Downloader stderr: ${stderr}`);
+            if (err) sendToRenderer("tools-log", `�?� Downloader lỗi: ${err}`);
+            if (stdout) sendToRenderer("tools-log", `📥 Downloader: ${stdout}`);
+            if (stderr) sendToRenderer("tools-log", `⚠�? Downloader stderr: ${stderr}`);
         });
     }
 
@@ -3647,7 +3647,7 @@ app.whenReady().then(async () => {
     ipcMain.handle("extract-last-frame-old", async (_event, videoPath) => {
         return new Promise((resolve, reject) => {
             if (!binaries.ffmpeg) {
-                return reject(new Error("KhÃ´ng tÃ¬m tháº¥y FFmpeg"));
+                return reject(new Error("Không tìm thấy FFmpeg"));
             }
             try {
                 const imgDir = path.dirname(videoPath);
@@ -3666,7 +3666,7 @@ app.whenReady().then(async () => {
                     outputPath
                 ];
 
-                sendToRenderer("tools-log", `[FFmpeg] TrÃ­ch xuáº¥t last frame: ${args.join(" ")}`);
+                sendToRenderer("tools-log", `[FFmpeg] Trích xuất last frame: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
 
                 let stderrOutput = "";
@@ -3695,7 +3695,7 @@ app.whenReady().then(async () => {
     ipcMain.handle("extract-video-frames", async (_event, videoPath) => {
         return new Promise((resolve, reject) => {
             if (!binaries.ffmpeg) {
-                return reject(new Error("KhÃ´ng tÃ¬m tháº¥y FFmpeg"));
+                return reject(new Error("Không tìm thấy FFmpeg"));
             }
             try {
                 const videoPathDecoded = videoPath.replace('file://', '');
@@ -3717,7 +3717,7 @@ app.whenReady().then(async () => {
                     const allFiles = fs.readdirSync(tempDir);
                     const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
                     if (frameFiles.length > 0) {
-                        sendToRenderer("tools-log", `[FFmpeg] Sá»­ dá»¥ng láº¡i frames Ä‘Ã£ trÃ­ch xuáº¥t: ${tempDir}`);
+                        sendToRenderer("tools-log", `[FFmpeg] Sử dụng lại frames đã trích xuất: ${tempDir}`);
                         const framePaths = frameFiles.map(f => path.join(tempDir, f));
                         return resolve({ success: true, paths: framePaths });
                     }
@@ -3735,7 +3735,7 @@ app.whenReady().then(async () => {
                     framePattern
                 ];
 
-                sendToRenderer("tools-log", `[FFmpeg] TrÃ­ch xuáº¥t frames: ${args.join(" ")}`);
+                sendToRenderer("tools-log", `[FFmpeg] Trích xuất frames: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
 
                 let stderrOutput = "";
@@ -3768,7 +3768,7 @@ app.whenReady().then(async () => {
     ipcMain.handle("extract-audio", async (_event, videoPath) => {
         return new Promise((resolve, reject) => {
             if (!binaries.ffmpeg) {
-                return reject(new Error("KhÃ´ng tÃ¬m tháº¥y FFmpeg"));
+                return reject(new Error("Không tìm thấy FFmpeg"));
             }
             try {
                 const audioDir = path.dirname(videoPath);
@@ -3787,7 +3787,7 @@ app.whenReady().then(async () => {
                     outputPath
                 ];
 
-                sendToRenderer("tools-log", `[FFmpeg] TÃ¡ch audio: ${args.join(" ")}`);
+                sendToRenderer("tools-log", `[FFmpeg] Tách audio: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
 
                 let stderrOutput = "";
@@ -3826,7 +3826,7 @@ app.whenReady().then(async () => {
 
         try {
             if (!startDate || !endDate) {
-                throw new Error("Thiáº¿u startDate hoáº·c endDate");
+                throw new Error("Thiếu startDate hoặc endDate");
             }
 
             const site = siteUrl || "https://huyenthuyen.vn/";
@@ -3869,7 +3869,7 @@ app.whenReady().then(async () => {
                 rows,
             };
         } catch (e) {
-            sendToRenderer("tools-log", `[GSC] Lá»—i: ${e.message}`);
+            sendToRenderer("tools-log", `[GSC] Lỗi: ${e.message}`);
             return {
                 success: false,
                 error: e.message || "Unknown GSC error",
@@ -3881,7 +3881,7 @@ app.whenReady().then(async () => {
         try {
             if (!data || !data.command) {
                 event.reply("tools-response", {
-                    error: "KhÃ´ng cÃ³ lá»‡nh nÃ o Ä‘Æ°á»£c gá»­i",
+                    error: "Không có lệnh nào được gửi",
                 });
                 return;
             }
@@ -3911,7 +3911,7 @@ app.whenReady().then(async () => {
                     );
 
                     if (targetWindow && !targetWindow.isDestroyed() && !targetWindow.isWebview) {
-                        // Náº¿u Webview Ä‘Ã£ má»Ÿ, cháº¡y script trá»±c tiáº¿p lÃªn Ä‘Ã³ luÃ´n
+                        // Nếu Webview đã mở, chạy script trực tiếp lên đó luôn
                         createImageByDreamina(data.url, uniqueID, {
                             outDir: data.outDir || defaultOutDir,
                             maxImages: data.maxImages || 100,
@@ -3919,7 +3919,7 @@ app.whenReady().then(async () => {
                             prompt: data.prompt,
                         });
                     } else {
-                        // Náº¿u chÆ°a má»Ÿ (cháº¡y ná»n), gá»i popup nhÆ° cÅ©
+                        // Nếu chưa mở (chạy n�?n), g�?i popup như cũ
                         createTargetWindow(
                             data.url,
                             () => {
@@ -3943,7 +3943,7 @@ app.whenReady().then(async () => {
                         setFacebookCookiesFromFile(data.cookiePath).then(() => {
                             sendToRenderer(
                                 "tools-log",
-                                `[FB-Login] ÄÃ£ set cookies tá»« file: ${data.cookiePath}`,
+                                `[FB-Login] �?ã set cookies từ file: ${data.cookiePath}`,
                             );
                             createTargetWindow(data.url, connectApps, uniqueID);
                             event.reply("tools-response", {
@@ -3980,7 +3980,7 @@ app.whenReady().then(async () => {
                 }
                 case "get-facebook-cookies": {
                     if (!data.uniqueID) {
-                        event.reply("tools-response", { error: "Thiáº¿u uniqueID!" });
+                        event.reply("tools-response", { error: "Thiếu uniqueID!" });
                         return;
                     }
                     getFacebookCookies(data.uniqueID, event);
@@ -3994,14 +3994,14 @@ app.whenReady().then(async () => {
                     if (data.useWebview) {
                         sendToRenderer(
                             "tools-log",
-                            `[FB-Crawl] ðŸš€ Khá»Ÿi cháº¡y quÃ©t Facebook qua Web Tools...`
+                            `[FB-Crawl] 🚀 Khởi chạy quét Facebook qua Web Tools...`
                         );
                         facebookCrawl(data);
                     } else if (data.cookiePath && fs.existsSync(data.cookiePath)) {
                         setFacebookCookiesFromFile(data.cookiePath).then(() => {
                             sendToRenderer(
                                 "tools-log",
-                                `[FB-Crawl] ÄÃ£ set cookies tá»« file: ${data.cookiePath}`,
+                                `[FB-Crawl] �?ã set cookies từ file: ${data.cookiePath}`,
                             );
                             createTargetWindow(
                                 data.url,
@@ -4032,7 +4032,7 @@ app.whenReady().then(async () => {
                             try {
                                 sendToRenderer(
                                     "tools-log",
-                                    `[TikTok] ðŸš€ Cháº¿ Ä‘á»™ quÃ©t hÃ¬nh áº£nh kÃ­ch hoáº¡t cho @${username}`,
+                                    `[TikTok] 🚀 Chế độ quét hình ảnh kích hoạt cho @${username}`,
                                 );
                                 const res = await fetch(
                                     "http://localhost:9999/json/version",
@@ -4049,7 +4049,7 @@ app.whenReady().then(async () => {
                                 );
                                 if (!page) return;
 
-                                // Láº®NG NGHE Dá»® LIá»†U Tá»ª PRELOAD
+                                // LẮNG NGHE DỮ LIỆU TỪ PRELOAD
                                 const linkHandler = (_evt, payload) => {
                                     if (payload && payload.url) {
                                         sendToRenderer("tools-response", {
@@ -4080,7 +4080,7 @@ app.whenReady().then(async () => {
                                         .catch(() => 0);
 
                                     await page.keyboard.press("End");
-                                    await new Promise((r) => setTimeout(r, 3500)); // Äá»£i lÃ¢u chÃºt Ä‘á»ƒ áº£nh ká»‹p load
+                                    await new Promise((r) => setTimeout(r, 3500)); // �?ợi lâu chút để ảnh kịp load
 
                                     if (currentHeight > lastHeight) {
                                         lastHeight = currentHeight;
@@ -4098,7 +4098,7 @@ app.whenReady().then(async () => {
                                 );
                                 sendToRenderer(
                                     "tools-log",
-                                    `[TikTok] âœ… HoÃ n táº¥t quÃ©t kÃªnh.`,
+                                    `[TikTok] ✅ Hoàn tất quét kênh.`,
                                 );
                                 sendToRenderer("tools-response", {
                                     action: "tiktok-crawl-finished",
@@ -4110,7 +4110,7 @@ app.whenReady().then(async () => {
                             } catch (err) {
                                 sendToRenderer(
                                     "tools-log",
-                                    `[TikTok] âŒ Lá»—i: ${err.message}`,
+                                    `[TikTok] �?� Lỗi: ${err.message}`,
                                 );
                             }
                         },
@@ -4121,11 +4121,11 @@ app.whenReady().then(async () => {
                     break;
                 }
                 case "open-chrome-app": {
-                    // Láº¥y width, height tá»« data (náº¿u UI khÃ´ng gá»­i thÃ¬ dÃ¹ng máº·c Ä‘á»‹nh cá»§a hÃ m)
+                    // Lấy width, height từ data (nếu UI không gửi thì dùng mặc định của hàm)
                     const w = data.width || 1200;
                     const h = data.height || 800;
 
-                    // Gá»i hÃ m vá»›i tham sá»‘ má»›i
+                    // G�?i hàm với tham số mới
                     openChromeApp(data.url, w, h);
 
                     event.reply("tools-response", {
@@ -4138,17 +4138,17 @@ app.whenReady().then(async () => {
                 }
                 case "zalo-crawl": {
                     const uniqueID = data.uniqueID || createUniqueID();
-                    // createTargetWindow cá»§a báº¡n Ä‘Ã£ cÃ³ cÆ¡ cháº¿ callback(url, id) khi 'did-finish-load'
-                    // ChÃºng ta sáº½ gá»i zaloCrawlDirect ngay táº¡i Ä‘Ã³.
+                    // createTargetWindow của bạn đã có cơ chế callback(url, id) khi 'did-finish-load'
+                    // Chúng ta sẽ g�?i zaloCrawlDirect ngay tại đó.
                     createTargetWindow(data.url, () => {
-                        // targetWindow lÃºc nÃ y Ä‘Ã£ Ä‘Æ°á»£c khá»Ÿi táº¡o trong scope cá»§a main.js
+                        // targetWindow lúc này đã được khởi tạo trong scope của main.js
                         zaloCrawlDirect(targetWindow, uniqueID);
                     }, uniqueID);
                     break;
                 }
                 default:
                     event.reply("tools-response", {
-                        error: "Command khÃ´ng há»— trá»£!",
+                        error: "Command không hỗ trợ!",
                     });
             }
         } catch (error) {
@@ -4162,7 +4162,7 @@ app.whenReady().then(async () => {
         if (BrowserWindow.getAllWindows().length === 0) createMainWindow();
     });
 
-    // (ÄÃ£ chuyá»ƒn web-contents-created lÃªn Ä‘áº§u file)
+    // (�?ã chuyển web-contents-created lên đầu file)
 
     globalShortcut.register("CommandOrControl+C+G", () => {
         if (targetWindow) targetWindow.close();
@@ -4178,47 +4178,47 @@ app.whenReady().then(async () => {
         }
     });
 
-    // Táº¯t phÃ­m táº¯t global CTRL+SHIFT+R Ä‘á»ƒ trÃ¡nh xung Ä‘á»™t
-    // TÃ­nh nÄƒng refresh Ä‘Æ°á»£c xá»­ lÃ½ qua Menu "Hiá»ƒn thá»‹" (View Menu)
+    // Tắt phím tắt global CTRL+SHIFT+R để tránh xung đột
+    // Tính năng refresh được xử lý qua Menu "Hiển thị" (View Menu)
 
     // ==========================================
-    // AUTO UPDATER (Cáº¬P NHáº¬T Tá»° Äá»˜NG)
+    // AUTO UPDATER (CẬP NHẬT TỰ �?ỘNG)
     // ==========================================
     autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
     autoUpdater.on('checking-for-update', () => {
-        sendToRenderer("tools-log", '[AutoUpdate] Äang kiá»ƒm tra phiÃªn báº£n má»›i...');
+        sendToRenderer("tools-log", '[AutoUpdate] �?ang kiểm tra phiên bản mới...');
     });
 
     autoUpdater.on('update-available', (info) => {
-        sendToRenderer("tools-log", `[AutoUpdate] Tìm thấy phiên bản mới: ${info.version}`);
+        sendToRenderer("tools-log", `[AutoUpdate] T�m th?y phi�n b?n m?i: ${info.version}`);
         dialog.showMessageBox({
             type: 'info',
-            title: 'Cập nhật',
-            message: `Đã có phiên bản mới (${info.version}). Bạn có muốn tải về không?`,
-            buttons: ['Tải cập nhật', 'Để sau']
+            title: 'C?p nh?t',
+            message: `?� c� phi�n b?n m?i (${info.version}). B?n c� mu?n t?i v? kh�ng?`,
+            buttons: ['T?i c?p nh?t', '?? sau']
         }).then((result) => {
             if (result.response === 0) {
-                sendToRenderer("tools-log", '[AutoUpdate] Đang bắt đầu tải...');
+                sendToRenderer("tools-log", '[AutoUpdate] ?ang b?t ??u t?i...');
                 autoUpdater.downloadUpdate();
             }
         });
     });
 
     autoUpdater.on('update-not-available', (info) => {
-        sendToRenderer("tools-log", '[AutoUpdate] Báº¡n Ä‘ang dÃ¹ng phiÃªn báº£n má»›i nháº¥t.');
+        sendToRenderer("tools-log", '[AutoUpdate] Bạn đang dùng phiên bản mới nhất.');
     });
 
     autoUpdater.on('error', (err) => {
-        sendToRenderer("tools-log", `[AutoUpdate] Lỗi kiểm tra cập nhật: ${err.message}`);
+        sendToRenderer("tools-log", `[AutoUpdate] L?i ki?m tra c?p nh?t: ${err.message}`);
         if (mainWindow && mainWindow.webContents) {
             let safeError = (err.message || '').replace(/'/g, '"').replace(/\n/g, ' ');
             mainWindow.webContents.executeJavaScript(`
                 (function(){
                     let div = document.getElementById('auto-update-progress-overlay');
                     if (div) { 
-                        div.innerHTML = "<b>❌ Lỗi tải cập nhật!</b><br><span style='font-size:12px;color:red;'>${safeError}</span><br><br>Vui lòng kiểm tra lại file latest.yml và file .exe trên server xem mã hash đã khớp chưa."; 
+                        div.innerHTML = "<b>? L?i t?i c?p nh?t!</b><br><span style='font-size:12px;color:red;'>${safeError}</span><br><br>Vui l�ng ki?m tra l?i file latest.yml v� file .exe tr�n server xem m� hash ?� kh?p ch?a."; 
                     }
                 })();
             `).catch(e=>e);
@@ -4228,7 +4228,7 @@ app.whenReady().then(async () => {
     autoUpdater.on('download-progress', (progressObj) => {
         const speed = Math.round(progressObj.bytesPerSecond / 1024);
         const percent = Math.round(progressObj.percent);
-        sendToRenderer("tools-log", `[AutoUpdate] Tốc độ tải: ${speed}KB/s - Đã tải ${percent}%`);
+        sendToRenderer("tools-log", `[AutoUpdate] T?c ?? t?i: ${speed}KB/s - ?� t?i ${percent}%`);
         
         if (mainWindow && mainWindow.webContents) {
             mainWindow.setProgressBar(progressObj.percent / 100);
@@ -4239,18 +4239,18 @@ app.whenReady().then(async () => {
                         div = document.createElement('div');
                         div.id = 'auto-update-progress-overlay';
                         div.style.cssText = 'position:fixed; bottom:20px; right:20px; width:320px; background:rgba(255,255,255,0.95); border:1px solid #ddd; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:99999999; padding:15px; border-radius:8px; font-family:sans-serif; color:#333; transition: all 0.3s ease;';
-                        div.innerHTML = "<b>⬇ Đang tải bản cập nhật mới...</b><br><div style='width:100%;background:#e0e0e0;border-radius:5px;margin-top:12px;height:12px;overflow:hidden;'><div id='auto-update-progress-bar' style='width:0%;height:100%;background:#007bff;transition:width 0.2s;'></div></div><div id='auto-update-text' style='margin-top:8px;font-size:13px;text-align:right;color:#555;'>0%</div>";
+                        div.innerHTML = "<b>? ?ang t?i b?n c?p nh?t m?i...</b><br><div style='width:100%;background:#e0e0e0;border-radius:5px;margin-top:12px;height:12px;overflow:hidden;'><div id='auto-update-progress-bar' style='width:0%;height:100%;background:#007bff;transition:width 0.2s;'></div></div><div id='auto-update-text' style='margin-top:8px;font-size:13px;text-align:right;color:#555;'>0%</div>";
                         document.body.appendChild(div);
                     }
                     document.getElementById('auto-update-progress-bar').style.width = '${percent}%';
-                    document.getElementById('auto-update-text').innerText = 'Tốc độ: ${speed} KB/s - Đã tải: ${percent}%';
+                    document.getElementById('auto-update-text').innerText = 'T?c ??: ${speed} KB/s - ?� t?i: ${percent}%';
                 })();
             `).catch(err => console.log('inject error', err));
         }
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-        sendToRenderer("tools-log", '[AutoUpdate] Tải hoàn tất! Ứng dụng sẽ được cập nhật.');
+        sendToRenderer("tools-log", '[AutoUpdate] T?i ho�n t?t! ?ng d?ng s? ???c c?p nh?t.');
         if (mainWindow) {
             mainWindow.setProgressBar(-1);
             mainWindow.webContents.executeJavaScript(`
@@ -4260,9 +4260,9 @@ app.whenReady().then(async () => {
         }
         dialog.showMessageBox({
             type: 'info',
-            title: 'Cập nhật phần mềm',
-            message: `Đã tải xong phiên bản mới (${info.version}). Bạn có muốn cài đặt và khởi động lại ngay bây giờ?`,
-            buttons: ['Cài đặt ngay', 'Để sau']
+            title: 'C?p nh?t ph?n m?m',
+            message: `?� t?i xong phi�n b?n m?i (${info.version}). B?n c� mu?n c�i ??t v� kh?i ??ng l?i ngay b�y gi??`,
+            buttons: ['C�i ??t ngay', '?? sau']
         }).then((result) => {
             if (result.response === 0) {
                 autoUpdater.quitAndInstall();
@@ -4270,24 +4270,24 @@ app.whenReady().then(async () => {
         });
     });
 
-    // Báº¯t buá»™c cáº¥u hÃ¬nh URL cho mÃ´i trÆ°á»ng dev Ä‘á»ƒ test
+    // Bắt buộc cấu hình URL cho môi trư�?ng dev để test
     if (!app.isPackaged) {
         try {
             const pkg = require(require('path').join(__dirname, '..', 'package.json'));
-            app.getVersion = () => pkg.version; // Ã‰p app Ä‘á»c Ä‘Ãºng version tá»« package.json thay vÃ¬ version cá»§a lÃµi Electron
+            app.getVersion = () => pkg.version; // Ép app đ�?c đúng version từ package.json thay vì version của lõi Electron
         } catch (e) { }
 
         autoUpdater.forceDevUpdateConfig = true;
         autoUpdater.setFeedURL("https://ai.type.vn/phan-mem/");
     }
 
-    // Báº¯t Ä‘áº§u kiá»ƒm tra cáº­p nháº­t ngay cáº£ trong Dev
+    // Bắt đầu kiểm tra cập nhật ngay cả trong Dev
     autoUpdater.checkForUpdatesAndNotify().catch(err => {
-        sendToRenderer("tools-log", `[AutoUpdate] Lá»—i khi cháº¡y updater: ${err.message}`);
+        sendToRenderer("tools-log", `[AutoUpdate] Lỗi khi chạy updater: ${err.message}`);
     });
 });
 
-// Há»§y Ä‘Äƒng kÃ½ khi á»©ng dá»¥ng Ä‘Ã³ng Ä‘á»ƒ trÃ¡nh rÃ² rá»‰ bá»™ nhá»›
+// Hủy đăng ký khi ứng dụng đóng để tránh rò rỉ bộ nhớ
 app.on("will-quit", () => {
     globalShortcut.unregisterAll();
     if (serviceProcess) serviceProcess.kill("SIGTERM");
@@ -4298,14 +4298,14 @@ app.on("window-all-closed", () => {
 });
 
 ipcMain.on('resize-window', (event, { width, height }) => {
-    // Láº¥y cá»­a sá»• hiá»‡n táº¡i Ä‘ang Ä‘Æ°á»£c focus (hoáº·c mainWindow)
+    // Lấy cửa sổ hiện tại đang được focus (hoặc mainWindow)
     const win = BrowserWindow.getFocusedWindow() || mainWindow;
 
     if (win) {
-        // Äá»•i kÃ­ch thÆ°á»›c cá»­a sá»• (true = cÃ³ hiá»‡u á»©ng animation resize mÆ°á»£t mÃ  trÃªn macOS/Windows)
+        // �?ổi kích thước cửa sổ (true = có hiệu ứng animation resize mượt mà trên macOS/Windows)
         win.setSize(width, height, true);
 
-        // CÄƒn giá»¯a cá»­a sá»• láº¡i ra giá»¯a mÃ n hÃ¬nh Ä‘á»ƒ khÃ´ng bá»‹ láº¹m ra ngoÃ i
+        // Căn giữa cửa sổ lại ra giữa màn hình để không bị lẹm ra ngoài
         win.center();
     }
 });
@@ -4337,13 +4337,13 @@ ipcMain.handle("ads:keywordIdeas", async (_event, args) => {
 });
 
 // =====================================================================
-// Google Analytics 4 (GA4) â€“ Data API (IPC: ga:report)
+// Google Analytics 4 (GA4) – Data API (IPC: ga:report)
 // =====================================================================
 
-// Náº¿u báº¡n muá»‘n set máº·c Ä‘á»‹nh property ID qua biáº¿n mÃ´i trÆ°á»ng:
+// Nếu bạn muốn set mặc định property ID qua biến môi trư�?ng:
 const GA_DEFAULT_PROPERTY_ID = process.env.GA_PROPERTY_ID || "293654701";
 
-// âœ… ÄÆ¯á»œNG DáºªN Máº¶C Äá»ŠNH: C:\Users\<User>\Documents\ai.type\ga4-service.json
+// ✅ �?ƯỜNG DẪN MẶC �?ỊNH: C:\Users\<User>\Documents\ai.type\ga4-service.json
 const GA_KEY_FILE_DEFAULT = path.join(
     documentsDir,
     "ai.type",
@@ -4351,17 +4351,17 @@ const GA_KEY_FILE_DEFAULT = path.join(
 );
 
 function resolveGaKeyFile() {
-    // 1) Æ¯u tiÃªn: GA_KEY_FILE trong biáº¿n mÃ´i trÆ°á»ng
+    // 1) Ưu tiên: GA_KEY_FILE trong biến môi trư�?ng
     if (process.env.GA_KEY_FILE && fileExists(process.env.GA_KEY_FILE)) {
         return process.env.GA_KEY_FILE;
     }
 
-    // 2) Máº·c Ä‘á»‹nh: Documents\ai.type\ga4-service.json (trÆ°á»ng há»£p cá»§a báº¡n)
+    // 2) Mặc định: Documents\ai.type\ga4-service.json (trư�?ng hợp của bạn)
     if (fileExists(GA_KEY_FILE_DEFAULT)) {
         return GA_KEY_FILE_DEFAULT;
     }
 
-    // 3) Khi Ä‘Ã³ng gÃ³i: resources/ga4-service.json
+    // 3) Khi đóng gói: resources/ga4-service.json
     if (process.resourcesPath) {
         const candidateRes = path.join(
             process.resourcesPath,
@@ -4370,7 +4370,7 @@ function resolveGaKeyFile() {
         if (fileExists(candidateRes)) return candidateRes;
     }
 
-    // 4) Khi cháº¡y dev: Ä‘áº·t ga4-service.json cáº¡nh main.js (../ga4-service.json)
+    // 4) Khi chạy dev: đặt ga4-service.json cạnh main.js (../ga4-service.json)
     const candidateDev = path.join(__dirname, "..", "ga4-service.json");
     if (fileExists(candidateDev)) return candidateDev;
 
@@ -4383,9 +4383,9 @@ async function getGaAccessToken() {
     const keyFile = resolveGaKeyFile();
     if (!keyFile) {
         throw new Error(
-            "KhÃ´ng tÃ¬m tháº¥y file ga4-service.json. " +
-            "HÃ£y lÆ°u file service account JSON vÃ o C:\\Users\\<User>\\Documents\\ai.type\\ga4-service.json, " +
-            "hoáº·c set env GA_KEY_FILE, hoáº·c copy vÃ o resources/ga4-service.json.",
+            "Không tìm thấy file ga4-service.json. " +
+            "Hãy lưu file service account JSON vào C:\\Users\\<User>\\Documents\\ai.type\\ga4-service.json, " +
+            "hoặc set env GA_KEY_FILE, hoặc copy vào resources/ga4-service.json.",
         );
     }
 
@@ -4404,7 +4404,7 @@ async function getGaAccessToken() {
             : tokenResponse && tokenResponse.token;
 
     if (!token) {
-        throw new Error("KhÃ´ng láº¥y Ä‘Æ°á»£c access token cho Google Analytics 4");
+        throw new Error("Không lấy được access token cho Google Analytics 4");
     }
 
     return token;
@@ -4423,14 +4423,14 @@ ipcMain.handle("ga:report", async (_event, args) => {
         } = args || {};
 
         if (!startDate || !endDate) {
-            throw new Error("Thiáº¿u startDate hoáº·c endDate cho GA4");
+            throw new Error("Thiếu startDate hoặc endDate cho GA4");
         }
 
         const propId = propertyId || GA_DEFAULT_PROPERTY_ID;
         if (!propId) {
             throw new Error(
-                "Thiáº¿u GA4 property ID. " +
-                "HÃ£y nháº­p trong UI hoáº·c set biáº¿n mÃ´i trÆ°á»ng GA_PROPERTY_ID.",
+                "Thiếu GA4 property ID. " +
+                "Hãy nhập trong UI hoặc set biến môi trư�?ng GA_PROPERTY_ID.",
             );
         }
 
@@ -4495,7 +4495,7 @@ ipcMain.handle("ga:report", async (_event, args) => {
                         } catch (e) {
                             reject(
                                 new Error(
-                                    `KhÃ´ng parse Ä‘Æ°á»£c JSON tá»« GA4 API (status ${res.statusCode})`,
+                                    `Không parse được JSON từ GA4 API (status ${res.statusCode})`,
                                 ),
                             );
                         }
@@ -4522,7 +4522,7 @@ ipcMain.handle("ga:report", async (_event, args) => {
     } catch (err) {
         sendToRenderer(
             "tools-log",
-            `[GA4] Lá»—i: ${(err && err.message) || String(err)}`,
+            `[GA4] Lỗi: ${(err && err.message) || String(err)}`,
         );
         return {
             success: false,
@@ -4534,15 +4534,15 @@ ipcMain.handle("ga:report", async (_event, args) => {
 async function zaloCrawlDirect(tWindow, uniqueID) {
     if (!tWindow) return;
 
-    sendToRenderer("tools-log", "[Zalo-Direct] ðŸš€ Äang trÃ­ch xuáº¥t dá»¯ liá»‡u tá»« 44 báº£ng...");
+    sendToRenderer("tools-log", "[Zalo-Direct] 🚀 �?ang trích xuất dữ liệu từ 44 bảng...");
 
     try {
-        // Thá»±c thi script láº¥y toÃ n bá»™ dá»¯ liá»‡u tá»« IndexedDB
+        // Thực thi script lấy toàn bộ dữ liệu từ IndexedDB
         const result = await tWindow.webContents.executeJavaScript(`
             (async () => {
                 try {
                     const uid = localStorage.getItem('sh_zlast_uid');
-                    if (!uid) return { error: "KhÃ´ng tháº¥y UID" };
+                    if (!uid) return { error: "Không thấy UID" };
                     const dbName = "zdb_" + uid;
 
                     return new Promise((resolve) => {
@@ -4573,12 +4573,12 @@ async function zaloCrawlDirect(tWindow, uniqueID) {
         `);
 
         if (result.error) {
-            sendToRenderer("tools-log", "[Zalo-Direct] âš ï¸ " + result.error);
+            sendToRenderer("tools-log", "[Zalo-Direct] ⚠�? " + result.error);
         } else {
-            // --- PHáº¦N GHI FILE ---
+            // --- PHẦN GHI FILE ---
             const timestamp = new Date().getTime();
             const fileName = `zalo_dump_${result.uid}_${timestamp}.json`;
-            // LÆ°u vÃ o Documents/ai.type/data/ (giá»‘ng cÃ¡c project khÃ¡c cá»§a báº¡n)
+            // Lưu vào Documents/ai.type/data/ (giống các project khác của bạn)
             const saveDir = path.join(os.homedir(), "Documents", "ai.type", "data", "zalo");
 
             if (!fs.existsSync(saveDir)) {
@@ -4588,23 +4588,23 @@ async function zaloCrawlDirect(tWindow, uniqueID) {
             const filePath = path.join(saveDir, fileName);
             fs.writeFileSync(filePath, JSON.stringify(result.data, null, 2), "utf-8");
 
-            sendToRenderer("tools-log", `[Zalo-Direct] âœ… ÄÃ£ lÆ°u file: ${filePath}`);
+            sendToRenderer("tools-log", `[Zalo-Direct] ✅ �?ã lưu file: ${filePath}`);
 
-            // Tráº£ vá» response cÃ³ chá»©a 'path' Ä‘á»ƒ Angular khÃ´ng bá»‹ undefined
+            // Trả v�? response có chứa 'path' để Angular không bị undefined
             sendToRenderer("tools-response", {
                 action: "zalo-crawl",
                 success: true,
-                path: filePath, // ÄÆ°á»ng dáº«n file thá»±c táº¿
+                path: filePath, // �?ư�?ng dẫn file thực tế
                 uid: result.uid
             });
         }
     } catch (e) {
-        sendToRenderer("tools-log", "[Zalo-Direct] âŒ Lá»—i: " + e.message);
+        sendToRenderer("tools-log", "[Zalo-Direct] �?� Lỗi: " + e.message);
     }
 }
 
 // =====================================================================
-// [RENDER VIDEO] CÃC HÃ€M TIá»†N ÃCH DÃ€NH RIÃŠNG CHO RENDER FFmpeg
+// [RENDER VIDEO] C�?C HÀM TIỆN �?CH DÀNH RIÊNG CHO RENDER FFmpeg
 // =====================================================================
 
 function cleanFilePath(fileUrl) {
@@ -4616,7 +4616,7 @@ function cleanFilePath(fileUrl) {
             const url = require('url');
             p = url.fileURLToPath(p);
         } catch (e) {
-            p = p.substring(7); // Giá»¯ láº¡i dáº¥u / Ä‘áº§u tiÃªn
+            p = p.substring(7); // Giữ lại dấu / đầu tiên
             if (process.platform === 'win32' && p.match(/^\/[a-zA-Z]:/)) {
                 p = p.substring(1);
             }
@@ -4624,10 +4624,10 @@ function cleanFilePath(fileUrl) {
     }
 
     try {
-        p = decodeURIComponent(p); // Giáº£i mÃ£ %20 thÃ nh dáº¥u cÃ¡ch
+        p = decodeURIComponent(p); // Giải mã %20 thành dấu cách
     } catch (e) { }
 
-    // Äá»•i gáº¡ch chÃ©o thÃ nh gáº¡ch chÃ©o ngÆ°á»£c chuáº©n cá»§a Windows
+    // �?ổi gạch chéo thành gạch chéo ngược chuẩn của Windows
     if (process.platform === 'win32') {
         p = p.replace(/\//g, '\\');
     }
@@ -4636,7 +4636,7 @@ function cleanFilePath(fileUrl) {
 }
 
 async function getAudioDuration(filePath) {
-    const ffmpegCmd = binaries.ffmpeg || "ffmpeg"; // Fallback vá» system náº¿u file Ä‘i kÃ¨m bá»‹ lá»—i/máº¥t
+    const ffmpegCmd = binaries.ffmpeg || "ffmpeg"; // Fallback v�? system nếu file đi kèm bị lỗi/mất
     try {
         await execPromise(`"${ffmpegCmd}" -i "${filePath}"`);
         return 2.0;
@@ -4661,11 +4661,11 @@ function formatVttTime(ms) {
 }
 
 // =====================================================================
-// IPC HANDLER: RENDER CUSTOM VIDEO CHUáº¨N STUDIO (CHá»NG Lá»†CH AUDIO)
+// IPC HANDLER: RENDER CUSTOM VIDEO CHUẨN STUDIO (CH�?NG LỆCH AUDIO)
 // =====================================================================
 
 /**
- * Cháº¡y FFmpeg báº±ng spawn Ä‘á»ƒ xá»­ lÃ½ tham sá»‘ chÃ­nh xÃ¡c hÆ¡n exec
+ * Chạy FFmpeg bằng spawn để xử lý tham số chính xác hơn exec
  */
 function spawnFFmpeg(args, cwd) {
     return new Promise((resolve, reject) => {
@@ -4687,13 +4687,13 @@ function spawnFFmpeg(args, cwd) {
 ipcMain.handle('render-custom-video', async (event, projectData) => {
     try {
         if (!binaries.ffmpeg) {
-            return { success: false, error: "Thiáº¿u FFmpeg binary." };
+            return { success: false, error: "Thiếu FFmpeg binary." };
         }
 
-        // sendToRenderer("tools-log", `[Render] Äang sá»­ dá»¥ng phÆ°Æ¡ng thá»©c Spawn (Array Args)...`);
-        sendNotification("Xuáº¥t video", `Äang khá»Ÿi táº¡o render: ${projectData.title}`);
+        // sendToRenderer("tools-log", `[Render] �?ang sử dụng phương thức Spawn (Array Args)...`);
+        sendNotification("Xuất video", `�?ang khởi tạo render: ${projectData.title}`);
 
-        // 1. Cáº¥u hÃ¬nh khung hÃ¬nh
+        // 1. Cấu hình khung hình
         let w = 1080, h = 1920;
         if (projectData.exportRatio === '16:9') { w = 1920; h = 1080; }
         else if (projectData.exportRatio === '1:1') { w = 1080; h = 1080; }
@@ -4707,11 +4707,11 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
         const sceneVideos = [];
         let finalAudioListContent = "ffconcat version 1.0\n";
 
-        // --- BÆ¯á»šC 1: Xá»¬ LÃ Tá»ªNG SCENE ---
+        // --- BƯỚC 1: XỬ L�? TỪNG SCENE ---
         for (let i = 0; i < projectData.scenes.length; i++) {
             const scene = projectData.scenes[i];
 
-            // Há»— trá»£ cáº¥u trÃºc má»›i: hÃ¬nh áº£nh cÃ³ thá»ƒ náº±m trong máº£ng videos
+            // Hỗ trợ cấu trúc mới: hình ảnh có thể nằm trong mảng videos
             let sceneImg = scene.imageUrl;
             if (!sceneImg && scene.videos && scene.videos.length > 0) {
                 const validVideo = scene.videos.find(v => v.imageUrl);
@@ -4722,7 +4722,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
             if (!originalImgPath || !fs.existsSync(originalImgPath) || !scene.subtitles?.length) continue;
 
-            // Copy input vÃ o workspace Ä‘á»ƒ sáº¡ch Ä‘Æ°á»ng dáº«n
+            // Copy input vào workspace để sạch đư�?ng dẫn
             const imgExt = path.extname(originalImgPath) || '.jpeg';
             const localInputName = `input_${i}${imgExt}`;
             fs.copyFileSync(originalImgPath, path.join(workspaceDir, localInputName));
@@ -4737,7 +4737,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
                 const wavName = `audio_${i}_${j}.wav`;
 
-                // Chuáº©n hÃ³a Audio báº±ng spawn
+                // Chuẩn hóa Audio bằng spawn
                 await spawnFFmpeg(['-y', '-i', originalAudioPath, '-ar', '44100', '-ac', '2', wavName], workspaceDir);
 
                 const durationSec = await getAudioDuration(path.join(workspaceDir, wavName));
@@ -4751,12 +4751,12 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             const sceneDurationSec = (sceneDurationMs / 1000).toFixed(3);
             const sceneVideoName = `scene_${i}.mp4`;
 
-            // Xá»­ lÃ½ Video Filter
+            // Xử lý Video Filter
             let videoFilter = `scale=${w}:${h}:force_original_aspect_ratio=increase,crop=${w}:${h}`;
             if (includeSubtitle) {
                 const vttName = `scene_${i}.vtt`;
                 fs.writeFileSync(path.join(workspaceDir, vttName), mergedVtt, 'utf-8');
-                // LÆ°u Ã½: DÃ¹ng dáº¥u nhÃ¡y Ä‘Æ¡n lá»“ng nhau cho tham sá»‘ filename bÃªn trong filter
+                // Lưu ý: Dùng dấu nháy đơn lồng nhau cho tham số filename bên trong filter
                 videoFilter += `,subtitles=filename='${vttName}':force_style='FontName=Arial,FontSize=18'`;
             }
 
@@ -4774,20 +4774,20 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
             sceneVideos.push(sceneVideoName);
         }
 
-        // --- BÆ¯á»šC 2: Gá»˜P AUDIO Tá»”NG ---
+        // --- BƯỚC 2: GỘP AUDIO TỔNG ---
         if (finalAudioListContent.trim() === "ffconcat version 1.0" || sceneVideos.length === 0) {
-            throw new Error('Dá»¯ liá»‡u Render trá»‘ng. HÃ£y Ä‘áº£m báº£o báº¡n Ä‘Ã£ táº£i Ä‘áº§y Ä‘á»§ hÃ¬nh áº£nh vÃ  file audio cho cÃ¡c phÃ¢n cáº£nh (KhÃ´ng bá»‹ xÃ³a máº¥t file gá»‘c dÆ°á»›i mÃ¡y tÃ­nh).');
+            throw new Error('Dữ liệu Render trống. Hãy đảm bảo bạn đã tải đầy đủ hình ảnh và file audio cho các phân cảnh (Không bị xóa mất file gốc dưới máy tính).');
         }
 
         fs.writeFileSync(path.join(workspaceDir, 'audios.txt'), finalAudioListContent);
         await spawnFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'audios.txt', '-ar', '44100', '-ac', '2', 'final_audio.wav'], workspaceDir);
 
-        // --- BÆ¯á»šC 3: Gá»˜P VIDEO Tá»”NG ---
+        // --- BƯỚC 3: GỘP VIDEO TỔNG ---
         const videoListContent = "ffconcat version 1.0\n" + sceneVideos.map(v => `file '${v}'`).join('\n') + '\n';
         fs.writeFileSync(path.join(workspaceDir, 'videos.txt'), videoListContent);
         await spawnFFmpeg(['-y', '-f', 'concat', '-safe', '0', '-i', 'videos.txt', '-c', 'copy', 'final_video_muted.mp4'], workspaceDir);
 
-        // --- BÆ¯á»šC 4: MUXING & EXPORT ---
+        // --- BƯỚC 4: MUXING & EXPORT ---
         const safeTitle = projectData.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
         const finalExportPath = path.join(app.getPath('documents'), 'ai.type', 'data', 'exports', `${safeTitle}_${Date.now()}.mp4`);
 
@@ -4795,7 +4795,7 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 
         fs.copyFileSync(path.join(workspaceDir, 'output.mp4'), finalExportPath);
 
-        sendNotification("ThÃ nh CÃ´ng!", `Video cá»§a báº¡n Ä‘Ã£ sáºµn sÃ ng`);
+        sendNotification("Thành Công!", `Video của bạn đã sẵn sàng`);
 
         return { success: true, path: finalExportPath, url: `file://${finalExportPath}` };
     } catch (err) {
@@ -4807,12 +4807,12 @@ ipcMain.handle('render-custom-video', async (event, projectData) => {
 ipcMain.handle('apply-rvc', async (event, payload) => {
     try {
         const { inputAudio, outputAudio, pitch, pthPath, indexPath } = payload;
-        const fs = require('fs'); // Äáº£m báº£o cÃ³ thÆ° viá»‡n xá»­ lÃ½ file
+        const fs = require('fs'); // �?ảm bảo có thư viện xử lý file
 
-        // CHá»NG Lá»–I CÃ‚M (0 BYTES): Báº¯t Python xuáº¥t ra file táº¡m trÆ°á»›c
+        // CH�?NG LỖI CÂM (0 BYTES): Bắt Python xuất ra file tạm trước
         const tempOutput = inputAudio + ".tmp.wav";
 
-        sendToRenderer("tools-log", `[RVC] Äang gá»i API biáº¿n Ä‘á»•i giá»ng...`);
+        sendToRenderer("tools-log", `[RVC] �?ang g�?i API biến đổi gi�?ng...`);
 
         const response = await fetch('http://127.0.0.1:7890/api/rvc', {
             method: 'POST',
@@ -4821,7 +4821,7 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
                 input: inputAudio,
                 model: pthPath,
                 index: indexPath || "",
-                output: tempOutput, // <--- Ã‰P PYTHON GHI VÃ€O FILE Táº M
+                output: tempOutput, // <--- ÉP PYTHON GHI VÀO FILE TẠM
                 pitch: pitch || 0
             })
         });
@@ -4829,35 +4829,35 @@ ipcMain.handle('apply-rvc', async (event, payload) => {
         const data = await response.json();
 
         if (data.success && fs.existsSync(tempOutput)) {
-            // KHI PYTHON LÃ€M XONG -> Láº¤Y FILE Táº M GHI ÄÃˆ THáº²NG LÃŠN FILE OUTPUT
+            // KHI PYTHON LÀM XONG -> LẤY FILE TẠM GHI �?È THẲNG LÊN FILE OUTPUT
             if (fs.existsSync(outputAudio)) {
-                try { fs.unlinkSync(outputAudio); } catch (e) { } // XÃ³a output cÅ© náº¿u cÃ³
+                try { fs.unlinkSync(outputAudio); } catch (e) { } // Xóa output cũ nếu có
             }
-            fs.renameSync(tempOutput, outputAudio); // Di chuyá»ƒn file táº¡m thÃ nh output chÃ­nh
+            fs.renameSync(tempOutput, outputAudio); // Di chuyển file tạm thành output chính
 
-            // Náº¿u file Ä‘áº§u vÃ o lÃ  .mp3, mÃ  output lÃ  .wav, ta dá»n sáº¡ch luÃ´n file .mp3 gá»‘c cho rá»—ng thÃ¹ng rÃ¡c
+            // Nếu file đầu vào là .mp3, mà output là .wav, ta d�?n sạch luôn file .mp3 gốc cho rỗng thùng rác
             if (inputAudio !== outputAudio && fs.existsSync(inputAudio)) {
                 try { fs.unlinkSync(inputAudio); } catch (e) { }
             }
 
-            sendToRenderer("tools-log", `[RVC] âœ… ÄÃ£ biáº¿n Ä‘á»•i vÃ  ghi Ä‘Ã¨ file thÃ nh cÃ´ng!`);
+            sendToRenderer("tools-log", `[RVC] ✅ �?ã biến đổi và ghi đè file thành công!`);
             return { success: true, path: outputAudio };
         } else {
-            sendToRenderer("tools-log", `[RVC] âŒ Lá»—i tá»« API: ${data.error}`);
+            sendToRenderer("tools-log", `[RVC] �?� Lỗi từ API: ${data.error}`);
             return { success: false, error: data.error };
         }
     } catch (error) {
-        sendToRenderer("tools-log", `[RVC] âŒ Máº¥t káº¿t ná»‘i tá»›i Python API: ${error.message}`);
+        sendToRenderer("tools-log", `[RVC] �?� Mất kết nối tới Python API: ${error.message}`);
         return { success: false, error: error.message };
     }
 });
 
-// ThÃªm vÃ o trong app.whenReady() hoáº·c khu vá»±c Ä‘á»‹nh nghÄ©a ipcMain
+// Thêm vào trong app.whenReady() hoặc khu vực định nghĩa ipcMain
 ipcMain.handle("tts-ausync-generate", async (event, payload) => {
     const { text, voice_id, speed, filename, username, key } = payload;
 
     try {
-        // BÆ¯á»šC 1: POST yÃªu cáº§u táº¡o Audio vá»›i Ä‘áº§y Ä‘á»§ cÃ¡c trÆ°á»ng báº¯t buá»™c
+        // BƯỚC 1: POST yêu cầu tạo Audio với đầy đủ các trư�?ng bắt buộc
         const postRes = await fetch("https://api.ausynclab.io/api/v1/speech/text-to-speech", {
             method: "POST",
             headers: {
@@ -4865,67 +4865,67 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
                 "x-api-key": key
             },
             body: JSON.stringify({
-                "audio_name": filename, // Sá»­ dá»¥ng tÃªn file lÃ m tÃªn audio
+                "audio_name": filename, // Sử dụng tên file làm tên audio
                 "text": text,
                 "voice_id": parseInt(voice_id),
                 "speed": speed || 1.0,
-                "model_name": "myna-2", // Model báº¯t buá»™c theo yÃªu cáº§u
-                "language": "vi",       // NgÃ´n ngá»¯ tiáº¿ng Viá»‡t
-                "callback_url": ""      // Äá»ƒ trá»‘ng vÃ¬ chÃºng ta dÃ¹ng cÆ¡ cháº¿ Polling (há»i liÃªn tá»¥c)
+                "model_name": "myna-2", // Model bắt buộc theo yêu cầu
+                "language": "vi",       // Ngôn ngữ tiếng Việt
+                "callback_url": ""      // �?ể trống vì chúng ta dùng cơ chế Polling (h�?i liên tục)
             })
         });
 
         const postData = await postRes.json();
 
-        // Kiá»ƒm tra mÃ£ tráº¡ng thÃ¡i tá»« API
+        // Kiểm tra mã trạng thái từ API
         if (postData.status !== 200 || !postData.result || !postData.result.audio_id) {
-            throw new Error(postData.message || "KhÃ´ng thá»ƒ khá»Ÿi táº¡o audio trÃªn AusyncLab. Kiá»ƒm tra láº¡i API Key hoáº·c Voice ID.");
+            throw new Error(postData.message || "Không thể khởi tạo audio trên AusyncLab. Kiểm tra lại API Key hoặc Voice ID.");
         }
 
         const audioId = postData.result.audio_id;
         let audioUrl = "";
         let attempts = 0;
 
-        // BÆ¯á»šC 2: Polling GET Ä‘á»ƒ chá» file hoÃ n thÃ nh (GET https://api.ausynclab.io/api/v1/speech/{audio_id})
-        sendToRenderer("tools-log", `[AusyncLab] Äang xá»­ lÃ½ Audio ID: ${audioId}...`);
+        // BƯỚC 2: Polling GET để ch�? file hoàn thành (GET https://api.ausynclab.io/api/v1/speech/{audio_id})
+        sendToRenderer("tools-log", `[AusyncLab] �?ang xử lý Audio ID: ${audioId}...`);
 
-        while (attempts < 200) { // TÄƒng lÃªn 20 láº§n (khoáº£ng 400 giÃ¢y) cho an toÃ n
+        while (attempts < 200) { // Tăng lên 20 lần (khoảng 400 giây) cho an toàn
             const getRes = await fetch(`https://api.ausynclab.io/api/v1/speech/${audioId}`, {
                 headers: { "x-api-key": key }
             });
             const getData = await getRes.json();
 
             if (getData.status === 200 && getData.result.state === "SUCCEED") {
-                audioUrl = getData.result.audio_url; // Láº¥y URL file .wav thÃ nh pháº©m
+                audioUrl = getData.result.audio_url; // Lấy URL file .wav thành phẩm
                 break;
             } else if (getData.result.state === "FAILED") {
-                throw new Error("AusyncLab bÃ¡o lá»—i khi Ä‘ang xá»­ lÃ½ chuyá»ƒn Ä‘á»•i vÄƒn báº£n.");
+                throw new Error("AusyncLab báo lỗi khi đang xử lý chuyển đổi văn bản.");
             }
 
-            // Äá»£i 2 giÃ¢y trÆ°á»›c khi há»i láº¡i
+            // �?ợi 2 giây trước khi h�?i lại
             await new Promise(r => setTimeout(r, 2000));
             attempts++;
         }
 
-        if (!audioUrl) throw new Error("QuÃ¡ thá»i gian chá» (Timeout) - API chÆ°a tráº£ vá» link download.");
+        if (!audioUrl) throw new Error("Quá th�?i gian ch�? (Timeout) - API chưa trả v�? link download.");
 
-        // BÆ¯á»šC 3: Táº£i file vá» thÆ° má»¥c cá»¥c bá»™ giá»‘ng generateEdgeTTSLocal
+        // BƯỚC 3: Tải file v�? thư mục cục bộ giống generateEdgeTTSLocal
         const documentsPath = app.getPath("documents");
         const saveDir = path.join(documentsPath, "ai.type", "data", "tts", username);
         if (!fs.existsSync(saveDir)) fs.mkdirSync(saveDir, { recursive: true });
 
-        // XÃ¡c Ä‘á»‹nh Ä‘Æ°á»ng dáº«n file cuá»‘i cÃ¹ng (thÆ°á»ng Ausync tráº£ vá» .wav)
+        // Xác định đư�?ng dẫn file cuối cùng (thư�?ng Ausync trả v�? .wav)
         const filePath = path.join(saveDir, `${filename}.wav`);
 
         const fileRes = await fetch(audioUrl);
-        if (!fileRes.ok) throw new Error("KhÃ´ng thá»ƒ káº¿t ná»‘i tá»›i mÃ¡y chá»§ lÆ°u trá»¯ audio Ä‘á»ƒ táº£i file.");
+        if (!fileRes.ok) throw new Error("Không thể kết nối tới máy chủ lưu trữ audio để tải file.");
 
         const buffer = await fileRes.arrayBuffer();
         fs.writeFileSync(filePath, Buffer.from(buffer));
 
         return {
             success: true,
-            filePath: filePath // Tráº£ vá» Ä‘Æ°á»ng dáº«n Ä‘á»ƒ Angular load vÃ o WaveSurfer
+            filePath: filePath // Trả v�? đư�?ng dẫn để Angular load vào WaveSurfer
         };
 
     } catch (error) {
@@ -4934,18 +4934,18 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
     }
 });
 
-// ThÃªm má»™t Set á»Ÿ Ä‘áº§u file Ä‘á»ƒ lÆ°u trá»¯ cÃ¡c task Ä‘ang cháº¡y
+// Thêm một Set ở đầu file để lưu trữ các task đang chạy
 const activeTtsTasks = new Set();
 
 ipcMain.handle("tts-type-generate", async (event, payload) => {
     const { text, voice_id, speed, ref_audio_name, ref_text, num_step, filename, username } = payload;
 
-    // Äá»‹nh nghÄ©a Base URL cá»§a API
+    // �?ịnh nghĩa Base URL của API
     const API_BASE_URL = "https://tts.type.vn";
 
     try {
-        // BÆ¯á»šC 1: POST yÃªu cáº§u lÃªn endpoint _async Ä‘á»ƒ láº¥y task_id
-        sendToRenderer("tools-log", `[Type TTS] Äang gá»­i yÃªu cáº§u táº¡o audio cho: ${filename}...`);
+        // BƯỚC 1: POST yêu cầu lên endpoint _async để lấy task_id
+        sendToRenderer("tools-log", `[Type TTS] �?ang gửi yêu cầu tạo audio cho: ${filename}...`);
 
         const postRes = await fetch(`${API_BASE_URL}/generate_audio_async`, {
             method: "POST",
@@ -4965,56 +4965,56 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
         const postData = await postRes.json();
         const taskId = postData.task_id;
 
-        if (!taskId) throw new Error("API khÃ´ng tráº£ vá» Task ID");
+        if (!taskId) throw new Error("API không trả v�? Task ID");
 
-        // Bá»Ž TASK ID VÃ€O Sá»” THEO DÃ•I
+        // BỎ TASK ID VÀO SỔ THEO DÕI
         if (taskId) activeTtsTasks.add(taskId);
 
-        // BÆ¯á»šC 2: Polling (Há»i thÄƒm) xem file Ä‘Ã£ xong chÆ°a
-        sendToRenderer("tools-log", `[Type TTS] Äang xá»­ lÃ½ Audio (Task ID: ${taskId})...`);
+        // BƯỚC 2: Polling (H�?i thăm) xem file đã xong chưa
+        sendToRenderer("tools-log", `[Type TTS] �?ang xử lý Audio (Task ID: ${taskId})...`);
 
         let downloadPath = "";
         let attempts = 0;
 
-        while (attempts < 900) { // TÄƒng Timeout lÃªn 30 phÃºt (1800 giÃ¢y) Ä‘á»ƒ cho mÃ¡y chá»§ tháº£nh thÆ¡i xá»­ lÃ½
-            // === THÃŠM ÄOáº N NÃ€Y ===
-            // Náº¿u taskId Ä‘Ã£ bá»‹ hÃ m cancel-tts xÃ³a khá»i sá»•, láº­p tá»©c dá»«ng vÃ²ng láº·p
+        while (attempts < 900) { // Tăng Timeout lên 30 phút (1800 giây) để cho máy chủ thảnh thơi xử lý
+            // === THÊM �?OẠN NÀY ===
+            // Nếu taskId đã bị hàm cancel-tts xóa kh�?i sổ, lập tức dừng vòng lặp
             if (!activeTtsTasks.has(taskId)) {
-                throw new Error("Task Ä‘Ã£ bá»‹ há»§y bá»Ÿi ngÆ°á»i dÃ¹ng.");
+                throw new Error("Task đã bị hủy bởi ngư�?i dùng.");
             }
             // =====================
 
             const statusRes = await fetch(`${API_BASE_URL}/status/${taskId}`);
             const statusData = await statusRes.json();
 
-            // Cáº­p nháº­t thÃªm viá»‡c báº¯t tráº¡ng thÃ¡i cancelled tá»« server (náº¿u cÃ³)
+            // Cập nhật thêm việc bắt trạng thái cancelled từ server (nếu có)
             if (statusData.status === "done") {
                 downloadPath = statusData.download_url;
                 break;
             } else if (statusData.status === "error" || statusData.status === "cancelled") {
-                throw new Error(statusData.message || "QuÃ¡ trÃ¬nh táº¡o audio Ä‘Ã£ bá»‹ dá»«ng hoáº·c lá»—i.");
+                throw new Error(statusData.message || "Quá trình tạo audio đã bị dừng hoặc lỗi.");
             }
 
-            // Chá» 2 giÃ¢y trÆ°á»›c khi há»i láº¡i
+            // Ch�? 2 giây trước khi h�?i lại
             await new Promise(r => setTimeout(r, 2000));
             attempts++;
         }
 
-        if (!downloadPath) throw new Error("QuÃ¡ thá»i gian chá» (Timeout) - API cháº¡y quÃ¡ lÃ¢u.");
+        if (!downloadPath) throw new Error("Quá th�?i gian ch�? (Timeout) - API chạy quá lâu.");
 
-        // BÆ¯á»šC 3: Táº£i file audio vá» mÃ¡y tÃ­nh
-        sendToRenderer("tools-log", `[Type TTS] ÄÃ£ xá»­ lÃ½ xong, Ä‘ang táº£i file vá»...`);
+        // BƯỚC 3: Tải file audio v�? máy tính
+        sendToRenderer("tools-log", `[Type TTS] �?ã xử lý xong, đang tải file v�?...`);
 
-        // KHI NÃ€O Táº¢I XONG FILE, XÃ“A TASK KHá»ŽI Sá»”
+        // KHI NÀO TẢI XONG FILE, XÓA TASK KHỎI SỔ
         activeTtsTasks.delete(taskId);
 
         const fileRes = await fetch(`${API_BASE_URL}${downloadPath}`);
-        if (!fileRes.ok) throw new Error("KhÃ´ng thá»ƒ táº£i file Ã¢m thanh tá»« server.");
+        if (!fileRes.ok) throw new Error("Không thể tải file âm thanh từ server.");
 
         const arrayBuffer = await fileRes.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // Thiáº¿t láº­p Ä‘Æ°á»ng dáº«n lÆ°u cá»¥c bá»™
+        // Thiết lập đư�?ng dẫn lưu cục bộ
         const documentsPath = app.getPath("documents");
         const saveDir = path.join(documentsPath, "ai.type", "data", "tts", username || "default");
 
@@ -5028,7 +5028,7 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
         // Ghi file
         fs.writeFileSync(filePath, buffer);
 
-        sendToRenderer("tools-log", `[Type TTS] âœ… ÄÃ£ lÆ°u file thÃ nh cÃ´ng táº¡i: ${filePath}`);
+        sendToRenderer("tools-log", `[Type TTS] ✅ �?ã lưu file thành công tại: ${filePath}`);
 
         return {
             success: true,
@@ -5037,29 +5037,29 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
 
     } catch (error) {
         console.error("Type TTS Error:", error);
-        sendToRenderer("tools-log", `[Type TTS] âŒ Lá»—i: ${error.message}`);
+        sendToRenderer("tools-log", `[Type TTS] �?� Lỗi: ${error.message}`);
         return { success: false, error: error.message };
     }
 });
 
-// 2. THÃŠM Cá»”NG Má»šI Äá»‚ NHáº¬N Lá»†NH Há»¦Y Tá»ª ANGULAR
+// 2. THÊM CỔNG MỚI �?Ể NHẬN LỆNH HỦY TỪ ANGULAR
 ipcMain.handle('cancel-tts', async (event) => {
-    console.log('Nháº­n lá»‡nh há»§y tá»« UI. Äang há»§y cÃ¡c task:', Array.from(activeTtsTasks));
+    console.log('Nhận lệnh hủy từ UI. �?ang hủy các task:', Array.from(activeTtsTasks));
 
     const cancelPromises = [];
 
-    // Duyá»‡t qua táº¥t cáº£ cÃ¡c task Ä‘ang cháº¡y ngáº§m vÃ  gá»i API há»§y
+    // Duyệt qua tất cả các task đang chạy ngầm và g�?i API hủy
     for (const taskId of activeTtsTasks) {
         cancelPromises.push(
             fetch(`https://tts.type.vn/cancel_task/${taskId}`, { method: 'POST' })
-                .catch(err => console.log(`Lá»—i há»§y task ${taskId}:`, err.message))
+                .catch(err => console.log(`Lỗi hủy task ${taskId}:`, err.message))
         );
     }
 
-    // Äá»£i gá»­i lá»‡nh há»§y xong
+    // �?ợi gửi lệnh hủy xong
     await Promise.all(cancelPromises);
 
-    // XÃ³a sáº¡ch sá»•
+    // Xóa sạch sổ
     activeTtsTasks.clear();
     return { success: true };
 });
@@ -5068,7 +5068,7 @@ ipcMain.handle('download-video', async (event, payload) => {
     try {
         const { urls } = payload;
         if (!urls || urls.length === 0) {
-            return { success: false, error: 'KhÃ´ng cÃ³ URL há»£p lá»‡' };
+            return { success: false, error: 'Không có URL hợp lệ' };
         }
 
         const ytdlpPath = binaries.ytdlp || "yt-dlp";
@@ -5082,10 +5082,10 @@ ipcMain.handle('download-video', async (event, payload) => {
         // Output template cho yt-dlp: Downloads/AI.TYPING/{channel_name}/{title}.{ext}
         const outputTemplate = path.join(aiTypingDir, '%(uploader)s', '%(title)s.%(ext)s');
 
-        sendToRenderer("tools-log", `[Download] Äang tiáº¿n hÃ nh táº£i dá»¯ liá»‡u cháº¥t lÆ°á»£ng tá»‘t nháº¥t...`);
+        sendToRenderer("tools-log", `[Download] �?ang tiến hành tải dữ liệu chất lượng tốt nhất...`);
 
         for (let url of urls) {
-            // Táº£i best video & audio
+            // Tải best video & audio
             const args = [
                 '-o', outputTemplate,
                 '--newline',
@@ -5111,12 +5111,12 @@ ipcMain.handle('download-video', async (event, payload) => {
 
                 child.on('close', (code) => {
                     if (code === 0) resolve();
-                    else reject(new Error(`Tháº¥t báº¡i vá»›i mÃ£ thoÃ¡t: ${code}`));
+                    else reject(new Error(`Thất bại với mã thoát: ${code}`));
                 });
             });
         }
 
-        sendNotification("Táº£i Video", "Táº£i video hoÃ n táº¥t vÃ o thÆ° má»¥c AI.TYPING!");
+        sendNotification("Tải Video", "Tải video hoàn tất vào thư mục AI.TYPING!");
         return { success: true };
 
     } catch (err) {
@@ -5126,7 +5126,7 @@ ipcMain.handle('download-video', async (event, payload) => {
 });
 
 // =====================================================================
-// XUáº¤T BÃO CÃO PDF Báº°NG IPC (Chá»¯a chÃ¡y lá»—i No Print Preview cá»§a Electron)
+// XUẤT B�?O C�?O PDF BẰNG IPC (Chữa cháy lỗi No Print Preview của Electron)
 // =====================================================================
 ipcMain.handle('export-gsc-pdf', async (event, payload) => {
     try {
@@ -5137,25 +5137,25 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
         const defaultName = `[AI.TYPE] ${safeDomain} (${startDate} to ${endDate}).pdf`;
         const defaultPath = path.join(app.getPath('downloads'), defaultName);
 
-        // Hiá»ƒn thá»‹ há»™p thoáº¡i lÆ°u file há»‡ thá»‘ng
+        // Hiển thị hộp thoại lưu file hệ thống
         const { filePath } = await dialog.showSaveDialog({
-            title: 'LÆ°u bÃ¡o cÃ¡o SEO thÃ nh PDF',
+            title: 'Lưu báo cáo SEO thành PDF',
             defaultPath: defaultPath,
             filters: [
                 { name: 'PDF Document', extensions: ['pdf'] }
             ]
         });
 
-        // Náº¿u ngÆ°á»i dÃ¹ng chá»n chá»— lÆ°u
+        // Nếu ngư�?i dùng ch�?n chỗ lưu
         if (filePath) {
-            sendToRenderer("tools-log", `[PDF] Äang káº¿t xuáº¥t trang web SEO Report thÃ nh PDF... vui lÃ²ng chá».`);
+            sendToRenderer("tools-log", `[PDF] �?ang kết xuất trang web SEO Report thành PDF... vui lòng ch�?.`);
 
-            // Xá»­ lÃ½ dá»©t Ä‘iá»ƒm Bug kinh Ä‘iá»ƒn: PrintToPDF luÃ´n rÃ² rá»‰ mÃ u ná»n #212121 cá»§a BrowserWindow ra thÃ nh mÃ u PDF Page
+            // Xử lý dứt điểm Bug kinh điển: PrintToPDF luôn rò rỉ màu n�?n #212121 của BrowserWindow ra thành màu PDF Page
             const win = BrowserWindow.fromWebContents(event.sender);
             const originalColor = win.getBackgroundColor();
             win.setBackgroundColor('#ffffff');
 
-            // Láº¥y ná»™i dung frontend (Ä‘ang hiá»ƒn thá»‹ mÃ n hÃ¬nh Report) vÃ  build thÃ nh PDF Vector (cá»±c nÃ©t, dáº¡ng text)
+            // Lấy nội dung frontend (đang hiển thị màn hình Report) và build thành PDF Vector (cực nét, dạng text)
             const marginInches = 0.4;
             const pdfData = await event.sender.printToPDF({
                 printBackground: true,
@@ -5163,31 +5163,31 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
                 pageSize: 'A4',
                 margins: { marginType: 'custom', top: marginInches, bottom: marginInches, left: marginInches, right: marginInches },
                 displayHeaderFooter: true,
-                headerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: left; padding-left: ${marginInches * 96}px;">BÃ¡o cÃ¡o Ä‘á» xuáº¥t chá»‰nh sá»­a SEO cho ${safeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')} (${startDate} to ${endDate})</div>`,
+                headerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: left; padding-left: ${marginInches * 96}px;">Báo cáo đề xuất chỉnh sửa SEO cho ${safeDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')} (${startDate} to ${endDate})</div>`,
                 footerTemplate: `<div style="font-size: 9px; font-family: Helvetica, Arial, sans-serif; color: #888; width: 100%; text-align: right; padding-right: ${marginInches * 96}px;">Trang <span class="pageNumber"></span> / <span class="totalPages"></span></div>`
             });
 
-            // Phá»¥c há»“i láº¡i mÃ u ná»n tá»‘i cá»§a cá»­a sá»• App
+            // Phục hồi lại màu nền tối của cửa sổ App
             win.setBackgroundColor(originalColor || '#212121');
 
             // Ghi file
             fs.writeFileSync(filePath, pdfData);
-            sendToRenderer("tools-log", `âœ… ÄÃ£ lÆ°u PDF BÃ¡o CÃ¡o thÃ nh cÃ´ng táº¡i: ${filePath}`);
-            sendNotification("BÃ¡o cÃ¡o SEO", "Xuáº¥t file PDF thÃ nh cÃ´ng!");
+            sendToRenderer("tools-log", `✅ Đã lưu PDF Báo Cáo thành công tại: ${filePath}`);
+            sendNotification("Báo cáo SEO", "Xuất file PDF thành công!");
 
             return { success: true, filePath };
         } else {
-            return { success: false, error: "ÄÃ£ há»§y lÆ°u file" }; // NgÆ°á»i dÃ¹ng áº¥n Cancel
+            return { success: false, error: "Đã hủy lưu file" }; // Người dùng ấn Cancel
         }
     } catch (err) {
-        console.error("Lá»—i xuáº¥t PDF:", err);
-        sendToRenderer("tools-log", `âŒ Lá»—i khi xuáº¥t PDF: ${err.message}`);
+        console.error("Lỗi xuất PDF:", err);
+        sendToRenderer("tools-log", `❌ Lỗi khi xuất PDF: ${err.message}`);
         return { success: false, error: err.message };
     }
 });
 
 // =====================================================================
-// IPC HANDLER: CHá»ŒN FILE VIDEO Cá»¤C Bá»˜ QUA Há»˜P THOáº I Há»† THá»NG
+// IPC HANDLER: CHỌN FILE VIDEO CỤC BỘ QUA HỘP THOẠI HỆ THỐNG
 // =====================================================================
 ipcMain.handle('select-video-file', async (event) => {
     const { canceled, filePaths } = await dialog.showOpenDialog({
@@ -5231,13 +5231,13 @@ ipcMain.handle('find-latest-analyzed-video', async (event) => {
 });
 
 // =====================================================================
-// IPC HANDLER: Táº¢I VÃ€ PHÃ‚N TÃCH VIDEO OFFLINE Báº°NG YT-DLP VÃ€ FFMPEG
+// IPC HANDLER: TẢI VÀ PHÂN T�?CH VIDEO OFFLINE BẰNG YT-DLP VÀ FFMPEG
 // =====================================================================
 ipcMain.handle('analyze-video-local', async (event, payload) => {
     try {
         let { url, extractInterval } = payload;
         if (!url) {
-            return { success: false, error: 'Không có URL hợp lệ' };
+            return { success: false, error: 'Kh�ng c� URL h?p l?' };
         }
         url = url.trim();
 
@@ -5296,8 +5296,10 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
             let hasCustomCookies = false;
 
+            const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
+
             if (fs.existsSync(cookiesTxtPath)) {
-                ytdlpArgs.push('--cookies', cookiesTxtPath);
+                if (!isFacebook) ytdlpArgs.push('--cookies', cookiesTxtPath);
                 hasCustomCookies = true;
             } else if (fs.existsSync(cookiesJsonPath)) {
                 try {
@@ -5313,7 +5315,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                     }
                     const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
                     fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
-                    ytdlpArgs.push('--cookies', tempCookiePath);
+                    if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
                     hasCustomCookies = true;
                 } catch (err) {
                     console.error("Lỗi đọc file cookies.json", err);
@@ -5321,9 +5323,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             }
 
             // Nếu không có file cookie nào được xuất, thì mới dùng cookie từ trình duyệt Chrome
-            if (!hasCustomCookies && (url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com'))) {
-                ytdlpArgs.push('--cookies-from-browser', 'chrome');
-            }
+            // Lấy cookie từ Chrome bị lỗi DPAPI trên phiên bản Chrome mới nên bị vô hiệu hóa.
 
             ytdlpArgs.push(url);
 

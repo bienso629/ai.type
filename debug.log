@@ -1,0 +1,2 @@
+PATH: C:\Users\Wing386\ai.type\electron\yt-dlp-win.exe
+ARGS: ["-o","C:\\Users\\Wing386\\Downloads\\AI.TYPING\\_temp_1781706111786\\video.%(ext)s","--newline","--ignore-errors","-f","bestvideo[height<=720]+bestaudio/best[height<=720]/best","--write-auto-subs","--write-subs","--sub-lang","vi,en.*","--ffmpeg-location","C:\\Users\\Wing386\\ai.type\\electron\\ffmpeg-win.exe","https://www.facebook.com/reel/1471619781407043"]
