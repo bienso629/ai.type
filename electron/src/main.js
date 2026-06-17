@@ -4184,7 +4184,7 @@ app.whenReady().then(async () => {
     // ==========================================
     // AUTO UPDATER (Cáº¬P NHáº¬T Tá»° Äá»˜NG)
     // ==========================================
-    autoUpdater.autoDownload = true;
+    autoUpdater.autoDownload = false;
     autoUpdater.autoInstallOnAppQuit = true;
 
     autoUpdater.on('checking-for-update', () => {
@@ -4192,7 +4192,18 @@ app.whenReady().then(async () => {
     });
 
     autoUpdater.on('update-available', (info) => {
-        sendToRenderer("tools-log", `[AutoUpdate] TÃ¬m tháº¥y phiÃªn báº£n má»›i: ${info.version}`);
+        sendToRenderer("tools-log", `[AutoUpdate] Tìm thấy phiên bản mới: ${info.version}`);
+        dialog.showMessageBox({
+            type: 'info',
+            title: 'Cập nhật',
+            message: `Đã có phiên bản mới (${info.version}). Bạn có muốn tải về không?`,
+            buttons: ['Tải cập nhật', 'Để sau']
+        }).then((result) => {
+            if (result.response === 0) {
+                sendToRenderer("tools-log", '[AutoUpdate] Đang bắt đầu tải...');
+                autoUpdater.downloadUpdate();
+            }
+        });
     });
 
     autoUpdater.on('update-not-available', (info) => {
@@ -4200,22 +4211,58 @@ app.whenReady().then(async () => {
     });
 
     autoUpdater.on('error', (err) => {
-        sendToRenderer("tools-log", `[AutoUpdate] Lá»—i kiá»ƒm tra cáº­p nháº­t: ${err.message}`);
+        sendToRenderer("tools-log", `[AutoUpdate] Lỗi kiểm tra cập nhật: ${err.message}`);
+        if (mainWindow && mainWindow.webContents) {
+            let safeError = (err.message || '').replace(/'/g, '"').replace(/\n/g, ' ');
+            mainWindow.webContents.executeJavaScript(`
+                (function(){
+                    let div = document.getElementById('auto-update-progress-overlay');
+                    if (div) { 
+                        div.innerHTML = "<b>❌ Lỗi tải cập nhật!</b><br><span style='font-size:12px;color:red;'>${safeError}</span><br><br>Vui lòng kiểm tra lại file latest.yml và file .exe trên server xem mã hash đã khớp chưa."; 
+                    }
+                })();
+            `).catch(e=>e);
+        }
     });
 
     autoUpdater.on('download-progress', (progressObj) => {
         const speed = Math.round(progressObj.bytesPerSecond / 1024);
         const percent = Math.round(progressObj.percent);
-        sendToRenderer("tools-log", `[AutoUpdate] Tá»‘c Ä‘á»™ táº£i: ${speed}KB/s - ÄÃ£ táº£i ${percent}%`);
+        sendToRenderer("tools-log", `[AutoUpdate] Tốc độ tải: ${speed}KB/s - Đã tải ${percent}%`);
+        
+        if (mainWindow && mainWindow.webContents) {
+            mainWindow.setProgressBar(progressObj.percent / 100);
+            mainWindow.webContents.executeJavaScript(`
+                (function() {
+                    let div = document.getElementById('auto-update-progress-overlay');
+                    if (!div) {
+                        div = document.createElement('div');
+                        div.id = 'auto-update-progress-overlay';
+                        div.style.cssText = 'position:fixed; bottom:20px; right:20px; width:320px; background:rgba(255,255,255,0.95); border:1px solid #ddd; box-shadow:0 4px 15px rgba(0,0,0,0.2); z-index:99999999; padding:15px; border-radius:8px; font-family:sans-serif; color:#333; transition: all 0.3s ease;';
+                        div.innerHTML = "<b>⬇ Đang tải bản cập nhật mới...</b><br><div style='width:100%;background:#e0e0e0;border-radius:5px;margin-top:12px;height:12px;overflow:hidden;'><div id='auto-update-progress-bar' style='width:0%;height:100%;background:#007bff;transition:width 0.2s;'></div></div><div id='auto-update-text' style='margin-top:8px;font-size:13px;text-align:right;color:#555;'>0%</div>";
+                        document.body.appendChild(div);
+                    }
+                    document.getElementById('auto-update-progress-bar').style.width = '${percent}%';
+                    document.getElementById('auto-update-text').innerText = 'Tốc độ: ${speed} KB/s - Đã tải: ${percent}%';
+                })();
+            `).catch(err => console.log('inject error', err));
+        }
     });
 
     autoUpdater.on('update-downloaded', (info) => {
-        sendToRenderer("tools-log", '[AutoUpdate] Táº£i hoÃ n táº¥t! á»¨ng dá»¥ng sáº½ Ä‘Æ°á»£c cáº­p nháº­t.');
+        sendToRenderer("tools-log", '[AutoUpdate] Tải hoàn tất! Ứng dụng sẽ được cập nhật.');
+        if (mainWindow) {
+            mainWindow.setProgressBar(-1);
+            mainWindow.webContents.executeJavaScript(`
+                let div = document.getElementById('auto-update-progress-overlay');
+                if (div) { div.style.display = 'none'; }
+            `).catch(e=>e);
+        }
         dialog.showMessageBox({
             type: 'info',
-            title: 'Cáº­p nháº­t pháº§n má»m',
-            message: `ÄÃ£ táº£i xong phiÃªn báº£n má»›i (${info.version}). Báº¡n cÃ³ muá»‘n cÃ i Ä‘áº·t vÃ  khá»Ÿi Ä‘á»™ng láº¡i ngay bÃ¢y giá»?`,
-            buttons: ['CÃ i Ä‘áº·t ngay', 'Äá»ƒ sau']
+            title: 'Cập nhật phần mềm',
+            message: `Đã tải xong phiên bản mới (${info.version}). Bạn có muốn cài đặt và khởi động lại ngay bây giờ?`,
+            buttons: ['Cài đặt ngay', 'Để sau']
         }).then((result) => {
             if (result.response === 0) {
                 autoUpdater.quitAndInstall();
