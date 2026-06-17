@@ -7,6 +7,7 @@
 *.mp4
 
 # compiled output
+/bugs
 /dist
 /tmp
 /release-builds

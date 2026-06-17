@@ -284,6 +284,9 @@ export class GenaiService {
                         lastError = error;
                         // Nếu là lỗi cuối cùng thì ném ra ngoài
                         if (i === shuffledKeys.length - 1) {
+                            if (lastError && String(lastError).includes('429')) {
+                                throw new Error(`Tất cả ${shuffledKeys.length} API Key của bạn đều đã hết hạn mức (Quota Exceeded). Vui lòng thêm key mới hoặc chờ ngày mai!`);
+                            }
                             throw lastError;
                         }
                     }
