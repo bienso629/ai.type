@@ -350,7 +350,7 @@ export class CharacterDialogComponent {
 
         // Cố gắng parse JSON nếu Google trả về cục JSON error gộp trong string
         try {
-            const match = msg.match(/\{"error":.*\}/);
+            const match = msg.match(/\{"error":[\s\S]*?\}/);
             if (match) {
                 const parsed = JSON.parse(match[0]);
                 if (parsed.error && parsed.error.message) {
