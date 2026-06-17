@@ -1642,12 +1642,50 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         } catch (error: any) {
             console.error('Lỗi tự động tạo Video:', error);
-            const errorMsg = error.message || 'Có lỗi xảy ra.';
+            const errorMsg = this.formatGeminiError(error);
             this.toastr.error('Lỗi tạo video AI: ' + errorMsg);
         } finally {
             video.isGeneratingVideo = false;
             this.cd.detectChanges();
         }
+    }
+
+    private formatGeminiError(error: any): string {
+        let msg = error.message || error.toString() || 'Lỗi không xác định';
+
+        try {
+            const match = msg.match(/\{"error":[\s\S]*?\}/);
+            if (match) {
+                const parsed = JSON.parse(match[0]);
+                if (parsed.error && parsed.error.message) {
+                    msg = parsed.error.message;
+                }
+            }
+        } catch { }
+
+        if (
+            msg.includes('trace_id') ||
+            msg.toLowerCase().includes('model') ||
+            msg.toLowerCase().includes('umodelverse') ||
+            msg.toLowerCase().includes('support')
+        ) {
+            return msg;
+        }
+
+        if (msg.includes('429') || msg.toLowerCase().includes('quota') || msg.includes('RESOURCE_EXHAUSTED')) {
+            return 'Tài khoản API Key đã hết hạn mức (Quota Exceeded) hoặc bị giới hạn tốc độ. Vui lòng thiết lập thẻ thanh toán trên Google AI Studio hoặc thử lại sau.';
+        }
+        if (msg.includes('400') || msg.includes('INVALID_ARGUMENT')) {
+            return 'Lỗi cấu hình (400): Prompt không hợp lệ hoặc chứa nội dung bị cấm.';
+        }
+        if (msg.includes('500') || msg.includes('INTERNAL')) {
+            return 'Lỗi máy chủ Google (500). Hệ thống AI đang gặp sự cố, vui lòng thử lại sau.';
+        }
+        if (msg.includes('Failed to fetch') || msg.includes('NetworkError')) {
+            return 'Lỗi mạng, không thể kết nối tới Google AI.';
+        }
+
+        return msg;
     }
 
     completeLinking(targetVideo: any, targetSceneIdx: number, targetVIdx: number) {

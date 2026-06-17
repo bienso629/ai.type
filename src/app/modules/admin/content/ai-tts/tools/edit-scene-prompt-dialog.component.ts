@@ -1093,7 +1093,7 @@ Instructions:
         let msg = error.message || error.toString() || 'Lỗi không xác định';
 
         try {
-            const match = msg.match(/\{"error":.*\}/);
+            const match = msg.match(/\{"error":[\s\S]*?\}/);
             if (match) {
                 const parsed = JSON.parse(match[0]);
                 if (parsed.error && parsed.error.message) {
