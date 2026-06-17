@@ -1031,7 +1031,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     /**
      * Tự động tách đoạn
      */
-    split(data: any, index: number) {
+    async split(data: any, index: number) {
         let content = data[index];
 
         if (!content || typeof content !== 'string') {
@@ -1039,65 +1039,57 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             return;
         }
 
-        // BƯỚC 1: BẢO VỆ CÁC DANH SÁCH (UL/OL)
-        // Mảng chứa nội dung HTML của các list
-        const listMatches: string[] = [];
+        this.loading = true;
+        this.cd.markForCheck();
 
-        // Regex này tìm trọn vẹn cụm <ul...>...</ul> hoặc <ol...>...</ol>
-        // [\s\S]*? nghĩa là lấy tất cả ký tự bao gồm cả xuống dòng
-        const protectedContent = content.replace(
-            /<(ul|ol)[^>]*>[\s\S]*?<\/\1>/gi,
-            (match) => {
-                listMatches.push(match);
-                // Thay thế nội dung list bằng một chuỗi ký hiệu đặc biệt để không bị hàm split cắt trúng
-                return `___LIST_PLACEHOLDER_${listMatches.length - 1}___`;
-            },
-        );
+        try {
+            const prompt = `Bạn là một chuyên gia chỉnh sửa và cấu trúc văn bản.
+Tôi có một khối văn bản dài (có thể chứa mã HTML). Hãy phân tích ngữ nghĩa và cấu trúc của nó, sau đó tách nó ra thành các đoạn văn ngắn gọn, dễ đọc, mạch lạc hơn theo đúng ngữ cảnh.
+Yêu cầu: 
+- Giữ nguyên tất cả các thẻ HTML (đặc biệt là <ul>, <ol>, <li>, <img>, <iframe>, <a>, <strong>, <em>, ...). 
+- KHÔNG làm mất bất kỳ thẻ HTML nào, KHÔNG làm mất chữ nào, KHÔNG tự ý bịa thêm nội dung, chỉ là chia nhỏ đoạn văn đó ra cho hợp lý.
+- Trả về dữ liệu dưới định dạng JSON với key là "paragraphs" có value là mảng các chuỗi (Array of Strings). Mỗi phần tử trong mảng là 1 đoạn văn sau khi tách.
+Ví dụ:
+{
+    "paragraphs": [
+        "Đoạn 1...",
+        "Đoạn 2..."
+    ]
+}
+Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown (\`\`\`json), không có giải thích.
+Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.
 
-        // BƯỚC 2: TÁCH ĐOẠN (như bình thường)
-        // Bây giờ trong text chỉ còn các placeholder, không còn các thẻ list chứa \n nữa
-        let parts = protectedContent.split(/<br\s*\/?>|\n/gi);
+Nội dung cần tách:
+${content}`;
 
-        // BƯỚC 3: KHÔI PHỤC VÀ LÀM SẠCH
-        parts = parts
-            .map((p) => p.trim()) // Cắt khoảng trắng thừa đầu đuôi
-            .map((p) => {
-                // Nếu đoạn text này chứa mã placeholder, hãy trả lại nội dung HTML gốc của list
-                // Lưu ý: Dùng replace để trả lại đúng vị trí
-                return p.replace(
-                    /___LIST_PLACEHOLDER_(\d+)___/g,
-                    (m, id) => listMatches[parseInt(id)],
-                );
-            })
-            .filter((p) => {
-                // Logic lọc dòng trống:
-
-                // 1. Nếu chuỗi rỗng hoàn toàn -> Bỏ
-                if (p.length === 0) return false;
-
-                // 2. Kiểm tra xem có phải là thẻ HTML rỗng vô nghĩa không (ví dụ <p>&nbsp;</p>)
-                // Xóa hết tag HTML để xem có text thật không
-                const textContent = p.replace(/<[^>]*>/g, '').trim();
-
-                // GIỮ LẠI NẾU:
-                // - Có text thuần
-                // - HOẶC là thẻ ảnh, video (iframe)
-                // - HOẶC là thẻ list (ul, ol) vừa khôi phục (quan trọng!)
-                return (
-                    textContent.length > 0 ||
-                    p.includes('<img') ||
-                    p.includes('<iframe') ||
-                    p.includes('<ul') ||
-                    p.includes('<ol')
-                );
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
-        // BƯỚC 4: LƯU KẾT QUẢ
-        if (parts.length > 0) {
-            data.splice(index, 1, ...parts);
-            this.toastr.success(`Đã tách thành ${parts.length} đoạn.`);
-        } else {
-            this.toastr.warning(`Không có nội dung để tách.`);
+            const jsonText = response.text;
+            if (jsonText) {
+                // Đôi khi AI vẫn trả về chuỗi bọc trong markdown code block
+                const cleanedJsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+                const result = JSON.parse(cleanedJsonText);
+                let parts = result.paragraphs;
+
+                if (parts && parts.length > 0) {
+                    data.splice(index, 1, ...parts);
+                    this.toastr.success(`Đã dùng AI tách thành ${parts.length} đoạn.`);
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.warning(`Không thể tách đoạn.`);
+                }
+            } else {
+                this.toastr.warning(`Không nhận được phản hồi từ AI.`);
+            }
+        } catch (error) {
+            console.error(error);
+            this.toastr.error(`Lỗi khi dùng AI tách đoạn.`);
+        } finally {
+            this.loading = false;
+            this.cd.markForCheck();
         }
     }
 
@@ -3488,6 +3480,29 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
         if (editor.thumbnail) {
             this.detectForm.get('step1').get('thumbnail').setValue(editor.thumbnail);
+
+            if (!this.source.img) {
+                this.source.img = [];
+            }
+            const thumbnails = editor.thumbnail.split('\n').filter((p: string) => p.trim() !== '');
+            thumbnails.forEach((thumb: string) => {
+                if (this.isImage(thumb)) {
+                    let cleanB64 = thumb;
+                    if (thumb.startsWith('data:image/')) {
+                        cleanB64 = thumb.replace(/;name=[^;]+;/, ';');
+                    }
+                    let exists = false;
+                    for (let i = 0; i < this.source.img.length; i++) {
+                        if (typeof this.source.img[i] === 'string' && (this.source.img[i].includes(cleanB64) || this.source.img[i].includes(thumb))) {
+                            exists = true;
+                            break;
+                        }
+                    }
+                    if (!exists) {
+                        this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${cleanB64}" /></p>`);
+                    }
+                }
+            });
         }
 
         if (this.seo.description && this.seo.description.text) {
@@ -4391,6 +4406,12 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     } else if (this.isImage(file.name) || (b64Key.includes('data:video')) || b64Key.startsWith('local-video:')) {
                         this.objectUrls[b64Key] = b64; // Hiển thị base64
                     }
+                    
+                    if (this.isImage(file.name) && b64Key.startsWith('data:image/')) {
+                        let cleanB64 = b64Key.replace(/;name=[^;]+;/, ';');
+                        this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${cleanB64}" /></p>`);
+                    }
+
                     return b64Key;
                 });
 
