@@ -121,6 +121,12 @@ export class SettingsAccountComponent implements OnInit {
                 language: this.accountForm.value['language'],
                 defaultlinks: this.accountForm.value['defaultlinks'],
                 port: this.accountForm.value['port'],
+                emailConfig_nodebbUrl: this.accountForm.value['emailConfig_nodebbUrl'],
+                emailConfig_nodebbToken: this.accountForm.value['emailConfig_nodebbToken'],
+                emailConfig_smtpHost: this.accountForm.value['emailConfig_smtpHost'],
+                emailConfig_smtpPort: this.accountForm.value['emailConfig_smtpPort'],
+                emailConfig_smtpUser: this.accountForm.value['emailConfig_smtpUser'],
+                emailConfig_smtpPass: this.accountForm.value['emailConfig_smtpPass'],
                 typelite_plugin: this.accountForm.value['typelite_plugin'],
                 chatbot: this.accountForm.value['chatbot'],
                 customer: this.accountForm.value['customer'],
@@ -333,6 +339,12 @@ export class SettingsAccountComponent implements OnInit {
 
         // Create the form
         this.accountForm = this._formBuilder.group({
+            emailConfig_nodebbUrl: [(settings && settings.emailConfig_nodebbUrl) ? settings.emailConfig_nodebbUrl : ''],
+            emailConfig_nodebbToken: [(settings && settings.emailConfig_nodebbToken) ? settings.emailConfig_nodebbToken : ''],
+            emailConfig_smtpHost: [(settings && settings.emailConfig_smtpHost) ? settings.emailConfig_smtpHost : ''],
+            emailConfig_smtpPort: [(settings && settings.emailConfig_smtpPort) ? settings.emailConfig_smtpPort : ''],
+            emailConfig_smtpUser: [(settings && settings.emailConfig_smtpUser) ? settings.emailConfig_smtpUser : ''],
+            emailConfig_smtpPass: [(settings && settings.emailConfig_smtpPass) ? settings.emailConfig_smtpPass : ''],
             saveimages: [(settings && settings.saveimages) ? settings.saveimages : false],
             statusTypeLite: [true],
             autosave: [(settings && settings.autosave) ? settings.autosave : false],

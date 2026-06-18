@@ -11,7 +11,12 @@
     <!-- CONTENT GOES HERE -->
     <ngx-datatable [virtualization]="true" #mydatatable class="material fullscreen" [headerHeight]="50"
         [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="true"
-        [scrollbarH]="false" [rows]="rows">
+        [scrollbarH]="false" [rows]="rows" [selected]="selected" [selectionType]="SelectionType.checkbox"
+        [selectAllRowsOnPage]="false" (select)="onSelect($event)">
+        <ngx-datatable-column [width]="50" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+            [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true">
+        </ngx-datatable-column>
+
         <ngx-datatable-column name="App ID" [sortable]="false" [canAutoResize]="false" [draggable]="false"
             [resizeable]="false" [width]="200">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
