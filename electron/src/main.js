@@ -5658,7 +5658,7 @@ ipcMain.handle('fetch-forum-users', async (event, config) => {
   }
 });
 
-ipcMain.handle('send-mass-emails', async (event, { subject, htmlContent, users, config }) => {
+ipcMain.handle('send-mass-emails', async (event, { senderName, subject, htmlContent, users, config }) => {
   try {
     const transporter = nodemailer.createTransport({
       host: config.smtpHost,
@@ -5670,32 +5670,46 @@ ipcMain.handle('send-mass-emails', async (event, { subject, htmlContent, users, 
       },
     });
 
-    let successCount = 0;
-    let failCount = 0;
+    // Chạy ngầm trong background
+    (async () => {
+        let successCount = 0;
+        let failCount = 0;
 
-    for (const user of users) {
-      try {
-        await transporter.sendMail({
-          from: `"Type.vn Admin" <${config.smtpUser}>`, 
-          to: user.email, 
-          subject: subject, 
-          html: `Chào <b>${user.username}</b>,<br><br>${htmlContent}` 
-        });
-        successCount++;
+        for (const user of users) {
+          try {
+            await transporter.sendMail({
+              from: `"${senderName || 'Type.vn Admin'}" <${config.smtpUser}>`, 
+              to: user.email, 
+              subject: subject, 
+              html: `Chào <b>${user.username}</b>,<br><br>${htmlContent}` 
+            });
+            successCount++;
+            
+            event.sender.send('send-email-progress', { 
+                status: 'sending', user: user.username, 
+                success: successCount, fail: failCount, total: users.length 
+            });
+
+          } catch (mailErr) {
+            failCount++;
+            event.sender.send('send-email-progress', { 
+                status: 'sending', user: user.username, 
+                success: successCount, fail: failCount, total: users.length 
+            });
+          }
+          
+          // Nghỉ ngẫu nhiên từ 5 đến 10 phút (300000ms đến 600000ms)
+          const delay = Math.floor(Math.random() * (600000 - 300000 + 1)) + 300000;
+          await new Promise(resolve => setTimeout(resolve, delay)); 
+        }
         
         event.sender.send('send-email-progress', { 
-            status: 'sending', user: user.username, 
+            status: 'done', 
             success: successCount, fail: failCount, total: users.length 
         });
+    })();
 
-      } catch (mailErr) {
-        failCount++;
-      }
-      
-      await new Promise(resolve => setTimeout(resolve, 1000)); 
-    }
-
-    return { success: true, message: `Hoàn tất! Gửi thành công: ${successCount}, Lỗi: ${failCount}` };
+    return { success: true, message: `Đã xếp ${users.length} email vào hàng chờ gửi ngầm.` };
   } catch (error) {
     return { success: false, error: error.message };
   }

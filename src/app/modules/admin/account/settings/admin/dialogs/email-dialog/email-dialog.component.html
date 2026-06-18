@@ -1,0 +1,30 @@
+<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
+    <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>
+    <mat-label class="self-center">Soạn Email Gửi Hàng Loạt</mat-label>
+</div>
+
+<div mat-dialog-content class="mt-4 p-0">
+    <p class="text-blue-500 font-semibold mb-4">Bạn đang chọn {{ selectedCount }} thành viên để gửi.</p>
+    
+    <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+        <mat-label>Tên người gửi</mat-label>
+        <input matInput [(ngModel)]="emailComposer.senderName" placeholder="Ví dụ: Ban Quản Trị Type.vn" required>
+    </mat-form-field>
+
+    <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+        <mat-label>Tiêu đề Email</mat-label>
+        <input matInput [(ngModel)]="emailComposer.subject" placeholder="Nhập tiêu đề..." required>
+    </mat-form-field>
+
+    <mat-form-field class="w-full mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+        <mat-label>Nội dung Email (Hỗ trợ HTML)</mat-label>
+        <textarea class="max-h-60 min-h-20 px-2" matInput [(ngModel)]="emailComposer.content" placeholder="Nhập nội dung thư..." required cdkTextareaAutosize></textarea>
+    </mat-form-field>
+</div>
+
+<div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
+    <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
+    <button mat-flat-button color="primary" (click)="submit()" [disabled]="!emailComposer.subject || !emailComposer.content">
+        Gửi Email
+    </button>
+</div>

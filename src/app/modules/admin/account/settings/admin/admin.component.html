@@ -211,10 +211,6 @@
                 <div class="flex items-center justify-between mb-4 mt-6">
                     <div class="text-secondary leading-8">
                         <p class="font-semibold text-lg">Gửi Email tới Thành viên Type.VN</p>
-                        <div class="text-base flex gap-2">
-                            <span>Tổng số: <b>{{ forumUsers.length }}</b></span>
-                            <span *ngIf="forumSelected.length > 0" class="text-primary">• Đang chọn: <b>{{ forumSelected.length }}</b></span>
-                        </div>
                     </div>
                     <div class="flex gap-2">
                         <button *ngIf="forumSelected.length > 0" mat-flat-button color="primary"

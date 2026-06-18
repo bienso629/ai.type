@@ -156,8 +156,8 @@
                                     </button>
                                     <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
                                         accept="image/*,video/*" multiple>
-                                    <input #replaceFileInput type="file" class="hidden" (change)="onThumbnailReplaced($event)"
-                                        accept="image/*,video/*">
+                                    <input #replaceFileInput type="file" class="hidden"
+                                        (change)="onThumbnailReplaced($event)" accept="image/*,video/*">
                                 </div>
 
                                 <div class="flex flex-col p-2 rounded-xl border border-dashed border-gray-10"
@@ -191,13 +191,14 @@
                                         </div>
                                         <div class="flex items-center gap-1">
                                             <button (click)="replaceThumbnailIndex = i; replaceFileInput.click()"
-                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-blue-50 text-blue-500 transition-colors focus:outline-none" type="button"
-                                                matTooltip="Thay thế file này">
-                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-blue-50 text-blue-500 transition-colors focus:outline-none"
+                                                type="button" matTooltip="Thay thế file này">
+                                                <mat-icon class="icon-size-4"
+                                                    [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                             </button>
                                             <button (click)="removeThumbnail(i)"
-                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 text-red-500 transition-colors focus:outline-none" type="button"
-                                                matTooltip="Xoá file này">
+                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 text-red-500 transition-colors focus:outline-none"
+                                                type="button" matTooltip="Xoá file này">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                                             </button>
                                         </div>
@@ -658,14 +659,46 @@
                                                     matTooltipPosition="above" matTooltip="Thêm prompt mới"
                                                     (click)="createPrompt()">thêm</mat-label> -->
 
+                                                <input type="file" class="hidden" multiple accept="*/*"
+                                                    (change)="uploadFilesToPrompt($event)" #fileUploadPrompt>
                                                 <button mat-icon-button class="ml-auto icon-size-8"
-                                                    (click)="createPrompt()" matTooltipPosition="above"
-                                                    matTooltip="Thêm prompt mới">
+                                                    (click)="fileUploadPrompt.click(); $event.stopPropagation()"
+                                                    matTooltipPosition="above" matTooltip="Đính kèm tệp">
+                                                    <mat-icon class="icon-size-4 text-primary"
+                                                        [svgIcon]="'feather:paperclip'"></mat-icon>
+                                                </button>
+
+                                                <button mat-icon-button class="icon-size-8"
+                                                    (click)="processPromptWithFiles($event); $event.stopPropagation()"
+                                                    matTooltipPosition="above" matTooltip="Yêu cầu AI làm việc ngay">
+                                                    <mat-icon class="icon-size-4 text-primary"
+                                                        [svgIcon]="'feather:send'"></mat-icon>
+                                                </button>
+
+                                                <button mat-icon-button class="icon-size-8"
+                                                    (click)="createPrompt(); $event.stopPropagation()"
+                                                    matTooltipPosition="above" matTooltip="Thêm prompt mới">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
                                             </mat-panel-title>
                                         </mat-expansion-panel-header>
+
+                                        <div *ngIf="attachedFiles.length > 0"
+                                            class="flex flex-wrap items-center gap-2 px-2 py-1 mb-2">
+                                            <div *ngFor="let file of attachedFiles; let i = index"
+                                                class="flex items-center bg-blue-100 text-blue-700 px-3 py-1 rounded-full text-sm">
+                                                <mat-icon class="icon-size-4 mr-1"
+                                                    [svgIcon]="'feather:paperclip'"></mat-icon>
+                                                <span class="truncate max-w-40 font-medium"
+                                                    [title]="file.name">{{file.name}}</span>
+                                                <button mat-icon-button
+                                                    class="icon-size-5 ml-1 flex items-center justify-center"
+                                                    (click)="removeAttachedFile(i)">
+                                                    <mat-icon class="icon-size-3" [svgIcon]="'feather:x'"></mat-icon>
+                                                </button>
+                                            </div>
+                                        </div>
 
                                         <div cdkDropList #promptList="cdkDropList" [cdkDropListData]="source.prompt"
                                             [cdkDropListConnectedTo]="[doneList]" class="example-list prompt"
@@ -936,7 +969,8 @@
 
                                                 <div class="ml-auto flex items-center justify-end"
                                                     (click)="$event.stopPropagation()">
-                                                    <span class="text-xs font-medium text-gray-500 mr-2">Chất lượng bài viết:</span>
+                                                    <span class="text-xs font-medium text-gray-500 mr-2">Chất lượng bài
+                                                        viết:</span>
                                                     <input type="number" [(ngModel)]="videoExtractInterval" min="0.1"
                                                         max="60" step="0.5"
                                                         class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
