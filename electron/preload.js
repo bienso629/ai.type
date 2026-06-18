@@ -78,6 +78,18 @@ contextBridge.exposeInMainWorld('electron', {
 });
 
 // ... (Phần DREAMINA AUTO-DOWNLOAD giữ nguyên) ...
+
+/** ====== CẤU HÌNH NODEBB EMAIL ====== */
+contextBridge.exposeInMainWorld('electronAPI', {
+    fetchForumUsers: (config) => ipcRenderer.invoke('fetch-forum-users', config),
+    sendMassEmails: (data) => ipcRenderer.invoke('send-mass-emails', data),
+    onEmailProgress: (callback) => {
+        const listener = (_event, data) => callback(data);
+        ipcRenderer.on('send-email-progress', listener);
+        return () => ipcRenderer.removeListener('send-email-progress', listener);
+    }
+});
+
 // Tìm đoạn IIFE Dreamina trong preload.js và thay thế bằng logic này:
 (() => {
     const dbg = (msg) => { try { ipcRenderer.send('dreamina:debug', `[Preload-Click] ${msg}`); } catch { } };

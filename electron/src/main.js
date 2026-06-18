@@ -5619,6 +5619,89 @@ ipcMain.handle('open-external', async (event, targetPath) => {
         return { success: false, error: e.message };
     }
 });
+
+// --- NODEBB EMAIL SENDER SERVICES ---
+const axios = require('axios');
+const nodemailer = require('nodemailer');
+
+ipcMain.handle('fetch-forum-users', async (event, config) => {
+  try {
+    const NODEBB_URL = config.nodebbUrl;
+    const ADMIN_TOKEN = config.nodebbToken;
+    let allUsers = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    do {
+      // Dùng API admin để lấy được email của thành viên, cần truyền _uid=1 để xác thực Master Token
+      const response = await axios.get(`${NODEBB_URL}/api/admin/manage/users?_uid=1&page=${currentPage}`, {
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+      });
+      // Phản hồi của /api/admin/manage/users
+      const responseData = response.data.response || response.data;
+      totalPages = responseData.pagination ? responseData.pagination.pageCount : 1;
+      
+      const userList = responseData.users || [];
+      for (const user of userList) {
+        if (user.email) allUsers.push(user);
+      }
+      currentPage++;
+    } while (currentPage <= totalPages);
+
+    return { success: true, users: allUsers };
+  } catch (error) {
+    let errorMsg = error.message;
+    if (error.response && error.response.data) {
+        errorMsg += ' - Detail: ' + JSON.stringify(error.response.data);
+    }
+    return { success: false, error: errorMsg };
+  }
+});
+
+ipcMain.handle('send-mass-emails', async (event, { subject, htmlContent, users, config }) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.smtpHost,
+      port: config.smtpPort,
+      secure: config.smtpPort === 465, // Port 465 thì secure, 587 thì không
+      auth: {
+        user: config.smtpUser,
+        pass: config.smtpPass,
+      },
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const user of users) {
+      try {
+        await transporter.sendMail({
+          from: `"Type.vn Admin" <${config.smtpUser}>`, 
+          to: user.email, 
+          subject: subject, 
+          html: `Chào <b>${user.username}</b>,<br><br>${htmlContent}` 
+        });
+        successCount++;
+        
+        event.sender.send('send-email-progress', { 
+            status: 'sending', user: user.username, 
+            success: successCount, fail: failCount, total: users.length 
+        });
+
+      } catch (mailErr) {
+        failCount++;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000)); 
+    }
+
+    return { success: true, message: `Hoàn tất! Gửi thành công: ${successCount}, Lỗi: ${failCount}` };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+// ------------------------------------
+
 // --- B?T Ð?U CRM SERVICES ---
 let crmPhpProcess = null;
 let crmMariaDbProcess = null;

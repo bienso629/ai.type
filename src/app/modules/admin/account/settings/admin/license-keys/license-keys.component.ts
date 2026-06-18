@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ColumnMode } from '@swimlane/ngx-datatable';
+import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { LicenseKeyService } from 'app/modules/_services/licensekey';
@@ -35,6 +35,12 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
     domains: any[] = [];
 
     ColumnMode = ColumnMode;
+    SelectionType = SelectionType;
+    selected = [];
+
+    onSelect({ selected }) {
+        this.selected = selected;
+    }
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
