@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { EmailDialogComponent } from './dialogs/email-dialog/email-dialog.component';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
@@ -71,7 +73,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         private _n8nService: N8nService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _matDialog: MatDialog
     ) {
         this.titleService.setTitle(`admin | ai.type - công cụ tạo content`);
     }
@@ -212,61 +215,60 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             return;
         }
 
-        const dialogRef = this._fuseConfirmationService.open({
-            title: 'Gửi Email',
-            message: `Bạn chuẩn bị gửi email đến <span class="font-semibold text-blue-500">${this.forumSelected.length}</span> thành viên đã chọn.<br>Tiếp tục?`,
-            icon: { show: true, name: 'feather:mail', color: 'primary' },
-            actions: {
-                confirm: { show: true, label: 'Bắt đầu gửi', color: 'primary' },
-                cancel: { show: true, label: 'Hủy' }
-            },
-            dismissible: true
+        // Mở dialog soạn thảo email
+        const dialogRef = this._matDialog.open(EmailDialogComponent, {
+            width: '600px',
+            disableClose: true,
+            data: { selectedCount: this.forumSelected.length }
         });
 
         dialogRef.afterClosed().subscribe(async (result) => {
-            if (result === 'confirmed') {
-                this.isSendingEmail = true;
-                this.emailSuccess = 0;
-                this.emailFail = 0;
-                this.emailTotal = this.forumSelected.length;
-                this.emailProgressStatus = 'Bắt đầu...';
-                this.cd.markForCheck();
-
-                const mailData = {
-                    subject: "Thông báo từ Ban Quản Trị Type.vn",
-                    htmlContent: "Đây là nội dung thử nghiệm gửi từ hệ thống Admin."
-                };
-
-                const settings = this.multiAccountService.getItem('settings') || {};
-                const emailConfig = {
-                    nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
-                    nodebbToken: settings.emailConfig_nodebbToken || '',
-                    smtpHost: settings.emailConfig_smtpHost || 'smtp.gmail.com',
-                    smtpPort: parseInt(settings.emailConfig_smtpPort || '587', 10),
-                    smtpUser: settings.emailConfig_smtpUser || '',
-                    smtpPass: settings.emailConfig_smtpPass || ''
-                };
-
-                try {
-                    const res = await (window as any).electronAPI.sendMassEmails({
-                        ...mailData,
-                        users: this.forumSelected, // Truyền danh sách được chọn xuống Main Process
-                        config: emailConfig // Truyền config bảo mật xuống Main Process
-                    });
-
-                    if (res.success) {
-                        this.toastr.success(res.message);
-                    } else {
-                        this.toastr.error("Có lỗi xảy ra: " + res.error);
-                    }
-                } catch (error) {
-                    this.toastr.error("Lỗi: " + error.message);
-                }
-
-                this.isSendingEmail = false;
-                this.cd.markForCheck();
+            if (result) {
+                await this.confirmSendEmail(result);
             }
         });
+    }
+
+    async confirmSendEmail(emailComposer: any) {
+        this.isSendingEmail = true;
+        this.emailSuccess = 0;
+        this.emailFail = 0;
+        this.emailTotal = this.forumSelected.length;
+        this.emailProgressStatus = 'Bắt đầu...';
+        this.cd.markForCheck();
+
+        const settings = this.multiAccountService.getItem('settings') || {};
+        const emailConfig = {
+            nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
+            nodebbToken: settings.emailConfig_nodebbToken || '',
+            smtpHost: settings.emailConfig_smtpHost || 'smtp.gmail.com',
+            smtpPort: parseInt(settings.emailConfig_smtpPort || '587', 10),
+            smtpUser: settings.emailConfig_smtpUser || '',
+            smtpPass: settings.emailConfig_smtpPass || ''
+        };
+
+        try {
+            const result = await (window as any).electronAPI.sendMassEmails({
+                senderName: emailComposer.senderName,
+                subject: emailComposer.subject,
+                htmlContent: emailComposer.content,
+                users: this.forumSelected,
+                config: emailConfig
+            });
+
+            if (result && result.success) {
+                this.toastr.success(result.message);
+                this.emailProgressStatus = result.message;
+            } else {
+                this.toastr.error('Lỗi khi gửi email: ' + (result?.error || 'Unknown'));
+                this.isSendingEmail = false;
+            }
+        } catch (error) {
+            this.toastr.error('Lỗi kết nối Electron: ' + error.message);
+            this.isSendingEmail = false;
+        }
+
+        this.cd.markForCheck();
     }
 
     renderStatistic(user: any) {

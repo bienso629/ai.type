@@ -1113,13 +1113,17 @@ ${content}`;
             }
         } catch (e) { }
 
-        const dialogRef = this.dialog.open(GeminiImageDialog, {
-            width: '680px',
-        });
+        let prompt = '';
+        if (this.source.prompt && this.source.prompt.length > 0) {
+            prompt = this.source.prompt.join('. ');
+            if (this.removeHTML) prompt = this.removeHTML.transform(prompt);
+        }
 
-        dialogRef.afterClosed().subscribe((result) => {
-            if (result && result.data) {
-                const prompt = result.data;
+        if (!prompt.trim()) {
+            prompt = 'Mô tả chi tiết và sinh động bức ảnh này';
+        }
+
+        this.toastr.info('Đang phân tích hình ảnh và viết blog...', 'Đợi chút nhé');
 
                 this._blogService
                     .uploadImage({
@@ -1186,8 +1190,6 @@ ${content}`;
 
                 // lam moi lai giao dien
                 this.cd.markForCheck();
-            }
-        });
     }
 
     loadingDreamina: { [key: number]: boolean } = {};
@@ -1494,6 +1496,139 @@ ${content}`;
         this.source.prompt.push(`<p id="source-prompt-${uuid.v4()}"></p>`);
         const lastIndex = this.source.prompt.length - 1;
         this.edit(this.source.prompt, lastIndex);
+    }
+
+    attachedFiles: File[] = [];
+
+    uploadFilesToPrompt(e: any) {
+        const files: FileList = e.target.files;
+        if (files && files.length > 0) {
+            Array.from(files).forEach((file: File) => {
+                this.attachedFiles.push(file);
+            });
+            this.toastr.success('Đã đính kèm tệp thành công. Bạn có thể yêu cầu AI làm việc ngay.');
+        }
+    }
+
+    async processPromptWithFiles(event?: any) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        let promptText = '';
+        if (this.source.prompt && this.source.prompt.length > 0) {
+            promptText = this.source.prompt.join('. ');
+            if (this.removeHTML) promptText = this.removeHTML.transform(promptText) || '';
+        }
+
+        if (!(promptText || '').trim() && (!this.attachedFiles || this.attachedFiles.length === 0)) {
+            this.toastr.warning('Bạn cần nhập prompt hoặc đính kèm tệp để AI làm việc.');
+            return;
+        }
+
+        if (!this.source.text) {
+            this.source.text = [];
+        }
+
+        this.loading = true;
+        this.toastr.info('AI đang xử lý yêu cầu của bạn...', 'Đợi chút nhé');
+
+        const styleGuide = this.style ? ` Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}).` : '';
+        try {
+            let promptTextAccumulator = (promptText || '') + styleGuide + `\nTrình bày câu trả lời của bạn dưới định dạng JSON với key là "contents", value là một mảng các đoạn văn. Không dùng markdown.`;
+            let parts: any[] = [];
+            
+            if (this.attachedFiles.length > 0) {
+                const uploadPromises = this.attachedFiles.map(
+                    (file: File) => new Promise<any>((resolve, reject) => {
+                        const isText = file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv') || file.name.endsWith('.json');
+                        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+
+                        const reader = new FileReader();
+                        if (isText) {
+                            reader.onload = (e: any) => {
+                                resolve({ type: 'text', content: `\n--- Nội dung file ${file.name} ---\n${e.target.result}\n--- Hết file ---` });
+                            };
+                            reader.onerror = reject;
+                            reader.readAsText(file);
+                        } else {
+                            reader.onload = (e: any) => {
+                                const base64Data = e.target.result.split(',')[1];
+                                let mimeType = file.type;
+                                if (!mimeType) {
+                                    if (file.name.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+                                    else if (isPdf) mimeType = 'application/pdf';
+                                    else mimeType = 'image/jpeg';
+                                }
+                                resolve({
+                                    type: 'image',
+                                    inlineData: {
+                                        mimeType: mimeType,
+                                        data: base64Data
+                                    }
+                                });
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        }
+                    })
+                );
+                
+                const fileResults = await Promise.all(uploadPromises);
+                for (const res of fileResults) {
+                    if (res.type === 'text') {
+                        promptTextAccumulator += res.content;
+                    } else if (res.type === 'image') {
+                        parts.push({ inlineData: res.inlineData });
+                    }
+                }
+            }
+            
+            // Add the combined text as the first part
+            parts.unshift({ text: promptTextAccumulator });
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: parts }],
+            });
+
+            const jsonText = response.text;
+            if (jsonText) {
+                try {
+                    const data = JSON.parse(jsonText);
+                    if (data.contents && Array.isArray(data.contents)) {
+                        data.contents.forEach((text: string) => {
+                            this.source.text.push(`<p id="source-p-${uuid.v4()}">${text}</p>`);
+                        });
+                        this.toastr.success('AI đã hoàn thành công việc!');
+                        this.attachedFiles = [];
+                        this.cd.markForCheck();
+                    } else {
+                        // Fallback if no contents array
+                        this.source.text.push(`<p id="source-p-${uuid.v4()}">${jsonText}</p>`);
+                        this.toastr.success('AI đã hoàn thành công việc!');
+                        this.attachedFiles = [];
+                        this.cd.markForCheck();
+                    }
+                } catch(e) {
+                    this.source.text.push(`<p id="source-p-${uuid.v4()}">${jsonText}</p>`);
+                    this.toastr.success('AI đã hoàn thành công việc!');
+                    this.attachedFiles = [];
+                    this.cd.markForCheck();
+                }
+            }
+        } catch (error: any) {
+            console.error('Lỗi khi gửi AI: ', error);
+            this.toastr.error('Có lỗi xảy ra: ' + (error?.message || 'Không thể kết nối tới AI.'));
+        } finally {
+            this.loading = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    removeAttachedFile(index: number) {
+        this.attachedFiles.splice(index, 1);
     }
 
     /**
@@ -2717,13 +2852,15 @@ ${content}`;
                     title: this.detectForm.get('step1').get('title').value,
                     content: formattedContent,
                     excerpt: this.detectForm.get('step1').get('description').value,
-                    thumbnail: this.detectForm.get('step1').get('thumbnail').value
+                    thumbnail: this.detectForm.get('step1').get('thumbnail').value,
+                    force_update_thumbnail: (this as any).isThumbnailChanged || false
                 };
 
                 this._wordpressService.update_post(wpData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                     next: (res) => {
                         // Because wordpress.ts swallows errors returning empty array [], we check for it
                         if (res && res.id) {
+                            (this as any).isThumbnailChanged = false; // Reset the flag after successful upload
                             this.toastr.success(`Đã đồng bộ bài viết ${res.id} lên WordPress thành công!`);
                         } else {
                             this.toastr.error(`Đồng bộ bài viết ${postId} thất bại, vui lòng kiểm tra lại quyền truy cập.`);
@@ -4303,10 +4440,50 @@ ${content}`;
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
+                        
+                        // Fill white background in case it's a transparent PNG converted to JPEG
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        const result = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.85);
-                        const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
+                        let mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+                        let quality = 0.85;
+                        let result = canvas.toDataURL(mimeType, quality);
+                        
+                        const getBytes = (b64: string) => Math.round((b64.split(',')[1] || b64).length * 3 / 4);
+                        const MAX_SIZE_BYTES = 200 * 1024; // 200KB
+                        
+                        if (getBytes(result) > MAX_SIZE_BYTES) {
+                            mimeType = 'image/jpeg'; // Convert to JPEG for better compression
+                            result = canvas.toDataURL(mimeType, quality);
+                            
+                            while (getBytes(result) > MAX_SIZE_BYTES && quality > 0.1) {
+                                quality -= 0.15;
+                                
+                                // If quality drops too low but size is still big, scale down further
+                                if (quality <= 0.3 && getBytes(result) > MAX_SIZE_BYTES) {
+                                    width *= 0.75;
+                                    height *= 0.75;
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                    
+                                    ctx.fillStyle = '#FFFFFF';
+                                    ctx.fillRect(0, 0, width, height);
+                                    ctx.drawImage(img, 0, 0, width, height);
+                                    
+                                    quality = 0.7; // Reset quality slightly after resize
+                                }
+                                
+                                result = canvas.toDataURL(mimeType, Math.max(0.1, quality));
+                            }
+                        }
+
+                        let finalName = file.name;
+                        if (mimeType === 'image/jpeg' && finalName.toLowerCase().endsWith('.png')) {
+                            finalName = finalName.replace(/\.png$/i, '.jpg');
+                        }
+                        
+                        const nameParam = `;name=${encodeURIComponent(finalName)};base64,`;
                         const modifiedResult = result.replace(/;?base64,/, nameParam);
                         resolve(modifiedResult);
                     };
@@ -4383,6 +4560,7 @@ ${content}`;
                 }
 
                 this.detectForm.get('step1').get('thumbnail').setValue(thumbnails.join('\n'));
+                (this as any).isThumbnailChanged = true;
                 this.update(false); // Lưu ngay lập tức
                 this.toastr.success(`Đã thay thế tệp thành công!`);
                 this.cd.markForCheck();
@@ -4419,6 +4597,7 @@ ${content}`;
                 const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
 
                 this.detectForm.get('step1').get('thumbnail').setValue(newValue);
+                (this as any).isThumbnailChanged = true;
                 this.update(false); // Lưu ngay lập tức
                 this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
                 this.cd.markForCheck();
