@@ -10,8 +10,7 @@
                     <div class="text-secondary leading-8">
                         <p class="font-semibold text-lg">Quản lý Automation Workflows</p>
                         <div class="text-base flex gap-2">
-                            <span>Tổng số: <b>{{ n8nWorkflows.length }}</b></span>
-                            <span *ngIf="n8nSelected.length > 0" class="text-primary">• Đang chọn: <b>{{
+                            <span *ngIf="n8nSelected.length > 0" class="text-primary">Đang chọn: <b>{{
                                     n8nSelected.length }}</b></span>
                         </div>
                     </div>
@@ -33,7 +32,7 @@
                     </div>
                 </div>
 
-                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="true"
+                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="false"
                     [rows]="n8nWorkflows" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
                     rowHeight="50" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="n8nSelected"
                     [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
@@ -138,7 +137,7 @@
                 </div>
             </div>
 
-            <ngx-datatable [virtualization]="true" class="material fullscreen" [selected]="selected"
+            <ngx-datatable [virtualization]="false" class="material fullscreen" [selected]="selected"
                 [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false" [displayCheck]="displayCheck"
                 (select)="onSelect($event)" class="material border rounded-lg mt-4 shadow-none" [headerHeight]="50"
                 [columnMode]="ColumnMode.force" [footerHeight]="70" [limit]="10" rowHeight="auto" [rows]="users">
@@ -208,11 +207,16 @@
 
         <mat-tab label="Gửi Email">
             <div class="w-full">
-                <div class="flex items-center justify-between mb-4 mt-6">
+                <div class="flex items-center justify-between">
                     <div class="text-secondary leading-8">
                         <p class="font-semibold text-lg">Gửi Email tới Thành viên Type.VN</p>
                     </div>
                     <div class="flex gap-2">
+                        <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-64">
+                            <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
+                            <input matInput [placeholder]="'Tìm kiếm theo tên hoặc email'" (keyup)="filterForumUsers($event)">
+                        </mat-form-field>
+
                         <button *ngIf="forumSelected.length > 0" mat-flat-button color="primary"
                             (click)="sendEmailToSelected()" [disabled]="isSendingEmail">
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
@@ -231,7 +235,7 @@
                     <mat-progress-bar mode="determinate" [value]="(emailSuccess + emailFail) / emailTotal * 100"></mat-progress-bar>
                 </div>
 
-                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="true"
+                <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="false"
                     [rows]="forumUsers" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
                     rowHeight="50" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="forumSelected"
                     [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"

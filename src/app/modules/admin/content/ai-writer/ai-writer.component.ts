@@ -1863,7 +1863,11 @@ ${content}`;
 
                 let result: any;
                 try {
-                    result = await electronApi.invoke('analyze-video-local', { url: content, extractInterval: this.videoExtractInterval });
+                    result = await electronApi.invoke('analyze-video-local', { 
+                        url: content, 
+                        extractInterval: this.videoExtractInterval,
+                        customCookies: this.settings?.customCookies
+                    });
                 } finally {
                     if (unsubscribeLog) unsubscribeLog();
                 }

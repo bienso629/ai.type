@@ -1776,7 +1776,7 @@ function createTargetWindow(
     url,
     callback,
     uniqueID,
-    winWidth = 600,
+    winWidth = 1000,
     winHeight = 800,
 ) {
     if (targetWindow && !targetWindow.isDestroyed()) {
@@ -5094,6 +5094,40 @@ ipcMain.handle('download-video', async (event, payload) => {
             if (binaries.ffmpeg) {
                 args.push('--ffmpeg-location', binaries.ffmpeg);
             }
+
+            // Bổ sung cookie từ giao diện người dùng cấu hình
+            const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
+            if (payload.customCookies && payload.customCookies.trim().length > 0) {
+                try {
+                    const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
+                    fs.writeFileSync(tempCookiePath, payload.customCookies, 'utf8');
+                    if (!isFacebook) args.push('--cookies', tempCookiePath);
+                } catch (err) {
+                    console.error("Lỗi ghi file cookies tạm", err);
+                }
+            } else {
+                const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+                if (fs.existsSync(cookiesJsonPath)) {
+                    try {
+                        const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
+                        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                        if (!isFacebook) args.push('--cookies', tempCookiePath);
+                    } catch (err) {
+                        console.error("Lỗi đọc file cookies.json", err);
+                    }
+                }
+            }
+
             args.push(url);
 
             await new Promise((resolve, reject) => {
@@ -5290,35 +5324,40 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
             }
 
-            // Bổ sung cookie từ trình duyệt Chrome đối với Facebook để tránh bị chặn
-            const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
-            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
-
+            // Bổ sung cookie từ giao diện người dùng cấu hình
             let hasCustomCookies = false;
-
             const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
 
-            if (fs.existsSync(cookiesTxtPath)) {
-                if (!isFacebook) ytdlpArgs.push('--cookies', cookiesTxtPath);
-                hasCustomCookies = true;
-            } else if (fs.existsSync(cookiesJsonPath)) {
+            if (payload.customCookies && payload.customCookies.trim().length > 0) {
                 try {
-                    const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
-                    let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
-                    for (const c of cookiesData) {
-                        let domain = c.domain || '';
-                        let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                        let cPath = c.path || '/';
-                        let secure = c.secure ? 'TRUE' : 'FALSE';
-                        let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                        netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
-                    }
                     const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
-                    fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                    fs.writeFileSync(tempCookiePath, payload.customCookies, 'utf8');
                     if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
                     hasCustomCookies = true;
                 } catch (err) {
-                    console.error("Lỗi đọc file cookies.json", err);
+                    console.error("Lỗi ghi file cookies tạm", err);
+                }
+            } else {
+                const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+                if (fs.existsSync(cookiesJsonPath)) {
+                    try {
+                        const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
+                        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                        if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
+                        hasCustomCookies = true;
+                    } catch (err) {
+                        console.error("Lỗi đọc file cookies.json", err);
+                    }
                 }
             }
 

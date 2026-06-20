@@ -15,6 +15,8 @@ import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { EmailDialogComponent } from 'app/modules/admin/account/settings/admin/dialogs/email-dialog/email-dialog.component';
 
 @Component({
     selector: 'license-keys',
@@ -32,6 +34,7 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
 
     editing = {};
     rows = [];
+    tempRows = [];
     domains: any[] = [];
 
     ColumnMode = ColumnMode;
@@ -161,6 +164,7 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success) {
                         this.rows = result.data;
+                        this.tempRows = [...result.data];
                         this.rows = [...this.rows];
 
                         // lam moi lai giao dien
@@ -172,6 +176,21 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
                 complete: () => {
                 }
             });
+    }
+
+    filterData(event: any) {
+        const val = event.target.value.toLowerCase();
+
+        // filter our data
+        const temp = this.tempRows.filter(function (d) {
+            const nameMatch = d.info?.customerName?.toLowerCase().indexOf(val) !== -1;
+            const emailMatch = d.info?.email?.toLowerCase().indexOf(val) !== -1;
+            return nameMatch || emailMatch || !val;
+        });
+
+        // update the rows
+        this.rows = temp;
+        this.cd.markForCheck();
     }
 
     getRowHeight(row: any) {
@@ -256,6 +275,7 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         public dialog: MatDialog,
+        private multiAccountService: MultiAccountService,
         private cd: ChangeDetectorRef) {
         this.titleService.setTitle(`key hoạt động của app | ai.type - công cụ tạo content`);
 
@@ -296,6 +316,72 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
         // Unsubscribe from all subscriptions
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
+    }
+
+    async sendMail(row: any) {
+        if (!(window as any).electronAPI || !(window as any).electronAPI.sendMassEmails) {
+            this.toastr.error('Chưa kết nối được với hệ thống Electron.');
+            return;
+        }
+
+        const expDate = new Date(row.expirationDate).toLocaleDateString('vi-VN');
+
+        const defaultContent = `Chào ${row.info.customerName},<br><br>
+Thông tin phần mềm của bạn:<br>
+- Người mua: ${row.info.customerName}<br>
+- App ID: ${row.appId}<br>
+- Version: ${row.appVersion}<br>
+- Ngày hết hạn: ${expDate}<br>
+- License Key: ${row.licenseKey}<br><br>
+Cảm ơn bạn đã sử dụng dịch vụ của chúng tôi!`;
+
+        const dialogRef = this.dialog.open(EmailDialogComponent, {
+            width: '600px',
+            disableClose: true,
+            data: { 
+                selectedCount: 1,
+                subject: `Thông tin License Key - App ID: ${row.appId}`,
+                content: defaultContent
+            }
+        });
+
+        dialogRef.afterClosed().subscribe(async (emailComposer) => {
+            if (emailComposer) {
+                const settings = this.multiAccountService.getItem('settings') || {};
+                const emailConfig = {
+                    nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
+                    nodebbToken: settings.emailConfig_nodebbToken || '',
+                    smtpHost: settings.emailConfig_smtpHost || 'smtp.gmail.com',
+                    smtpPort: parseInt(settings.emailConfig_smtpPort || '587', 10),
+                    smtpUser: settings.emailConfig_smtpUser || '',
+                    smtpPass: settings.emailConfig_smtpPass || ''
+                };
+
+                const userPayload = {
+                    email: row.info.email,
+                    username: row.info.customerName,
+                    uid: row.appId
+                };
+
+                try {
+                    const result = await (window as any).electronAPI.sendMassEmails({
+                        senderName: emailComposer.senderName,
+                        subject: emailComposer.subject,
+                        htmlContent: emailComposer.content,
+                        users: [userPayload],
+                        config: emailConfig
+                    });
+
+                    if (result && result.success) {
+                        this.toastr.success(result.message);
+                    } else {
+                        this.toastr.error('Lỗi khi gửi email: ' + (result?.error || 'Unknown'));
+                    }
+                } catch (error) {
+                    this.toastr.error('Lỗi kết nối Electron: ' + error.message);
+                }
+            }
+        });
     }
 
     error(message?: string) {

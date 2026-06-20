@@ -1,16 +1,21 @@
 <!-- Header -->
-<div class="flex flex-row pb-2 border-b">
+<div class="flex flex-row items-center justify-between pb-2 border-b">
     <a mat-flat-button (click)="addNewForm()" [color]="'primary'">
         <mat-icon class="icon-size-4" [svgIcon]="'feather:plus-circle'"></mat-icon>
         <mat-label class="ml-2 text-base">Thêm mới License Key</mat-label>
     </a>
+
+    <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-64">
+        <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
+        <input matInput [placeholder]="'Tìm kiếm theo tên hoặc email'" (keyup)="filterData($event)">
+    </mat-form-field>
 </div>
 
 <!-- Main -->
 <div class="flex-auto overflow-y-auto min-h-100 relative">
     <!-- CONTENT GOES HERE -->
-    <ngx-datatable [virtualization]="true" #mydatatable class="material fullscreen" [headerHeight]="50"
-        [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="true"
+    <ngx-datatable [virtualization]="false" #mydatatable class="material fullscreen" [headerHeight]="50"
+        [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="false"
         [scrollbarH]="false" [rows]="rows" [selected]="selected" [selectionType]="SelectionType.checkbox"
         [selectAllRowsOnPage]="false" (select)="onSelect($event)">
         <ngx-datatable-column [width]="50" [sortable]="false" [canAutoResize]="false" [draggable]="false"
@@ -73,7 +78,7 @@
         </ngx-datatable-column>
 
         <ngx-datatable-column name="Tính năng" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-            [resizeable]="false" [width]="200">
+            [resizeable]="false" [width]="300">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 <div class="flex items-center justify-self-stretch">
                     <mat-label *ngIf="row.activationInfo | checkExpirationDate : row.expirationDate"
@@ -87,6 +92,12 @@
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
                         (click)="clone(row)">
                         Sao chép
+                    </mat-label>
+
+                    <mat-label matTooltipPosition="above" matTooltip="Gửi email cho người mua"
+                        class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white mr-2"
+                        (click)="sendMail(row)">
+                        Gửi mail
                     </mat-label>
                 </div>
             </ng-template>

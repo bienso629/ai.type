@@ -49,6 +49,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
 
     // --- BIẾN CHO TÍNH NĂNG NODEBB EMAIL ---
     forumUsers: any[] = [];
+    tempForumUsers: any[] = [];
     forumSelected: any[] = [];
     isSendingEmail: boolean = false;
     emailProgressStatus: string = '';
@@ -196,6 +197,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             const result = await (window as any).electronAPI.fetchForumUsers(config);
             if (result && result.success) {
                 this.forumUsers = result.users;
+                this.tempForumUsers = [...result.users];
+                this.forumUsers = [...this.forumUsers];
                 this.toastr.success(`Đã tải ${this.forumUsers.length} thành viên.`);
             } else {
                 this.toastr.error('Lỗi khi tải thành viên: ' + (result?.error || 'Unknown'));
@@ -205,6 +208,21 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         }
 
         this.n8nLoading = false;
+        this.cd.markForCheck();
+    }
+
+    filterForumUsers(event: any) {
+        const val = event.target.value.toLowerCase();
+
+        // filter our data
+        const temp = this.tempForumUsers.filter(function (d) {
+            const nameMatch = d.username?.toLowerCase().indexOf(val) !== -1;
+            const emailMatch = d.email?.toLowerCase().indexOf(val) !== -1;
+            return nameMatch || emailMatch || !val;
+        });
+
+        // update the rows
+        this.forumUsers = temp;
         this.cd.markForCheck();
     }
 

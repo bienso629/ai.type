@@ -18,6 +18,12 @@ export class EmailDialogComponent {
         if (data && data.selectedCount) {
             this.selectedCount = data.selectedCount;
         }
+        if (data && data.subject) {
+            this.emailComposer.subject = data.subject;
+        }
+        if (data && data.content) {
+            this.emailComposer.content = data.content;
+        }
     }
 
     submit() {
