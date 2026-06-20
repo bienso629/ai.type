@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+
+<html lang="vi"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Quản lý Sản phẩm - Atelier</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&amp;family=Inter:wght@400;500;600&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    colors: {
+                        "on-error-container": "#93000a",
+                        "secondary": "#775a19",
+                        "surface-variant": "#e5e2de",
+                        "tertiary": "#000000",
+                        "on-secondary-fixed-variant": "#5d4201",
+                        "on-primary-container": "#858383",
+                        "on-tertiary": "#ffffff",
+                        "outline-variant": "#c4c7c7",
+                        "primary-fixed-dim": "#c8c6c5",
+                        "surface-tint": "#5f5e5e",
+                        "surface-container-high": "#eae8e4",
+                        "on-surface-variant": "#444748",
+                        "background": "#fcf9f5",
+                        "tertiary-container": "#0b1e1f",
+                        "on-primary-fixed-variant": "#474746",
+                        "on-primary-fixed": "#1c1b1b",
+                        "secondary-fixed-dim": "#e9c176",
+                        "error": "#ba1a1a",
+                        "secondary-fixed": "#ffdea5",
+                        "primary": "#000000",
+                        "surface-container": "#f0ede9",
+                        "outline": "#747878",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#c8c6c5",
+                        "inverse-on-surface": "#f3f0ec",
+                        "surface-container-lowest": "#ffffff",
+                        "on-tertiary-container": "#748788",
+                        "surface-dim": "#dcdad6",
+                        "on-tertiary-fixed": "#0b1e1f",
+                        "surface": "#fcf9f5",
+                        "on-tertiary-fixed-variant": "#374a4b",
+                        "surface-bright": "#fcf9f5",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#1c1c1a",
+                        "on-secondary-fixed": "#261900",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#b6cacb",
+                        "on-background": "#1c1c1a",
+                        "surface-container-low": "#f6f3ef",
+                        "on-error": "#ffffff",
+                        "on-secondary-container": "#785a1a",
+                        "secondary-container": "#fed488",
+                        "primary-container": "#1c1b1b",
+                        "primary-fixed": "#e5e2e1",
+                        "inverse-surface": "#31302e",
+                        "surface-container-highest": "#e5e2de",
+                        "tertiary-fixed": "#d2e6e7"
+                    },
+                    borderRadius: {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    spacing: {
+                        "gutter": "32px",
+                        "stack-lg": "48px",
+                        "margin-mobile": "24px",
+                        "unit": "8px",
+                        "container-max-width": "1280px",
+                        "margin-desktop": "64px",
+                        "stack-md": "24px",
+                        "stack-sm": "12px"
+                    },
+                    fontFamily: {
+                        "display-lg": ["Playfair Display"],
+                        "body-md": ["Inter"],
+                        "label-md": ["Inter"],
+                        "headline-lg-mobile": ["Playfair Display"],
+                        "body-lg": ["Inter"],
+                        "label-sm": ["Inter"],
+                        "headline-md": ["Playfair Display"],
+                        "headline-lg": ["Playfair Display"]
+                    },
+                    fontSize: {
+                        "display-lg": ["64px", { lineHeight: "1.1", letterSpacing: "-0.02em", fontWeight: "600" }],
+                        "body-md": ["16px", { lineHeight: "1.6", fontWeight: "400" }],
+                        "label-md": ["14px", { lineHeight: "1.2", letterSpacing: "0.05em", fontWeight: "500" }],
+                        "headline-lg-mobile": ["32px", { lineHeight: "1.2", fontWeight: "500" }],
+                        "body-lg": ["18px", { lineHeight: "1.7", fontWeight: "400" }],
+                        "label-sm": ["12px", { lineHeight: "1.2", letterSpacing: "0.1em", fontWeight: "600" }],
+                        "headline-md": ["28px", { lineHeight: "1.3", fontWeight: "500" }],
+                        "headline-lg": ["40px", { lineHeight: "1.2", fontWeight: "500" }]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { background-color: #fcf9f5; color: #1c1c1a; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 300, 'GRAD' 0, 'opsz' 24; }
+        .ambient-shadow { box-shadow: 0px 12px 32px rgba(26, 26, 26, 0.04); }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="font-body-md text-body-md antialiased min-h-screen flex flex-col">
+<!-- TopAppBar (Desktop) -->
+<header class="hidden md:flex justify-between items-center w-full px-margin-desktop py-unit bg-background border-b border-outline-variant docked full-width top-0 z-50">
+<div class="flex items-center gap-gutter">
+<h1 class="font-display-lg text-headline-md text-primary tracking-tight">Atelier</h1>
+<nav class="flex gap-stack-md">
+<a class="font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors py-2 px-4 rounded-DEFAULT" href="#">Home</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors py-2 px-4 rounded-DEFAULT" href="#">Posts</a>
+<a class="font-label-md text-label-md text-primary opacity-80 transition-opacity duration-200 py-2 px-4 rounded-DEFAULT bg-surface-container" href="#">Products</a>
+<a class="font-label-md text-label-md text-on-surface-variant hover:bg-surface-container transition-colors py-2 px-4 rounded-DEFAULT" href="#">Settings</a>
+</nav>
+</div>
+<div class="flex items-center gap-stack-md">
+<button class="hover:bg-surface-container p-2 rounded-full transition-colors"><span class="material-symbols-outlined text-primary">notifications</span></button>
+<div class="w-10 h-10 rounded-full bg-surface-variant overflow-hidden border border-outline-variant">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A refined, minimalist headshot portrait of a creative professional in a bright, light-mode setting. Soft, natural lighting highlights elegant features against a clean, off-white background, embodying a premium editorial aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCAjq7EgMfBvLOBhbq-ld6Wr5Yqdck0Og9GPXCGekeNE0knXu7F6nb0XR8aeC1bNqXOJkwSnPuS2qxP4WaJ5Y3LTz3VuSTRnHjfBWywVkTK5QxhuGFACH_fTu7Ia7Bx4FRLRqMXynFotI-UTCoNnApsK2-P3XgLsF06sk4HR4_G0TORYq86yww580XaA55YWYztb5-tfcQF7_ja614KN1WyCZ8MfacjQNZOhvivV3P-iiTAekoA_BbpaoZkqUaKnMJ9UXnDmF8pfwc"/>
+</div>
+</div>
+</header>
+<!-- TopAppBar (Mobile) -->
+<header class="md:hidden flex justify-between items-center w-full px-margin-mobile py-unit bg-background border-b border-outline-variant docked full-width top-0 z-50">
+<div class="w-8 h-8 rounded-full bg-surface-variant overflow-hidden border border-outline-variant">
+<img alt="Profile" class="w-full h-full object-cover" data-alt="A refined, minimalist headshot portrait of a creative professional in a bright, light-mode setting. Soft, natural lighting highlights elegant features against a clean, off-white background, embodying a premium editorial aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDz7uKmaf-FAeDfpsTho5hPaE-jEt6B5grBIiHURTYIskr6rUwXhRVvcfVl5d3n9dMk125eaq5MvAlAoNVKoyUA1xC5GFRLuqMVasV8cCJLotfIYIqrf5HnBC8oUbkabUx1hObH_Blb5VyKuFpRARrNhpICZMUImmHKYbIGqEUmrjGb69aakwskNnFYaOlUP8PFrtmmt73gVIpSUmXK6FY3JpcI5GZ2qKIwAgo5WV8Ea7qqSNnVpnSwRANKvQ61ZZA5q9nUyKdcaw0"/>
+</div>
+<h1 class="font-display-lg text-headline-md-mobile text-primary tracking-tight">Atelier</h1>
+<button class="hover:bg-surface-container p-2 rounded-full transition-colors"><span class="material-symbols-outlined text-primary">notifications</span></button>
+</header>
+<!-- Main Content Canvas -->
+<main class="flex-grow w-full max-w-container-max-width mx-auto px-margin-mobile md:px-margin-desktop py-stack-lg">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row md:items-end justify-between mb-stack-lg gap-stack-md">
+<div>
+<h2 class="font-headline-lg-mobile md:font-headline-lg text-headline-lg-mobile md:text-headline-lg text-primary mb-2">Quản lý Sản phẩm</h2>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-2xl">Curate and manage your collection with precision. An editorial view of your digital inventory.</p>
+</div>
+<!-- Controls -->
+<div class="flex items-center gap-unit">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-DEFAULT hover:bg-surface-container transition-colors font-label-md text-label-md text-primary">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+<span>Filter</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-DEFAULT hover:bg-surface-container transition-colors font-label-md text-label-md text-primary">
+<span class="material-symbols-outlined text-[18px]">sort</span>
+<span>Sort</span>
+</button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-DEFAULT hover:opacity-90 transition-opacity font-label-md text-label-md">
+<span class="material-symbols-outlined text-[18px]">add</span>
+<span>New Item</span>
+</button>
+</div>
+</div>
+<!-- Product Grid (Bento/Minimalist style) -->
+<div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-gutter">
+<!-- Product Item 1 -->
+<div class="group flex flex-col gap-stack-sm p-4 rounded-lg bg-surface hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant ambient-shadow">
+<div class="aspect-[4/5] w-full bg-surface-variant rounded-DEFAULT overflow-hidden relative">
+<img alt="Ceramic Vase" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A minimalist, highly stylized product photograph of a modern ceramic vase resting on a pristine, off-white pedestal. Soft, directional studio lighting casts elegant shadows, emphasizing texture and form in a light-mode, premium editorial setting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDL54Fk7pgrniQgtisZtBjskjYT7rbQEXB_dDduBOXsCqiOBXyljr61FrkPxdKKLS4KatMtrKeFrQsR29_H7o0nHyAmbH0ZQho4CAVaMfQzQNnOz5lCo4z7x1brJd12IkUBlx3ajCue9XHCzyGZy60oI5l_XTiyw3EcNVtzEon2ox-L1yphbJURj3HxqwF5td6wG3gYq6lRaSgnob-F1eiRQ5ZomPyJKVhwNS4Fh3zccO7kqohZeWlsfogQX4r86LtvKNszyY-jgss"/>
+<div class="absolute top-3 left-3 bg-background/90 px-2 py-1 rounded font-label-sm text-label-sm uppercase tracking-widest text-primary backdrop-blur-sm">In Stock</div>
+</div>
+<div class="flex justify-between items-start pt-2 border-t border-outline-variant/30">
+<div>
+<h3 class="font-body-lg text-body-lg text-primary">Vase Artisanale</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Ceramics Collection</p>
+</div>
+<span class="font-label-md text-label-md text-primary">$120</span>
+</div>
+</div>
+<!-- Product Item 2 -->
+<div class="group flex flex-col gap-stack-sm p-4 rounded-lg bg-surface hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant ambient-shadow">
+<div class="aspect-[4/5] w-full bg-surface-variant rounded-DEFAULT overflow-hidden relative">
+<img alt="Linen Journal" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" data-alt="A beautifully bound linen journal lying open on a clean, light oak surface. Captured with a shallow depth of field and soft, diffused natural light, typical of high-end lifestyle photography tailored for a minimalist digital atelier." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAVCRX-Wpf_TpDu29xaaR70rMOghmJTBeegQXEUvCdVrkQnDFtOhDMWyjCAAmL4-kxqdSsiN6eeMvkdNp10J8k-oirUHznkIBfGARutHZCVIjioFpr1OtjMIbxuBaQyoY5AWKgOPHmg-C83s8A2hDLLa84Ue-bMOcY06zNz2PmuAdujhYF-C_qSlSw1fCzh8kI6wBkF469fn63QujaCO5dl5lCWk4PWxakhCFAR7_NoDVc2zCe3mlp1q_ETW2vVqqYs4sE32yKwdHM"/>
+<div class="absolute top-3 left-3 bg-secondary-container/90 px-2 py-1 rounded font-label-sm text-label-sm uppercase tracking-widest text-on-secondary-container backdrop-blur-sm">Low Stock</div>
+</div>
+<div class="flex justify-between items-start pt-2 border-t border-outline-variant/30">
+<div>
+<h3 class="font-body-lg text-body-lg text-primary">Linen Bound Journal</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Stationery</p>
+</div>
+<span class="font-label-md text-label-md text-primary">$45</span>
+</div>
+</div>
+<!-- Product Item 3 -->
+<div class="group flex flex-col gap-stack-sm p-4 rounded-lg bg-surface hover:bg-surface-container-low transition-colors border border-transparent hover:border-outline-variant ambient-shadow">
+<div class="aspect-[4/5] w-full bg-surface-variant rounded-DEFAULT overflow-hidden relative flex items-center justify-center bg-surface-container">
+<span class="material-symbols-outlined text-[48px] text-outline-variant">image_not_supported</span>
+<div class="absolute top-3 left-3 bg-error-container/90 px-2 py-1 rounded font-label-sm text-label-sm uppercase tracking-widest text-on-error-container backdrop-blur-sm">Draft</div>
+</div>
+<div class="flex justify-between items-start pt-2 border-t border-outline-variant/30">
+<div>
+<h3 class="font-body-lg text-body-lg text-primary text-opacity-50">Untitled Object</h3>
+<p class="font-body-md text-body-md text-on-surface-variant">Uncategorized</p>
+</div>
+<span class="font-label-md text-label-md text-primary text-opacity-50">--</span>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar (Mobile) -->
+<nav class="md:hidden flex justify-around items-center w-full px-margin-mobile pb-safe h-20 bg-background border-t border-outline-variant fixed bottom-0 z-50">
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-secondary transition-colors pt-2 w-16" href="#">
+<span class="material-symbols-outlined">home_app_logo</span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest mt-1">Home</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-secondary transition-colors pt-2 w-16" href="#">
+<span class="material-symbols-outlined">article</span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest mt-1">Posts</span>
+</a>
+<a class="flex flex-col items-center justify-center text-primary border-t-2 border-secondary pt-2 scale-95 transition-transform duration-150 w-16" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">shopping_bag</span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest mt-1">Products</span>
+</a>
+<a class="flex flex-col items-center justify-center text-on-surface-variant hover:text-secondary transition-colors pt-2 w-16" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-sm text-label-sm uppercase tracking-widest mt-1">Settings</span>
+</a>
+</nav>
+<!-- Padding for mobile bottom nav -->
+<div class="h-20 md:hidden w-full"></div>
+</body></html>
