@@ -4458,12 +4458,10 @@ ${content}`;
                             result = canvas.toDataURL(mimeType, quality);
                             
                             while (getBytes(result) > MAX_SIZE_BYTES && quality > 0.1) {
-                                quality -= 0.15;
-                                
-                                // If quality drops too low but size is still big, scale down further
-                                if (quality <= 0.3 && getBytes(result) > MAX_SIZE_BYTES) {
-                                    width *= 0.75;
-                                    height *= 0.75;
+                                // Prioritize resizing over deep-frying JPEG quality to keep it looking sharp
+                                if (quality <= 0.6 && getBytes(result) > MAX_SIZE_BYTES) {
+                                    width *= 0.8;
+                                    height *= 0.8;
                                     canvas.width = width;
                                     canvas.height = height;
                                     
@@ -4471,7 +4469,9 @@ ${content}`;
                                     ctx.fillRect(0, 0, width, height);
                                     ctx.drawImage(img, 0, 0, width, height);
                                     
-                                    quality = 0.7; // Reset quality slightly after resize
+                                    quality = 0.85; // Reset quality after resize
+                                } else {
+                                    quality -= 0.1;
                                 }
                                 
                                 result = canvas.toDataURL(mimeType, Math.max(0.1, quality));
