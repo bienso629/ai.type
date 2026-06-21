@@ -109,7 +109,7 @@ if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
     adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
 }
 
-// ==== QUẢN L�? BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
+// ==== QUẢN LÝ BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
 const binaries = {
     ffmpeg: null,
     ytdlp: null,
@@ -120,11 +120,15 @@ const binaries = {
 
 function loadBinaries() {
     const isWin = process.platform === "win32";
+    const isMac = process.platform === "darwin";
     let results = [];
     let hasError = false;
 
-    const getPath = (winName, macName, label) => {
-        const fileName = isWin ? winName : macName;
+    const getPath = (winName, macName, linuxName, label) => {
+        let fileName = winName;
+        if (isMac) fileName = macName;
+        else if (!isWin && !isMac) fileName = linuxName; // For Linux and others
+        
         let binPath = "";
 
         if (app.isPackaged) {
@@ -142,21 +146,21 @@ function loadBinaries() {
             return binPath;
         } else {
             hasError = true;
-            results.push(`�?� ${label}: KHÔNG TÌM THẤY tại ${binPath}`);
+            results.push(`🔸 ${label}: KHÔNG TÌM THẤY tại ${binPath}`);
             return null;
         }
     };
 
-    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "FFmpeg");
-    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "Youtube-DL");
-    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
-    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
+    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "ffmpeg-linux", "FFmpeg");
+    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "yt-dlp-linux", "Youtube-DL");
+    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "edge-tts-linux", "Edge-TTS");
+    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "type-lite-linux", "Type-Lite");
 
     if (hasError) {
         dialog.showMessageBox({
             type: 'error',
             title: 'Lỗi Hệ Thống',
-            message: 'Phát hiện thiếu file thực thi quan tr�?ng!',
+            message: 'Phát hiện thiếu file thực thi quan trọng!',
             detail: results.join("\n"),
             buttons: ['OK']
         });
@@ -1644,6 +1648,7 @@ function createMainWindow() {
     mainWindow = new BrowserWindow({
         width: 1440,
         height: 1080,
+        icon: path.join(__dirname, '../icons/icon.png'),
         backgroundColor: "#212121",
         fullscreenable: true,
         alwaysOnTop: false,
@@ -1812,6 +1817,7 @@ function createTargetWindow(
         height: finalHeight,
         x: finalX,
         y: finalY,
+        icon: path.join(__dirname, '../icons/icon.png'),
         title: "Công cụ AI",
         show: true, // show sau khi ready-to-show
         frame: false,
