@@ -2118,8 +2118,16 @@ ${content}`;
      */
     edit(item: any, index: number) {
         // xoá bỏ hết mấy cái line break
-        if (item[index])
-            item[index] = item[index].replace(/(\r\n|\n|\r)/gm, '');
+        if (item[index] && typeof item[index] === 'string') {
+            item[index] = item[index]
+                .replace(/&#92;n/g, '')
+                .replace(/&bsol;n/g, '')
+                .replace(/\\\\n/g, '')
+                .replace(/\\n/g, '')
+                .replace(/\\\\r/g, '')
+                .replace(/\\r/g, '')
+                .replace(/(\r\n|\n|\r)/gm, '');
+        }
 
         const bottomSheetRef = this._bottomSheet.open(EditBeforeExportSheet, {
             panelClass: 'edit2export',
@@ -2141,12 +2149,16 @@ ${content}`;
         bottomSheetRef.afterDismissed().subscribe((result) => {
             // Restore focus to an appropriate element for the user's workflow here.
             if (result && result.content != null) {
-                // if (this.name === this.user.name) {
-
-                // } else {
-                //     // đồng tác giả chỉnh sửa
-                //     this.alert('Bạn cần phải có Tên công việc và bấm Lưu trữ công việc trước.');
-                // }
+                if (typeof result.content === 'string') {
+                    result.content = result.content
+                        .replace(/&#92;n/g, '')
+                        .replace(/&bsol;n/g, '')
+                        .replace(/\\\\n/g, '')
+                        .replace(/\\n/g, '')
+                        .replace(/\\\\r/g, '')
+                        .replace(/\\r/g, '')
+                        .replace(/(\r\n|\n|\r)/gm, '');
+                }
 
                 // chính chủ đã chỉnh sửa
                 let id = null;
