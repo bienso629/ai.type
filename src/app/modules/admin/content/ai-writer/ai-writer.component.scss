@@ -251,8 +251,7 @@
     margin-left: 6px;
     background: white;
     word-break: normal;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
+    overflow-wrap: break-word;
 
     img, iframe, video {
         max-width: 100%;
@@ -281,8 +280,7 @@
     margin-left: 6px;
     background: white;
     word-break: normal;
-    overflow-wrap: anywhere;
-    white-space: pre-wrap;
+    overflow-wrap: break-word;
 
     img, iframe, video {
         max-width: 100%;
