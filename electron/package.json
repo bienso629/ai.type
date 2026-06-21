@@ -4,12 +4,12 @@
     "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
     "main": "dist/main.js",
     "scripts": {
-        "dev": "nodemon --watch src --exec electron src/main.js",
+        "dev": "nodemon --watch src --exec electron --no-sandbox src/main.js",
         "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json",
         "build:win": "npm run obfuscate && electron-builder --win -p always",
         "build:mac": "npm run obfuscate && electron-builder --mac",
         "build:linux": "npm run obfuscate && electron-builder --linux",
-        "start": "npm run obfuscate && electron .",
+        "start": "npm run obfuscate && electron --no-sandbox .",
         "build:win:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --win -c build-lite.json",
         "build:mac:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --mac -c build-lite.json",
         "build:linux:lite": "cross-env APP_EDITION=lite npm run obfuscate && electron-builder --linux -c build-lite.json"
