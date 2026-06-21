@@ -2474,7 +2474,7 @@ ${content}`;
     /**
      * Dùng từ đồng nghĩa đảo câu
      */
-    synonymsForSentence(source: any, index: number, backup: string) {
+    async synonymsForSentence(source: any, index: number, backup: string) {
         const id = $(source[index]).attr('id');
 
         if (this.source.backup[id] === undefined) {
@@ -2483,8 +2483,54 @@ ${content}`;
             source[index] = this.source.backup[id];
         }
 
-        source[index] = source[index].split('.').join('. '); // format lai đoạn văn
-        this.keyword(source, index);
+        let originalHtml = source[index];
+        let plainText = this.removeHTML.transform(originalHtml);
+        
+        if (!plainText || plainText.trim() === '') {
+            this.toastr.warning('Đoạn văn trống, không thể viết lại.');
+            return;
+        }
+
+        this.loading = true;
+        this.cd.detectChanges();
+
+        try {
+            const prompt = `Hãy viết lại nội dung của đoạn HTML sau bằng tiếng Việt một cách tự nhiên để tránh trùng lặp nội dung, nhưng vẫn giữ nguyên ý nghĩa và TẤT CẢ các thẻ HTML (như <a>, <b>, <i>, <span>, <img>). Chỉ trả về mã HTML đã viết lại, không giải thích gì thêm, không dùng markdown:\n${originalHtml}`;
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+
+            if (response && response.text) {
+                let newContent = response.text.replace(/```html/gi, '').replace(/```/g, '').trim();
+                
+                if (id) {
+                    try {
+                        const $parsed = $(`<div>${newContent}</div>`);
+                        const firstChild = $parsed.children().first();
+                        if (firstChild.length > 0) {
+                            firstChild.attr('id', id);
+                            source[index] = $parsed.html();
+                        } else {
+                            source[index] = `<p id="${id}">${newContent}</p>`;
+                        }
+                    } catch (e) {
+                         source[index] = `<p id="${id}">${newContent}</p>`;
+                    }
+                } else {
+                    source[index] = newContent;
+                }
+                
+                this.toastr.success('Đã tạo đoạn văn mới thành công!');
+                this.keyword(source, index); // Vẫn gọi để lấy từ khoá nếu API backend hoạt động
+            }
+        } catch (error) {
+            console.error('Lỗi khi viết lại đoạn văn:', error);
+            this.toastr.error('Lỗi khi viết lại đoạn văn.');
+        } finally {
+            this.loading = false;
+            this.cd.detectChanges();
+        }
     }
 
     /**

@@ -160,7 +160,7 @@
                                         (change)="onThumbnailReplaced($event)" accept="image/*,video/*">
                                 </div>
 
-                                <div class="flex flex-col p-2 rounded-xl border border-dashed border-gray-10"
+                                <div class="flex flex-col p-2 rounded border border-dashed border-gray-10"
                                     [class.items-center]="thumbnailsList.length === 0"
                                     [class.justify-center]="thumbnailsList.length === 0">
 
@@ -706,7 +706,7 @@
                                             <ng-container>
                                                 <div class="flex items-center example-box p-1"
                                                     *ngFor="let item of source.prompt; let i = index" cdkDrag>
-                                                    <div class="flex-1" [innerHTML]="item"
+                                                    <div class="flex-1 min-w-0 break-words" [innerHTML]="item"
                                                         (dblclick)="edit(source.prompt, i)"></div>
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
@@ -803,7 +803,7 @@
                                             (cdkDropListDropped)="drop($event)">
                                             <div class="flex items-center example-box p-1"
                                                 *ngFor="let item of source.text; let i = index" cdkDrag>
-                                                <div class="flex-1" [innerHTML]="item | renderTrustHTML"
+                                                <div class="flex-1 min-w-0 break-words" [innerHTML]="item | renderTrustHTML"
                                                     (dblclick)="edit(source.text, i)"></div>
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
@@ -839,12 +839,12 @@
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
                                                             <span>Chép sang Dàn ý</span>
                                                         </button>
-                                                        <!-- <button mat-menu-item (click)="split(source.text, item, i)"
+                                                        <button mat-menu-item (click)="split(source.text, i)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
-                                                        </button> -->
+                                                                [svgIcon]="'feather:align-left'"></mat-icon>
+                                                            <span>Tách đoạn văn</span>
+                                                        </button>
                                                         <button mat-menu-item (click)="comment(source.text, item, i)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
@@ -923,7 +923,7 @@
                                             <ng-container>
                                                 <div class="flex items-center example-box p-1"
                                                     *ngFor="let item of source.img;let i = index;" cdkDrag>
-                                                    <div class="flex-1 rounded-md overflow-hidden"
+                                                    <div class="flex-1 min-w-0 break-words rounded overflow-hidden"
                                                         [innerHTML]="item | renderTrustHTML">
                                                     </div>
 
@@ -969,8 +969,8 @@
 
                                                 <div class="ml-auto flex items-center justify-end"
                                                     (click)="$event.stopPropagation()">
-                                                    <span class="text-xs font-medium text-gray-500 mr-2">Chất lượng bài
-                                                        viết:</span>
+                                                    <span class="text-xs font-medium text-gray-500 mr-2">Chất lượng phân
+                                                        tích:</span>
                                                     <input type="number" [(ngModel)]="videoExtractInterval" min="0.1"
                                                         max="60" step="0.5"
                                                         class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
@@ -1034,7 +1034,7 @@
                                                     </div>
                                                 </ng-container>
 
-                                                <div class="flex-1 font-normal truncate hover:text-clip"
+                                                <div class="flex-1 min-w-0 font-normal truncate hover:text-clip"
                                                     [innerHTML]="item | renderTrustHTML"
                                                     (dblclick)="edit(source.playlist[0].youtube, i)"></div>
 
@@ -1131,7 +1131,7 @@
                                             (cdkDropListDropped)="drop($event)">
                                             <div class="flex items-center example-box p-1"
                                                 *ngFor="let item of source.chatgpt; let i = index" cdkDrag>
-                                                <div class="flex-1" [innerHTML]="item | renderTrustHTML"
+                                                <div class="flex-1 min-w-0 break-words" [innerHTML]="item | renderTrustHTML"
                                                     (dblclick)="edit(source.chatgpt, i)"></div>
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
@@ -2692,9 +2692,9 @@
                                                 </mat-expansion-panel-header> -->
 
                                             <div cdkDropList #doneList="cdkDropList" [cdkDropListData]="done"
-                                                [cdkDropListConnectedTo]="[emptyList]"
+                                                [cdkDropListConnectedTo]="[emptyList, textList]"
                                                 class="pt-2 pb-1 example-list text" (cdkDropListDropped)="drop($event)">
-                                                <div class="example-box-result p-2 flex flex-row items-start relative mb-2"
+                                                <div class="example-box-result p-2 flex flex-row items-center relative mb-2"
                                                     *ngFor="let item of done; let i = index" cdkDrag
                                                     (dblclick)="edit(done, i)">
                                                     <div class="flex-1 text-base w-full min-w-0"
@@ -2812,20 +2812,21 @@
                                 <!-- xoá -->
                                 <mat-tab label="Đã xoá ({{trash.length}})">
                                     <div (click)="trash = [];"
-                                        class="flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-600 text-white mb-4 cursor-pointer absolute right-1 top-1">
-                                        Xóa hẳn</div>
+                                        class="flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-600 text-white mb-4 cursor-pointer absolute right-1 top-1 z-50">
+                                        Xóa hẳn
+                                    </div>
                                     <div class="example-container w-full">
                                         <div cdkDropList #emptyList="cdkDropList" [cdkDropListData]="trash"
                                             [cdkDropListConnectedTo]="[doneList, textList, pList, spanList, labelList, ddList, tdList, liList, iList, h1List, h2List, h3List, h4List, h5List, chatgptList, wordList, imgList, sourceList, preList, aList, sourceYoutubeList]"
                                             class="example-list" (cdkDropListDropped)="drop($event)">
-                                            <div class="example-box-result my-2" *ngFor="let item of trash" cdkDrag>
-                                                <div [innerHTML]="item" class="flex-1 text-base py-2"></div>
-
-                                                <!-- <ng-container *ngIf="item | isObject">{{item |
-                                                    json}}</ng-container> -->
-                                                <!-- <ng-container *ngIf="!(item | isObject)">
-                                                    <div [innerHTML]="item | renderTrustHTML"></div>
-                                                </ng-container> -->
+                                            <div class="example-box-result p-2 flex flex-row items-center relative mb-2"
+                                                *ngFor="let item of trash" cdkDrag>
+                                                <div class="flex-1 text-base w-full min-w-0">
+                                                    <ng-container *ngIf="item | isObject">{{item | json}}</ng-container>
+                                                    <ng-container *ngIf="!(item | isObject)">
+                                                        <div [innerHTML]="item | renderTrustHTML"></div>
+                                                    </ng-container>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
