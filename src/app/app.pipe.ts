@@ -305,7 +305,8 @@ export class renderTrustHTML implements PipeTransform {
                 .replace(/\\n/g, '')
                 .replace(/\\\\r/g, '')
                 .replace(/\\r/g, '')
-                .replace(/(\r\n|\n|\r)/gm, '');
+                .replace(/(\r\n|\n|\r)/gm, '')
+                .replace(/&nbsp;/g, ' ');
 
             if (value.indexOf('youtube-playlist') >= 0) {
                 const playlist = $(value).text();
