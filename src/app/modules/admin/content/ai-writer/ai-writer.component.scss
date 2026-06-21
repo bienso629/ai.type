@@ -250,8 +250,9 @@
     border-radius: 12px;
     margin-left: 6px;
     background: white;
-    word-break: break-word;
-    overflow-wrap: break-word;
+    word-break: normal;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 
     img, iframe, video {
         max-width: 100%;
@@ -279,8 +280,9 @@
     padding-right: 10px !important;
     margin-left: 6px;
     background: white;
-    word-break: break-word;
-    overflow-wrap: break-word;
+    word-break: normal;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
 
     img, iframe, video {
         max-width: 100%;
