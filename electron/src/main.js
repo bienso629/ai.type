@@ -5089,6 +5089,10 @@ ipcMain.handle('download-video', async (event, payload) => {
             const args = [
                 '-o', outputTemplate,
                 '--newline',
+                '--no-warnings',
+                '--rm-cache-dir',
+                '--js-runtimes', 'node',
+                '--extractor-args', 'youtube:player_client=ios,android,web',
                 '-f', 'bestvideo+bestaudio/best'
             ];
             if (binaries.ffmpeg) {
@@ -5099,8 +5103,36 @@ ipcMain.handle('download-video', async (event, payload) => {
             const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
             if (payload.customCookies && payload.customCookies.trim().length > 0) {
                 try {
+                    let cookieContent = payload.customCookies.trim();
+                    if (cookieContent.startsWith('[')) {
+                        const cookiesData = JSON.parse(cookieContent);
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        cookieContent = netscapeStr;
+                    } else if (!cookieContent.includes('# Netscape')) {
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
+                        const pairs = cookieContent.split(';');
+                        for (const pair of pairs) {
+                            const trimmed = pair.trim();
+                            if (!trimmed) continue;
+                            const idx = trimmed.indexOf('=');
+                            if (idx > 0) {
+                                const key = trimmed.substring(0, idx).trim();
+                                const val = trimmed.substring(idx + 1).trim();
+                                netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
+                            }
+                        }
+                        cookieContent = netscapeStr;
+                    }
                     const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
-                    fs.writeFileSync(tempCookiePath, payload.customCookies, 'utf8');
+                    fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
                     if (!isFacebook) args.push('--cookies', tempCookiePath);
                 } catch (err) {
                     console.error("Lỗi ghi file cookies tạm", err);
@@ -5314,7 +5346,11 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             const ytdlpArgs = [
                 '-o', outputTemplate,
                 '--newline',
+                '--no-warnings',
+                '--rm-cache-dir',
                 '--ignore-errors',
+                '--js-runtimes', 'node',
+                '--extractor-args', 'youtube:player_client=ios,android,web',
                 '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
                 '--write-auto-subs',
                 '--write-subs',
@@ -5330,8 +5366,36 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
             if (payload.customCookies && payload.customCookies.trim().length > 0) {
                 try {
+                    let cookieContent = payload.customCookies.trim();
+                    if (cookieContent.startsWith('[')) {
+                        const cookiesData = JSON.parse(cookieContent);
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        cookieContent = netscapeStr;
+                    } else if (!cookieContent.includes('# Netscape')) {
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
+                        const pairs = cookieContent.split(';');
+                        for (const pair of pairs) {
+                            const trimmed = pair.trim();
+                            if (!trimmed) continue;
+                            const idx = trimmed.indexOf('=');
+                            if (idx > 0) {
+                                const key = trimmed.substring(0, idx).trim();
+                                const val = trimmed.substring(idx + 1).trim();
+                                netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
+                            }
+                        }
+                        cookieContent = netscapeStr;
+                    }
                     const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
-                    fs.writeFileSync(tempCookiePath, payload.customCookies, 'utf8');
+                    fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
                     if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
                     hasCustomCookies = true;
                 } catch (err) {
@@ -5366,6 +5430,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
             ytdlpArgs.push(url);
 
+            let ytdlpStderr = "";
             await new Promise((resolve, reject) => {
                 const child = spawn(ytdlpPath, ytdlpArgs);
                 child.stdout.on('data', (data) => {
@@ -5374,9 +5439,16 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 });
                 child.stderr.on('data', (data) => {
                     const line = data.toString().trim();
-                    if (line) sendToRenderer("tools-log", `[AI Analyze] ${line}`);
+                    if (line) {
+                        sendToRenderer("tools-log", `[AI Analyze] ${line}`);
+                        ytdlpStderr += line + "\n";
+                    }
                 });
                 child.on('close', (code) => {
+                    resolve();
+                });
+                child.on('error', (err) => {
+                    ytdlpStderr += `Lỗi khi chạy yt-dlp: ${err.message}\n`;
                     resolve();
                 });
             });
@@ -5387,7 +5459,11 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             const subtitleFile = files.find(f => f.startsWith('video.') && (f.endsWith('.vtt') || f.endsWith('.srt')));
 
             if (!foundVideoFile) {
-                throw new Error('Không tìm thấy video tải về.');
+                let errorMsg = 'Không tìm thấy video tải về.';
+                if (ytdlpStderr) {
+                    errorMsg += ` Chi tiết lỗi: ${ytdlpStderr}`;
+                }
+                throw new Error(errorMsg);
             }
 
             videoFile = foundVideoFile;

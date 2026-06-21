@@ -1,6 +1,6 @@
 // Dùng chung cho cả cấu hình Video và Image
 export interface VideoModelConfig {
-    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3' | 'kling_v3_omni' | 'kling_v3_motion' | 'doubao_sdk';
+    payloadFormat: 'nested_input' | 'flat' | 'google_sdk' | 'minimal_nested' | 'minimal_flat' | 'kling_v3' | 'kling_v3_omni' | 'kling_v3_motion' | 'doubao_sdk' | 'pixverse_sdk';
     promptKey: string;
     imageKey?: string;         // e.g., 'image_url', 'first_frame_image', 'image'
     endImageKey?: string;      // e.g., 'last_frame_image', 'image_end', 'end_image_url'
@@ -14,6 +14,13 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
     // ----------------------
     // VIDEO MODELS
     // ----------------------
+    'pixverse': {
+        payloadFormat: 'pixverse_sdk',
+        promptKey: 'prompt',
+        imageKey: 'img_url',
+        useDataUri: true,
+        defaultDuration: 5
+    },
     'sora': {
         payloadFormat: 'flat',
         promptKey: 'prompt',

@@ -8,7 +8,7 @@ import {
 } from '@angular/core';
 import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
-import { filter, interval, Subject, switchMap, take, takeUntil } from 'rxjs';
+import { filter, interval, Subject, switchMap, take, takeUntil, debounceTime } from 'rxjs';
 import { UserService } from 'app/core/user/user.service';
 import { HelperService } from 'app/helper.service';
 import { ToastrService } from 'ngx-toastr';
@@ -117,6 +117,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     myvoices: any = [];
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+    private saveSubject = new Subject<string | undefined>();
 
     getMyKeys() {
         this._voice.getMyKeys({
@@ -632,6 +633,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     // -----------------------------------------------------------------------------------------------------
     // @ STORAGE & LEGACY SERVER MERGE
     // -----------------------------------------------------------------------------------------------------
+    onInputChanged() {
+        this.saveSubject.next(undefined);
+    }
+
     saveToLocal(currentUuid?: string) {
         // Ưu tiên dùng uuid truyền vào, nếu không thì dùng uuid hiện tại của component
         const targetUuid = currentUuid || this.uuid;
@@ -2541,6 +2546,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngOnInit(): void {
+        this.saveSubject.pipe(
+            debounceTime(2500),
+            takeUntil(this._unsubscribeAll)
+        ).subscribe((uuid) => {
+            this.saveToLocal(uuid);
+        });
+
         let settings = this.multiAccountService.getItem('settings');
         if (settings) {
             try {

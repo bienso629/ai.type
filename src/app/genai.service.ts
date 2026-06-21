@@ -1169,6 +1169,7 @@ export class GenaiService {
                 }
 
                 if (referenceImages && referenceImages.length > 0) {
+                    const hasFirstOrLast = referenceImages.some(ref => ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD' || ref.referenceType === 'END_FRAME');
                     for (const ref of referenceImages) {
                         let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
                         let imgUri = imgRaw;
@@ -1181,7 +1182,11 @@ export class GenaiService {
                             contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'last_frame' });
                         } else {
                             // Any other reference image is treated as a character/style reference
-                            contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'reference_image' });
+                            if (!hasFirstOrLast) {
+                                contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'reference_image' });
+                            } else {
+                                console.warn("[Doubao SDK] Bỏ qua ảnh tham chiếu vì model không cho phép dùng chung với khung hình bắt đầu/kết thúc.");
+                            }
                         }
                     }
                 } else {
@@ -1209,6 +1214,64 @@ export class GenaiService {
                         ratio: aspectRatio || '16:9',
                         duration: Math.ceil(duration || config.defaultDuration || 5),
                         ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
+                    }
+                };
+            } else if (config.payloadFormat === 'pixverse_sdk') {
+                let firstFrameBase64Raw = '';
+                let lastFrameBase64Raw = '';
+                let imgUrlBase64Raw = '';
+
+                // Extract all specific images
+                if (referenceImages && referenceImages.length > 0) {
+                    const startImgObj = referenceImages.find((img: any) => img.referenceType === 'START_FRAME' || img.referenceType === 'STORYBOARD');
+                    if (startImgObj) {
+                        firstFrameBase64Raw = startImgObj.image?.imageBytes || (typeof startImgObj === 'string' ? startImgObj : '');
+                        if (firstFrameBase64Raw && !firstFrameBase64Raw.startsWith('data:') && !firstFrameBase64Raw.startsWith('http')) {
+                            firstFrameBase64Raw = `data:image/png;base64,${firstFrameBase64Raw}`;
+                        }
+                    }
+
+                    const endImgObj = referenceImages.find((img: any) => img.referenceType === 'END_FRAME');
+                    if (endImgObj) {
+                        lastFrameBase64Raw = endImgObj.image?.imageBytes || (typeof endImgObj === 'string' ? endImgObj : '');
+                        if (lastFrameBase64Raw && !lastFrameBase64Raw.startsWith('data:') && !lastFrameBase64Raw.startsWith('http')) {
+                            lastFrameBase64Raw = `data:image/png;base64,${lastFrameBase64Raw}`;
+                        }
+                    }
+
+                    const controlImgObj = referenceImages.find((img: any) => img.referenceType === 'CONTROL_IMAGE');
+                    if (controlImgObj) {
+                        imgUrlBase64Raw = controlImgObj.image?.imageBytes || (typeof controlImgObj === 'string' ? controlImgObj : '');
+                        if (imgUrlBase64Raw && !imgUrlBase64Raw.startsWith('data:') && !imgUrlBase64Raw.startsWith('http')) {
+                            imgUrlBase64Raw = `data:image/png;base64,${imgUrlBase64Raw}`;
+                        }
+                    }
+                } else {
+                    // Fallback to globally processed ones if `referenceImages` is empty
+                    if (refBase64DataUri || refBase64Raw) {
+                        // Assuming it is a reference image if referenceImages is not provided
+                        imgUrlBase64Raw = refBase64DataUri || refBase64Raw;
+                    }
+                    if (endRefBase64DataUri || endRefBase64Raw) {
+                        lastFrameBase64Raw = endRefBase64DataUri || endRefBase64Raw;
+                    }
+                }
+
+                const inputPayload: any = {
+                    prompt: prompt
+                };
+                if (firstFrameBase64Raw) inputPayload.first_frame_url = firstFrameBase64Raw;
+                if (lastFrameBase64Raw) inputPayload.last_frame_url = lastFrameBase64Raw;
+                if (imgUrlBase64Raw) inputPayload.img_url = imgUrlBase64Raw;
+
+                payload = {
+                    model: model,
+                    input: inputPayload,
+                    parameters: {
+                        resolution: "720p",
+                        ...( (!firstFrameBase64Raw && !lastFrameBase64Raw && !imgUrlBase64Raw) ? { aspect_ratio: aspectRatio || '16:9' } : {} ),
+                        duration: Math.ceil(duration || config.defaultDuration || 5),
+                        ...(seed !== undefined && seed !== null ? { seed: seed } : {})
                     }
                 };
             }
