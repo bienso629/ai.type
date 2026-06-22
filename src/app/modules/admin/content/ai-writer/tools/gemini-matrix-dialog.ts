@@ -69,13 +69,13 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
         </div>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button (click)="send()" color="primary" class="float-right">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button (click)="send()" color="primary" class="">
             <mat-icon class="icon-size-4 text-white" svgIcon="feather:edit-3"></mat-icon>
-            <mat-label class="ml-2">Viết nhanh</mat-label>
+            <mat-label class="">Viết nhanh</mat-label>
         </button>
-        <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
-    </div>`,
+    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+</div>`,
     providers: [WordpressService, BlogService],
 })
 export class GeminiMatrixDialog {

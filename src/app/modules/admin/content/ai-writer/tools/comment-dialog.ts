@@ -27,14 +27,13 @@ import { Subject } from "rxjs";
         </quill-editor>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button color="primary" (click)="save($event)">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button color="primary" (click)="save($event)">
             <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
-            <mat-label class="ml-2">Gửi bình luận</mat-label>
+            <mat-label class="">Gửi bình luận</mat-label>
         </button>
-
-        <button mat-flat-button color="medium" (click)="close()" class="ml-2">Đóng cửa sổ</button>
-    </div>`,
+    <button mat-flat-button color="medium" (click)="close()" class="">Đóng cửa sổ</button>
+</div>`,
 })
 export class CommentDialog implements OnInit, OnDestroy {
     comment: string = '';

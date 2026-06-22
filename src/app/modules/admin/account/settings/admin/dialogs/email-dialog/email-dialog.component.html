@@ -22,9 +22,9 @@
     </mat-form-field>
 </div>
 
-<div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
-    <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
+<div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
     <button mat-flat-button color="primary" (click)="submit()" [disabled]="!emailComposer.subject || !emailComposer.content">
         Gửi Email
     </button>
+    <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
 </div>

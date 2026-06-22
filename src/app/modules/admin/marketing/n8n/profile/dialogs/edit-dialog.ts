@@ -65,14 +65,12 @@ export const PERSONA_LIBRARY = [
         </form>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button (click)="save()" color="primary" class="float-right ml-2">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button (click)="save()" color="primary" class="">
             Lưu cấu hình
         </button>
-
-        <button mat-flat-button (click)="onNoClick()" color="warn" class="float-right ml-2">Đóng</button>
-        
-        </div>`,
+    <button mat-flat-button (click)="onNoClick()" color="warn" class="">Đóng</button>
+</div>`,
     encapsulation: ViewEncapsulation.None
 })
 export class EditAccountDialog implements OnInit, OnDestroy {

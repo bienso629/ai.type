@@ -27,7 +27,7 @@ export interface DialogWordData {
                 <mat-chip-option (click)="word = item;" *ngFor="let item of data.data['dn']">{{item}}</mat-chip-option>
             </mat-chip-listbox> -->
 
-            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mt-3" appearance="fill">
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix mt-3" appearance="fill" [subscriptSizing]="'dynamic'">
                 <mat-chip-grid #chipGrid aria-label="Enter fruits">
                     <mat-chip-row matTooltipPosition="above" matTooltip="Chọn " *ngFor="let fruit of data.data['dn']" (click)="word = fruit;">
                         {{fruit}}
@@ -63,13 +63,13 @@ export interface DialogWordData {
         </ng-container>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button color="primary" class="float-right" (click)="get()">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button color="primary" class="" (click)="get()">
             <mat-label *ngIf="data.data['dn'].length > 0 && word">Hoán đổi "{{data.word}}" -> "{{word}}"</mat-label>
             <mat-label *ngIf="data.data['dn'].length === 0 || !word">Sử dụng kết quả</mat-label>
         </button>
-        <button mat-flat-button (click)="get()" color="medium" class="float-right">Đóng cửa sổ</button>
-    </div>`,
+    <button mat-flat-button (click)="get()" color="medium" class="">Đóng cửa sổ</button>
+</div>`,
 })
 export class WordDataDialog {
     addOnBlur = true;

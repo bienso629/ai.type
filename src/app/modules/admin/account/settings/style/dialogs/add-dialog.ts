@@ -23,7 +23,7 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
                 <input [formControlName]="'name'" placeholder="Tên phong cách" type="text" required matInput>
             </mat-form-field>
 
-            <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
+            <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Ảnh phong cách</mat-label>
                 <input placeholder="Đường dẫn ảnh mô tả phong cách"
                     [formControlName]="'avatar'" matInput
@@ -45,17 +45,15 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
         </form>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button *ngIf="index < 0" (click)="save()" color="primary" class="float-right">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button *ngIf="index < 0" (click)="save()" color="primary" class="">
             Thêm phong cách
         </button>
-
-        <button mat-flat-button *ngIf="index > -1" (click)="update()" color="primary" class="float-right">
+    <button mat-flat-button *ngIf="index > -1" (click)="update()" color="primary" class="">
             Sửa phong cách
         </button>
-
-        <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
-    </div>`,
+    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+</div>`,
 })
 export class AddStyleDialog implements OnInit, OnDestroy {
     user: User;

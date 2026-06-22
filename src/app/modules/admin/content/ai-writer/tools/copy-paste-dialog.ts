@@ -20,15 +20,14 @@ import * as uuid from 'uuid';
         </form>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button (click)="sendTxt()" color="primary" class="float-right">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button (click)="sendTxt()" color="primary" class="">
             Định dạng Plain Text
         </button>
-
-        <button mat-flat-button (click)="sendMarkdown()" color="warn" class="float-right">
+    <button mat-flat-button (click)="sendMarkdown()" color="warn" class="">
             Định dạng Markdown
         </button>
-    </div>`,
+</div>`,
 })
 export class CopyPasteDialog implements OnInit {
     chatgptForm: UntypedFormGroup;
