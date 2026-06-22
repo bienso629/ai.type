@@ -119,8 +119,13 @@ export class SettingsAccountComponent implements OnInit {
                 closethread: this.accountForm.value['closethread'],
                 proccessing: this.accountForm.value['proccessing'],
                 language: this.accountForm.value['language'],
-                defaultlinks: this.accountForm.value['defaultlinks'],
                 port: this.accountForm.value['port'],
+                emailConfig_nodebbUrl: this.accountForm.value['emailConfig_nodebbUrl'],
+                emailConfig_nodebbToken: this.accountForm.value['emailConfig_nodebbToken'],
+                emailConfig_smtpHost: this.accountForm.value['emailConfig_smtpHost'],
+                emailConfig_smtpPort: this.accountForm.value['emailConfig_smtpPort'],
+                emailConfig_smtpUser: this.accountForm.value['emailConfig_smtpUser'],
+                emailConfig_smtpPass: this.accountForm.value['emailConfig_smtpPass'],
                 typelite_plugin: this.accountForm.value['typelite_plugin'],
                 chatbot: this.accountForm.value['chatbot'],
                 customer: this.accountForm.value['customer'],
@@ -139,6 +144,7 @@ export class SettingsAccountComponent implements OnInit {
                 umodelverseImageModel: this.accountForm.value['umodelverseImageModel'],
                 umodelverseVideoModel: this.accountForm.value['umodelverseVideoModel'],
                 enableUmodelverse: this.accountForm.value['enableUmodelverse'],
+                customCookies: this.accountForm.value['customCookies'],
             };
 
             if (statusTypeLite) {
@@ -203,49 +209,7 @@ export class SettingsAccountComponent implements OnInit {
         this.save();
     }
 
-    // Trong SettingsAccountComponent
 
-    async connectApps(url: string) {
-        this.uniqueID = Math.random().toString(36).substr(2, 9);
-
-        // Nếu là Zalo thì gọi lệnh crawl đặc biệt
-        if (url.includes('zalo')) {
-            (window as any).electron.tools({
-                command: 'zalo-crawl',
-                url: 'https://chat.zalo.me', // URL chính xác của bản web
-                uniqueID: this.uniqueID
-            });
-        } else {
-            // Các logic cũ cho Facebook...
-            (window as any).electron.tools({
-                command: 'facebook-login',
-                url: url,
-                uniqueID: this.uniqueID,
-                cookiePath: this.fbCookiePath
-            });
-        }
-    }
-
-    async downloadCookie() {
-        // Tạo uniqueID mỗi lần chụp
-        (window as any).electron.tools({
-            command: 'get-facebook-cookies',
-            uniqueID: this.uniqueID  // Sử dụng đúng mã vừa lưu
-        });
-    }
-
-    async test(url: string) {
-        // Tạo uniqueID mỗi lần chụp
-        const uniqueID = Math.random().toString(36).substr(2, 9);
-        await (window as any).electron.tools({
-            url: url,
-            command: 'website-crawl',
-            uniqueID,
-            facegroup: 'yourgroupid',
-            maxPosts: 3,
-            cookiePath: this.fbCookiePath // Đường dẫn file cookie .json đã lưu
-        });
-    }
 
     /**
      * Constructor
@@ -333,6 +297,12 @@ export class SettingsAccountComponent implements OnInit {
 
         // Create the form
         this.accountForm = this._formBuilder.group({
+            emailConfig_nodebbUrl: [(settings && settings.emailConfig_nodebbUrl) ? settings.emailConfig_nodebbUrl : ''],
+            emailConfig_nodebbToken: [(settings && settings.emailConfig_nodebbToken) ? settings.emailConfig_nodebbToken : ''],
+            emailConfig_smtpHost: [(settings && settings.emailConfig_smtpHost) ? settings.emailConfig_smtpHost : ''],
+            emailConfig_smtpPort: [(settings && settings.emailConfig_smtpPort) ? settings.emailConfig_smtpPort : ''],
+            emailConfig_smtpUser: [(settings && settings.emailConfig_smtpUser) ? settings.emailConfig_smtpUser : ''],
+            emailConfig_smtpPass: [(settings && settings.emailConfig_smtpPass) ? settings.emailConfig_smtpPass : ''],
             saveimages: [(settings && settings.saveimages) ? settings.saveimages : false],
             statusTypeLite: [true],
             autosave: [(settings && settings.autosave) ? settings.autosave : false],
@@ -342,7 +312,6 @@ export class SettingsAccountComponent implements OnInit {
             language: [(settings && settings.language) ? settings.language : 'vi'],
             secretKey: [(settings && settings.secretKey) ? settings.secretKey : ''],
             searchAPIKey: [(settings && settings.searchAPIKey) ? settings.searchAPIKey : ''],
-            defaultlinks: [(settings && settings.defaultlinks) ? settings.defaultlinks : ''],
             port: [(settings && settings.port) ? settings.port : ''],
             typelite_plugin: [(settings && settings.typelite_plugin) ? settings.typelite_plugin : ''],
             chatbot: [(settings && settings.chatbot) ? settings.chatbot : ''],
@@ -359,6 +328,7 @@ export class SettingsAccountComponent implements OnInit {
             umodelverseImageModel: [(settings && settings.umodelverseImageModel) ? settings.umodelverseImageModel : ''],
             umodelverseVideoModel: [(settings && settings.umodelverseVideoModel) ? settings.umodelverseVideoModel : ''],
             enableUmodelverse: [(settings && settings.enableUmodelverse !== undefined) ? settings.enableUmodelverse : false],
+            customCookies: [(settings && settings.customCookies) ? settings.customCookies : ''],
         });
 
         const secretKeyValue = this.accountForm.get('secretKey').value;

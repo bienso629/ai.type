@@ -36,6 +36,7 @@ import { SettingsCreateLicenseKeyComponent } from 'app/modules/admin/account/set
 import { SettingsDomainComponent } from 'app/modules/admin/account/settings/domain/domain.component';
 import { SettingsTeamComponent } from 'app/modules/admin/account/settings/team/team.component';
 import { AddStyleDialog } from 'app/modules/admin/account/settings/style/dialogs/add-dialog';
+import { EmailDialogComponent } from 'app/modules/admin/account/settings/admin/dialogs/email-dialog/email-dialog.component';
 import { settingsRoutes } from 'app/modules/admin/account/settings/settings.routing';
 
 @NgModule({
@@ -51,6 +52,7 @@ import { settingsRoutes } from 'app/modules/admin/account/settings/settings.rout
         SettingsAdminComponent,
         SettingsDomainComponent,
         AddStyleDialog,
+        EmailDialogComponent,
         SettingsTeamComponent
     ],
     imports: [

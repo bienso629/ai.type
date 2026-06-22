@@ -151,10 +151,12 @@ export class WordpressService {
         }
 
         let uploadObs: Observable<any> = of(null);
-        if (dataForm.thumbnail) {
-            const firstThumb = dataForm.thumbnail.split('\n')[0].trim();
-            if (firstThumb && firstThumb.startsWith('data:image')) {
-                uploadObs = this.upload_media(dataForm.domain, firstThumb, uname, pass);
+        if (dataForm.thumbnail && dataForm.force_update_thumbnail) {
+            const thumbs = dataForm.thumbnail.split('\n').map((t: string) => t.trim()).filter((t: string) => t);
+            const dataImageThumb = thumbs.find((t: string) => t.startsWith('data:image'));
+            
+            if (dataImageThumb) {
+                uploadObs = this.upload_media(dataForm.domain, dataImageThumb, uname, pass);
             }
         }
 
@@ -199,8 +201,11 @@ export class WordpressService {
         const byteArray = new Uint8Array(byteNumbers);
         const blob = new Blob([byteArray], { type: mimeType });
 
+        let safeFileName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+        if (!safeFileName) safeFileName = 'image.jpg';
+
         let headers = new HttpHeaders({
-            'Content-Disposition': `attachment; filename="image.jpg"; filename*=UTF-8''${encodeURIComponent(fileName)}`,
+            'Content-Disposition': `attachment; filename="${safeFileName}"`,
             'Content-Type': mimeType
         });
 

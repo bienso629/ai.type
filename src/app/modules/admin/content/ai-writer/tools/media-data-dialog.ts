@@ -56,7 +56,11 @@ import { MatDialogRef } from '@angular/material/dialog';
         </div>
 
         <!-- Actions -->
-        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4"></div>
+        <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <button mat-icon-button matTooltip="Đóng" (click)="dialogRef.close()">
+                <mat-icon>close</mat-icon>
+            </button>
+        </div>
     </div>
 
     <!-- Main -->
