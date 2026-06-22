@@ -60,7 +60,7 @@
                         </div>
                     </div>
 
-                    <ngx-datatable class="material shadow-none" [rows]="threadRows" [columnMode]="ColumnMode.force"
+                    <ngx-datatable [appScrollLock]="isLoading" class="material shadow-none" [rows]="threadRows" [columnMode]="ColumnMode.force"
                         [headerHeight]="0" [footerHeight]="0" [rowHeight]="72" [scrollbarV]="true"
                         [virtualization]="true" [externalPaging]="false" [selectionType]="SelectionType.single"
                         [selected]="selectedThreadRows" [style.height.px]="threadTableHeight"

@@ -1,5 +1,5 @@
 <div class="w-full">
-    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start">
+    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" (selectedTabChange)="onTabChanged($event)">
         <mat-tab label="License Keys">
             <license-keys></license-keys>
         </mat-tab>
@@ -21,10 +21,6 @@
                             <span class="ml-2">Xóa đã chọn ({{ n8nSelected.length }})</span>
                         </button>
 
-                        <button mat-flat-button [color]="'primary'" (click)="getN8nWorkflows()" [disabled]="n8nLoading">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                            <span class="ml-2">Làm mới danh sách</span>
-                        </button>
 
                         <!-- <button mat-flat-button [color]="'warn'" (click)="clearApiWorkflows()" [disabled]="n8nLoading">
                             Clean [API]
@@ -205,7 +201,7 @@
             </ngx-datatable>
         </mat-tab>
 
-        <mat-tab label="Gửi Email">
+        <mat-tab label="Thành viên">
             <div class="w-full">
                 <div class="flex items-center justify-between">
                     <div class="text-secondary leading-8">
@@ -221,11 +217,6 @@
                             (click)="sendEmailToSelected()" [disabled]="isSendingEmail">
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
                             <span class="ml-2">Gửi Mail ({{ forumSelected.length }})</span>
-                        </button>
-
-                        <button mat-flat-button [color]="'primary'" (click)="getForumUsers()" [disabled]="n8nLoading">
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                            <span class="ml-2">Tải danh sách</span>
                         </button>
                     </div>
                 </div>

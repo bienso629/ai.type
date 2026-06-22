@@ -226,7 +226,7 @@
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex w-1/2 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable [virtualization]="true" #table
+                        <ngx-datatable [appScrollLock]="loading" [virtualization]="true" #table
                             class="material expandable fullscreen transition-opacity duration-300"
                             [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading"
                             [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true"

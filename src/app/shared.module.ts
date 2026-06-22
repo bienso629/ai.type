@@ -2,6 +2,7 @@ import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
 import { StopPropagationDirective } from 'app/app.directive';
+import { DatatableScrollLockDirective } from 'app/datatable-scroll-lock.directive';
 import { FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe } from "app/app.pipe";
@@ -10,7 +11,7 @@ import { TranslocoModule } from '@ngneat/transloco';
 
 @NgModule({
     declarations: [
-        CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe, StopPropagationDirective
+        CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe, StopPropagationDirective, DatatableScrollLockDirective
     ],
     imports: [
         CommonModule,
@@ -30,6 +31,7 @@ import { TranslocoModule } from '@ngneat/transloco';
         CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe,
         MarkdownPipe,
         StopPropagationDirective,
+        DatatableScrollLockDirective,
         TranslocoModule
     ],
 })

@@ -38,6 +38,12 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <input type="file" #fileInput accept=".xml" (change)="readFile($event)" style="display: none;">
+            <button mat-flat-button class="ml-2" color="primary" (click)="fileInput.click()">
+                <mat-icon [svgIcon]="'feather:upload'" class="icon-size-5"></mat-icon>
+                <mat-label class="ml-2">Read file</mat-label>
+            </button>
+
             <mat-form-field class="ml-2 w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                 appearance="fill">
                 <input matInput (keyup.enter)="searchNode($event)" [placeholder]="'Tìm theo tiêu đề'">
@@ -49,8 +55,8 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative">
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [virtualization]="true" #table class="material fullscreen transition-opacity duration-300" [columnMode]="ColumnMode.force"
-            [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
+        <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table class="material fullscreen transition-opacity duration-300" [columnMode]="ColumnMode.force"
+            [class.pointer-events-none]="isLoading" [class.is-loading]="isLoading" [class.opacity-50]="isLoading" [selected]="selected" [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
             [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
             [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
             [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
@@ -62,27 +68,17 @@
             <ngx-datatable-column name="Tiêu đề" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <p *ngIf="row" class="font-normal truncate hover:text-clip">
-                        {{row.title}}
-                    </p>
+                    <div *ngIf="row" class="flex items-center">
+                        <p class="font-normal truncate hover:text-clip m-0">
+                            {{row.title}}
+                        </p>
+                        <a mat-icon-button class="w-8 h-8 min-h-8 flex items-center justify-center ml-2 shrink-0" matTooltipPosition="above" (click)="details(row)" [matTooltip]="'Văn bản'">
+                            <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:edit-3'"></mat-icon>
+                        </a>
+                    </div>
                 </ng-template>
             </ngx-datatable-column>
 
-            <!-- Column Templates -->
-            <ngx-datatable-column name="" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                [resizeable]="false">
-                <ng-template let-row="row" ngx-datatable-cell-template>
-                    <!-- <a mat-icon-button matTooltipPosition="above" (click)="convert(row)"
-                        [matTooltip]="'Chuyển đổi sang định dạng Makdown'">
-                        <mat-icon class="icon-size-4 text-blue-600" [svgIcon]="'feather:code'"></mat-icon>
-                    </a> -->
-
-                    <a *ngIf="row" mat-icon-button matTooltipPosition="above" (click)="details(row)" [matTooltip]="'Văn bản'"
-                        class="ml-0">
-                        <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:edit-3'"></mat-icon>
-                    </a>
-                </ng-template>
-            </ngx-datatable-column>
 
             <!-- Column Templates -->
             <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false"

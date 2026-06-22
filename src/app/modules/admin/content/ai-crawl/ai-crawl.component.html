@@ -250,7 +250,7 @@
                 <div class="flex flex-col sm:flex-row flex-0 h-full bg-white">
                     <div class="flex-1 min-w-0 h-full relative overflow-hidden">
                         <!-- Kết quả -->
-                        <ngx-datatable [virtualization]="true" class="material fullscreen" [rows]="links"
+                        <ngx-datatable [appScrollLock]="aiLoading" [virtualization]="true" class="material fullscreen" [rows]="links"
                             [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
                             [scrollbarV]="true" [scrollbarH]="false">
                             <ngx-datatable-column name="#" [width]="50" [sortable]="false" [canAutoResize]="false"
@@ -285,7 +285,7 @@
 
                     <!-- Actions -->
                     <div class="flex shrink-0 w-120 relative border-l">
-                        <ngx-datatable [virtualization]="true" class="material fullscreen"
+                        <ngx-datatable [appScrollLock]="aiLoading" [virtualization]="true" class="material fullscreen"
                             [columnMode]="ColumnMode.flex" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
                             [scrollbarV]="true" [scrollbarH]="false" [rows]="domains">
                             <ngx-datatable-column name="Pages đã quét" [sortable]="false" [canAutoResize]="true"

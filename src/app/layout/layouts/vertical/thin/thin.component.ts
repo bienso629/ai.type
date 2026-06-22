@@ -9,8 +9,14 @@ import { AnimationMode, Direction } from '@ecodev/fab-speed-dial';
 
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { HelpComponent } from 'app/modules/microsites/help/help.component';
-import { MAT_DIALOG_DATA, MatDialog } from '@angular/material/dialog';
-
+import { MAT_DIALOG_DATA, MatDialog, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
+import { FormsModule } from '@angular/forms';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { NgIf } from '@angular/common';
+import { ToastrService } from 'ngx-toastr';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChangeDetectorRef } from '@angular/core';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
@@ -19,6 +25,113 @@ import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserClientService } from 'app/modules/_services/user';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+
+@Component({
+    selector: 'app-bug-report-dialog',
+    standalone: true,
+    imports: [FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatDialogModule, MatIconModule, NgIf],
+    template: `
+        <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
+            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>
+            <mat-label class="self-center">Góp ý báo lỗi</mat-label>
+        </div>
+
+        <div mat-dialog-content class="mt-4 p-0">
+            <p class="text-blue-500 font-semibold mb-4 text-sm">Mô tả lỗi hoặc góp ý của bạn. Trình duyệt sẽ mở ứng dụng mail mặc định để gửi.</p>
+            <div *ngIf="data.screenshotPath" class="mb-4 text-xs text-blue-600 bg-blue-50 p-2 rounded break-all">
+                Ảnh chụp màn hình đã lưu tại: {{ data.screenshotPath }}. Vui lòng đính kèm file này vào email nếu cần.
+            </div>
+            
+            <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                <mat-label>Tiêu đề</mat-label>
+                <input matInput [(ngModel)]="subject" placeholder="Nhập tiêu đề">
+            </mat-form-field>
+            
+            <mat-form-field class="w-full mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                <mat-label>Nội dung</mat-label>
+                <textarea class="max-h-60 min-h-20 px-2" matInput [(ngModel)]="content" placeholder="Nhập nội dung báo lỗi..."></textarea>
+            </mat-form-field>
+        </div>
+
+        <div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
+            <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
+            <button mat-flat-button color="primary" (click)="sendEmail()" [disabled]="isSending">
+                {{ isSending ? 'Đang gửi...' : 'Gửi Email' }}
+            </button>
+        </div>
+    `,
+    styles: [
+        `.custom-textarea .mat-mdc-text-field-wrapper { padding-top: 0 !important; }`
+    ]
+})
+export class BugReportDialogComponent {
+    subject: string = '';
+    content: string = '';
+    isSending: boolean = false;
+
+    constructor(
+        public dialogRef: MatDialogRef<BugReportDialogComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: any,
+        private toastr: ToastrService
+    ) {}
+
+    async sendEmail() {
+        if (!this.subject || !this.content) {
+            this.toastr.warning('Vui lòng nhập đầy đủ tiêu đề và nội dung');
+            return;
+        }
+
+        this.isSending = true;
+        let fullContent = this.content;
+        if (this.data.user) {
+            fullContent += `<br><br>---<br>Người báo cáo: ${this.data.user.name || 'Ẩn danh'} (${this.data.user.email || 'N/A'})`;
+        }
+        if (this.data.screenshotPath) {
+            fullContent += `<br>Ảnh đính kèm: ${this.data.screenshotPath}`;
+        }
+
+        const settings = this.data.settings || {};
+        const emailConfig = {
+            nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
+            nodebbToken: settings.emailConfig_nodebbToken || '',
+            smtpHost: settings.emailConfig_smtpHost || 'smtp.gmail.com',
+            smtpPort: parseInt(settings.emailConfig_smtpPort || '587', 10),
+            smtpUser: settings.emailConfig_smtpUser || '',
+            smtpPass: settings.emailConfig_smtpPass || ''
+        };
+
+        if (!emailConfig.smtpUser || !emailConfig.smtpPass) {
+            this.toastr.error('Bạn chưa cấu hình SMTP trong phần Cài đặt.');
+            this.isSending = false;
+            return;
+        }
+
+        try {
+            if ((window as any).electronAPI && (window as any).electronAPI.sendMassEmails) {
+                const result = await (window as any).electronAPI.sendMassEmails({
+                    senderName: this.data.user?.name || 'User Báo Lỗi',
+                    subject: '[Báo Lỗi] ' + this.subject,
+                    htmlContent: fullContent,
+                    users: [{ email: 'typevn@gmail.com', username: 'Ban Quản Trị' }],
+                    config: emailConfig
+                });
+
+                if (result && result.success) {
+                    this.toastr.success('Gửi báo lỗi thành công!');
+                    this.dialogRef.close();
+                } else {
+                    this.toastr.error('Lỗi khi gửi báo lỗi: ' + (result?.error || 'Unknown'));
+                }
+            } else {
+                this.toastr.error('Môi trường không hỗ trợ gửi email trực tiếp.');
+            }
+        } catch (error) {
+            this.toastr.error('Lỗi kết nối: ' + (error as any).message);
+        } finally {
+            this.isSending = false;
+        }
+    }
+}
 
 @Component({
     selector: 'thin-layout',
@@ -125,13 +238,15 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
             if (result && result.success) {
                 console.log('Đã lưu ảnh tại:', result.path);
 
-                // (Tuỳ chọn) Mở popup hiển thị ảnh vừa chụp ngay lập tức
-                // Tận dụng PopupComponent đã có sẵn trong file thin.component.ts
-                this.dialog.open(PopupComponent, {
-                    width: '80%',
-                    height: '80%',
+                // Mở popup nhập nội dung mail báo lỗi
+                this.dialog.open(BugReportDialogComponent, {
+                    width: '500px',
                     backdropClass: 'custom-dialog-backdrop',
-                    data: { url: result.url }, // Main trả về url dạng file:///...
+                    data: { 
+                        screenshotPath: result.path, 
+                        user: this.user,
+                        settings: this.multiAccountService.getItem('settings') || {}
+                    },
                     panelClass: 'custom-dialog'
                 });
 
@@ -330,3 +445,4 @@ export class PopupComponent {
         this.safeUrl = this.sanitizer.bypassSecurityTrustResourceUrl(data.url);
     }
 }
+

@@ -2493,6 +2493,36 @@ ipcMain.on("app:relaunch", () => {
     app.exit(0);
 });
 
+ipcMain.handle("download-image", async (event, args) => {
+    const { url, fileName, customDir } = args;
+    if (!url || !fileName) return { success: false, error: 'Missing url or fileName' };
+
+    const docPath = app.getPath("documents");
+    let saveDir = path.join(docPath, "ai.type", "data");
+    if (customDir) {
+        saveDir = path.join(saveDir, customDir);
+    }
+
+    if (!fs.existsSync(saveDir)) {
+        fs.mkdirSync(saveDir, { recursive: true });
+    }
+
+    const filePath = path.join(saveDir, fileName);
+    try {
+        const axios = require('axios');
+        const response = await axios({
+            url,
+            method: 'GET',
+            responseType: 'arraybuffer'
+        });
+        fs.writeFileSync(filePath, Buffer.from(response.data, 'binary'));
+        return { success: true, filePath };
+    } catch (e) {
+        console.error("Error downloading image:", e);
+        return { success: false, error: e.message };
+    }
+});
+
 // main.js (Phần xử lý ipcMain save-base64)
 ipcMain.handle("save-base64", async (event, args) => {
     // Thêm username vào destructuring

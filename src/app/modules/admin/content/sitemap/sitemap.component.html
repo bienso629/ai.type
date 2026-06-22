@@ -73,7 +73,7 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto relative" cdkScrollable>
         <!-- CONTENT GOES HERE -->
-        <ngx-datatable [virtualization]="true" class="material fullscreen transition-opacity duration-300"
+        <ngx-datatable [appScrollLock]="loadingPosts" [virtualization]="true" class="material fullscreen transition-opacity duration-300"
             [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
             [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)"
             (scroll)="onScroll($event)">
