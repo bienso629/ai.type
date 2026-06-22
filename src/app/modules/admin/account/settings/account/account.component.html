@@ -51,6 +51,48 @@
 
                 <!-- Section -->
                 <div class="w-full mt-10">
+                    <div class="text-secondary">Cấu hình Gửi Email (Type.VN & SMTP)</div>
+                </div>
+
+                <!-- Divider -->
+                <div class="mt-2 mb-2 border-t"></div>
+
+                <div class="flex flex-col mt-4">
+                    <div class="grid sm:grid-cols-2 gap-4">
+                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Type.VN URL</mat-label>
+                            <input matInput [formControlName]="'emailConfig_nodebbUrl'" placeholder="https://type.vn">
+                        </mat-form-field>
+
+                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Type.VN Admin Token</mat-label>
+                            <input matInput type="password" [formControlName]="'emailConfig_nodebbToken'" placeholder="Nhập Token">
+                        </mat-form-field>
+                        
+                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>SMTP Host (VD: smtp.gmail.com)</mat-label>
+                            <input matInput [formControlName]="'emailConfig_smtpHost'">
+                        </mat-form-field>
+                        
+                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>SMTP Port (VD: 587)</mat-label>
+                            <input matInput type="number" [formControlName]="'emailConfig_smtpPort'">
+                        </mat-form-field>
+
+                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Email SMTP</mat-label>
+                            <input matInput [formControlName]="'emailConfig_smtpUser'">
+                        </mat-form-field>
+
+                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Mật khẩu SMTP / App Password</mat-label>
+                            <input matInput type="password" [formControlName]="'emailConfig_smtpPass'">
+                        </mat-form-field>
+                    </div>
+                </div>
+
+                <!-- Section -->
+                <div class="w-full mt-10">
                     <div class="text-secondary">Cấu hình Type-Lite</div>
                 </div>
 
@@ -58,42 +100,18 @@
                 <div class="mt-2 mb-2 border-t"></div>
 
                 <div class="flex flex-col mt-4">
+
                     <mat-form-field
-                        class="flex-auto w-1/2 mt-2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
+                        class="flex-auto w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label class="">Thực thi câu lệnh hệ thống <span class="text-gray-400">(powershell,
-                                git,...)</span></mat-label>
-                        <textarea class="px-2" [formControlName]="'defaultlinks'"
-                            [placeholder]="'Câu lệnh chạy hệ thống'" matInput cdkTextareaAutosize></textarea>
-                        <mat-hint>Mỗi câu lệnh được phân tách bởi Enter</mat-hint>
+                        <mat-label class="">Cookies.txt (Netscape HTTP Cookie File)</mat-label>
+                        <textarea class="px-2" [formControlName]="'customCookies'"
+                            [placeholder]="'Dán nội dung file cookies.txt vào đây'" matInput cdkTextareaAutosize
+                            cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
+                        <mat-hint>Cookie sử dụng cho tính năng tải/phân tích video bị khóa (như của Facebook)</mat-hint>
                     </mat-form-field>
 
-                    <!-- Divider -->
-                    <div class="mt-10 mb-2 border-t"></div>
 
-                    <mat-label class="font-semibold text-base mt-3">Kết nối MXH</mat-label>
-
-                    <div class="mt-2 flex flex-row items-center">
-                        <a class="bg-blue-600 hover:opacity-50 flex items-center justify-self-stretch h-7 leading-7 px-3 cursor-pointer rounded-full text-xs font-semibold"
-                            (click)="connectApps('https://www.facebook.com')">
-                            <!-- <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:facebook'"></mat-icon> -->
-                            <mat-icon class="icon-size-4 text-white" svgIcon="facebook"></mat-icon>
-                            <mat-label class="text-white ml-1">Kết nối Facebook</mat-label>
-                        </a>
-
-                        <a class="bg-blue-800 hover:opacity-50 flex items-center justify-self-stretch h-7 leading-7 px-3 cursor-pointer rounded-full text-xs font-semibold ml-1"
-                            (click)="connectApps('https://zalo.me/zalo-chat')">
-                            <!-- <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:facebook'"></mat-icon> -->
-                            <mat-icon class="icon-size-4 text-white" svgIcon="zalo"></mat-icon>
-                            <mat-label class="text-white ml-1">Kết nối Zalo</mat-label>
-                        </a>
-
-                        <!-- <a class="ml-1 bg-slate-500 hover:opacity-50 flex items-center justify-self-stretch h-7 leading-7 px-3 cursor-pointer rounded-full text-xs font-semibold"
-                            (click)="test('https://thuvienphapluat.vn/documents/download.aspx?id=3NzXDXY0%2f8MEP0yh%2fWURnw%3d%3d&amp;part=0')">
-                            <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:check'"></mat-icon>
-                            <mat-label class="text-white ml-1">Test Data</mat-label>
-                        </a> -->
-                    </div>
                 </div>
             </mat-tab>
 

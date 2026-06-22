@@ -62,8 +62,16 @@ export class AllTubeComponent implements OnInit, OnDestroy {
         } else {
             if ((window as any).electron) {
                 this.toastr.info('Đang bắt đầu tải video...');
+                const settingsStr = localStorage.getItem('settings');
+                let customCookies = '';
+                if (settingsStr) {
+                    try {
+                        customCookies = JSON.parse(settingsStr).customCookies || '';
+                    } catch (e) {}
+                }
                 (window as any).electron.invoke('download-video', {
-                    urls: urls
+                    urls: urls,
+                    customCookies: customCookies
                 }).then((result: any) => {
                     if (result && result.success) {
                         this.toastr.success('Tải video về thành công!');

@@ -26,14 +26,18 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
         <div class="mt-4">
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Nhờ Gemini lên ý tưởng, tóm tắt nội dung hoặc trả lời câu hỏi:</mat-label>
-                <!-- <mat-icon class="icon-size-4" [svgIcon]="'feather:message-circle'" matPrefix></mat-icon> -->
                 <input [formControlName]="'chatgpt'" placeholder="Đặt vấn đề của bạn tại đây" type="text" (keyup.enter)="chatgpt(chatgptForm.get('chatgpt').value, $event)" required matInput>
 
-                <input hidden type="file" accept="application/pdf" class="file-input" (change)="upload($event)" #fileUpload>
-                <a mat-icon-button matSuffix class="ml-0" [matTooltip]="'Upload file lên CDN'" (click)="fileUpload.click()" [disabled]="loading">
-                    <mat-icon *ngIf="!loading" class="icon-size-4 text-current" [svgIcon]="'feather:paperclip'"></mat-icon>
+                <input hidden type="file" class="file-input" (change)="upload($event)" #fileUpload>
+                
+                <button type="button" mat-icon-button matSuffix class="mr-1" matTooltip="Đính kèm tệp" (click)="fileUpload.click()" [disabled]="loading">
+                    <mat-icon class="icon-size-5 text-current" [svgIcon]="'feather:paperclip'"></mat-icon>
+                </button>
+
+                <button type="button" mat-icon-button matSuffix matTooltip="Gửi yêu cầu AI" (click)="chatgpt(chatgptForm.get('chatgpt').value, $event)" [disabled]="loading || !chatgptForm.get('chatgpt').value">
+                    <mat-icon *ngIf="!loading" class="icon-size-5 text-primary" [svgIcon]="'feather:send'"></mat-icon>
                     <mat-icon *ngIf="loading" class="animate-spin icon-size-5 text-primary" [svgIcon]="'feather:loader'"></mat-icon>
-                </a>
+                </button>
             </mat-form-field>
 
             <div *ngIf="selectedFileName" class="mt-1 flex items-center bg-blue-50 px-2 py-1 rounded border border-blue-200">
@@ -43,7 +47,7 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
                 </button>
             </div>
 
-            <div *ngIf="!selectedFileName" class="mt-0 text-md text-hint">Đính kèm PDF để AI phân tích.</div>
+            <div *ngIf="!selectedFileName" class="mt-0 text-md text-hint">Đính kèm tệp để AI phân tích.</div>
         </div>
     </form>
 

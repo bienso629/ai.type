@@ -298,6 +298,16 @@ export class renderTrustHTML implements PipeTransform {
     ) { }
     transform(value: string) {
         if (value && value.length > 0) { 
+            value = value
+                .replace(/&#92;n/g, '')
+                .replace(/&bsol;n/g, '')
+                .replace(/\\\\n/g, '')
+                .replace(/\\n/g, '')
+                .replace(/\\\\r/g, '')
+                .replace(/\\r/g, '')
+                .replace(/(\r\n|\n|\r)/gm, '')
+                .replace(/&nbsp;/g, ' ');
+
             if (value.indexOf('youtube-playlist') >= 0) {
                 const playlist = $(value).text();
                 value = `<iframe class="youtube-playlist" src="https://www.youtube.com/embed/?playlist=${playlist}&autoplay=0&controls=0&enablejsapi=1&showinfo=0&modestbranding=0&loop=0&fs=1&cc_load_policty=0&iv_load_policy=3&playsinline=1&color=1&widgetid=1"></iframe>`;

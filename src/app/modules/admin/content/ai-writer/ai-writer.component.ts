@@ -1113,13 +1113,17 @@ ${content}`;
             }
         } catch (e) { }
 
-        const dialogRef = this.dialog.open(GeminiImageDialog, {
-            width: '680px',
-        });
+        let prompt = '';
+        if (this.source.prompt && this.source.prompt.length > 0) {
+            prompt = this.source.prompt.join('. ');
+            if (this.removeHTML) prompt = this.removeHTML.transform(prompt);
+        }
 
-        dialogRef.afterClosed().subscribe((result) => {
-            if (result && result.data) {
-                const prompt = result.data;
+        if (!prompt.trim()) {
+            prompt = 'Mô tả chi tiết và sinh động bức ảnh này';
+        }
+
+        this.toastr.info('Đang phân tích hình ảnh và viết blog...', 'Đợi chút nhé');
 
                 this._blogService
                     .uploadImage({
@@ -1186,8 +1190,6 @@ ${content}`;
 
                 // lam moi lai giao dien
                 this.cd.markForCheck();
-            }
-        });
     }
 
     loadingDreamina: { [key: number]: boolean } = {};
@@ -1496,6 +1498,139 @@ ${content}`;
         this.edit(this.source.prompt, lastIndex);
     }
 
+    attachedFiles: File[] = [];
+
+    uploadFilesToPrompt(e: any) {
+        const files: FileList = e.target.files;
+        if (files && files.length > 0) {
+            Array.from(files).forEach((file: File) => {
+                this.attachedFiles.push(file);
+            });
+            this.toastr.success('Đã đính kèm tệp thành công. Bạn có thể yêu cầu AI làm việc ngay.');
+        }
+    }
+
+    async processPromptWithFiles(event?: any) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+
+        let promptText = '';
+        if (this.source.prompt && this.source.prompt.length > 0) {
+            promptText = this.source.prompt.join('. ');
+            if (this.removeHTML) promptText = this.removeHTML.transform(promptText) || '';
+        }
+
+        if (!(promptText || '').trim() && (!this.attachedFiles || this.attachedFiles.length === 0)) {
+            this.toastr.warning('Bạn cần nhập prompt hoặc đính kèm tệp để AI làm việc.');
+            return;
+        }
+
+        if (!this.source.text) {
+            this.source.text = [];
+        }
+
+        this.loading = true;
+        this.toastr.info('AI đang xử lý yêu cầu của bạn...', 'Đợi chút nhé');
+
+        const styleGuide = this.style ? ` Blog mang phong cách của ${this.style.name} (mô tả phong cách ${this.style.desc}).` : '';
+        try {
+            let promptTextAccumulator = (promptText || '') + styleGuide + `\nTrình bày câu trả lời của bạn dưới định dạng JSON với key là "contents", value là một mảng các đoạn văn. Không dùng markdown.`;
+            let parts: any[] = [];
+            
+            if (this.attachedFiles.length > 0) {
+                const uploadPromises = this.attachedFiles.map(
+                    (file: File) => new Promise<any>((resolve, reject) => {
+                        const isText = file.name.endsWith('.txt') || file.name.endsWith('.md') || file.name.endsWith('.csv') || file.name.endsWith('.json');
+                        const isPdf = file.name.toLowerCase().endsWith('.pdf');
+
+                        const reader = new FileReader();
+                        if (isText) {
+                            reader.onload = (e: any) => {
+                                resolve({ type: 'text', content: `\n--- Nội dung file ${file.name} ---\n${e.target.result}\n--- Hết file ---` });
+                            };
+                            reader.onerror = reject;
+                            reader.readAsText(file);
+                        } else {
+                            reader.onload = (e: any) => {
+                                const base64Data = e.target.result.split(',')[1];
+                                let mimeType = file.type;
+                                if (!mimeType) {
+                                    if (file.name.toLowerCase().endsWith('.png')) mimeType = 'image/png';
+                                    else if (isPdf) mimeType = 'application/pdf';
+                                    else mimeType = 'image/jpeg';
+                                }
+                                resolve({
+                                    type: 'image',
+                                    inlineData: {
+                                        mimeType: mimeType,
+                                        data: base64Data
+                                    }
+                                });
+                            };
+                            reader.onerror = reject;
+                            reader.readAsDataURL(file);
+                        }
+                    })
+                );
+                
+                const fileResults = await Promise.all(uploadPromises);
+                for (const res of fileResults) {
+                    if (res.type === 'text') {
+                        promptTextAccumulator += res.content;
+                    } else if (res.type === 'image') {
+                        parts.push({ inlineData: res.inlineData });
+                    }
+                }
+            }
+            
+            // Add the combined text as the first part
+            parts.unshift({ text: promptTextAccumulator });
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: parts }],
+            });
+
+            const jsonText = response.text;
+            if (jsonText) {
+                try {
+                    const data = JSON.parse(jsonText);
+                    if (data.contents && Array.isArray(data.contents)) {
+                        data.contents.forEach((text: string) => {
+                            this.source.text.push(`<p id="source-p-${uuid.v4()}">${text}</p>`);
+                        });
+                        this.toastr.success('AI đã hoàn thành công việc!');
+                        this.attachedFiles = [];
+                        this.cd.markForCheck();
+                    } else {
+                        // Fallback if no contents array
+                        this.source.text.push(`<p id="source-p-${uuid.v4()}">${jsonText}</p>`);
+                        this.toastr.success('AI đã hoàn thành công việc!');
+                        this.attachedFiles = [];
+                        this.cd.markForCheck();
+                    }
+                } catch(e) {
+                    this.source.text.push(`<p id="source-p-${uuid.v4()}">${jsonText}</p>`);
+                    this.toastr.success('AI đã hoàn thành công việc!');
+                    this.attachedFiles = [];
+                    this.cd.markForCheck();
+                }
+            }
+        } catch (error: any) {
+            console.error('Lỗi khi gửi AI: ', error);
+            this.toastr.error('Có lỗi xảy ra: ' + (error?.message || 'Không thể kết nối tới AI.'));
+        } finally {
+            this.loading = false;
+            this.cd.detectChanges();
+        }
+    }
+
+    removeAttachedFile(index: number) {
+        this.attachedFiles.splice(index, 1);
+    }
+
     /**
      * Tạo a mới bằng cách gõ nhập
      */
@@ -1728,7 +1863,11 @@ ${content}`;
 
                 let result: any;
                 try {
-                    result = await electronApi.invoke('analyze-video-local', { url: content, extractInterval: this.videoExtractInterval });
+                    result = await electronApi.invoke('analyze-video-local', { 
+                        url: content, 
+                        extractInterval: this.videoExtractInterval,
+                        customCookies: this.settings?.customCookies
+                    });
                 } finally {
                     if (unsubscribeLog) unsubscribeLog();
                 }
@@ -1979,8 +2118,16 @@ ${content}`;
      */
     edit(item: any, index: number) {
         // xoá bỏ hết mấy cái line break
-        if (item[index])
-            item[index] = item[index].replace(/(\r\n|\n|\r)/gm, '');
+        if (item[index] && typeof item[index] === 'string') {
+            item[index] = item[index]
+                .replace(/&#92;n/g, '')
+                .replace(/&bsol;n/g, '')
+                .replace(/\\\\n/g, '')
+                .replace(/\\n/g, '')
+                .replace(/\\\\r/g, '')
+                .replace(/\\r/g, '')
+                .replace(/(\r\n|\n|\r)/gm, '');
+        }
 
         const bottomSheetRef = this._bottomSheet.open(EditBeforeExportSheet, {
             panelClass: 'edit2export',
@@ -2002,12 +2149,16 @@ ${content}`;
         bottomSheetRef.afterDismissed().subscribe((result) => {
             // Restore focus to an appropriate element for the user's workflow here.
             if (result && result.content != null) {
-                // if (this.name === this.user.name) {
-
-                // } else {
-                //     // đồng tác giả chỉnh sửa
-                //     this.alert('Bạn cần phải có Tên công việc và bấm Lưu trữ công việc trước.');
-                // }
+                if (typeof result.content === 'string') {
+                    result.content = result.content
+                        .replace(/&#92;n/g, '')
+                        .replace(/&bsol;n/g, '')
+                        .replace(/\\\\n/g, '')
+                        .replace(/\\n/g, '')
+                        .replace(/\\\\r/g, '')
+                        .replace(/\\r/g, '')
+                        .replace(/(\r\n|\n|\r)/gm, '');
+                }
 
                 // chính chủ đã chỉnh sửa
                 let id = null;
@@ -2323,7 +2474,7 @@ ${content}`;
     /**
      * Dùng từ đồng nghĩa đảo câu
      */
-    synonymsForSentence(source: any, index: number, backup: string) {
+    async synonymsForSentence(source: any, index: number, backup: string) {
         const id = $(source[index]).attr('id');
 
         if (this.source.backup[id] === undefined) {
@@ -2332,8 +2483,54 @@ ${content}`;
             source[index] = this.source.backup[id];
         }
 
-        source[index] = source[index].split('.').join('. '); // format lai đoạn văn
-        this.keyword(source, index);
+        let originalHtml = source[index];
+        let plainText = this.removeHTML.transform(originalHtml);
+        
+        if (!plainText || plainText.trim() === '') {
+            this.toastr.warning('Đoạn văn trống, không thể viết lại.');
+            return;
+        }
+
+        this.loading = true;
+        this.cd.detectChanges();
+
+        try {
+            const prompt = `Hãy viết lại nội dung của đoạn HTML sau bằng tiếng Việt một cách tự nhiên để tránh trùng lặp nội dung, nhưng vẫn giữ nguyên ý nghĩa và TẤT CẢ các thẻ HTML (như <a>, <b>, <i>, <span>, <img>). Chỉ trả về mã HTML đã viết lại, không giải thích gì thêm, không dùng markdown:\n${originalHtml}`;
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+
+            if (response && response.text) {
+                let newContent = response.text.replace(/```html/gi, '').replace(/```/g, '').trim();
+                
+                if (id) {
+                    try {
+                        const $parsed = $(`<div>${newContent}</div>`);
+                        const firstChild = $parsed.children().first();
+                        if (firstChild.length > 0) {
+                            firstChild.attr('id', id);
+                            source[index] = $parsed.html();
+                        } else {
+                            source[index] = `<p id="${id}">${newContent}</p>`;
+                        }
+                    } catch (e) {
+                         source[index] = `<p id="${id}">${newContent}</p>`;
+                    }
+                } else {
+                    source[index] = newContent;
+                }
+                
+                this.toastr.success('Đã tạo đoạn văn mới thành công!');
+                this.keyword(source, index); // Vẫn gọi để lấy từ khoá nếu API backend hoạt động
+            }
+        } catch (error) {
+            console.error('Lỗi khi viết lại đoạn văn:', error);
+            this.toastr.error('Lỗi khi viết lại đoạn văn.');
+        } finally {
+            this.loading = false;
+            this.cd.detectChanges();
+        }
     }
 
     /**
@@ -2717,13 +2914,15 @@ ${content}`;
                     title: this.detectForm.get('step1').get('title').value,
                     content: formattedContent,
                     excerpt: this.detectForm.get('step1').get('description').value,
-                    thumbnail: this.detectForm.get('step1').get('thumbnail').value
+                    thumbnail: this.detectForm.get('step1').get('thumbnail').value,
+                    force_update_thumbnail: (this as any).isThumbnailChanged || false
                 };
 
                 this._wordpressService.update_post(wpData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                     next: (res) => {
                         // Because wordpress.ts swallows errors returning empty array [], we check for it
                         if (res && res.id) {
+                            (this as any).isThumbnailChanged = false; // Reset the flag after successful upload
                             this.toastr.success(`Đã đồng bộ bài viết ${res.id} lên WordPress thành công!`);
                         } else {
                             this.toastr.error(`Đồng bộ bài viết ${postId} thất bại, vui lòng kiểm tra lại quyền truy cập.`);
@@ -4303,10 +4502,50 @@ ${content}`;
                         canvas.width = width;
                         canvas.height = height;
                         const ctx = canvas.getContext('2d');
+                        
+                        // Fill white background in case it's a transparent PNG converted to JPEG
+                        ctx.fillStyle = '#FFFFFF';
+                        ctx.fillRect(0, 0, width, height);
                         ctx.drawImage(img, 0, 0, width, height);
                         
-                        const result = canvas.toDataURL(file.type === 'image/png' ? 'image/png' : 'image/jpeg', 0.85);
-                        const nameParam = `;name=${encodeURIComponent(file.name)};base64,`;
+                        let mimeType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+                        let quality = 0.85;
+                        let result = canvas.toDataURL(mimeType, quality);
+                        
+                        const getBytes = (b64: string) => Math.round((b64.split(',')[1] || b64).length * 3 / 4);
+                        const MAX_SIZE_BYTES = 200 * 1024; // 200KB
+                        
+                        if (getBytes(result) > MAX_SIZE_BYTES) {
+                            mimeType = 'image/jpeg'; // Convert to JPEG for better compression
+                            result = canvas.toDataURL(mimeType, quality);
+                            
+                            while (getBytes(result) > MAX_SIZE_BYTES && quality > 0.1) {
+                                // Prioritize resizing over deep-frying JPEG quality to keep it looking sharp
+                                if (quality <= 0.6 && getBytes(result) > MAX_SIZE_BYTES) {
+                                    width *= 0.8;
+                                    height *= 0.8;
+                                    canvas.width = width;
+                                    canvas.height = height;
+                                    
+                                    ctx.fillStyle = '#FFFFFF';
+                                    ctx.fillRect(0, 0, width, height);
+                                    ctx.drawImage(img, 0, 0, width, height);
+                                    
+                                    quality = 0.85; // Reset quality after resize
+                                } else {
+                                    quality -= 0.1;
+                                }
+                                
+                                result = canvas.toDataURL(mimeType, Math.max(0.1, quality));
+                            }
+                        }
+
+                        let finalName = file.name;
+                        if (mimeType === 'image/jpeg' && finalName.toLowerCase().endsWith('.png')) {
+                            finalName = finalName.replace(/\.png$/i, '.jpg');
+                        }
+                        
+                        const nameParam = `;name=${encodeURIComponent(finalName)};base64,`;
                         const modifiedResult = result.replace(/;?base64,/, nameParam);
                         resolve(modifiedResult);
                     };
@@ -4383,6 +4622,7 @@ ${content}`;
                 }
 
                 this.detectForm.get('step1').get('thumbnail').setValue(thumbnails.join('\n'));
+                (this as any).isThumbnailChanged = true;
                 this.update(false); // Lưu ngay lập tức
                 this.toastr.success(`Đã thay thế tệp thành công!`);
                 this.cd.markForCheck();
@@ -4419,6 +4659,7 @@ ${content}`;
                 const newValue = existingValue.trim() ? existingValue.trim() + '\n' + paths.join('\n') : paths.join('\n');
 
                 this.detectForm.get('step1').get('thumbnail').setValue(newValue);
+                (this as any).isThumbnailChanged = true;
                 this.update(false); // Lưu ngay lập tức
                 this.toastr.success(`Đã đính kèm ${files.length} tệp (Mã hóa nội bộ)!`);
                 this.cd.markForCheck();

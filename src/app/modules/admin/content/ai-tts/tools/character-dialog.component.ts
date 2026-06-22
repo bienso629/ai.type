@@ -523,9 +523,4 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
         });
     }
 
-    sendToFlow(prompt: string) {
-        if (!prompt) return;
-        window.dispatchEvent(new CustomEvent('send-to-google-flow', { detail: { prompt } }));
-        this.toastr.success('Đã gửi Prompt sang Google Flow!');
-    }
 }

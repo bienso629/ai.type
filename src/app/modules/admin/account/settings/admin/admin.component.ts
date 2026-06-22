@@ -1,8 +1,10 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
+import { MatDialog } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { EmailDialogComponent } from './dialogs/email-dialog/email-dialog.component';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
@@ -12,6 +14,7 @@ import { CrawlService } from 'app/modules/_services/crawl';
 import { UserClientService } from 'app/modules/_services/user';
 import { WP2MDService } from 'app/modules/_services/wp2md';
 import { N8nService } from 'app/modules/_services/n8n.service';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, Subject, takeUntil } from 'rxjs';
 
@@ -44,6 +47,17 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     n8nLoading: boolean = false;
     // -------------------------------
 
+    // --- BIẾN CHO TÍNH NĂNG NODEBB EMAIL ---
+    forumUsers: any[] = [];
+    tempForumUsers: any[] = [];
+    forumSelected: any[] = [];
+    isSendingEmail: boolean = false;
+    emailProgressStatus: string = '';
+    emailSuccess: number = 0;
+    emailFail: number = 0;
+    emailTotal: number = 0;
+    // -------------------------------
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -59,9 +73,11 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         private _chatgptService: ChatGPTService,
         private _n8nService: N8nService,
         private toastr: ToastrService,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
+        private multiAccountService: MultiAccountService,
+        private _matDialog: MatDialog
     ) {
-        this.titleService.setTitle(`quản lý server | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(`admin | ai.type - công cụ tạo content`);
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -84,6 +100,22 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
                     return;
                 }
             });
+
+        // Lắng nghe tiến trình gửi email từ Electron Main Process
+        if ((window as any).electronAPI && (window as any).electronAPI.onEmailProgress) {
+            (window as any).electronAPI.onEmailProgress((progress: any) => {
+                this.emailSuccess = progress.success || this.emailSuccess;
+                this.emailFail = progress.fail || this.emailFail;
+                this.emailTotal = progress.total || this.emailTotal;
+                
+                if (progress.status === 'fetching_users') {
+                    this.emailProgressStatus = 'Đang tải danh sách thành viên từ NodeBB...';
+                } else if (progress.status === 'sending') {
+                    this.emailProgressStatus = `Đang gửi mail cho ${progress.user} (${this.emailSuccess}/${this.emailTotal})`;
+                }
+                this.cd.detectChanges();
+            });
+        }
     }
 
     ngOnDestroy(): void {
@@ -98,6 +130,11 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
         this.selected.push(...selected);
+    }
+
+    onForumSelect({ selected }) {
+        this.forumSelected.splice(0, this.forumSelected.length);
+        this.forumSelected.push(...selected);
     }
 
     displayCheck(row: any) {
@@ -135,6 +172,121 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
                 error: () => this.toastr.error('Không tải được danh sách khách hàng.'),
                 complete: () => this.cd.markForCheck()
             });
+    }
+
+    async getForumUsers() {
+        const settings = this.multiAccountService.getItem('settings') || {};
+        if (!settings.emailConfig_nodebbUrl || !settings.emailConfig_nodebbToken) {
+            this.toastr.warning('Vui lòng vào Cấu hình -> Tài khoản để thiết lập Type.VN URL và Token trước.');
+            return;
+        }
+
+        if (!(window as any).electronAPI || !(window as any).electronAPI.fetchForumUsers) {
+            this.toastr.error('Chưa kết nối được với hệ thống Electron.');
+            return;
+        }
+
+        this.n8nLoading = true;
+        this.cd.markForCheck();
+
+        try {
+            const config = {
+                nodebbUrl: settings.emailConfig_nodebbUrl,
+                nodebbToken: settings.emailConfig_nodebbToken
+            };
+            const result = await (window as any).electronAPI.fetchForumUsers(config);
+            if (result && result.success) {
+                this.forumUsers = result.users;
+                this.tempForumUsers = [...result.users];
+                this.forumUsers = [...this.forumUsers];
+                this.toastr.success(`Đã tải ${this.forumUsers.length} thành viên.`);
+            } else {
+                this.toastr.error('Lỗi khi tải thành viên: ' + (result?.error || 'Unknown'));
+            }
+        } catch (error) {
+            this.toastr.error('Lỗi kết nối Electron: ' + error.message);
+        }
+
+        this.n8nLoading = false;
+        this.cd.markForCheck();
+    }
+
+    filterForumUsers(event: any) {
+        const val = event.target.value.toLowerCase();
+
+        // filter our data
+        const temp = this.tempForumUsers.filter(function (d) {
+            const nameMatch = d.username?.toLowerCase().indexOf(val) !== -1;
+            const emailMatch = d.email?.toLowerCase().indexOf(val) !== -1;
+            return nameMatch || emailMatch || !val;
+        });
+
+        // update the rows
+        this.forumUsers = temp;
+        this.cd.markForCheck();
+    }
+
+    async sendEmailToSelected() {
+        if (this.forumSelected.length === 0) return;
+        if (!(window as any).electronAPI || !(window as any).electronAPI.sendMassEmails) {
+            this.toastr.error('Chưa kết nối được với hệ thống Electron.');
+            return;
+        }
+
+        // Mở dialog soạn thảo email
+        const dialogRef = this._matDialog.open(EmailDialogComponent, {
+            width: '600px',
+            disableClose: true,
+            data: { selectedCount: this.forumSelected.length }
+        });
+
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (result) {
+                await this.confirmSendEmail(result);
+            }
+        });
+    }
+
+    async confirmSendEmail(emailComposer: any) {
+        this.isSendingEmail = true;
+        this.emailSuccess = 0;
+        this.emailFail = 0;
+        this.emailTotal = this.forumSelected.length;
+        this.emailProgressStatus = 'Bắt đầu...';
+        this.cd.markForCheck();
+
+        const settings = this.multiAccountService.getItem('settings') || {};
+        const emailConfig = {
+            nodebbUrl: settings.emailConfig_nodebbUrl || 'https://type.vn',
+            nodebbToken: settings.emailConfig_nodebbToken || '',
+            smtpHost: settings.emailConfig_smtpHost || 'smtp.gmail.com',
+            smtpPort: parseInt(settings.emailConfig_smtpPort || '587', 10),
+            smtpUser: settings.emailConfig_smtpUser || '',
+            smtpPass: settings.emailConfig_smtpPass || ''
+        };
+
+        try {
+            const result = await (window as any).electronAPI.sendMassEmails({
+                senderName: emailComposer.senderName,
+                subject: emailComposer.subject,
+                htmlContent: emailComposer.content,
+                users: this.forumSelected,
+                config: emailConfig
+            });
+
+            if (result && result.success) {
+                this.toastr.success(result.message);
+                this.emailProgressStatus = result.message;
+            } else {
+                this.toastr.error('Lỗi khi gửi email: ' + (result?.error || 'Unknown'));
+                this.isSendingEmail = false;
+            }
+        } catch (error) {
+            this.toastr.error('Lỗi kết nối Electron: ' + error.message);
+            this.isSendingEmail = false;
+        }
+
+        this.cd.markForCheck();
     }
 
     renderStatistic(user: any) {

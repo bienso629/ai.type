@@ -109,7 +109,7 @@ if (ADS_CLIENT_ID && ADS_CLIENT_SECRET && ADS_REFRESH_TOKEN) {
     adsOauthClient.setCredentials({ refresh_token: ADS_REFRESH_TOKEN });
 }
 
-// ==== QUẢN L�? BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
+// ==== QUẢN LÝ BINARIES (FFmpeg, YT-DLP, Edge-TTS, Type...) ====
 const binaries = {
     ffmpeg: null,
     ytdlp: null,
@@ -120,11 +120,15 @@ const binaries = {
 
 function loadBinaries() {
     const isWin = process.platform === "win32";
+    const isMac = process.platform === "darwin";
     let results = [];
     let hasError = false;
 
-    const getPath = (winName, macName, label) => {
-        const fileName = isWin ? winName : macName;
+    const getPath = (winName, macName, linuxName, label) => {
+        let fileName = winName;
+        if (isMac) fileName = macName;
+        else if (!isWin && !isMac) fileName = linuxName; // For Linux and others
+        
         let binPath = "";
 
         if (app.isPackaged) {
@@ -142,21 +146,21 @@ function loadBinaries() {
             return binPath;
         } else {
             hasError = true;
-            results.push(`�?� ${label}: KHÔNG TÌM THẤY tại ${binPath}`);
+            results.push(`🔸 ${label}: KHÔNG TÌM THẤY tại ${binPath}`);
             return null;
         }
     };
 
-    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "FFmpeg");
-    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "Youtube-DL");
-    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "Edge-TTS");
-    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "Type-Lite");
+    binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "ffmpeg-linux", "FFmpeg");
+    binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "yt-dlp-linux", "Youtube-DL");
+    binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "edge-tts-linux", "Edge-TTS");
+    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "type-lite-linux", "Type-Lite");
 
     if (hasError) {
         dialog.showMessageBox({
             type: 'error',
             title: 'Lỗi Hệ Thống',
-            message: 'Phát hiện thiếu file thực thi quan tr�?ng!',
+            message: 'Phát hiện thiếu file thực thi quan trọng!',
             detail: results.join("\n"),
             buttons: ['OK']
         });
@@ -1644,6 +1648,7 @@ function createMainWindow() {
     mainWindow = new BrowserWindow({
         width: 1440,
         height: 1080,
+        icon: path.join(__dirname, '../icons/icon.png'),
         backgroundColor: "#212121",
         fullscreenable: true,
         alwaysOnTop: false,
@@ -1776,7 +1781,7 @@ function createTargetWindow(
     url,
     callback,
     uniqueID,
-    winWidth = 600,
+    winWidth = 1000,
     winHeight = 800,
 ) {
     if (targetWindow && !targetWindow.isDestroyed()) {
@@ -1812,6 +1817,7 @@ function createTargetWindow(
         height: finalHeight,
         x: finalX,
         y: finalY,
+        icon: path.join(__dirname, '../icons/icon.png'),
         title: "Công cụ AI",
         show: true, // show sau khi ready-to-show
         frame: false,
@@ -5089,11 +5095,77 @@ ipcMain.handle('download-video', async (event, payload) => {
             const args = [
                 '-o', outputTemplate,
                 '--newline',
+                '--no-warnings',
+                '--rm-cache-dir',
+                '--js-runtimes', 'node',
+                '--extractor-args', 'youtube:player_client=ios,android,web',
                 '-f', 'bestvideo+bestaudio/best'
             ];
             if (binaries.ffmpeg) {
                 args.push('--ffmpeg-location', binaries.ffmpeg);
             }
+
+            // Bổ sung cookie từ giao diện người dùng cấu hình
+            const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
+            if (payload.customCookies && payload.customCookies.trim().length > 0) {
+                try {
+                    let cookieContent = payload.customCookies.trim();
+                    if (cookieContent.startsWith('[')) {
+                        const cookiesData = JSON.parse(cookieContent);
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        cookieContent = netscapeStr;
+                    } else if (!cookieContent.includes('# Netscape')) {
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
+                        const pairs = cookieContent.split(';');
+                        for (const pair of pairs) {
+                            const trimmed = pair.trim();
+                            if (!trimmed) continue;
+                            const idx = trimmed.indexOf('=');
+                            if (idx > 0) {
+                                const key = trimmed.substring(0, idx).trim();
+                                const val = trimmed.substring(idx + 1).trim();
+                                netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
+                            }
+                        }
+                        cookieContent = netscapeStr;
+                    }
+                    const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
+                    fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
+                    if (!isFacebook) args.push('--cookies', tempCookiePath);
+                } catch (err) {
+                    console.error("Lỗi ghi file cookies tạm", err);
+                }
+            } else {
+                const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+                if (fs.existsSync(cookiesJsonPath)) {
+                    try {
+                        const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
+                        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                        if (!isFacebook) args.push('--cookies', tempCookiePath);
+                    } catch (err) {
+                        console.error("Lỗi đọc file cookies.json", err);
+                    }
+                }
+            }
+
             args.push(url);
 
             await new Promise((resolve, reject) => {
@@ -5280,7 +5352,11 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             const ytdlpArgs = [
                 '-o', outputTemplate,
                 '--newline',
+                '--no-warnings',
+                '--rm-cache-dir',
                 '--ignore-errors',
+                '--js-runtimes', 'node',
+                '--extractor-args', 'youtube:player_client=ios,android,web',
                 '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best',
                 '--write-auto-subs',
                 '--write-subs',
@@ -5290,35 +5366,68 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 ytdlpArgs.push('--ffmpeg-location', binaries.ffmpeg);
             }
 
-            // Bổ sung cookie từ trình duyệt Chrome đối với Facebook để tránh bị chặn
-            const cookiesTxtPath = path.join(__dirname, 'cookies.txt');
-            const cookiesJsonPath = path.join(__dirname, 'cookies.json');
-
+            // Bổ sung cookie từ giao diện người dùng cấu hình
             let hasCustomCookies = false;
-
             const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
 
-            if (fs.existsSync(cookiesTxtPath)) {
-                if (!isFacebook) ytdlpArgs.push('--cookies', cookiesTxtPath);
-                hasCustomCookies = true;
-            } else if (fs.existsSync(cookiesJsonPath)) {
+            if (payload.customCookies && payload.customCookies.trim().length > 0) {
                 try {
-                    const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
-                    let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
-                    for (const c of cookiesData) {
-                        let domain = c.domain || '';
-                        let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
-                        let cPath = c.path || '/';
-                        let secure = c.secure ? 'TRUE' : 'FALSE';
-                        let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
-                        netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                    let cookieContent = payload.customCookies.trim();
+                    if (cookieContent.startsWith('[')) {
+                        const cookiesData = JSON.parse(cookieContent);
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        cookieContent = netscapeStr;
+                    } else if (!cookieContent.includes('# Netscape')) {
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
+                        const pairs = cookieContent.split(';');
+                        for (const pair of pairs) {
+                            const trimmed = pair.trim();
+                            if (!trimmed) continue;
+                            const idx = trimmed.indexOf('=');
+                            if (idx > 0) {
+                                const key = trimmed.substring(0, idx).trim();
+                                const val = trimmed.substring(idx + 1).trim();
+                                netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
+                            }
+                        }
+                        cookieContent = netscapeStr;
                     }
                     const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
-                    fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                    fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
                     if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
                     hasCustomCookies = true;
                 } catch (err) {
-                    console.error("Lỗi đọc file cookies.json", err);
+                    console.error("Lỗi ghi file cookies tạm", err);
+                }
+            } else {
+                const cookiesJsonPath = path.join(__dirname, 'cookies.json');
+                if (fs.existsSync(cookiesJsonPath)) {
+                    try {
+                        const cookiesData = JSON.parse(fs.readFileSync(cookiesJsonPath, 'utf8'));
+                        let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from cookies.json\n\n";
+                        for (const c of cookiesData) {
+                            let domain = c.domain || '';
+                            let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                            let cPath = c.path || '/';
+                            let secure = c.secure ? 'TRUE' : 'FALSE';
+                            let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                            netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                        }
+                        const tempCookiePath = path.join(tempDir, 'cookies_temp.txt');
+                        fs.writeFileSync(tempCookiePath, netscapeStr, 'utf8');
+                        if (!isFacebook) ytdlpArgs.push('--cookies', tempCookiePath);
+                        hasCustomCookies = true;
+                    } catch (err) {
+                        console.error("Lỗi đọc file cookies.json", err);
+                    }
                 }
             }
 
@@ -5327,6 +5436,7 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
 
             ytdlpArgs.push(url);
 
+            let ytdlpStderr = "";
             await new Promise((resolve, reject) => {
                 const child = spawn(ytdlpPath, ytdlpArgs);
                 child.stdout.on('data', (data) => {
@@ -5335,9 +5445,16 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
                 });
                 child.stderr.on('data', (data) => {
                     const line = data.toString().trim();
-                    if (line) sendToRenderer("tools-log", `[AI Analyze] ${line}`);
+                    if (line) {
+                        sendToRenderer("tools-log", `[AI Analyze] ${line}`);
+                        ytdlpStderr += line + "\n";
+                    }
                 });
                 child.on('close', (code) => {
+                    resolve();
+                });
+                child.on('error', (err) => {
+                    ytdlpStderr += `Lỗi khi chạy yt-dlp: ${err.message}\n`;
                     resolve();
                 });
             });
@@ -5348,7 +5465,11 @@ ipcMain.handle('analyze-video-local', async (event, payload) => {
             const subtitleFile = files.find(f => f.startsWith('video.') && (f.endsWith('.vtt') || f.endsWith('.srt')));
 
             if (!foundVideoFile) {
-                throw new Error('Không tìm thấy video tải về.');
+                let errorMsg = 'Không tìm thấy video tải về.';
+                if (ytdlpStderr) {
+                    errorMsg += ` Chi tiết lỗi: ${ytdlpStderr}`;
+                }
+                throw new Error(errorMsg);
             }
 
             videoFile = foundVideoFile;
@@ -5619,6 +5740,103 @@ ipcMain.handle('open-external', async (event, targetPath) => {
         return { success: false, error: e.message };
     }
 });
+
+// --- NODEBB EMAIL SENDER SERVICES ---
+const axios = require('axios');
+const nodemailer = require('nodemailer');
+
+ipcMain.handle('fetch-forum-users', async (event, config) => {
+  try {
+    const NODEBB_URL = config.nodebbUrl;
+    const ADMIN_TOKEN = config.nodebbToken;
+    let allUsers = [];
+    let currentPage = 1;
+    let totalPages = 1;
+
+    do {
+      // Dùng API admin để lấy được email của thành viên, cần truyền _uid=1 để xác thực Master Token
+      const response = await axios.get(`${NODEBB_URL}/api/admin/manage/users?_uid=1&page=${currentPage}`, {
+        headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+      });
+      // Phản hồi của /api/admin/manage/users
+      const responseData = response.data.response || response.data;
+      totalPages = responseData.pagination ? responseData.pagination.pageCount : 1;
+      
+      const userList = responseData.users || [];
+      for (const user of userList) {
+        if (user.email) allUsers.push(user);
+      }
+      currentPage++;
+    } while (currentPage <= totalPages);
+
+    return { success: true, users: allUsers };
+  } catch (error) {
+    let errorMsg = error.message;
+    if (error.response && error.response.data) {
+        errorMsg += ' - Detail: ' + JSON.stringify(error.response.data);
+    }
+    return { success: false, error: errorMsg };
+  }
+});
+
+ipcMain.handle('send-mass-emails', async (event, { senderName, subject, htmlContent, users, config }) => {
+  try {
+    const transporter = nodemailer.createTransport({
+      host: config.smtpHost,
+      port: config.smtpPort,
+      secure: config.smtpPort === 465, // Port 465 thì secure, 587 thì không
+      auth: {
+        user: config.smtpUser,
+        pass: config.smtpPass,
+      },
+    });
+
+    // Chạy ngầm trong background
+    (async () => {
+        let successCount = 0;
+        let failCount = 0;
+
+        for (const user of users) {
+          try {
+            await transporter.sendMail({
+              from: `"${senderName || 'Type.vn Admin'}" <${config.smtpUser}>`, 
+              to: user.email, 
+              subject: subject, 
+              html: `Chào <b>${user.username}</b>,<br><br>${htmlContent}` 
+            });
+            successCount++;
+            
+            event.sender.send('send-email-progress', { 
+                status: 'sending', user: user.username, 
+                success: successCount, fail: failCount, total: users.length 
+            });
+
+          } catch (mailErr) {
+            failCount++;
+            event.sender.send('send-email-progress', { 
+                status: 'sending', user: user.username, 
+                success: successCount, fail: failCount, total: users.length 
+            });
+          }
+          
+          // Nghỉ ngẫu nhiên từ 5 đến 10 phút (300000ms đến 600000ms)
+          const delay = Math.floor(Math.random() * (600000 - 300000 + 1)) + 300000;
+          await new Promise(resolve => setTimeout(resolve, delay)); 
+        }
+        
+        event.sender.send('send-email-progress', { 
+            status: 'done', 
+            success: successCount, fail: failCount, total: users.length 
+        });
+    })();
+
+    return { success: true, message: `Đã xếp ${users.length} email vào hàng chờ gửi ngầm.` };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+// ------------------------------------
+
 // --- B?T Ð?U CRM SERVICES ---
 let crmPhpProcess = null;
 let crmMariaDbProcess = null;

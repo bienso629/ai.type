@@ -250,13 +250,13 @@
     border-radius: 12px;
     margin-left: 6px;
     background: white;
-    word-break: break-word;
+    word-break: normal;
     overflow-wrap: break-word;
 
     img, iframe, video {
         max-width: 100%;
         height: auto;
-        border-radius: 8px;
+        border-radius: 4px;
     }
 }
 
@@ -279,13 +279,13 @@
     padding-right: 10px !important;
     margin-left: 6px;
     background: white;
-    word-break: break-word;
+    word-break: normal;
     overflow-wrap: break-word;
 
     img, iframe, video {
         max-width: 100%;
         height: auto;
-        border-radius: 8px;
+        border-radius: 4px;
     }
 }
 
