@@ -37,7 +37,7 @@
         <!-- Content -->
         <div
             class="relative flex flex-col flex-auto sm:max-h-160 h-160 divide-y overflow-y-auto overflow-x-hidden bg-card">
-            <ngx-datatable [virtualization]="true" #myTable class="material expandable fullscreen"
+            <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #myTable class="material expandable fullscreen"
                 [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
                 [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
                 [scrollbarV]="true" [rows]="chatgpt2s">

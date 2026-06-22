@@ -126,6 +126,17 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
+    onTabChanged(event: any) {
+        if (event.tab.textLabel === 'Thành viên') {
+            if (!this.forumUsers || this.forumUsers.length === 0) {
+                this.getForumUsers();
+            }
+        } else if (event.tab.textLabel === 'N8N Workflows') {
+            if (!this.n8nWorkflows || this.n8nWorkflows.length === 0) {
+                this.getN8nWorkflows();
+            }
+        }
+    }
 
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);

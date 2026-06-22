@@ -83,7 +83,7 @@
                 </div>
 
                 <div class="flex-auto overflow-y-auto relative h-full w-full" cdkScrollable>
-                    <ngx-datatable [virtualization]="true" #table
+                    <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #table
                         class="material fullscreen transition-opacity duration-300 h-full absolute inset-0"
                         [class.pointer-events-none]="isLoading" [class.opacity-50]="isLoading" [selected]="selected"
                         [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"

@@ -25,3 +25,7 @@ ng-select {
     }
   }
 }
+
+:host ::ng-deep .ngx-datatable.is-loading .datatable-body {
+    overflow: hidden !important;
+}

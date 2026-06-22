@@ -120,7 +120,7 @@
                     <div class="flex-auto relative rounded-md overflow-y-auto">
                         <div class="mx-auto w-full bg-transparent" cdkScrollable>
                             <ng-container *ngIf="rows.length > 0">
-                                <ngx-datatable #datatable class="material grid fullscreen image-thumbnails"
+                                <ngx-datatable [appScrollLock]="loading" #datatable class="material grid fullscreen image-thumbnails"
                                     [rows]="rows" [virtualization]="true" [scrollbarV]="true" [rowHeight]="rowHeight"
                                     [headerHeight]="0" [footerHeight]="0" [columnMode]="'force'">
                                     <ngx-datatable-column [flexGrow]="1">

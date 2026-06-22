@@ -1,4 +1,5 @@
 import { ChangeDetectorRef, Component, Inject, OnDestroy, OnInit, ViewChild, ViewEncapsulation } from '@angular/core';
+import * as xml2js from 'xml2js';
 import { Title } from '@angular/platform-browser';
 import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
@@ -56,6 +57,9 @@ export class WP2MDComponent implements OnInit, OnDestroy {
 
     displayCheck(row: any) {
         return row.title !== 'Ethel Price';
+    }
+
+    blockScroll(event: Event) {
     }
 
     getRowHeight(row: any) {
@@ -265,6 +269,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
             });
     }
 
+
     details(node: any) {
         this._wp2mdService.details({
             id: node._id,
@@ -353,6 +358,113 @@ export class WP2MDComponent implements OnInit, OnDestroy {
                     this.cd.markForCheck();
                 }
             });
+    }
+
+    readFile = (e: any) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.readAsText(file);
+
+        reader.onload = async (evt) => {
+            let xmlContent = (evt as any).target.result;
+            const parser = new xml2js.Parser({ explicitArray: false });
+            try {
+                const parsedXml: any = await parser.parseStringPromise(xmlContent);
+                if (parsedXml && parsedXml.rss && parsedXml.rss.channel) {
+                    let items = parsedXml.rss.channel.item;
+                    if (!items) items = [];
+                    if (!Array.isArray(items)) {
+                        items = [items];
+                    }
+
+                    // Build attachment map
+                    const attachments: Record<string, string> = {};
+                    items.forEach((item: any) => {
+                        if (item['wp:post_type'] === 'attachment') {
+                            const postId = item['wp:post_id'];
+                            const attachmentUrl = item['wp:attachment_url'];
+                            if (postId && attachmentUrl) {
+                                attachments[postId] = attachmentUrl;
+                            }
+                        }
+                    });
+
+                    // IPC renderer for downloading
+                    let ipcRenderer: any;
+                    try {
+                        ipcRenderer = (window as any).require('electron').ipcRenderer;
+                    } catch (e) {
+                        console.warn("Electron IPC not available");
+                    }
+
+                    // Process posts
+                    const posts = items.filter((item: any) => item['wp:post_type'] === 'post');
+                    
+                    for (const row of posts) {
+                        // Extract thumbnail
+                        let thumbnailUrl = '';
+                        let thumbnailId = '';
+                        if (row['wp:postmeta']) {
+                            let metaArray = Array.isArray(row['wp:postmeta']) ? row['wp:postmeta'] : [row['wp:postmeta']];
+                            const thumbMeta = metaArray.find((m: any) => m['wp:meta_key'] === '_thumbnail_id');
+                            if (thumbMeta) {
+                                thumbnailId = thumbMeta['wp:meta_value'];
+                                thumbnailUrl = attachments[thumbnailId];
+                            }
+                        }
+
+                        // Download thumbnail if available and ipcRenderer is present
+                        if (thumbnailUrl && ipcRenderer) {
+                            const extMatch = thumbnailUrl.match(/\.([a-zA-Z0-9]+)(?:[\?#]|$)/);
+                            const ext = extMatch ? `.${extMatch[1]}` : '.jpg';
+                            const fileName = `${row['wp:post_id']}${ext}`;
+                            
+                            try {
+                                await ipcRenderer.invoke('download-image', {
+                                    url: thumbnailUrl,
+                                    fileName: fileName,
+                                    customDir: ''
+                                });
+                            } catch (error) {
+                                console.error('Error downloading thumbnail', error);
+                            }
+                        }
+
+                        // Save to database
+                        const hostname = row.link ? new URL(row.link).hostname : 'localhost';
+                        this._wp2mdService.store({
+                            title: row.title,
+                            hostname: hostname,
+                            object: row,
+                            username: this.user.name
+                        }).subscribe({
+                            next: (result: any) => {
+                                if (result && result.success) {
+                                    this.toastr.success(`Đã thêm bài: ${row.title}`);
+                                } else {
+                                    this.toastr.warning(`Đã tồn tại: ${row.title}`);
+                                }
+                            },
+                            error: (e) => {
+                                console.error(e);
+                            }
+                        });
+                    }
+                    
+                    // Reset input
+                    e.target.value = '';
+                    // Reload table
+                    this.searchNode({ target: { value: this.keyword } });
+                } else {
+                    this.toastr.warning('Định dạng XML không đúng.');
+                }
+            } catch (err) {
+                this.toastr.error('Lỗi phân tích XML');
+                console.error(err);
+            }
+        };
     }
 
     /**

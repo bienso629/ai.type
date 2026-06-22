@@ -80,9 +80,20 @@
                 "provider": "generic",
                 "url": "https://ai.type.vn/phan-mem/"
             }
-        ]
+        ],
+        "linux": {
+            "target": [
+                "deb",
+                "AppImage"
+            ],
+            "category": "Office"
+        }
     },
-    "author": "Yên AI",
+    "author": {
+        "name": "Yên AI",
+        "email": "contact@ai.type.vn"
+    },
+    "homepage": "https://ai.type.vn",
     "license": "license.txt",
     "dependencies": {
         "@babel/node": "^7.23.9",
