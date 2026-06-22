@@ -107,18 +107,18 @@
 
         <!-- Form Inputs -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-grow w-full">
-            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Tên nhân vật</mat-label>
                 <input matInput [(ngModel)]="editingChar.name" (ngModelChange)="updateAvailableReferenceImages()"
                     placeholder="VD: Naruto" />
             </mat-form-field>
 
-            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Phiên bản (Tuỳ chọn)</mat-label>
                 <input matInput [(ngModel)]="editingChar.variant" placeholder="VD: Đồ công sở, Lúc tức giận..." />
             </mat-form-field>
 
-            <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+            <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <mat-label>Vai trò</mat-label>
                 <input matInput [(ngModel)]="editingChar.role" placeholder="VD: Nhân vật chính" />
             </mat-form-field>
@@ -151,7 +151,7 @@
         </div>
 
         @if (availableReferenceImages.length > 0) {
-        <mat-form-field class="w-full fuse-mat-dense mb-2" [subscriptSizing]="'dynamic'">
+        <mat-form-field class="w-full fuse-mat-dense mb-2 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <mat-select [(value)]="referenceImageUrl" placeholder="Không dùng ảnh">
                 <mat-select-trigger>
                     @if (referenceImageUrl) {
@@ -192,7 +192,7 @@
         </div>
         }
 
-        <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+        <mat-form-field class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed" [(ngModel)]="editingChar.prompt"
                 placeholder="VD: Một chàng trai tóc vàng, mặc áo thun..." cdkTextareaAutosize
                 cdkAutosizeMinRows="3"></textarea>

@@ -71,16 +71,13 @@
 </div>
 
 <div mat-dialog-actions class="p-0 mt-4">
-  <!-- Header -->
-  <div class="flex w-full sm:items-center sm:justify-between">
-    <div class="flex-1 min-w-0">
-      <!-- Breadcrumbs -->
+  <div class="flex w-full sm:items-center justify-between">
+    <div class="flex justify-start gap-2">
       <button mat-flat-button color="primary" (click)="run()">
         <mat-icon class="icon-size-4" [svgIcon]="'feather:play'"></mat-icon>
         <mat-label class="ml-2">Tăng traffic cho danh sách link</mat-label>
       </button>
-
-      <button mat-flat-button color="medium" (click)="close()" class="ml-2">Đóng cửa sổ</button>
+      <button mat-flat-button color="medium" (click)="close()">Đóng cửa sổ</button>
     </div>
 
     <!-- Actions -->

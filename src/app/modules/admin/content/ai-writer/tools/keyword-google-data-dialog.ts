@@ -61,11 +61,10 @@ import * as uuid from 'uuid';
     </ng-template>
 </div>
 
-<div mat-dialog-actions class="p-0 mt-4">
-    <button mat-flat-button color="primary" *ngIf="blocks.length > 0" (click)="get()" class="mr-2">
+<div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button color="primary" *ngIf="blocks.length > 0" (click)="get()" class="">
         <mat-label>Sử dụng kết quả</mat-label>
     </button>
-
     <button mat-flat-button color="medium" (click)="dialogRef.close()" class="">Đóng</button>
 </div>`,
 })

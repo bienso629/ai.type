@@ -20,12 +20,12 @@ import { Subject, takeUntil } from "rxjs";
         </form>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button (click)="send()" color="primary" class="float-right">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button (click)="send()" color="primary" class="">
             Gửi tin nhắn
         </button>
-        <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
-    </div>`,
+    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+</div>`,
 })
 export class SMSDialog implements OnInit {
     smsForm: UntypedFormGroup;

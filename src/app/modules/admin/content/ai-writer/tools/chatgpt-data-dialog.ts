@@ -18,12 +18,12 @@ export interface DialogChatGPTData {
         <p class="hover:bg-grey-50 border p-2 rounded">{{data.answer}}</p>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4">
-        <button mat-flat-button color="primary" class="float-right" [mat-dialog-close]="data.answer">
+    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <button mat-flat-button color="primary" class="" [mat-dialog-close]="data.answer">
             Sử dụng câu trả lời này
         </button>
-        <button mat-flat-button (click)="onNoClick()" color="medium" class="float-right">Đóng cửa sổ</button>
-    </div>`,
+    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+</div>`,
 })
 export class ChatGPTDataDialog {
     constructor(

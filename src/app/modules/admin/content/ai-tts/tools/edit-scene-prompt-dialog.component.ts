@@ -1448,7 +1448,7 @@ Instructions:
     imports: [CommonModule, FormsModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatTooltipModule],
     template: `
         <h2 class="text-lg font-semibold mb-4 text-slate-800">{{data.title}}</h2>
-        <mat-form-field class="custom-textarea fuse-mat-dense w-full" [subscriptSizing]="'dynamic'">
+        <mat-form-field class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
             <textarea matInput [(ngModel)]="value" [placeholder]="data.placeholder" cdkTextareaAutosize cdkAutosizeMinRows="3"></textarea>
         </mat-form-field>
         
