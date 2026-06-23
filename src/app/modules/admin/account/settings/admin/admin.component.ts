@@ -409,18 +409,18 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         ]).pipe(takeUntil(this._unsubscribeAll)).subscribe({
             next: async (results) => {
                 if (results) {
-                    const nodes = results[0].data;
-                    const chatgpt = results[1].data;
-                    const wp2md = results[2].data;
+                    const nodes = results[0]?.data || [];
+                    const chatgpt = results[1]?.data || { total: 0 };
+                    const wp2md = results[2]?.data || { total: 0 };
 
                     this.statistics[`${user.username}`] = {
-                        done: nodes[0].length,
-                        money: nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0),
-                        archives: nodes[2],
-                        writing: nodes[1],
-                        chatgpt: chatgpt['total'],
-                        wp2md: wp2md['total']
-                    }
+                        done: nodes[0] ? nodes[0].length : 0,
+                        money: nodes[0] ? nodes[0].reduce((total: number, obj: any) => obj.amount + total, 0) : 0,
+                        archives: nodes[2] || { total: 0 },
+                        writing: nodes[1] || { total: 0 },
+                        chatgpt: chatgpt['total'] || 0,
+                        wp2md: wp2md['total'] || 0
+                    };
                     this.createReport(user);
                 }
             },
