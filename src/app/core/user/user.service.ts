@@ -67,11 +67,11 @@ export class UserService {
     public permissionF(user: User) {
         let cn2 = 0, cn3 = 0;
 
-        if (user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download') || user.groups?.includes('nhóm-thu-thập-dữ-liệu') || user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói') || user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')) {
+        if (user.groups?.includes('nhóm-tạo-hình-ảnh') || user.groups?.includes('nhóm-thu-thập-dữ-liệu') || user.groups?.includes('nhóm-txt2voice') || user.groups?.includes('nhóm-big-data')) {
             cn2++;
         }
 
-        if (user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot') || user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo') || user.groups?.includes('nhóm-lên-kịch-bản-comment-like') || user.groups?.includes('nhóm-sử-dụng-zms') || user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')) {
+        if (user.groups?.includes('nhóm-đã-mua-chatbot') || user.groups?.includes('nhóm-seo-và-phân-tích') || user.groups?.includes('nhóm-tự-động-hóa') || user.groups?.includes('nhóm-x-cms') || user.groups?.includes('nhóm-chạy-traffic')) {
             cn3++;
         }
 
@@ -79,7 +79,7 @@ export class UserService {
     }
 
     public permissionVideo(user: User): boolean {
-        if (user.groups?.includes('nhóm-sử-dụng-chuyển-video-thành-bài-viết')) {
+        if (user.groups?.includes('nhóm-video2content')) {
             return true;
         }
 
@@ -87,7 +87,7 @@ export class UserService {
     }
 
     public permissionVideoDownloader(user: User): boolean {
-        if (user.groups?.includes('nhóm-download-video-từ-youtube-facebook')) {
+        if (user.groups?.includes('nhóm-download-video')) {
             return true;
         }
 
@@ -95,7 +95,7 @@ export class UserService {
     }
 
     public permissionDreamina(user: User): boolean {
-        if (user.groups?.includes('nhóm-sử-dụng-dreamina-ai')) {
+        if (user.groups?.includes('nhóm-dreamina-ai')) {
             return true;
         }
 
@@ -103,7 +103,7 @@ export class UserService {
     }
 
     public permissionText2Voice(user: User): boolean {
-        if (user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')) {
+        if (user.groups?.includes('nhóm-txt2voice')) {
             return true;
         }
 
@@ -111,7 +111,7 @@ export class UserService {
     }
 
     public permissionScriptCommentLike(user: User): boolean {
-        if (user.groups?.includes('nhóm-lên-kịch-bản-comment-like')) {
+        if (user.groups?.includes('nhóm-tự-động-hóa')) {
             return true;
         }
 
