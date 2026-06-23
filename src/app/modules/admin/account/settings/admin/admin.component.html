@@ -228,7 +228,7 @@
 
                 <ngx-datatable class="material border rounded-lg shadow-none" [virtualization]="false"
                     [rows]="forumUsers" [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50"
-                    rowHeight="50" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="forumSelected"
+                    rowHeight="65" [loadingIndicator]="n8nLoading" [limit]="10" [selected]="forumSelected"
                     [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
                     (select)="onForumSelect($event)">
 
@@ -266,6 +266,20 @@
                     <ngx-datatable-column name="Bài viết" prop="postcount" [width]="90" [canAutoResize]="false">
                         <ng-template ngx-datatable-cell-template let-value="value">
                             <span class="text-base font-medium">{{ value | number }}</span>
+                        </ng-template>
+                    </ngx-datatable-column>
+
+                    <ngx-datatable-column name="Nhóm" [width]="350" [canAutoResize]="true">
+                        <ng-template ngx-datatable-cell-template let-row="row">
+                            <div class="w-full pr-4 mt-2">
+                                <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-full" *ngIf="forumGroups.length > 0">
+                                    <mat-select placeholder="Nhóm NodeBB" multiple [(ngModel)]="row.selectedGroups" 
+                                                (openedChange)="onGroupSelectOpened($event, row)"
+                                                (selectionChange)="onUserGroupChange(row, $event.value)">
+                                        <mat-option *ngFor="let group of forumGroups" [value]="group.slug">{{ group.name }}</mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
                         </ng-template>
                     </ngx-datatable-column>
 

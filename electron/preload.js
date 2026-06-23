@@ -82,6 +82,10 @@ contextBridge.exposeInMainWorld('electron', {
 /** ====== CẤU HÌNH NODEBB EMAIL ====== */
 contextBridge.exposeInMainWorld('electronAPI', {
     fetchForumUsers: (config) => ipcRenderer.invoke('fetch-forum-users', config),
+    fetchForumGroups: (config) => ipcRenderer.invoke('fetch-forum-groups', config),
+    addForumUsersToGroups: (data) => ipcRenderer.invoke('add-forum-users-to-groups', data),
+    removeForumUsersFromGroups: (data) => ipcRenderer.invoke('remove-forum-users-from-groups', data),
+    fetchForumUserGroups: (data) => ipcRenderer.invoke('fetch-forum-user-groups', data),
     sendMassEmails: (data) => ipcRenderer.invoke('send-mass-emails', data),
     onEmailProgress: (callback) => {
         const listener = (_event, data) => callback(data);

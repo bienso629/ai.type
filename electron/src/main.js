@@ -5809,6 +5809,106 @@ ipcMain.handle('fetch-forum-users', async (event, config) => {
   }
 });
 
+ipcMain.handle('fetch-forum-groups', async (event, config) => {
+  try {
+    const NODEBB_URL = config.nodebbUrl;
+    const ADMIN_TOKEN = config.nodebbToken;
+    
+    const response = await axios.get(`${NODEBB_URL}/api/v3/groups?_uid=1`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+    });
+    
+    const responseData = response.data.response || response.data;
+    // Tùy theo cấu trúc của NodeBB, groups có thể nằm trong responseData.groups hoặc chính nó
+    const groups = responseData.groups || responseData;
+    return { success: true, groups: groups };
+  } catch (error) {
+    let errorMsg = error.message;
+    if (error.response && error.response.data) {
+        errorMsg += ' - Detail: ' + JSON.stringify(error.response.data);
+    }
+    return { success: false, error: errorMsg };
+  }
+});
+
+ipcMain.handle('add-forum-users-to-groups', async (event, { userIds, groupSlugs, config }) => {
+  try {
+    const NODEBB_URL = config.nodebbUrl;
+    const ADMIN_TOKEN = config.nodebbToken;
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const uid of userIds) {
+      for (const slug of groupSlugs) {
+        try {
+          await axios.put(`${NODEBB_URL}/api/v3/groups/${slug}/membership/${uid}?_uid=1`, {}, {
+            headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+          });
+          successCount++;
+        } catch (e) {
+          failCount++;
+        }
+      }
+    }
+    return { success: true, successCount, failCount };
+  } catch (error) {
+    let errorMsg = error.message;
+    if (error.response && error.response.data) {
+        errorMsg += ' - Detail: ' + JSON.stringify(error.response.data);
+    }
+    return { success: false, error: errorMsg };
+  }
+});
+
+ipcMain.handle('remove-forum-users-from-groups', async (event, { userIds, groupSlugs, config }) => {
+  try {
+    const NODEBB_URL = config.nodebbUrl;
+    const ADMIN_TOKEN = config.nodebbToken;
+    let successCount = 0;
+    let failCount = 0;
+    
+    for (const uid of userIds) {
+      for (const slug of groupSlugs) {
+        try {
+          await axios.delete(`${NODEBB_URL}/api/v3/groups/${slug}/membership/${uid}?_uid=1`, {
+            headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+          });
+          successCount++;
+        } catch (e) {
+          failCount++;
+        }
+      }
+    }
+    return { success: true, successCount, failCount };
+  } catch (error) {
+    let errorMsg = error.message;
+    if (error.response && error.response.data) {
+        errorMsg += ' - Detail: ' + JSON.stringify(error.response.data);
+    }
+    return { success: false, error: errorMsg };
+  }
+});
+
+ipcMain.handle('fetch-forum-user-groups', async (event, { uid, config }) => {
+  try {
+    const NODEBB_URL = config.nodebbUrl;
+    const ADMIN_TOKEN = config.nodebbToken;
+    
+    const response = await axios.get(`${NODEBB_URL}/api/v3/users/${uid}?_uid=1`, {
+      headers: { Authorization: `Bearer ${ADMIN_TOKEN}` }
+    });
+    
+    const responseData = response.data.response || response.data;
+    // Lấy mảng group slugs mà user đang thuộc về (trong groups của NodeBB)
+    const userGroups = responseData.groups || [];
+    const groupSlugs = userGroups.map(g => g.slug);
+    
+    return { success: true, groupSlugs };
+  } catch (error) {
+    return { success: false, error: error.message };
+  }
+});
+
 ipcMain.handle('send-mass-emails', async (event, { senderName, subject, htmlContent, users, config }) => {
   try {
     const transporter = nodemailer.createTransport({
