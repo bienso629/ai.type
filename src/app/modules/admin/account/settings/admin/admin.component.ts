@@ -17,6 +17,7 @@ import { N8nService } from 'app/modules/_services/n8n.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, Subject, takeUntil } from 'rxjs';
+import { ForumService } from 'app/modules/_services/forum';
 
 import moment from 'moment';
 
@@ -56,6 +57,10 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     emailSuccess: number = 0;
     emailFail: number = 0;
     emailTotal: number = 0;
+
+    forumGroups: any[] = [];
+    selectedGroups: any[] = [];
+    isAddingToGroups: boolean = false;
     // -------------------------------
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -75,7 +80,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
-        private _matDialog: MatDialog
+        private _matDialog: MatDialog,
+        private _forumService: ForumService
     ) {
         this.titleService.setTitle(`admin | ai.type - công cụ tạo content`);
     }
@@ -130,6 +136,9 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         if (event.tab.textLabel === 'Thành viên') {
             if (!this.forumUsers || this.forumUsers.length === 0) {
                 this.getForumUsers();
+            }
+            if (!this.forumGroups || this.forumGroups.length === 0) {
+                this.getForumGroups();
             }
         } else if (event.tab.textLabel === 'N8N Workflows') {
             if (!this.n8nWorkflows || this.n8nWorkflows.length === 0) {
@@ -222,6 +231,27 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
     }
 
+    async getForumGroups() {
+        const settings = this.multiAccountService.getItem('settings') || {};
+        if (!settings.emailConfig_nodebbUrl || !settings.emailConfig_nodebbToken) return;
+
+        if (!(window as any).electronAPI || !(window as any).electronAPI.fetchForumGroups) return;
+
+        try {
+            const config = {
+                nodebbUrl: settings.emailConfig_nodebbUrl,
+                nodebbToken: settings.emailConfig_nodebbToken
+            };
+            const result = await (window as any).electronAPI.fetchForumGroups(config);
+            if (result && result.success) {
+                this.forumGroups = result.groups;
+            }
+        } catch (error) {
+            console.error('Lỗi tải nhóm NodeBB', error);
+        }
+        this.cd.markForCheck();
+    }
+
     filterForumUsers(event: any) {
         const val = event.target.value.toLowerCase();
 
@@ -235,6 +265,77 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         // update the rows
         this.forumUsers = temp;
         this.cd.markForCheck();
+    }
+
+    onGroupSelectOpened(opened: boolean, row: any) {
+        if (!opened || row.groupsLoaded) return;
+        
+        const server = this.user?.server || 'type';
+
+        this._forumService.getGroups(server).subscribe({
+            next: (result) => {
+                if (result && result.success && result.data && result.data.groups) {
+                    const groupSlugs: string[] = [];
+                    result.data.groups.forEach((g: any) => {
+                        if (g.members && Array.isArray(g.members)) {
+                            g.members.forEach((m: any) => {
+                                if (String(m.uid) === String(row.uid)) {
+                                    if (!groupSlugs.includes(g.slug)) {
+                                        groupSlugs.push(g.slug);
+                                    }
+                                }
+                            });
+                        }
+                    });
+
+                    // Đảm bảo Admin luôn nằm trong administrators
+                    if (row.administrator && !groupSlugs.includes('administrators')) {
+                        groupSlugs.push('administrators');
+                    }
+
+                    row.selectedGroups = groupSlugs;
+                    row._originalGroups = [...row.selectedGroups];
+                    row.groupsLoaded = true;
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.error('Lỗi: Không lấy được dữ liệu nhóm từ server.');
+                }
+            },
+            error: (error) => {
+                console.error('Lỗi tải nhóm của user', error);
+                this.toastr.error('Lỗi kết nối khi tải nhóm.');
+            }
+        });
+    }
+
+    async onUserGroupChange(row: any, newSelectedGroups: string[]) {
+        const settings = this.multiAccountService.getItem('settings') || {};
+        const config = {
+            nodebbUrl: settings.emailConfig_nodebbUrl,
+            nodebbToken: settings.emailConfig_nodebbToken
+        };
+
+        const original = row._originalGroups || [];
+        const added = newSelectedGroups.filter(slug => !original.includes(slug));
+        const removed = original.filter(slug => !newSelectedGroups.includes(slug));
+
+        if (added.length > 0) {
+            await (window as any).electronAPI.addForumUsersToGroups({
+                userIds: [row.uid],
+                groupSlugs: added,
+                config: config
+            });
+        }
+        if (removed.length > 0) {
+            await (window as any).electronAPI.removeForumUsersFromGroups({
+                userIds: [row.uid],
+                groupSlugs: removed,
+                config: config
+            });
+        }
+        
+        row._originalGroups = [...newSelectedGroups];
+        this.toastr.success(`Đã cập nhật nhóm cho ${row.username}`);
     }
 
     async sendEmailToSelected() {
