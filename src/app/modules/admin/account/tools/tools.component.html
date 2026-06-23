@@ -103,7 +103,7 @@
                                 </mat-grid-tile> -->
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-sử-dụng-ai-tạo-hình-ảnh-và-download')"
+                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-tạo-hình-ảnh')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-image']">
                                     <div class="flex flex-col items-center">
@@ -135,7 +135,7 @@
                                 </mat-grid-tile> -->
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-download-video-từ-youtube-facebook')"
+                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-download-video')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/all-tube']">
                                     <div class="flex flex-col items-center">
@@ -182,7 +182,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 50000 && user.groups?.includes('nhóm-sử-dụng-chuyển-đổi-văn-bản-thành-giọng-nói')"
+                                    *ngIf="user.reputation >= 50000 && user.groups?.includes('nhóm-txt2voice')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-text2speech']">
                                     <div class="flex flex-col items-center">
@@ -199,7 +199,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 100000 && user.groups?.includes('nhóm-sử-dụng-siêu-dữ-liệu')"
+                                    *ngIf="user.reputation >= 100000 && user.groups?.includes('nhóm-big-data')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/data']">
                                     <div class="flex flex-col items-center">
@@ -229,7 +229,7 @@
                             <mat-grid-list class="min-w-160 sm:min-w-160 md:min-w-200 lg:min-w-200" [cols]="cols"
                                 gutterSize="20px" rowHeight="1:1">
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 1000000 && user.groups?.includes('nhóm-khách-hàng-đã-mua-chatbot')"
+                                    *ngIf="user.reputation >= 1000000 && user.groups?.includes('nhóm-đã-mua-chatbot')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/chatbot']">
                                     <div class="flex flex-col items-center">
@@ -245,7 +245,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 2000000 && user.groups?.includes('nhóm-chạy-traffic-hàng-tháng')"
+                                    *ngIf="user.reputation >= 2000000 && user.groups?.includes('nhóm-chạy-traffic')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/profiles']">
                                     <div class="flex flex-col items-center">
@@ -261,7 +261,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
+                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-seo-và-phân-tích')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/links']">
                                     <div class="flex flex-col items-center">
@@ -277,7 +277,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-sử-dụng-seo-và-báo-cáo')"
+                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-seo-và-phân-tích')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/gscr']">
                                     <div class="flex flex-col items-center">
@@ -294,7 +294,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-lên-kịch-bản-comment-like')"
+                                    *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-tự-động-hóa')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/amxh']">
                                     <div class="flex flex-col items-center">
@@ -308,7 +308,7 @@
                                         Kích hoạt</div>
                                 </mat-grid-tile>
 
-                                <!-- <mat-grid-tile *ngIf="user.reputation >= 5000000 && user.groups?.includes('nhóm-sử-dụng-zms')"
+                                <!-- <mat-grid-tile *ngIf="user.reputation >= 5000000 && user.groups?.includes('nhóm-x-cms')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/customers']">
                                     <div class="flex flex-col items-center">
