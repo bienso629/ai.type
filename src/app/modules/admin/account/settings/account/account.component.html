@@ -3,10 +3,10 @@
     <form [formGroup]="accountForm" (ngSubmit)="save()">
         <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false"
             mat-align-tabs="start">
-            <mat-tab label="Cá nhân">
+            <mat-tab label="{{ 'account.tabs.personal' | transloco }}">
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">Cấu hình Cá nhân</div>
+                    <div class="text-secondary">{{ 'account.personal.title' | transloco }}</div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
@@ -14,11 +14,11 @@
                     <!-- Secret Key -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Link QR nhận tiền</mat-label>
+                        <mat-label>{{ 'account.personal.qr_link' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'mat_solid:qr_code_scanner'" matPrefix></mat-icon>
                         <input [formControlName]="'linkDonate'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Chấp nhận link nhận tiền từ MoMo, Paypal</div>
+                    <div class="mt-1 text-md text-hint">{{ 'account.personal.qr_hint' | transloco }}</div>
                 </div>
 
                 <!-- Divider -->
@@ -30,28 +30,29 @@
                         <mat-slide-toggle [formControlName]="'autosave'"
                             class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
                             <mat-label class="toggle-label text-md">
-                                Tự động lưu bài viết
-                                <span class="text-gray-400">(tránh việc mất bài viết)</span>
+                                {{ 'account.personal.autosave' | transloco }}
+                                <span class="text-gray-400">{{ 'account.personal.autosave_hint' | transloco }}</span>
                             </mat-label>
                         </mat-slide-toggle>
                     </div>
                 </div>
 
                 <div class="w-full mt-2 mb-4">
-                    <!-- Ngôn ngữ -->
+                    <!-- {{ 'account.personal.language' | transloco }} -->
                     <mat-form-field class="w-50 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Ngôn ngữ</mat-label>
+                        <mat-label>{{ 'account.personal.language' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'" matPrefix></mat-icon>
                         <mat-select [formControlName]="'language'">
-                            <mat-option [value]="'vi'">Tiếng Việt</mat-option>
+                            <mat-option [value]="'vi'">{{ 'account.personal.lang_vi' | transloco }}</mat-option>
+                            <mat-option [value]="'en'">{{ 'account.personal.lang_en' | transloco }}</mat-option>
                         </mat-select>
                     </mat-form-field>
                 </div>
 
                 <!-- Section -->
                 <div class="w-full mt-10">
-                    <div class="text-secondary">Cấu hình Gửi Email (Type.VN & SMTP)</div>
+                    <div class="text-secondary">{{ 'account.email.title' | transloco }}</div>
                 </div>
 
                 <!-- Divider -->
@@ -93,7 +94,7 @@
 
                 <!-- Section -->
                 <div class="w-full mt-10">
-                    <div class="text-secondary">Cấu hình Type-Lite</div>
+                    <div class="text-secondary">{{ 'account.lite.title' | transloco }}</div>
                 </div>
 
                 <!-- Divider -->
@@ -108,19 +109,19 @@
                         <textarea class="px-2" [formControlName]="'customCookies'"
                             [placeholder]="'Dán nội dung file cookies.txt vào đây'" matInput cdkTextareaAutosize
                             cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
-                        <mat-hint>Cookie sử dụng cho tính năng tải/phân tích video bị khóa (như của Facebook)</mat-hint>
+                        <mat-hint>{{ 'account.lite.cookie_hint' | transloco }}</mat-hint>
                     </mat-form-field>
 
 
                 </div>
             </mat-tab>
 
-            <mat-tab label="Công việc">
+            <mat-tab label="{{ 'account.tabs.jobs' | transloco }}">
                 <!-- Divider -->
                 <!-- <div class="mt-2 mb-2 border-t"></div> -->
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">Tích hợp các module cho công việc</div>
+                    <div class="text-secondary">{{ 'account.jobs.title' | transloco }}</div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
@@ -199,12 +200,12 @@
                 </div>
             </mat-tab>
 
-            <mat-tab label="AI">
+            <mat-tab label="{{ 'account.tabs.ai' | transloco }}">
                 <!-- Divider -->
                 <!-- <div class="mt-2 mb-2 border-t"></div> -->
                 <div class="w-full">
                     <!-- Divider -->
-                    <div class="text-secondary">Cấu hình của AI</div>
+                    <div class="text-secondary">{{ 'account.ai.title' | transloco }}</div>
                     <div class="mt-2 mb-2 border-t"></div>
                 </div>
 
@@ -220,7 +221,7 @@
                                 [subscriptSizing]="'dynamic'">
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
                                 <input [type]="geminiKeysVisibility[i] ? 'text' : 'password'" matInput [value]="key"
-                                    (input)="onGeminiKeyChange(i, $event)" placeholder="Nhập Secret Key">
+                                    (input)="onGeminiKeyChange(i, $event)" [placeholder]="'account.ai.placeholder_key' | transloco">
 
                                 <button mat-icon-button type="button" matSuffix (click)="toggleKeyVisibility(i)">
                                     <mat-icon class="icon-size-4">{{ geminiKeysVisibility[i] ? 'visibility_off' :
@@ -239,12 +240,12 @@
                         <!-- <mat-label class="text-secondary text-base mr-4">Keys của Gemini AI Studio</mat-label> -->
                         <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
                             <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
-                            <mat-label class="ml-2">Thêm Key</mat-label>
+                            <mat-label class="ml-2">{{ 'account.ai.add_key' | transloco }}</mat-label>
                         </button>
                     </div>
 
                     <div class="w-full mt-10">
-                        <div class="text-secondary">Cấu hình AI nâng cao (Mì tôm AI)</div>
+                        <div class="text-secondary">{{ 'account.ai.advanced_title' | transloco }}</div>
                         <div class="mt-2 mb-2 border-t"></div>
                     </div>
 
@@ -253,8 +254,8 @@
                             <mat-slide-toggle [formControlName]="'enableUmodelverse'"
                                 class="fuse-mat-dense fuse-mat-emphasized-affix" [color]="'primary'">
                                 <mat-label class="toggle-label text-md">
-                                    Bật/Tắt Mì Tôm AI
-                                    <span class="text-gray-400">(Tắt để sử dụng mô hình gốc)</span>
+                                    {{ 'account.ai.toggle_mitom' | transloco }}
+                                    <span class="text-gray-400">{{ 'account.ai.toggle_mitom_hint' | transloco }}</span>
                                 </mat-label>
                             </mat-slide-toggle>
                         </div>
@@ -351,7 +352,7 @@
                 <ng-container *ngIf="user.reputation >= 100000000">
                     <!-- Section -->
                     <div class="w-full mt-10">
-                        <div class="text-secondary">Cấu hình tự động hoá</div>
+                        <div class="text-secondary">{{ 'account.automation.title' | transloco }}</div>
                     </div>
 
                     <!-- Divider -->
@@ -394,8 +395,8 @@
 
         <!-- Actions -->
         <div class="flex items-center justify-end mt-10">
-            <mat-label class="mr-2 text-sm text-gray-500">Bạn có chỉnh sửa hãy nhớ lưu kết quả</mat-label>
-            <button class="ml-2" mat-flat-button type="submit" [color]="'primary'">Lưu cấu hình</button>
+            <mat-label class="mr-2 text-sm text-gray-500">{{ 'account.save_hint' | transloco }}</mat-label>
+            <button class="ml-2" mat-flat-button type="submit" [color]="'primary'">{{ 'account.save_btn' | transloco }}</button>
         </div>
     </form>
 </div>

@@ -11,6 +11,7 @@ import { UserClientService } from 'app/modules/_services/user';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
+import { TranslocoService } from '@ngneat/transloco';
 
 interface ModelGroup {
     name: string;
@@ -89,6 +90,10 @@ export class SettingsAccountComponent implements OnInit {
                                     puppeteer: settings.port ? `http://localhost:${settings.port}` : this.config.settings.puppeteer
                                 }
                             };
+
+                            if (settings.language) {
+                                this._translocoService.setActiveLang(settings.language);
+                            }
                             
                             this.toastr.success(`Lưu cấu hình!`);
                         } else {
@@ -222,7 +227,8 @@ export class SettingsAccountComponent implements OnInit {
         private _userClientService: UserClientService,
         private _fuseConfigService: FuseConfigService,
         private multiAccountService: MultiAccountService,
-        private cd: ChangeDetectorRef
+        private cd: ChangeDetectorRef,
+        private _translocoService: TranslocoService
     ) {
         this.titleService.setTitle(`cấu hình tài khoản | ai.type - công cụ tạo content`);
 

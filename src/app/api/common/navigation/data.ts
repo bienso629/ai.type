@@ -4,7 +4,7 @@ import { FuseNavigationItem } from '@fuse/components/navigation';
 export const defaultNavigation: FuseNavigationItem[] = [
     {
         id: 'money',
-        title: 'Thống kê',
+        title: 'nav.dashboard.title',
         type: 'aside',
         icon: 'feather:square',
         classes: {
@@ -13,8 +13,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
         children: [
             {
                 id: 'admin.payment',
-                title: 'Thống kê',
-                subtitle: 'Thống kê công việc.',
+                title: 'nav.dashboard.title',
+                subtitle: 'nav.dashboard.subtitle',
                 type: 'basic',
                 icon: 'feather:activity',
                 classes: {
@@ -24,8 +24,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
             },
             {
                 id: 'admin.payment',
-                title: 'Nhuận bút',
-                subtitle: 'Tiền nhuận bút của bạn.',
+                title: 'nav.revenue.title',
+                subtitle: 'nav.revenue.subtitle',
                 type: 'basic',
                 icon: 'feather:dollar-sign',
                 classes: {
@@ -37,7 +37,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'tool',
-        title: 'Công cụ',
+        title: 'nav.tools.title',
         type: 'aside',
         icon: 'feather:circle',
         classes: {
@@ -46,8 +46,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
         children: [
             {
                 id: 'admin.tools',
-                title: 'Công cụ',
-                subtitle: 'Công cụ tạo nội dung AI.',
+                title: 'nav.tools.title',
+                subtitle: 'nav.tools.subtitle',
                 type: 'basic',
                 icon: 'feather:command',
                 classes: {
@@ -59,7 +59,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'node',
-        title: 'Công việc',
+        title: 'nav.jobs.title',
         // subtitle: 'Ghi chú một số lỗi của hệ thống.',
         type: 'aside',
         icon: 'feather:triangle',
@@ -69,8 +69,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
         children: [
             {
                 id: 'admin.archives',
-                title: 'Công việc',
-                subtitle: 'Nội dung đang soạn của bạn.',
+                title: 'nav.jobs.title',
+                subtitle: 'nav.archives.subtitle',
                 type: 'basic',
                 icon: 'feather:edit-3',
                 classes: {
@@ -79,8 +79,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
                 link: '/archives'
             }, {
                 id: 'admin.ai-import-nodes',
-                title: 'Sitemap',
-                subtitle: 'Sitemap của các Website.',
+                title: 'nav.sitemap.title',
+                subtitle: 'nav.sitemap.subtitle',
                 type: 'basic',
                 icon: 'feather:git-merge',
                 classes: {
@@ -89,8 +89,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
                 link: '/wp2md'
             }, {
                 id: 'admin.ai-crawl-nodes',
-                title: 'Thu thập',
-                subtitle: 'Kết quả thu thập dữ liệu.',
+                title: 'nav.crawl.title',
+                subtitle: 'nav.crawl.subtitle',
                 type: 'basic',
                 icon: 'feather:package',
                 classes: {
@@ -102,7 +102,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'admin',
-        title: 'Quản trị',
+        title: 'nav.admin.title',
         type: 'aside',
         icon: 'feather:x',
         classes: {
@@ -111,8 +111,8 @@ export const defaultNavigation: FuseNavigationItem[] = [
         children: [
             {
                 id: 'admin.changepass',
-                title: 'Cấu hình',
-                subtitle: 'Cấu hình ChatGPT, Nạp tiền.',
+                title: 'nav.settings.title',
+                subtitle: 'nav.settings.subtitle',
                 type: 'basic',
                 icon: 'feather:settings',
                 classes: {
@@ -126,7 +126,7 @@ export const defaultNavigation: FuseNavigationItem[] = [
 export const compactNavigation: FuseNavigationItem[] = [
     {
         id: 'money',
-        title: 'Thống kê',
+        title: 'nav.dashboard.title',
         type: 'aside',
         icon: 'feather:square',
         classes: {
@@ -136,7 +136,7 @@ export const compactNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'tool',
-        title: 'Công cụ',
+        title: 'nav.tools.title',
         subtitle: 'Unique dashboard designs',
         type: 'aside',
         icon: 'feather:circle',
@@ -147,7 +147,7 @@ export const compactNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'node',
-        title: 'Văn bản',
+        title: 'nav.text.title',
         // subtitle: 'Ghi chú một số lỗi của hệ thống.',
         type: 'aside',
         icon: 'feather:triangle',
@@ -158,7 +158,7 @@ export const compactNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'admin',
-        title: 'Quản trị',
+        title: 'nav.admin.title',
         type: 'aside',
         icon: 'feather:x',
         classes: {
@@ -170,7 +170,7 @@ export const compactNavigation: FuseNavigationItem[] = [
 export const futuristicNavigation: FuseNavigationItem[] = [
     {
         id: 'money',
-        title: 'Thống kê',
+        title: 'nav.dashboard.title',
         type: 'aside',
         icon: 'feather:square',
         classes: {
@@ -180,7 +180,7 @@ export const futuristicNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'tool',
-        title: 'Công cụ',
+        title: 'nav.tools.title',
         subtitle: 'Unique dashboard designs',
         type: 'aside',
         icon: 'feather:circle',
@@ -191,7 +191,7 @@ export const futuristicNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'node',
-        title: 'Văn bản',
+        title: 'nav.text.title',
         // subtitle: 'Ghi chú một số lỗi của hệ thống.',
         type: 'aside',
         icon: 'feather:triangle',
@@ -202,7 +202,7 @@ export const futuristicNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'admin',
-        title: 'Quản trị',
+        title: 'nav.admin.title',
         type: 'aside',
         icon: 'feather:x',
         classes: {
@@ -214,7 +214,7 @@ export const futuristicNavigation: FuseNavigationItem[] = [
 export const horizontalNavigation: FuseNavigationItem[] = [
     {
         id: 'money',
-        title: 'Thống kê',
+        title: 'nav.dashboard.title',
         type: 'aside',
         icon: 'feather:square',
         classes: {
@@ -224,7 +224,7 @@ export const horizontalNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'tool',
-        title: 'Công cụ',
+        title: 'nav.tools.title',
         subtitle: 'Unique dashboard designs',
         type: 'aside',
         icon: 'feather:circle',
@@ -235,7 +235,7 @@ export const horizontalNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'node',
-        title: 'Văn bản',
+        title: 'nav.text.title',
         // subtitle: 'Ghi chú một số lỗi của hệ thống.',
         type: 'aside',
         icon: 'feather:triangle',
@@ -246,7 +246,7 @@ export const horizontalNavigation: FuseNavigationItem[] = [
     },
     {
         id: 'admin',
-        title: 'Quản trị',
+        title: 'nav.admin.title',
         type: 'aside',
         icon: 'feather:x',
         classes: {

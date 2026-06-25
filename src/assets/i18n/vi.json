@@ -96,5 +96,91 @@
                 }
             }
         }
+    },
+    "nav": {
+        "dashboard": {
+            "title": "Thống kê",
+            "subtitle": "Thống kê công việc."
+        },
+        "revenue": {
+            "title": "Nhuận bút",
+            "subtitle": "Tiền nhuận bút của bạn."
+        },
+        "tools": {
+            "title": "Công cụ",
+            "subtitle": "Công cụ tạo nội dung AI."
+        },
+        "jobs": {
+            "title": "Công việc"
+        },
+        "archives": {
+            "subtitle": "Nội dung đang soạn của bạn."
+        },
+        "sitemap": {
+            "title": "Sitemap",
+            "subtitle": "Sitemap của các Website."
+        },
+        "crawl": {
+            "title": "Thu thập",
+            "subtitle": "Kết quả thu thập dữ liệu."
+        },
+        "admin": {
+            "title": "Quản trị"
+        },
+        "settings": {
+            "title": "Cấu hình",
+            "subtitle": "Cấu hình ChatGPT, Nạp tiền."
+        },
+        "text": {
+            "title": "Văn bản"
+        }
+    },
+    "user": {
+        "location": "vị trí",
+        "profile": "Hồ sơ",
+        "settings": "Cài đặt",
+        "status": "Trạng thái",
+        "logout": "Thoát phiên"
+    },
+    "account": {
+        "tabs": {
+            "personal": "Cá nhân",
+            "jobs": "Công việc",
+            "ai": "AI"
+        },
+        "personal": {
+            "title": "Cấu hình Cá nhân",
+            "qr_link": "Link QR nhận tiền",
+            "qr_hint": "Chấp nhận link nhận tiền từ MoMo, Paypal",
+            "autosave": "Tự động lưu bài viết",
+            "autosave_hint": "(tránh việc mất bài viết)",
+            "language": "Ngôn ngữ",
+            "lang_vi": "Tiếng Việt",
+            "lang_en": "Tiếng Anh"
+        },
+        "email": {
+            "title": "Cấu hình Gửi Email (Type.VN & SMTP)"
+        },
+        "lite": {
+            "title": "Cấu hình Type-Lite",
+            "cookie_hint": "Cookie sử dụng cho tính năng tải/phân tích video bị khóa (như của Facebook)"
+        },
+        "jobs": {
+            "title": "Tích hợp các module cho công việc"
+        },
+        "ai": {
+            "title": "Cấu hình của AI",
+            "placeholder_key": "Nhập Secret Key",
+            "add_key": "Thêm Key",
+            "advanced_title": "Cấu hình AI nâng cao (Mì tôm AI)",
+            "toggle_mitom": "Bật/Tắt Mì Tôm AI",
+            "toggle_mitom_hint": "(Tắt để sử dụng mô hình gốc)",
+            "url_hint": "Đường dẫn API tương thích OpenAI. VD: https://api.mitom.ai/v1"
+        },
+        "automation": {
+            "title": "Cấu hình tự động hoá"
+        },
+        "save_btn": "Lưu cấu hình",
+        "save_hint": "Bạn có chỉnh sửa hãy nhớ lưu kết quả"
     }
 }
