@@ -1,4 +1,5 @@
 import { Component, OnDestroy, OnInit, signal, AfterViewInit, ChangeDetectorRef, NgZone } from '@angular/core';
+import { TranslocoService } from '@ngneat/transloco';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
@@ -87,7 +88,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private multiAccountService: MultiAccountService,
         private cdr: ChangeDetectorRef,
         private toastr: ToastrService,
-        private ngZone: NgZone
+        private ngZone: NgZone,
+        private _translocoService: TranslocoService
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
@@ -124,6 +126,11 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             };
 
             this.multiAccountService.setItem('settings', settings);
+        }
+
+        // Set transloco language
+        if (settings.language) {
+            this._translocoService.setActiveLang(settings.language);
         }
 
         // We use native DOM events in ngAfterViewInit instead of ResizeObserver to prevent lag

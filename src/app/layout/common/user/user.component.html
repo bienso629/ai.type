@@ -28,27 +28,27 @@
     <mat-menu [xPosition]="'before'" #userActions="matMenu" class="shadow-xl border-4 rounded-2xl">
         <a href="javascript:void(0)" (click)="onSelectAccount(user.email)" mat-menu-item>
             <span class="flex flex-col leading-none">
-                <span class="text-green-600">vị trí {{user.server}}</span>
+                <span class="text-green-600">{{ 'user.location' | transloco }} {{user.server}}</span>
                 <span class="mt-1.5 font-medium">{{user.email}}</span>
             </span>
         </a>
         <mat-divider class="my-2"></mat-divider>
         <a href="https://type.vn/user/{{user.name}}" target="_blank" mat-menu-item>
             <mat-icon [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
-            <span>Hồ sơ</span>
+            <span>{{ 'user.profile' | transloco }}</span>
         </a>
         <button (click)="goto('settings')" mat-menu-item>
             <mat-icon [svgIcon]="'heroicons_outline:cog'"></mat-icon>
-            <span>Cài đặt</span>
+            <span>{{ 'user.settings' | transloco }}</span>
         </button>
         <button mat-menu-item [matMenuTriggerFor]="userStatus">
             <mat-icon [svgIcon]="'heroicons_outline:dots-circle-horizontal'"></mat-icon>
-            <span>Trạng thái</span>
+            <span>{{ 'user.status' | transloco }}</span>
         </button>
         <mat-divider class="my-2"></mat-divider>
         <button mat-menu-item (click)="signOut()">
             <mat-icon [svgIcon]="'heroicons_outline:logout'"></mat-icon>
-            <span>Thoát phiên</span>
+            <span>{{ 'user.logout' | transloco }}</span>
         </button>
     </mat-menu>
 

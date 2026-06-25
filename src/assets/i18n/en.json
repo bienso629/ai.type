@@ -96,5 +96,91 @@
                 }
             }
         }
+    },
+    "nav": {
+        "dashboard": {
+            "title": "Dashboard",
+            "subtitle": "Task Statistics."
+        },
+        "revenue": {
+            "title": "Revenue",
+            "subtitle": "Your royalties."
+        },
+        "tools": {
+            "title": "Tools",
+            "subtitle": "AI Content Tools."
+        },
+        "jobs": {
+            "title": "Tasks"
+        },
+        "archives": {
+            "subtitle": "Your drafts."
+        },
+        "sitemap": {
+            "title": "Sitemap",
+            "subtitle": "Website sitemaps."
+        },
+        "crawl": {
+            "title": "Crawl Data",
+            "subtitle": "Crawled data results."
+        },
+        "admin": {
+            "title": "Administration"
+        },
+        "settings": {
+            "title": "Settings",
+            "subtitle": "Configure ChatGPT, Top up."
+        },
+        "text": {
+            "title": "Documents"
+        }
+    },
+    "user": {
+        "location": "location",
+        "profile": "Profile",
+        "settings": "Settings",
+        "status": "Status",
+        "logout": "Logout"
+    },
+    "account": {
+        "tabs": {
+            "personal": "Personal",
+            "jobs": "Jobs",
+            "ai": "AI"
+        },
+        "personal": {
+            "title": "Personal Configuration",
+            "qr_link": "QR Receive Link",
+            "qr_hint": "Accepts receive links from MoMo, Paypal",
+            "autosave": "Auto Save Posts",
+            "autosave_hint": "(prevents losing posts)",
+            "language": "Language",
+            "lang_vi": "Vietnamese",
+            "lang_en": "English"
+        },
+        "email": {
+            "title": "Email Configuration (Type.VN & SMTP)"
+        },
+        "lite": {
+            "title": "Type-Lite Configuration",
+            "cookie_hint": "Cookie used for downloading/analyzing locked videos (e.g. Facebook)"
+        },
+        "jobs": {
+            "title": "Integrate modules for work"
+        },
+        "ai": {
+            "title": "AI Configuration",
+            "placeholder_key": "Enter Secret Key",
+            "add_key": "Add Key",
+            "advanced_title": "Advanced AI Configuration (Mì tôm AI)",
+            "toggle_mitom": "Enable/Disable Mì tôm AI",
+            "toggle_mitom_hint": "(Disable to use original models)",
+            "url_hint": "OpenAI compatible API URL. Ex: https://api.mitom.ai/v1"
+        },
+        "automation": {
+            "title": "Automation Configuration"
+        },
+        "save_btn": "Save Configuration",
+        "save_hint": "If you make changes, remember to save"
     }
 }
