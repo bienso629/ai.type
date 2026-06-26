@@ -12,15 +12,14 @@
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">công cụ quét video trên youtube, tiktok và các mxh
-                            khác.</span>
+                        <span class="ml-1 text-base text-secondary">{{ 'app.all_tube_tool' | transloco }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
                     <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
                         <mat-icon class="icon-size-4 text-secondary"
                             [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">quay lại</span>
+                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
                     </a>
                 </div>
             </div>
@@ -59,16 +58,16 @@
                         class="w-full custom-textarea field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                         appearance="fill">
                         <textarea class="px-2 min-h-40" (click)="$event.stopPropagation()" [(ngModel)]="strLinks"
-                            [placeholder]="'Chấp nhận Youtube, Facebook, Tiktok, Instagram'" matInput></textarea>
-                        <mat-hint>Enter để xuống dòng</mat-hint>
+                            [placeholder]="'app.accept_platforms' | transloco" matInput></textarea>
+                        <mat-hint>{{ 'app.enter_to_newline' | transloco }}</mat-hint>
                     </mat-form-field>
 
                     <div class="inline-flex items-center justify-between w-full">
                         <mat-checkbox class="-ml-2" (click)="$event.stopPropagation()" [color]="'primary'" [(ngModel)]="cbCreatePost">
-                            Tự động tạo bài viết
+                            {{ 'app.auto_create_post' | transloco }}
                         </mat-checkbox>
                         <a class="text-md font-medium text-primary-500 hover:underline" href="javascript:void(0)"
-                            (click)="download()">{{ 'app.download_video_1' | transloco }} <mat-label *ngIf="cbCreatePost">và viết bài</mat-label> ngay
+                            (click)="download()">{{ 'app.download_video_1' | transloco }} <mat-label *ngIf="cbCreatePost">{{ 'app.and_write_post' | transloco }}</mat-label> ngay
                         </a>
                     </div>
                 </div>

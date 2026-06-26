@@ -12,14 +12,14 @@
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">sử dụng lại post từ wordpress</span>
+                        <span class="ml-1 text-base text-secondary">{{ 'app.reuse_post_from_wordpress' | transloco }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
                     <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
                         <mat-icon class="icon-size-4 text-secondary"
                             [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">quay lại</span>
+                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
                     </a>
                 </div>
             </div>
@@ -45,7 +45,7 @@
             <mat-form-field *ngIf="categories && categories.length > 0"
                 class="min-w-40 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                 <mat-select (selectionChange)="fetchPosts()" [(ngModel)]="selectedCategory">
-                    <mat-option value="">Tất cả</mat-option>
+                    <mat-option value="">{{ 'app.all' | transloco }}</mat-option>
                     <mat-option *ngFor="let cat of categories" [value]="cat.id">{{cat.name}}</mat-option>
                 </mat-select>
             </mat-form-field>
@@ -81,7 +81,7 @@
             <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
 
-            <ngx-datatable-column name="Tiêu đề" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
+            <ngx-datatable-column [name]="'app.title' | transloco" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
                         <p class="font-normal truncate hover:text-clip" [innerHTML]="row?.title"></p>
@@ -93,7 +93,7 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Link gốc" prop="link" [width]="250" [sortable]="true" [canAutoResize]="false"
+            <ngx-datatable-column [name]="'app.original_link' | transloco" prop="link" [width]="250" [sortable]="true" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false" headerClass="text-right">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row" class="flex items-center justify-end w-full">
@@ -105,7 +105,7 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Ngày tạo" prop="date" [width]="150" [sortable]="true" [canAutoResize]="false"
+            <ngx-datatable-column [name]="'app.date_created' | transloco" prop="date" [width]="150" [sortable]="true" [canAutoResize]="false"
                 headerClass="text-right">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-end w-full">
@@ -121,8 +121,7 @@
                     <div class="flex w-full sm:items-center sm:justify-between px-4">
                         <div class="flex-1 min-w-0">
                             <div class="page-count text-sm">
-                                Đã chọn {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} trong {{ (rowCount) ?
-                                rowCount.toLocaleString() : 0 }} bài viết
+                                {{ 'app.selected_posts_count' | transloco:{selected: (selectedCount ? selectedCount.toLocaleString() : 0), total: (rowCount ? rowCount.toLocaleString() : 0)} }}
                             </div>
                         </div>
                     </div>

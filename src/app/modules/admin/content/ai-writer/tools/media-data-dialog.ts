@@ -37,7 +37,7 @@ import { MatDialogRef } from '@angular/material/dialog';
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">lưu trữ hình ảnh của bạn</span>
+                    <span class="ml-1 text-base text-secondary">{{ 'app.your_image_library' | transloco }}</span>
                 </div>
             </div>
             <div class="flex sm:hidden">

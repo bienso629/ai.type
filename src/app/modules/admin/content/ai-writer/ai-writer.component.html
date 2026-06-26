@@ -14,9 +14,7 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <a class="ml-1 text-base text-primary-500 cursor-pointer" href="javascript:history.back()">công việc
-                        đang làm của
-                        bạn</a>
+                    <a class="ml-1 text-base text-primary-500 cursor-pointer" href="javascript:history.back()">{{ 'app.your_current_work_lc' | transloco }}</a>
                 </div>
                 <div class="flex items-center ml-1 whitespace-nowrap relative">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
@@ -29,8 +27,7 @@
                         <span class="text-base text-secondary">viết cùng {{name}}</span>
                     </ng-container>
                     <ng-template #noauthors>
-                        <span class="ml-1 text-base text-secondary">lên kịch bản, viết nội dung sản phẩm hay tóm tắt tài
-                            liệu</span>
+                        <span class="ml-1 text-base text-secondary">{{ 'app.ai_writer_subtitle' | transloco }}</span>
                     </ng-template>
                 </div>
             </div>
@@ -140,16 +137,16 @@
                                 <mat-form-field
                                     class="flex-auto mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Mô tả về công việc</mat-label>
+                                    <mat-label>{{ 'app.task_description' | transloco }}</mat-label>
                                     <textarea class="px-2" [formControlName]="'description'"
-                                        [placeholder]="'Trong mô tả chứa từ khoá chính'" matInput
+                                        [placeholder]="'app.description_contains_primary_keyword' | transloco" matInput
                                         cdkTextareaAutosize></textarea>
                                 </mat-form-field>
                             </div>
 
                             <div class="flex flex-col mt-2 mb-3">
                                 <div class="flex items-center justify-between mb-2">
-                                    <mat-label class="text-base font-semibold">Ảnh/Video</mat-label>
+                                    <mat-label class="text-base font-semibold">{{ 'app.image_video' | transloco }}</mat-label>
                                     <button mat-icon-button (click)="fileInput.click()" type="button"
                                         [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
@@ -211,17 +208,16 @@
 
                         <mat-step [formGroupName]="'step2'" disableRipple="true" [stepControl]="detectForm.get('step2')"
                             #step2>
-                            <ng-template matStepLabel>Viết lại từ bài khác</ng-template>
+                            <ng-template matStepLabel>{{ 'app.rewrite_from_article' | transloco }}</ng-template>
 
                             <div class="flex">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Nhập địa chỉ bạn muốn viết lại</mat-label>
+                                    <mat-label>{{ 'app.enter_rewrite_url' | transloco }}</mat-label>
                                     <input matInput [formControlName]="'url'"
                                         [placeholder]="'https://type.vn/topic/45'">
                                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
-                                    <mat-hint>Ví dụ:
-                                        https://type.vn/topic/45</mat-hint>
+                                    <mat-hint>{{ 'app.example_rewrite_url' | transloco }}</mat-hint>
                                 </mat-form-field>
                             </div>
 
@@ -243,7 +239,7 @@
                                 <button class="mr-2" *ngIf="!loading" mat-flat-button [color]="'primary'" type="button"
                                     (click)="clone($event)">
                                     <mat-icon class="icon-size-4 text-white" svgIcon="feather:shuffle"></mat-icon>
-                                    <mat-label class="ml-2">Viết lại</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.rewrite' | transloco }}</mat-label>
                                 </button>
 
                                 <button mat-flat-button *ngIf="loading" [color]="'warn'" type="button">
@@ -264,11 +260,11 @@
                             <div class="flex">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Từ khoá tìm kiếm</mat-label>
+                                    <mat-label>{{ 'app.search_keyword' | transloco }}</mat-label>
                                     <input matInput [formControlName]="'keyword_auto'"
                                         [placeholder]="'Dùng từ khoá của bạn để quét nội dung'">
                                     <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:zap'"></mat-icon> -->
-                                    <mat-hint>Ví dụ: Thú tội + Minato Kanae</mat-hint>
+                                    <mat-hint>{{ 'app.example_search_keyword' | transloco }}</mat-hint>
 
                                     <button mat-icon-button matSuffix [color]="'primary'"
                                         (click)="keywordGoogle($event)">
@@ -297,15 +293,15 @@
                             <div class="flex flex-col gt-sm:flex-row">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Khoá chính</mat-label>
+                                    <mat-label>{{ 'app.primary_keyword' | transloco }}</mat-label>
                                     <input matInput [formControlName]="'mainkey'" [placeholder]="'Từ khoá trọng tâm'"
                                         required>
-                                    <mat-hint>Từ khoá mạnh xuyên suốt bài viết của bạn</mat-hint>
+                                    <mat-hint>{{ 'app.strong_keyword_description' | transloco }}</mat-hint>
                                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:key'"></mat-icon>
                                 </mat-form-field>
                             </div>
 
-                            <p class="my-2 pb-2 font-normal text-base">Điểm đạt được {{score}}/100</p>
+                            <p class="my-2 pb-2 font-normal text-base">{{ 'app.score_achieved' | transloco }} {{score}}/100</p>
 
                             <ul>
                                 <!-- SEO title -->
@@ -316,7 +312,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Tiêu đề quá dài
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.title_too_long' | transloco }}
                                             ({{seo.title.characters}}/60 ký tự)</mat-label>
                                     </div>
                                 </li>
@@ -324,7 +320,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Tiêu đề quá ngắn
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.title_too_short' | transloco }}
                                             ({{seo.title.characters}}/60 ký tự)</mat-label>
                                     </div>
                                 </li>
@@ -338,14 +334,14 @@
                                 <!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Tiêu đề chuẩn ({{seo.title.characters}}/60 ký tự)</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.title_perfect' | transloco }} ({{seo.title.characters}}/60 ký tự)</mat-label>
                                     </div>
                                 </li> -->
                                 <li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey > 0">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Khoá chính nên xuất hiện đầu tiêu
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.primary_keyword_should_be_in_title_beginning' | transloco }}
                                             đề</mat-label>
                                     </div>
                                 </li>
@@ -353,7 +349,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Khoá chính xuất hiện đầu tiêu
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_is_in_title_beginning' | transloco }}
                                             đề</mat-label>
                                     </div>
                                 </li>
@@ -362,27 +358,27 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Tiêu đề đạt
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.title_achieved' | transloco }}
                                             {{seo.title.characters}}/60 ký tự</mat-label>
                                     </div>
                                 </li>
 
                                 <!-- SEO mo ta -->
                                 <li class="font-normal text-base border-b mb-2">
-                                    <mat-label class="my-2 pb-2 ml-0">Mô tả</mat-label>
+                                    <mat-label class="my-2 pb-2 ml-0">{{ 'app.description_label' | transloco }}</mat-label>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.description.findmainkey < 0">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Mô tả chưa có khoá chính</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.description_missing_primary_keyword' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.description.characters > 160">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Mô tả quá dài
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.description_too_long' | transloco }}
                                             ({{seo.description.characters}}/160 ký tự)</mat-label>
                                     </div>
                                 </li>
@@ -390,7 +386,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Mô tả quá ngắn
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.description_too_short' | transloco }}
                                             ({{seo.description.characters}}/160 ký tự)</mat-label>
                                     </div>
                                 </li>
@@ -398,7 +394,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Mô tả đã có khoá chính</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.description_has_primary_keyword' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2"
@@ -406,7 +402,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Mô tả tuyệt vời
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.description_perfect' | transloco }}
                                             ({{seo.description.characters}}/160 ký tự)</mat-label>
                                     </div>
                                 </li>
@@ -448,7 +444,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">H1 không tìm thấy khoá chính</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.h1_missing_primary_keyword' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.findmainkey >= 0">
@@ -461,7 +457,7 @@
 
                                 <!-- SEO body -->
                                 <li class="font-normal text-base border-b mb-2">
-                                    <mat-label class="my-2 pb-2 ml-0">Nội dung</mat-label>
+                                    <mat-label class="my-2 pb-2 ml-0">{{ 'app.content_label' | transloco }}</mat-label>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.words.total < 1">
                                     <div class="flex items-center justify-self-stretch">
@@ -474,7 +470,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Content quá ngắn
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.content_too_short' | transloco }}
                                             ({{seo.words.total}}/600)</mat-label>
                                     </div>
                                 </li>
@@ -491,8 +487,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Khoá chính không có ở dòng đầu
-                                            tiên</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.primary_keyword_missing_first_line' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2"
@@ -500,7 +495,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Khoá chính xuất hiện ở đầu
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_appears_first_line' | transloco }}
                                             dòng</mat-label>
                                     </div>
                                 </li>
@@ -508,8 +503,8 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Khoá chính xuất hiện
-                                            {{seo.words.find_mainkey_in_words}} lần {{
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.primary_keyword_appears' | transloco }}
+                                            {{seo.words.find_mainkey_in_words}}{{ 'app.times' | transloco }}{{
                                             seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
                                     </div>
                                 </li>
@@ -517,8 +512,8 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Khoá chính xuất hiện
-                                            {{seo.words.find_mainkey_in_words}} lần trên {{
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.primary_keyword_appears' | transloco }}
+                                            {{seo.words.find_mainkey_in_words}}{{ 'app.times_over' | transloco }}{{
                                             seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
                                     </div>
                                 </li>
@@ -527,15 +522,15 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Khoá chính xuất hiện
-                                            {{seo.words.find_mainkey_in_words}} lần ({{
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_appears' | transloco }}
+                                            {{seo.words.find_mainkey_in_words}}{{ 'app.times' | transloco }}({{
                                             seo.words.mainkey_percent_in_words | number:'1.0-0' }}%)</mat-label>
                                     </div>
                                 </li>
 
                                 <!-- SEO image -->
                                 <li class="font-normal text-base border-b mb-2">
-                                    <mat-label class="my-2 pb-2 ml-0">Hình ảnh</mat-label>
+                                    <mat-label class="my-2 pb-2 ml-0">{{ 'app.image_label' | transloco }}</mat-label>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo['images'].total < 1">
                                     <div class="flex items-center justify-self-stretch">
@@ -555,21 +550,19 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Có {{seo['images'].total}} hình
-                                            ảnh</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.has_images' | transloco: {count: seo['images'].total} }}</mat-label>
                                     </div>
                                 </li>
 
                                 <!-- SEO Link -->
                                 <li class="font-normal text-base border-b mb-2">
-                                    <mat-label class="my-2 pb-2 ml-0">Liên kết</mat-label>
+                                    <mat-label class="my-2 pb-2 ml-0">{{ 'app.link_label' | transloco }}</mat-label>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo['links'] >= 1">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Đã có {{ seo['links'] }} liên
-                                            kết</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.has_links' | transloco: {count: seo['links']} }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo['links'] < 1">
@@ -585,7 +578,7 @@
                                 <button class="ml-0" mat-flat-button [color]="'primary'" type="button"
                                     (click)="checkseo()">
                                     <mat-icon class="icon-size-4" svgIcon="feather:activity"></mat-icon>
-                                    <mat-label class="ml-2">Kiểm tra điểm SEO</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.check_seo_score' | transloco }}</mat-label>
                                 </button>
 
                                 <!-- <button class="ml-2" mat-flat-button type="button" matStepperPrevious>
@@ -619,7 +612,7 @@
                                 <button mat-flat-button [color]="'primary'" (click)="chatgpt('ai.type')" type="button"
                                     class="mr-2">
                                     <mat-icon class="icon-size-4" svgIcon="heroicons_outline:cursor-click"></mat-icon>
-                                    <mat-label class="ml-2">Lên ý tưởng</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.brainstorm' | transloco }}</mat-label>
                                 </button>
 
                                 <button mat-flat-button (click)="paste()" class="bg-red-400 text-white" type="button">
@@ -639,7 +632,7 @@
                             [selectedIndex]="selectedIndex" (selectedTabChange)="changetab($event)">
                             <!-- chứa media, chatgpt,... -->
                             <mat-tab
-                                label="Đoạn văn ({{source.chatgpt.length + source.word.length + source.text.length + source.img.length + source.source.length + source.a.length}})">
+                                label="{{ 'app.paragraph' | transloco }} ({{source.chatgpt.length + source.word.length + source.text.length + source.img.length + source.source.length + source.a.length}})">
                                 <mat-accordion MatAccordionDisplayMode="flat" multi>
                                     <mat-expansion-panel [expanded]="expanded"
                                         *ngIf="source.prompt && source.prompt.length >= 0" class="border-primary">
@@ -647,8 +640,7 @@
                                             <mat-panel-title (click)="panelPrompt._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-primary"
                                                     [svgIcon]="'feather:terminal'"></mat-icon>
-                                                <mat-label class="font-semibold text-primary">Soạn Prompt cho công việc
-                                                    này
+                                                <mat-label class="font-semibold text-primary">{{ 'app.compose_prompt' | transloco }}
                                                     ({{source.prompt.length}})</mat-label>
 
                                                 <!-- <mat-label
@@ -751,7 +743,7 @@
                                             <mat-panel-title (click)="panelH2._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-blue-500"
                                                     [svgIcon]="'feather:file-text'"></mat-icon>
-                                                <mat-label class="font-semibold">Nội dung sáng tạo</mat-label>
+                                                <mat-label class="font-semibold">{{ 'app.creative_content' | transloco }}</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above" [matTooltip]="'app.add_new_content' | transloco"
@@ -864,7 +856,7 @@
                                                             (click)="clearitem(i, source.text, 'text')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -878,7 +870,7 @@
                                             <mat-panel-title (click)="panelH5._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-green-500"
                                                     [svgIcon]="'feather:image'"></mat-icon>
-                                                <mat-label class="font-semibold">Biến Hình ảnh thành Bài
+                                                <mat-label class="font-semibold">{{ 'app.image_to_article' | transloco }}
                                                     ({{source.img.length}})</mat-label>
                                                 <input hidden type="file" multiple class="file-input"
                                                     (change)="createImg($event)" accept='image/*' #fileUpload>
@@ -961,7 +953,7 @@
                                                 class="flex flex-row items-center w-full">
                                                 <mat-icon class="icon-size-4 mr-2 text-red-500"
                                                     [svgIcon]="'feather:video'"></mat-icon>
-                                                <mat-label class="font-semibold">Biến Video thành Bài
+                                                <mat-label class="font-semibold">{{ 'app.video_to_article' | transloco }}
                                                     ({{source.playlist[0].youtube.length}})</mat-label>
 
                                                 <div class="ml-auto flex items-center justify-end"
@@ -1088,7 +1080,7 @@
                                             <mat-panel-title (click)="panelH3._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-purple-500"
                                                     [svgIcon]="'feather:cpu'"></mat-icon>
-                                                <mat-label class="font-semibold">Gemini đã hồi đáp</mat-label>
+                                                <mat-label class="font-semibold">{{ 'app.gemini_responded' | transloco }}</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
@@ -1197,7 +1189,7 @@
                                                             (click)="clearitem(i, source.chatgpt, 'chatgpt')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1210,7 +1202,7 @@
                                             <mat-panel-title (click)="panelH7._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-teal-500"
                                                     [svgIcon]="'feather:link'"></mat-icon>
-                                                <mat-label class="font-semibold">Gắn Backlink vào Bài
+                                                <mat-label class="font-semibold">{{ 'app.add_backlink' | transloco }}
                                                     ({{source.a.length}})</mat-label>
 
                                                 <!-- <mat-label
@@ -1278,7 +1270,7 @@
                                             <mat-panel-title (click)="panelHTML._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-orange-500"
                                                     [svgIcon]="'feather:list'"></mat-icon>
-                                                <mat-label class="font-semibold">Gợi ý Prompt cho bạn
+                                                <mat-label class="font-semibold">{{ 'app.prompt_suggestions' | transloco }}
                                                     ({{source.pre.length}})</mat-label>
                                             </mat-panel-title>
 
@@ -1381,7 +1373,7 @@
                                             <mat-panel-title (click)="panelH4._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-yellow-500"
                                                     [svgIcon]="'feather:book-open'"></mat-icon>
-                                                <mat-label class="font-semibold">Từ điển kiến thức</mat-label>
+                                                <mat-label class="font-semibold">{{ 'app.knowledge_dict' | transloco }}</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
@@ -1478,7 +1470,7 @@
                                                             (click)="clearitem(i, source.word, 'word')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1491,7 +1483,7 @@
                                             <mat-panel-title (click)="panelSource._toggle()" class="flex items-center">
                                                 <mat-icon class="icon-size-4 mr-2 text-gray-500"
                                                     [svgIcon]="'feather:globe'"></mat-icon>
-                                                <mat-label class="font-semibold">Nguồn khác
+                                                <mat-label class="font-semibold">{{ 'app.other_sources' | transloco }}
                                                     ({{source.source.length}})</mat-label>
                                             </mat-panel-title>
 
@@ -1532,7 +1524,7 @@
                                                                 (click)="clearitem(i, source.source)">
                                                                 <mat-icon class="icon-size-4"
                                                                     svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá đoạn văn</span>
+                                                                <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                             </button>
                                                         </mat-menu>
                                                     </div>
@@ -1595,7 +1587,7 @@
 
                             <!-- chứa tiêu đề h1, h2, h3... -->
                             <mat-tab
-                                label="Tiêu đề ({{source.h1.length + source.h2.length + source.h3.length + source.h4.length + source.h5.length}})">
+                                label="{{ 'app.title' | transloco }} ({{source.h1.length + source.h2.length + source.h3.length + source.h4.length + source.h5.length}})">
                                 <mat-accordion MatAccordionDisplayMode="flat" multi>
                                     <mat-expansion-panel [expanded]="expanded">
                                         <mat-expansion-panel-header #panelH13>
@@ -1668,7 +1660,7 @@
                                                             (click)="clearitem(i, source.h1, 'h1')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1747,7 +1739,7 @@
                                                             (click)="clearitem(i, source.h2, 'h2')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1826,7 +1818,7 @@
                                                             (click)="clearitem(i, source.h3, 'h3')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1905,7 +1897,7 @@
                                                             (click)="clearitem(i, source.h4, 'h4')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1984,7 +1976,7 @@
                                                             (click)="clearitem(i, source.h5, 'h5')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2083,7 +2075,7 @@
                                                             (click)="clearitem(i, source.p, 'p')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2162,7 +2154,7 @@
                                                             (click)="clearitem(i, source.span, 'span')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2241,7 +2233,7 @@
                                                             (click)="clearitem(i, source.label, 'label')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2319,7 +2311,7 @@
                                                             (click)="clearitem(i, source.dd, 'dd')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2397,7 +2389,7 @@
                                                             (click)="clearitem(i, source.td, 'td')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2475,7 +2467,7 @@
                                                             (click)="clearitem(i, source.li, 'li')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2553,7 +2545,7 @@
                                                             (click)="clearitem(i, source.i, 'i')">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá đoạn văn</span>
+                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -2573,7 +2565,7 @@
                             <ng-container *ngIf="!uuid">
                                 <button mat-flat-button class="mr-2 max-w-40" (click)="archive()" color="primary">
                                     <mat-icon class="icon-size-4" svgIcon="feather:archive"></mat-icon>
-                                    <mat-label class="ml-2">Lưu công việc</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.save_work' | transloco }}</mat-label>
                                 </button>
 
                                 <!-- <button *ngIf="!uuid" mat-icon-button class="ml-2" matTooltipPosition="above"
@@ -2620,7 +2612,7 @@
                                     <button mat-menu-item (click)="clear()">
                                         <mat-icon class="icon-size-4 color-gray-50"
                                             [svgIcon]="'feather:trash'"></mat-icon>
-                                        <mat-label class="color-gray-50">Xóa dàn ý</mat-label>
+                                        <mat-label class="color-gray-50">{{ 'app.delete_outline' | transloco }}</mat-label>
                                     </button>
                                 </mat-menu>
 
@@ -2668,7 +2660,7 @@
                             <!-- <h2 class="text-base font-semibold border-b border-dashed border-opacity-70 py-2">Xem trước</h2> -->
                             <mat-tab-group class="mt-0" mat-stretch-tabs="false" (selectedTabChange)="changetab($event)"
                                 [animationDuration]="'0'">
-                                <mat-tab label="Dàn ý">
+                                <mat-tab label="{{ 'app.outline' | transloco }}">
                                     <mat-accordion MatAccordionDisplayMode="flat" multi>
                                         <mat-expansion-panel [expanded]="expanded">
                                             <!-- <mat-expansion-panel-header #panelDone>
@@ -2676,8 +2668,8 @@
                                                         class="flex items-center">
                                                         <mat-label>Cần có {{ seo['words'] }}/600 từ, {{ seo['links']
                                                             }}/5 link, {{
-                                                            seo['heading']['h1'] + seo['heading']['h2'] }}/3 tiêu đề, {{
-                                                            seo['images'] }}/1 hình ảnh</mat-label>
+                                                            seo['heading']['h1'] + seo['heading']['h2'] }}/3 {{ 'app.headings_count_label' | transloco }}, {{
+                                                            seo['images'] }}/1 {{ 'app.images_count_label' | transloco }}</mat-label>
                                                         <button class="ml-2" matTooltipPosition="left" matTooltip="Xoá toàn bộ Dàn ý"
                                                             mat-icon-button [color]="'warn'" type="button"
                                                             (click)="clear(done)">
@@ -2757,7 +2749,7 @@
                                                                 (click)="clearitem(i, done)">
                                                                 <mat-icon class="icon-size-4"
                                                                     svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá đoạn văn</span>
+                                                                <span>{{ 'app.delete_paragraph' | transloco }}</span>
                                                             </button>
                                                         </mat-menu>
                                                     </div>
@@ -2769,8 +2761,7 @@
                                     <div class="mt-4 flex flex-col">
                                         <!-- Tuyển tập -->
                                         <div class="mb-4">
-                                            <mat-label class="font-semibold text-sm block mb-1">Tập của
-                                                bạn</mat-label>
+                                            <mat-label class="font-semibold text-sm block mb-1">{{ 'app.your_episode' | transloco }}</mat-label>
                                             <ng-select class="custom-select-ai-writer w-full" [placeholder]="'app.select_episode' | transloco"
                                                 [items]="collections" [addTag]="addCollection"
                                                 [readonly]="(name !== user.name)" (clear)="onClearCollection()"
@@ -2806,7 +2797,7 @@
                                 </mat-tab>
 
                                 <!-- xoá -->
-                                <mat-tab label="Đã xoá ({{trash.length}})">
+                                <mat-tab label="{{ 'app.deleted' | transloco }} ({{trash.length}})">
                                     <div (click)="trash = [];"
                                         class="flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-600 text-white mb-4 cursor-pointer absolute right-1 top-1 z-50">
                                         Xóa hẳn

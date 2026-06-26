@@ -73,7 +73,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
         } else {
-            this.error('Bạn chưa kích hoạt phần mềm.');
+            this.error(this._translocoService.translate('app.software_not_activated'));
         }
     }
 

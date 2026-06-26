@@ -9,7 +9,7 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">lưu trữ hình ảnh của bạn</span>
+                    <span class="ml-1 text-base text-secondary">{{ 'app.your_image_library' | transloco }}</span>
                 </div>
             </div>
             <div class="flex sm:hidden">
@@ -54,18 +54,18 @@
                                     </div>
 
                                     <input matInput formControlName="prompt"
-                                        placeholder="Mô tả hình ảnh bạn muốn tạo..." (keyup.enter)="createImg()">
+                                        [placeholder]="'app.image_prompt_placeholder' | transloco" (keyup.enter)="createImg()">
 
                                     <div matSuffix class="flex items-center mr-1 gap-2">
                                         <mat-select formControlName="modelId" class="w-28 text-sm border-l pl-2"
                                             [matTooltip]="'app.select_model' | transloco">
-                                            <mat-option value="gemini-3.1-flash-image-preview">Đa năng</mat-option>
+                                            <mat-option value="gemini-3.1-flash-image-preview">{{ 'app.multipurpose' | transloco }}</mat-option>
                                             <mat-option value="imagen-3.0-generate-001">{{ 'app.creative_art' | transloco }}</mat-option>
                                             <mat-option value="gemini-3-pro-image-preview">{{ 'app.professional_precise_text_drawing' | transloco }}</mat-option>
                                         </mat-select>
 
                                         <mat-select formControlName="aspectRatio" class="w-16 text-sm border-l pl-2"
-                                            matTooltip="Tỷ lệ khung hình">
+                                            [matTooltip]="'app.aspect_ratio' | transloco">
                                             <mat-option value="1:1">1:1</mat-option>
                                             <mat-option value="1:4">1:4</mat-option>
                                             <mat-option value="1:8">1:8</mat-option>

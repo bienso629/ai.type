@@ -102,7 +102,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Tiêu đề quá dài
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.title_too_long' | transloco }}
 									({{seo.title.characters}}/60 ký tự)</mat-label>
 							</div>
 						</li>
@@ -110,7 +110,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Tiêu đề quá ngắn
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.title_too_short' | transloco }}
 									({{seo.title.characters}}/60 ký tự)</mat-label>
 							</div>
 						</li>
@@ -125,14 +125,14 @@
 						<!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Tiêu đề chuẩn ({{seo.title.characters}}/60 ký tự)</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.title_perfect' | transloco }} ({{seo.title.characters}}/60 ký tự)</mat-label>
                                     </div>
                                 </li> -->
 						<li class="font-normal text-base mb-2" *ngIf="seo.title.findmainkey > 0">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Khoá chính nên xuất hiện đầu tiêu
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.primary_keyword_should_be_in_title_beginning' | transloco }}
 									đề</mat-label>
 							</div>
 						</li>
@@ -140,7 +140,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Khoá chính xuất hiện đầu tiêu
+								<mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_is_in_title_beginning' | transloco }}
 									đề</mat-label>
 							</div>
 						</li>
@@ -149,27 +149,27 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Tiêu đề đạt
+								<mat-label class="ml-2 text-green-600">{{ 'app.title_achieved' | transloco }}
 									{{seo.title.characters}}/60 ký tự</mat-label>
 							</div>
 						</li>
 
 						<!-- SEO mo ta -->
 						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">Mô tả</mat-label>
+							<mat-label class="my-2 pb-2 ml-0">{{ 'app.description_label' | transloco }}</mat-label>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.description.findmainkey < 0">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Mô tả chưa có khoá chính</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.description_missing_primary_keyword' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.description.characters > 160">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Mô tả quá dài
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.description_too_long' | transloco }}
 									({{seo.description.characters}}/160 ký tự)</mat-label>
 							</div>
 						</li>
@@ -177,7 +177,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Mô tả quá ngắn
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.description_too_short' | transloco }}
 									({{seo.description.characters}}/160 ký tự)</mat-label>
 							</div>
 						</li>
@@ -185,7 +185,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Mô tả đã có khoá chính</mat-label>
+								<mat-label class="ml-2 text-green-600">{{ 'app.description_has_primary_keyword' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2"
@@ -193,7 +193,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Mô tả tuyệt vời
+								<mat-label class="ml-2 text-green-600">{{ 'app.description_perfect' | transloco }}
 									({{seo.description.characters}}/160 ký tự)</mat-label>
 							</div>
 						</li>
@@ -235,20 +235,20 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">H1 không tìm thấy khoá chính</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.h1_missing_primary_keyword' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.findmainkey >= 0">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Tìm thấy khoá chính trong H1</mat-label>
+								<mat-label class="ml-2 text-green-600">{{ 'app.h1_contains_primary_keyword' | transloco }}</mat-label>
 							</div>
 						</li>
 
 						<!-- SEO body -->
 						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">Nội dung</mat-label>
+							<mat-label class="my-2 pb-2 ml-0">{{ 'app.content_label' | transloco }}</mat-label>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.words.total < 1">
 							<div class="flex items-center justify-self-stretch">
@@ -261,7 +261,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Content quá ngắn
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.content_too_short' | transloco }}
 									({{seo.words.total}}/600)</mat-label>
 							</div>
 						</li>
@@ -277,15 +277,14 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Khoá chính không có ở dòng đầu
-									tiên</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.primary_keyword_missing_first_line' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.words.find_mainkey_in_first_paragraph >= 0">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Khoá chính xuất hiện ở đầu
+								<mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_appears_first_line' | transloco }}
 									dòng</mat-label>
 							</div>
 						</li>
@@ -293,8 +292,8 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Khoá chính xuất hiện
-									{{seo.words.find_mainkey_in_words}} lần {{
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.primary_keyword_appears' | transloco }}
+									{{seo.words.find_mainkey_in_words}}{{ 'app.times' | transloco }}{{
 									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
 							</div>
 						</li>
@@ -302,8 +301,8 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Khoá chính xuất hiện
-									{{seo.words.find_mainkey_in_words}} lần trên {{
+								<mat-label class="ml-2 text-red-500">{{ 'app.primary_keyword_appears' | transloco }}
+									{{seo.words.find_mainkey_in_words}}{{ 'app.times_over' | transloco }}{{
 									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%</mat-label>
 							</div>
 						</li>
@@ -312,28 +311,28 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Khoá chính xuất hiện
-									{{seo.words.find_mainkey_in_words}} lần ({{
+								<mat-label class="ml-2 text-green-600">{{ 'app.primary_keyword_appears' | transloco }}
+									{{seo.words.find_mainkey_in_words}}{{ 'app.times' | transloco }}({{
 									seo.words.mainkey_percent_in_words | number:'1.0-0' }}%)</mat-label>
 							</div>
 						</li>
 
 						<!-- SEO image -->
 						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">Hình ảnh</mat-label>
+							<mat-label class="my-2 pb-2 ml-0">{{ 'app.image_label' | transloco }}</mat-label>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo['images'].total < 1">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Chưa có hình ảnh</mat-label>
+								<mat-label class="ml-2 text-red-500">Chưa có {{ 'app.images_count_label' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo['images'].find_mainkey_in_alt < 0">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">Alt không có khoá chính</mat-label>
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.alt_missing_primary_keyword' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo['images'].total > 0">
@@ -347,7 +346,7 @@
 
 						<!-- SEO Link -->
 						<li class="font-normal text-base mb-2">
-							<mat-label class="my-2 pb-2 ml-0">Liên kết</mat-label>
+							<mat-label class="my-2 pb-2 ml-0">{{ 'app.link_label' | transloco }}</mat-label>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo['links'] >= 1">
 							<div class="flex items-center justify-self-stretch">
