@@ -580,5 +580,23 @@
         "mark_as_read": "Mark as read",
         "no_notifications": "No notifications",
         "no_notifications_desc": "When you have notifications, they will appear here."
-    }
+    },
+    "app.scanned_nodes_repo": "Scanned nodes repository",
+    "app.search_by_title": "Search by title",
+    "app.view_details": "View details",
+    "app.convert_to_text": "Convert to text",
+    "app.re_scan": "Rescan",
+    "app.original_link": "Original link",
+    "app.node_id": "Node ID",
+    "app.date_created": "Date created",
+    "app.selected": "Selected",
+    "app.export_data": "Export data",
+    "app.back": "back",
+    "app.copy_link": "Copy link",
+    "app.imported_nodes_repo": "Imported nodes from WordPress",
+    "app.text": "Text",
+    "app.search_current_tasks": "Search current tasks",
+    "app.search_by": "Search by",
+    "app.synced_wordpress": "Synced WordPress",
+    "app.disconnect": "Disconnect"
 }
