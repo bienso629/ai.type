@@ -17,7 +17,7 @@
 <div class="mb-2">
     <mat-form-field class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
         [subscriptSizing]="'dynamic'">
-        <mat-label>Nhập link sitemap (mỗi dòng 1 link)</mat-label>
+        <mat-label>{{ 'app.enter_sitemap_links' | transloco }}</mat-label>
         <textarea class="px-2" [(ngModel)]="sitemapsText"
             placeholder="https://example.com/post-sitemap.xml&#10;https://example.com/page-sitemap.xml" required
             matInput cdkTextareaAutosize></textarea>

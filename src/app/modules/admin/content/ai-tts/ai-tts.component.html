@@ -1,3 +1,4 @@
+<ng-container *transloco="let t">
 <div class="absolute inset-0 flex flex-col min-w-0 overflow-hidden bg-gray-100 dark:bg-gray-900">
 
     <div
@@ -11,7 +12,7 @@
                     <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
                     <a class="ml-1 text-base text-primary-500 whitespace-nowrap cursor-pointer"
-                        href="javascript:history.back()">{{ 'app.your_current_work_lc' | transloco }}</a>
+                        href="javascript:history.back()">{{ t('app.your_current_work_lc') }}</a>
                 </div>
                 <div class="flex items-center ml-1 min-w-0 overflow-hidden">
                     <mat-icon class="icon-size-4 text-secondary shrink-0" style="margin-top: 2px;"
@@ -70,8 +71,8 @@
             <mat-form-field class="w-32 field-hidden-subscript fuse-mat-dense" appearance="fill">
                 <mat-select [(ngModel)]="videoFormat" (ngModelChange)="onInputChanged()" placeholder="Định dạng">
                     <mat-option value="video">Video</mat-option>
-                    <mat-option value="comic">{{ 'app.comic' | transloco }}</mat-option>
-                    <mat-option value="slide">{{ 'app.slide_static' | transloco }}</mat-option>
+                    <mat-option value="comic">{{ t('app.comic') }}</mat-option>
+                    <mat-option value="slide">{{ t('app.slide_static') }}</mat-option>
                     <mat-option value="podcast">Podcast</mat-option>
                 </mat-select>
             </mat-form-field>
@@ -86,7 +87,7 @@
             </mat-form-field>
 
             <mat-form-field class="w-28 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="maxDuration" (ngModelChange)="onInputChanged()" [placeholder]="'app.duration' | transloco">
+                <mat-select [(ngModel)]="maxDuration" (ngModelChange)="onInputChanged()" [placeholder]="t('app.duration')">
                     <mat-option [value]="0">Tự do</mat-option>
                     <mat-option [value]="4">4s</mat-option>
                     <mat-option [value]="6">6s</mat-option>
@@ -120,7 +121,7 @@
                 <div class="sticky top-0 z-20 bg-white p-6">
                     <div class="w-full bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
                         <div class="flex items-center mb-2">
-                            <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">{{ 'app.editor' | transloco }}</span>
+                            <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">{{ t('app.editor') }}</span>
                         </div>
                         <div id="waveform" class="w-full"></div>
                     </div>
@@ -141,7 +142,7 @@
                                 <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
                             </button>
 
-                            <button mat-icon-button class="ml-0" [matTooltip]="'app.add_audio_from_computer' | transloco">
+                            <button mat-icon-button class="ml-0" [matTooltip]="t('app.add_audio_from_computer')">
                                 <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:mic'"></mat-icon>
                                 <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
                                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
@@ -149,7 +150,7 @@
                             </button>
 
                             <button mat-icon-button class="ml-0" (click)="addEmptyClip()"
-                                [matTooltip]="'app.add_new_dialogue' | transloco">
+                                [matTooltip]="t('app.add_new_dialogue')">
                                 <mat-icon class="icon-size-4 text-green-700" [svgIcon]="'feather:type'"></mat-icon>
                             </button>
 
@@ -166,7 +167,7 @@
                                 <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
                                     [svgIcon]="'feather:loader'"></mat-icon>
                                 <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
-                                <span class="ml-2">{{ 'app.create_voice' | transloco }}</span>
+                                <span class="ml-2">{{ t('app.create_voice') }}</span>
                             </button>
                         </div>
                     </div>
@@ -201,7 +202,7 @@
                                     <span class="truncate">{{ clip.name }}</span>
                                     <button mat-icon-button
                                         class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                                        (click)="$event.stopPropagation(); editClip(clip)" [matTooltip]="'app.edit_content' | transloco">
+                                        (click)="$event.stopPropagation(); editClip(clip)" [matTooltip]="t('app.edit_content')">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
                                     </button>
@@ -255,19 +256,19 @@
                                         appearance="fill">
                                         <mat-select [(ngModel)]="clip.rate" (selectionChange)="onInputChanged()"
                                             (mousedown)="$event.stopPropagation()" [placeholder]="'Tốc độ'">
-                                            <mat-option [value]="0.5">{{ 'app.0_5x_very_slow' | transloco }}</mat-option>
+                                            <mat-option [value]="0.5">{{ t('app.0_5x_very_slow') }}</mat-option>
                                             <mat-option [value]="0.6">0.6x</mat-option>
                                             <mat-option [value]="0.7">0.7x</mat-option>
-                                            <mat-option [value]="0.8">{{ 'app.0_8x_slow' | transloco }}</mat-option>
+                                            <mat-option [value]="0.8">{{ t('app.0_8x_slow') }}</mat-option>
                                             <mat-option [value]="0.9">0.9x</mat-option>
-                                            <mat-option [value]="1.0">{{ 'app.1_0x_standard' | transloco }}</mat-option>
+                                            <mat-option [value]="1.0">{{ t('app.1_0x_standard') }}</mat-option>
                                             <mat-option [value]="1.1">1.1x</mat-option>
-                                            <mat-option [value]="1.2">{{ 'app.1_2x_slightly_fast' | transloco }}</mat-option>
+                                            <mat-option [value]="1.2">{{ t('app.1_2x_slightly_fast') }}</mat-option>
                                             <mat-option [value]="1.3">1.3x</mat-option>
                                             <mat-option [value]="1.4">1.4x</mat-option>
-                                            <mat-option [value]="1.5">{{ 'app.1_5x_very_fast' | transloco }}</mat-option>
+                                            <mat-option [value]="1.5">{{ t('app.1_5x_very_fast') }}</mat-option>
                                             <mat-option [value]="1.7">1.7x</mat-option>
-                                            <mat-option [value]="2.0">{{ 'app.2_0x_extremely_fast' | transloco }}</mat-option>
+                                            <mat-option [value]="2.0">{{ t('app.2_0x_extremely_fast') }}</mat-option>
                                         </mat-select>
                                     </mat-form-field>
 
@@ -275,15 +276,15 @@
                                         appearance="fill">
                                         <mat-select [(ngModel)]="clip.pitch" (selectionChange)="onInputChanged()"
                                             (mousedown)="$event.stopPropagation()" [placeholder]="'Cao độ'">
-                                            <mat-option [value]="-20">{{ 'app.20_extremely_low' | transloco }}</mat-option>
+                                            <mat-option [value]="-20">{{ t('app.20_extremely_low') }}</mat-option>
                                             <mat-option [value]="-15">-15</mat-option>
-                                            <mat-option [value]="-10">{{ 'app.10_deeply_low' | transloco }}</mat-option>
-                                            <mat-option [value]="-5">{{ 'app.5_lightly_low' | transloco }}</mat-option>
-                                            <mat-option [value]="-2">{{ 'app.2_slightly_low' | transloco }}</mat-option>
-                                            <mat-option [value]="0">{{ 'app.0_default' | transloco }}</mat-option>
-                                            <mat-option [value]="2">{{ 'app.2_slightly_high' | transloco }}</mat-option>
-                                            <mat-option [value]="5">{{ 'app.5_lightly_high' | transloco }}</mat-option>
-                                            <mat-option [value]="10">{{ 'app.10_clear' | transloco }}</mat-option>
+                                            <mat-option [value]="-10">{{ t('app.10_deeply_low') }}</mat-option>
+                                            <mat-option [value]="-5">{{ t('app.5_lightly_low') }}</mat-option>
+                                            <mat-option [value]="-2">{{ t('app.2_slightly_low') }}</mat-option>
+                                            <mat-option [value]="0">{{ t('app.0_default') }}</mat-option>
+                                            <mat-option [value]="2">{{ t('app.2_slightly_high') }}</mat-option>
+                                            <mat-option [value]="5">{{ t('app.5_lightly_high') }}</mat-option>
+                                            <mat-option [value]="10">{{ t('app.10_clear') }}</mat-option>
                                             <mat-option [value]="15">+15</mat-option>
                                             <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
                                         </mat-select>
@@ -320,7 +321,7 @@
 
                                     <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
                                         (click)="$event.stopPropagation(); createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
-                                        [matTooltip]="'app.create_image_from_prompt' | transloco">
+                                        [matTooltip]="t('app.create_image_from_prompt')">
                                         <mat-icon class="icon-size-5 text-purple-500"
                                             [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                     </button>
@@ -361,3 +362,5 @@
         </div>
     </div>
 </div>
+
+</ng-container>
