@@ -2,7 +2,7 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto" cdkScrollable>
         <mat-vertical-stepper [linear]="isLinear" class="h-full" #stepper>
-            <mat-step label="Quét toàn bộ video của kênh Youtube">
+            <mat-step [label]="'app.scan_all_videos_from' | transloco">
                 <div class="flex items-start justify-start h-full">
                     <div class="flex flex-col w-120">
                         <p class="block">
@@ -32,12 +32,12 @@
 
                         <p class="block mb-2">
                             <mat-form-field class="w-full max-w-50 fuse-mat-dense">
-                                <mat-label>Chất lượng</mat-label>
+                                <mat-label>{{ 'app.quality_1' | transloco }}</mat-label>
                                 <mat-select [(ngModel)]="quality">
-                                    <mat-option [value]="'low'">Thấp nhất</mat-option>
-                                    <mat-option [value]="'medium'">Bình thường</mat-option>
-                                    <mat-option [value]="'hd'">Cao nhất</mat-option>
-                                    <mat-option [value]="'audio'">Chỉ audio</mat-option>
+                                    <mat-option [value]="'low'">{{ 'app.lowest' | transloco }}</mat-option>
+                                    <mat-option [value]="'medium'">{{ 'app.normal_1' | transloco }}</mat-option>
+                                    <mat-option [value]="'hd'">{{ 'app.highest' | transloco }}</mat-option>
+                                    <mat-option [value]="'audio'">{{ 'app.audio_only' | transloco }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
 
@@ -45,7 +45,7 @@
                                 <mat-label>Phương thức tải</mat-label>
                                 <mat-select [(ngModel)]="mode">
                                     <mat-option [value]="'parallel'">Song song</mat-option>
-                                    <mat-option [value]="'sequential'">Tuần tự</mat-option>
+                                    <mat-option [value]="'sequential'">{{ 'app.sequential' | transloco }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
                         </p>
@@ -53,7 +53,7 @@
                         <p class="block">
                             <button mat-flat-button class="mt-0" color="primary" (click)="start()">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
-                                <mat-label class="ml-2">Bắt đầu quét</mat-label>
+                                <mat-label class="ml-2">{{ 'app.start_scanning' | transloco }}</mat-label>
                             </button>
                         </p>
                     </div>
@@ -114,8 +114,7 @@
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <div class="flex items-center justify-self-stretch">
                                     <mat-label (click)="singleDownload(row)"
-                                        class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-blue-600 hover:bg-blue-400 text-white">Tải
-                                        video</mat-label>
+                                        class="h-7 leading-7 items-center px-3 rounded-full cursor-pointer text-sm font-semibold bg-blue-600 hover:bg-blue-400 text-white">{{ 'app.download_video' | transloco }}</mat-label>
 
                                     <!-- <mat-label (click)="listing(row)"
                                         class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-pink-600 hover:bg-pink-400 text-white">Nghe audio</mat-label> -->
@@ -133,12 +132,12 @@
                     <ng-container *ngIf="(selected.length > 0)">
                         <button mat-flat-button color="primary" (click)="download()">
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
-                            <mat-label class="ml-2">Tải toàn bộ</mat-label>
+                            <mat-label class="ml-2">{{ 'app.download_all' | transloco }}</mat-label>
                         </button>
 
                         <button mat-flat-button class="ml-2 bg-yellow-600 text-white" (click)="share()">
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
-                            <mat-label class="ml-2 text-white">Chia sẻ</mat-label>
+                            <mat-label class="ml-2 text-white">{{ 'app.share' | transloco }}</mat-label>
                         </button>
                     </ng-container>
                 </div>

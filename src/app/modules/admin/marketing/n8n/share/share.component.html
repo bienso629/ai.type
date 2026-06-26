@@ -1,13 +1,13 @@
 <div class="flex flex-col flex-auto h-full p-6 sm:p-10 overflow-y-auto">
-    <div class="text-2xl font-semibold mb-6">Chia sẻ đa kênh lên mạng xã hội</div>
+    <div class="text-2xl font-semibold mb-6">{{ 'app.multi_channel_share_to' | transloco }}</div>
 
 
     <form [formGroup]="shareForm" class="flex flex-col max-w-4xl relative">
-        <div class="text-lg font-medium mb-4">Thông tin bài viết</div>
+        <div class="text-lg font-medium mb-4">{{ 'app.post_information' | transloco }}</div>
 
         <div class="flex gap-4 mb-4">
             <mat-form-field class="w-1/2 fuse-mat-dense">
-                <mat-label>Chọn Fanpage đích</mat-label>
+                <mat-label>{{ 'app.select_target_fanpage' | transloco }}</mat-label>
                 <ng-container *ngIf="shareForm.get('pageIds').value?.length > 0; else defaultFbIcon">
                     <img matPrefix
                         [src]="'https://graph.facebook.com/' + shareForm.get('pageIds').value[0] + '/picture?type=normal'"
@@ -48,7 +48,7 @@
                                         [svgIcon]="'feather:search'"></mat-icon>
                                     <input type="text"
                                         class="flex-1 outline-none text-sm bg-transparent placeholder-gray-400 min-w-0 h-full"
-                                        placeholder="Tìm kiếm tên hoặc ID..."
+                                        [placeholder]="'app.search_name_or_id' | transloco"
                                         (input)="searchPageTerm = $event.target.value" [value]="searchPageTerm"
                                         (keydown)="$event.stopPropagation()" autofocus>
                                     <button *ngIf="searchPageTerm" mat-icon-button
@@ -89,7 +89,7 @@
                             <button mat-icon-button *ngIf="shareForm.get('pageIds').value?.length > 0"
                                 class="text-red-500 hover:text-red-700 hover:bg-red-50 flex items-center justify-center transition-colors"
                                 (click)="shareForm.get('pageIds').setValue([]); $event.stopPropagation()"
-                                matTooltip="Bỏ chọn tất cả">
+                                [matTooltip]="'app.deselect_all' | transloco">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                             </button>
 
@@ -120,7 +120,7 @@
             </mat-form-field>
 
             <mat-form-field class="w-1/2 fuse-mat-dense">
-                <mat-label>Tên bài viết</mat-label>
+                <mat-label>{{ 'app.post_title' | transloco }}</mat-label>
                 <input matInput [formControlName]="'title'" placeholder="Hôm nay bạn muốn đăng gì?" required>
                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
             </mat-form-field>
@@ -134,9 +134,9 @@
 
         <div class="flex flex-col mt-2 mb-6">
             <div class="flex items-center justify-between mb-2">
-                <mat-label class="text-secondary font-medium">Các tệp đa phương tiện (Ảnh/Video)</mat-label>
+                <mat-label class="text-secondary font-medium">{{ 'app.media_files_image_video' | transloco }}</mat-label>
                 <button mat-icon-button (click)="fileInput.click()" type="button" [color]="'primary'"
-                    matTooltip="Thêm file đa phương tiện">
+                    [matTooltip]="'app.add_media_file' | transloco">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
                 </button>
                 <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
@@ -147,7 +147,7 @@
                 [class.items-center]="thumbnailsList.length === 0" [class.justify-center]="thumbnailsList.length === 0">
 
                 <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400 italic">
-                    Chưa có file nào được chọn
+                    {{ 'app.no_file_selected' | transloco }}
                 </div>
 
                 <div *ngFor="let file of thumbnailsList; let i = index" class="flex items-center justify-between">
@@ -168,8 +168,7 @@
                             [class.text-red-500]="isMemoryFileMissing(file)"
                             [class.text-gray-700]="!isMemoryFileMissing(file)" [title]="getFileName(file)">
                             {{ getFileName(file) }}
-                            <span *ngIf="isMemoryFileMissing(file)" class="text-xs text-red-500 ml-2 italic">(Lỗi: Không
-                                tìm thấy nội dung file. Vui lòng bấm xóa đi và tải lại file này!)</span>
+                            <span *ngIf="isMemoryFileMissing(file)" class="text-xs text-red-500 ml-2 italic">{{ 'app.error_file_content_not' | transloco }}</span>
                         </span>
                     </div>
                     <button mat-icon-button (click)="removeThumbnail(i)" class="text-red-500 flex-shrink-0 ml-2"

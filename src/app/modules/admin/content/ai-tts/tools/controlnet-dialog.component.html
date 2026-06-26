@@ -1,6 +1,6 @@
 <div class="flex items-center justify-between mb-4">
     <h2 class="text-lg font-semibold m-0">
-        Cấu hình Khung xương & Bố cục (ControlNet)
+        {{ 'app.skeleton_layout_settings_controlnet' | transloco }}
     </h2>
     <div class="flex items-center gap-2">
         <button mat-icon-button mat-dialog-close>
@@ -13,7 +13,7 @@
     <div class="flex flex-col gap-3 w-full">
         <!-- Saved Templates Select -->
         <div *ngIf="savedControlTemplates.length > 0" class="flex flex-col gap-2 mb-2">
-            <label class="font-medium text-slate-600 text-sm">Chọn từ bố cục đã lưu:</label>
+            <label class="font-medium text-slate-600 text-sm">{{ 'app.select_from_saved_layouts' | transloco }}</label>
             <div class="flex flex-wrap gap-2">
                 <div *ngFor="let template of savedControlTemplates"
                     class="relative w-36 h-36 rounded-lg overflow-hidden border-2 cursor-pointer group hover:border-indigo-500 transition-colors"
@@ -55,7 +55,7 @@
                     <button mat-flat-button class="bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                         (click)="triggerVideoUpload($event)">
                         <mat-icon>movie</mat-icon>
-                        <mat-label class="ml-2">Trích xuất từ Video</mat-label>
+                        <mat-label class="ml-2">{{ 'app.extract_from_video' | transloco }}</mat-label>
                     </button>
                     <input type="file" #videoUploadInput class="hidden" accept="video/*"
                         (change)="onVideoSelected($event)">
@@ -69,7 +69,7 @@
 
                 <div class="flex justify-between items-center w-full mb-3">
                     <h4 class="text-md font-semibold text-slate-800 flex items-center">
-                        <mat-icon class="text-indigo-600 mr-2">auto_awesome</mat-icon> AI Vẽ Phác Thảo
+                        <mat-icon class="text-indigo-600 mr-2">auto_awesome</mat-icon> {{ 'app.ai_sketching' | transloco }}
                     </h4>
                 </div>
 
@@ -105,7 +105,7 @@
                         <button mat-flat-button class="bg-indigo-600 text-white hover:bg-indigo-700"
                             (click)="submitGeneratePose($event)">
                             <mat-icon>brush</mat-icon>
-                            <mat-label class="ml-2">Tạo ảnh</mat-label>
+                            <mat-label class="ml-2">{{ 'app.create_image_1' | transloco }}</mat-label>
                         </button>
                     </div>
                 </div>

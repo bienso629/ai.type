@@ -41,8 +41,8 @@ export class TranslocoHttpLoader implements TranslocoLoader {
           { id: "vi", label: "Vietnam" }
         ],
         reRenderOnLangChange: true,
-        fallbackLang: "vi",
-        defaultLang: "vi",
+        fallbackLang: "en",
+        defaultLang: "en",
         missingHandler: {
           useFallbackTranslation: false
         }

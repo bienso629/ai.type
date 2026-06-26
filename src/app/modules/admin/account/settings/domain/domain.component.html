@@ -3,8 +3,7 @@
     <div class="w-full">
         <!-- <div class="text-xl">Kết nối Website của bạn</div> -->
         <div class="text-secondary leading-8 mt-2">
-            <p>Tên miền được sử dụng trong quá trình tạo content. Hiện tại chúng tôi chỉ phục vụ 2 nền tảng CMS chính là
-                Wordpress và NodeBB.</p>
+            <p>{{ 'app.domain_used_during_content' | transloco }}</p>
         </div>
         <div class="text-secondary leading-8 mt-4">
             <fuse-alert [appearance]="'outline'" [type]="'warning'">
@@ -87,7 +86,7 @@
                         <mat-label *ngIf="row.addnew"
                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
                             (click)="add(rowIndex)">
-                            Thêm mới
+                            {{ 'app.add_new' | transloco }}
                         </mat-label>
                     </div>
                 </ng-template>
@@ -97,7 +96,7 @@
                 <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
                     let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset">
                     <button class="ml-4" [disabled]="rows[rowCount - 1] && rows[rowCount - 1].addnew" mat-flat-button
-                        type="button" (click)="addNewForm()" [color]="'primary'">Thêm (+)</button>
+                        type="button" (click)="addNewForm()" [color]="'primary'">{{ 'app.add' | transloco }}</button>
                 </ng-template>
             </ngx-datatable-footer>
         </ngx-datatable>

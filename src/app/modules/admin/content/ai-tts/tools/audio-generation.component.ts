@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
@@ -19,6 +20,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
     selector: 'app-video-generation',
     standalone: true,
     imports: [
+        TranslocoModule,
         CommonModule,
         MatDialogModule,
         MatProgressBarModule,

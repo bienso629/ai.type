@@ -1,18 +1,18 @@
 <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
     <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>
-    <mat-label class="self-center">Soạn Email Gửi Hàng Loạt</mat-label>
+    <mat-label class="self-center">{{ 'app.draft_mass_email' | transloco }}</mat-label>
 </div>
 
 <div mat-dialog-content class="mt-4 p-0">
     <p class="text-blue-500 font-semibold mb-4">Bạn đang chọn {{ selectedCount }} thành viên để gửi.</p>
     
     <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-        <mat-label>Tên người gửi</mat-label>
+        <mat-label>{{ 'app.sender_name' | transloco }}</mat-label>
         <input matInput [(ngModel)]="emailComposer.senderName" placeholder="Ví dụ: Ban Quản Trị Type.vn" required>
     </mat-form-field>
 
     <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-        <mat-label>Tiêu đề Email</mat-label>
+        <mat-label>{{ 'app.email_title' | transloco }}</mat-label>
         <input matInput [(ngModel)]="emailComposer.subject" placeholder="Nhập tiêu đề..." required>
     </mat-form-field>
 

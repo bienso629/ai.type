@@ -112,7 +112,7 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-self-stretch" *ngIf="row && row.uuids && row.uuids.length > 0">
                         <mat-label *ngFor="let uuid of row.uuids" matTooltipPosition="above"
-                            matTooltip="Tiếp tục sửa nội dung" [routerLink]="['/ai-writer', user.name, uuid]"
+                            [matTooltip]="'app.continue_editing_content' | transloco" [routerLink]="['/ai-writer', user.name, uuid]"
                             class="h-7 leading-7 mr-2 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
                             {{uuid}}
                         </mat-label>

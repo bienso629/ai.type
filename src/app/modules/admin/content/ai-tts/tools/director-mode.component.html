@@ -3,7 +3,7 @@
     <div class="flex items-center justify-between mb-4">
         <div class="flex gap-6 items-center">
             <h2 class="text-lg font-semibold">
-                Cấu hình Góc máy & Ánh sáng
+                {{ 'app.camera_angle_lighting_settings' | transloco }}
             </h2>
         </div>
         <div class="flex items-center gap-2">
@@ -40,7 +40,7 @@
 
                 <!-- Time of day -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Thời gian trong ngày</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.time_of_day' | transloco }}</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.timeOfDay; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -74,7 +74,7 @@
 
                 <!-- Film stock -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Chất liệu phim</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.film_material' | transloco }}</h3>
 
                     <div class="flex gap-2 mb-3 bg-gray-200 p-1 rounded-lg">
                         <div class="toggle-btn flex items-center justify-center gap-2"
@@ -82,7 +82,7 @@
                             (click)="selections.filmStockColor = 'Full color'">
                             <div class="w-3 h-3 rounded-full bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-500">
                             </div>
-                            Có màu
+                            {{ 'app.colored' | transloco }}
                         </div>
                         <div class="toggle-btn flex items-center justify-center gap-2"
                             [class.selected]="selections.filmStockColor === 'Black & White'"
@@ -90,7 +90,7 @@
                             <div
                                 class="w-3 h-3 rounded-full bg-gradient-to-tr from-gray-700 via-gray-400 to-white border border-gray-300">
                             </div>
-                            Trắng đen
+                            {{ 'app.black_and_white' | transloco }}
                         </div>
                     </div>
 
@@ -147,7 +147,7 @@
             <div class="flex flex-col">
                 <!-- Composition -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Bố cục</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.layout' | transloco }}</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.composition; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -215,7 +215,7 @@
 
                 <!-- Movement -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Chuyển động máy quay</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.camera_movement' | transloco }}</h3>
                     <div class="grid grid-cols-5 gap-2 mb-3">
                         @for (opt of categories.movementType; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -233,8 +233,7 @@
                         <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Subtle'"
                             (click)="selections.movementSpeed = 'Subtle'">Nhẹ nhàng</div>
                         <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Standard movement'"
-                            (click)="selections.movementSpeed = 'Standard movement'">Bình
-                            thường</div>
+                            (click)="selections.movementSpeed = 'Standard movement'">{{ 'app.normal' | transloco }}</div>
                         <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Intense'"
                             (click)="selections.movementSpeed = 'Intense'">Mạnh mẽ</div>
                     </div>
@@ -243,8 +242,7 @@
                         <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Linear'"
                             (click)="selections.movementEasing = 'Linear'">Đều đặn</div>
                         <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Standard easing'"
-                            (click)="selections.movementEasing = 'Standard easing'">Bình
-                            thường</div>
+                            (click)="selections.movementEasing = 'Standard easing'">{{ 'app.normal' | transloco }}</div>
                         <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Natural'"
                             (click)="selections.movementEasing = 'Natural'">Tự nhiên</div>
                     </div>
@@ -255,14 +253,12 @@
 
         <!-- Tab Context & Seed -->
         <div *ngIf="data.targetName === 'Apply to Master Prompt'" class="flex flex-col gap-6 py-4 px-2 min-h-[300px]">
-            <h2 class="text-[16px] font-medium m-0 mt-4 text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-2">Bối cảnh
-                & Nhân vật</h2>
+            <h2 class="text-[16px] font-medium m-0 mt-4 text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-2">{{ 'app.context_characters' | transloco }}</h2>
             <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl text-sm border border-indigo-100 flex gap-3">
                 <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
                     class="text-indigo-500 shrink-0"></mat-icon>
                 <div>
-                    <strong>Bối cảnh & Nhân vật (Global Context):</strong> Các thiết lập tại đây sẽ được áp dụng cho
-                    toàn bộ các phân cảnh trong video (trừ khi bạn ghi đè cấu hình ở từng cảnh riêng biệt).
+                    <strong>{{ 'app.context_characters_global_context' | transloco }}</strong> {{ 'app.settings_here_will_be' | transloco }}
                 </div>
             </div>
 
@@ -270,7 +266,7 @@
                 <!-- Cột trái: Seed & Text -->
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-col gap-2">
-                        <label class="font-semibold text-gray-800 text-sm">Seed (Hạt giống ngẫu nhiên)</label>
+                        <label class="font-semibold text-gray-800 text-sm">{{ 'app.seed_random_seed' | transloco }}</label>
                         <p class="text-xs text-gray-500 mb-1">Dùng chung 1 số Seed giúp các phân cảnh có sự đồng nhất
                             cao hơn về bố cục và màu sắc.</p>
                         <input type="number" [(ngModel)]="globalContext.seed"
@@ -293,8 +289,7 @@
                 <!-- Cột phải: Reference Image -->
                 <div class="flex flex-col gap-2">
                     <label class="font-semibold text-gray-800 text-sm">Nhân vật / Phong cách tham chiếu</label>
-                    <p class="text-xs text-gray-500 mb-1">Tải lên một bức ảnh để AI giữ nguyên nhân vật hoặc phong cách
-                        này cho toàn bộ video.</p>
+                    <p class="text-xs text-gray-500 mb-1">{{ 'app.upload_an_image_for' | transloco }}</p>
 
                     <div class="w-full aspect-square relative border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden"
                         *ngIf="!globalContext.referenceImageUrl">

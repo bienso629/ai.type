@@ -63,7 +63,7 @@
 
             <button mat-flat-button class="ml-2 bg-green-500 text-white" (click)="neverLinks()">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
-                <mat-label class="ml-2">Tạo danh sách URLs</mat-label>
+                <mat-label class="ml-2">{{ 'app.create_url_list' | transloco }}</mat-label>
             </button>
         </div>
     </div>
@@ -123,19 +123,19 @@
                             <div class="flex page-count items-center justify-self-stretch">
                                 <button mat-flat-button class="bg-blue-500 text-white" (click)="storeBigData()">
                                     <mat-icon class="icon-size-4" [svgIcon]="'feather:database'"></mat-icon>
-                                    <mat-label class="ml-2">Bắt đầu lấy dữ liệu</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.start_fetching_data' | transloco }}</mat-label>
                                 </button>
 
                                 <button mat-flat-button class="ml-2 bg-blue-600 text-white" (click)="donwload()">
                                     <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-                                    <mat-label class="ml-2">Tải PDF (nếu có)</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.download_pdf_if_any' | transloco }}</mat-label>
                                 </button>
 
                                 <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>
 
                                 <mat-label (click)="scanErrorLinks()"
                                     class="h-8 leading-8 items-center px-2 rounded cursor-pointer text-red-600">
-                                    Chỉ xử lý Link bị lỗi
+                                    {{ 'app.only_process_broken_links' | transloco }}
                                 </mat-label>
                             </div>
                         </div>
@@ -149,7 +149,7 @@
                             <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>
 
                             <a href="javascript:void(0)" [color]="'primary'" (click)="report()">
-                                Báo cáo
+                                {{ 'app.report' | transloco }}
                             </a>
 
                             <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>

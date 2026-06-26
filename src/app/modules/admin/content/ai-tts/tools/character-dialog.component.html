@@ -48,7 +48,7 @@
                     [disabled]="isGeneratingProfile">
                     <mat-icon class="icon-size-5" *ngIf="!isGeneratingProfile">auto_awesome</mat-icon>
                     <mat-icon class="icon-size-5 animate-spin" *ngIf="isGeneratingProfile">autorenew</mat-icon>
-                    <span class="ml-2 font-medium">Tạo nhân vật</span>
+                    <span class="ml-2 font-medium">{{ 'app.create_character' | transloco }}</span>
                 </button>
             </div>
         </div>
@@ -78,7 +78,7 @@
                 } @else {
                 <button mat-icon-button [matMenuTriggerFor]="imageMenu"
                     class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full"
-                    matTooltip="Tùy chọn hình ảnh">
+                    [matTooltip]="'app.image_options' | transloco">
                     <mat-icon class="text-slate-600">more_horiz</mat-icon>
                 </button>
                 }
@@ -86,7 +86,7 @@
                 <mat-menu #imageMenu="matMenu" class="custom-image-menu">
                     <button mat-menu-item (click)="generateAvatar()">
                         <mat-icon class="text-blue-500 icon-size-5">auto_awesome</mat-icon>
-                        <span>AI vẽ ảnh mới từ Prompt</span>
+                        <span>{{ 'app.ai_draws_new_image' | transloco }}</span>
                     </button>
                     <button mat-menu-item (click)="avatarInput.click()">
                         <mat-icon class="text-green-600 icon-size-5">upload_file</mat-icon>
@@ -108,7 +108,7 @@
         <!-- Form Inputs -->
         <div class="grid grid-cols-1 md:grid-cols-3 gap-2 flex-grow w-full">
             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Tên nhân vật</mat-label>
+                <mat-label>{{ 'app.character_name' | transloco }}</mat-label>
                 <input matInput [(ngModel)]="editingChar.name" (ngModelChange)="updateAvailableReferenceImages()"
                     placeholder="VD: Naruto" />
             </mat-form-field>
@@ -133,7 +133,7 @@
 
 
     <mat-form-field class="custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-        <mat-label>Tính cách</mat-label>
+        <mat-label>{{ 'app.personality_1' | transloco }}</mat-label>
         <textarea matInput class="px-2 text-base leading-relaxed" [(ngModel)]="editingChar.personality"
             placeholder="VD: Năng động, ngốc nghếch..." cdkTextareaAutosize cdkAutosizeMinRows="2"></textarea>
     </mat-form-field>

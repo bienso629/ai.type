@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, OnInit, ChangeDetectorRef } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
@@ -20,6 +21,7 @@ import { A11y, Mousewheel, Navigation, Pagination, SwiperOptions } from 'swiper'
     selector: 'app-video-project-config-dialog',
     standalone: true,
     imports: [
+        TranslocoModule,
         CommonModule,
         FormsModule,
         MatDialogModule,

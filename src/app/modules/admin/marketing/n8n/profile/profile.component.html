@@ -33,7 +33,7 @@
                 </div>
             </ng-container>
             <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                <span class="text-gray-400">Chưa gán</span>
+                <span class="text-gray-400">{{ 'app.unassigned' | transloco }}</span>
             </ng-container>
         </ng-template>
     </ngx-datatable-column>
@@ -70,13 +70,13 @@
         <ng-template let-row="row" ngx-datatable-cell-template>
             <div class="flex items-center justify-end">
                 <ng-container *ngIf="row.accounts && row.accounts.length > 0">
-                    <button mat-icon-button (click)="editAcc(row.accounts[0])" matTooltip="Sửa nhân cách/Acc">
+                    <button mat-icon-button (click)="editAcc(row.accounts[0])" [matTooltip]="'app.edit_persona_account' | transloco">
                         <mat-icon class="icon-size-4 text-primary-600" [svgIcon]="'feather:edit-3'"></mat-icon>
                     </button>
                 </ng-container>
 
                 <ng-container *ngIf="!row.accounts || row.accounts.length === 0">
-                    <button mat-icon-button (click)="addAcc(row)" matTooltip="Thêm tài khoản">
+                    <button mat-icon-button (click)="addAcc(row)" [matTooltip]="'app.add_account' | transloco">
                         <mat-icon class="icon-size-4 text-gray-400 hover:text-primary-500"
                             [svgIcon]="'feather:plus-circle'"></mat-icon>
                     </button>
@@ -95,7 +95,7 @@
 
                         <button mat-flat-button color="primary" (click)="run()">
                             <mat-icon [svgIcon]="'feather:play'" class="icon-size-4"></mat-icon>
-                            <span class="ml-2">Chạy Profile</span>
+                            <span class="ml-2">{{ 'app.run_profile' | transloco }}</span>
                         </button>
 
                         <button mat-flat-button color="warn" (click)="killProfiles()" class="ml-2">

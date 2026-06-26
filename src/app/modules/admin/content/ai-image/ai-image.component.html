@@ -23,7 +23,7 @@
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
             <mat-form-field *ngIf="domains" stopPropagation (stop2click)="handler($event)"
                 class="min-w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
-                <mat-text matPrefix>Tải lên</mat-text>
+                <mat-text matPrefix>{{ 'app.upload' | transloco }}</mat-text>
                 <mat-select (selectionChange)="connect($event)" [(ngModel)]="domain">
                     <ng-container *ngFor="let item of domains; let i = index">
                         <mat-option [value]="item">{{item.domain}}</mat-option>
@@ -45,7 +45,7 @@
                                         <input type="file" #fileInput (change)="onFileSelected($event)" hidden
                                             accept="image/*" multiple>
                                         <button type="button" mat-icon-button (click)="fileInput.click()"
-                                            matTooltip="Thêm ảnh tham chiếu">
+                                            [matTooltip]="'app.add_reference_image' | transloco">
                                             <mat-icon [class.text-primary]="referenceFiles.length > 0"
                                                 [svgIcon]="referenceFiles.length > 0 ? 'heroicons_solid:paper-clip' : 'heroicons_outline:paper-clip'"></mat-icon>
                                         </button>
@@ -58,11 +58,10 @@
 
                                     <div matSuffix class="flex items-center mr-1 gap-2">
                                         <mat-select formControlName="modelId" class="w-28 text-sm border-l pl-2"
-                                            matTooltip="Chọn Model">
+                                            [matTooltip]="'app.select_model' | transloco">
                                             <mat-option value="gemini-3.1-flash-image-preview">Đa năng</mat-option>
-                                            <mat-option value="imagen-3.0-generate-001">Sáng tạo nghệ thuật</mat-option>
-                                            <mat-option value="gemini-3-pro-image-preview">Chuyên nghiệp, vẽ chữ chính
-                                                xác</mat-option>
+                                            <mat-option value="imagen-3.0-generate-001">{{ 'app.creative_art' | transloco }}</mat-option>
+                                            <mat-option value="gemini-3-pro-image-preview">{{ 'app.professional_precise_text_drawing' | transloco }}</mat-option>
                                         </mat-select>
 
                                         <mat-select formControlName="aspectRatio" class="w-16 text-sm border-l pl-2"
@@ -84,7 +83,7 @@
                                         </mat-select>
 
                                         <mat-select formControlName="resolution" class="w-16 text-sm border-l pl-2"
-                                            matTooltip="Chất lượng">
+                                            [matTooltip]="'app.quality_1' | transloco">
                                             <mat-option value="512px">512px</mat-option>
                                             <mat-option value="1K">1K</mat-option>
                                             <mat-option value="2K">2K</mat-option>
@@ -99,7 +98,7 @@
                                                 [mode]="'indeterminate'"></mat-progress-spinner>
                                         </button>
                                     </div>
-                                    <mat-hint>Chúng tôi tạo hình ảnh bằng Mì Tôm AI.</mat-hint>
+                                    <mat-hint>{{ 'app.we_create_images_using' | transloco }}</mat-hint>
                                 </mat-form-field>
 
                                 <div class="flex gap-2 mt-2 px-4" *ngIf="referenceFiles.length > 0">

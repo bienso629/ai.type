@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, ChangeDetectorRef, ViewChild, ElementRef, OnInit } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
@@ -16,6 +17,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
     selector: 'app-controlnet-dialog',
     standalone: true,
     imports: [
+        TranslocoModule,
         CommonModule,
         FormsModule,
         MatDialogModule,

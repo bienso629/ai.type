@@ -36,7 +36,7 @@
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
             <a mat-flat-button [matMenuTriggerFor]="play" class="ml-2" color="primary">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:arrow-down'"></mat-icon>
-                <mat-label class="ml-2 text-base">Tải nhanh video</mat-label>
+                <mat-label class="ml-2 text-base">{{ 'app.quick_download_video' | transloco }}</mat-label>
             </a>
 
             <!-- <a mat-icon-button [color]="'primary'" class="" matTooltipPosition="above"
@@ -49,7 +49,7 @@
                 <!-- Header -->
                 <div
                     class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
-                    Copy & paste link video của bạn
+                    {{ 'app.copy_paste_your_video' | transloco }}
                 </div>
 
                 <!-- Content -->
@@ -68,7 +68,7 @@
                             Tự động tạo bài viết
                         </mat-checkbox>
                         <a class="text-md font-medium text-primary-500 hover:underline" href="javascript:void(0)"
-                            (click)="download()">Tải video <mat-label *ngIf="cbCreatePost">và viết bài</mat-label> ngay
+                            (click)="download()">{{ 'app.download_video_1' | transloco }} <mat-label *ngIf="cbCreatePost">và viết bài</mat-label> ngay
                         </a>
                     </div>
                 </div>

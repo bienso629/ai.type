@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, ChangeDetectorRef } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
@@ -18,7 +19,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 @Component({
     selector: 'app-character-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatSelectModule, MatProgressSpinnerModule, MatMenuModule, MatTooltipModule],
+    imports: [
+        TranslocoModule,CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatSelectModule, MatProgressSpinnerModule, MatMenuModule, MatTooltipModule],
     templateUrl: './character-dialog.component.html'
 })
 export class CharacterDialogComponent {

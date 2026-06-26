@@ -2,7 +2,7 @@
 <div class="flex flex-row items-center justify-between pb-2 border-b">
     <a mat-flat-button (click)="addNewForm()" [color]="'primary'">
         <mat-icon class="icon-size-4" [svgIcon]="'feather:plus-circle'"></mat-icon>
-        <mat-label class="ml-2 text-base">Thêm mới License Key</mat-label>
+        <mat-label class="ml-2 text-base">{{ 'app.add_new_license_key' | transloco }}</mat-label>
     </a>
 
     <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-64">
@@ -91,7 +91,7 @@
                     <mat-label matTooltipPosition="above" matTooltip="Nhân bản License Key "
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
                         (click)="clone(row)">
-                        Sao chép
+                        {{ 'app.copy' | transloco }}
                     </mat-label>
 
                     <mat-label matTooltipPosition="above" matTooltip="Gửi email cho người mua"

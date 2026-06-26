@@ -1,5 +1,5 @@
 <div class="flex items-center justify-between">
-    <h2 class="text-lg font-semibold">Cấu hình</h2>
+    <h2 class="text-lg font-semibold">{{ 'app.settings' | transloco }}</h2>
     <div class="flex items-center gap-2">
 
         <button mat-icon-button (click)="close()">
@@ -16,7 +16,7 @@
             <h3 class="font-semibold text-indigo-800 text-sm">Master Prompt</h3>
         </div>
         <div class="flex items-center gap-0">
-            <button mat-icon-button class="icon-size-8 text-indigo-600" matTooltip="Sửa Master Prompt"
+            <button mat-icon-button class="icon-size-8 text-indigo-600" [matTooltip]="'app.edit_master_prompt' | transloco"
                 (click)="toggleEditMasterPrompt()" [disabled]="isReanalyzingScenes">
                 <mat-icon class="icon-size-4" *ngIf="!isReanalyzingScenes">{{ isEditingMasterPrompt ? 'check' : 'edit'
                     }}</mat-icon>
@@ -43,11 +43,11 @@
     <div class="flex items-center justify-between mb-4 mt-6">
         <div class="flex items-center">
             <mat-icon class="icon-size-5 text-indigo-600 mr-2" [svgIcon]="'heroicons_outline:users'"></mat-icon>
-            <h3 class="font-semibold text-indigo-800 text-sm">Tạo hình Nhân vật (Casting)</h3>
+            <h3 class="font-semibold text-indigo-800 text-sm">{{ 'app.character_design_casting' | transloco }}</h3>
         </div>
 
         <button mat-icon-button class="icon-size-8 text-indigo-500 bg-indigo-50 hover:bg-indigo-100"
-            matTooltip="Thêm nhân vật" (click)="openCharacterDialog()">
+            [matTooltip]="'app.add_character' | transloco" (click)="openCharacterDialog()">
             <mat-icon class="icon-size-4">person_add</mat-icon>
         </button>
     </div>
@@ -84,7 +84,7 @@
 
                                 <button mat-icon-button
                                     class="icon-size-7 text-gray-400 hover:text-blue-600 hover:bg-blue-50"
-                                    matTooltip="Sửa nhân vật" (click)="openCharacterDialog(char, charIdx)">
+                                    [matTooltip]="'app.edit_character' | transloco" (click)="openCharacterDialog(char, charIdx)">
                                     <mat-icon class="icon-size-3.5">edit</mat-icon>
                                 </button>
 
@@ -107,8 +107,7 @@
                                     'Đang cập nhật' }}</span>
                             </div>
                             <div class="flex items-start gap-1"><span
-                                    class="font-semibold text-gray-900 min-w-[70px]">Tính
-                                    cách:</span>
+                                    class="font-semibold text-gray-900 min-w-[70px]">{{ 'app.personality' | transloco }}</span>
                                 <span class="line-clamp-2">{{ char.personality }}</span>
                             </div>
                         </div>
@@ -132,7 +131,7 @@
         @if (!projectData?.characters || projectData?.characters.length === 0) {
         <div
             class="w-full text-xs text-gray-500 italic text-center py-8 bg-white/50 rounded-xl border border-dashed border-gray-300">
-            Chưa có nhân vật nào được tạo hình. Bấm vào nút + để tạo nhân vật đầu tiên.
+            {{ 'app.no_character_designed_yet' | transloco }}
         </div>
         }
     </div>

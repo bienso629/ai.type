@@ -1,10 +1,10 @@
 <div class="flex flex-col h-full max-h-screen overflow-hidden bg-gray-100 select-none">
     <div class="flex items-center justify-between px-6 bg-white shrink-0 z-20 shadow-sm border-b">
-        <h2 class="text-lg font-medium text-gray-800">Chỉnh sửa ảnh</h2>
+        <h2 class="text-lg font-medium text-gray-800">{{ 'app.edit_image' | transloco }}</h2>
 
         <div class="flex items-center gap-2 p-2 py-3" *ngIf="!isCropping">
             <button mat-icon-button (click)="toggleGrid()" [color]="showGrid ? 'primary' : ''"
-                matTooltip="Bật/Tắt Lưới">
+                [matTooltip]="'app.toggle_grid' | transloco">
                 <mat-icon svgIcon="heroicons_outline:view-grid"></mat-icon>
             </button>
             <div class="w-px h-6 bg-gray-300 mx-1"></div>
@@ -16,7 +16,7 @@
                 matTooltip="Làm lại (Ctrl+Y)">
                 <mat-icon svgIcon="heroicons_outline:reply" class="transform -scale-x-100"></mat-icon>
             </button>
-            <button mat-icon-button (click)="hardReset()" matTooltip="Reset gốc" color="warn">
+            <button mat-icon-button (click)="hardReset()" [matTooltip]="'app.hard_reset' | transloco" color="warn">
                 <mat-icon svgIcon="heroicons_outline:refresh"></mat-icon>
             </button>
 
@@ -40,7 +40,7 @@
             <span
                 class="flex items-center text-sm font-semibold text-white bg-blue-600 px-3 py-1 rounded-full shadow-sm">
                 <mat-icon class="icon-size-4 text-white" svgIcon="heroicons_outline:scissors"></mat-icon>
-                <span class="ml-2">Chế độ cắt ảnh</span>
+                <span class="ml-2">{{ 'app.image_crop_mode' | transloco }}</span>
             </span>
 
             <button mat-flat-button color="primary" class="h-9 px-6" (click)="applyCrop()">
@@ -73,7 +73,7 @@
 
                 <div class="flex gap-2">
                     <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
-                        <mat-label>Rộng (px)</mat-label>
+                        <mat-label>{{ 'app.width_px' | transloco }}</mat-label>
                         <input matInput type="number" [(ngModel)]="cropRect.w" (input)="draw()">
                     </mat-form-field>
                     <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
@@ -85,7 +85,7 @@
                 <h3 class="font-semibold text-gray-800 border-b pb-2 pt-2">Tỉ lệ phổ biến</h3>
                 <div class="grid grid-cols-2 gap-3">
                     <button mat-flat-button (click)="setCropRatio(1, 1)" class="justify-start">
-                        <mat-icon class="icon-size-4 mr-2 text-gray-500" svgIcon="feather:image"></mat-icon> 1:1 (Vuông)
+                        <mat-icon class="icon-size-4 mr-2 text-gray-500" svgIcon="feather:image"></mat-icon> {{ 'app.1_1_square' | transloco }}
                     </button>
                     <button mat-flat-button (click)="setCropRatio(16, 9)" class="justify-start">
                         <mat-icon class="icon-size-4 mr-2 text-red-500" svgIcon="feather:youtube"></mat-icon> 16:9
@@ -119,7 +119,7 @@
                         </div>
 
                         <button mat-icon-button color="primary" class="icon-size-8 shadow-none" (click)="addTextLayer()"
-                            matTooltip="Thêm chữ">
+                            [matTooltip]="'app.add_text' | transloco">
                             <mat-icon class="icon-size-5" svgIcon="heroicons_outline:plus"></mat-icon>
                         </button>
                     </div>
@@ -240,7 +240,7 @@
 
                         <div class="border-t pt-3 border-gray-50">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-semibold text-gray-600">Bóng (Shadow)</span>
+                                <span class="text-xs font-semibold text-gray-600">{{ 'app.shadow' | transloco }}</span>
                                 <mat-slide-toggle [(ngModel)]="txt.hasShadow" (change)="draw(); recordHistory()"
                                     color="primary" class="scale-75"></mat-slide-toggle>
                             </div>
@@ -300,9 +300,7 @@
                         </div>
 
                     </div>
-                    <div *ngIf="!selectedId || !getSelectedText()" class="text-xs text-gray-200 text-center py-2">Chưa
-                        chọn văn bản
-                        nào</div>
+                    <div *ngIf="!selectedId || !getSelectedText()" class="text-xs text-gray-200 text-center py-2">{{ 'app.no_text_selected' | transloco }}</div>
                 </div>
 
                 <div class="rounded-lg p-4 bg-white border border-gray-100">
@@ -313,7 +311,7 @@
                             <h3 class="font-semibold text-sm text-purple-600">Logo</h3>
                         </div>
                         <button mat-icon-button color="primary" class="icon-size-8 shadow-none"
-                            (click)="fileInput.click()" matTooltip="Thêm Logo">
+                            (click)="fileInput.click()" [matTooltip]="'app.add_logo' | transloco">
                             <mat-icon class="icon-size-5" svgIcon="heroicons_outline:plus"></mat-icon>
                         </button>
                         <input #fileInput type="file" class="hidden" (click)="$event.target['value']=null"
@@ -368,9 +366,7 @@
                             </mat-slider>
                         </div>
                     </div>
-                    <div *ngIf="!selectedId || !getSelectedLogo()" class="text-xs text-gray-200 text-center py-2">Chưa
-                        chọn logo
-                        nào</div>
+                    <div *ngIf="!selectedId || !getSelectedLogo()" class="text-xs text-gray-200 text-center py-2">{{ 'app.no_logo_selected' | transloco }}</div>
                 </div>
 
                 <div class="rounded-lg p-4 bg-white border border-gray-100">
@@ -407,7 +403,7 @@
                                 (click)="deleteLayer(layer.id); $event.stopPropagation()" matTooltip="Xóa"></mat-icon>
                             <mat-icon class="icon-size-4 text-gray-300" svgIcon="heroicons_outline:menu"></mat-icon>
                         </div>
-                        <div *ngIf="layers.length === 0" class="text-xs text-center text-gray-100 py-4">Chưa có lớp nào
+                        <div *ngIf="layers.length === 0" class="text-xs text-center text-gray-100 py-4">{{ 'app.no_layers' | transloco }}
                         </div>
                     </div>
                 </div>
@@ -432,8 +428,7 @@
 
                     <div class="relative h-10 w-full flex items-center mb-4 bg-white rounded border border-gray-50">
                         <div class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
-                            <span class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">CHẤT
-                                LƯỢNG</span>
+                            <span class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">{{ 'app.quality' | transloco }}</span>
                             <span
                                 class="text-[10px] font-semibold text-green-600 bg-white/80 px-1 rounded">{{(output.quality
                                 * 100).toFixed(0)}}%</span>

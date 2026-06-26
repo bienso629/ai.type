@@ -1,11 +1,11 @@
 <h2 class="text-xl font-normal text-gray-500 flex items-center justify-self-stretch mb-4">
     <mat-icon class="icon-size-4" svgIcon="feather:globe"></mat-icon>
-    <mat-label class="ml-2">Bot học nội dung Website</mat-label>
+    <mat-label class="ml-2">{{ 'app.bot_learns_website_content' | transloco }}</mat-label>
 </h2>
 
 <div class="mb-2">
     <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-        <mat-label>Chọn domain</mat-label>
+        <mat-label>{{ 'app.select_domain' | transloco }}</mat-label>
         <mat-select class="w-full" (selectionChange)="getSitemap()" [(ngModel)]="selectedDomain">
             <ng-container *ngFor="let d of domainOptions">
                 <mat-option [value]="d.domain">{{d.domain}}</mat-option>
@@ -31,6 +31,6 @@
 
     <button mat-flat-button color="primary" (click)="onConfirm()">
         <mat-icon class="icon-size-4" svgIcon="feather:arrow-right"></mat-icon>
-        <mat-label class="ml-2">Tiếp tục</mat-label>
+        <mat-label class="ml-2">{{ 'app.continue' | transloco }}</mat-label>
     </button>
 </div>

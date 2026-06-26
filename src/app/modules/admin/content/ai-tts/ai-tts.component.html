@@ -70,8 +70,8 @@
             <mat-form-field class="w-32 field-hidden-subscript fuse-mat-dense" appearance="fill">
                 <mat-select [(ngModel)]="videoFormat" (ngModelChange)="onInputChanged()" placeholder="Định dạng">
                     <mat-option value="video">Video</mat-option>
-                    <mat-option value="comic">Truyện tranh</mat-option>
-                    <mat-option value="slide">Slide (Tĩnh)</mat-option>
+                    <mat-option value="comic">{{ 'app.comic' | transloco }}</mat-option>
+                    <mat-option value="slide">{{ 'app.slide_static' | transloco }}</mat-option>
                     <mat-option value="podcast">Podcast</mat-option>
                 </mat-select>
             </mat-form-field>
@@ -86,7 +86,7 @@
             </mat-form-field>
 
             <mat-form-field class="w-28 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="maxDuration" (ngModelChange)="onInputChanged()" placeholder="Thời lượng">
+                <mat-select [(ngModel)]="maxDuration" (ngModelChange)="onInputChanged()" [placeholder]="'app.duration' | transloco">
                     <mat-option [value]="0">Tự do</mat-option>
                     <mat-option [value]="4">4s</mat-option>
                     <mat-option [value]="6">6s</mat-option>
@@ -120,8 +120,7 @@
                 <div class="sticky top-0 z-20 bg-white p-6">
                     <div class="w-full bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
                         <div class="flex items-center mb-2">
-                            <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Trình chỉnh
-                                sửa</span>
+                            <span class="text-sm font-semibold text-gray-500 uppercase tracking-wider">{{ 'app.editor' | transloco }}</span>
                         </div>
                         <div id="waveform" class="w-full"></div>
                     </div>
@@ -142,15 +141,15 @@
                                 <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
                             </button>
 
-                            <button mat-icon-button class="ml-0" matTooltip="Thêm Audio từ máy tính">
+                            <button mat-icon-button class="ml-0" [matTooltip]="'app.add_audio_from_computer' | transloco">
                                 <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:mic'"></mat-icon>
                                 <input type="file" multiple accept="audio/*" (change)="onFileSelected($event)"
                                     class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
-                                    title="Thêm audio">
+                                    [title]="'app.add_audio' | transloco">
                             </button>
 
                             <button mat-icon-button class="ml-0" (click)="addEmptyClip()"
-                                matTooltip="Thêm câu thoại mới">
+                                [matTooltip]="'app.add_new_dialogue' | transloco">
                                 <mat-icon class="icon-size-4 text-green-700" [svgIcon]="'feather:type'"></mat-icon>
                             </button>
 
@@ -167,7 +166,7 @@
                                 <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
                                     [svgIcon]="'feather:loader'"></mat-icon>
                                 <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
-                                <span class="ml-2">Tạo giọng đọc</span>
+                                <span class="ml-2">{{ 'app.create_voice' | transloco }}</span>
                             </button>
                         </div>
                     </div>
@@ -202,7 +201,7 @@
                                     <span class="truncate">{{ clip.name }}</span>
                                     <button mat-icon-button
                                         class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
-                                        (click)="$event.stopPropagation(); editClip(clip)" matTooltip="Sửa nội dung">
+                                        (click)="$event.stopPropagation(); editClip(clip)" [matTooltip]="'app.edit_content' | transloco">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'heroicons_outline:pencil'"></mat-icon>
                                     </button>
@@ -256,19 +255,19 @@
                                         appearance="fill">
                                         <mat-select [(ngModel)]="clip.rate" (selectionChange)="onInputChanged()"
                                             (mousedown)="$event.stopPropagation()" [placeholder]="'Tốc độ'">
-                                            <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
+                                            <mat-option [value]="0.5">{{ 'app.0_5x_very_slow' | transloco }}</mat-option>
                                             <mat-option [value]="0.6">0.6x</mat-option>
                                             <mat-option [value]="0.7">0.7x</mat-option>
-                                            <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                                            <mat-option [value]="0.8">{{ 'app.0_8x_slow' | transloco }}</mat-option>
                                             <mat-option [value]="0.9">0.9x</mat-option>
-                                            <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
+                                            <mat-option [value]="1.0">{{ 'app.1_0x_standard' | transloco }}</mat-option>
                                             <mat-option [value]="1.1">1.1x</mat-option>
-                                            <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
+                                            <mat-option [value]="1.2">{{ 'app.1_2x_slightly_fast' | transloco }}</mat-option>
                                             <mat-option [value]="1.3">1.3x</mat-option>
                                             <mat-option [value]="1.4">1.4x</mat-option>
-                                            <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
+                                            <mat-option [value]="1.5">{{ 'app.1_5x_very_fast' | transloco }}</mat-option>
                                             <mat-option [value]="1.7">1.7x</mat-option>
-                                            <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
+                                            <mat-option [value]="2.0">{{ 'app.2_0x_extremely_fast' | transloco }}</mat-option>
                                         </mat-select>
                                     </mat-form-field>
 
@@ -276,15 +275,15 @@
                                         appearance="fill">
                                         <mat-select [(ngModel)]="clip.pitch" (selectionChange)="onInputChanged()"
                                             (mousedown)="$event.stopPropagation()" [placeholder]="'Cao độ'">
-                                            <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
+                                            <mat-option [value]="-20">{{ 'app.20_extremely_low' | transloco }}</mat-option>
                                             <mat-option [value]="-15">-15</mat-option>
-                                            <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
-                                            <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
-                                            <mat-option [value]="-2">-2 (Hơi trầm)</mat-option>
-                                            <mat-option [value]="0">0 (Mặc định)</mat-option>
-                                            <mat-option [value]="2">+2 (Hơi cao)</mat-option>
-                                            <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
-                                            <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                                            <mat-option [value]="-10">{{ 'app.10_deeply_low' | transloco }}</mat-option>
+                                            <mat-option [value]="-5">{{ 'app.5_lightly_low' | transloco }}</mat-option>
+                                            <mat-option [value]="-2">{{ 'app.2_slightly_low' | transloco }}</mat-option>
+                                            <mat-option [value]="0">{{ 'app.0_default' | transloco }}</mat-option>
+                                            <mat-option [value]="2">{{ 'app.2_slightly_high' | transloco }}</mat-option>
+                                            <mat-option [value]="5">{{ 'app.5_lightly_high' | transloco }}</mat-option>
+                                            <mat-option [value]="10">{{ 'app.10_clear' | transloco }}</mat-option>
                                             <mat-option [value]="15">+15</mat-option>
                                             <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
                                         </mat-select>
@@ -321,7 +320,7 @@
 
                                     <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
                                         (click)="$event.stopPropagation(); createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
-                                        matTooltip="Tạo ảnh từ Prompt">
+                                        [matTooltip]="'app.create_image_from_prompt' | transloco">
                                         <mat-icon class="icon-size-5 text-purple-500"
                                             [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                     </button>

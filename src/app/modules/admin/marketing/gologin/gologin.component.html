@@ -43,7 +43,7 @@
             <mat-menu #token="matMenu" class="min-w-100 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
                 <!-- Header -->
                 <div class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
-                    Token mới của bạn
+                    {{ 'app.your_new_token' | transloco }}
                 </div>
 
                 <!-- Content -->
@@ -82,13 +82,13 @@
             <mat-menu #searchMenu="matMenu" class="min-w-80 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
                 <!-- Header -->
                 <div class="flex p-6 py-2 pt-0 shrink-0 items-center bg-white text-black text-lg leading-10 resize-none border-b">
-                    Chọn 1 domain để chạy traffic
+                    {{ 'app.select_1_domain_to' | transloco }}
                 </div>
 
                 <!-- Content -->
                 <div class="px-6 p-6 pb-4 relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
                     <mat-form-field class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                        <input placeholder="Chọn 1 domain" (keyup.enter)="updateLink($event)" aria-label="Number" matInput [(ngModel)]="link" [matAutocomplete]="auto">
+                        <input [placeholder]="'app.select_1_domain' | transloco" (keyup.enter)="updateLink($event)" aria-label="Number" matInput [(ngModel)]="link" [matAutocomplete]="auto">
                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
                         <mat-autocomplete #auto="matAutocomplete">
                             <mat-option *ngFor="let item of domains" [value]="item.domain">
@@ -200,7 +200,7 @@
             <!-- Column Templates -->
             <ngx-datatable-column [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true" name="Thẻ">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-select [clearable]="false" [readonly]="true" [multiple]="true" bindLabel="title" [items]="row.tags" [(ngModel)]="row.tags" placeholder="Chưa có tag nào"
+                    <ng-select [clearable]="false" [readonly]="true" [multiple]="true" bindLabel="title" [items]="row.tags" [(ngModel)]="row.tags" [placeholder]="'app.no_tags' | transloco"
                         class="w-full min-w-50 max-w-60 custom-select-archives">
                     </ng-select>
                 </ng-template>

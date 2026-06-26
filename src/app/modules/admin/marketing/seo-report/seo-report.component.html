@@ -52,7 +52,7 @@
             <button mat-flat-button color="primary" (click)="loadFromGSC()" [disabled]="gscLoading">
                 <mat-icon *ngIf="!gscLoading" class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
                 <mat-icon *ngIf="gscLoading" class="icon-size-4 animate-spin" svgIcon="feather:loader"></mat-icon>
-                <span class="ml-2">Báo cáo từ khóa</span>
+                <span class="ml-2">{{ 'app.keyword_report' | transloco }}</span>
             </button>
         </div>
 
@@ -60,15 +60,15 @@
 
         <div class="flex flex-col mt-4 gap-2">
             <h3 class="text-xl sm:text-2xl text-primary mb-2">
-                Bảng số liệu từ khóa Google Search Console
+                {{ 'app.google_search_console_keyword' | transloco }}
             </h3>
 
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <mat-form-field [subscriptSizing]="'dynamic'"
                     class="w-full sm:w-64 fuse-mat-dense fuse-mat-emphasized-affix">
-                    <!-- <mat-label>Tìm kiếm từ khóa của bạn</mat-label> -->
+                    <!-- <mat-label>{{ 'app.search_your_keywords' | transloco }}</mat-label> -->
                     <input matInput class="w-100" [(ngModel)]="searchTerm" (ngModelChange)="onSearchTermChange()"
-                        placeholder="Tìm kiếm từ khóa của bạn">
+                        [placeholder]="'app.search_your_keywords' | transloco">
                     <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="searchTerm=''; onSearchTermChange()">
                         <mat-icon class="icon-size-4" svgIcon="feather:search"></mat-icon>
                     </button>
@@ -132,7 +132,7 @@
                             <div class="text-xl font-semibold">{{ totalImpressions | number }}</div>
                         </div>
                         <div class="p-4 border rounded-lg">
-                            <div class="text-base text-gray-500">CTR trung bình</div>
+                            <div class="text-base text-gray-500">{{ 'app.average_ctr' | transloco }}</div>
                             <div class="text-xl font-semibold">{{ avgCtr | number:'1.1-2' }}%</div>
                         </div>
                         <div class="p-4 border rounded-lg">
@@ -169,7 +169,7 @@
 
                 <div class="pt-8 w-full" *ngIf="chartOptionsKeywordCompare">
                     <h3 class="text-base mb-2">
-                        So sánh CTR theo ngày giữa các từ khóa đã chọn
+                        {{ 'app.compare_daily_ctr_between' | transloco }}
                     </h3>
 
                     <apx-chart [series]="chartOptionsKeywordCompare.series" [chart]="chartOptionsKeywordCompare.chart"
@@ -182,7 +182,7 @@
                 <div class="pt-8 w-full" *ngIf="chartOptionsKeywordGrowth">
                     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                         <h3 class="text-base sm:text-lg font-semibold">
-                            Tăng trưởng theo ngày (multi-keyword)
+                            {{ 'app.daily_growth_multi_keyword' | transloco }}
                         </h3>
 
                         <mat-button-toggle-group [(ngModel)]="selectedMetric" (ngModelChange)="changeMetric()">
@@ -213,7 +213,7 @@
 
                 <div class="mt-2 w-full" *ngIf="currentAdsKeyword">
                     <h3 class="text-xl sm:text-2xl text-primary mb-2">
-                        Search volume (Google Ads) cho keyword đang chọn
+                        {{ 'app.search_volume_google_ads' | transloco }}
                     </h3>
 
                     <div *ngIf="currentAdsKeyword" class="text-base text-gray-600 mb-2">
@@ -323,7 +323,7 @@
                         </div>
 
                         <div *ngIf="gaLoading" class="mb-4 text-base text-gray-300">
-                            Chờ mình xíu nhé...
+                            {{ 'app.wait_a_moment' | transloco }}
                         </div>
 
                         <div *ngIf="gaError" class="mb-4 text-red-500">
@@ -357,7 +357,7 @@
                             <div class="border rounded-lg p-0 mb-6 overflow-hidden">
                                 <div class="bg-gray-100 p-3 flex justify-between items-center">
                                     <div class="font-semibold text-sm text-gray-700">
-                                        Bảng xếp hạng Category (All Users)
+                                        {{ 'app.category_leaderboard_all_users' | transloco }}
                                     </div>
                                 </div>
                                 <div class="overflow-x-auto">
@@ -404,7 +404,7 @@
                                     </ngx-datatable>
 
                                     <div *ngIf="analyzedResults.length === 0" class="py-4 text-center text-gray-400">
-                                        Chưa có dữ liệu phân tích
+                                        {{ 'app.no_analysis_data' | transloco }}
                                     </div>
                                 </div>
                             </div>
@@ -415,7 +415,7 @@
                                     <table class="w-full text-base" *ngIf="gaByCountry.length > 0">
                                         <thead>
                                             <tr>
-                                                <th class="text-left py-1">Quốc gia</th>
+                                                <th class="text-left py-1">{{ 'app.country' | transloco }}</th>
                                                 <th class="text-right py-1">Người dùng</th>
                                             </tr>
                                         </thead>
@@ -428,16 +428,16 @@
                                     </table>
                                     <div *ngIf="gaByCountry.length === 0"
                                         class="py-4 text-center text-gray-400 text-sm">
-                                        Chưa có dữ liệu
+                                        {{ 'app.no_data' | transloco }}
                                     </div>
                                 </div>
 
                                 <div class="border rounded-lg p-3">
-                                    <!-- <div class="text-base font-semibold mb-1">Thiết bị</div> -->
+                                    <!-- <div class="text-base font-semibold mb-1">{{ 'app.device' | transloco }}</div> -->
                                     <table class="w-full text-base" *ngIf="gaByDevice.length > 0">
                                         <thead>
                                             <tr>
-                                                <th class="text-left py-1">Thiết bị</th>
+                                                <th class="text-left py-1">{{ 'app.device' | transloco }}</th>
                                                 <th class="text-right py-1">Người dùng</th>
                                             </tr>
                                         </thead>
@@ -449,7 +449,7 @@
                                         </tbody>
                                     </table>
                                     <div *ngIf="gaByDevice.length === 0" class="py-4 text-center text-gray-400 text-sm">
-                                        Chưa có dữ liệu
+                                        {{ 'app.no_data' | transloco }}
                                     </div>
                                 </div>
 
@@ -470,7 +470,7 @@
                                         </tbody>
                                     </table>
                                     <div *ngIf="gaByAge.length === 0" class="py-4 text-center text-gray-400 text-sm">
-                                        Chưa có dữ liệu (Do chưa bật Google Signals)
+                                        {{ 'app.no_data_google_signals' | transloco }}
                                     </div>
                                 </div>
 
@@ -478,7 +478,7 @@
                                     <table class="w-full text-base" *ngIf="gaByEvent.length > 0">
                                         <thead>
                                             <tr>
-                                                <th class="text-left py-1">Sự kiện</th>
+                                                <th class="text-left py-1">{{ 'app.event' | transloco }}</th>
                                                 <th class="text-right py-1">Lượt tương tác</th>
                                             </tr>
                                         </thead>
@@ -490,7 +490,7 @@
                                         </tbody>
                                     </table>
                                     <div *ngIf="gaByEvent.length === 0" class="py-4 text-center text-gray-400 text-sm">
-                                        Chưa có dữ liệu
+                                        {{ 'app.no_data' | transloco }}
                                     </div>
                                 </div>
                             </div>
