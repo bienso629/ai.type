@@ -5,10 +5,11 @@
                 <div id="waveform"></div>
 
                 <form [formGroup]="text2speechForm">
+                    <ng-container *transloco="let t">
                     <div class="mt-8">
                         <div class="flex flex-col sm:flex-row gap-2">
                             <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                                <mat-label>Giọng đọc</mat-label>
+                                <mat-label>{{ t('app.voice') }}</mat-label>
                                 <mat-select [formControlName]="'voice'" required
                                     (selectionChange)="onVoiceChange($event)">
                                     <mat-option [value]="'vi-VN-NamMinhNeural'">Nam Minh</mat-option>
@@ -28,46 +29,46 @@
                             </mat-form-field>
 
                             <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">
-                                <mat-label>Tốc độ</mat-label>
+                                <mat-label>{{ t('app.speed') }}</mat-label>
                                 <mat-select [formControlName]="'rate'">
-                                    <mat-option [value]="0.5">{{ 'app.0_5x_very_slow' | transloco }}</mat-option>
-                                    <mat-option [value]="0.8">{{ 'app.0_8x_slow' | transloco }}</mat-option>
+                                    <mat-option [value]="0.5">{{ t('app.0_5x_very_slow') }}</mat-option>
+                                    <mat-option [value]="0.8">{{ t('app.0_8x_slow') }}</mat-option>
                                     <mat-option [value]="0.9">0.9x</mat-option>
-                                    <mat-option [value]="1.0">{{ 'app.1_0x_standard' | transloco }}</mat-option>
+                                    <mat-option [value]="1.0">{{ t('app.1_0x_standard') }}</mat-option>
                                     <mat-option [value]="1.1">1.1x</mat-option>
-                                    <mat-option [value]="1.2">{{ 'app.1_2x_slightly_fast' | transloco }}</mat-option>
-                                    <mat-option [value]="1.5">{{ 'app.1_5x_very_fast' | transloco }}</mat-option>
-                                    <mat-option [value]="2.0">{{ 'app.2_0x_extremely_fast' | transloco }}</mat-option>
+                                    <mat-option [value]="1.2">{{ t('app.1_2x_slightly_fast') }}</mat-option>
+                                    <mat-option [value]="1.5">{{ t('app.1_5x_very_fast') }}</mat-option>
+                                    <mat-option [value]="2.0">{{ t('app.2_0x_extremely_fast') }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
 
                             <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">
-                                <mat-label>{{ 'app.pitch' | transloco }}</mat-label>
+                                <mat-label>{{ t('app.pitch') }}</mat-label>
                                 <mat-select [formControlName]="'pitch'">
-                                    <mat-option [value]="-20">{{ 'app.20_extremely_low' | transloco }}</mat-option>
-                                    <mat-option [value]="-10">{{ 'app.10_deeply_low' | transloco }}</mat-option>
-                                    <mat-option [value]="-5">{{ 'app.5_lightly_low' | transloco }}</mat-option>
-                                    <mat-option [value]="0">{{ 'app.0_default' | transloco }}</mat-option>
-                                    <mat-option [value]="5">{{ 'app.5_lightly_high' | transloco }}</mat-option>
-                                    <mat-option [value]="10">{{ 'app.10_clear' | transloco }}</mat-option>
-                                    <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
+                                    <mat-option [value]="-20">{{ t('app.20_extremely_low') }}</mat-option>
+                                    <mat-option [value]="-10">{{ t('app.10_deeply_low') }}</mat-option>
+                                    <mat-option [value]="-5">{{ t('app.5_lightly_low') }}</mat-option>
+                                    <mat-option [value]="0">{{ t('app.0_default') }}</mat-option>
+                                    <mat-option [value]="5">{{ t('app.5_lightly_high') }}</mat-option>
+                                    <mat-option [value]="10">{{ t('app.10_clear') }}</mat-option>
+                                    <mat-option [value]="20">{{ t('app.20_chibi_child') }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
                         </div>
 
                         <mat-form-field class="w-full mt-4 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'">
-                            <mat-label>Văn bản</mat-label>
+                            <mat-label>{{ t('app.text') }}</mat-label>
                             <textarea #text class="max-h-20" [formControlName]="'text'"
-                                placeholder="Văn bản cần chuyển thành âm thanh." required matInput
+                                [placeholder]="t('app.text_to_convert_to_audio')" required matInput
                                 cdkTextareaAutosize></textarea>
-                            <mat-hint>Enter để xuống dòng đoạn văn của bạn sẽ cho tốc độ nhanh hơn.</mat-hint>
+                            <mat-hint>{{ t('app.enter_to_break_lines_for_faster_speed') }}</mat-hint>
                         </mat-form-field>
 
                         <div class="mt-6 flex flex-row items-center justify-start">
                             <button mat-flat-button type="button" color="primary" (click)="text2speech2025()">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:radio'"></mat-icon>
-                                <mat-label class="ml-2">{{ 'app.convert_to_audio' | transloco }}</mat-label>
+                                <mat-label class="ml-2">{{ t('app.convert_to_audio') }}</mat-label>
                             </button>
 
                             <a *ngIf="downloadMP3Href" [href]="downloadMP3Href" [download]="nameMP3Href"
@@ -76,6 +77,7 @@
                             </a>
                         </div>
                     </div>
+                    </ng-container>
                 </form>
             </div>
         </div>

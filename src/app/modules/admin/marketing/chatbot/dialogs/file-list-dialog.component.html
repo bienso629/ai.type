@@ -2,7 +2,7 @@
     [columnMode]="'force'" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
     [scrollbarH]="false">
 
-    <ngx-datatable-column name="Tên tài liệu" prop="filename" [width]="280" [sortable]="false" [canAutoResize]="false"
+    <ngx-datatable-column name="{{ 'app.document_name' | transloco }}" prop="filename" [width]="280" [sortable]="false" [canAutoResize]="false"
         [draggable]="false" [resizeable]="false">
         <ng-template let-row="row" ngx-datatable-cell-template>
             <mat-label class="text-primary font-medium truncate" [title]="row.filename">{{ row.filename
@@ -10,14 +10,14 @@
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="Trạng thái" prop="is_indexed" [width]="200" [sortable]="false" [canAutoResize]="false"
+    <ngx-datatable-column name="{{ 'app.status' | transloco }}" prop="is_indexed" [width]="200" [sortable]="false" [canAutoResize]="false"
         [draggable]="false" [resizeable]="false">
         <ng-template let-row="row" ngx-datatable-cell-template>
 
             <div *ngIf="indexingFilename !== row.filename" class="flex items-center h-full">
                 <span *ngIf="row.is_indexed"
                     class="px-2 py-1 text-xs rounded bg-green-100 font-semibold text-green-700">
-                    Đã học
+                    {{ 'app.learned' | transloco }}
                 </span>
                 <span *ngIf="!row.is_indexed"
                     class="px-2 py-1 text-xs rounded bg-yellow-100 font-semibold text-yellow-700">
@@ -29,7 +29,7 @@
                 <div class="flex justify-between items-center mb-1">
                     <span class="text-[11px] font-semibold text-blue-700 flex items-center gap-1">
                         <mat-icon class="animate-spin icon-size-3" svgIcon="feather:loader"></mat-icon>
-                        Đang xử lý...
+                        {{ 'app.processing' | transloco }}
                     </span>
                     <span class="text-blue-600 text-[11px] font-semibold">{{ progressPercent }}%</span>
                 </div>
@@ -45,22 +45,22 @@
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="Phân loại" prop="doc_type" [width]="130" [sortable]="false" [canAutoResize]="false"
+    <ngx-datatable-column name="{{ 'app.category' | transloco }}" prop="doc_type" [width]="130" [sortable]="false" [canAutoResize]="false"
         [draggable]="false" [resizeable]="false">
         <ng-template let-row="row" ngx-datatable-cell-template>
-            <mat-label class="text-gray-500">{{ row.doc_type === 'None' ? 'Mặc định' : row.doc_type
+            <mat-label class="text-gray-500">{{ row.doc_type === 'None' ? ('app.default' | transloco) : row.doc_type
                 }}</mat-label>
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="Dung lượng" prop="size_mb" [width]="100" [sortable]="false" [canAutoResize]="false"
+    <ngx-datatable-column name="{{ 'app.size' | transloco }}" prop="size_mb" [width]="100" [sortable]="false" [canAutoResize]="false"
         [draggable]="false" [resizeable]="false">
         <ng-template let-row="row" ngx-datatable-cell-template>
             <mat-label class="text-gray-500">{{ row.size_mb ? row.size_mb + ' MB' : '--' }}</mat-label>
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="Cập nhật lúc" prop="updated_at" [width]="180" [sortable]="false" [canAutoResize]="false"
+    <ngx-datatable-column name="{{ 'app.updated_at' | transloco }}" prop="updated_at" [width]="180" [sortable]="false" [canAutoResize]="false"
         [draggable]="false" [resizeable]="false">
         <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
             <mat-label class="font-normal truncate text-gray-500 flex items-center justify-self-stretch">
@@ -69,24 +69,24 @@
         </ng-template>
     </ngx-datatable-column>
 
-    <ngx-datatable-column name="Thao tác" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+    <ngx-datatable-column name="{{ 'app.action' | transloco }}" [sortable]="false" [canAutoResize]="true" [draggable]="false"
         [resizeable]="true">
         <ng-template let-row="row" let-rowIndex="rowIndex" ngx-datatable-cell-template>
             <div class="flex items-center gap-1">
                 <button mat-icon-button (click)="downloadPdf(row.doc_type, row.filename)" matTooltipPosition="above"
-                    [matTooltip]="'Tải xuống tài liệu này'">
+                    [matTooltip]="'app.download_this_document' | transloco">
                     <mat-icon class="icon-size-4 text-blue-600" svgIcon="feather:download"></mat-icon>
                 </button>
 
                 <button mat-icon-button (click)="reIndexPdf(row.doc_type, row.filename, rowIndex)"
-                    matTooltipPosition="above" [matTooltip]="'Học lại (Re-index) tài liệu này'"
+                    matTooltipPosition="above" [matTooltip]="'app.reindex_this_document' | transloco"
                     [disabled]="indexingFilename === row.filename">
                     <mat-icon class="icon-size-4 text-green-600" [class.opacity-40]="indexingFilename === row.filename"
                         svgIcon="feather:refresh-ccw"></mat-icon>
                 </button>
 
                 <button mat-icon-button (click)="deletePdf(row.doc_type, row.filename, rowIndex)"
-                    matTooltipPosition="above" [matTooltip]="'Xóa tài liệu này'"
+                    matTooltipPosition="above" [matTooltip]="'app.delete_this_document' | transloco"
                     [disabled]="indexingFilename === row.filename">
                     <mat-icon class="icon-size-4 text-red-500" [class.opacity-40]="indexingFilename === row.filename"
                         svgIcon="feather:trash-2"></mat-icon>
@@ -99,7 +99,7 @@
             <div class="px-4 flex justify-between items-center w-full">
                 <span class="text-gray-500 text-sm">{{ rowCount }} total</span>
                 <a href="javascript:void(0)" class="text-gray-400 hover:text-primary cursor-pointer"
-                    (click)="indexAll()">Học lại từ đầu</a>
+                    (click)="indexAll()">{{ 'app.reindex_all' | transloco }}</a>
             </div>
         </ng-template>
     </ngx-datatable-footer>
