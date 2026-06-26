@@ -10,6 +10,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatInputModule } from '@angular/material/input';
 import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule } from '@ngneat/transloco';
 import { ShortcutsComponent } from 'app/layout/common/shortcuts/shortcuts.component';
 
 @NgModule({
@@ -27,7 +28,8 @@ import { ShortcutsComponent } from 'app/layout/common/shortcuts/shortcuts.compon
         MatIconModule,
         MatInputModule,
         MatSlideToggleModule,
-        MatTooltipModule
+        MatTooltipModule,
+        TranslocoModule
     ],
     exports     : [
         ShortcutsComponent

@@ -16,7 +16,7 @@
             </div>
 
             <div class="flex items-center text-lg font-medium leading-10">
-                <span class="">Công cụ cho bạn</span>
+                <span class="">{{ 'app.tools_for_you' | transloco }}</span>
                 <ng-container *ngIf="mode !== 'view'">
                     <span class="ml-1">
                         <ng-container *ngIf="mode === 'add'">- Add new</ng-container>
@@ -99,9 +99,9 @@
                                     <mat-icon class="z-10" [ngClass]="{'group-hover:opacity-0': mode === 'modify'}"
                                         [svgIcon]="shortcut.icon"></mat-icon>
                                 </div>
-                                <div class="font-medium text-center">{{shortcut.label}}</div>
+                                <div class="font-medium text-center">{{ (shortcut.label === 'Viết bài' ? 'app.write_article' : (shortcut.label === 'Từ điển' ? 'app.dictionary' : shortcut.label)) | transloco }}</div>
                                 <div class="text-md text-center text-secondary p-2">
-                                    <p class=" line-clamp-1">{{shortcut.description}}</p>
+                                    <p class=" line-clamp-1">{{ (shortcut.label === 'Viết bài' ? 'app.write_article_desc' : (shortcut.label === 'Từ điển' ? 'app.dictionary_desc' : shortcut.description)) | transloco }}</p>
                                 </div>
                             </ng-template>
                         </div>
@@ -116,8 +116,8 @@
                             <mat-icon class="text-primary-700 dark:text-primary-50"
                                 [svgIcon]="'heroicons_outline:bookmark'"></mat-icon>
                         </div>
-                        <div class="mt-5 text-2xl font-semibold tracking-tight">Không có lối tắt</div>
-                        <div class="w-full max-w-60 mt-1 text-md text-center text-secondary">Tài khoản của bạn chưa được kích hoạt.</div>
+                        <div class="mt-5 text-2xl font-semibold tracking-tight">{{ 'app.no_shortcuts' | transloco }}</div>
+                        <div class="w-full max-w-60 mt-1 text-md text-center text-secondary">{{ 'app.account_not_activated' | transloco }}</div>
                     </div>
                 </ng-container>
             </ng-container>
