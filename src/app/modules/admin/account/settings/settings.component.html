@@ -6,7 +6,7 @@
             <!-- Header -->
             <div class="flex items-center justify-between m-8 mr-6 sm:my-10">
                 <!-- Title -->
-                <div class="text-4xl font-extrabold tracking-tight leading-none">Cấu hình</div>
+                <div class="text-4xl font-extrabold tracking-tight leading-none">{{ 'app.settings' | transloco }}</div>
                 <!-- Close button -->
                 <div class="lg:hidden">
                     <button mat-icon-button (click)="drawer.close()">
@@ -27,10 +27,10 @@
                         <div class="ml-3">
                             <div class="font-medium leading-6"
                                 [ngClass]="{'text-primary dark:text-primary-500': selectedPanel && selectedPanel === panel.id}">
-                                {{panel.title}}
+                                {{panel.title | transloco}}
                             </div>
                             <div class="mt-0.5 text-secondary">
-                                {{panel.description}}
+                                {{panel.description | transloco}}
                             </div>
                         </div>
                     </div>
@@ -51,7 +51,7 @@
 
                     <!-- Panel title -->
                     <div class="ml-2 lg:ml-0 text-3xl font-semibold tracking-tight leading-none">
-                        {{getPanelInfo(selectedPanel).title}}
+                        {{getPanelInfo(selectedPanel).title | transloco}}
                     </div>
                 </div>
 

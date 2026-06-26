@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -16,6 +17,7 @@ import { GenaiService } from 'app/genai.service';
     selector: 'app-add-scene',
     standalone: true,
     imports: [
+        TranslocoModule,
         CommonModule,
         FormsModule,
         MatDialogModule,

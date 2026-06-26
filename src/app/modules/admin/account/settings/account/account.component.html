@@ -43,7 +43,10 @@
                         [subscriptSizing]="'dynamic'">
                         <mat-label>{{ 'account.personal.language' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:globe'" matPrefix></mat-icon>
-                        <mat-select [formControlName]="'language'">
+                        <mat-select [formControlName]="'language'" (selectionChange)="changeLanguage($event.value)">
+                            <mat-select-trigger>
+                                {{ accountForm.get('language')?.value === 'en' ? ('account.personal.lang_en' | transloco) : ('account.personal.lang_vi' | transloco) }}
+                            </mat-select-trigger>
                             <mat-option [value]="'vi'">{{ 'account.personal.lang_vi' | transloco }}</mat-option>
                             <mat-option [value]="'en'">{{ 'account.personal.lang_en' | transloco }}</mat-option>
                         </mat-select>
@@ -129,11 +132,11 @@
                     <!-- Chatbot Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Tích hợp Simple AI Chatbot</mat-label>
+                        <mat-label>{{ 'app.integrate_simple_ai_chatbot' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'" matPrefix></mat-icon>
                         <input [formControlName]="'chatbot'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tích hợp chatbot phục vụ công việc của bạn <a
+                    <div class="mt-1 text-md text-hint">{{ 'app.integrate_chatbot_for_your' | transloco }} <a
                             href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên
                             hệ</a> nhận
                         API.</div>
@@ -143,11 +146,11 @@
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Tích hợp X-CRM</mat-label>
+                        <mat-label>{{ 'app.integrate_x_crm' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:database'" matPrefix></mat-icon>
                         <input [formControlName]="'customer'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tích hợp Zalo CRM phục vụ công việc của bạn <a
+                    <div class="mt-1 text-md text-hint">{{ 'app.integrate_zalo_crm_for' | transloco }} <a
                             href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên
                             hệ</a> nhận
                         API.</div>
@@ -157,11 +160,11 @@
                     <!-- Device Token Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Công cụ cào dữ liệu</mat-label>
+                        <mat-label>{{ 'app.data_scraping_tool' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:link-2'" matPrefix></mat-icon>
                         <input [formControlName]="'bigdata'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Công cụ cào và phân tích dữ liệu cho bạn.</div>
+                    <div class="mt-1 text-md text-hint">{{ 'app.tool_to_scrape_and' | transloco }}</div>
                 </div>
 
                 <div class="w-full mt-2"
@@ -169,7 +172,7 @@
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Chuyển đổi văn bản thành giọng nói</mat-label>
+                        <mat-label>{{ 'app.text_to_speech_conversion' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'" matPrefix></mat-icon>
                         <input [formControlName]="'tts'" type="text" matInput>
                     </mat-form-field>
@@ -210,7 +213,7 @@
                 </div>
 
                 <div class="w-full mt-4">
-                    <div class="mt-2 text-md text-hint">Bạn có tài khoản Gemini AI Studio. Lấy mã <a
+                    <div class="mt-2 text-md text-hint">{{ 'app.you_have_a_gemini' | transloco }} <a
                             href="https://aistudio.google.com/apikey" target="_blank" class="font-semibold">Api
                             Key</a> tại đây. Xin lưu ý từ model gemini-2.0 trở lên tài khoản Google của bạn cần liên kết
                         thanh toán (Billing).</div>
@@ -267,7 +270,7 @@
                         <div class="w-full mt-4">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Base URL (Mì tôm AI)</mat-label>
+                                <mat-label>{{ 'app.base_url_m_t' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:link'" matPrefix></mat-icon>
                                 <input [formControlName]="'umodelverseUrl'" type="text" matInput>
                             </mat-form-field>
@@ -372,7 +375,7 @@
                                     }}</mat-icon>
                             </button>
                         </mat-form-field>
-                        <div class="mt-1 text-md text-hint">Bạn chưa có Search Api Key của Google Search? Tạo <a
+                        <div class="mt-1 text-md text-hint">{{ 'app.don_t_have_a' | transloco }} <a
                                 href="https://programmablesearchengine.google.com/controlpanel/all" target="_blank"
                                 class="font-semibold">Search Api Key</a> tại đây.</div>
                     </div>

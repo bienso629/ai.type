@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
@@ -20,7 +21,8 @@ export interface ControlTemplate {
 @Component({
     selector: 'app-director-mode',
     standalone: true,
-    imports: [CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, FormsModule],
+    imports: [
+        TranslocoModule,CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, FormsModule],
     templateUrl: './director-mode.component.html',
     styles: [`
         .light-theme {

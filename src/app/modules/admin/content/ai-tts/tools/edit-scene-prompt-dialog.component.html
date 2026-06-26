@@ -32,8 +32,7 @@
             }
             }
         </div>
-        <span class="text-xs text-slate-500 mt-1">Tick chọn nhân vật để gửi kèm hình dáng của họ cho AI bám sát
-            thiết kế.</span>
+        <span class="text-xs text-slate-500 mt-1">{{ 'app.select_character_to_send' | transloco }}</span>
     </div>
     }
 
@@ -88,7 +87,7 @@
 
             <button mat-icon-button [matMenuTriggerFor]="imageMenu"
                 class="absolute -bottom-2 -right-2 bg-white text-slate-700 shadow-md border border-slate-200 rounded-full w-8 h-8 min-h-0 min-w-0 p-0 flex items-center justify-center hover:bg-slate-100 transition-colors z-10"
-                matTooltip="Tùy chọn hình ảnh">
+                [matTooltip]="'app.image_options' | transloco">
                 <mat-icon class="icon-size-5 text-slate-600">more_horiz</mat-icon>
             </button>
 
@@ -99,7 +98,7 @@
             </button>
             <div *ngIf="aiReferenceVideoLocalUrl"
                 class="absolute bottom-2 left-2 bg-pink-500/80 text-white text-[10px] px-1.5 py-0.5 rounded shadow-sm flex items-center z-10 backdrop-blur-sm">
-                <mat-icon class="icon-size-3 mr-0.5">videocam</mat-icon> Có Video Mẫu
+                <mat-icon class="icon-size-3 mr-0.5">videocam</mat-icon> {{ 'app.has_sample_video' | transloco }}
                 <mat-icon class="icon-size-3 ml-1 cursor-pointer hover:text-pink-200"
                     (click)="removeReferenceVideo(); $event.stopPropagation()">close</mat-icon>
             </div>
@@ -114,12 +113,12 @@
             } @else {
             <button mat-icon-button [matMenuTriggerFor]="imageMenu"
                 class="bg-white shadow-sm border border-slate-200 hover:bg-slate-50 w-10 h-10 flex items-center justify-center rounded-full"
-                matTooltip="Tùy chọn hình/video">
+                [matTooltip]="'app.image_video_options' | transloco">
                 <mat-icon class="text-slate-600">more_horiz</mat-icon>
             </button>
             <div *ngIf="aiReferenceVideoLocalUrl"
                 class="absolute bottom-2 left-2 right-2 bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded shadow-sm text-center font-medium truncate flex items-center justify-between">
-                <span><mat-icon class="icon-size-3 inline align-middle mr-1">videocam</mat-icon> Có Video Mẫu</span>
+                <span><mat-icon class="icon-size-3 inline align-middle mr-1">videocam</mat-icon> {{ 'app.has_sample_video' | transloco }}</span>
                 <mat-icon class="icon-size-3 cursor-pointer hover:text-pink-900"
                     (click)="removeReferenceVideo(); $event.stopPropagation()">close</mat-icon>
             </div>
@@ -129,7 +128,7 @@
         <mat-menu #imageMenu="matMenu" class="custom-image-menu">
             <button mat-menu-item (click)="generateImage()">
                 <mat-icon class="text-blue-500 icon-size-5">auto_awesome</mat-icon>
-                <span>AI vẽ ảnh mới từ Prompt</span>
+                <span>{{ 'app.ai_draws_new_image' | transloco }}</span>
             </button>
             <button mat-menu-item (click)="imageInput.click()">
                 <mat-icon class="text-green-600 icon-size-5">upload_file</mat-icon>
@@ -164,7 +163,7 @@
                 <button mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center ml-1 hover:bg-white rounded-full"
                     (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()"
-                    matTooltip="Copy Prompt Hình Ảnh">
+                    [matTooltip]="'app.copy_image_prompt' | transloco">
                     <mat-icon class="icon-size-3.5 text-slate-400 hover:text-slate-700"
                         [svgIcon]="'feather:copy'"></mat-icon>
                 </button>
@@ -192,14 +191,14 @@
                 <button mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-0 hover:bg-white hover:opacity-70"
                     (click)="autoFixVideoPrompt(); $event.preventDefault(); $event.stopPropagation()"
-                    matTooltip="Auto-fix (Bù đắp bối cảnh từ Hình ảnh sang Video)">
+                    [matTooltip]="'app.auto_fix_compensate_context' | transloco">
                     <mat-icon class="icon-size-4 text-blue-500 hover:text-blue-700">auto_awesome</mat-icon>
                 </button>
 
                 <button mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-0 hover:bg-white hover:opacity-70"
                     (click)="addDialogueToPrompt(); $event.preventDefault(); $event.stopPropagation()"
-                    matTooltip="Thêm lời thoại (Dựa theo thời gian của Phần này)">
+                    [matTooltip]="'app.add_dialogue_based_on' | transloco">
                     <mat-icon class="icon-size-4 text-green-500 hover:text-green-700">record_voice_over</mat-icon>
                 </button>
             </div>
@@ -214,7 +213,7 @@
 
     <div class="flex flex-col mt-4 gap-4">
         <mat-form-field class="fuse-mat-dense w-32 shrink-0 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <mat-label>Thời lượng (giây)</mat-label>
+            <mat-label>{{ 'app.duration_seconds' | transloco }}</mat-label>
             <mat-select [(ngModel)]="editingScenePrompt.duration" (ngModelChange)="onDurationChanged($event)">
                 <mat-option [value]="4">4s</mat-option>
                 <mat-option [value]="6">6s</mat-option>

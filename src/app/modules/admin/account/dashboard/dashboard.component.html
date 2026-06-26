@@ -3,7 +3,7 @@
     <div class="flex-auto overflow-y-auto" cdkScrollable>
         <!-- CONTENT GOES HERE -->
         <div class="p-6 md:p-8">
-            <div class="text-2xl font-semibold tracking-tight leading-8 mb-6">{{collections?.length || 0}} tập của bạn
+            <div class="text-2xl font-semibold tracking-tight leading-8 mb-6">{{collections?.length || 0}} {{ 'app.your_collections' | transloco }}
             </div>
             <div *ngIf="collections && collections.length > 0"
                 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -17,15 +17,14 @@
                             </div>
                         </div>
                         <div class="mt-4 flex items-center justify-between text-xs text-secondary">
-                            <span class="flex items-center" [title]="'Ngày chỉnh sửa gần nhất'">
+                            <span class="flex items-center" [title]="'app.last_edited_date' | transloco">
                                 <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:clock'"></mat-icon>
                                 {{(item.lastItemUpdatedAt || item.lastUpdatedAt || item.lastUpdated || item.updatedAt) |
                                 timeago}}
                             </span>
                             <span
                                 class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">
-                                {{item.count || 0}} bản ghi • {{item.totalUsed || item.used || item.total_used || 0}}
-                                lần dùng
+                                {{item.count || 0}} {{ 'app.records' | transloco }} • {{item.totalUsed || item.used || item.total_used || 0}} {{ 'app.times_used' | transloco }}
                             </span>
                         </div>
                     </div>
@@ -84,8 +83,8 @@
                         <span class="pulse-ring pulse-ring-2"></span>
                     </div>
 
-                    <h2 class="empty-state-title">Chưa có tập nào</h2>
-                    <p class="empty-state-desc">Bộ sưu tập của bạn đang trống.<br>Hãy bắt đầu công việc ngay nào!</p>
+                    <h2 class="empty-state-title">{{ 'app.no_episodes' | transloco }}</h2>
+                    <p class="empty-state-desc">{{ 'app.your_collection_is_empty' | transloco }}<br>{{ 'app.start_working_now' | transloco }}</p>
                 </div>
             </div>
         </div>
@@ -93,12 +92,10 @@
         <!-- Video Projects Section -->
         <div class="p-6 md:p-8 pt-0">
             <div class="flex items-center justify-between mb-6">
-                <div class="text-2xl font-semibold tracking-tight leading-8">{{totalVideoProjects || 0}} kịch bản video
-                    đang xây dựng</div>
+                <div class="text-2xl font-semibold tracking-tight leading-8">{{totalVideoProjects || 0}} {{ 'app.video_projects_building' | transloco }}</div>
                 <a *ngIf="totalVideoProjects > 12" [routerLink]="['/dashboard/video-projects']"
                     class="text-md font-medium text-blue-600 hover:text-blue-700 hover:underline cursor-pointer">
-                    Xem tất cả
-                </a>
+                    {{ 'app.view_all' | transloco }}                </a>
             </div>
             <div *ngIf="videoProjects && videoProjects.length > 0"
                 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
@@ -107,7 +104,7 @@
                     <div class="p-6 flex flex-col flex-auto">
                         <div class="flex flex-col mb-4 relative pr-8">
                             <div class="text-lg font-medium tracking-tight truncate" [title]="project.title">
-                                {{project.title || 'Dự án mới'}}
+                                {{ project.title || ('app.new_project' | transloco) }}
                             </div>
                             <div class="text-[11px] text-gray-400 mt-1 font-mono truncate"
                                 [title]="'UUID: ' + project.uuid">
@@ -115,7 +112,7 @@
                             </div>
                             <button mat-icon-button (click)="deleteVideoProject(project, $event)"
                                 class="absolute -top-2 -right-2 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                matTooltip="Xóa kịch bản">
+                                [matTooltip]="'app.delete_script' | transloco">
                                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                             </button>
                         </div>
@@ -132,7 +129,7 @@
             </div>
 
             <div *ngIf="!videoProjects || videoProjects.length === 0" class="text-gray-500 text-sm mt-2">
-                Chưa có kịch bản video nào đang làm.
+                {{ 'app.no_video_script_in' | transloco }}
             </div>
         </div>
     </div>

@@ -34,7 +34,7 @@
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">Tên người mua</span>
+      <span matPrefix class="w-30">{{ 'app.buyer_name' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:user'"></mat-icon>
       <input [formControlName]="'customerName'" [readonly]="data && data.type === 'extend'"
         [placeholder]="'Nguyễn Văn A'" type="text" (input)="licensekey()" required matInput />
@@ -50,7 +50,7 @@
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">Số điện thoại</span>
+      <span matPrefix class="w-30">{{ 'app.phone_number' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:smartphone'"></mat-icon>
       <input [formControlName]="'phoneNumber'" [readonly]="data && data.type === 'extend'" [placeholder]="'0987654321'"
         type="text" (input)="licensekey()" matInput />

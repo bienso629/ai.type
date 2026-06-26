@@ -30,26 +30,26 @@
                             <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">
                                 <mat-label>Tốc độ</mat-label>
                                 <mat-select [formControlName]="'rate'">
-                                    <mat-option [value]="0.5">0.5x (Rất chậm)</mat-option>
-                                    <mat-option [value]="0.8">0.8x (Chậm)</mat-option>
+                                    <mat-option [value]="0.5">{{ 'app.0_5x_very_slow' | transloco }}</mat-option>
+                                    <mat-option [value]="0.8">{{ 'app.0_8x_slow' | transloco }}</mat-option>
                                     <mat-option [value]="0.9">0.9x</mat-option>
-                                    <mat-option [value]="1.0">1.0x (Chuẩn)</mat-option>
+                                    <mat-option [value]="1.0">{{ 'app.1_0x_standard' | transloco }}</mat-option>
                                     <mat-option [value]="1.1">1.1x</mat-option>
-                                    <mat-option [value]="1.2">1.2x (Nhanh nhẹ)</mat-option>
-                                    <mat-option [value]="1.5">1.5x (Rất nhanh)</mat-option>
-                                    <mat-option [value]="2.0">2.0x (Cực nhanh)</mat-option>
+                                    <mat-option [value]="1.2">{{ 'app.1_2x_slightly_fast' | transloco }}</mat-option>
+                                    <mat-option [value]="1.5">{{ 'app.1_5x_very_fast' | transloco }}</mat-option>
+                                    <mat-option [value]="2.0">{{ 'app.2_0x_extremely_fast' | transloco }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
 
                             <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">
-                                <mat-label>Cao độ</mat-label>
+                                <mat-label>{{ 'app.pitch' | transloco }}</mat-label>
                                 <mat-select [formControlName]="'pitch'">
-                                    <mat-option [value]="-20">-20 (Cực trầm)</mat-option>
-                                    <mat-option [value]="-10">-10 (Trầm thấp)</mat-option>
-                                    <mat-option [value]="-5">-5 (Trầm nhẹ)</mat-option>
-                                    <mat-option [value]="0">0 (Mặc định)</mat-option>
-                                    <mat-option [value]="5">+5 (Cao nhẹ)</mat-option>
-                                    <mat-option [value]="10">+10 (Trong trẻo)</mat-option>
+                                    <mat-option [value]="-20">{{ 'app.20_extremely_low' | transloco }}</mat-option>
+                                    <mat-option [value]="-10">{{ 'app.10_deeply_low' | transloco }}</mat-option>
+                                    <mat-option [value]="-5">{{ 'app.5_lightly_low' | transloco }}</mat-option>
+                                    <mat-option [value]="0">{{ 'app.0_default' | transloco }}</mat-option>
+                                    <mat-option [value]="5">{{ 'app.5_lightly_high' | transloco }}</mat-option>
+                                    <mat-option [value]="10">{{ 'app.10_clear' | transloco }}</mat-option>
                                     <mat-option [value]="20">+20 (Chibi/Child)</mat-option>
                                 </mat-select>
                             </mat-form-field>
@@ -67,7 +67,7 @@
                         <div class="mt-6 flex flex-row items-center justify-start">
                             <button mat-flat-button type="button" color="primary" (click)="text2speech2025()">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:radio'"></mat-icon>
-                                <mat-label class="ml-2">Chuyển sang âm thanh</mat-label>
+                                <mat-label class="ml-2">{{ 'app.convert_to_audio' | transloco }}</mat-label>
                             </button>
 
                             <a *ngIf="downloadMP3Href" [href]="downloadMP3Href" [download]="nameMP3Href"

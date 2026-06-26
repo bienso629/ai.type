@@ -92,7 +92,7 @@
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>Link</mat-label>
-                                        <input placeholder="Chỉ sử dụng link Group từ Facebook"
+                                        <input [placeholder]="'app.only_use_group_links' | transloco"
                                             [formControlName]="'domain'" aria-label="Number" matInput
                                             [matAutocomplete]="auto">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
@@ -137,7 +137,7 @@
                                     <!-- Địa chỉ mẹ -->
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>AI sẽ tự động đăng bài vào tên miền nào?</mat-label>
+                                        <mat-label>{{ 'app.which_domain_will_ai' | transloco }}</mat-label>
                                         <input placeholder="Danh sách domain" [formControlName]="'domain1'"
                                             aria-label="Number" matInput [matAutocomplete]="auto1">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
@@ -155,7 +155,7 @@
                                     <!-- Địa chỉ tham chiếu -->
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>Tạo backlink cho tên miền nào?</mat-label>
+                                        <mat-label>{{ 'app.create_backlink_for_which' | transloco }}</mat-label>
                                         <input placeholder="Ví dụ: type.vn" [formControlName]="'domain2'"
                                             aria-label="Number" matInput>
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
@@ -165,8 +165,8 @@
                                     <!-- Title tham chiếu -->
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>Tiêu đề của backlink</mat-label>
-                                        <input placeholder="Title tham chiếu" [formControlName]="'titledomain2'"
+                                        <mat-label>{{ 'app.backlink_title' | transloco }}</mat-label>
+                                        <input [placeholder]="'app.reference_title' | transloco" [formControlName]="'titledomain2'"
                                             aria-label="Number" matInput>
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:type'"></mat-icon>
                                         <mat-hint>Nhập vào sẽ tốt hơn cho SEO</mat-hint>
@@ -184,12 +184,12 @@
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
                                         [formControlName]="'createthumbnail'">
-                                        <mat-label class="ml-2 text-sm">Tạo ảnh thumbnail</mat-label>
+                                        <mat-label class="ml-2 text-sm">{{ 'app.create_thumbnail' | transloco }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
                                         [formControlName]="'createvideo'">
-                                        <mat-label class="ml-2 text-sm">Tạo video</mat-label>
+                                        <mat-label class="ml-2 text-sm">{{ 'app.create_video' | transloco }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
@@ -199,7 +199,7 @@
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
                                         [formControlName]="'publish'">
-                                        <mat-label class="ml-2 text-sm">Bật chế độ Publish</mat-label>
+                                        <mat-label class="ml-2 text-sm">{{ 'app.enable_publish_mode' | transloco }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <!-- Divider -->
@@ -210,7 +210,7 @@
                                         <button color="primary" [disabled]="totalElements <= 0" (click)="autoPost()"
                                             type="button" mat-flat-button>
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'"></mat-icon>
-                                            <mat-label class="ml-2">Bắt đầu đăng bài</mat-label>
+                                            <mat-label class="ml-2">{{ 'app.start_posting' | transloco }}</mat-label>
                                         </button>
                                     </div>
                                 </div>
@@ -337,7 +337,7 @@
                                             [mode]="'indeterminate'"></mat-progress-spinner>
 
                                         <p class="text-center text-base font-medium text-primary animate-bounce">
-                                            AI đang "đọc" dữ liệu của bạn...
+                                            {{ 'app.ai_is_reading_your' | transloco }}
                                         </p>
                                         <p class="text-sm text-secondary mt-2">Vui lòng đợi trong giây lát</p>
                                     </div>
@@ -429,12 +429,12 @@
                                                             <a *ngFor="let href of preview.href"
                                                                 class="absolute top-0 left-0 bottom-0 right-0"
                                                                 [href]="href" target="_blank" matTooltipPosition="above"
-                                                                matTooltip="Truy cập vào địa chỉ này"></a>
+                                                                [matTooltip]="'app.access_this_address' | transloco"></a>
                                                         </ng-container>
 
                                                         <a mat-icon-button (click)="downloadVideo(href)"
                                                             class="text-white bg-red-500 bg-opacity-30 absolute"
-                                                            matTooltipPosition="above" matTooltip="Tải video về máy">
+                                                            matTooltipPosition="above" [matTooltip]="'app.download_video_to_device' | transloco">
                                                             <mat-icon class="icon-size-4 text-white"
                                                                 [svgIcon]="'feather:video'"></mat-icon>
                                                         </a>
@@ -447,7 +447,7 @@
                                                         [ngStyle]="{'background-image': 'url(' +img+ ')', 'background-size': 'cover', 'background-repeat': 'no-repeat', 'background-position': 'center'}">
                                                         <a mat-icon-button (click)="downloadImage(img)"
                                                             class="text-white bg-green-500 bg-opacity-30 absolute"
-                                                            matTooltipPosition="above" matTooltip="Tải hình ảnh về máy">
+                                                            matTooltipPosition="above" [matTooltip]="'app.download_image_to_device' | transloco">
                                                             <mat-icon class="icon-size-4 text-white"
                                                                 [svgIcon]="'feather:download'"></mat-icon>
                                                         </a>

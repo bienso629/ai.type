@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, ChangeDetectorRef, ViewChild, ElementRef } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { CommonModule } from '@angular/common';
@@ -23,7 +24,8 @@ import { ControlNetDialogComponent } from './controlnet-dialog.component';
 @Component({
     selector: 'app-edit-scene-prompt-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule, MatProgressSpinnerModule, MatTooltipModule, MatSelectModule, MatMenuModule],
+    imports: [
+        TranslocoModule,CommonModule, FormsModule, MatDialogModule, MatButtonModule, MatIconModule, MatInputModule, TextFieldModule, MatProgressSpinnerModule, MatTooltipModule, MatSelectModule, MatMenuModule],
     templateUrl: './edit-scene-prompt-dialog.component.html'
 })
 export class EditScenePromptDialogComponent {
@@ -1445,7 +1447,8 @@ Instructions:
 @Component({
     selector: 'app-prompt-input-dialog',
     standalone: true,
-    imports: [CommonModule, FormsModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatTooltipModule],
+    imports: [
+        TranslocoModule,CommonModule, FormsModule, MatButtonModule, MatInputModule, TextFieldModule, MatIconModule, MatTooltipModule],
     template: `
         <h2 class="text-lg font-semibold mb-4 text-slate-800">{{data.title}}</h2>
         <mat-form-field class="custom-textarea fuse-mat-dense w-full fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">

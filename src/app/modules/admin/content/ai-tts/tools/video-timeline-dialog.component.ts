@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import {
     Component,
     OnInit,
@@ -55,6 +56,7 @@ interface electron {
     standalone: true,
     templateUrl: 'video-timeline-dialog.component.html',
     imports: [
+        TranslocoModule,
         CommonModule,
         FormsModule,
         MatDialogModule,

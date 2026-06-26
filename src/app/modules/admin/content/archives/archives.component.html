@@ -17,7 +17,7 @@
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">công việc đang làm của bạn</span>
+                        <span class="ml-1 text-base text-secondary">{{ 'app.your_current_work' | transloco }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
@@ -38,7 +38,7 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <ng-select class="custom-select-ai-writer max-w-60" placeholder="Tìm theo tập" [items]="collections"
+            <ng-select class="custom-select-ai-writer max-w-60" [placeholder]="'app.search_by_episode' | transloco" [items]="collections"
                 (clear)="onClearCollection()" (change)="onChangeCollection()" multiple="true" bindLabel="title"
                 [clearable]="false" [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'" appendTo="body">
                 <ng-template ng-tag-tmp let-search="searchTerm">
@@ -69,11 +69,11 @@
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Mã công việc" [width]="150" [sortable]="false" [canAutoResize]="false"
+            <ngx-datatable-column name="{{ 'app.task_id' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row" class="flex items-center justify-self-stretch">
-                        <mat-label matTooltipPosition="above" matTooltip="Tiếp tục sửa nội dung"
+                        <mat-label matTooltipPosition="above" [matTooltip]="'app.continue_editing_content' | transloco"
                             [routerLink]="['/ai-writer', user.name, row.uuid]"
                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
                             {{row.uuid}}
@@ -83,7 +83,7 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Tiêu đề" [width]="300" [sortable]="false" [canAutoResize]="true"
+            <ngx-datatable-column name="{{ 'app.title' | transloco }}" [width]="300" [sortable]="false" [canAutoResize]="true"
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row">
@@ -121,20 +121,19 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Sử dụng" [width]="150" [sortable]="false" [canAutoResize]="false"
+            <ngx-datatable-column name="{{ 'app.usage' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row" class="flex items-center justify-self-stretch">
                         <mat-label *ngIf="row.used < 0"
-                            class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white">Chưa
-                            xác nhận</mat-label>
-                        <mat-label *ngIf="row.used >= 0">{{row.used}} lần</mat-label>
+                            class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white">{{ 'app.unconfirmed_1' | transloco }}</mat-label>
+                        <mat-label *ngIf="row.used >= 0">{{row.used}} {{ 'app.times' | transloco }}</mat-label>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Ngày chỉnh sửa" [width]="150" [sortable]="false" [canAutoResize]="false"
+            <ngx-datatable-column name="{{ 'app.last_modified' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <ng-container *ngIf="row">
@@ -144,7 +143,7 @@
             </ngx-datatable-column>
 
             <!-- Column Templates -->
-            <ngx-datatable-column name="Viết cùng" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            <ngx-datatable-column name="{{ 'app.collaborators' | transloco }}" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <!--Using ng-option and for loop-->

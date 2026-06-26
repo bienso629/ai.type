@@ -27,26 +27,26 @@ export class SettingsComponent implements OnInit, OnDestroy {
         {
             id: 'account',
             icon: 'feather:user',
-            title: 'Tài khoản',
-            description: 'Cài đặt cá nhân'
+            title: 'app.account',
+            description: 'app.personal_settings'
         },
         {
             id: 'domain',
             icon: 'feather:globe',
-            title: 'Tên miền',
-            description: 'Kết nối Website của bạn'
+            title: 'app.domain',
+            description: 'app.connect_your_website'
         },
         {
             id: 'style',
             icon: 'feather:coffee',
-            title: 'Phong cách',
-            description: 'Tạo phong cách viết'
+            title: 'app.style',
+            description: 'app.create_writing_style'
         },
         {
             id: 'active',
             icon: 'feather:calendar',
-            title: 'Gia hạn',
-            description: 'Duy trì hoạt động'
+            title: 'app.renewal',
+            description: 'app.maintain_operation'
         },
         // {
         //     id: 'money',
@@ -141,8 +141,8 @@ export class SettingsComponent implements OnInit, OnDestroy {
                     this.panels.push({
                         id: 'admin',
                         icon: 'feather:unlock',
-                        title: 'Admin',
-                        description: 'Quản lý riêng'
+                        title: 'app.admin',
+                        description: 'app.private_management'
                     });
                 }
             });

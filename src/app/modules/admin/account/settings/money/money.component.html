@@ -4,7 +4,7 @@
         <!-- Section -->
         <div class="w-full">
             <div class="text-xl">Nạp tiền vào ví cho ứng dụng ai.type</div>
-            <div class="text-secondary mt-2">Công ty TNHH Typing</div>
+            <div class="text-secondary mt-2">{{ 'app.typing_co_ltd' | transloco }}</div>
 
             <div class="text-secondary leading-8 mt-4">
                 <fuse-alert [appearance]="'outline'" [type]="'warning'">
@@ -44,7 +44,7 @@
         <div class="w-full mt-8">
             <!-- Card holder -->
             <mat-form-field class="min-w-80 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Số tiền cần nạp</mat-label>
+                <mat-label>{{ 'app.amount_to_top_up' | transloco }}</mat-label>
                 <!-- <span matPrefix>MoMo</span> -->
                 <input [currencyMask]="options" [formControlName]="'amountCtrl'" [placeholder]="'25.000'" required matInput>
                 <mat-hint>Lưu ý: Số tiền muốn nạp phải ít nhất 25.000đ</mat-hint>

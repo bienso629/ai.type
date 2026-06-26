@@ -46,7 +46,7 @@
                                 <mat-label>Link</mat-label>
                                 <input [formControlName]="'url'" [placeholder]="'Nhập link cần lưu trữ'" matInput
                                     required />
-                                <mat-hint>Sử dụng http hoặc https cho link của bạn</mat-hint>
+                                <mat-hint>{{ 'app.use_http_or_https' | transloco }}</mat-hint>
                             </mat-form-field>
                         </div>
 
@@ -61,9 +61,9 @@
                     <div class="p-2 mt-6 border-t border-gray-100 dark:border-gray-700">
                         <mat-label class="text-sm font-medium mt-6 mb-4">Hướng dẫn sử dụng</mat-label>
                         <div class="text-sm text-gray-500">
-                            <p>- Sử dụng AI để kiểm tra SEO của website.</p>
-                            <p>- Phân tích và nhận định SEO cho website.</p>
-                            <p>- Đưa ra giải pháp để tối ưu cho SEO của bạn.</p>
+                            <p>{{ 'app.use_ai_to_check' | transloco }}</p>
+                            <p>{{ 'app.seo_analysis_and_insights' | transloco }}</p>
+                            <p>{{ 'app.provide_solutions_to_optimize' | transloco }}</p>
                         </div>
                     </div>
                 </div>
@@ -82,7 +82,7 @@
 
                         <ng-container *ngIf="selected.length > 0">
                             <div class="flex flex-row">
-                                <ng-select class="min-w-80 max-w-100 border rounded" placeholder="Thêm link vào tập"
+                                <ng-select class="min-w-80 max-w-100 border rounded" [placeholder]="'app.add_link_to_episode' | transloco"
                                     [items]="allLinkCollections" [addTag]="addCollection" (clear)="onClearCollection()"
                                     (add)="onAddCollection($event)" (remove)="onRemoveCollection($event)"
                                     (change)="onChangeCollection($event)" multiple="true" bindLabel="title"

@@ -38,7 +38,7 @@
             <mat-form-field *ngIf="selectedDomain"
                 class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                 <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:search'"></mat-icon>
-                <input matInput (keyup.enter)="fetchPosts()" [(ngModel)]="keyword" placeholder="Tìm kiếm bài viết">
+                <input matInput (keyup.enter)="fetchPosts()" [(ngModel)]="keyword" [placeholder]="'app.search_posts' | transloco">
             </mat-form-field>
 
             <!-- Category Filter -->
@@ -65,7 +65,7 @@
             <!-- Sửa toàn bộ -->
             <button mat-flat-button color="primary" *ngIf="selected && selected.length > 0" (click)="editAllSelected()">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
-                <mat-label class="ml-2">Sửa toàn bộ</mat-label>
+                <mat-label class="ml-2">{{ 'app.edit_all' | transloco }}</mat-label>
             </button>
         </div>
     </div>
@@ -85,7 +85,7 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
                         <p class="font-normal truncate hover:text-clip" [innerHTML]="row?.title"></p>
-                        <button mat-icon-button (click)="editPost(row)" matTooltip="Chỉnh sửa bài viết"
+                        <button mat-icon-button (click)="editPost(row)" [matTooltip]="'app.edit_post' | transloco"
                             class="flex items-center justify-center ml-2 transition-colors shrink-0">
                             <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:edit-3'"></mat-icon>
                         </button>

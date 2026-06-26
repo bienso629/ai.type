@@ -50,6 +50,13 @@ export class SettingsAccountComponent implements OnInit {
         this.geminiKeysVisibility[index] = !this.geminiKeysVisibility[index];
     }
 
+    changeLanguage(lang: string): void {
+        if (lang) {
+            this._translocoService.setActiveLang(lang);
+            this.save();
+        }
+    }
+
     /**
      * Save
      */

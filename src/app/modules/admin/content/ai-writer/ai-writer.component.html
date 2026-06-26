@@ -120,12 +120,12 @@
                     <mat-vertical-stepper [linear]="false" #stepper>
                         <mat-step [formGroupName]="'step1'" disableRipple="true" [stepControl]="detectForm.get('step1')"
                             #step1>
-                            <ng-template matStepLabel>Thông tin công việc</ng-template>
+                            <ng-template matStepLabel>{{ 'app.task_information' | transloco }}</ng-template>
 
                             <div class="flex flex-col gt-sm:flex-row">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Tên công việc</mat-label>
+                                    <mat-label>{{ 'app.task_name' | transloco }}</mat-label>
                                     <input matInput [formControlName]="'title'"
                                         [placeholder]="'Hôm nay bạn muốn viết gì?'" required>
                                     <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon> -->
@@ -151,7 +151,7 @@
                                 <div class="flex items-center justify-between mb-2">
                                     <mat-label class="text-base font-semibold">Ảnh/Video</mat-label>
                                     <button mat-icon-button (click)="fileInput.click()" type="button"
-                                        [color]="'primary'" matTooltip="Thêm file đa phương tiện">
+                                        [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
                                     </button>
                                     <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
@@ -165,7 +165,7 @@
                                     [class.justify-center]="thumbnailsList.length === 0">
 
                                     <div *ngIf="thumbnailsList.length === 0" class="text-sm text-gray-400">
-                                        Chưa có file nào được chọn
+                                        {{ 'app.no_file_selected' | transloco }}
                                     </div>
 
                                     <div *ngFor="let file of thumbnailsList; let i = index"
@@ -192,7 +192,7 @@
                                         <div class="flex items-center gap-1">
                                             <button (click)="replaceThumbnailIndex = i; replaceFileInput.click()"
                                                 class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-blue-50 text-blue-500 transition-colors focus:outline-none"
-                                                type="button" matTooltip="Thay thế file này">
+                                                type="button" [matTooltip]="'app.replace_this_file' | transloco">
                                                 <mat-icon class="icon-size-4"
                                                     [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                             </button>
@@ -204,8 +204,7 @@
                                         </div>
                                     </div>
                                 </div>
-                                <mat-hint class="text-xs text-gray-500">Tải lên ảnh/video có liên
-                                    quan</mat-hint>
+                                <mat-hint class="text-xs text-gray-500">{{ 'app.upload_related_image_video' | transloco }}</mat-hint>
                             </div>
 
                         </mat-step>
@@ -231,7 +230,7 @@
                                 <mat-form-field
                                     class="flex-auto mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
-                                    <mat-label>Công thức</mat-label>
+                                    <mat-label>{{ 'app.formula' | transloco }}</mat-label>
                                     <textarea class="px-2" [formControlName]="'request'" [placeholder]="'Code'" required
                                         matInput cdkTextareaAutosize></textarea>
                                     <mat-hint>Yêu cầu biết sử dụng thẻ HTML, attr, id hoặc class để lấy nguyên liệu
@@ -260,7 +259,7 @@
 
                         <mat-step [formGroupName]="'step3'" disableRipple="true" [stepControl]="detectForm.get('step3')"
                             #step3>
-                            <ng-template matStepLabel>Tìm kiếm ý tưởng trên internet</ng-template>
+                            <ng-template matStepLabel>{{ 'app.search_ideas_on_the' | transloco }}</ng-template>
 
                             <div class="flex">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
@@ -311,7 +310,7 @@
                             <ul>
                                 <!-- SEO title -->
                                 <li class="font-normal text-base border-b mb-2">
-                                    <mat-label class="my-2 pb-2 ml-0">Tiêu đề</mat-label>
+                                    <mat-label class="my-2 pb-2 ml-0">{{ 'app.title' | transloco }}</mat-label>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.title.characters > 60">
                                     <div class="flex items-center justify-self-stretch">
@@ -333,8 +332,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Tiêu đề không tìm thấy khoá
-                                            chính</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.title_missing_primary_keyword' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
@@ -421,21 +419,21 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Content chưa có H1</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.content_has_no_h1' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total > 1">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Content chứa quá nhiều H1</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.content_contains_too_many' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total == 1">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Content đã có H1</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.content_has_h1' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.characters > 75">
@@ -457,7 +455,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-green-600"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-green-600">Tìm thấy khoá chính trong H1</mat-label>
+                                        <mat-label class="ml-2 text-green-600">{{ 'app.found_primary_keyword_in' | transloco }}</mat-label>
                                     </div>
                                 </li>
 
@@ -469,7 +467,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Content chưa xuất hiện</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.content_not_yet_available' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo.words.total < 300">
@@ -543,14 +541,14 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Chưa có hình ảnh</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.no_images_yet' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo['images'].find_mainkey_in_alt < 0">
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">Alt không có khoá chính</mat-label>
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.alt_is_missing_primary' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2" *ngIf="seo['images'].total > 0">
@@ -578,8 +576,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-red-500">Thêm liên kết để cải thiện trải
-                                            nghiệm</mat-label>
+                                        <mat-label class="ml-2 text-red-500">{{ 'app.add_link_to_improve' | transloco }}</mat-label>
                                     </div>
                                 </li>
                             </ul>
@@ -627,7 +624,7 @@
 
                                 <button mat-flat-button (click)="paste()" class="bg-red-400 text-white" type="button">
                                     <mat-icon class="icon-size-4" svgIcon="feather:copy"></mat-icon>
-                                    <mat-label class="ml-2">Sao chép</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.copy' | transloco }}</mat-label>
                                 </button>
 
                                 <!-- <button mat-flat-button (click)="findKeyword()" class="ml-2 bg-blue-500 text-white"
@@ -656,7 +653,7 @@
 
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Thêm prompt mới"
+                                                    matTooltipPosition="above" [matTooltip]="'app.add_new_prompt' | transloco"
                                                     (click)="createPrompt()">thêm</mat-label> -->
 
                                                 <input type="file" class="hidden" multiple accept="*/*"
@@ -677,7 +674,7 @@
 
                                                 <button mat-icon-button class="icon-size-8"
                                                     (click)="createPrompt(); $event.stopPropagation()"
-                                                    matTooltipPosition="above" matTooltip="Thêm prompt mới">
+                                                    matTooltipPosition="above" [matTooltip]="'app.add_new_prompt' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -721,20 +718,20 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
+                                                                <span>{{ 'app.copy' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item
                                                                 (click)="comment(source.prompt, item, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:twitch'"></mat-icon>
-                                                                <span>Bình luận</span>
+                                                                <span>{{ 'app.comment' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="edit(source.prompt, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Chỉnh sửa prompt</span>
+                                                                <span>{{ 'app.edit_prompt' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, source.prompt)">
@@ -757,11 +754,11 @@
                                                 <mat-label class="font-semibold">Nội dung sáng tạo</mat-label>
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Thêm nội dung mới"
+                                                    matTooltipPosition="above" [matTooltip]="'app.add_new_content' | transloco"
                                                     (click)="createNode()">thêm</mat-label>
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Chuyển sang Dàn ý"
+                                                    matTooltipPosition="above" [matTooltip]="'app.move_to_outline' | transloco"
                                                     (click)="moveall(source.text, $event); source.text = []">
                                                     chuyển ({{source.text.length}})</mat-label>
 
@@ -773,7 +770,7 @@
 
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="createNode()" matTooltipPosition="above"
-                                                    matTooltip="Thêm nội dung mới">
+                                                    [matTooltip]="'app.add_new_content' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -782,7 +779,7 @@
                                                     (click)="moveall(source.text, $event); source.text = []"
                                                     [matBadge]="source.text.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" matTooltip="Chuyển sang Dàn ý">
+                                                    matTooltipPosition="above" [matTooltip]="'app.move_to_outline' | transloco">
                                                     <mat-icon class="icon-size-4 text-blue-500"
                                                         [svgIcon]="'feather:align-left'"></mat-icon>
                                                 </button>
@@ -820,7 +817,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="markdown2html(source.text, i)"
                                                             [color]="'primary'">
@@ -831,19 +828,19 @@
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="split(source.text, i)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:align-left'"></mat-icon>
-                                                            <span>Tách đoạn văn</span>
+                                                            <span>{{ 'app.split_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="comment(source.text, item, i)"
                                                             [color]="'primary'">
@@ -861,7 +858,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.text, 'text')">
@@ -889,17 +886,17 @@
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above"
-                                                    matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn"
+                                                    [matTooltip]="'app.select_multiple_images_for' | transloco"
                                                     (click)="fileUpload.click()">tải lên</mat-label> -->
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-900 text-white"
                                                     matTooltipPosition="above"
-                                                    matTooltip="Chọn hình ảnh có sẵn trong sưu tập"
+                                                    [matTooltip]="'app.select_an_image_from' | transloco"
                                                     (click)="allFiles()">có sẵn</mat-label> -->
 
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="fileUpload.click()" matTooltipPosition="above"
-                                                    matTooltip="Chọn nhiều hình ảnh để AI tạo nội dung cho bạn"
+                                                    [matTooltip]="'app.select_multiple_images_for' | transloco"
                                                     [disabled]="loading">
                                                     <mat-icon *ngIf="loading"
                                                         class="animate-spin icon-size-4 text-white"
@@ -910,7 +907,7 @@
 
                                                 <button mat-icon-button class="ml-0 icon-size-8" (click)="allFiles()"
                                                     matTooltipPosition="above"
-                                                    matTooltip="Chọn hình ảnh có sẵn trong sưu tập">
+                                                    [matTooltip]="'app.select_an_image_from' | transloco">
                                                     <mat-icon class="icon-size-4 text-blue-600"
                                                         [svgIcon]="'feather:cloud'"></mat-icon>
                                                 </button>
@@ -969,8 +966,7 @@
 
                                                 <div class="ml-auto flex items-center justify-end"
                                                     (click)="$event.stopPropagation()">
-                                                    <span class="text-xs font-medium text-gray-500 mr-2">Chất lượng phân
-                                                        tích:</span>
+                                                    <span class="text-xs font-medium text-gray-500 mr-2">{{ 'app.analysis_quality' | transloco }}</span>
                                                     <input type="number" [(ngModel)]="videoExtractInterval" min="0.1"
                                                         max="60" step="0.5"
                                                         class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
@@ -979,13 +975,13 @@
 
                                                 <button mat-icon-button class="icon-size-8"
                                                     (click)="insertVideoUrl(); $event.stopPropagation()"
-                                                    matTooltipPosition="above" matTooltip="Thêm link Youtube/Facebook">
+                                                    matTooltipPosition="above" [matTooltip]="'app.add_youtube_facebook_link' | transloco">
                                                     <mat-icon class="icon-size-4 text-blue-500"
                                                         [svgIcon]="'feather:link'"></mat-icon>
                                                 </button>
                                                 <button mat-icon-button class="icon-size-8"
                                                     (click)="insertVideo(); $event.stopPropagation()"
-                                                    matTooltipPosition="above" matTooltip="Thêm video mới">
+                                                    matTooltipPosition="above" [matTooltip]="'app.add_new_video' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -1002,7 +998,7 @@
                                                     (keydown.enter)="insertVideoUrlSubmit()">
                                             </mat-form-field>
                                             <button mat-flat-button color="primary" class="ml-4"
-                                                (click)="insertVideoUrlSubmit()">Thêm Link</button>
+                                                (click)="insertVideoUrlSubmit()">{{ 'app.add_link' | transloco }}</button>
                                         </div>
 
                                         <div cdkDropList #sourceYoutubeList="cdkDropList"
@@ -1054,26 +1050,26 @@
                                                             (click)="editVideo(item)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:video"></mat-icon>
-                                                            <span>Chỉnh sửa Video</span>
+                                                            <span>{{ 'app.edit_video' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [cdkCopyToClipboard]="item | removeHTML"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item
                                                             (click)="edit(source.playlist[0].youtube, i)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa link</span>
+                                                            <span>{{ 'app.edit_link' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.playlist[0].youtube)">
@@ -1110,7 +1106,7 @@
                                                     (click)="moveall(source.chatgpt, $event); source.chatgpt = []"
                                                     [matBadge]="source.chatgpt.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" matTooltip="Chuyển sang Dàn ý">
+                                                    matTooltipPosition="above" [matTooltip]="'app.move_to_outline' | transloco">
                                                     <mat-icon class="icon-size-4 text-blue-500"
                                                         [svgIcon]="'feather:align-left'"></mat-icon>
                                                 </button>
@@ -1148,7 +1144,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="markdown2html(source.chatgpt, i)"
                                                             [color]="'primary'">
@@ -1159,13 +1155,13 @@
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.chatgpt, item, i)"
                                                             [color]="'primary'">
@@ -1177,7 +1173,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.chatgpt, i)"
                                                             [color]="'primary'">
@@ -1189,13 +1185,13 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="split(source.chatgpt, i)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:align-left'"></mat-icon>
-                                                            <span>Tách đoạn văn</span>
+                                                            <span>{{ 'app.split_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.chatgpt, 'chatgpt')">
@@ -1219,12 +1215,12 @@
 
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Thêm link mới"
+                                                    matTooltipPosition="above" [matTooltip]="'app.add_new_link' | transloco"
                                                     (click)="createlink()">thêm</mat-label> -->
 
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="createlink()" matTooltipPosition="above"
-                                                    matTooltip="Thêm link mới">
+                                                    [matTooltip]="'app.add_new_link' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                                                 </button>
@@ -1256,13 +1252,13 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
+                                                                <span>{{ 'app.copy' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="edit(source.a, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Chỉnh sửa liên kết</span>
+                                                                <span>{{ 'app.edit_link_1' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, source.a)">
@@ -1309,7 +1305,7 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
+                                                                <span>{{ 'app.copy' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="markdown2html(source.pre, i)"
                                                                 [color]="'primary'">
@@ -1321,13 +1317,13 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                                <span>Chuyển sang mp3</span>
+                                                                <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="copyto(item)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                                <span>Chép sang Dàn ý</span>
+                                                                <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                             </button>
                                                             <!-- <button mat-menu-item (click)="split(source.pre, item, i)"
                                                             [color]="'primary'">
@@ -1339,7 +1335,7 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:twitch'"></mat-icon>
-                                                                <span>Bình luận</span>
+                                                                <span>{{ 'app.comment' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="keyword(source.pre, i)"
                                                                 [color]="'primary'">
@@ -1352,20 +1348,20 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:image'"></mat-icon>
-                                                                <span>Tạo hình ảnh</span>
+                                                                <span>{{ 'app.create_image' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item
                                                                 (click)="createImgWithDreamina('https://dreamina.capcut.com', item, true, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:video'"></mat-icon>
-                                                                <span>Tạo video</span>
+                                                                <span>{{ 'app.create_video' | transloco }}</span>
                                                             </button>
                                                             <!-- <button mat-menu-item (click)="edit(source.pre, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Chỉnh sửa đoạn văn</span>
+                                                                <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                             </button> -->
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, source.pre)">
@@ -1403,7 +1399,7 @@
                                                     (click)="moveall(source.word, $event); source.word = []"
                                                     [matBadge]="source.word.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" matTooltip="Chuyển sang Dàn ý">
+                                                    matTooltipPosition="above" [matTooltip]="'app.move_to_outline' | transloco">
                                                     <mat-icon class="icon-size-4 text-blue-500"
                                                         [svgIcon]="'feather:align-left'"></mat-icon>
                                                 </button>
@@ -1441,18 +1437,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.word, item, i)"
                                                             [color]="'primary'">
@@ -1464,7 +1460,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.word, i)"
                                                             [color]="'primary'">
@@ -1476,7 +1472,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.word, 'word')">
@@ -1524,13 +1520,13 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
+                                                                <span>{{ 'app.copy' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="tomp3(item)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                                <span>Chuyển sang mp3</span>
+                                                                <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, source.source)">
@@ -1631,18 +1627,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.h1, item, i)"
                                                             [color]="'primary'">
@@ -1654,7 +1650,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.h1, i)"
                                                             [color]="'primary'">
@@ -1666,7 +1662,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.h1, 'h1')">
@@ -1710,18 +1706,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.h2, item, i)"
                                                             [color]="'primary'">
@@ -1733,7 +1729,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.h2, i)"
                                                             [color]="'primary'">
@@ -1745,7 +1741,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.h2, 'h2')">
@@ -1789,18 +1785,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.h3, item, i)"
                                                             [color]="'primary'">
@@ -1812,7 +1808,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.h3, i)"
                                                             [color]="'primary'">
@@ -1824,7 +1820,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.h3, 'h3')">
@@ -1868,18 +1864,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.h4, item, i)"
                                                             [color]="'primary'">
@@ -1891,7 +1887,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.h4, i)"
                                                             [color]="'primary'">
@@ -1903,7 +1899,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.h4, 'h4')">
@@ -1947,18 +1943,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.h5, item, i)"
                                                             [color]="'primary'">
@@ -1970,7 +1966,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.h5, i)"
                                                             [color]="'primary'">
@@ -1982,7 +1978,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.h5, 'h5')">
@@ -2008,7 +2004,7 @@
                                                 <mat-label class="font-semibold">p</mat-label>
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
-                                                    matTooltipPosition="above" matTooltip="Chép tất cả thẻ p sang Dàn ý"
+                                                    matTooltipPosition="above" [matTooltip]="'app.copy_all_p_tags' | transloco"
                                                     (click)="moveall(source.p, $event); source.p = []">
                                                     chuyển ({{source.p.length}})</mat-label>
 
@@ -2046,18 +2042,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.p, item, i)"
                                                             [color]="'primary'">
@@ -2069,7 +2065,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.p, i)"
                                                             [color]="'primary'">
@@ -2081,7 +2077,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.p, 'p')">
@@ -2125,18 +2121,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.span, item, i)"
                                                             [color]="'primary'">
@@ -2148,7 +2144,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.span, i)"
                                                             [color]="'primary'">
@@ -2160,7 +2156,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.span, 'span')">
@@ -2204,18 +2200,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.label, item, i)"
                                                             [color]="'primary'">
@@ -2227,7 +2223,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.label, i)"
                                                             [color]="'primary'">
@@ -2239,7 +2235,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.label, 'label')">
@@ -2282,18 +2278,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.dd, item, i)"
                                                             [color]="'primary'">
@@ -2305,7 +2301,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.dd, i)"
                                                             [color]="'primary'">
@@ -2317,7 +2313,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.dd, 'dd')">
@@ -2360,18 +2356,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.td, item, i)"
                                                             [color]="'primary'">
@@ -2383,7 +2379,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.td, i)"
                                                             [color]="'primary'">
@@ -2395,7 +2391,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.td, 'td')">
@@ -2438,18 +2434,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.li, item, i)"
                                                             [color]="'primary'">
@@ -2461,7 +2457,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.li, i)"
                                                             [color]="'primary'">
@@ -2473,7 +2469,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.li, 'li')">
@@ -2516,18 +2512,18 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>Sao chép</span>
+                                                            <span>{{ 'app.copy' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>Chuyển sang mp3</span>
+                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="copyto(item)"
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>Chép sang Dàn ý</span>
+                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
                                                         </button>
                                                         <!-- <button mat-menu-item (click)="split(source.i, item, i)"
                                                             [color]="'primary'">
@@ -2539,7 +2535,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Bình luận</span>
+                                                            <span>{{ 'app.comment' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.i, i)"
                                                             [color]="'primary'">
@@ -2551,7 +2547,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>Chỉnh sửa đoạn văn</span>
+                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="clearitem(i, source.i, 'i')">
@@ -2594,14 +2590,14 @@
 
                                 <button mat-flat-button [matMenuTriggerFor]="menu" class="text-white bg-green-500 ml-2">
                                     <mat-icon>more_horiz</mat-icon>
-                                    <mat-label class="ml-2">Công cụ</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.tools' | transloco }}</mat-label>
                                 </button>
 
                                 <mat-menu #menu="matMenu">
                                     <button *ngIf="details && details.uuid && permissionText2Voice" mat-menu-item
                                         [routerLink]="['/voice2video', user.name, details.uuid]">
                                         <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
-                                        <mat-label>Tạo audio</mat-label>
+                                        <mat-label>{{ 'app.create_audio' | transloco }}</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="share()" [color]="'primary'">
@@ -2632,7 +2628,7 @@
                                     <div (click)="$event.stopPropagation();">
                                         <a href="https://type.vn" target="_blank" mat-menu-item>
                                             <span class="flex flex-col leading-none">
-                                                <span>Tài khoản diễn đàn:</span>
+                                                <span>{{ 'app.forum_account' | transloco }}</span>
                                                 <span class="mt-1.5 font-medium">{{user.email}}</span>
                                             </span>
                                         </a>
@@ -2719,13 +2715,13 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:copy'"></mat-icon>
-                                                                <span>Sao chép</span>
+                                                                <span>{{ 'app.copy' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="tomp3(item)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                                <span>Chuyển sang mp3</span>
+                                                                <span>{{ 'app.convert_to_mp3' | transloco }}</span>
                                                             </button>
                                                             <!-- <button mat-menu-item (click)="split(done, item, i)"
                                                                         [color]="'primary'">
@@ -2737,7 +2733,7 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:twitch'"></mat-icon>
-                                                                <span>Bình luận</span>
+                                                                <span>{{ 'app.comment' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="keyword(done, i)"
                                                                 [color]="'primary'">
@@ -2749,13 +2745,13 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Chỉnh sửa đoạn văn</span>
+                                                                <span>{{ 'app.edit_paragraph' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item (click)="split(done, i)"
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:align-left'"></mat-icon>
-                                                                <span>Tách đoạn văn</span>
+                                                                <span>{{ 'app.split_paragraph' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, done)">
@@ -2775,7 +2771,7 @@
                                         <div class="mb-4">
                                             <mat-label class="font-semibold text-sm block mb-1">Tập của
                                                 bạn</mat-label>
-                                            <ng-select class="custom-select-ai-writer w-full" placeholder="Chọn tập"
+                                            <ng-select class="custom-select-ai-writer w-full" [placeholder]="'app.select_episode' | transloco"
                                                 [items]="collections" [addTag]="addCollection"
                                                 [readonly]="(name !== user.name)" (clear)="onClearCollection()"
                                                 (add)="onAddCollection($event)" (remove)="onRemoveCollection($event)"
@@ -2793,7 +2789,7 @@
                                         <mat-form-field *ngIf="uuid && details"
                                             class="w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix mr-2"
                                             appearance="fill">
-                                            <mat-label>Chọn phiên bản</mat-label>
+                                            <mat-label>{{ 'app.select_version' | transloco }}</mat-label>
                                             <mat-select [value]="version_value" (selectionChange)="history($event)">
                                                 <mat-option [value]="details.createdAt">{{details.createdAt |
                                                     timeago}}</mat-option>
@@ -2803,7 +2799,7 @@
                                                         bản {{i + 1}} lúc {{item.createdAt | timeago}}
                                                     </mat-option>
                                                 </ng-container>
-                                                <mat-option [value]="time">(+) tạo bản tạo</mat-option>
+                                                <mat-option [value]="time">{{ 'app.create_a_draft' | transloco }}</mat-option>
                                             </mat-select>
                                         </mat-form-field>
                                     </div>

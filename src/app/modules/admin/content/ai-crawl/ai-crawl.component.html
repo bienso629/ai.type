@@ -56,7 +56,7 @@
                 <input hidden #uploader id="file" name="file" (change)="readFile($event)" type="file" />
             </div>
 
-            <button (click)="reset()" class="ml-0" matTooltipPosition="above" matTooltip="Reset lại công việc"
+            <button (click)="reset()" class="ml-0" matTooltipPosition="above" [matTooltip]="'app.reset_task' | transloco"
                 mat-icon-button>
                 <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:refresh-cw'"></mat-icon>
             </button>
@@ -145,7 +145,7 @@
                             <mat-expansion-panel showToggle class="mb-0" [expanded]="false">
                                 <mat-expansion-panel-header>
                                     <mat-panel-title class="font-semibold text-primary uppercase">
-                                        Selector cho chương trình
+                                        {{ 'app.selector_for_program' | transloco }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
 
@@ -161,7 +161,7 @@
                                     <!-- Lấy Link trong khu vực -->
                                     <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Selector bằng Class (hoặc ID):</mat-label>
+                                        <mat-label>{{ 'app.selector_by_class_or_1' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'main_class'" matInput>
                                         <mat-hint>Ví dụ: [div id="main" class="container"][a]Công ty TNHH
                                             ABC[/a][/div]</mat-hint>
@@ -170,7 +170,7 @@
                                     <!-- Lấy link trong nhóm này -->
                                     <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Selector bằng Class (hoặc ID) cho Phân trang:</mat-label>
+                                        <mat-label>{{ 'app.selector_by_class_or' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'next_navigation_class'"
                                             matInput>
                                         <mat-hint>Ví dụ: [div class="page-numbers"][a]1[/a][/div]</mat-hint>
@@ -189,7 +189,7 @@
                                     <!-- Lấy Link có từ sau -->
                                     <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Chỉ lấy link nếu chứa ký tự:</mat-label>
+                                        <mat-label>{{ 'app.only_fetch_links_containing' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'href_contain_str'" matInput>
                                         <mat-hint>Ví dụ: [a href="...cong-ty..."]Công ty TNHH ABC[/a]</mat-hint>
                                     </mat-form-field>
@@ -215,8 +215,7 @@
                         </div>
 
                         <div>
-                            <p class="text-base">Chương trình cần bạn nắm rõ cấu trúc HTML của website cần crawl dữ
-                                liệu.</p>
+                            <p class="text-base">{{ 'app.the_program_requires_you' | transloco }}</p>
                         </div>
 
                         <!-- <div class="w-full mt-8 mb-2">
@@ -235,7 +234,7 @@
                             <button class="ml-0" (click)="createSitemap();" [color]="'primary'" type="button"
                                 mat-flat-button>
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:activity'"></mat-icon>
-                                <mat-label class="ml-2">Bắt đầu quét</mat-label>
+                                <mat-label class="ml-2">{{ 'app.start_scanning' | transloco }}</mat-label>
                             </button>
 
                             <!-- <div class="mt-2 mb-2 border-t"></div> -->

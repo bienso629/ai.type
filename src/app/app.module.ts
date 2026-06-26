@@ -1,5 +1,6 @@
 import { APP_INITIALIZER, importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA } from '@angular/core';
-import { BrowserModule, DomSanitizer } from '@angular/platform-browser';
+import { BrowserModule, DomSanitizer, Title } from '@angular/platform-browser';
+import { AppTitleService } from 'app/core/services/app-title.service';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { BrowserAnimationsModule } from '@angular/platform-browser/animations';
 import { ExtraOptions, PreloadAllModules, RouterModule } from '@angular/router';
@@ -64,6 +65,7 @@ const routerConfig: ExtraOptions = {
         AppComponent
     ],
     providers: [
+        { provide: Title, useClass: AppTitleService },
         {
             provide: APP_INITIALIZER,
             useFactory: initializeApp,

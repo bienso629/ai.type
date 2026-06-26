@@ -1,6 +1,6 @@
 <h2 class="text-xl font-normal text-gray-500 flex items-center justify-self-stretch mb-4">
     <mat-icon class="icon-size-4" svgIcon="feather:settings"></mat-icon>
-    <mat-label class="ml-2">Cài đặt Chatbot</mat-label>
+    <mat-label class="ml-2">{{ 'app.chatbot_settings' | transloco }}</mat-label>
 </h2>
 
 <div class="mb-4">
@@ -22,7 +22,7 @@
 </div>
 
 <div class="mb-4" *ngIf="selectedDataSource === 'documents' || selectedDataSource === 'all'">
-    <label class="block text-sm font-semibold mb-2">Chọn loại tài liệu (có thể chọn nhiều)</label>
+    <label class="block text-sm font-semibold mb-2">{{ 'app.select_document_type_can' | transloco }}</label>
     <div class="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto">
         <label *ngFor="let type of docTypes"
             class="flex items-center gap-2 p-2 border rounded cursor-pointer hover:bg-gray-100">
@@ -34,10 +34,10 @@
 </div>
 
 <div class="mb-4" *ngIf="selectedDataSource === 'website' || selectedDataSource === 'all'">
-    <label class="block text-sm font-semibold mb-2">Chọn Website (có thể chọn nhiều)</label>
+    <label class="block text-sm font-semibold mb-2">{{ 'app.select_website_can_select' | transloco }}</label>
 
     <div *ngIf="!domainOptions || domainOptions.length === 0" class="text-sm text-red-500 italic">
-        Bạn chưa có domain nào. Hãy dùng chức năng "Học nội dung Website" trước.
+        {{ 'app.you_have_no_domains' | transloco }}
     </div>
 
     <div class="grid grid-cols-2 gap-2 max-h-[400px] overflow-y-auto" *ngIf="domainOptions && domainOptions.length > 0">

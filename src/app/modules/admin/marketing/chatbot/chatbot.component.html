@@ -27,7 +27,7 @@
             <input type="file" id="pdfInput" (change)="onPdfSelected($event)" hidden>
             <button id="uploadPdfBtn" mat-flat-button [color]="'primary'" (click)="triggerPdfUpload()">
                 <mat-icon class="icon-size-4" svgIcon="feather:upload-cloud"></mat-icon>
-                <mat-label class="ml-2">Tải PDF, DOCx</mat-label>
+                <mat-label class="ml-2">{{ 'app.download_pdf_docx' | transloco }}</mat-label>
             </button>
         </div>
     </div>
@@ -50,7 +50,7 @@
                         (click)="createThread()">
                         <div class="flex flex-row text-primary items-center justify-between">
                             <mat-icon class="icon-size-4 text-primary" [svgIcon]="'feather:edit-3'"></mat-icon>
-                            <mat-label class="ml-2 text-base">Tạo trao đổi mới</mat-label>
+                            <mat-label class="ml-2 text-base">{{ 'app.create_new_conversation' | transloco }}</mat-label>
                         </div>
                     </div>
 
@@ -148,26 +148,25 @@
                     <div class="flex flex-col shrink-0 background-gray-100 border-l p-4 max-w-100 sticky bottom-0">
                         <mat-label class="text-base font-medium mb-2">Hướng dẫn sử dụng</mat-label>
                         <div class="text-sm text-gray-500 mb-2">
-                            <p>- Tải lên tài liệu của bạn (PDF, DOCX)</p>
-                            <p>- Tạo trao đổi mới để bắt đầu cuộc trò chuyện</p>
-                            <p>- Câu trả lời dựa trên tài liệu của bạn</p>
-                            <p>- Quản lý các trao đổi trong thanh bên trái</p>
+                            <p>{{ 'app.upload_your_document_pdf' | transloco }}</p>
+                            <p>{{ 'app.create_a_new_conversation' | transloco }}</p>
+                            <p>{{ 'app.answer_based_on_your' | transloco }}</p>
+                            <p>{{ 'app.manage_conversations_in_the' | transloco }}</p>
                         </div>
 
                         <!-- Divider -->
                         <div class="my-2 border-t"></div>
 
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
-                            (click)="listFiles()">Tài liệu của bạn</mat-label>
+                            (click)="listFiles()">{{ 'app.your_document' | transloco }}</mat-label>
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
-                            (click)="indexDomains()">Bot học
-                            Website <mat-label
+                            (click)="indexDomains()">{{ 'app.bot_learns_website' | transloco }} <mat-label
                                 *ngIf="statusIndex.status === 'running' || statusIndex.status === 'done'">
                                 ({{ statusIndex.completed }}/{{ statusIndex.total }} {{ statusIndex.status
                                 }})</mat-label></mat-label>
 
                         <mat-label class="text-sm cursor-pointer font-medium mb-2 text-primary"
-                            (click)="settingChatbot()">Cài đặt chatbot</mat-label>
+                            (click)="settingChatbot()">{{ 'app.chatbot_settings_1' | transloco }}</mat-label>
                     </div>
                 </div>
             </mat-drawer-content>

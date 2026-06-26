@@ -124,19 +124,19 @@
                                                 ">
                                                 <a [color]="'primary'"
                                                     class="cursor-pointer text-blue-600 hover:underline"
-                                                    (click)="generateComment()">Tạo Comment</a>
+                                                    (click)="generateComment()">{{ 'app.create_comment' | transloco }}</a>
 
                                                 <div class="border-l h-full"></div>
 
                                                 <a class="cursor-pointer text-blue-600 hover:underline"
-                                                    (click)="generateLike()">Thả tim</a>
+                                                    (click)="generateLike()">{{ 'app.heart' | transloco }}</a>
                                             </ng-container>
 
                                             <ng-template #nextComment>
                                                 <a [color]="'primary'"
                                                     class="ml-2 cursor-pointer text-blue-600 hover:underline" (click)="
                                                         generatNextComment()
-                                                    ">Tiếp tục comment</a>
+                                                    ">{{ 'app.continue_commenting' | transloco }}</a>
                                             </ng-template>
                                         </div>
                                     </div>
@@ -168,7 +168,7 @@
     <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 600px">
         <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
             <h2 class="text-xl font-semibold m-0 text-gray-800">
-                Sử dụng AI tạo kịch bản Comment
+                {{ 'app.use_ai_to_create' | transloco }}
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
@@ -248,14 +248,14 @@
                                 class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium">
                                 <tr>
                                     <th class="w-12 px-4 py-2 text-center">#</th>
-                                    <th class="w-28 px-4 py-2">Thời gian</th>
+                                    <th class="w-28 px-4 py-2">{{ 'app.time' | transloco }}</th>
                                     <th class="w-28 px-4 py-2">Link Video</th>
                                     <th class="w-1/4 px-4 py-2">
                                         Nội dung Comment
                                     </th>
                                     <th class="px-4 py-2">Phản hồi (Gợi ý)</th>
                                     <th class="w-24 px-4 py-2 text-center">
-                                        Thao tác
+                                        {{ 'app.action' | transloco }}
                                     </th>
                                 </tr>
                             </thead>
@@ -345,7 +345,7 @@
                                     </td>
                                     <td class="px-4 py-3 text-center align-top">
                                         <div *ngIf="!item.isEditing" class="flex justify-center items-center gap-2">
-                                            <button mat-icon-button (click)="enableEdit(item)" matTooltip="Chỉnh sửa"
+                                            <button mat-icon-button (click)="enableEdit(item)" [matTooltip]="'app.edit' | transloco"
                                                 class="text-blue-500 hover:bg-blue-50">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
                                             </button>
@@ -374,13 +374,13 @@
             <div *ngIf="commentGroups.length === 0"
                 class="flex flex-col items-center justify-center h-64 text-gray-500">
                 <mat-icon class="icon-size-12 mb-2" [svgIcon]="'heroicons_outline:inbox'"></mat-icon>
-                <span>Chưa có dữ liệu comment nào.</span>
+                <span>{{ 'app.no_comment_data_yet' | transloco }}</span>
             </div>
         </div>
 
         <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10">
             <div class="text-sm text-gray-600 ml-2">
-                <span class="text-gray-500 mr-4">Thống kê:</span>
+                <span class="text-gray-500 mr-4">{{ 'app.statistics' | transloco }}</span>
                 <span class="text-blue-600 mr-4">Comment: {{ countTypeInGroups("COMMENT") }}</span>
                 <span class="text-pink-600">Thả tim: {{ countTypeInGroups("LIKE") }}</span>
             </div>
@@ -401,7 +401,7 @@
     <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="min-width: 500px">
         <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
             <h2 class="text-xl font-semibold m-0 text-gray-800">
-                Cài đặt kịch bản Thả tim hàng loạt
+                {{ 'app.mass_hearting_script_settings' | transloco }}
             </h2>
             <button mat-icon-button (click)="_matDialog.closeAll()">
                 <mat-icon [svgIcon]="'feather:x'"></mat-icon>
