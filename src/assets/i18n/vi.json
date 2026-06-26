@@ -580,5 +580,23 @@
         "mark_as_read": "Mark as read",
         "no_notifications": "Không có thông báo",
         "no_notifications_desc": "Khi bạn có thông báo, chúng sẽ hiển thị ở đây."
-    }
+    },
+    "app.scanned_nodes_repo": "kho node được quét trên internet",
+    "app.search_by_title": "Tìm theo tiêu đề",
+    "app.view_details": "Xem chi tiết",
+    "app.convert_to_text": "Chuyển sang văn bản",
+    "app.re_scan": "Quét lại",
+    "app.original_link": "Link gốc",
+    "app.node_id": "Mã node",
+    "app.date_created": "Ngày tạo",
+    "app.selected": "Đã chọn",
+    "app.export_data": "Xuất dữ liệu",
+    "app.back": "quay lại",
+    "app.copy_link": "Copy link",
+    "app.imported_nodes_repo": "kho node được import từ wordpress",
+    "app.text": "Văn bản",
+    "app.search_current_tasks": "Tìm kiếm việc đang làm",
+    "app.search_by": "Tìm theo",
+    "app.synced_wordpress": "Đã đồng bộ WordPress",
+    "app.disconnect": "Hủy kết nối"
 }

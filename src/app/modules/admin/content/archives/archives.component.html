@@ -24,7 +24,7 @@
                     <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
                         <mat-icon class="icon-size-4 text-secondary"
                             [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">quay lại</span>
+                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
                     </a>
                 </div>
             </div>
@@ -42,14 +42,14 @@
                 (clear)="onClearCollection()" (change)="onChangeCollection()" multiple="true" bindLabel="title"
                 [clearable]="false" [(ngModel)]="selectedCollections" [dropdownPosition]="'bottom'" appendTo="body">
                 <ng-template ng-tag-tmp let-search="searchTerm">
-                    <mat-label class="text-base">Tìm theo: {{search}}</mat-label>
+                    <mat-label class="text-base">{{ 'app.search_by' | transloco }}: {{search}}</mat-label>
                 </ng-template>
             </ng-select>
 
             <mat-form-field class="w-60 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix ml-2"
                 appearance="fill">
                 <input matInput (keyup.enter)="searchNode()" [(ngModel)]="keyword"
-                    [placeholder]="'Tìm kiếm việc đang làm'">
+                    [placeholder]="'app.search_current_tasks' | transloco">
                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
             </mat-form-field>
         </div>
@@ -102,18 +102,18 @@
                         style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
                         <ng-container *ngIf="row.source?.wpPosts && row.source.wpPosts.length > 0; else singleWP">
                             <span *ngFor="let wp of row.source.wpPosts; let i = index" matTooltipPosition="above"
-                                [matTooltip]="'Đã đồng bộ WordPress ' + (wp.domain ? '(' + wp.domain + ')' : '')"
+                                [matTooltip]="('app.synced_wordpress' | transloco) + ' ' + (wp.domain ? '(' + wp.domain + ')' : '')"
                                 class="shrink-0 h-5 leading-5 pl-2 pr-1 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default group flex items-center gap-1">
                                 WP: {{wp.id || wp.wp_post_id}}
-                                <mat-icon class="icon-size-3 cursor-pointer text-white hover:text-red-300 opacity-70 hover:opacity-100 transition-all" [svgIcon]="'feather:x'" (click)="$event.stopPropagation(); disconnectWP(row, i)" matTooltip="Hủy kết nối"></mat-icon>
+                                <mat-icon class="icon-size-3 cursor-pointer text-white hover:text-red-300 opacity-70 hover:opacity-100 transition-all" [svgIcon]="'feather:x'" (click)="$event.stopPropagation(); disconnectWP(row, i)" [matTooltip]="'app.disconnect' | transloco"></mat-icon>
                             </span>
                         </ng-container>
                         <ng-template #singleWP>
                             <span *ngIf="row.source?.wp_post_id" matTooltipPosition="above"
-                                [matTooltip]="'Đã đồng bộ WordPress ' + (row.source.wp_domain ? '(' + row.source.wp_domain + ')' : (row.domain ? '(' + row.domain + ')' : ''))"
+                                [matTooltip]="('app.synced_wordpress' | transloco) + ' ' + (row.source.wp_domain ? '(' + row.source.wp_domain + ')' : (row.domain ? '(' + row.domain + ')' : ''))"
                                 class="shrink-0 h-5 leading-5 pl-2 pr-1 rounded text-[10px] font-bold bg-[#0073aa] text-white cursor-default group flex items-center gap-1">
                                 WP: {{row.source.wp_post_id}}
-                                <mat-icon class="icon-size-3 cursor-pointer text-white hover:text-red-300 opacity-70 hover:opacity-100 transition-all" [svgIcon]="'feather:x'" (click)="$event.stopPropagation(); disconnectWP(row, -1)" matTooltip="Hủy kết nối"></mat-icon>
+                                <mat-icon class="icon-size-3 cursor-pointer text-white hover:text-red-300 opacity-70 hover:opacity-100 transition-all" [svgIcon]="'feather:x'" (click)="$event.stopPropagation(); disconnectWP(row, -1)" [matTooltip]="'app.disconnect' | transloco"></mat-icon>
                             </span>
                         </ng-template>
                     </div>
