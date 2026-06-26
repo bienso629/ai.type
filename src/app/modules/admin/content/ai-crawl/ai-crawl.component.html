@@ -15,13 +15,13 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">tool thu thập số liệu, thông tin cá nhân</span>
+                    <span class="ml-1 text-base text-secondary">{{ 'app.data_collection_tool' | transloco }}</span>
                 </div>
             </div>
             <div class="flex sm:hidden">
                 <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
                     <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                    <span class="ml-1 text-base">quay lại</span>
+                    <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
                 </a>
             </div>
         </div>
@@ -49,7 +49,7 @@
 
             <div class="inline-block ml-0">
                 <button mat-icon-button color="primary" (click)="uploader.click()" matTooltipPosition="above"
-                    matTooltip="Up file từ dưới máy lên">
+                    [matTooltip]="'app.upload_file_from_computer' | transloco">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:paperclip'"></mat-icon>
                 </button>
 
@@ -78,7 +78,7 @@
                         [formGroup]="sitemapForm">
                         <div class="w-full mb-2">
                             <!-- Divider -->
-                            <div class="text-secondary text-xl">Quét dữ liệu</div>
+                            <div class="text-secondary text-xl">{{ 'app.scan_data' | transloco }}</div>
                             <div class="mt-2 mb-2 border-t"></div>
                         </div>
 
@@ -86,7 +86,7 @@
                             <mat-expansion-panel showToggle class="mb-0" [expanded]="true">
                                 <mat-expansion-panel-header>
                                     <mat-panel-title class="font-semibold text-primary uppercase">
-                                        Cấu hình cơ bản cho chương trình
+                                        {{ 'app.basic_config_for_program' | transloco }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
 
@@ -95,7 +95,7 @@
                                     <mat-form-field
                                         class="w-full mt-2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>URL cần thu thập dữ liệu</mat-label>
+                                        <mat-label>{{ 'app.url_to_collect_data' | transloco }}</mat-label>
                                         <textarea class="px-2" [formControlName]="'domain'"
                                             [placeholder]="'https://type.vn'" required matInput
                                             cdkTextareaAutosize></textarea>
@@ -109,10 +109,10 @@
                         <div class="w-full mt-8 mb-2">
                             <!-- Divider -->
                             <div class="flex items-center justify-between">
-                                <div class="text-secondary text-xl">Cấu hình nâng cao</div>
+                                <div class="text-secondary text-xl">{{ 'app.advanced_config' | transloco }}</div>
                                 <button mat-icon-button color="primary" (click)="autoConfigByAI()"
                                     [disabled]="aiLoading" matTooltipPosition="above"
-                                    matTooltip="Tự động cấu hình bằng AI">
+                                    matTooltip="{{ 'app.auto_config_by_ai' | transloco }}">
                                     <mat-icon *ngIf="!aiLoading" class="icon-size-4"
                                         svgIcon="feather:feather"></mat-icon>
                                     <mat-icon *ngIf="aiLoading" class="icon-size-4 animate-spin"
@@ -126,7 +126,7 @@
                             <mat-expansion-panel showToggle class="mb-0" [expanded]="false">
                                 <mat-expansion-panel-header>
                                     <mat-panel-title class="font-semibold text-primary uppercase">
-                                        Quy tắc thu thập dữ liệu
+                                        {{ 'app.data_collection_rules' | transloco }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
 
@@ -134,10 +134,10 @@
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Quy tắc thu thập dữ liệu</mat-label>
+                                        <mat-label>{{ 'app.data_collection_rules' | transloco }}</mat-label>
                                         <textarea class="px-2 overflow-y-hidden" [formControlName]="'request'" required
                                             matInput cdkTextareaAutosize></textarea>
-                                        <mat-hint>Lưu ý: Thường không cần thay đổi cấu hình này.</mat-hint>
+                                        <mat-hint>{{ 'app.note_usually_no_need_to_change_this_config' | transloco }}</mat-hint>
                                     </mat-form-field>
                                 </div>
                             </mat-expansion-panel>
@@ -153,9 +153,9 @@
                                     <!-- Lấy link trong nhóm này -->
                                     <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Khai báo Domain gốc:</mat-label>
+                                        <mat-label>{{ 'app.declare_root_domain' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'root_domain'" matInput>
-                                        <mat-hint>Ví dụ: "https://masothue.com"</mat-hint>
+                                        <mat-hint>{{ 'app.example' | transloco }} "https://masothue.com"</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Lấy Link trong khu vực -->
@@ -163,7 +163,7 @@
                                         [subscriptSizing]="'dynamic'">
                                         <mat-label>{{ 'app.selector_by_class_or_1' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'main_class'" matInput>
-                                        <mat-hint>Ví dụ: [div id="main" class="container"][a]Công ty TNHH
+                                        <mat-hint>{{ 'app.example' | transloco }} [div id="main" class="container"][a]Công ty TNHH
                                             ABC[/a][/div]</mat-hint>
                                     </mat-form-field>
 
@@ -173,13 +173,13 @@
                                         <mat-label>{{ 'app.selector_by_class_or' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'next_navigation_class'"
                                             matInput>
-                                        <mat-hint>Ví dụ: [div class="page-numbers"][a]1[/a][/div]</mat-hint>
+                                        <mat-hint>{{ 'app.example' | transloco }} [div class="page-numbers"][a]1[/a][/div]</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Lấy link trong nhóm này -->
                                     <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Nếu phân trang bị link rút gọn:</mat-label>
+                                        <mat-label>{{ 'app.if_pagination_is_shortened' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'page_domain'" matInput>
                                         <mat-hint>Ví dụ: [a href="?page=2"]Link bị rút gọn[/a] thì khai báo thêm link để
                                             tường minh hơn. Ví dụ:
@@ -191,16 +191,16 @@
                                         [subscriptSizing]="'dynamic'">
                                         <mat-label>{{ 'app.only_fetch_links_containing' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'href_contain_str'" matInput>
-                                        <mat-hint>Ví dụ: [a href="...cong-ty..."]Công ty TNHH ABC[/a]</mat-hint>
+                                        <mat-hint>{{ 'app.example' | transloco }} [a href="...cong-ty..."]Công ty TNHH ABC[/a]</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Loại bỏ Link -->
                                     <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                         [subscriptSizing]="'dynamic'">
-                                        <mat-label>Loại bỏ link nếu chứa ký tự:</mat-label>
+                                        <mat-label>{{ 'app.remove_link_if_contains' | transloco }}</mat-label>
                                         <input [autocomplete]="'off'" [formControlName]="'href_except_contain_str'"
                                             matInput>
-                                        <mat-hint>Ví dụ: [a href="...abc..."]Công ty TNHH ABC[/a]</mat-hint>
+                                        <mat-hint>{{ 'app.example' | transloco }} [a href="...abc..."]Công ty TNHH ABC[/a]</mat-hint>
                                     </mat-form-field>
                                 </div>
                             </mat-expansion-panel>
@@ -210,7 +210,7 @@
 
                         <div class="w-full mt-8 mb-2">
                             <!-- Divider -->
-                            <div class="text-secondary text-xl">Lưu ý</div>
+                            <div class="text-secondary text-xl">{{ 'app.note' | transloco }}</div>
                             <div class="mt-2 mb-2 border-t"></div>
                         </div>
 
@@ -260,7 +260,7 @@
                                 </ng-template>
                             </ngx-datatable-column>
 
-                            <ngx-datatable-column name="Links quét được" [sortable]="false" [canAutoResize]="true"
+                            <ngx-datatable-column [name]="'app.scanned_links' | transloco" [sortable]="false" [canAutoResize]="true"
                                 [draggable]="false" [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
                                     <p class="font-normal truncate hover:text-clip">{{row.url}}</p>
@@ -274,7 +274,7 @@
                                     <div class="page-count" *ngIf="links.length > 0">
                                         <a [href]="downloadJsonHref" download="links.json" [color]="'primary'"
                                             class="ml-0">
-                                            Tải xuống
+                                            {{ 'app.download' | transloco }}
                                         </a>
                                     </div>
                                 </ng-template>
@@ -287,7 +287,7 @@
                         <ngx-datatable [appScrollLock]="aiLoading" [virtualization]="true" class="material fullscreen"
                             [columnMode]="ColumnMode.flex" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
                             [scrollbarV]="true" [scrollbarH]="false" [rows]="domains">
-                            <ngx-datatable-column name="Pages đã quét" [sortable]="false" [canAutoResize]="true"
+                            <ngx-datatable-column [name]="'app.scanned_pages' | transloco" [sortable]="false" [canAutoResize]="true"
                                 [draggable]="false" [resizeable]="true" [flexGrow]="5">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
                                     <p class="font-normal truncate hover:text-clip">{{row.url}}</p>

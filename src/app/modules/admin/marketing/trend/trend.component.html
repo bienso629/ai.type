@@ -17,14 +17,14 @@
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">bắt kịp xu hướng</span>
+                        <span class="ml-1 text-base text-secondary">{{ 'app.catch_trend' | transloco }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
                     <a class="inline-flex items-center -ml-1.5 text-secondary font-medium" [routerLink]="'./..'">
                         <mat-icon class="icon-size-4 text-secondary"
                             [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                        <span class="ml-1 text-base">quay lại</span>
+                        <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
                     </a>
                 </div>
             </div>
@@ -64,15 +64,15 @@
                             <mat-expansion-panel showToggle class="mb-6" [expanded]="true">
                                 <mat-expansion-panel-header>
                                     <mat-panel-title class="font-semibold text-primary uppercase">
-                                        Option 1: Chọn nguồn
+                                        {{ 'app.option_1_choose_source' | transloco }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
                                 <div class="p-3">
                                     <!-- Danh sách collection của bạn -->
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>Hãy chọn 1 bộ sưu tập</mat-label>
-                                        <input placeholder="Link quét bài sẽ được lấy sau"
+                                        <mat-label>{{ 'app.choose_collection' | transloco }}</mat-label>
+                                        <input [placeholder]="'app.link_scanned_later' | transloco"
                                             [formControlName]="'collection'" matInput [matAutocomplete]="collection">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:book'"></mat-icon>
 
@@ -81,7 +81,7 @@
                                             [displayWith]="displayCollectionFn">
                                             <mat-option *ngFor="let item of allLinkCollections" [value]="item"
                                                 class="py-2 mb-2">
-                                                <label class="line-clamp-1">{{ item.title || 'Chưa có tiêu đề'}}</label>
+                                                <label class="line-clamp-1">{{ item.title || ('app.no_title' | transloco) }}</label>
                                                 <label class="line-clamp-1 text-gray-300">{{ item.ids.length }}
                                                     link(s)</label>
                                             </mat-option>
@@ -91,7 +91,7 @@
                                     <!-- Địa chỉ mẹ -->
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
-                                        <mat-label>Link</mat-label>
+                                        <mat-label>{{ 'app.link' | transloco }}</mat-label>
                                         <input [placeholder]="'app.only_use_group_links' | transloco"
                                             [formControlName]="'domain'" aria-label="Number" matInput
                                             [matAutocomplete]="auto">
@@ -100,14 +100,14 @@
                                         <mat-autocomplete #auto="matAutocomplete">
                                             <mat-option *ngFor="let item of links" [value]="item.link"
                                                 class="py-2 mb-2">
-                                                <label class="line-clamp-1">{{ item.title || 'Chưa có tiêu đề'}}</label>
+                                                <label class="line-clamp-1">{{ item.title || ('app.no_title' | transloco) }}</label>
                                                 <label class="line-clamp-1 text-gray-300">{{ item.link }}</label>
                                             </mat-option>
                                         </mat-autocomplete>
                                     </mat-form-field>
 
                                     <mat-form-field class="w-full mt-2 fuse-mat-dense">
-                                        <mat-label>Quét nội dung sâu cỡ nào?</mat-label>
+                                        <mat-label>{{ 'app.scan_depth' | transloco }}</mat-label>
                                         <input [formControlName]="'length'" type="number" required matInput />
                                         <mat-error>Không được để trống!</mat-error>
                                     </mat-form-field>
@@ -116,7 +116,7 @@
                                         <button mat-flat-button [color]="'primary'" *ngIf="!loading" type="button"
                                             (click)="createAllSitemap()">
                                             <mat-icon class="icon-size-5" svgIcon="facebook"></mat-icon>
-                                            <mat-label class="ml-2">Quét lấy Trend</mat-label>
+                                            <mat-label class="ml-2">{{ 'app.scan_trend' | transloco }}</mat-label>
                                         </button>
 
                                         <button mat-flat-button *ngIf="loading" [color]="'warn'" (click)="stop()">
@@ -130,7 +130,7 @@
                             <mat-expansion-panel showToggle [expanded]="false">
                                 <mat-expansion-panel-header>
                                     <mat-panel-title class="font-semibold text-primary uppercase">
-                                        Option 2: Tự động đăng bài
+                                        {{ 'app.option_2_auto_post' | transloco }}
                                     </mat-panel-title>
                                 </mat-expansion-panel-header>
                                 <div class="flex flex-col p-3">
@@ -174,7 +174,7 @@
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
                                         [formControlName]="'autocreatenode'">
-                                        <mat-label class="ml-2 text-sm">Tự động tạo bài viết</mat-label>
+                                        <mat-label class="ml-2 text-sm">{{ 'app.auto_create_post' | transloco }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <!-- <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
@@ -194,7 +194,7 @@
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
                                         [formControlName]="'autopost'">
-                                        <mat-label class="ml-2 text-sm">Tự động đăng bài FB</mat-label>
+                                        <mat-label class="ml-2 text-sm">{{ 'app.auto_post_fb' | transloco }}</mat-label>
                                     </mat-slide-toggle>
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
@@ -241,7 +241,7 @@
                                 [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
                                 [checkboxable]="true"></ngx-datatable-column>
 
-                            <ngx-datatable-column [name]="totalDisplayCount + ' post(s) chưa được sử dụng'"
+                            <ngx-datatable-column [name]="totalDisplayCount + ' ' + ('app.unused_posts' | transloco)"
                                 [width]="300" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                                 [resizeable]="true">
                                 <ng-template let-row="row" let-value="value" ngx-datatable-cell-template>
@@ -283,8 +283,8 @@
                                         <div class="flex-1 min-w-0">
                                             <!-- Breadcrumbs -->
                                             <div class="page-count">
-                                                {{ selected.length > 0 ? selected.length + ' post(s) được chọn'
-                                                : 'Bạn chưa chọn post nào' }}
+                                                {{ selected.length > 0 ? selected.length + ' ' + ('app.selected_posts' | transloco)
+                                                : ('app.no_post_selected' | transloco) }}
                                             </div>
                                         </div>
 
@@ -300,7 +300,7 @@
                                                         [svgIcon]="'feather:activity'"></mat-icon>
 
                                                     <mat-label class="ml-2">
-                                                        {{ isAnalyzing ? 'Đang phân tích...' : 'Phân tích xu hướng' }}
+                                                        {{ isAnalyzing ? ('app.analyzing' | transloco) : ('app.analyze_trend' | transloco) }}
                                                     </mat-label>
                                                 </span>
                                             </button>
@@ -339,7 +339,7 @@
                                         <p class="text-center text-base font-medium text-primary animate-bounce">
                                             {{ 'app.ai_is_reading_your' | transloco }}
                                         </p>
-                                        <p class="text-sm text-secondary mt-2">Vui lòng đợi trong giây lát</p>
+                                        <p class="text-sm text-secondary mt-2">{{ 'app.please_wait_moment' | transloco }}</p>
                                     </div>
                                 </div>
                             </div>
@@ -357,8 +357,8 @@
                             <div class="flex flex-col w-full h-full justify-between">
                                 <header
                                     class="px-6 min-h-[50px] border-b border-gray-200 dark:border-gray-600 flex justify-between items-center bg-white dark:bg-gray-800">
-                                    <p class="text-base font-semibold text-primary">Kết quả phân tích Trend</p>
-                                    <button mat-icon-button (click)="clearTrend()" matTooltip="Xóa kết quả">
+                                    <p class="text-base font-semibold text-primary">{{ 'app.trend_analysis_result' | transloco }}</p>
+                                    <button mat-icon-button (click)="clearTrend()" [matTooltip]="'app.clear_result' | transloco">
                                         <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                                     </button>
                                 </header>

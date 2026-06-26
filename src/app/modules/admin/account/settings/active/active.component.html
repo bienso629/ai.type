@@ -9,12 +9,12 @@
             <div class="text-secondary leading-8 mt-4">
                 <ng-container *ngIf="(activeInfo && activeInfo.user); else elseTemplate">
                     <fuse-alert [appearance]="'outline'" [type]="'success'">
-                        Hạn sử dụng tới {{activeInfo.user.expirationDate | date:'d/M/Y h:mma z'}}
+                        {{ 'app.valid_until' | transloco }} {{activeInfo.user.expirationDate | date:'d/M/Y h:mma z'}}
                     </fuse-alert>
                 </ng-container>
                 <ng-template #elseTemplate>
                     <fuse-alert [appearance]="'outline'" [type]="'warning'">
-                        Hãy sử dụng License Key để kích hoạt phần mềm
+                        {{ 'app.use_license_key_to_activate' | transloco }}
                     </fuse-alert>
                 </ng-template>
             </div>
@@ -29,7 +29,7 @@
         </div>
 
         <div class="w-full mt-12">
-            <mat-label class="text-base font-medium leading-8">Nhập License Key:</mat-label>
+            <mat-label class="text-base font-medium leading-8">{{ 'app.enter_license_key' | transloco }}</mat-label>
 
             <mat-grid-list class="max-w-140" cols="6" gutterSize="10px" rowHeight="60px">
                 <mat-grid-tile class="">
@@ -80,7 +80,7 @@
              <div class="mt-8 border-t"></div>
 
             <p class="mt-4">
-                <button mat-flat-button type="submit" [color]="'primary'">Kích hoạt phần mềm</button>
+                <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
             </p>
         </div>
     </form>

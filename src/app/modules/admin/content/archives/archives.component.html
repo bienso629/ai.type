@@ -149,7 +149,7 @@
                     <!--Using ng-option and for loop-->
                     <ng-select *ngIf="row" [(ngModel)]="row.authors" [multiple]="true" [closeOnSelect]="false"
                         [searchable]="false" appendTo="body" bindLabel="username" bindValue="username"
-                        placeholder="Mời bạn cùng viết" class="w-full custom-select-archives">
+                        [placeholder]="'app.invite_to_write' | transloco" class="w-full custom-select-archives">
                         <!-- <ng-template ng-header-tmp>
                             <button mat-flat-button>Select all</button>
                             <button mat-flat-button>Unselect all</button>

@@ -13,19 +13,19 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
     providers: [UserClientService],
     template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
         <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:coffee'"></mat-icon>
-        <mat-label class="self-center">Thêm phong cách</mat-label>
+        <mat-label class="self-center">{{ 'app.add_style' | transloco }}</mat-label>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
         <form [formGroup]="editForm">
             <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Tên phong cách</mat-label>
-                <input [formControlName]="'name'" placeholder="Tên phong cách" type="text" required matInput>
+                <mat-label>{{ 'app.style_name' | transloco }}</mat-label>
+                <input [formControlName]="'name'" [placeholder]="'app.style_name' | transloco" type="text" required matInput>
             </mat-form-field>
 
             <mat-form-field class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Ảnh phong cách</mat-label>
-                <input placeholder="Đường dẫn ảnh mô tả phong cách"
+                <mat-label>{{ 'app.style_avatar' | transloco }}</mat-label>
+                <input [placeholder]="'app.style_avatar_placeholder' | transloco"
                     [formControlName]="'avatar'" matInput
                     [matAutocomplete]="avatar">
                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:camera'"></mat-icon>
@@ -39,20 +39,20 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
             </mat-form-field>
 
             <mat-form-field class="w-full mt-2 mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Mô tả chính xác</mat-label>
-                <textarea class="max-h-40 min-h-10 px-2" [formControlName]="'desc'" [placeholder]="'Mô tả chính xác phong cách của bạn.'" type="text" required matInput cdkTextareaAutosize></textarea>
+                <mat-label>{{ 'app.exact_description' | transloco }}</mat-label>
+                <textarea class="max-h-40 min-h-10 px-2" [formControlName]="'desc'" [placeholder]="'app.exact_description_placeholder' | transloco" type="text" required matInput cdkTextareaAutosize></textarea>
             </mat-form-field>
         </form>
     </div>
 
     <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
     <button mat-flat-button *ngIf="index < 0" (click)="save()" color="primary" class="">
-            Thêm phong cách
+            {{ 'app.add_style' | transloco }}
         </button>
     <button mat-flat-button *ngIf="index > -1" (click)="update()" color="primary" class="">
-            Sửa phong cách
+            {{ 'app.edit_style' | transloco }}
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+    <button mat-flat-button (click)="onNoClick()" color="medium" class="">{{ 'app.close_window' | transloco }}</button>
 </div>`,
 })
 export class AddStyleDialog implements OnInit, OnDestroy {

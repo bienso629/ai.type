@@ -7,26 +7,24 @@
                     <div class="flex flex-col w-120">
                         <p class="block">
                             <mat-form-field class="w-full max-w-160 fuse-mat-dense">
-                                <mat-label>Địa chỉ kênh</mat-label>
+                                <mat-label>{{ 'app.channel_url' | transloco }}</mat-label>
                                 <input [(ngModel)]="channel" matInput />
                                 <mat-select [(ngModel)]="channel" matSuffix class="max-w-50">
                                     <mat-option *ngFor="let item of links" [value]="item.link">
                                         {{item.link}}
                                     </mat-option>
                                 </mat-select>
-                                <mat-error>Không được để trống!</mat-error>
+                                <mat-error>{{ 'app.cannot_be_empty' | transloco }}</mat-error>
                             </mat-form-field>
                         </p>
 
                         <p class="block mb-8">
                             <mat-form-field class="w-full max-w-160 fuse-mat-dense">
-                                <mat-label>hoặc bạn có username của một Tiktoker</mat-label>
+                                <mat-label>{{ 'app.or_tiktoker_username' | transloco }}</mat-label>
                                 <input [(ngModel)]="tiktoker" placeholder="aicontenttools" matInput />
                                 <mat-icon matPrefix class="icon-size-4" [svgIcon]="'feather:at-sign'"></mat-icon>
-                                <mat-hint class="block">Ví dụ chúng ta có 1 kênh Tiktoker là
-                                    https://www.tiktok.com/&#64;aicontenttools thì username bạn có thể nhập là
-                                    aicontenttools</mat-hint>
-                                <mat-error>Không được để trống!</mat-error>
+                                <mat-hint class="block">{{ 'app.tiktoker_username_hint' | transloco }}</mat-hint>
+                                <mat-error>{{ 'app.cannot_be_empty' | transloco }}</mat-error>
                             </mat-form-field>
                         </p>
 
@@ -42,9 +40,9 @@
                             </mat-form-field>
 
                             <mat-form-field class="w-full max-w-50 ml-2 fuse-mat-dense">
-                                <mat-label>Phương thức tải</mat-label>
+                                <mat-label>{{ 'app.download_method' | transloco }}</mat-label>
                                 <mat-select [(ngModel)]="mode">
-                                    <mat-option [value]="'parallel'">Song song</mat-option>
+                                    <mat-option [value]="'parallel'">{{ 'app.parallel' | transloco }}</mat-option>
                                     <mat-option [value]="'sequential'">{{ 'app.sequential' | transloco }}</mat-option>
                                 </mat-select>
                             </mat-form-field>
@@ -60,7 +58,7 @@
                 </div>
             </mat-step>
 
-            <mat-step label="Video tìm thấy">
+            <mat-step [label]="'app.videos_found' | transloco">
                 <!-- CONTENT GOES HERE -->
                 <div class="flex items-start justify-start h-full pt-8">
                     <ngx-datatable [virtualization]="true" #mydatatable
@@ -75,7 +73,7 @@
                             [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
                             [checkboxable]="true"></ngx-datatable-column>
 
-                        <ngx-datatable-column name="Ảnh" [width]="100" [sortable]="false" [canAutoResize]="false"
+                        <ngx-datatable-column [name]="'app.image' | transloco" [width]="100" [sortable]="false" [canAutoResize]="false"
                             [draggable]="false" [resizeable]="false">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <div class="h-10 w-10 rounded-md bg-cover bg-no-repeat bg-center"
@@ -84,7 +82,7 @@
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Tiêu đề video" [width]="400" [sortable]="false"
+                        <ngx-datatable-column [name]="'app.video_title' | transloco" [width]="400" [sortable]="false"
                             [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <p class="font-normal leading-tight line-clamp-1" [title]="row.snippet.title">
@@ -93,7 +91,7 @@
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Loại dữ liệu" [width]="200" [sortable]="false"
+                        <ngx-datatable-column [name]="'app.data_type' | transloco" [width]="200" [sortable]="false"
                             [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 {{row.id.kind || "video"}}
@@ -109,7 +107,7 @@
                             </ng-template>
                         </ngx-datatable-column>
 
-                        <ngx-datatable-column name="Chức năng" [width]="300" [sortable]="false" [canAutoResize]="false"
+                        <ngx-datatable-column [name]="'app.functions' | transloco" [width]="300" [sortable]="false" [canAutoResize]="false"
                             [draggable]="false" [resizeable]="false">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <div class="flex items-center justify-self-stretch">
@@ -120,8 +118,7 @@
                                         class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-pink-600 hover:bg-pink-400 text-white">Nghe audio</mat-label> -->
 
                                     <mat-label (click)="createPost(row)"
-                                        class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-green-600 hover:bg-green-700 text-white">Viết
-                                        bài</mat-label>
+                                        class="h-7 leading-7 items-center px-3 ml-2 rounded-full cursor-pointer text-sm font-semibold bg-green-600 hover:bg-green-700 text-white">{{ 'app.write_post' | transloco }}</mat-label>
                                 </div>
                             </ng-template>
                         </ngx-datatable-column>
