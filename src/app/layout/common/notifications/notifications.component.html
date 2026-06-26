@@ -25,10 +25,10 @@
                 </button>
             </div>
 
-            <div class="text-lg font-medium leading-10">{{ (processing) ? 'Còn ' + budget + ' bài' : 'Thông báo'}}</div>
+            <div class="text-lg font-medium leading-10">{{ (processing) ? ('app.remaining' | transloco) + ' ' + budget + ' ' + ('app.articles' | transloco) : ('app.notification' | transloco)}}</div>
 
             <div class="ml-auto">
-                <a mat-icon-button [matTooltip]="'Xem tất cả thông báo'" href="https://type.vn/notifications"
+                <a mat-icon-button [matTooltip]="('app.view_all_notifications' | transloco)" href="https://type.vn/notifications"
                     target="_blank" *ngIf="!processing" (click)="resumeProcessing()">
                     <mat-icon class="icon-size-5 text-current" [svgIcon]="'feather:mail'"></mat-icon>
                 </a>
@@ -73,7 +73,7 @@
                     <div class="relative flex flex-col my-5 mr-6 ml-2">
                         <!-- Indicator -->
                         <button class="w-6 h-6 min-h-6" mat-icon-button (click)="toggleRead(notification)"
-                            [matTooltip]="notification.read ? 'Mark as unread' : 'Mark as read'">
+                            [matTooltip]="notification.read ? ('app.mark_as_unread' | transloco) : ('app.mark_as_read' | transloco)">
                             <span class="w-2 h-2 rounded-full" [ngClass]="{'bg-primary dark:bg-primary sm:opacity-0 sm:group-hover:opacity-100': notification.read,
                                             'bg-red-500': !notification.read}"></span>
                         </button>
@@ -121,7 +121,7 @@
                 </ng-template>
             </ng-container>
 
-            <!-- No notifications -->
+            <!-- {{ 'app.no_notifications' | transloco }} -->
             <ng-container *ngIf="!notifications || !notifications.length">
                 <div class="flex flex-col flex-auto items-center justify-center sm:justify-start py-12 px-8">
                     <div
@@ -129,9 +129,8 @@
                         <mat-icon class="text-primary-700 dark:text-primary-50"
                             [svgIcon]="'heroicons_outline:bell'"></mat-icon>
                     </div>
-                    <div class="mt-5 text-2xl font-semibold tracking-tight">No notifications</div>
-                    <div class="w-full max-w-60 mt-1 text-md text-center text-secondary">When you have notifications,
-                        they will appear here.</div>
+                    <div class="mt-5 text-2xl font-semibold tracking-tight">{{ 'app.no_notifications' | transloco }}</div>
+                    <div class="w-full max-w-60 mt-1 text-md text-center text-secondary">{{ 'app.no_notifications_desc' | transloco }}</div>
                 </div>
             </ng-container>
         </div>
