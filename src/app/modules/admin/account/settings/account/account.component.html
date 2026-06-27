@@ -69,27 +69,27 @@
                         </mat-form-field>
 
                         <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>Type.VN Admin Token</mat-label>
-                            <input matInput type="password" [formControlName]="'emailConfig_nodebbToken'" placeholder="Nhập Token">
+                            <mat-label>{{ 'account.email.admin_token' | transloco }}</mat-label>
+                            <input matInput type="password" [formControlName]="'emailConfig_nodebbToken'" [placeholder]="'account.email.enter_token' | transloco">
                         </mat-form-field>
                         
                         <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>SMTP Host (VD: smtp.gmail.com)</mat-label>
+                            <mat-label>{{ 'account.email.smtp_host' | transloco }}</mat-label>
                             <input matInput [formControlName]="'emailConfig_smtpHost'">
                         </mat-form-field>
                         
                         <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>SMTP Port (VD: 587)</mat-label>
+                            <mat-label>{{ 'account.email.smtp_port' | transloco }}</mat-label>
                             <input matInput type="number" [formControlName]="'emailConfig_smtpPort'">
                         </mat-form-field>
 
                         <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>Email SMTP</mat-label>
+                            <mat-label>{{ 'account.email.smtp_email' | transloco }}</mat-label>
                             <input matInput [formControlName]="'emailConfig_smtpUser'">
                         </mat-form-field>
 
                         <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>Mật khẩu SMTP / App Password</mat-label>
+                            <mat-label>{{ 'account.email.smtp_password' | transloco }}</mat-label>
                             <input matInput type="password" [formControlName]="'emailConfig_smtpPass'">
                         </mat-form-field>
                     </div>
@@ -108,9 +108,9 @@
                     <mat-form-field
                         class="flex-auto w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label class="">Cookies.txt (Netscape HTTP Cookie File)</mat-label>
+                        <mat-label class="">{{ 'account.lite.cookies_file' | transloco }}</mat-label>
                         <textarea class="px-2" [formControlName]="'customCookies'"
-                            [placeholder]="'Dán nội dung file cookies.txt vào đây'" matInput cdkTextareaAutosize
+                            [placeholder]="'account.lite.paste_cookies' | transloco" matInput cdkTextareaAutosize
                             cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
                         <mat-hint>{{ 'account.lite.cookie_hint' | transloco }}</mat-hint>
                     </mat-form-field>
@@ -176,30 +176,29 @@
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:mic'" matPrefix></mat-icon>
                         <input [formControlName]="'tts'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Đổi văn bản thành giọng nói.</div>
+                    <div class="mt-1 text-md text-hint">{{ 'account.jobs.tts_hint' | transloco }}</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-video2content')">
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Làm phụ đề cho video</mat-label>
+                        <mat-label>{{ 'account.jobs.sst_title' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:film'" matPrefix></mat-icon>
                         <input [formControlName]="'sst'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tự động viết bài dựa vào video.</div>
+                    <div class="mt-1 text-md text-hint">{{ 'account.jobs.sst_hint' | transloco }}</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-tự-động-hóa')">
                     <!-- Text2Speech Api -->
                     <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
-                        <mat-label>Tự động chơi Tiktok</mat-label>
+                        <mat-label>{{ 'account.jobs.mxhauto_title' | transloco }}</mat-label>
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:target'" matPrefix></mat-icon>
                         <input [formControlName]="'mxhauto'" type="text" matInput>
                     </mat-form-field>
-                    <div class="mt-1 text-md text-hint">Tự động hóa công việc của bạn như: Nhắc lịch, tự động đăng bài,
-                        viết comment,...</div>
+                    <div class="mt-1 text-md text-hint">{{ 'account.jobs.mxhauto_hint' | transloco }}</div>
                 </div>
             </mat-tab>
 
@@ -213,10 +212,7 @@
                 </div>
 
                 <div class="w-full mt-4">
-                    <div class="mt-2 text-md text-hint">{{ 'app.you_have_a_gemini' | transloco }} <a
-                            href="https://aistudio.google.com/apikey" target="_blank" class="font-semibold">Api
-                            Key</a> tại đây. Xin lưu ý từ model gemini-2.0 trở lên tài khoản Google của bạn cần liên kết
-                        thanh toán (Billing).</div>
+                    <div class="mt-2 text-md text-hint" [innerHTML]="'account.ai.gemini_billing_hint' | transloco"></div>
 
                     <div class="flex flex-col w-1/2 mt-2">
                         <div *ngFor="let key of geminiKeys; let i = index" class="flex mt-2">
@@ -274,14 +270,13 @@
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:link'" matPrefix></mat-icon>
                                 <input [formControlName]="'umodelverseUrl'" type="text" matInput>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Đường dẫn API tương thích OpenAI. VD:
-                                https://api.mitom.ai/v1</div>
+                            <div class="mt-1 text-md text-hint">{{ 'account.ai.mitom_url_hint' | transloco }}</div>
                         </div>
 
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>API Key (UModelverse)</mat-label>
+                                <mat-label>{{ 'account.ai.umodelverse_key' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
                                 <input [formControlName]="'umodelverseKey'"
                                     [type]="showUmodelverseKey ? 'text' : 'password'" matInput>
@@ -296,7 +291,7 @@
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Model văn bản (Tùy chọn)</mat-label>
+                                <mat-label>{{ 'account.ai.text_model' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:chat-alt-2'"
                                     matPrefix></mat-icon>
                                 <mat-select [formControlName]="'umodelverseChatModel'"
@@ -308,14 +303,13 @@
                                     </mat-optgroup>
                                 </mat-select>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu
-                                để trống sẽ dùng gpt-4o).</div>
+                            <div class="mt-1 text-md text-hint">{{ 'account.ai.text_model_hint' | transloco }}</div>
                         </div>
 
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Model tạo ảnh (Tùy chọn)</mat-label>
+                                <mat-label>{{ 'account.ai.image_model' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:photograph'"
                                     matPrefix></mat-icon>
                                 <mat-select [formControlName]="'umodelverseImageModel'"
@@ -327,14 +321,13 @@
                                     </mat-optgroup>
                                 </mat-select>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để
-                                trống sẽ dùng dall-e-3). VD: flux-schnell</div>
+                            <div class="mt-1 text-md text-hint">{{ 'account.ai.image_model_hint' | transloco }}</div>
                         </div>
 
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Model tạo video (Tùy chọn)</mat-label>
+                                <mat-label>{{ 'account.ai.video_model' | transloco }}</mat-label>
                                 <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:video-camera'"
                                     matPrefix></mat-icon>
                                 <mat-select [formControlName]="'umodelverseVideoModel'"
@@ -346,8 +339,7 @@
                                     </mat-optgroup>
                                 </mat-select>
                             </mat-form-field>
-                            <div class="mt-1 text-md text-hint">Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để
-                                trống sẽ dùng cogvideox-5b). VD: luma-dream-machine</div>
+                            <div class="mt-1 text-md text-hint">{{ 'account.ai.video_model_hint' | transloco }}</div>
                         </div>
                     </div>
                 </div>
@@ -365,7 +357,7 @@
                         <!-- Search API Key -->
                         <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'">
-                            <mat-label>Search Engine</mat-label>
+                            <mat-label>{{ 'account.automation.search_engine' | transloco }}</mat-label>
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
                             <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
                                 matInput>
@@ -375,16 +367,14 @@
                                     }}</mat-icon>
                             </button>
                         </mat-form-field>
-                        <div class="mt-1 text-md text-hint">{{ 'app.don_t_have_a' | transloco }} <a
-                                href="https://programmablesearchengine.google.com/controlpanel/all" target="_blank"
-                                class="font-semibold">Search Api Key</a> tại đây.</div>
+                        <div class="mt-1 text-md text-hint" [innerHTML]="'account.automation.search_api_hint_here' | transloco"></div>
                     </div>
 
                     <div class="w-full mt-2" *ngIf="user.reputation >= 4000000">
                         <!-- Search API Key -->
                         <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                             [subscriptSizing]="'dynamic'">
-                            <mat-label>N8N</mat-label>
+                            <mat-label>{{ 'account.automation.n8n' | transloco }}</mat-label>
                             <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
                             <input [formControlName]="'n8n'" [type]="showN8N ? 'text' : 'password'" matInput>
                             <button mat-icon-button type="button" matSuffix (click)="showN8N = !showN8N">

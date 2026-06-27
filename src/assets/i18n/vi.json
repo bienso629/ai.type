@@ -159,14 +159,27 @@
             "lang_en": "Tiếng Anh"
         },
         "email": {
-            "title": "Cấu hình Gửi Email (Type.VN & SMTP)"
+            "title": "Cấu hình Gửi Email (Type.VN & SMTP)",
+            "admin_token": "Type.VN Admin Token",
+            "enter_token": "Nhập Token",
+            "smtp_host": "SMTP Host (VD: smtp.gmail.com)",
+            "smtp_port": "SMTP Port (VD: 587)",
+            "smtp_email": "Email SMTP",
+            "smtp_password": "Mật khẩu SMTP / App Password"
         },
         "lite": {
             "title": "Cấu hình Type-Lite",
-            "cookie_hint": "Cookie sử dụng cho tính năng tải/phân tích video bị khóa (như của Facebook)"
+            "cookie_hint": "Cookie sử dụng cho tính năng tải/phân tích video bị khóa (như của Facebook)",
+            "cookies_file": "Cookies.txt (Netscape HTTP Cookie File)",
+            "paste_cookies": "Dán nội dung file cookies.txt vào đây"
         },
         "jobs": {
-            "title": "Tích hợp các module cho công việc"
+            "title": "Tích hợp các module cho công việc",
+            "tts_hint": "Đổi văn bản thành giọng nói.",
+            "sst_title": "Làm phụ đề cho video",
+            "sst_hint": "Tự động viết bài dựa vào video.",
+            "mxhauto_title": "Tự động chơi Tiktok",
+            "mxhauto_hint": "Tự động hóa công việc của bạn như: Nhắc lịch, tự động đăng bài, viết comment,..."
         },
         "ai": {
             "title": "Cấu hình của AI",
@@ -175,10 +188,22 @@
             "advanced_title": "Cấu hình AI nâng cao (Mì tôm AI)",
             "toggle_mitom": "Bật/Tắt Mì Tôm AI",
             "toggle_mitom_hint": "(Tắt để sử dụng mô hình gốc)",
-            "url_hint": "Đường dẫn API tương thích OpenAI. VD: https://api.mitom.ai/v1"
+            "url_hint": "Đường dẫn API tương thích OpenAI. VD: https://api.mitom.ai/v1",
+            "mitom_url_hint": "Đường dẫn API tương thích OpenAI. VD: https://api.mitom.ai/v1",
+            "umodelverse_key": "API Key (UModelverse)",
+            "text_model": "Model văn bản (Tùy chọn)",
+            "text_model_hint": "Điền tên model sinh văn bản mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng gpt-4o).",
+            "image_model": "Model tạo ảnh (Tùy chọn)",
+            "image_model_hint": "Điền tên model tạo ảnh mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng dall-e-3). VD: flux-schnell",
+            "video_model": "Model tạo video (Tùy chọn)",
+            "video_model_hint": "Điền tên model tạo video mà proxy của bạn hỗ trợ (nếu để trống sẽ dùng cogvideox-5b). VD: luma-dream-machine",
+            "gemini_billing_hint": "Bạn đã có tài khoản Gemini AI Studio. Lấy <a href=\"https://aistudio.google.com/apikey\" target=\"_blank\" class=\"font-semibold\">Api Key</a> tại đây. Xin lưu ý từ model gemini-2.0 trở lên tài khoản Google của bạn cần liên kết thanh toán (Billing)."
         },
         "automation": {
-            "title": "Cấu hình tự động hoá"
+            "title": "Cấu hình tự động hoá",
+            "search_engine": "Search Engine",
+            "n8n": "N8N",
+            "search_api_hint_here": "Bạn chưa có Google Search Api Key? Tạo <a href=\"https://programmablesearchengine.google.com/controlpanel/all\" target=\"_blank\" class=\"font-semibold\">Search Api Key</a> tại đây."
         },
         "save_btn": "Lưu cấu hình",
         "save_hint": "Bạn có chỉnh sửa hãy nhớ lưu kết quả"
