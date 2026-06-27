@@ -180,6 +180,30 @@ export class GenaiService {
     public get umodelverseImageModel(): string { return this._umodelverseImageModel; }
     public get umodelverseVideoModel(): string { return this._umodelverseVideoModel; }
 
+    public async getUModelverseModels(): Promise<string[]> {
+        this.syncConfigFromStorage();
+        if (!this.isUModelverseEnabled()) {
+            return [];
+        }
+        try {
+            const modelsRes = await fetch(`${this._umodelverseUrl}/models`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${this._umodelverseKey}`
+                }
+            });
+            if (modelsRes.ok) {
+                const modelsData = await modelsRes.json();
+                if (modelsData && Array.isArray(modelsData.data)) {
+                    return modelsData.data.map((m: any) => m.id);
+                }
+            }
+        } catch (e) {
+            console.error("[GenAIService] Error fetching models from UModelverse:", e);
+        }
+        return [];
+    }
+
     isLoadingFor(scope: Scope): boolean {
         const m = this._scopes();
         return (m[String(scope)] ?? 0) > 0;

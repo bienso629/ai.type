@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, HostListener } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, HostListener, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -11,6 +11,7 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AddSceneComponent } from '../add-scene.component';
 import { DirectorModeComponent } from '../director-mode.component';
 import { CharacterDialogComponent } from '../character-dialog.component';
+import { GenaiService } from 'app/genai.service';
 
 interface NodeItem {
   id: string;
@@ -44,7 +45,7 @@ interface NodeConnection {
     'class': 'absolute inset-0 flex flex-col overflow-hidden'
   }
 })
-export class NodeEditorComponent implements OnInit {
+export class NodeEditorComponent implements OnInit, AfterViewChecked {
   @ViewChild('workspace', { static: true }) workspace!: ElementRef;
 
   nodes: NodeItem[] = [];
@@ -90,12 +91,43 @@ export class NodeEditorComponent implements OnInit {
   canvasWidth = 2000;
   canvasHeight = 1000;
 
+  nodeHeights: { [id: string]: number } = {};
+
+  availableModels: string[] = ['3.1 Pro'];
+  textModels: string[] = [];
+  audioModels: string[] = [];
+  videoModels: string[] = [];
+  selectedModel: string = '3.1 Pro';
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
     private multiAccountService: MultiAccountService,
-    private dialog: MatDialog
+    private dialog: MatDialog,
+    private cdr: ChangeDetectorRef,
+    private genaiService: GenaiService
   ) { }
+
+  ngAfterViewChecked() {
+    let changed = false;
+    const newHeights: { [id: string]: number } = {};
+    for (const node of this.nodes) {
+       const el = document.getElementById(node.id);
+       if (el) {
+           const h = el.offsetHeight;
+           if (this.nodeHeights[node.id] !== h) {
+               newHeights[node.id] = h;
+               changed = true;
+           }
+       }
+    }
+    if (changed) {
+       setTimeout(() => {
+           this.nodeHeights = { ...this.nodeHeights, ...newHeights };
+           this.cdr.detectChanges();
+       }, 0);
+    }
+  }
 
   ngOnInit(): void {
     this.uuid = this.route.snapshot.paramMap.get('uuid');
@@ -111,6 +143,39 @@ export class NodeEditorComponent implements OnInit {
       this.buildGraphFromData(this.projectData);
     } else {
       this.buildFakeGraph();
+    }
+
+    this.loadModels();
+  }
+
+  async loadModels() {
+    try {
+      const models = await this.genaiService.getUModelverseModels();
+      if (models && models.length > 0) {
+        this.availableModels = models;
+        
+        this.textModels = [];
+        this.audioModels = [];
+        this.videoModels = [];
+        
+        models.forEach((id: string) => {
+          const lower = id.toLowerCase();
+          if (lower.includes('suno') || lower.includes('audio') || lower.includes('voice') || lower.includes('transcribe') || lower.includes('speech')) {
+            this.audioModels.push(id);
+          } else if (lower.includes('video') || lower.includes('v2v') || lower.includes('t2v') || lower.includes('i2v') || lower.includes('r2v') || lower.includes('kling') || lower.includes('veo') || lower.includes('luma') || lower.includes('vidu') || lower.includes('wan') || lower.includes('sora') || lower.includes('mimo') || lower.includes('runway') || lower.includes('cog') || lower.includes('image') || lower.includes('stable-diffusion') || lower.includes('flux') || lower.includes('mj') || lower.includes('midjourney') || lower.includes('pika') || lower.includes('haiper')) {
+            this.videoModels.push(id);
+          } else {
+            this.textModels.push(id);
+          }
+        });
+
+        if (!this.availableModels.includes(this.selectedModel)) {
+            this.selectedModel = this.availableModels[0];
+        }
+        this.cdr.detectChanges();
+      }
+    } catch (e) {
+      console.error("Failed to load models", e);
     }
   }
 
@@ -148,10 +213,12 @@ export class NodeEditorComponent implements OnInit {
       }
 
       if (scene.subtitles && scene.subtitles.length > 0) {
+        const sub = scene.subtitles[0];
+        const ttsDuration = sub.duration ? Math.round(sub.duration) : 5;
         this.nodes.push({
-          id: ttsNodeId, type: 'tts', title: 'Text to Speech', subtitle: 'ElevenLabs',
+          id: ttsNodeId, type: 'tts', title: 'Text to Speech', subtitle: `${ttsDuration}s`,
           x: sceneX, y: 450 + yOffset, inputs: [], outputs: ['out'],
-          data: { text: scene.subtitles[0].text, duration: '00:05' },
+          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}` },
           baseX: sceneX, baseY: 450 + yOffset
         });
         hasTts = true;
@@ -159,8 +226,9 @@ export class NodeEditorComponent implements OnInit {
 
       const visualUrl = videoUrl || imageUrl || null;
 
+      const vidSubtitle = videoUrl ? `${duration}s` : (imageUrl ? 'Source Image' : 'Empty');
       const vidNode: NodeItem = {
-        id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: videoUrl ? 'Generated Video' : (imageUrl ? 'Source Image' : 'Empty'),
+        id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: vidSubtitle,
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
         data: { imageUrl: imageUrl, videoUrl: videoUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters },
         baseX: sceneX, baseY: 150 + yOffset
@@ -202,15 +270,15 @@ export class NodeEditorComponent implements OnInit {
         baseX: 150, baseY: 150
       },
       {
-        id: 'vid1', type: 'video', title: 'Video', subtitle: 'Veo 3.1',
+        id: 'vid1', type: 'video', title: 'Video', subtitle: '5s',
         x: 550, y: 100, inputs: ['in1'], outputs: ['out'],
         data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame', aspectRatio: '16:9', sceneData: { visualPrompt: 'Cinematic lighting, 8k resolution, highly detailed' }, projectCharacters: [{name: 'Nano Banana'}, {name: 'Captain'}] },
         baseX: 550, baseY: 100
       },
       {
-        id: 'tts1', type: 'tts', title: 'Text to Speech', subtitle: 'Eleven v3',
+        id: 'tts1', type: 'tts', title: 'Text to Speech', subtitle: '5s',
         x: 550, y: 400, inputs: [], outputs: ['out'],
-        data: { text: 'Every sunset looks better from the water.', duration: '00:04' },
+        data: { text: 'Every sunset looks better from the water.', duration: '00:05' },
         baseX: 550, baseY: 400
       },
       {
@@ -248,15 +316,9 @@ export class NodeEditorComponent implements OnInit {
     const to = this.nodes.find(n => n.id === conn.toNode);
     if (!from || !to) return '';
 
-    let fromHeight = from.type === 'tts' ? 130 : 250;
-    const fromEl = document.getElementById(from.id);
-    if (fromEl) fromHeight = fromEl.offsetHeight;
-
+    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : 250);
     let fromWidth = 280;
-    
-    let toHeight = to.type === 'tts' ? 130 : 250;
-    const toEl = document.getElementById(to.id);
-    if (toEl) toHeight = toEl.offsetHeight;
+    let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 130 : 250);
 
     const fromX = from.x + fromWidth; 
     const fromY = from.y + (fromHeight / 2); 
@@ -445,6 +507,34 @@ export class NodeEditorComponent implements OnInit {
         this.selectedNode.data.text = currentText ? `${currentText}\n\n${charTag}` : charTag;
       }
     }
+  }
+
+  removeCharacterFromPrompt(char: any, event: Event) {
+    event.stopPropagation();
+    if (!this.selectedNode) return;
+
+    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const charNameEscaped = escapeRegExp(char.name);
+    
+    const blockRegex = new RegExp(`\\[Character '${charNameEscaped}'.*?\\]\\n*`, 'g');
+    const nameRegex = new RegExp(`\\b${charNameEscaped}\\b\\s*`, 'gi');
+
+    const sd = this.selectedNode.data?.sceneData;
+
+    if (sd) {
+      if (sd.prompt !== undefined) {
+        sd.prompt = sd.prompt.replace(blockRegex, '').replace(nameRegex, '').trim();
+      }
+      if (sd.imagePrompt !== undefined) {
+        sd.imagePrompt = sd.imagePrompt.replace(blockRegex, '').replace(nameRegex, '').trim();
+      }
+    } else {
+      if (this.selectedNode.data?.text) {
+         this.selectedNode.data.text = this.selectedNode.data.text.replace(blockRegex, '').replace(nameRegex, '').trim();
+      }
+    }
+    
+    this.saveProject();
   }
 
   @HostListener('window:mousemove', ['$event'])
