@@ -1,8 +1,8 @@
 <div class="light-theme flex flex-col font-sans bg-white">
     <!-- Header -->
-    <div class="flex items-center justify-between mb-4">
-        <div class="flex gap-6 items-center">
-            <h2 class="text-lg font-semibold">
+    <div class="flex items-center justify-between mb-2">
+        <div class="flex gap-4 items-center">
+            <h2 class="text-lg font-semibold m-0">
                 {{ 'app.camera_angle_lighting_settings' | transloco }}
             </h2>
         </div>
@@ -14,7 +14,7 @@
     </div>
 
     <!-- Content body -->
-    <div class="flex-1 bg-white overflow-y-auto max-h-[75vh] pr-2 scrollbar-hide"
+    <mat-dialog-content class="flex-1 bg-white overflow-y-auto max-h-[75vh] p-0 scrollbar-hide"
         style="-ms-overflow-style: none; scrollbar-width: none;">
 
         <!-- Tab Camera -->
@@ -252,9 +252,9 @@
         </div>
 
         <!-- Tab Context & Seed -->
-        <div *ngIf="data.targetName === 'Apply to Master Prompt'" class="flex flex-col gap-6 py-4 px-2 min-h-[300px]">
-            <h2 class="text-[16px] font-medium m-0 mt-4 text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-2">{{ 'app.context_characters' | transloco }}</h2>
-            <div class="bg-indigo-50 text-indigo-800 p-4 rounded-xl text-sm border border-indigo-100 flex gap-3">
+        <div *ngIf="data.targetName === 'Apply to Master Prompt'" class="flex flex-col gap-4 mt-2 min-h-[300px]">
+            <h2 class="text-[15px] font-medium m-0 text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-1">{{ 'app.context_characters' | transloco }}</h2>
+            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm border border-indigo-100 flex gap-3">
                 <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
                     class="text-indigo-500 shrink-0"></mat-icon>
                 <div>
@@ -262,7 +262,7 @@
                 </div>
             </div>
 
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-2 gap-4">
                 <!-- Cột trái: Seed & Text -->
                 <div class="flex flex-col gap-4">
                     <div class="flex flex-col gap-2">
@@ -287,11 +287,11 @@
                 </div>
 
                 <!-- Cột phải: Reference Image -->
-                <div class="flex flex-col gap-2">
+                <div class="flex flex-col gap-2 h-full">
                     <label class="font-semibold text-gray-800 text-sm">Nhân vật / Phong cách tham chiếu</label>
                     <p class="text-xs text-gray-500 mb-1">{{ 'app.upload_an_image_for' | transloco }}</p>
 
-                    <div class="w-full aspect-square relative border-2 border-dashed border-gray-300 rounded-2xl bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden"
+                    <div class="w-full flex-1 relative border-2 border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[150px]"
                         *ngIf="!globalContext.referenceImageUrl">
                         <input type="file" (change)="onReferenceImageSelected($event)" accept="image/*"
                             class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
@@ -304,7 +304,7 @@
                     </div>
 
                     <div *ngIf="globalContext.referenceImageUrl"
-                        class="relative w-full aspect-square border border-gray-200 rounded-2xl overflow-hidden group">
+                        class="relative w-full flex-1 border border-gray-200 rounded-lg overflow-hidden group min-h-[150px]">
                         <img [src]="getSafeUrl(globalContext.referenceImageUrl)" class="w-full h-full object-cover">
                         <div
                             class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -319,7 +319,7 @@
             </div>
         </div>
 
-    </div>
+    </mat-dialog-content>
 
     <!-- Footer Actions -->
     <div class="px-0 mt-4 flex justify-end gap-2">

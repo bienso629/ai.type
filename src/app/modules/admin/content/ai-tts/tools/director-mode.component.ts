@@ -30,9 +30,9 @@ export interface ControlTemplate {
             color: #111827;
         }
         .section-card {
-            border-radius: 12px;
-            padding: 16px;
-            margin-bottom: 16px;
+            border-radius: 8px;
+            padding: 12px;
+            margin-bottom: 12px;
             border: 1px solid #f3f4f6;
         }
         .option-img {
