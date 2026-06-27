@@ -72,3 +72,6 @@ electron/type-lite-macos
 electron/downloader-win.exe
 electron/type-lite-win.exe
 /electron/models
+electron/edge-tts-macos
+electron/ffmpeg-macos
+electron/yt-dlp-macos

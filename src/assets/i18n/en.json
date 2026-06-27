@@ -159,14 +159,27 @@
             "lang_en": "English"
         },
         "email": {
-            "title": "Email Configuration (Type.VN & SMTP)"
+            "title": "Email Configuration (Type.VN & SMTP)",
+            "admin_token": "Type.VN Admin Token",
+            "enter_token": "Enter Token",
+            "smtp_host": "SMTP Host (Ex: smtp.gmail.com)",
+            "smtp_port": "SMTP Port (Ex: 587)",
+            "smtp_email": "SMTP Email",
+            "smtp_password": "SMTP Password / App Password"
         },
         "lite": {
             "title": "Type-Lite Configuration",
-            "cookie_hint": "Cookie used for downloading/analyzing locked videos (e.g. Facebook)"
+            "cookie_hint": "Cookie used for downloading/analyzing locked videos (e.g. Facebook)",
+            "cookies_file": "Cookies.txt (Netscape HTTP Cookie File)",
+            "paste_cookies": "Paste cookies.txt content here"
         },
         "jobs": {
-            "title": "Integrate modules for work"
+            "title": "Integrate modules for work",
+            "tts_hint": "Convert text to speech.",
+            "sst_title": "Video subtitles",
+            "sst_hint": "Auto write posts based on video.",
+            "mxhauto_title": "Auto play Tiktok",
+            "mxhauto_hint": "Automate your tasks such as: scheduling, auto posting, writing comments,..."
         },
         "ai": {
             "title": "AI Configuration",
@@ -175,10 +188,22 @@
             "advanced_title": "Advanced AI Configuration (Mì tôm AI)",
             "toggle_mitom": "Enable/Disable Mì tôm AI",
             "toggle_mitom_hint": "(Disable to use original models)",
-            "url_hint": "OpenAI compatible API URL. Ex: https://api.mitom.ai/v1"
+            "url_hint": "OpenAI compatible API URL. Ex: https://api.mitom.ai/v1",
+            "mitom_url_hint": "OpenAI compatible API URL. Ex: https://api.mitom.ai/v1",
+            "umodelverse_key": "API Key (UModelverse)",
+            "text_model": "Text Model (Optional)",
+            "text_model_hint": "Enter the text generation model supported by your proxy (defaults to gpt-4o).",
+            "image_model": "Image Model (Optional)",
+            "image_model_hint": "Enter the image generation model supported by your proxy (defaults to dall-e-3). Ex: flux-schnell",
+            "video_model": "Video Model (Optional)",
+            "video_model_hint": "Enter the video generation model supported by your proxy (defaults to cogvideox-5b). Ex: luma-dream-machine",
+            "gemini_billing_hint": "You have a Gemini AI Studio account. Get <a href=\"https://aistudio.google.com/apikey\" target=\"_blank\" class=\"font-semibold\">Api Key</a> here. Note that starting from model gemini-2.0, your Google account needs to be linked to billing."
         },
         "automation": {
-            "title": "Automation Configuration"
+            "title": "Automation Configuration",
+            "search_engine": "Search Engine",
+            "n8n": "N8N",
+            "search_api_hint_here": "Don't have a Google Search Api Key? Create <a href=\"https://programmablesearchengine.google.com/controlpanel/all\" target=\"_blank\" class=\"font-semibold\">Search Api Key</a> here."
         },
         "save_btn": "Save Configuration",
         "save_hint": "If you make changes, remember to save"
