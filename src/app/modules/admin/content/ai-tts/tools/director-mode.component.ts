@@ -372,6 +372,7 @@ export class DirectorModeComponent implements OnInit {
     apply() {
         let parts = [];
         
+        if (this.selections.artStyle) parts.push(this.selections.artStyle);
         if (this.selections.timeOfDay) parts.push(this.selections.timeOfDay);
         if (this.selections.lighting) parts.push(this.selections.lighting);
         

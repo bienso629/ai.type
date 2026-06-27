@@ -1,0 +1,80 @@
+<!-- Docked Global Prompt Editor (Fixed at bottom of viewport) -->
+<div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
+    
+    <!-- Dark Theme Prompt Bar -->
+    <div class="w-full max-w-4xl flex flex-col bg-[#1e1e24] shadow-2xl shadow-black/50 border border-gray-700/50 rounded-[28px] p-3 pointer-events-auto transition-all">
+        
+        <!-- Top Context Chip -->
+        <div class="flex items-center mb-3 px-2">
+            <div class="flex items-center bg-white/10 hover:bg-white/20 transition-colors border border-white/5 rounded-full px-2 py-1.5 cursor-pointer">
+                <div class="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center mr-2">
+                    <mat-icon *ngIf="selectedNode?.type === 'image'" class="icon-size-4 text-gray-800">image</mat-icon>
+                    <mat-icon *ngIf="selectedNode?.type === 'video'" class="icon-size-4 text-gray-800">movie</mat-icon>
+                </div>
+                <span class="text-sm font-medium text-gray-200 truncate max-w-[150px]">
+                    {{ selectedNode?.title || 'Context' }}
+                </span>
+                <mat-icon class="icon-size-4 text-gray-400 ml-2 hover:text-white transition-colors">close</mat-icon>
+            </div>
+        </div>
+
+        <!-- Main Input Area -->
+        <div class="px-2">
+            <textarea
+                cdkTextareaAutosize
+                cdkAutosizeMinRows="1"
+                cdkAutosizeMaxRows="6"
+                [ngModel]="selectedNode?.type === 'video' ? selectedNode?.data?.text : ''"
+                (ngModelChange)="updatePrompt($event)"
+                placeholder="Bạn muốn thay đổi hoặc tạo nội dung gì?"
+                class="w-full bg-transparent text-[16px] leading-relaxed text-gray-100 placeholder:text-gray-500 outline-none resize-none block">
+            </textarea>
+        </div>
+
+        <!-- Bottom Toolbar -->
+        <div class="flex items-center justify-between mt-3 px-2">
+            <!-- Left Actions -->
+            <div class="flex items-center space-x-2">
+                <button mat-icon-button class="text-gray-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center">
+                    <mat-icon class="icon-size-5">add</mat-icon>
+                </button>
+                <button class="text-gray-500 hover:text-gray-300 font-mono text-lg transition-colors w-8 h-8 flex items-center justify-center rounded-lg hover:bg-white/5">
+                    /
+                </button>
+            </div>
+
+            <!-- Right Actions -->
+            <div class="flex items-center space-x-3">
+                <button mat-icon-button class="text-gray-400 hover:text-white transition-colors w-8 h-8 flex items-center justify-center">
+                    <mat-icon class="icon-size-5">post_add</mat-icon>
+                </button>
+                
+                <!-- Color/Theme Picker Mock -->
+                <div class="flex items-center cursor-pointer hover:bg-white/10 rounded-full px-1.5 py-1 transition-colors">
+                    <div class="w-6 h-6 rounded-full border border-gray-600 overflow-hidden relative">
+                        <div class="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-400"></div>
+                        <div class="absolute inset-0 w-1/2 bg-white/20"></div>
+                        <div class="absolute bottom-0 w-full h-1/2 bg-black/40"></div>
+                    </div>
+                    <mat-icon class="icon-size-4 text-gray-400 ml-1">keyboard_arrow_down</mat-icon>
+                </div>
+
+                <!-- Model Selector -->
+                <div class="flex items-center bg-white/10 hover:bg-white/20 border border-white/5 rounded-full px-3 py-1.5 cursor-pointer transition-colors">
+                    <span class="text-sm font-medium text-gray-200">3.1 Pro</span>
+                    <mat-icon class="icon-size-4 text-gray-400 ml-1">keyboard_arrow_down</mat-icon>
+                </div>
+
+                <!-- AI/Mic -->
+                <button mat-icon-button class="text-gray-300 hover:text-white transition-colors w-8 h-8 flex items-center justify-center">
+                    <mat-icon class="icon-size-5" svgIcon="heroicons_outline:sparkles"></mat-icon>
+                </button>
+
+                <!-- Submit Button -->
+                <button class="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 border border-white/10 flex items-center justify-center text-gray-300 hover:text-white transition-colors ml-2">
+                    <mat-icon class="icon-size-4">arrow_upward</mat-icon>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
