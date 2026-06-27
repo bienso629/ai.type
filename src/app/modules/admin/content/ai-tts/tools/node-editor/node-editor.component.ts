@@ -85,13 +85,13 @@ export class NodeEditorComponent implements OnInit {
     buildGraphFromData(data: any) {
     this.nodes = [];
     this.connections = [];
-    let startX = 300;
+    let startX = 150;
     
     const compNode: NodeItem = {
       id: 'comp1', type: 'composition', title: 'Composition', subtitle: 'Final Output',
-      x: data.scenes.length * 450 + 300, y: 300, inputs: [], outputs: [],
+      x: data.scenes.length * 450 + 150, y: 300, inputs: [], outputs: [],
       data: { imageUrl: '' },
-      baseX: data.scenes.length * 450 + 300, baseY: 300
+      baseX: data.scenes.length * 450 + 150, baseY: 300
     };
 
     data.scenes.forEach((scene: any, index: number) => {
@@ -108,6 +108,7 @@ export class NodeEditorComponent implements OnInit {
       let imageUrl = scene.imageUrl;
       let videoUrl = null;
       let duration = scene.forcedDuration || 5;
+      let aspectRatio = data.ratio || data.aspectRatio || scene.ratio || scene.aspectRatio || '16:9';
       
       if (scene.videos && scene.videos.length > 0) {
         imageUrl = scene.videos[0].imageUrl || scene.videos[0].controlImageUrl || imageUrl;
@@ -129,7 +130,7 @@ export class NodeEditorComponent implements OnInit {
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: videoUrl ? 'Generated Video' : (imageUrl ? 'Source Image' : 'Empty'),
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
-        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl },
+        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio },
         baseX: sceneX, baseY: 150 + yOffset
       };
       
@@ -162,27 +163,27 @@ export class NodeEditorComponent implements OnInit {
     this.nodes = [
       {
         id: 'img1', type: 'image', title: 'Image', subtitle: 'Nano Banana Pro',
-        x: 300, y: 150, inputs: [], outputs: ['out'],
+        x: 150, y: 150, inputs: [], outputs: ['out'],
         data: { imageUrl: 'assets/images/placeholder.jpg', text: 'A speed boat on the coast line during the summer, cinematic, moody and colorful' },
-        baseX: 300, baseY: 150
+        baseX: 150, baseY: 150
       },
       {
         id: 'vid1', type: 'video', title: 'Video', subtitle: 'Veo 3.1',
-        x: 800, y: 100, inputs: ['in1'], outputs: ['out'],
-        data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame' },
-        baseX: 800, baseY: 100
+        x: 650, y: 100, inputs: ['in1'], outputs: ['out'],
+        data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame', aspectRatio: '16:9' },
+        baseX: 650, baseY: 100
       },
       {
         id: 'tts1', type: 'tts', title: 'Text to Speech', subtitle: 'Eleven v3',
-        x: 800, y: 400, inputs: [], outputs: ['out'],
+        x: 650, y: 400, inputs: [], outputs: ['out'],
         data: { text: 'Every sunset looks better from the water.', duration: '00:04' },
-        baseX: 800, baseY: 400
+        baseX: 650, baseY: 400
       },
       {
         id: 'comp1', type: 'composition', title: 'Composition', subtitle: '',
-        x: 1300, y: 200, inputs: ['vid_in', 'audio_in'], outputs: [],
+        x: 1150, y: 200, inputs: ['vid_in', 'audio_in'], outputs: [],
         data: { imageUrl: 'assets/images/placeholder.jpg' },
-        baseX: 1300, baseY: 200
+        baseX: 1150, baseY: 200
       }
     ];
 
