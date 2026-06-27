@@ -1544,15 +1544,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     videoProject.scenes.length > 0
                 ) {
                     // Kiểm tra xem dialog đã mở chưa (tránh mở nhiều cái trùng nhau)
-                    const isDialogOpen = this.dialog.openDialogs.some(
-                        (d) =>
-                            d.componentInstance instanceof
-                            VideoTimelineDialogComponent,
-                    );
-
-                    if (!isDialogOpen) {
-                        this.openTimelineDialog(videoProject);
-                    }
+                    this.openTimelineDialog(videoProject);
                 }
             } catch (e) {
                 console.error('Dữ liệu video cũ bị lỗi:', e);
@@ -1608,15 +1600,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.saveToLocal();
         }
 
-        this.dialog.open(VideoTimelineDialogComponent, {
-            width: '100vw',
-            height: '100vh',
-            maxWidth: '100vw',
-            maxHeight: '100vh',
-            data: data, // Truyền dữ liệu trực tiếp vào dialog
-            panelClass: 'custom-timeline-container', // Class để bạn style thêm nếu cần
-            autoFocus: false, // Tránh việc tự động nhảy focus làm cuộn timeline lung tung
-        });
+        this.router.navigate(['/voice2video', this.user?.name || 'anonymous', this.uuid, 'node']);
     }
 
     async exportMerge() {
