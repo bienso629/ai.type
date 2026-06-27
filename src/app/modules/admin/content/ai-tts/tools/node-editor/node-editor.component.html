@@ -1,4 +1,4 @@
-<div class="w-full h-full relative overflow-auto hide-scrollbar bg-gray-50" #workspace (mousedown)="onWorkspaceMouseDown($event)" (wheel)="onWheel($event)">
+<div class="w-full h-full relative overflow-auto hide-scrollbar bg-gray-50 select-none" #workspace (mousedown)="onWorkspaceMouseDown($event)" (wheel)="onWheel($event)">
     <!-- Huge canvas for native scrolling -->
     <div class="relative" style="width: 10000px; height: 5000px; min-width: 10000px; min-height: 5000px; background-image: radial-gradient(circle, #d1d5db 1px, transparent 1px); background-size: 20px 20px;">
         
@@ -25,12 +25,12 @@
                  [style.width.px]="280"
                  [style.z-index]="draggedNode === node ? 100 : 10"
                  (mousedown)="onNodeMouseDown($event, node)"
-                 [ngClass]="{'ring-2 ring-indigo-500': draggedNode === node}">
+                 [ngClass]="{'ring-1 ring-indigo-500': draggedNode === node}">
                 
                 <!-- Inner wrapper for clipping content but not ports -->
                 <div class="rounded-2xl overflow-hidden bg-white border border-gray-200 flex flex-col w-full h-full pointer-events-auto hover:border-indigo-400 transition-colors">
                 <!-- Node Header -->
-                <div class="px-4 py-3 flex items-center justify-between border-b-2 border-gray-100 bg-white">
+                <div class="px-4 py-3 flex items-center justify-between border-b border-gray-100 bg-white">
                     <div class="flex items-center space-x-2 text-gray-500">
                         <mat-icon class="icon-size-4" *ngIf="node.type === 'image'">image</mat-icon>
                         <mat-icon class="icon-size-4" *ngIf="node.type === 'video'">movie</mat-icon>
@@ -44,7 +44,7 @@
                 <!-- Node Content -->
                 <div class="p-4 flex flex-col space-y-3 bg-white">
                     <!-- Image / Video Preview -->
-                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full h-40 rounded-xl overflow-hidden bg-gray-100 border border-gray-200">
+                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full rounded-xl overflow-hidden bg-gray-100 border border-gray-200" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                         <img [src]="node.data.imageUrl" class="w-full h-full object-cover" *ngIf="node.data.imageUrl" />
                         <div *ngIf="!node.data.imageUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
                         <!-- Video Icon Overlay -->
@@ -80,14 +80,14 @@
 
                 <!-- Input Ports (Left) -->
                 <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.inputs.length > 0">
-                    <div *ngFor="let port of node.inputs" class="w-6 h-6 bg-indigo-100 border-2 border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 cursor-crosshair hover:bg-indigo-200 transition-colors">
+                    <div *ngFor="let port of node.inputs" class="w-6 h-6 bg-indigo-100 border border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 cursor-crosshair hover:bg-indigo-200 transition-colors">
                         <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
                     </div>
                 </div>
 
                 <!-- Output Ports (Right) -->
                 <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.outputs.length > 0">
-                    <div *ngFor="let port of node.outputs" class="w-6 h-6 bg-blue-100 border-2 border-blue-200 rounded-full flex items-center justify-center text-blue-500 cursor-crosshair hover:bg-blue-200 transition-colors">
+                    <div *ngFor="let port of node.outputs" class="w-6 h-6 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-500 cursor-crosshair hover:bg-blue-200 transition-colors">
                         <mat-icon class="icon-size-3">chevron_right</mat-icon>
                     </div>
                 </div>
