@@ -59,6 +59,9 @@ export class NodeEditorComponent implements OnInit {
   uuid: string | null = null;
   projectData: any = null;
 
+  canvasWidth = 2000;
+  canvasHeight = 1000;
+
   constructor(
     private route: ActivatedRoute,
     private router: Router,
@@ -89,13 +92,13 @@ export class NodeEditorComponent implements OnInit {
     
     const compNode: NodeItem = {
       id: 'comp1', type: 'composition', title: 'Composition', subtitle: 'Final Output',
-      x: data.scenes.length * 450 + 150, y: 300, inputs: [], outputs: [],
+      x: data.scenes.length * 400 + 150, y: 300, inputs: [], outputs: [],
       data: { imageUrl: '' },
-      baseX: data.scenes.length * 450 + 150, baseY: 300
+      baseX: data.scenes.length * 400 + 150, baseY: 300
     };
 
     data.scenes.forEach((scene: any, index: number) => {
-      const sceneX = startX + index * 450;
+      const sceneX = startX + index * 400;
       const yOffset = Math.floor(Math.random() * 100) - 50; // Random offset to make them not perfectly aligned
 
       
@@ -130,7 +133,7 @@ export class NodeEditorComponent implements OnInit {
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: videoUrl ? 'Generated Video' : (imageUrl ? 'Source Image' : 'Empty'),
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
-        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio },
+        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene },
         baseX: sceneX, baseY: 150 + yOffset
       };
       
@@ -157,6 +160,8 @@ export class NodeEditorComponent implements OnInit {
     if (compNode.inputs.length > 0) {
       this.nodes.push(compNode);
     }
+    
+    this.calculateCanvasSize();
   }
 
   buildFakeGraph() {
@@ -169,29 +174,44 @@ export class NodeEditorComponent implements OnInit {
       },
       {
         id: 'vid1', type: 'video', title: 'Video', subtitle: 'Veo 3.1',
-        x: 650, y: 100, inputs: ['in1'], outputs: ['out'],
-        data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame', aspectRatio: '16:9' },
-        baseX: 650, baseY: 100
+        x: 550, y: 100, inputs: ['in1'], outputs: ['out'],
+        data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame', aspectRatio: '16:9', sceneData: { characters: [{name: 'Nano Banana'}, {name: 'Captain'}], visualPrompt: 'Cinematic lighting, 8k resolution, highly detailed' } },
+        baseX: 550, baseY: 100
       },
       {
         id: 'tts1', type: 'tts', title: 'Text to Speech', subtitle: 'Eleven v3',
-        x: 650, y: 400, inputs: [], outputs: ['out'],
+        x: 550, y: 400, inputs: [], outputs: ['out'],
         data: { text: 'Every sunset looks better from the water.', duration: '00:04' },
-        baseX: 650, baseY: 400
+        baseX: 550, baseY: 400
       },
       {
         id: 'comp1', type: 'composition', title: 'Composition', subtitle: '',
-        x: 1150, y: 200, inputs: ['vid_in', 'audio_in'], outputs: [],
+        x: 950, y: 200, inputs: ['vid_in', 'audio_in'], outputs: [],
         data: { imageUrl: 'assets/images/placeholder.jpg' },
-        baseX: 1150, baseY: 200
+        baseX: 950, baseY: 200
       }
     ];
 
     this.connections = [
       { id: 'c1', fromNode: 'img1', fromPort: 'out', toNode: 'vid1', toPort: 'in1' },
-      { id: 'c5', fromNode: 'vid1', fromPort: 'out', toNode: 'comp1', toPort: 'vid_in' },
-      { id: 'c6', fromNode: 'tts1', fromPort: 'out', toNode: 'comp1', toPort: 'audio_in' }
+      { id: 'c2', fromNode: 'vid1', fromPort: 'out', toNode: 'comp1', toPort: 'vid_in' },
+      { id: 'c3', fromNode: 'tts1', fromPort: 'out', toNode: 'comp1', toPort: 'audio_in' }
     ];
+    
+    this.calculateCanvasSize();
+  }
+
+  calculateCanvasSize() {
+    let maxX = 0;
+    let maxY = 0;
+    this.nodes.forEach(n => {
+      if (n.x > maxX) maxX = n.x;
+      if (n.y > maxY) maxY = n.y;
+    });
+    // Add 280px for node width + 150px right margin
+    this.canvasWidth = Math.max(1200, maxX + 280 + 150);
+    // Add 300px for node height + 150px bottom margin
+    this.canvasHeight = Math.max(800, maxY + 300 + 150);
   }
 
   getConnectionPath(conn: NodeConnection): string {
@@ -262,7 +282,7 @@ export class NodeEditorComponent implements OnInit {
       let newX = this.nodeStartX + dx;
       let newY = this.nodeStartY + dy;
       
-      const maxRadius = 100; // Limited drag radius
+      const maxRadius = 50; // Limited drag radius
       if (this.draggedNode.baseX !== undefined && this.draggedNode.baseY !== undefined) {
          const dist = Math.sqrt(Math.pow(newX - this.draggedNode.baseX, 2) + Math.pow(newY - this.draggedNode.baseY, 2));
          if (dist > maxRadius) {
@@ -290,7 +310,8 @@ export class NodeEditorComponent implements OnInit {
         const zoomIntensity = 0.03;
         const delta = event.deltaY > 0 ? -zoomIntensity : zoomIntensity;
         let newScale = this.scale + delta;
-        newScale = Math.min(Math.max(0.1, newScale), 3); 
+        // Restrict zoom out to 0.5x (50%) and zoom in to 1.5x (150%)
+        newScale = Math.min(Math.max(0.5, newScale), 1.5); 
         this.scale = newScale;
     }
   }

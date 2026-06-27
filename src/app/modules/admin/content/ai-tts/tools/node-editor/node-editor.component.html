@@ -1,7 +1,11 @@
-<div class="w-full h-full relative overflow-auto hide-scrollbar bg-gray-50 select-none" #workspace (mousedown)="onWorkspaceMouseDown($event)" (wheel)="onWheel($event)">
+<div class="w-full h-full relative overflow-auto hide-scrollbar bg-gray-50 select-none" #workspace 
+     (mousedown)="onWorkspaceMouseDown($event)" 
+     (wheel)="onWheel($event)"
+     [style.background-image]="'radial-gradient(circle, #a1a1aa 1px, transparent 1px)'"
+     [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
+     style="background-attachment: local;">
     <!-- Huge canvas for native scrolling -->
-    <div class="relative" style="width: 10000px; height: 5000px; min-width: 10000px; min-height: 5000px; background-image: radial-gradient(circle, #d1d5db 1px, transparent 1px); background-size: 20px 20px;">
-        
+    <div class="relative" [style.width.px]="canvasWidth" [style.height.px]="canvasHeight" [style.minWidth.px]="canvasWidth" [style.minHeight.px]="canvasHeight">
         <!-- Zoom Layer -->
         <div class="absolute inset-0 origin-top-left" [style.transform]="'scale(' + scale + ')'">
             
@@ -99,23 +103,60 @@
 
 <!-- Docked Global Prompt Editor (Fixed at bottom of viewport) -->
 <div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
-    <div class="w-full max-w-4xl flex flex-col space-y-2 pointer-events-auto">
-        <div class="flex items-center justify-between px-2">
-            <span class="text-sm font-semibold text-gray-700 uppercase tracking-wider flex items-center space-x-2">
-                <mat-icon class="icon-size-4 text-indigo-600">edit_note</mat-icon>
-                <span *ngIf="selectedNode && selectedNode.type === 'video'">Chi tiết Prompt - {{ selectedNode.title }}</span>
-                <span *ngIf="!selectedNode || selectedNode.type !== 'video'">Chi tiết Prompt</span>
-            </span>
+    <div class="w-full max-w-6xl flex items-end space-x-4 pointer-events-auto">
+        <!-- Left Side Menu: Scene Data Details -->
+        <div *ngIf="selectedNode && selectedNode.type === 'video'" class="w-72 bg-white border border-gray-300 rounded-2xl p-4 flex flex-col space-y-4 max-h-[300px] overflow-y-auto hide-scrollbar shrink-0">
+            <div class="flex items-center space-x-2 pb-2 border-b border-gray-100">
+                <mat-icon class="icon-size-4 text-indigo-500">info</mat-icon>
+                <span class="text-sm font-semibold text-gray-700">Dữ liệu phân cảnh</span>
+            </div>
+            
+            <!-- Context Image -->
+            <div *ngIf="selectedNode.data?.sceneData?.imageUrl || selectedNode.data?.imageUrl" class="w-full">
+                <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Hình ảnh bối cảnh</span>
+                <div class="w-full rounded-xl overflow-hidden border border-gray-200" [ngStyle]="{'aspect-ratio': selectedNode.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                    <img [src]="selectedNode.data?.sceneData?.imageUrl || selectedNode.data?.imageUrl" class="w-full h-full object-cover" />
+                </div>
+            </div>
+
+            <!-- Characters -->
+            <div *ngIf="selectedNode.data?.sceneData?.characters?.length > 0">
+                <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Nhân vật</span>
+                <div class="flex flex-wrap gap-1.5">
+                    <span *ngFor="let char of selectedNode.data.sceneData.characters" class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium border border-indigo-100">
+                        {{ char.name || char }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Visual Prompt -->
+            <div *ngIf="selectedNode.data?.sceneData?.visualPrompt">
+                <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Lệnh Visual (Bối cảnh)</span>
+                <div class="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 leading-relaxed">
+                    {{ selectedNode.data.sceneData.visualPrompt }}
+                </div>
+            </div>
         </div>
-        <textarea
-            cdkTextareaAutosize
-            cdkAutosizeMinRows="1"
-            cdkAutosizeMaxRows="8"
-            [ngModel]="selectedNode?.type === 'video' ? selectedNode?.data?.text : ''"
-            (ngModelChange)="updatePrompt($event)"
-            [disabled]="!selectedNode || selectedNode.type !== 'video'"
-            [placeholder]="selectedNode && selectedNode.type === 'video' ? 'Nhập chi tiết prompt cho phân cảnh này...' : 'Chọn một phân cảnh (Scene) để bắt đầu nhập prompt...'"
-            class="w-full bg-white border border-gray-300 rounded-2xl p-4 text-[15px] leading-relaxed text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-none hover:bg-gray-50/50 block disabled:opacity-80 disabled:bg-gray-50 disabled:cursor-not-allowed">
-        </textarea>
+
+        <!-- Main Prompt Editor -->
+        <div class="flex-1 flex flex-col space-y-2">
+            <div class="flex items-center justify-between px-2">
+                <span class="text-sm font-semibold text-gray-700 uppercase tracking-wider flex items-center space-x-2">
+                    <mat-icon class="icon-size-4 text-indigo-600">edit_note</mat-icon>
+                    <span *ngIf="selectedNode && selectedNode.type === 'video'">Chi tiết Prompt - {{ selectedNode.title }}</span>
+                    <span *ngIf="!selectedNode || selectedNode.type !== 'video'">Chi tiết Prompt</span>
+                </span>
+            </div>
+            <textarea
+                cdkTextareaAutosize
+                cdkAutosizeMinRows="1"
+                cdkAutosizeMaxRows="8"
+                [ngModel]="selectedNode?.type === 'video' ? selectedNode?.data?.text : ''"
+                (ngModelChange)="updatePrompt($event)"
+                [disabled]="!selectedNode || selectedNode.type !== 'video'"
+                [placeholder]="selectedNode && selectedNode.type === 'video' ? 'Nhập chi tiết prompt cho phân cảnh này...' : 'Chọn một phân cảnh (Scene) để bắt đầu nhập prompt...'"
+                class="w-full bg-white border border-gray-300 rounded-2xl p-4 text-[15px] leading-relaxed text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-none hover:bg-gray-50/50 block disabled:opacity-80 disabled:bg-gray-50 disabled:cursor-not-allowed">
+            </textarea>
+        </div>
     </div>
 </div>
