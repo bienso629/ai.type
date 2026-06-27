@@ -4,19 +4,20 @@ import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { LogService } from "app/modules/_services/link";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
+import { TranslocoService } from "@ngneat/transloco";
 
 @Component({
     selector: 'chatgpt-paste-dialog',
     template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
         <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:link'"></mat-icon>
-        <mat-label class="self-center">Chỉnh sửa</mat-label>
+        <mat-label class="self-center">{{ 'app.edit' | transloco }}</mat-label>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
         <form [formGroup]="editForm">
             <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Title</mat-label>
-                <input [formControlName]="'title'" placeholder="Bạn muốn ghi chú gì cho title?" type="text" required matInput>
+                <mat-label>{{ 'app.title' | transloco }}</mat-label>
+                <input [formControlName]="'title'" placeholder="{{ 'app.what_do_you_want_to_note_for_title' | transloco }}" type="text" required matInput>
 
                 <!-- <button mat-icon-button type="button" matSuffix>
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:clipboard'"></mat-icon>
@@ -24,8 +25,8 @@ import { Subject, takeUntil } from "rxjs";
             </mat-form-field>
 
             <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                <mat-label>Link</mat-label>
-                <input [formControlName]="'link'" placeholder="Gắn link của bạn tại đây" type="text" required matInput>
+                <mat-label>{{ 'app.link' | transloco }}</mat-label>
+                <input [formControlName]="'link'" placeholder="{{ 'app.attach_your_link_here' | transloco }}" type="text" required matInput>
 
                 <!-- <button mat-icon-button type="button" matSuffix>
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:clipboard'"></mat-icon>
@@ -36,9 +37,9 @@ import { Subject, takeUntil } from "rxjs";
 
     <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
     <button mat-flat-button (click)="save()" color="primary" class="">
-            Sửa link
+            {{ 'app.edit_link' | transloco }}
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
+    <button mat-flat-button (click)="onNoClick()" color="medium" class="">{{ 'app.close_window' | transloco }}</button>
 </div>`,
 })
 export class EditDialog implements OnInit, OnDestroy {
@@ -51,6 +52,7 @@ export class EditDialog implements OnInit, OnDestroy {
         public dialogRef: MatDialogRef<EditDialog>,
         private toastr: ToastrService,
         private _logService: LogService,
+        private translocoService: TranslocoService,
         @Inject(MAT_DIALOG_DATA) public data: EditDialog
     ) { }
 
@@ -88,11 +90,11 @@ export class EditDialog implements OnInit, OnDestroy {
                             this.data['item']['link'] = this.editForm.get('link').value;
 
                             this.onNoClick();
-                            this.toastr.success('Cập nhật xong!');
+                            this.toastr.success(this.translocoService.translate('app.update_completed'));
                         }
                     },
                     error: (e: any) => {
-                        this.toastr.error(`Không thể chỉnh sửa.`);
+                        this.toastr.error(this.translocoService.translate('app.cannot_edit'));
                     },
                     complete: () => { }
                 });

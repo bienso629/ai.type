@@ -21,7 +21,7 @@
                             <div class="flex items-center ml-1 whitespace-nowrap">
                                 <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                                     [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                                <span class="ml-1 text-base text-secondary">kiểm tra & đề xuất cho SEO</span>
+                                <span class="ml-1 text-base text-secondary">{{ 'app.seo_check_and_suggestions' | transloco }}</span>
                             </div>
                         </div>
                         <div class="flex sm:hidden">
@@ -29,7 +29,7 @@
                                 [routerLink]="'./..'">
                                 <mat-icon class="icon-size-4 text-secondary"
                                     [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                                <span class="ml-1 text-base">quay lại</span>
+                                <span class="ml-1 text-base">{{ 'app.back' | transloco }}</span>
                             </a>
                         </div>
                     </div>
@@ -43,8 +43,8 @@
                         <div class="flex flex-col mt-2">
                             <mat-form-field class="w-full mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Link</mat-label>
-                                <input [formControlName]="'url'" [placeholder]="'Nhập link cần lưu trữ'" matInput
+                                <mat-label>{{ 'app.link' | transloco }}</mat-label>
+                                <input [formControlName]="'url'" [placeholder]="'app.enter_link_to_save' | transloco" matInput
                                     required />
                                 <mat-hint>{{ 'app.use_http_or_https' | transloco }}</mat-hint>
                             </mat-form-field>
@@ -53,13 +53,13 @@
                         <div class="flex flex-col">
                             <button mat-flat-button [color]="'primary'" type="button" (click)="add();" matSuffix>
                                 <mat-icon class="icon-size-5" [svgIcon]="'mat_outline:bookmark_added'"></mat-icon>
-                                <mat-label class="ml-2">Kiểm tra SEO</mat-label>
+                                <mat-label class="ml-2">{{ 'app.check_seo' | transloco }}</mat-label>
                             </button>
                         </div>
                     </form>
 
                     <div class="p-2 mt-6 border-t border-gray-100 dark:border-gray-700">
-                        <mat-label class="text-sm font-medium mt-6 mb-4">Hướng dẫn sử dụng</mat-label>
+                        <mat-label class="text-sm font-medium mt-6 mb-4">{{ 'app.user_guide' | transloco }}</mat-label>
                         <div class="text-sm text-gray-500">
                             <p>{{ 'app.use_ai_to_check' | transloco }}</p>
                             <p>{{ 'app.seo_analysis_and_insights' | transloco }}</p>
@@ -95,21 +95,21 @@
                                     </ng-template>
 
                                     <ng-template ng-tag-tmp let-search="searchTerm">
-                                        <mat-label class="text-base">Enter để tạo mới tập <b>{{search}}</b> và
-                                            {{selected.length}} link(s) đã chọn</mat-label>
+                                        <mat-label class="text-base">{{ 'app.enter_to_create_new_collection' | transloco }} <b>{{search}}</b> {{ 'app.and' | transloco }}
+                                            {{selected.length}} link(s) {{ 'app.selected' | transloco }}</mat-label>
                                     </ng-template>
                                 </ng-select>
 
                                 <button mat-flat-button class="ml-2" [color]="'primary'"
                                     (click)="updateLinkCollection()">
                                     <mat-icon class="icon-size-4" [svgIcon]="'feather:check-square'"></mat-icon>
-                                    <span class="ml-2 text-base">Cập nhật lại sưu tập</span>
+                                    <span class="ml-2 text-base">{{ 'app.update_collection' | transloco }}</span>
                                 </button>
                             </div>
                         </ng-container>
 
                         <ng-container *ngIf="selected.length === 0">
-                            <span class="text-sm">Tổng {{rows.length}} links</span>
+                            <span class="text-sm">{{ 'app.total_links' | transloco: { count: rows.length } }}</span>
                         </ng-container>
                     </div>
 
@@ -126,7 +126,7 @@
                             <mat-form-field
                                 class="px-2 w-full field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"
                                 appearance="fill">
-                                <input matInput (keyup.enter)="searchLink($event)" [placeholder]="'Tìm kiếm'"
+                                <input matInput (keyup.enter)="searchLink($event)" [placeholder]="'app.search' | transloco"
                                     (click)="$event.stopPropagation()">
                                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
                             </mat-form-field>
@@ -150,18 +150,18 @@
 
                         <!-- Column Templates -->
                         <ngx-datatable-column [sortable]="false" [canAutoResize]="false" [draggable]="false"
-                            [resizeable]="false" name="Tiêu đề" [width]="400">
+                            [resizeable]="false" name="{{ 'app.title' | transloco }}" [width]="400">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <div *ngIf="row" class="flex items-center justify-self-stretch">
                                     <mat-label class="">
-                                        {{row.title || 'Chưa có tiêu đề'}}
+                                        {{row.title || ('app.no_title' | transloco)}}
                                     </mat-label>
                                 </div>
                             </ng-template>
                         </ngx-datatable-column>
 
                         <!-- Column Templates -->
-                        <ngx-datatable-column name="Link hay" [sortable]="false" [canAutoResize]="true"
+                        <ngx-datatable-column name="{{ 'app.good_link' | transloco }}" [sortable]="false" [canAutoResize]="true"
                             [draggable]="false" [resizeable]="true">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <p *ngIf="row" class="truncate hover:text-clip flex items-center justify-self-stretch">
@@ -178,13 +178,13 @@
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <ng-container *ngIf="row">
                                     <a mat-icon-button class="mr-0" (click)="edit(row)" matTooltipPosition="left"
-                                        [matTooltip]="'Chỉnh sửa'">
+                                        [matTooltip]="'app.edit' | transloco">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'feather:edit-3'"></mat-icon>
                                     </a>
 
                                     <button mat-icon-button class="mr-0" (click)="checkseo(row)"
-                                        matTooltipPosition="left" [matTooltip]="'Kiểm tra SEO ' + row.link"
+                                        matTooltipPosition="left" [matTooltip]="('app.check_seo' | transloco) + ' ' + row.link"
                                         [disabled]="row['loadding'] || ai.isLoadingFor(row._id)">
                                         <mat-progress-spinner *ngIf="ai.isLoadingFor(row._id)" [diameter]="16"
                                             [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>

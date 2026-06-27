@@ -24,15 +24,15 @@ import { EditDialog } from 'app/modules/admin/marketing/seo-links/dialogs/edit-d
     selector: 'app-dialog-content',
     template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
         <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:twitch'"></mat-icon>
-        <mat-label class="self-center">Kết quả đánh giá SEO của {{data.link}}</mat-label>
+        <mat-label class="self-center">{{ 'app.seo_evaluation_results_of' | transloco: { link: data.link } }}</mat-label>
     </div>
 
     <div id="pdf-content" mat-dialog-content class="mt-4 p-0 ket-qua-seo bg-white" [innerHTML]="data.html"></div>
 
     <div mat-dialog-actions class="p-0 mt-4 flex justify-between w-full">
-        <button mat-flat-button color="medium" (click)="close()" class="ml-0">Đóng cửa sổ</button>
+        <button mat-flat-button color="medium" (click)="close()" class="ml-0">{{ 'app.close_window' | transloco }}</button>
         <button mat-flat-button color="primary" (click)="exportPDF()" [disabled]="isExporting">
-            {{ isExporting ? 'Đang xử lý...' : 'Xuất PDF' }}
+            {{ isExporting ? ('app.processing' | transloco) : ('app.export_pdf' | transloco) }}
         </button>
     </div>`
 })

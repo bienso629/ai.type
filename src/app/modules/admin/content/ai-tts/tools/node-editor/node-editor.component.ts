@@ -5,6 +5,12 @@ import { ActivatedRoute, Router, RouterModule } from '@angular/router';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule } from '@angular/forms';
+import { MatButtonModule } from '@angular/material/button';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
+import { AddSceneComponent } from '../add-scene.component';
+import { DirectorModeComponent } from '../director-mode.component';
+import { CharacterDialogComponent } from '../character-dialog.component';
 
 interface NodeItem {
   id: string;
@@ -31,7 +37,7 @@ interface NodeConnection {
 @Component({
   selector: 'app-node-editor',
   standalone: true,
-  imports: [CommonModule, MatIconModule, RouterModule, TextFieldModule, FormsModule],
+  imports: [CommonModule, MatIconModule, RouterModule, TextFieldModule, FormsModule, MatButtonModule, MatDialogModule, MatMenuModule],
   templateUrl: './node-editor.component.html',
   styleUrls: ['./node-editor.component.scss'],
   host: {
@@ -59,6 +65,26 @@ export class NodeEditorComponent implements OnInit {
   uuid: string | null = null;
   projectData: any = null;
 
+  get activeCharacters(): any[] {
+    if (!this.selectedNode || !this.projectData?.characters?.length) return [];
+    
+    const prompt = this.selectedNode.data?.sceneData?.prompt || 
+                   this.selectedNode.data?.sceneData?.visualPrompt || 
+                   this.selectedNode.data?.sceneData?.imagePrompt || 
+                   this.selectedNode.data?.text || '';
+                   
+    if (!prompt) return [];
+    
+    const lowerPrompt = prompt.toLowerCase();
+    const matched = [];
+    for (const char of this.projectData.characters) {
+      if (lowerPrompt.includes(char.name.toLowerCase())) {
+        matched.push(char);
+      }
+    }
+    return matched;
+  }
+
   expandedCharIndex: number | null = null;
 
   canvasWidth = 2000;
@@ -67,7 +93,8 @@ export class NodeEditorComponent implements OnInit {
   constructor(
     private route: ActivatedRoute,
     private router: Router,
-    private multiAccountService: MultiAccountService
+    private multiAccountService: MultiAccountService,
+    private dialog: MatDialog
   ) { }
 
   ngOnInit(): void {
@@ -135,7 +162,7 @@ export class NodeEditorComponent implements OnInit {
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: videoUrl ? 'Generated Video' : (imageUrl ? 'Source Image' : 'Empty'),
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
-        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters },
+        data: { imageUrl: imageUrl, videoUrl: videoUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters },
         baseX: sceneX, baseY: 150 + yOffset
       };
       
@@ -221,19 +248,15 @@ export class NodeEditorComponent implements OnInit {
     const to = this.nodes.find(n => n.id === conn.toNode);
     if (!from || !to) return '';
 
-    let fromHeight = from.type === 'tts' ? 130 : 240;
-    let fromWidth = 280;
+    let fromHeight = from.type === 'tts' ? 130 : 250;
     const fromEl = document.getElementById(from.id);
-    if (fromEl) {
-      fromHeight = fromEl.offsetHeight;
-      fromWidth = fromEl.offsetWidth;
-    }
+    if (fromEl) fromHeight = fromEl.offsetHeight;
+
+    let fromWidth = 280;
     
-    let toHeight = to.type === 'tts' ? 130 : 240;
+    let toHeight = to.type === 'tts' ? 130 : 250;
     const toEl = document.getElementById(to.id);
-    if (toEl) {
-      toHeight = toEl.offsetHeight;
-    }
+    if (toEl) toHeight = toEl.offsetHeight;
 
     const fromX = from.x + fromWidth; 
     const fromY = from.y + (fromHeight / 2); 
@@ -255,20 +278,98 @@ export class NodeEditorComponent implements OnInit {
   }
 
   onWorkspaceMouseDown(event: MouseEvent) {
-    if (event.target === this.workspace.nativeElement || (event.target as HTMLElement).tagName === 'svg' || (event.target as HTMLElement).classList.contains('bg-gray-50')) {
-      this.isPanning = true;
-      this.selectedNode = null;
-      this.startX = event.clientX;
-      this.startY = event.clientY;
-      this.startScrollLeft = this.workspace.nativeElement.scrollLeft;
-      this.startScrollTop = this.workspace.nativeElement.scrollTop;
+    const target = event.target as HTMLElement;
+    if (target.closest('.cursor-move') || target.closest('.fixed.bottom-12')) {
+      return;
     }
+    this.isPanning = true;
+    this.selectedNode = null;
+    this.startX = event.clientX;
+    this.startY = event.clientY;
+    this.startScrollLeft = this.workspace.nativeElement.scrollLeft;
+    this.startScrollTop = this.workspace.nativeElement.scrollTop;
+  }
+
+  saveProject() {
+    if (!this.uuid || !this.projectData) return;
+    const storageKey = `ai_type_video_ready_data_${this.uuid}`;
+    this.multiAccountService.setItem(storageKey, this.projectData);
   }
 
   updatePrompt(text: string) {
-    if (this.selectedNode && this.selectedNode.type === 'video') {
-      this.selectedNode.data.text = text;
+    if (this.selectedNode) {
+      if (this.selectedNode.data?.sceneData) {
+        if (this.selectedNode.data.sceneData.prompt !== undefined) {
+          this.selectedNode.data.sceneData.prompt = text;
+        } else if (this.selectedNode.data.sceneData.visualPrompt !== undefined) {
+          this.selectedNode.data.sceneData.visualPrompt = text;
+        } else if (this.selectedNode.data.sceneData.imagePrompt !== undefined) {
+          this.selectedNode.data.sceneData.imagePrompt = text;
+        } else {
+          this.selectedNode.data.sceneData.prompt = text;
+        }
+      } else {
+        if (!this.selectedNode.data) this.selectedNode.data = {};
+        this.selectedNode.data.text = text;
+      }
+      this.saveProject();
     }
+  }
+
+  addSceneNode() {
+    const dialogRef = this.dialog.open(AddSceneComponent, {
+      width: '650px',
+      maxWidth: '95vw',
+      maxHeight: '95vh',
+      disableClose: true,
+      data: {
+        selectedClip: null,
+        prompt: '',
+        characters: this.projectData?.characters || [],
+        masterPrompt: this.projectData?.masterPrompt || '',
+        availableClips: []
+      },
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result && result.selectedClip && result.prompt) {
+        const clip = result.selectedClip;
+        const newId = `scene_${Date.now()}`;
+        
+        const newNode: NodeItem = {
+          id: newId,
+          type: 'video',
+          title: 'Scene Mới',
+          subtitle: 'Video',
+          x: 150,
+          y: 150,
+          inputs: ['in1'],
+          outputs: ['out'],
+          data: {
+            text: clip.description,
+            sceneData: { 
+              prompt: result.prompt,
+              script: clip.description
+            },
+            projectCharacters: this.projectData?.characters || []
+          },
+          baseX: 150,
+          baseY: 150
+        };
+
+        if (this.nodes.length > 0) {
+          const lastNode = this.nodes[this.nodes.length - 1];
+          newNode.x = lastNode.x + 350;
+          newNode.y = lastNode.y;
+          newNode.baseX = newNode.x;
+          newNode.baseY = newNode.y;
+        }
+
+        this.nodes.push(newNode);
+        this.selectedNode = newNode;
+        this.calculateCanvasSize();
+      }
+    });
   }
 
   toggleCharacter(index: number) {
@@ -276,6 +377,73 @@ export class NodeEditorComponent implements OnInit {
       this.expandedCharIndex = null;
     } else {
       this.expandedCharIndex = index;
+    }
+  }
+
+  openAddCharacter() {
+    const dialogRef = this.dialog.open(CharacterDialogComponent, {
+      width: '800px',
+      maxWidth: '95vw',
+      maxHeight: '95vh',
+      disableClose: true,
+      data: {
+        char: null,
+        index: -1,
+        projectUuid: this.uuid
+      }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+      if (result) {
+        if (!this.projectData) this.projectData = {};
+        if (!this.projectData.characters) this.projectData.characters = [];
+        this.projectData.characters.push(result);
+        this.saveProject();
+      }
+    });
+  }
+
+  onPromptBlur() {
+    const chars = this.activeCharacters;
+    for (const char of chars) {
+      this.insertCharacterToPrompt(char);
+    }
+    this.saveProject();
+  }
+
+  insertCharacterToPrompt(char: any) {
+    if (!this.selectedNode) return;
+
+    let charDesc = char.prompt || char.appearance || '';
+    const masterPrompt = this.projectData?.masterPrompt || '';
+    if (masterPrompt && charDesc.startsWith(masterPrompt.trim())) {
+      charDesc = charDesc.substring(masterPrompt.trim().length).trim();
+    }
+    if (!charDesc) {
+      charDesc = `Portrait of ${char.name}`;
+    }
+
+    const charTag = `[Character '${char.name}': ${charDesc}]`;
+    const sd = this.selectedNode.data?.sceneData;
+
+    if (sd) {
+      if (sd.prompt !== undefined) {
+        if (!sd.prompt.includes(`[Character '${char.name}'`)) {
+          sd.prompt = sd.prompt ? `${sd.prompt}\n\n${charTag}` : charTag;
+        }
+      } else if (sd.imagePrompt !== undefined) {
+        if (!sd.imagePrompt.includes(`[Character '${char.name}'`)) {
+          sd.imagePrompt = sd.imagePrompt ? `${sd.imagePrompt}\n\n${charTag}` : charTag;
+        }
+      } else {
+        sd.prompt = charTag;
+      }
+    } else {
+      if (!this.selectedNode.data) this.selectedNode.data = {};
+      const currentText = this.selectedNode.data.text || '';
+      if (!currentText.includes(`[Character '${char.name}'`)) {
+        this.selectedNode.data.text = currentText ? `${currentText}\n\n${charTag}` : charTag;
+      }
     }
   }
 
@@ -313,6 +481,64 @@ export class NodeEditorComponent implements OnInit {
     this.draggedNode = null;
   }
 
+  openDirectorMode(event?: Event) {
+    if (event) {
+        event.stopPropagation();
+        event.preventDefault();
+    }
+    
+    let promptText = '';
+    let target = '';
+    let aspectRatio = '16:9';
+
+    if (this.selectedNode) {
+        promptText = this.selectedNode.data?.sceneData?.prompt || this.selectedNode.data?.sceneData?.visualPrompt || this.selectedNode.data?.sceneData?.imagePrompt || this.selectedNode.data?.text || '';
+        target = 'Apply to Scene';
+        aspectRatio = this.selectedNode.data?.aspectRatio || '16:9';
+    } else if (this.projectData) {
+        promptText = this.projectData.masterPrompt || '';
+        target = 'Apply to Master Prompt';
+        aspectRatio = this.projectData.aspectRatio || '16:9';
+    } else {
+        return; // nothing to edit
+    }
+
+    const dialogRef = this.dialog.open(DirectorModeComponent, {
+      width: '650px',
+      maxWidth: '95vw',
+      maxHeight: '95vh',
+      panelClass: 'dark-theme-dialog',
+      data: {
+        prompt: promptText,
+        targetName: target,
+        globalContext: this.projectData?.globalContext || null,
+        aspectRatio: aspectRatio
+      }
+    });
+
+    dialogRef.afterClosed().subscribe((result) => {
+      if (result && result.prompt !== undefined) {
+        let currentPrompt = promptText;
+        currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+
+        if (result.prompt) {
+          if (currentPrompt) {
+            currentPrompt = '[Cinematography: ' + result.prompt + ']\n\n' + currentPrompt;
+          } else {
+            currentPrompt = '[Cinematography: ' + result.prompt + ']';
+          }
+        }
+        
+        if (this.selectedNode) {
+            this.updatePrompt(currentPrompt);
+        } else if (this.projectData) {
+            this.projectData.masterPrompt = currentPrompt;
+            this.saveProject();
+        }
+      }
+    });
+  }
+
   onWheel(event: WheelEvent) {
     // Only zoom if ctrl is pressed, otherwise native scroll works!
     if (event.ctrlKey || event.metaKey) {
@@ -329,7 +555,16 @@ export class NodeEditorComponent implements OnInit {
   onNodeMouseDown(event: MouseEvent, node: NodeItem) {
     event.stopPropagation();
     this.draggedNode = node;
+    const isNewSelection = this.selectedNode !== node;
+    if (isNewSelection) {
+      this.expandedCharIndex = null;
+    }
     this.selectedNode = node;
+    
+    // Auto-inject character details when a new scene is selected
+    if (isNewSelection) {
+      this.onPromptBlur();
+    }
     this.startX = event.clientX;
     this.startY = event.clientY;
     this.nodeStartX = node.x;

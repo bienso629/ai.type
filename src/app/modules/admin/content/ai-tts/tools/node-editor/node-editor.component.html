@@ -1,4 +1,4 @@
-<div class="w-full h-full relative overflow-auto hide-scrollbar bg-gray-50 select-none" #workspace 
+<div class="w-full h-full relative overflow-auto bg-gray-50 select-none" #workspace 
      (mousedown)="onWorkspaceMouseDown($event)" 
      (wheel)="onWheel($event)"
      [style.background-image]="'radial-gradient(circle, #a1a1aa 1px, transparent 1px)'"
@@ -48,13 +48,26 @@
                 <!-- Node Content -->
                 <div class="p-4 flex flex-col space-y-3 bg-white">
                     <!-- Image / Video Preview -->
-                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full rounded-xl overflow-hidden bg-gray-100 border border-gray-200" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
-                        <img [src]="node.data.imageUrl" class="w-full h-full object-cover" *ngIf="node.data.imageUrl" />
-                        <div *ngIf="!node.data.imageUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
-                        <!-- Video Icon Overlay -->
-                        <div *ngIf="node.type === 'video' && node.data.isVideo" class="absolute inset-0 flex items-center justify-center">
-                            <div class="w-10 h-10 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center">
-                                <mat-icon class="text-white">play_arrow</mat-icon>
+                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full rounded-xl overflow-hidden bg-gray-100 group" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                        <!-- Video Element -->
+                        <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null" preload="metadata" playsinline class="w-full h-full object-cover"></video>
+                        
+                        <!-- Image Fallback -->
+                        <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="node.data.imageUrl" class="w-full h-full object-cover pointer-events-none" />
+                        
+                        <!-- Empty State -->
+                        <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
+                        
+                        <!-- Play/Pause Overlay -->
+                        <div *ngIf="node.data.isVideo && (node.data.videoUrl || node.data.imageUrl)" 
+                             class="absolute inset-0 flex items-center justify-center cursor-pointer transition-colors"
+                             [ngClass]="{'bg-black/10 hover:bg-black/20': videoEl.paused, 'hover:bg-black/20': !videoEl.paused}"
+                             (click)="videoEl.paused ? videoEl.play() : videoEl.pause(); $event.stopPropagation()">
+                             
+                            <div class="w-12 h-12 bg-white/30 backdrop-blur-sm rounded-full flex items-center justify-center transition-all hover:bg-white/40"
+                                 [ngClass]="{'opacity-100': videoEl.paused, 'opacity-0 group-hover:opacity-100': !videoEl.paused}">
+                                <mat-icon class="text-white ml-1" *ngIf="videoEl.paused">play_arrow</mat-icon>
+                                <mat-icon class="text-white" *ngIf="!videoEl.paused">pause</mat-icon>
                             </div>
                         </div>
                     </div>
@@ -92,7 +105,7 @@
                 <!-- Output Ports (Right) -->
                 <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.outputs.length > 0">
                     <div *ngFor="let port of node.outputs" class="w-6 h-6 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-500 cursor-crosshair hover:bg-blue-200 transition-colors">
-                        <mat-icon class="icon-size-3">chevron_right</mat-icon>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
                     </div>
                 </div>
                 
@@ -103,88 +116,131 @@
 
 <!-- Docked Global Prompt Editor (Fixed at bottom of viewport) -->
 <div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
-    <div class="w-full max-w-5xl flex bg-white/95 backdrop-blur-md border border-gray-300 rounded-2xl p-4 pointer-events-auto">
+    
+    <!-- Light Theme Prompt Bar -->
+    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-[28px] p-3 pointer-events-auto transition-all">
         
-        <!-- Left Side Menu: Scene Data Details -->
-        <div *ngIf="selectedNode && selectedNode.type === 'video'" class="w-72 pr-6 mr-6 border-r border-gray-200 flex flex-col space-y-4 max-h-[280px] overflow-y-auto hide-scrollbar shrink-0">
-            <div class="flex items-center space-x-2 pb-2 border-b border-gray-100">
-                <mat-icon class="icon-size-4 text-indigo-500">info</mat-icon>
-                <span class="text-sm font-semibold text-gray-700">Dữ liệu phân cảnh</span>
-            </div>
-            
-            <!-- Context Image -->
-            <div *ngIf="selectedNode.data?.sceneData?.imageUrl || selectedNode.data?.imageUrl" class="w-full">
-                <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Hình ảnh bối cảnh</span>
-                <div class="w-full rounded-xl overflow-hidden border border-gray-200" [ngStyle]="{'aspect-ratio': selectedNode.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
-                    <img [src]="selectedNode.data?.sceneData?.imageUrl || selectedNode.data?.imageUrl" class="w-full h-full object-cover" />
+        <!-- Top Context Chips -->
+        <div class="flex items-center flex-wrap gap-2 mb-3 px-2">
+            <!-- Scene Chip (only if no characters) -->
+            <div *ngIf="!selectedNode?.data?.projectCharacters?.length && selectedNode" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
+                <div class="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center mr-2">
+                    <mat-icon *ngIf="selectedNode?.type === 'image'" class="icon-size-4 text-gray-800">image</mat-icon>
+                    <mat-icon *ngIf="selectedNode?.type === 'video'" class="icon-size-4 text-gray-800">movie</mat-icon>
+                    <mat-icon *ngIf="selectedNode?.type === 'tts'" class="icon-size-4 text-gray-800">mic</mat-icon>
+                    <mat-icon *ngIf="!selectedNode?.type" class="icon-size-4 text-gray-800">explore</mat-icon>
                 </div>
-            </div>
-
-            <!-- Characters -->
-            <div *ngIf="selectedNode.data?.projectCharacters?.length > 0">
-                <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Nhân vật</span>
-                <div class="flex flex-col space-y-2">
-                    <div *ngFor="let char of selectedNode.data.projectCharacters; let i = index" class="border border-gray-200 rounded-xl bg-white overflow-hidden transition-all shadow-sm">
-                        
-                        <!-- Header / Row -->
-                        <div class="flex items-center p-2 cursor-pointer hover:bg-gray-50 transition-colors" (click)="toggleCharacter(i)">
-                            <div class="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 mr-3 border border-gray-200 flex items-center justify-center">
-                                <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)" 
-                                     [src]="char.avatarUrl || char.avatarUrls[0]" 
-                                     class="w-full h-full object-cover">
-                                <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)" 
-                                          class="text-gray-400 m-auto mt-2 text-2xl w-6 h-6 leading-none">person</mat-icon>
-                            </div>
-                            <div class="flex-1 min-w-0">
-                                <div class="text-sm font-semibold text-gray-800 truncate">{{ char.name || char.role }}</div>
-                            </div>
-                            <mat-icon class="icon-size-4 text-gray-400 transition-transform" [class.rotate-180]="expandedCharIndex === i">
-                                expand_more
-                            </mat-icon>
-                        </div>
-
-                        <!-- Expanded Prompt Area -->
-                        <div *ngIf="expandedCharIndex === i" class="p-3 border-t border-gray-100 bg-gray-50">
-                            <div class="text-xs text-gray-600 mb-3 leading-relaxed">
-                                {{ char.prompt || char.appearance }}
-                            </div>
-                            <button class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center space-x-1.5 transition-colors">
-                                <mat-icon class="icon-size-4">send</mat-icon>
-                                <span class="text-xs font-semibold">Tạo hình nhân vật</span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
+                <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">
+                    {{ selectedNode?.title }}
+                </span>
+                <mat-icon class="icon-size-4 text-gray-400 ml-2 hover:text-gray-800 transition-colors">close</mat-icon>
             </div>
 
-            <!-- Visual Prompt -->
-            <div *ngIf="selectedNode.data?.sceneData?.visualPrompt || selectedNode.data?.sceneData?.imagePrompt">
-                <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Lệnh Visual (Bối cảnh)</span>
-                <div class="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 leading-relaxed">
-                    {{ selectedNode.data.sceneData.visualPrompt || selectedNode.data.sceneData.imagePrompt }}
+            <!-- Character Chips -->
+            <div *ngFor="let char of activeCharacters" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
+                <div class="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center mr-2">
+                    <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)"
+                         [src]="char.avatarUrl || char.avatarUrls[0]"
+                         class="w-full h-full object-cover">
+                    <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)"
+                              class="text-gray-400 text-[16px] w-4 h-4 flex items-center justify-center">person</mat-icon>
                 </div>
+                <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">
+                    {{ char.name || char.role }}
+                </span>
+                <mat-icon class="icon-size-4 text-gray-400 ml-2 hover:text-gray-800 transition-colors">close</mat-icon>
             </div>
         </div>
 
-        <!-- Main Prompt Editor -->
-        <div class="flex-1 flex flex-col space-y-3">
-            <div class="flex items-center justify-between px-2 pt-1">
-                <span class="text-sm font-semibold text-gray-700 uppercase tracking-wider flex items-center space-x-2">
-                    <mat-icon class="icon-size-4 text-indigo-600">edit_note</mat-icon>
-                    <span *ngIf="selectedNode && selectedNode.type === 'video'">Chi tiết Prompt - {{ selectedNode.title }}</span>
-                    <span *ngIf="!selectedNode || selectedNode.type !== 'video'">Chi tiết Prompt</span>
-                </span>
-            </div>
+        <!-- Main Input Area -->
+        <div class="px-2">
             <textarea
                 cdkTextareaAutosize
-                cdkAutosizeMinRows="2"
-                cdkAutosizeMaxRows="8"
-                [ngModel]="selectedNode?.type === 'video' ? selectedNode?.data?.text : ''"
+                cdkAutosizeMinRows="1"
+                cdkAutosizeMaxRows="6"
+                [ngModel]="selectedNode?.data?.sceneData?.prompt || selectedNode?.data?.sceneData?.visualPrompt || selectedNode?.data?.sceneData?.imagePrompt || selectedNode?.data?.text || ''"
                 (ngModelChange)="updatePrompt($event)"
-                [disabled]="!selectedNode || selectedNode.type !== 'video'"
-                [placeholder]="selectedNode && selectedNode.type === 'video' ? 'Nhập chi tiết prompt cho phân cảnh này...' : 'Chọn một phân cảnh (Scene) để bắt đầu nhập prompt...'"
-                class="w-full h-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-[15px] leading-relaxed text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-none hover:bg-gray-100 block disabled:opacity-80 disabled:bg-gray-50 disabled:cursor-not-allowed">
+                (blur)="onPromptBlur()"
+                placeholder="Bạn muốn thay đổi hoặc tạo nội dung gì?"
+                class="w-full bg-transparent text-[16px] leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none resize-none block">
             </textarea>
+        </div>
+
+        <!-- Bottom Toolbar -->
+        <div class="flex items-center justify-between mt-3 px-2">
+            <!-- Left Actions -->
+            <div class="flex items-center space-x-2">
+                <button (click)="addSceneNode()" matTooltip="Thêm cảnh mới" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                    <mat-icon class="icon-size-5">add</mat-icon>
+                </button>
+                <button (click)="openDirectorMode($event)" matTooltip="Chế độ đạo diễn" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                    <mat-icon class="icon-size-5">movie_filter</mat-icon>
+                </button>
+                <button matTooltip="Magic prompt" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                    <mat-icon class="icon-size-5" svgIcon="heroicons_outline:sparkles"></mat-icon>
+                </button>
+            </div>
+
+            <!-- Right Actions -->
+            <div class="flex items-center space-x-3">
+                
+                <!-- Character List Menu -->
+                <div [matMenuTriggerFor]="charMenu" class="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
+                    <div class="flex items-center">
+                        <ng-container *ngIf="activeCharacters.length > 0; else defaultIcon">
+                            <div *ngFor="let char of activeCharacters | slice:0:3; let i = index" 
+                                 class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100"
+                                 [ngStyle]="{'margin-left': i > 0 ? '-12px' : '0', 'z-index': 10 - i}">
+                                <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-full h-full object-cover">
+                                <mat-icon *ngIf="!char.avatarUrl" class="icon-size-5 text-gray-500">person</mat-icon>
+                            </div>
+                        </ng-container>
+                        <ng-template #defaultIcon>
+                            <div class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100">
+                                <mat-icon class="icon-size-5 text-gray-500">person</mat-icon>
+                            </div>
+                        </ng-template>
+                    </div>
+                    <mat-icon class="icon-size-5 text-gray-500 ml-1">keyboard_arrow_down</mat-icon>
+                </div>
+
+                <mat-menu #charMenu="matMenu">
+                    <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)">
+                        <div class="flex items-center space-x-3">
+                            <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 rounded-full object-cover shadow-sm">
+                            <div *ngIf="!char.avatarUrl" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
+                                <mat-icon class="icon-size-5 text-gray-500 !m-0">person</mat-icon>
+                            </div>
+                            <span class="font-medium text-gray-700">{{char.name}}</span>
+                        </div>
+                    </button>
+                    <button mat-menu-item *ngIf="!projectData?.characters?.length" disabled>
+                        <span>Chưa có nhân vật nào</span>
+                    </button>
+                    <div class="h-px bg-gray-200 my-1"></div>
+                    <button mat-menu-item (click)="openAddCharacter()">
+                        <div class="flex items-center space-x-3 text-indigo-600">
+                            <div class="w-8 h-8 bg-indigo-50 border border-dashed border-indigo-300 rounded-full flex items-center justify-center shadow-sm">
+                                <mat-icon class="icon-size-5 text-indigo-600 !m-0">person_add</mat-icon>
+                            </div>
+                            <span class="font-medium">Tạo nhân vật mới</span>
+                        </div>
+                    </button>
+                </mat-menu>
+
+                <!-- Model Selector -->
+                <div class="flex items-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full h-8 px-3 cursor-pointer transition-colors">
+                    <span class="text-sm font-medium text-gray-700">3.1 Pro</span>
+                    <mat-icon class="icon-size-4 text-gray-500 ml-1">keyboard_arrow_down</mat-icon>
+                </div>
+
+                <!-- Model Selector -->
+
+                <!-- Submit Button -->
+                <button class="w-8 h-8 rounded-full bg-gray-900 hover:bg-gray-800 border border-gray-800 flex items-center justify-center text-white transition-colors ml-2">
+                    <mat-icon class="icon-size-4">arrow_upward</mat-icon>
+                </button>
+            </div>
         </div>
     </div>
 </div>
