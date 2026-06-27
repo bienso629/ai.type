@@ -59,6 +59,8 @@ export class NodeEditorComponent implements OnInit {
   uuid: string | null = null;
   projectData: any = null;
 
+  expandedCharIndex: number | null = null;
+
   canvasWidth = 2000;
   canvasHeight = 1000;
 
@@ -133,7 +135,7 @@ export class NodeEditorComponent implements OnInit {
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: videoUrl ? 'Generated Video' : (imageUrl ? 'Source Image' : 'Empty'),
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
-        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene },
+        data: { imageUrl: visualUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters },
         baseX: sceneX, baseY: 150 + yOffset
       };
       
@@ -175,7 +177,7 @@ export class NodeEditorComponent implements OnInit {
       {
         id: 'vid1', type: 'video', title: 'Video', subtitle: 'Veo 3.1',
         x: 550, y: 100, inputs: ['in1'], outputs: ['out'],
-        data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame', aspectRatio: '16:9', sceneData: { characters: [{name: 'Nano Banana'}, {name: 'Captain'}], visualPrompt: 'Cinematic lighting, 8k resolution, highly detailed' } },
+        data: { imageUrl: 'assets/images/placeholder.jpg', text: 'Camera moves from start frame to end frame', aspectRatio: '16:9', sceneData: { visualPrompt: 'Cinematic lighting, 8k resolution, highly detailed' }, projectCharacters: [{name: 'Nano Banana'}, {name: 'Captain'}] },
         baseX: 550, baseY: 100
       },
       {
@@ -266,6 +268,14 @@ export class NodeEditorComponent implements OnInit {
   updatePrompt(text: string) {
     if (this.selectedNode && this.selectedNode.type === 'video') {
       this.selectedNode.data.text = text;
+    }
+  }
+
+  toggleCharacter(index: number) {
+    if (this.expandedCharIndex === index) {
+      this.expandedCharIndex = null;
+    } else {
+      this.expandedCharIndex = index;
     }
   }
 

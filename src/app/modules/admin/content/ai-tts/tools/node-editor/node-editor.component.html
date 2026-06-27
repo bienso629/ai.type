@@ -103,9 +103,10 @@
 
 <!-- Docked Global Prompt Editor (Fixed at bottom of viewport) -->
 <div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
-    <div class="w-full max-w-6xl flex items-end space-x-4 pointer-events-auto">
+    <div class="w-full max-w-5xl flex bg-white/95 backdrop-blur-md border border-gray-300 rounded-2xl p-4 pointer-events-auto">
+        
         <!-- Left Side Menu: Scene Data Details -->
-        <div *ngIf="selectedNode && selectedNode.type === 'video'" class="w-72 bg-white border border-gray-300 rounded-2xl p-4 flex flex-col space-y-4 max-h-[300px] overflow-y-auto hide-scrollbar shrink-0">
+        <div *ngIf="selectedNode && selectedNode.type === 'video'" class="w-72 pr-6 mr-6 border-r border-gray-200 flex flex-col space-y-4 max-h-[280px] overflow-y-auto hide-scrollbar shrink-0">
             <div class="flex items-center space-x-2 pb-2 border-b border-gray-100">
                 <mat-icon class="icon-size-4 text-indigo-500">info</mat-icon>
                 <span class="text-sm font-semibold text-gray-700">Dữ liệu phân cảnh</span>
@@ -120,27 +121,54 @@
             </div>
 
             <!-- Characters -->
-            <div *ngIf="selectedNode.data?.sceneData?.characters?.length > 0">
+            <div *ngIf="selectedNode.data?.projectCharacters?.length > 0">
                 <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Nhân vật</span>
-                <div class="flex flex-wrap gap-1.5">
-                    <span *ngFor="let char of selectedNode.data.sceneData.characters" class="px-2 py-1 bg-indigo-50 text-indigo-600 rounded-lg text-xs font-medium border border-indigo-100">
-                        {{ char.name || char }}
-                    </span>
+                <div class="flex flex-col space-y-2">
+                    <div *ngFor="let char of selectedNode.data.projectCharacters; let i = index" class="border border-gray-200 rounded-xl bg-white overflow-hidden transition-all shadow-sm">
+                        
+                        <!-- Header / Row -->
+                        <div class="flex items-center p-2 cursor-pointer hover:bg-gray-50 transition-colors" (click)="toggleCharacter(i)">
+                            <div class="w-10 h-10 rounded-lg overflow-hidden bg-gray-100 flex-shrink-0 mr-3 border border-gray-200 flex items-center justify-center">
+                                <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)" 
+                                     [src]="char.avatarUrl || char.avatarUrls[0]" 
+                                     class="w-full h-full object-cover">
+                                <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)" 
+                                          class="text-gray-400 m-auto mt-2 text-2xl w-6 h-6 leading-none">person</mat-icon>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <div class="text-sm font-semibold text-gray-800 truncate">{{ char.name || char.role }}</div>
+                            </div>
+                            <mat-icon class="icon-size-4 text-gray-400 transition-transform" [class.rotate-180]="expandedCharIndex === i">
+                                expand_more
+                            </mat-icon>
+                        </div>
+
+                        <!-- Expanded Prompt Area -->
+                        <div *ngIf="expandedCharIndex === i" class="p-3 border-t border-gray-100 bg-gray-50">
+                            <div class="text-xs text-gray-600 mb-3 leading-relaxed">
+                                {{ char.prompt || char.appearance }}
+                            </div>
+                            <button class="w-full py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg flex items-center justify-center space-x-1.5 transition-colors">
+                                <mat-icon class="icon-size-4">send</mat-icon>
+                                <span class="text-xs font-semibold">Tạo hình nhân vật</span>
+                            </button>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <!-- Visual Prompt -->
-            <div *ngIf="selectedNode.data?.sceneData?.visualPrompt">
+            <div *ngIf="selectedNode.data?.sceneData?.visualPrompt || selectedNode.data?.sceneData?.imagePrompt">
                 <span class="text-[11px] text-gray-400 uppercase font-semibold mb-1.5 block">Lệnh Visual (Bối cảnh)</span>
                 <div class="text-xs text-gray-600 bg-gray-50 p-2.5 rounded-xl border border-gray-100 leading-relaxed">
-                    {{ selectedNode.data.sceneData.visualPrompt }}
+                    {{ selectedNode.data.sceneData.visualPrompt || selectedNode.data.sceneData.imagePrompt }}
                 </div>
             </div>
         </div>
 
         <!-- Main Prompt Editor -->
-        <div class="flex-1 flex flex-col space-y-2">
-            <div class="flex items-center justify-between px-2">
+        <div class="flex-1 flex flex-col space-y-3">
+            <div class="flex items-center justify-between px-2 pt-1">
                 <span class="text-sm font-semibold text-gray-700 uppercase tracking-wider flex items-center space-x-2">
                     <mat-icon class="icon-size-4 text-indigo-600">edit_note</mat-icon>
                     <span *ngIf="selectedNode && selectedNode.type === 'video'">Chi tiết Prompt - {{ selectedNode.title }}</span>
@@ -149,13 +177,13 @@
             </div>
             <textarea
                 cdkTextareaAutosize
-                cdkAutosizeMinRows="1"
+                cdkAutosizeMinRows="2"
                 cdkAutosizeMaxRows="8"
                 [ngModel]="selectedNode?.type === 'video' ? selectedNode?.data?.text : ''"
                 (ngModelChange)="updatePrompt($event)"
                 [disabled]="!selectedNode || selectedNode.type !== 'video'"
                 [placeholder]="selectedNode && selectedNode.type === 'video' ? 'Nhập chi tiết prompt cho phân cảnh này...' : 'Chọn một phân cảnh (Scene) để bắt đầu nhập prompt...'"
-                class="w-full bg-white border border-gray-300 rounded-2xl p-4 text-[15px] leading-relaxed text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-none hover:bg-gray-50/50 block disabled:opacity-80 disabled:bg-gray-50 disabled:cursor-not-allowed">
+                class="w-full h-full bg-gray-50 border border-gray-100 rounded-2xl p-4 text-[15px] leading-relaxed text-gray-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 transition-all resize-none hover:bg-gray-100 block disabled:opacity-80 disabled:bg-gray-50 disabled:cursor-not-allowed">
             </textarea>
         </div>
     </div>
