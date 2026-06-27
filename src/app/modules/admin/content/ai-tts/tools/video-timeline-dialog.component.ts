@@ -40,7 +40,7 @@ import { AddSceneComponent } from './add-scene.component';
 import { DirectorModeComponent } from './director-mode.component';
 import { MatInputModule } from '@angular/material/input';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
@@ -2282,7 +2282,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             message: `Hệ thống đã hoàn tất tạo âm thanh cho toàn bộ Video Timeline. <span class="font-medium text-blue-600">Bạn có muốn tiếp tục render Video không?</span>`,
             confirm: 'Tiếp tục Production',
             cb: () => {
-                this.dialogRef.close(this.projectData);
+                this.goBack();
                 this.router.navigate(['/livestream', this.projectData.uuid || 'unknown_project']);
             },
             cc: () => {
@@ -2393,7 +2393,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     close() {
-        this.dialogRef.close();
+        this.goBack();
     }
 
     trackByScene(index: number, scene: any): any {
@@ -2887,11 +2887,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return `${minutes}m${seconds}s`;
     }
 
+    public data: any = {};
     constructor(
-        public dialogRef: MatDialogRef<VideoTimelineDialogComponent>,
+        private route: ActivatedRoute,
         private clipboard: Clipboard,
         private multiAccountService: MultiAccountService,
-        @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
@@ -2899,7 +2899,10 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private sanitizer: DomSanitizer
-    ) { }
+    ) { 
+        this.data.uuid = this.route.snapshot.paramMap.get('uuid');
+        this.data.username = this.route.snapshot.paramMap.get('name');
+    }
 
     private safeUrlCache: { [url: string]: SafeUrl } = {};
     getRawMediaUrl(url: string | null): string | null {
@@ -2957,7 +2960,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
+
+    goBack() {
+        this.router.navigate(['../'], { relativeTo: this.route });
+    }
     ngOnInit() {
+        this.data.uuid = this.route.snapshot.paramMap.get('uuid');
+        this.data.username = this.route.snapshot.paramMap.get('name');
+        if (!this.data.uuid) { this.goBack(); return; }
+
         this.isSvgReady = false;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.projectData = this.multiAccountService.getItem(storageKey);
