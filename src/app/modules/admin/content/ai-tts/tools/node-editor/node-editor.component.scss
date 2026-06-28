@@ -5,3 +5,7 @@
 ::ng-deep .hide-scrollbar::-webkit-scrollbar {
   display: none;
 }
+::ng-deep .model-autocomplete-panel {
+    max-height: 300px !important;
+    overflow-y: auto !important;
+}

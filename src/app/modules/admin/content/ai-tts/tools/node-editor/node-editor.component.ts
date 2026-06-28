@@ -11,6 +11,8 @@ import { MatMenuModule } from '@angular/material/menu';
 import { AddSceneComponent } from '../add-scene.component';
 import { DirectorModeComponent } from '../director-mode.component';
 import { CharacterDialogComponent } from '../character-dialog.component';
+import { AudioGenerationComponent } from '../audio-generation.component';
+import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { GenaiService } from 'app/genai.service';
 
 interface NodeItem {
@@ -38,7 +40,7 @@ interface NodeConnection {
 @Component({
   selector: 'app-node-editor',
   standalone: true,
-  imports: [CommonModule, MatIconModule, RouterModule, TextFieldModule, FormsModule, MatButtonModule, MatDialogModule, MatMenuModule],
+  imports: [CommonModule, MatIconModule, RouterModule, TextFieldModule, FormsModule, MatButtonModule, MatDialogModule, MatMenuModule, MatAutocompleteModule],
   templateUrl: './node-editor.component.html',
   styleUrls: ['./node-editor.component.scss'],
   host: {
@@ -94,10 +96,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
   nodeHeights: { [id: string]: number } = {};
 
   availableModels: string[] = ['3.1 Pro'];
-  textModels: string[] = [];
-  audioModels: string[] = [];
-  videoModels: string[] = [];
+  filteredModels: string[] = [];
   selectedModel: string = '3.1 Pro';
+
+  globalPromptText: string = '';
+  editingType: 'scene' | 'character' | 'master' = 'master';
+  editingCharacter: any = null;
 
   constructor(
     private route: ActivatedRoute,
@@ -153,23 +157,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
       const models = await this.genaiService.getUModelverseModels();
       if (models && models.length > 0) {
         this.availableModels = models;
-        
-        this.textModels = [];
-        this.audioModels = [];
-        this.videoModels = [];
-        
-        models.forEach((id: string) => {
-          const lower = id.toLowerCase();
-          if (lower.includes('suno') || lower.includes('audio') || lower.includes('voice') || lower.includes('transcribe') || lower.includes('speech')) {
-            this.audioModels.push(id);
-          } else if (lower.includes('video') || lower.includes('v2v') || lower.includes('t2v') || lower.includes('i2v') || lower.includes('r2v') || lower.includes('kling') || lower.includes('veo') || lower.includes('luma') || lower.includes('vidu') || lower.includes('wan') || lower.includes('sora') || lower.includes('mimo') || lower.includes('runway') || lower.includes('cog') || lower.includes('image') || lower.includes('stable-diffusion') || lower.includes('flux') || lower.includes('mj') || lower.includes('midjourney') || lower.includes('pika') || lower.includes('haiper')) {
-            this.videoModels.push(id);
-          } else {
-            this.textModels.push(id);
-          }
-        });
+        this.filteredModels = [...this.availableModels];
 
-        if (!this.availableModels.includes(this.selectedModel)) {
+        const savedModel = localStorage.getItem('ai_type_selected_model');
+        if (savedModel && this.availableModels.includes(savedModel)) {
+            this.selectedModel = savedModel;
+        } else if (!this.availableModels.includes(this.selectedModel)) {
             this.selectedModel = this.availableModels[0];
         }
         this.cdr.detectChanges();
@@ -218,7 +211,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
         this.nodes.push({
           id: ttsNodeId, type: 'tts', title: 'Text to Speech', subtitle: `${ttsDuration}s`,
           x: sceneX, y: 450 + yOffset, inputs: [], outputs: ['out'],
-          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}` },
+          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl },
           baseX: sceneX, baseY: 450 + yOffset
         });
         hasTts = true;
@@ -346,6 +339,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     }
     this.isPanning = true;
     this.selectedNode = null;
+    this.editingType = 'master';
+    this.editingCharacter = null;
+    this.globalPromptText = this.projectData?.masterPrompt || '';
     this.startX = event.clientX;
     this.startY = event.clientY;
     this.startScrollLeft = this.workspace.nativeElement.scrollLeft;
@@ -358,21 +354,101 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     this.multiAccountService.setItem(storageKey, this.projectData);
   }
 
+  selectNode(node: NodeItem) {
+    this.selectedNode = node;
+    this.editingType = 'scene';
+    this.editingCharacter = null;
+    
+    let text = node.data?.sceneData?.prompt || node.data?.sceneData?.visualPrompt || node.data?.sceneData?.imagePrompt || node.data?.text || '';
+    
+    if (node.data?.sceneData) {
+       let parts = [];
+       if (this.projectData?.masterPrompt) parts.push(`Master Prompt: ${this.projectData.masterPrompt}`);
+       if (node.data.sceneData.setting) parts.push(`Setting: ${node.data.sceneData.setting}`);
+       if (node.data.sceneData.time) parts.push(`Time: ${node.data.sceneData.time}`);
+       
+       let charsDesc = '';
+       if (this.projectData?.characters && this.projectData.characters.length > 0) {
+           const fullSceneText = `${text} ${node.data.sceneData.script || ''} ${node.data.sceneData.setting || ''}`.toLowerCase();
+           const sceneChars = this.projectData.characters.filter((c: any) => c.name && fullSceneText.includes(c.name.toLowerCase()));
+           if (sceneChars.length > 0) {
+               charsDesc = sceneChars.map((c: any) => {
+                   let cParts = [];
+                   if (c.name) cParts.push(`Name: ${c.name}`);
+                   if (c.variant) cParts.push(`Variant: ${c.variant}`);
+                   if (c.role) cParts.push(`Role: ${c.role}`);
+                   if (c.appearance) cParts.push(`Appearance: ${c.appearance}`);
+                   if (c.personality) cParts.push(`Personality: ${c.personality}`);
+                   if (c.prompt) cParts.push(`Prompt: ${c.prompt}`);
+                   return `- ${cParts.join(', ')}`;
+               }).join('\n');
+               parts.push(`Characters:\n${charsDesc}`);
+           }
+       }
+       
+       if (node.data.sceneData.script) parts.push(`Dialogue: ${node.data.sceneData.script}`);
+       
+       parts.push(`Action/Visuals: ${text}`);
+       text = parts.join('\n\n');
+    }
+    this.globalPromptText = text;
+
+    if (node.id === 'master') {
+      this.selectedNode = null;
+      this.editingType = 'master';
+      this.globalPromptText = this.projectData?.masterPrompt || '';
+    }
+  }
+
   updatePrompt(text: string) {
-    if (this.selectedNode) {
+    this.globalPromptText = text;
+    
+    if (this.editingType === 'master') {
+        if (this.projectData) {
+            this.projectData.masterPrompt = text;
+            this.saveProject();
+        }
+    } else if (this.editingType === 'character' && this.editingCharacter) {
+        // We do not save character prompt changes back directly to the character here unless requested.
+        // Actually, let's just let it be in globalPromptText for generation.
+    } else if (this.editingType === 'scene' && this.selectedNode) {
+      // If the text contains 'Action/Visuals:', extract only that part to save to the raw prompt
+      let savedText = text;
+      const visualMarker = 'Action/Visuals: ';
+      const index = text.lastIndexOf(visualMarker);
+      if (index !== -1) {
+          savedText = text.substring(index + visualMarker.length).trim();
+      } else {
+          // Fallback if user accidentally deleted the marker
+          // Try to extract text after the last known section
+          const dialogMarker = 'Dialogue: ';
+          const charMarker = 'Characters:\n';
+          const masterMarker = 'Master Prompt: ';
+          
+          let lastKnownIndex = Math.max(
+              text.lastIndexOf(dialogMarker) > -1 ? text.lastIndexOf(dialogMarker) + dialogMarker.length : -1,
+              text.lastIndexOf(charMarker) > -1 ? text.lastIndexOf(charMarker) + text.indexOf('\n\n', text.lastIndexOf(charMarker)) + 2 : -1,
+              text.lastIndexOf(masterMarker) > -1 ? text.lastIndexOf(masterMarker) + text.indexOf('\n\n', text.lastIndexOf(masterMarker)) + 2 : -1
+          );
+          
+          if (lastKnownIndex > -1) {
+              savedText = text.substring(lastKnownIndex).trim();
+          }
+      }
+
       if (this.selectedNode.data?.sceneData) {
         if (this.selectedNode.data.sceneData.prompt !== undefined) {
-          this.selectedNode.data.sceneData.prompt = text;
+          this.selectedNode.data.sceneData.prompt = savedText;
         } else if (this.selectedNode.data.sceneData.visualPrompt !== undefined) {
-          this.selectedNode.data.sceneData.visualPrompt = text;
+          this.selectedNode.data.sceneData.visualPrompt = savedText;
         } else if (this.selectedNode.data.sceneData.imagePrompt !== undefined) {
-          this.selectedNode.data.sceneData.imagePrompt = text;
+          this.selectedNode.data.sceneData.imagePrompt = savedText;
         } else {
-          this.selectedNode.data.sceneData.prompt = text;
+          this.selectedNode.data.sceneData.prompt = savedText;
         }
       } else {
         if (!this.selectedNode.data) this.selectedNode.data = {};
-        this.selectedNode.data.text = text;
+        this.selectedNode.data.text = savedText;
       }
       this.saveProject();
     }
@@ -442,6 +518,63 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     }
   }
 
+  filterModels(query: string) {
+    if (!query) {
+      this.filteredModels = [...this.availableModels];
+      return;
+    }
+    const lowerQuery = query.toLowerCase();
+    this.filteredModels = this.availableModels.filter(m => m.toLowerCase().includes(lowerQuery));
+  }
+
+  onModelSelected(model: string) {
+    this.selectedModel = model;
+    localStorage.setItem('ai_type_selected_model', model);
+  }
+
+  attachedFiles: { file: File, base64: string, mimeType: string, url: string }[] = [];
+
+  onFileSelected(event: any) {
+    const files = event.target.files;
+    if (files && files.length > 0) {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64String = (reader.result as string).split(',')[1];
+          this.attachedFiles.push({
+            file: file,
+            base64: base64String,
+            mimeType: file.type,
+            url: reader.result as string
+          });
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+  }
+
+  removeAttachedFile(index: number) {
+    this.attachedFiles.splice(index, 1);
+  }
+
+  openAudioGeneration() {
+    const dialogRef = this.dialog.open(AudioGenerationComponent, {
+        width: '800px',
+        maxWidth: '100vw',
+        data: { 
+            selectedModel: this.selectedModel, 
+            scenePrompt: this.selectedNode?.data?.text || '' 
+        }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+        if (result) {
+            // Handle result if needed
+        }
+    });
+  }
+
   openAddCharacter() {
     const dialogRef = this.dialog.open(CharacterDialogComponent, {
       width: '800px',
@@ -465,48 +598,28 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     });
   }
 
-  onPromptBlur() {
-    const chars = this.activeCharacters;
-    for (const char of chars) {
-      this.insertCharacterToPrompt(char);
-    }
-    this.saveProject();
-  }
+
 
   insertCharacterToPrompt(char: any) {
-    if (!this.selectedNode) return;
+    this.editingType = 'character';
+    this.editingCharacter = char;
 
-    let charDesc = char.prompt || char.appearance || '';
-    const masterPrompt = this.projectData?.masterPrompt || '';
-    if (masterPrompt && charDesc.startsWith(masterPrompt.trim())) {
-      charDesc = charDesc.substring(masterPrompt.trim().length).trim();
-    }
-    if (!charDesc) {
-      charDesc = `Portrait of ${char.name}`;
-    }
+    let parts = [];
+    if (char.name) parts.push(`Name: ${char.name}`);
+    if (char.variant) parts.push(`Variant: ${char.variant}`);
+    if (char.role) parts.push(`Role: ${char.role}`);
+    if (char.appearance) parts.push(`Appearance: ${char.appearance}`);
+    if (char.personality) parts.push(`Personality: ${char.personality}`);
+    if (char.prompt) parts.push(`Prompt: ${char.prompt}`);
+    let charDesc = parts.join('\n');
+    if (!charDesc) charDesc = `Portrait of ${char.name}`;
+    
+    this.globalPromptText = charDesc;
 
-    const charTag = `[Character '${char.name}': ${charDesc}]`;
-    const sd = this.selectedNode.data?.sceneData;
-
-    if (sd) {
-      if (sd.prompt !== undefined) {
-        if (!sd.prompt.includes(`[Character '${char.name}'`)) {
-          sd.prompt = sd.prompt ? `${sd.prompt}\n\n${charTag}` : charTag;
-        }
-      } else if (sd.imagePrompt !== undefined) {
-        if (!sd.imagePrompt.includes(`[Character '${char.name}'`)) {
-          sd.imagePrompt = sd.imagePrompt ? `${sd.imagePrompt}\n\n${charTag}` : charTag;
-        }
-      } else {
-        sd.prompt = charTag;
-      }
-    } else {
-      if (!this.selectedNode.data) this.selectedNode.data = {};
-      const currentText = this.selectedNode.data.text || '';
-      if (!currentText.includes(`[Character '${char.name}'`)) {
-        this.selectedNode.data.text = currentText ? `${currentText}\n\n${charTag}` : charTag;
-      }
+    if (!this.activeCharacters.find(c => c.id === char.id)) {
+      this.activeCharacters.push(char);
     }
+    this.saveProject();
   }
 
   removeCharacterFromPrompt(char: any, event: Event) {
@@ -645,15 +758,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
   onNodeMouseDown(event: MouseEvent, node: NodeItem) {
     event.stopPropagation();
     this.draggedNode = node;
-    const isNewSelection = this.selectedNode !== node;
+    const isNewSelection = this.selectedNode !== node || this.editingType !== 'scene';
     if (isNewSelection) {
       this.expandedCharIndex = null;
-    }
-    this.selectedNode = node;
-    
-    // Auto-inject character details when a new scene is selected
-    if (isNewSelection) {
-      this.onPromptBlur();
+      this.selectNode(node);
     }
     this.startX = event.clientX;
     this.startY = event.clientY;
