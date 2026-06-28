@@ -273,13 +273,13 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     
     const compNode: NodeItem = {
       id: 'comp1', type: 'composition', title: 'Composition', subtitle: 'Final Output',
-      x: data.scenes.length * 400 + 150, y: 300, inputs: [], outputs: [],
+      x: data.scenes.length * 450 + 150, y: 300, inputs: [], outputs: [],
       data: { imageUrl: '' },
-      baseX: data.scenes.length * 400 + 150, baseY: 300
+      baseX: data.scenes.length * 450 + 150, baseY: 300
     };
 
     data.scenes.forEach((scene: any, index: number) => {
-      const sceneX = startX + index * 400;
+      const sceneX = startX + index * 450;
       const yOffset = Math.floor(Math.random() * 100) - 50; 
 
       
@@ -346,6 +346,18 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.nodes.push(compNode);
     }
     
+    this.nodes.forEach(n => {
+        if (n.inputs && n.inputs.length > 1) {
+             n.inputs.sort((a, b) => {
+                 const aIsTts = a.startsWith('tts_in');
+                 const bIsTts = b.startsWith('tts_in');
+                 if (aIsTts && !bIsTts) return 1;
+                 if (!aIsTts && bIsTts) return -1;
+                 return a.localeCompare(b);
+             });
+        }
+    });
+    
     this.calculateCanvasSize();
     this.saveEditorState();
   }
@@ -400,7 +412,18 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.updateConnectionPaths();
   }
 
+  cleanupUnusedPorts() {
+      this.nodes.forEach(node => {
+          if (node.type !== 'video' && node.type !== 'composition') return;
+          node.inputs = node.inputs.filter(port => {
+              if (!port.startsWith('tts_in')) return true;
+              return this.connections.some(c => c.toNode === node.id && c.toPort === port);
+          });
+      });
+  }
+
   updateConnectionPaths() {
+    this.cleanupUnusedPorts();
     this.connections.forEach(conn => {
       conn.path = this.getConnectionPath(conn);
       const fromNode = this.nodes.find(n => n.id === conn.fromNode);
@@ -418,7 +441,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     if (!from || !to) return '';
 
     let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : 250);
-    let fromWidth = 280;
+    let fromWidth = from.type === 'video' || from.type === 'composition' ? 360 : 280;
     let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 130 : 250);
 
     const fromX = from.x + fromWidth; 
@@ -430,9 +453,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const numPorts = to.inputs.length;
     const portIndex = to.inputs.indexOf(conn.toPort);
     if (numPorts > 1 && portIndex >= 0) {
-       const totalPortHeight = numPorts * 24 + (numPorts - 1) * 32;
+       const totalPortHeight = numPorts * 24 + (numPorts - 1) * 8;
        const startY = toY - (totalPortHeight / 2);
-       toY = startY + (portIndex * 56) + 12;
+       toY = startY + (portIndex * 32) + 12;
     }
 
     const dx = Math.abs(toX - fromX) * 0.5;
@@ -446,7 +469,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     if (!from) return '';
     
     let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : 250);
-    let fromWidth = 280;
+    let fromWidth = from.type === 'video' || from.type === 'composition' ? 360 : 280;
     
     const fromX = from.x + fromWidth; 
     const fromY = from.y + (fromHeight / 2); 
@@ -503,28 +526,56 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   createConnection(fromNode: string, fromPort: string, toNode: string, toPort: string) {
      if (fromNode === toNode) return;
      
-     // Connection validation rules (râu ông nọ cắm cằm bà kia)
      const fromObj = this.nodes.find(n => n.id === fromNode);
      const toObj = this.nodes.find(n => n.id === toNode);
      
      if (fromObj && toObj) {
          if (fromObj.type === 'tts') {
-             // Audio MUST connect to tts_in
-             if (toPort !== 'tts_in') return;
+             if (!toPort.startsWith('tts_in')) {
+                 const usedPorts = this.connections.filter(c => c.toNode === toNode).map(c => c.toPort);
+                 let freePort = toObj.inputs.find(p => p.startsWith('tts_in') && !usedPorts.includes(p));
+                 if (!freePort) {
+                     let i = 1;
+                     while(toObj.inputs.includes(`tts_in_${i}`)) i++;
+                     freePort = `tts_in_${i}`;
+                     toObj.inputs.push(freePort);
+                 }
+                 toPort = freePort;
+             } else {
+                 const isOccupied = this.connections.some(c => c.toNode === toNode && c.toPort === toPort);
+                 if (isOccupied) {
+                     let i = 1;
+                     while(toObj.inputs.includes(`tts_in_${i}`)) i++;
+                     const newPort = `tts_in_${i}`;
+                     toObj.inputs.push(newPort);
+                     toPort = newPort;
+                 }
+             }
          } else if (fromObj.type === 'video' || fromObj.type === 'image') {
-             // Video MUST connect to prev_scene_in (or any port on Composition)
              if (toObj.type !== 'composition' && toPort !== 'prev_scene_in') return;
          }
      }
 
-     if (toPort !== 'tts_in') {
-         this.connections = this.connections.filter(c => !(c.toNode === toNode && c.toPort === toPort));
+     this.connections = this.connections.filter(c => !(c.toNode === toNode && c.toPort === toPort));
+     
+     if (toObj && !toObj.inputs.includes(toPort)) {
+         toObj.inputs.push(toPort);
      }
      
      this.connections.push({
        id: `c_${Date.now()}`,
        fromNode, fromPort, toNode, toPort
      });
+
+     if (toObj) {
+         toObj.inputs.sort((a, b) => {
+             const aIsTts = a.startsWith('tts_in');
+             const bIsTts = b.startsWith('tts_in');
+             if (aIsTts && !bIsTts) return 1;
+             if (!aIsTts && bIsTts) return -1;
+             return a.localeCompare(b);
+         });
+     }
 
      this.updateConnectionPaths();
      this.saveEditorState();
@@ -634,7 +685,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       });
       
       compNodes.forEach((cNode, index) => {
-          cNode.x = maxPrimaryX + 450 + index * 400;
+          cNode.x = maxPrimaryX + 450 + index * 450;
           cNode.baseX = cNode.x;
           cNode.y = 300; 
           cNode.baseY = cNode.y;
