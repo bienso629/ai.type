@@ -4,11 +4,19 @@
      [style.background-image]="'radial-gradient(circle, #a1a1aa 1px, transparent 1px)'"
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
      style="background-attachment: local;">
+    
+    <!-- Title Overlay Removed -->
+
     <!-- Huge canvas for native scrolling -->
     <div class="relative" [style.width.px]="canvasWidth" [style.height.px]="canvasHeight" [style.minWidth.px]="canvasWidth" [style.minHeight.px]="canvasHeight">
         <!-- Zoom Layer -->
         <div class="absolute inset-0 origin-top-left" [style.transform]="'scale(' + scale + ')'">
             
+            <!-- Canvas Background Title -->
+            <div class="absolute top-24 left-12 text-6xl font-black text-gray-200/50 pointer-events-none select-none tracking-tight z-0">
+                {{ projectData?.title || projectData?.projectName || 'Chưa có tiêu đề' }}
+            </div>
+
             <!-- Connections Layer -->
             <svg class="absolute inset-0 w-full h-full pointer-events-none" style="overflow: visible; z-index: 0;">
                 <path *ngFor="let conn of connections"
@@ -71,21 +79,22 @@
                     </div>
 
                     <!-- TTS Audio Player Preview -->
-                    <div *ngIf="node.type === 'tts'" class="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 flex items-center space-x-3">
-                        <div class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center cursor-pointer">
-                            <mat-icon class="icon-size-5 text-gray-700">play_arrow</mat-icon>
+                    <div *ngIf="node.type === 'tts'" class="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 flex items-center space-x-3 relative">
+                        <audio #audioEl [hidden]="true" [src]="node.data.audioUrl"></audio>
+                        <div class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-50"
+                             (click)="audioEl.paused ? audioEl.play() : audioEl.pause()">
+                            <mat-icon class="icon-size-5 text-gray-700">{{ audioEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
                         </div>
                         <span class="text-sm font-medium text-gray-700">{{ node.data.duration }}</span>
-                        <!-- Fake Waveform -->
-                        <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden">
-                            <div class="w-1 h-3 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-5 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-2 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-6 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-4 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-3 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-5 bg-gray-300 rounded-full"></div>
-                            <div class="w-1 h-4 bg-gray-300 rounded-full"></div>
+                        <!-- Fake Waveform (animated when playing) -->
+                        <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl.paused">
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '4px' : '8px'"></div>
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-150" [style.height]="audioEl.paused ? '12px' : '24px'"></div>
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '8px' : '16px'"></div>
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
+                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
                         </div>
                     </div>
 
@@ -150,15 +159,29 @@
             </div>
         </div>
 
+        <!-- Attached Files Preview -->
+        <div *ngIf="attachedFiles.length > 0" class="flex flex-wrap gap-2 px-2 pb-2">
+            <div *ngFor="let f of attachedFiles; let i = index" class="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-gray-50">
+                <img *ngIf="f.mimeType.startsWith('image/')" [src]="f.url" class="w-full h-full object-cover">
+                <video *ngIf="f.mimeType.startsWith('video/')" [src]="f.url" class="w-full h-full object-cover"></video>
+                <div *ngIf="!f.mimeType.startsWith('image/') && !f.mimeType.startsWith('video/')" class="w-full h-full flex items-center justify-center">
+                    <mat-icon class="text-gray-400">insert_drive_file</mat-icon>
+                </div>
+                <!-- Remove button overlay -->
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" (click)="removeAttachedFile(i)">
+                    <mat-icon class="text-white icon-size-5">close</mat-icon>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Input Area -->
         <div class="px-2">
             <textarea
                 cdkTextareaAutosize
                 cdkAutosizeMinRows="1"
                 cdkAutosizeMaxRows="6"
-                [ngModel]="selectedNode?.data?.sceneData?.prompt || selectedNode?.data?.sceneData?.visualPrompt || selectedNode?.data?.sceneData?.imagePrompt || selectedNode?.data?.text || ''"
+                [ngModel]="globalPromptText"
                 (ngModelChange)="updatePrompt($event)"
-                (blur)="onPromptBlur()"
                 placeholder="Bạn muốn thay đổi hoặc tạo nội dung gì?"
                 class="w-full bg-transparent text-[16px] leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none resize-none block">
             </textarea>
@@ -168,14 +191,18 @@
         <div class="flex items-center justify-between mt-3 px-2">
             <!-- Left Actions -->
             <div class="flex items-center space-x-2">
-                <button (click)="addSceneNode()" matTooltip="Thêm cảnh mới" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                <button matTooltip="Đính kèm video/hình ảnh" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
                     <mat-icon class="icon-size-5">add</mat-icon>
+                    <input type="file" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer" (change)="onFileSelected($event)" title="Đính kèm video/hình ảnh">
                 </button>
                 <button (click)="openDirectorMode($event)" matTooltip="Chế độ đạo diễn" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">movie_filter</mat-icon>
                 </button>
                 <button matTooltip="Magic prompt" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
-                    <mat-icon class="icon-size-5" svgIcon="heroicons_outline:sparkles"></mat-icon>
+                    <mat-icon class="icon-size-5" svgIcon="heroicons_outline:document-text"></mat-icon>
+                </button>
+                <button (click)="openAudioGeneration()" matTooltip="Tạo âm thanh (Create Audio)" class="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center text-red-500 hover:text-red-600 transition-colors ml-1">
+                    <mat-icon class="icon-size-5">mic</mat-icon>
                 </button>
             </div>
 
@@ -187,19 +214,18 @@
                     <div class="flex items-center">
                         <ng-container *ngIf="activeCharacters.length > 0; else defaultIcon">
                             <div *ngFor="let char of activeCharacters | slice:0:3; let i = index" 
-                                 class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100"
+                                 class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100 shadow-sm"
                                  [ngStyle]="{'margin-left': i > 0 ? '-12px' : '0', 'z-index': 10 - i}">
                                 <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-full h-full object-cover">
                                 <mat-icon *ngIf="!char.avatarUrl" class="icon-size-5 text-gray-500">person</mat-icon>
                             </div>
                         </ng-container>
                         <ng-template #defaultIcon>
-                            <div class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100">
+                            <div class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100 shadow-sm">
                                 <mat-icon class="icon-size-5 text-gray-500">person</mat-icon>
                             </div>
                         </ng-template>
                     </div>
-                    <mat-icon class="icon-size-5 text-gray-500 ml-1">keyboard_arrow_down</mat-icon>
                 </div>
 
                 <mat-menu #charMenu="matMenu">
@@ -226,40 +252,27 @@
                     </button>
                 </mat-menu>
 
-                <!-- Model Selector -->
-                <div [matMenuTriggerFor]="modelMenu" class="flex items-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full h-8 px-3 cursor-pointer transition-colors">
-                    <span class="text-sm font-medium text-gray-700 truncate max-w-[120px]">{{ selectedModel }}</span>
-                    <mat-icon class="icon-size-4 text-gray-500 ml-1">keyboard_arrow_down</mat-icon>
+                <!-- Model Selector Autocomplete -->
+                <div class="relative flex items-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full h-8 cursor-pointer transition-colors w-40 sm:w-48">
+                    <input type="text"
+                           class="w-full h-full bg-transparent border-none outline-none pl-3 pr-8 text-sm font-medium text-gray-700 truncate"
+                           [(ngModel)]="selectedModel"
+                           [matAutocomplete]="modelAuto"
+                           (focus)="filterModels($event.target.value)"
+                           (input)="filterModels($event.target.value)"
+                           placeholder="Chọn Model">
+                    <mat-icon class="icon-size-4 text-gray-500 absolute right-2 pointer-events-none">keyboard_arrow_down</mat-icon>
+                    
+                    <mat-autocomplete #modelAuto="matAutocomplete" panelClass="model-autocomplete-panel" (optionSelected)="onModelSelected($event.option.value)">
+                        <mat-option *ngFor="let model of filteredModels" [value]="model">
+                            <span class="text-sm">{{ model }}</span>
+                        </mat-option>
+
+                        <mat-option disabled *ngIf="!availableModels?.length">
+                            <span class="text-sm">Đang tải...</span>
+                        </mat-option>
+                    </mat-autocomplete>
                 </div>
-
-                <mat-menu #modelMenu="matMenu">
-                    <ng-container *ngIf="textModels.length > 0">
-                        <div class="px-4 py-2 text-sm font-bold text-teal-600 uppercase tracking-wider">Văn bản</div>
-                        <button mat-menu-item *ngFor="let model of textModels" (click)="selectedModel = model">
-                            <span class="text-sm pl-2">{{ model }}</span>
-                        </button>
-                    </ng-container>
-
-                    <ng-container *ngIf="videoModels.length > 0">
-                        <mat-divider *ngIf="textModels.length > 0"></mat-divider>
-                        <div class="px-4 py-2 text-sm font-bold text-teal-600 uppercase tracking-wider mt-1">Hình ảnh / Video</div>
-                        <button mat-menu-item *ngFor="let model of videoModels" (click)="selectedModel = model">
-                            <span class="text-sm pl-2">{{ model }}</span>
-                        </button>
-                    </ng-container>
-
-                    <ng-container *ngIf="audioModels.length > 0">
-                        <mat-divider *ngIf="textModels.length > 0 || videoModels.length > 0"></mat-divider>
-                        <div class="px-4 py-2 text-sm font-bold text-teal-600 uppercase tracking-wider mt-1">Âm thanh</div>
-                        <button mat-menu-item *ngFor="let model of audioModels" (click)="selectedModel = model">
-                            <span class="text-sm pl-2">{{ model }}</span>
-                        </button>
-                    </ng-container>
-
-                    <button mat-menu-item *ngIf="!availableModels?.length" disabled>
-                        <span class="text-sm">Đang tải...</span>
-                    </button>
-                </mat-menu>
 
                 <!-- Model Selector -->
 
