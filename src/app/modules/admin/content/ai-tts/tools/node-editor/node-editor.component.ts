@@ -12,6 +12,7 @@ import { AddSceneComponent } from '../add-scene.component';
 import { DirectorModeComponent } from '../director-mode.component';
 import { CharacterDialogComponent } from '../character-dialog.component';
 import { AudioGenerationComponent } from '../audio-generation.component';
+import { MagicPromptDialogComponent } from './magic-prompt-dialog.component';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { GenaiService } from 'app/genai.service';
 
@@ -575,7 +576,26 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     });
   }
 
+  openMagicPromptDialog() {
+    const dialogRef = this.dialog.open(MagicPromptDialogComponent, {
+        width: '600px',
+        maxWidth: '95vw',
+        data: {
+            currentPrompt: this.globalPromptText,
+            type: this.editingType,
+            selectedModel: this.selectedModel
+        }
+    });
+
+    dialogRef.afterClosed().subscribe(result => {
+        if (result) {
+            this.updatePrompt(result);
+        }
+    });
+  }
+
   openAddCharacter() {
+    this.selectedNode = null;
     const dialogRef = this.dialog.open(CharacterDialogComponent, {
       width: '800px',
       maxWidth: '95vw',
@@ -601,6 +621,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
 
 
   insertCharacterToPrompt(char: any) {
+    this.selectedNode = null;
     this.editingType = 'character';
     this.editingCharacter = char;
 
@@ -615,10 +636,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     if (!charDesc) charDesc = `Portrait of ${char.name}`;
     
     this.globalPromptText = charDesc;
-
-    if (!this.activeCharacters.find(c => c.id === char.id)) {
-      this.activeCharacters.push(char);
-    }
     this.saveProject();
   }
 
