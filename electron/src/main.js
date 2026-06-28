@@ -4893,7 +4893,7 @@ ipcMain.handle("tts-ausync-generate", async (event, payload) => {
     const { text, voice_id, speed, filename, username, key } = payload;
 
     try {
-        // BƯỚC 1: POST yêu cầu tạo Audio với đầy đủ các trư�?ng bắt buộc
+        // BƯỚC 1: POST yêu cầu tạo Audio với đầy đủ các trường bắt buộc
         const postRes = await fetch("https://api.ausynclab.io/api/v1/speech/text-to-speech", {
             method: "POST",
             headers: {
@@ -4992,8 +4992,8 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
                 "text": text,
                 "ref_audio_name": ref_audio_name,
                 "ref_text": ref_text,
-                "speed": speed || 1.0,
-                "num_step": num_step || 16
+                "speed": Number(speed) || 1.0,
+                "num_step": Number(num_step) || 16
             })
         });
 
@@ -5016,7 +5016,7 @@ ipcMain.handle("tts-type-generate", async (event, payload) => {
             // === THÊM �?OẠN NÀY ===
             // Nếu taskId đã bị hàm cancel-tts xóa kh�?i sổ, lập tức dừng vòng lặp
             if (!activeTtsTasks.has(taskId)) {
-                throw new Error("Task đã bị hủy bởi ngư�?i dùng.");
+                throw new Error("Task đã bị hủy bởi người dùng.");
             }
             // =====================
 

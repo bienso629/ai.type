@@ -311,8 +311,15 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                         if (!voiceInfo || voiceInfo.length === 0) throw new Error("Không tìm thấy thông tin API Key cho giọng đọc này.");
 
+                        // Xử lý text để tránh lỗi ở backend khi câu quá ngắn bị cắt nhỏ thêm
+                        let safeText = clip.description;
+                        if (safeText.length < 150) {
+                            safeText = safeText.replace(/[.!?\n]+/g, ', ');
+                            safeText = safeText.replace(/,\s*$/, '').trim();
+                        }
+
                         const payload = {
-                            text: clip.description,
+                            text: safeText,
                             voice_id: voiceInfo[0]['id'],
                             key: voiceInfo[0]['api_key'],
                             ref_audio_name: voiceInfo[0]['ref_audio_name'],

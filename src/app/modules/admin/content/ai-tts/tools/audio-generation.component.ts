@@ -1,5 +1,5 @@
 import { TranslocoModule } from '@ngneat/transloco';
-import { Component, Inject, OnInit, ChangeDetectorRef, OnDestroy } from '@angular/core';
+import { Component, Inject, OnInit, ChangeDetectorRef, OnDestroy, NgZone } from '@angular/core';
 import {
     MAT_DIALOG_DATA,
     MatDialogRef,
@@ -35,24 +35,24 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
             <div class="flex items-start justify-between mb-4">
                 <div class="flex items-center text-primary mt-1">
                     <mat-icon class="mr-2 icon-size-5 text-primary">bolt</mat-icon>
-                    <span class="text-xl font-semibold tracking-tight">Chuẩn bị tạo video</span>
+                    <span class="text-xl font-semibold tracking-tight">Cấu hình tạo âm thanh</span>
                 </div>
-                <button (click)="cancel()" *ngIf="!isStarted" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                <button (click)="cancel()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">close</mat-icon>
                 </button>
             </div>
 
             <div class="overflow-y-auto max-h-[75vh] scrollbar-hide">
-                <div *ngIf="!isStarted" class="space-y-4">
+                <div class="space-y-4">
                     <div class="bg-blue-50 p-4 rounded-md border border-blue-100 flex items-start">
                         <mat-icon class="text-blue-500 mr-3 mt-0.5">info</mat-icon>
                         <p class="text-sm text-blue-800 leading-relaxed m-0" *ngIf="data?.targetSceneIndex === null || data?.targetSceneIndex === undefined">
                             Hệ thống sẽ chuyển đổi tổng cộng
-                            <strong>{{ totalTasks }}</strong> câu thoại (subtitle) thành âm thanh.
+                            <strong>{{ totalTasks }}</strong> câu thoại (subtitle) thành âm thanh ở chế độ chạy ngầm.
                         </p>
                         <p class="text-sm text-blue-800 leading-relaxed m-0" *ngIf="data?.targetSceneIndex !== null && data?.targetSceneIndex !== undefined">
                             Hệ thống sẽ chuyển đổi lại
-                            <strong>{{ totalTasks }}</strong> câu thoại bên trong phân cảnh này thành âm thanh.
+                            <strong>{{ totalTasks }}</strong> câu thoại bên trong phân cảnh này thành âm thanh ở chế độ chạy ngầm.
                         </p>
                     </div>
 
@@ -103,34 +103,11 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
                         <mat-icon matSuffix class="icon-size-5">graphic_eq</mat-icon>
                     </mat-form-field>
                 </div>
-
-                <div *ngIf="isStarted" class="space-y-6 py-4">
-                    <div class="flex flex-col items-center justify-center space-y-2">
-                        <div class="text-4xl font-black text-indigo-600 tracking-tighter">
-                            {{ progress }}%
-                        </div>
-                        <div class="text-sm font-medium text-gray-500">
-                            Đang xử lý {{ completedTasks }} / {{ totalTasks }} subtitles
-                        </div>
-                    </div>
-
-                    <mat-progress-bar mode="determinate" [value]="progress" class="h-3 rounded-full"></mat-progress-bar>
-
-                    <div class="bg-gray-50 rounded-xl p-4 border border-gray-200 shadow-inner">
-                        <div class="flex items-center mb-2">
-                            <div class="w-2 h-2 rounded-full bg-green-500 animate-pulse mr-2"></div>
-                            <span class="text-[10px] font-semibold text-gray-400 uppercase tracking-widest">Đang chạy ngầm</span>
-                        </div>
-                        <p class="text-sm text-gray-700 italic truncate" [title]="currentStatus">
-                            "{{ currentStatus }}"
-                        </p>
-                    </div>
-                </div>
             </div>
 
-            <div class="flex justify-end gap-2 mt-6" *ngIf="!isFinished">
+            <div class="flex justify-end gap-2 mt-6">
                 <button mat-flat-button color="accent" (click)="cancel()">Hủy bỏ</button>
-                <button mat-flat-button color="primary" (click)="startParallelProcess()" [disabled]="isFinished">BẮT ĐẦU TẠO AUDIO</button>
+                <button mat-flat-button color="primary" (click)="startParallelProcess()">BẮT ĐẦU TẠO AUDIO</button>
             </div>
         </div>
     `,
@@ -173,7 +150,8 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private ngZone: NgZone
     ) { }
 
     saveData() {
@@ -208,242 +186,23 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
             });
     }
 
-    async startParallelProcess(): Promise<void> {
-        this.isStarted = true;
-        this.isCancelled = false;
-
-        const pendingSubs: {
-            sub: any;
-            sIdx: number;
-            subIdx: number;
-            globalIndex: number;
-        }[] = [];
-        let globalCounter = 0;
-
-        // 1. Gom tất cả dữ liệu
-        this.data.scenes.forEach((scene: any, sIdx: number) => {
-            if (this.data.targetSceneIndex !== undefined && this.data.targetSceneIndex !== null && this.data.targetSceneIndex !== sIdx) {
-                return; // Skip if a specific scene was requested and this is not it
-            }
-            scene.subtitles.forEach((sub: any, subIdx: number) => {
-                if (!sub.audioUrl) {
-                    pendingSubs.push({
-                        sub,
-                        sIdx,
-                        subIdx,
-                        globalIndex: globalCounter,
-                    });
-                }
-                globalCounter++;
-            });
-        });
-
-        if (pendingSubs.length === 0) {
-            setTimeout(() => { this.dialogRef.close(this.data); }, 1000);
-            return;
-        }
-
-        this.toastr.info(`Bắt đầu xử lý ${pendingSubs.length} mục...`, 'System');
-        this.currentStatus = 'Đang khởi tạo luồng xử lý liên tục...';
-
-        // 2. XÁC ĐỊNH SỐ LUỒNG CHẠY SONG SONG
-        const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-        const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
-        const isTTSTypeVoice = this.selectedVoice.indexOf('tts.type.vn') !== -1;
-
-        const concurrencyLimit = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
-
-        try {
-            let currentIndex = 0;
-
-            // 3. TẠO HÀM WORKER XỬ LÝ LIÊN TỤC
-            const worker = async () => {
-                while (currentIndex < pendingSubs.length) {
-                    if (this.isCancelled) {
-                        console.log('Tiến trình worker đã dừng do người dùng hủy.');
-                        break;
-                    }
-
-                    const taskIndex = currentIndex++;
-                    const item = pendingSubs[taskIndex];
-
-                    await this.generateAudioForSub(
-                        item.sub,
-                        item.sIdx,
-                        item.subIdx,
-                        item.globalIndex
-                    );
-
-                    // LƯU NGAY LẬP TỨC SAU KHI CÓ KẾT QUẢ CỦA 1 CÂU
-                    this.saveData();
-                }
-            };
-
-            // 4. KÍCH HOẠT CÁC WORKERS CHẠY CÙNG LÚC
-            const workers = [];
-            for (let i = 0; i < concurrencyLimit; i++) {
-                workers.push(worker());
-            }
-
-            await Promise.all(workers);
-
-            // 5. HOÀN TẤT
-            if (!this.isCancelled) {
-                this.isFinished = true;
-                this.currentStatus = 'Hoàn tất!';
-                this.toastr.success('Đã hoàn tất quá trình!');
-                setTimeout(() => { this.dialogRef.close(this.data); }, 1000);
-            }
-        } catch (err) {
-            console.error('Concurrency processing error:', err);
-            this.toastr.error('Có lỗi xảy ra trong quá trình xử lý liên tục.');
-        } finally {
-            this.cd.markForCheck();
-        }
-    }
-
-    async generateAudioForSub(
-        sub: any,
-        sceneIdx: number,
-        subIdx: number,
-        globalIndex: number,
-    ): Promise<void> {
-        return new Promise(async (resolve) => {
-            if (!sub.text || !sub.text.trim()) {
-                resolve();
-                return;
-            }
-
-            if (!(window as any).electron || !(window as any).electron.invoke) {
-                this.toastr.error('Cần chạy trên App Desktop (Electron).');
-                resolve();
-                return;
-            }
-
-            const username = this.data.username || 'anonymous';
-            const subPath = `${username}/${this.data.uuid || 'default'}`;
-            const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0).toString().padStart(3, '0');
-            const slug = this.toSlug(sub.text.substring(0, 50));
-
-            const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
-            const isEdgeVoice = edgeVoices.includes(this.selectedVoice);
-
-            let res: any;
-
-            try {
-                if (isEdgeVoice) {
-                    const niceFilename = `${prefix}_${slug}`;
-                    const payload = {
-                        text: sub.text,
-                        voice: this.selectedVoice,
-                        rate: this.selectedRate,
-                        pitch: this.selectedPitch,
-                        filename: niceFilename,
-                        username: subPath,
-                    };
-                    res = await (window as any).electron.invoke('tts-generate', payload);
-                } else {
-                    const selectedVoice = this.selectedVoice.split('-');
-                    const voice_id = selectedVoice[0];
-
-                    if (selectedVoice[1] === 'tts.type.vn') {
-                        const niceFilename = `${prefix}_${slug}`;
-                        const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
-
-                        const payload = {
-                            text: sub.text,
-                            voice_id: voice[0]['id'],
-                            key: voice[0]['api_key'],
-                            ref_audio_name: voice[0]['ref_audio_name'],
-                            ref_text: voice[0]['ref_text'],
-                            speed: voice[0]['speed'] || this.selectedRate || 1.0,
-                            num_step: voice[0]['num_step'] || 16,
-                            filename: niceFilename,
-                            username: subPath,
-                        };
-
-                        res = await (window as any).electron.invoke('tts-type-generate', payload);
-                    } else {
-                        const niceFilename = `${prefix}_${slug}_ausync`;
-                        const voice = await this.myvoices.filter((voice: any) => (voice['id'] === voice_id));
-
-                        const payload = {
-                            text: sub.text,
-                            voice_id: voice_id,
-                            key: voice[0]['api_key'],
-                            speed: voice[0]['api_key'] || this.selectedRate || 1.0,
-                            filename: niceFilename,
-                            username: subPath,
-                        };
-
-                        res = await (window as any).electron.invoke('tts-ausync-generate', payload);
-                    }
-                }
-
-                if (res && res.success !== false && !res.error) {
-                    const rawPath = res.filePath || res.url || res.result;
-                    if (rawPath) {
-                        sub.audioUrl = rawPath.startsWith('file://')
-                            ? rawPath
-                            : `file://${rawPath}`;
-                    }
-                } else {
-                    const errorMsg = res?.error || 'Lỗi không xác định từ API';
-                    console.error(`Error processing sub ${sub.text}:`, errorMsg);
-                    this.toastr.error(`Lỗi tạo âm thanh: ${errorMsg}`);
-                    sub.hasError = true;
-                    sub.errorMessage = errorMsg;
-                }
-            } catch (err: any) {
-                console.error(`Lỗi Electron cho sub ${sub.id}:`, err.message);
-            } finally {
-                this.completedTasks++;
-                this.progress = Math.round((this.completedTasks / this.totalTasks) * 100);
-                this.currentStatus = sub.text;
-                this.cd.markForCheck();
-                resolve();
-            }
+    startParallelProcess(): void {
+        this.dialogRef.close({
+            action: 'start',
+            selectedVoice: this.selectedVoice,
+            selectedRate: this.selectedRate,
+            selectedPitch: this.selectedPitch,
+            myvoices: this.myvoices
         });
     }
-
-    getDateStr(): string {
-        const d = new Date();
-        const day = ('0' + d.getDate()).slice(-2);
-        const month = ('0' + (d.getMonth() + 1)).slice(-2);
-        const year = d.getFullYear();
-        return `${day}${month}${year}`;
-    }
-
-    toSlug(str: string): string {
-        str = str || '';
-        str = str.toLowerCase();
-        str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-        str = str.replace(/[đĐ]/g, 'd');
-        str = str.replace(/([^0-9a-z-\s])/g, '');
-        str = str.replace(/(\s+)/g, '-');
-        str = str.replace(/^-+|-+$/g, '');
-        return str;
-    }
-
-    async cancel(): Promise<void> {
-        this.isCancelled = true;
-
-        if (this.isStarted) {
-            this.toastr.warning('Đang ngắt kết nối và hủy tiến trình ngầm...', 'Hệ thống');
-            try {
-                if ((window as any).electron) {
-                    await (window as any).electron.invoke('cancel-tts');
-                }
-            } catch (err) {
-                console.error('Lỗi khi gửi lệnh hủy:', err);
-            }
-        }
-
+    cancel(): void {
         this.dialogRef.close(null);
     }
 
     ngOnInit(): void {
-        if (this.data && this.data.scenes) {
+        if (this.data && this.data.standaloneTTSNode) {
+            this.totalTasks = !this.data.standaloneTTSNode.data.audioUrl ? 1 : 0;
+        } else if (this.data && this.data.scenes) {
             let count = 0;
             this.data.scenes.forEach((scene: any, sIdx: number) => {
                 if (this.data.targetSceneIndex !== undefined && this.data.targetSceneIndex !== null && this.data.targetSceneIndex !== sIdx) {
@@ -461,9 +220,6 @@ export class AudioGenerationComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
-        if (this.isStarted && !this.isFinished) {
-            this.cancel();
-        }
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
     }
