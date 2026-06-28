@@ -30,10 +30,11 @@ export interface ControlTemplate {
             color: #111827;
         }
         .section-card {
-            border-radius: 8px;
-            padding: 12px;
-            margin-bottom: 12px;
-            border: 1px solid #f3f4f6;
+            padding: 0;
+            margin-bottom: 16px;
+        }
+        .section-card:last-child {
+            margin-bottom: 0;
         }
         .option-img {
             width: 100%;
@@ -92,12 +93,6 @@ export class DirectorModeComponent implements OnInit {
     loadingMessage: string = '';
     
     // Global Context
-    globalContext = {
-        seed: null as number | null,
-        referenceImageUrl: null as string | null,
-        environmentPrompt: ''
-    };
-    isUploadingReferenceImage: boolean = false;
     
     private safeUrlCache: { [url: string]: SafeUrl } = {};
 
@@ -281,9 +276,6 @@ export class DirectorModeComponent implements OnInit {
             if (data.controlImageUrl) {
                 this.controlImageUrl = data.controlImageUrl;
             }
-            if (this.data && this.data.globalContext) {
-                this.globalContext = { ...this.data.globalContext };
-            }
         }
     }
 
@@ -316,18 +308,6 @@ export class DirectorModeComponent implements OnInit {
         this.controlImageUrl = template.imageUrl;
     }
 
-    onReferenceImageSelected(event: any) {
-        const file = event.target.files[0];
-        if (file) {
-            this.isUploadingReferenceImage = true;
-            this.globalContext.referenceImageUrl = URL.createObjectURL(file);
-            this.isUploadingReferenceImage = false;
-        }
-    }
-
-    removeReferenceImage() {
-        this.globalContext.referenceImageUrl = null;
-    }
 
     getSafeUrl(url: string | null): SafeUrl | string | null {
         if (!url) return url;
@@ -408,8 +388,7 @@ export class DirectorModeComponent implements OnInit {
 
         this.dialogRef.close({ 
             prompt: finalPrompt, 
-            controlImageUrl: this.controlImageUrl,
-            globalContext: this.globalContext
+            controlImageUrl: this.controlImageUrl
         });
     }
 }

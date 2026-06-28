@@ -14,7 +14,7 @@
     </div>
 
     <!-- Content body -->
-    <mat-dialog-content class="flex-1 bg-white overflow-y-auto max-h-[75vh] p-0 scrollbar-hide"
+    <mat-dialog-content class="flex-1 bg-white overflow-y-auto max-h-[75vh] !p-0 scrollbar-hide"
         style="-ms-overflow-style: none; scrollbar-width: none;">
 
         <!-- Tab Camera -->
@@ -251,78 +251,12 @@
             </div>
         </div>
 
-        <!-- Tab Context & Seed -->
-        <div *ngIf="data.targetName === 'Apply to Master Prompt'" class="flex flex-col gap-4 mt-2 min-h-[300px]">
-            <h2 class="text-[15px] font-medium m-0 text-indigo-600 border-b-2 border-indigo-600 pb-2 mb-1">{{ 'app.context_characters' | transloco }}</h2>
-            <div class="bg-indigo-50 text-indigo-800 p-3 rounded-lg text-sm border border-indigo-100 flex gap-3">
-                <mat-icon [svgIcon]="'heroicons_outline:information-circle'"
-                    class="text-indigo-500 shrink-0"></mat-icon>
-                <div>
-                    <strong>{{ 'app.context_characters_global_context' | transloco }}</strong> {{ 'app.settings_here_will_be' | transloco }}
-                </div>
-            </div>
 
-            <div class="grid grid-cols-2 gap-4">
-                <!-- Cột trái: Seed & Text -->
-                <div class="flex flex-col gap-4">
-                    <div class="flex flex-col gap-2">
-                        <label class="font-semibold text-gray-800 text-sm">{{ 'app.seed_random_seed' | transloco }}</label>
-                        <p class="text-xs text-gray-500 mb-1">Dùng chung 1 số Seed giúp các phân cảnh có sự đồng nhất
-                            cao hơn về bố cục và màu sắc.</p>
-                        <input type="number" [(ngModel)]="globalContext.seed"
-                            placeholder="Ví dụ: 123456 (Để trống để ngẫu nhiên)"
-                            class="border border-gray-300 rounded-lg p-2.5 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none w-full">
-                    </div>
-
-                    <div class="flex flex-col gap-2 mt-2">
-                        <label class="font-semibold text-gray-800 text-sm">Mô tả Môi trường chung (Global
-                            Environment)</label>
-                        <p class="text-xs text-gray-500 mb-1">Đoạn text này sẽ được tự động thêm vào cuối prompt của mọi
-                            phân cảnh.</p>
-                        <textarea [(ngModel)]="globalContext.environmentPrompt"
-                            class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"
-                            rows="5"
-                            placeholder="Ví dụ: Trong một con hẻm cyberpunk tối tăm, trời mưa lất phất, đèn neon đỏ và xanh biển lấp lánh..."></textarea>
-                    </div>
-                </div>
-
-                <!-- Cột phải: Reference Image -->
-                <div class="flex flex-col gap-2 h-full">
-                    <label class="font-semibold text-gray-800 text-sm">Nhân vật / Phong cách tham chiếu</label>
-                    <p class="text-xs text-gray-500 mb-1">{{ 'app.upload_an_image_for' | transloco }}</p>
-
-                    <div class="w-full flex-1 relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[150px]"
-                        *ngIf="!globalContext.referenceImageUrl">
-                        <input type="file" (change)="onReferenceImageSelected($event)" accept="image/*"
-                            class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
-                        <div class="flex flex-col items-center">
-                            <mat-icon [svgIcon]="'heroicons_outline:photo'"
-                                class="text-gray-400 w-12 h-12 mb-2"></mat-icon>
-                            <p class="text-gray-600 font-medium text-sm mb-1">Tải ảnh tham chiếu</p>
-                            <p class="text-gray-400 text-xs">JPG, PNG</p>
-                        </div>
-                    </div>
-
-                    <div *ngIf="globalContext.referenceImageUrl"
-                        class="relative w-full flex-1 border border-gray-200 rounded-lg overflow-hidden group min-h-[150px]">
-                        <img [src]="getSafeUrl(globalContext.referenceImageUrl)" class="w-full h-full object-cover">
-                        <div
-                            class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <button mat-icon-button
-                                class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors"
-                                (click)="removeReferenceImage()">
-                                <mat-icon class="icon-size-5">delete</mat-icon>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
 
     </mat-dialog-content>
 
     <!-- Footer Actions -->
-    <div class="px-0 mt-4 flex justify-end gap-2">
+    <div class="px-0 mt-8 pb-4 flex justify-end gap-2">
         <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName === 'Apply to
             Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName
             === 'Apply to Scene Prompt' ? 'Áp dụng vào Phân cảnh' : 'Áp dụng') }}</button>
