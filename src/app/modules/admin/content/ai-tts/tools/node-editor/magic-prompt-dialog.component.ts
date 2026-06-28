@@ -2,9 +2,10 @@ import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, OnInit } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogRef, MatDialogModule } from '@angular/material/dialog';
 import { CommonModule } from '@angular/common';
-import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatSelectModule } from '@angular/material/select';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
@@ -18,13 +19,18 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
         TranslocoModule,
         CommonModule,
         MatDialogModule,
-        MatProgressBarModule,
+        MatProgressSpinnerModule,
         MatIconModule,
         MatButtonModule,
-        MatSelectModule,
+        MatTooltipModule,
         FormsModule,
     ],
-    templateUrl: './magic-prompt-dialog.component.html'
+    templateUrl: './magic-prompt-dialog.component.html',
+    styles: [`
+        .light-theme { background-color: #ffffff; color: #111827; }
+        .section-card { padding: 0; margin-bottom: 16px; }
+        .section-card:last-child { margin-bottom: 0; }
+    `]
 })
 export class MagicPromptDialogComponent implements OnInit {
     currentPrompt: string = '';

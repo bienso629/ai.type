@@ -580,6 +580,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     const dialogRef = this.dialog.open(MagicPromptDialogComponent, {
         width: '600px',
         maxWidth: '95vw',
+        maxHeight: '95vh',
+        panelClass: 'dark-theme-dialog',
         data: {
             currentPrompt: this.globalPromptText,
             type: this.editingType,
