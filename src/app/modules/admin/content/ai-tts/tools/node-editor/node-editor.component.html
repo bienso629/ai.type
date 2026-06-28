@@ -1,7 +1,7 @@
-<div class="w-full h-full relative overflow-auto bg-gray-50 select-none" #workspace 
+<div class="w-full h-full relative overflow-auto bg-white select-none" #workspace 
      (mousedown)="onWorkspaceMouseDown($event)" 
      (wheel)="onWheel($event)"
-     [style.background-image]="'radial-gradient(circle, #a1a1aa 1px, transparent 1px)'"
+     [style.background-image]="'radial-gradient(circle, #e2e8f0 1px, transparent 1px)'"
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
      style="background-attachment: local;">
     
@@ -41,14 +41,11 @@
                  [style.top.px]="node.y"
                  [style.width.px]="280"
                  [style.z-index]="draggedNode === node ? 100 : 10"
-                 (mousedown)="onNodeMouseDown($event, node)"
-                 [ngClass]="{'ring-1 ring-indigo-500': draggedNode === node}">
-                
+                 (mousedown)="onNodeMouseDown($event, node)">
                 <!-- Inner wrapper for clipping content but not ports -->
-                <div class="rounded-2xl overflow-hidden bg-white border flex flex-col w-full h-full pointer-events-auto transition-all duration-200"
-                     [ngClass]="selectedNode === node ? 'border-indigo-500 ring-4 ring-indigo-500/20 shadow-lg' : 'border-gray-200 hover:border-indigo-400 shadow-sm'">
+                <div class="rounded-2xl flex flex-col w-full h-full pointer-events-auto transition-all duration-200">
                 <!-- Node Header -->
-                <div class="px-4 py-3 flex items-center justify-between border-b border-gray-100 bg-white">
+                <div class="px-4 pt-3 pb-1.5 flex items-center justify-between">
                     <div class="flex items-center space-x-2 text-gray-500">
                         <mat-icon class="icon-size-4" *ngIf="node.type === 'image'">image</mat-icon>
                         <mat-icon class="icon-size-4" *ngIf="node.type === 'video'">movie</mat-icon>
@@ -67,47 +64,55 @@
                 </div>
 
                 <!-- Node Content -->
-                <div class="p-4 flex flex-col space-y-3 bg-white">
+                <div class="p-4 pt-0 flex flex-col space-y-3">
                     <!-- Image / Video Preview -->
-                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full rounded-xl overflow-hidden bg-gray-100 group" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
-                        <!-- Video Element -->
-                        <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
+                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
+
                         
-                        <!-- Image Fallback -->
-                        <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="node.data.imageUrl" class="w-full h-full object-cover pointer-events-none" />
-                        
-                        <!-- Empty State -->
-                        <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
-                        
-                        <!-- Play/Pause Overlay -->
-                        <div *ngIf="node.data.isVideo && (node.data.videoUrl || node.data.imageUrl) && videoEl.paused" 
-                             class="absolute inset-0 flex items-center justify-center transition-colors pointer-events-none bg-black/10 hover:bg-black/20">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-gray-100 group transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                            <!-- Video Element -->
+                            <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
-                            <!-- Large central play button (only visible when paused) -->
-                            <div class="w-12 h-12 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white/90 shadow-lg pointer-events-auto cursor-pointer hover:scale-110 transition-transform"
-                                 (click)="videoEl.play(); $event.stopPropagation()">
-                                <mat-icon class="icon-size-8 !m-0 ml-1">play_arrow</mat-icon>
+                            <!-- Image Fallback -->
+                            <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="node.data.imageUrl" class="w-full h-full object-cover pointer-events-none" />
+                            
+                            <!-- Empty State -->
+                            <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
+                            
+                            <!-- Play/Pause Overlay -->
+                            <div *ngIf="node.data.isVideo && (node.data.videoUrl || node.data.imageUrl) && videoEl.paused" 
+                                 class="absolute inset-0 flex items-center justify-center transition-colors pointer-events-none bg-black/10 hover:bg-black/20">
+                                
+                                <!-- Large central play button (only visible when paused) -->
+                                <div class="w-12 h-12 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white/90 shadow-lg pointer-events-auto cursor-pointer hover:scale-110 transition-transform"
+                                     (click)="videoEl.play(); $event.stopPropagation()">
+                                    <mat-icon class="icon-size-8 !m-0 ml-1">play_arrow</mat-icon>
+                                </div>
                             </div>
                         </div>
                     </div>
 
                     <!-- TTS Audio Player Preview -->
-                    <div *ngIf="node.type === 'tts'" class="w-full bg-gray-100 border border-gray-200 rounded-xl p-3 flex items-center space-x-3 relative">
-                        <audio #audioEl [hidden]="true" [src]="node.data.audioUrl"></audio>
-                        <div class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-50"
-                             (click)="audioEl.paused ? audioEl.play() : audioEl.pause()">
-                            <mat-icon class="icon-size-5 text-gray-700">{{ audioEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
-                        </div>
-                        <span class="text-sm font-medium text-gray-700">{{ node.data.duration }}</span>
-                        <!-- Fake Waveform (animated when playing) -->
-                        <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl.paused">
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '4px' : '8px'"></div>
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-150" [style.height]="audioEl.paused ? '12px' : '24px'"></div>
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '8px' : '16px'"></div>
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
-                            <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
+                    <div *ngIf="node.type === 'tts'" class="relative w-full">
+
+                        
+                        <div class="w-full bg-gray-100 rounded-xl p-3 flex items-center space-x-3 relative transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node}">
+                            <audio #audioEl [hidden]="true" [src]="node.data.audioUrl"></audio>
+                            <div class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-50"
+                                 (click)="audioEl.paused ? audioEl.play() : audioEl.pause()">
+                                <mat-icon class="icon-size-5 text-gray-700">{{ audioEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700">{{ node.data.duration }}</span>
+                            <!-- Fake Waveform (animated when playing) -->
+                            <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl.paused">
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '4px' : '8px'"></div>
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-150" [style.height]="audioEl.paused ? '12px' : '24px'"></div>
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '8px' : '16px'"></div>
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
+                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
+                            </div>
                         </div>
                     </div>
 
