@@ -50,7 +50,7 @@
                  class="absolute rounded-2xl transition-shadow duration-200 cursor-move"
                  [style.left.px]="node.x"
                  [style.top.px]="node.y"
-                 [style.width.px]="280"
+                 [style.width.px]="node.type === 'video' || node.type === 'composition' ? 360 : 280"
                  [style.z-index]="draggedNode === node ? 100 : 10"
                  (mousedown)="onNodeMouseDown($event, node)"
                  (mouseenter)="hoveredNode = node"
@@ -87,7 +87,7 @@
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
                         
-                        <div class="relative w-full rounded-xl overflow-hidden bg-gray-100 shadow-[0_0_0_1px_#a5b4fc] group" [ngClass]="{'ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-indigo-50 shadow-[0_0_0_1px_#a5b4fc] group" [ngClass]="{'ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -116,7 +116,7 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-gray-100 shadow-[0_0_0_1px_#10b981] rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'ring-[6px] ring-emerald-500/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-blue-50 !shadow-[0_0_0_1px_#bfdbfe]': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-emerald-50 shadow-[0_0_0_1px_#10b981] rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'ring-[6px] ring-emerald-500/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-emerald-100 !shadow-[0_0_0_1px_#34d399]': node.data.isGeneratingAudio}">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
@@ -158,24 +158,24 @@
                 </div>
 
                 <!-- Input Ports (Left) -->
-                <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.inputs.length > 0">
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col space-y-2 pointer-events-auto" *ngIf="node.inputs.length > 0">
                     <div *ngFor="let port of node.inputs" 
                          (mousedown)="onInputPortMouseDown($event, node, port)"
                          (mouseenter)="hoveredInput = {node: node, port: port}; $event.stopPropagation()"
                          (mouseleave)="hoveredInput = null"
-                         class="w-6 h-6 border rounded-full flex items-center justify-center cursor-crosshair transition-colors"
-                         [ngClass]="port === 'tts_in' ? 'bg-emerald-100 border-emerald-200 text-emerald-500 hover:bg-emerald-200' : 'bg-indigo-100 border-indigo-200 text-indigo-500 hover:bg-indigo-200'">
-                        <div class="w-2 h-2 rounded-full" [ngClass]="port === 'tts_in' ? 'bg-emerald-500' : 'bg-indigo-500'"></div>
+                         class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150" 
+                             [ngClass]="port.startsWith('tts_in') ? 'bg-emerald-400' : 'bg-indigo-400'"></div>
                     </div>
                 </div>
 
                 <!-- Output Ports (Right) -->
-                <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.outputs.length > 0">
+                <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col space-y-2 pointer-events-auto" *ngIf="node.outputs.length > 0">
                     <div *ngFor="let port of node.outputs" 
                          (mousedown)="onOutputPortMouseDown($event, node, port)"
-                         class="w-6 h-6 border rounded-full flex items-center justify-center cursor-crosshair transition-colors"
-                         [ngClass]="node.type === 'tts' ? 'bg-emerald-100 border-emerald-200 text-emerald-500 hover:bg-emerald-200' : 'bg-indigo-100 border-indigo-200 text-indigo-500 hover:bg-indigo-200'">
-                        <div class="w-2 h-2 rounded-full" [ngClass]="node.type === 'tts' ? 'bg-emerald-500' : 'bg-indigo-500'"></div>
+                         class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150" 
+                             [ngClass]="node.type === 'tts' ? 'bg-emerald-400' : 'bg-indigo-400'"></div>
                     </div>
                 </div>
                 
@@ -283,7 +283,7 @@
                                 <!-- Hiệu ứng lan tỏa nhỏ (w-6 h-6 -> ping lên 48px) -->
                                 <div class="absolute w-6 h-6 rounded-full bg-indigo-500 animate-ping opacity-60"></div>
                                 <!-- Avatar chính -->
-                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border-2 border-indigo-500 shadow-sm z-10">
+                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border border-indigo-500 shadow-sm z-10">
                                     <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-full h-full object-cover">
                                     <mat-icon *ngIf="!char.avatarUrl" class="icon-size-5 text-gray-500">person</mat-icon>
                                 </div>
@@ -295,7 +295,7 @@
                                 <!-- Hiệu ứng lan tỏa nhỏ (w-6 h-6 -> ping lên 48px) -->
                                 <div class="absolute w-6 h-6 rounded-full bg-indigo-500 animate-ping opacity-60"></div>
                                 <!-- Avatar chính -->
-                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border-2 border-indigo-500 shadow-sm z-10">
+                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border border-indigo-500 shadow-sm z-10">
                                     <mat-icon class="icon-size-5 text-gray-500">person</mat-icon>
                                 </div>
                             </div>
