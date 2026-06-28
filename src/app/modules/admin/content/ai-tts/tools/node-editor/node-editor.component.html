@@ -59,14 +59,14 @@
                 <div class="rounded-2xl flex flex-col w-full h-full pointer-events-auto transition-all duration-200">
                 <!-- Node Header -->
                 <div class="px-4 pt-3 pb-1.5 flex items-center justify-between">
-                    <div class="flex items-center space-x-2 text-gray-500">
-                        <mat-icon class="icon-size-4" *ngIf="node.type === 'image'">image</mat-icon>
-                        <mat-icon class="icon-size-4" *ngIf="node.type === 'video'">movie</mat-icon>
-                        <mat-icon class="icon-size-4" *ngIf="node.type === 'tts'">graphic_eq</mat-icon>
-                        <mat-icon class="icon-size-4" *ngIf="node.type === 'composition'">layers</mat-icon>
-                        <span class="text-sm font-medium">{{ node.title }}</span>
+                    <div class="flex items-center space-x-2 text-gray-500 flex-1 min-w-0 pr-2">
+                        <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'image'">image</mat-icon>
+                        <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'video'">movie</mat-icon>
+                        <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'tts'">graphic_eq</mat-icon>
+                        <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'composition'">layers</mat-icon>
+                        <span class="text-sm font-medium truncate" [title]="node.title">{{ node.title }}</span>
                     </div>
-                    <div class="flex items-center space-x-2">
+                    <div class="flex items-center space-x-2 shrink-0">
                         <ng-container *ngIf="node.type === 'tts'; else defaultSubtitle">
                             <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
                                 <mat-icon class="icon-size-4 !m-0">mic</mat-icon>
@@ -82,12 +82,12 @@
                 </div>
 
                 <!-- Node Content -->
-                <div class="p-4 pt-0 flex flex-col space-y-3">
+                <div class="px-4 pb-3 pt-0 flex flex-col space-y-3">
                     <!-- Image / Video Preview -->
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
                         
-                        <div class="relative w-full rounded-xl overflow-hidden bg-gray-100 border border-slate-200/80 group transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-gray-100 shadow-[0_0_0_1px_#a5b4fc] group" [ngClass]="{'ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -104,7 +104,9 @@
                                 <!-- Large central play button (only visible when paused) -->
                                 <div class="w-12 h-12 rounded-full bg-black/40 backdrop-blur-sm flex items-center justify-center text-white/90 shadow-lg pointer-events-auto cursor-pointer hover:scale-110 transition-transform"
                                      (click)="videoEl.play(); $event.stopPropagation()">
-                                    <mat-icon class="icon-size-8 !m-0 ml-1">play_arrow</mat-icon>
+                                    <svg *ngIf="videoEl.paused" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 ml-1">
+                                      <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" />
+                                    </svg>
                                 </div>
                             </div>
                         </div>
@@ -114,21 +116,29 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-gray-100 border border-slate-200/80 rounded-xl p-3 flex items-center space-x-3 relative transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node, 'animate-pulse bg-blue-50 border-blue-200': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-gray-100 shadow-[0_0_0_1px_#10b981] rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'ring-[6px] ring-emerald-500/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-blue-50 !shadow-[0_0_0_1px_#bfdbfe]': node.data.isGeneratingAudio}">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
-                            <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 rounded-full border border-blue-200 flex items-center justify-center bg-white">
+                            <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
                                 <mat-icon class="icon-size-5 text-blue-500 animate-spin">refresh</mat-icon>
                             </div>
                             
                             <div *ngIf="!node.data.isGeneratingAudio" class="w-8 h-8 rounded-full border flex items-center justify-center transition-colors"
                                  [ngClass]="node.data.audioUrl ? 'bg-white border-gray-300 cursor-pointer hover:bg-gray-50' : 'bg-gray-200 border-gray-300 opacity-50 cursor-not-allowed'"
                                  (click)="toggleAudio(node, audioEl, $event)">
-                                <mat-icon class="icon-size-5 text-gray-700">{{ (audioEl && audioEl.paused === false) ? 'pause' : 'play_arrow' }}</mat-icon>
+                                <ng-container *ngIf="audioEl && audioEl.paused === false; else playIcon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-gray-600">
+                                      <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clip-rule="evenodd" />
+                                    </svg>
+                                </ng-container>
+                                <ng-template #playIcon>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 ml-0.5 text-gray-600">
+                                      <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" />
+                                    </svg>
+                                </ng-template>
                             </div>
 
                             <span class="text-sm font-medium text-gray-700 whitespace-nowrap" *ngIf="!node.data.isGeneratingAudio">{{ node.data.duration || '0s' }}</span>
-                            <span class="text-sm font-medium text-blue-600 whitespace-nowrap italic" *ngIf="node.data.isGeneratingAudio">Đang tạo...</span>
                             
                             <!-- Fake Waveform (animated when playing) -->
                             <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl?.paused !== false && !node.data.isGeneratingAudio">
@@ -256,9 +266,6 @@
                 </button>
                 <button (click)="openMagicPromptDialog()" matTooltip="Magic prompt" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">auto_fix_high</mat-icon>
-                </button>
-                <button (click)="openAudioGeneration()" matTooltip="Tạo âm thanh (Create Audio)" class="w-8 h-8 rounded-full hover:bg-red-50 flex items-center justify-center text-red-500 hover:text-red-600 transition-colors ml-1">
-                    <mat-icon class="icon-size-5">mic</mat-icon>
                 </button>
             </div>
 

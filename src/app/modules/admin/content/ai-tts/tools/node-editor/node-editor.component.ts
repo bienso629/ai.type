@@ -245,11 +245,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                        node.data.text = scene.script;
                        node.data.sceneData = scene;
                    } else if (node.type === 'tts') {
-                       if (scene.subtitles && scene.subtitles.length > 0) {
-                           node.data.audioUrl = scene.subtitles[0].audioUrl || node.data.audioUrl;
-                           node.data.text = scene.subtitles[0].text;
-                           node.data.sceneData = scene;
-                       }
+                        if (scene.subtitles && scene.subtitles.length > 0) {
+                            node.data.audioUrl = scene.subtitles[0].audioUrl || node.data.audioUrl;
+                            node.data.text = scene.subtitles[0].text;
+                            node.title = scene.subtitles[0].text || 'Text to Speech';
+                            node.data.sceneData = scene;
+                        }
                        node.inputs = []; // Ensure TTS nodes don't have input ports
                    }
                 }
@@ -302,7 +303,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         const sub = scene.subtitles[0];
         ttsDuration = sub.duration ? Math.round(sub.duration) : 5;
         this.nodes.push({
-          id: ttsNodeId, type: 'tts', title: 'Text to Speech', subtitle: `${ttsDuration}s`,
+          id: ttsNodeId, type: 'tts', title: sub.text || 'Text to Speech', subtitle: `${ttsDuration}s`,
           x: sceneX, y: 450 + yOffset, inputs: [], outputs: ['out'],
           data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl, sceneData: scene, sceneIndex: index },
           baseX: sceneX, baseY: 450 + yOffset
@@ -732,7 +733,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
     };
     this.nodes = [...this.nodes, newScene];
-    this.selectedNode = newScene;
+    this.selectNode(newScene);
     this.calculateCanvasSize();
     this.closeContextMenu();
     this.saveEditorState();
@@ -761,7 +762,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
     };
     this.nodes = [...this.nodes, newAudio];
-    this.selectedNode = newAudio;
+    this.selectNode(newAudio);
     this.calculateCanvasSize();
     this.closeContextMenu();
     this.saveEditorState();
@@ -860,10 +861,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     } else if (this.editingType === 'scene' && this.selectedNode) {
       if (this.selectedNode.type === 'tts') {
           this.selectedNode.data = { ...this.selectedNode.data, text: text };
+          this.selectedNode.title = text || 'Text to Speech';
           if (this.selectedNode.data.sceneData && this.selectedNode.data.sceneData.subtitles && this.selectedNode.data.sceneData.subtitles.length > 0) {
               this.selectedNode.data.sceneData.subtitles[0].text = text;
-              this.saveProject();
           }
+          this.saveProject();
           return;
       }
 
