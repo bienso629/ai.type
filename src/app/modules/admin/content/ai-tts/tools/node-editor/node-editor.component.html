@@ -1,6 +1,7 @@
 <div class="w-full h-full relative overflow-auto bg-white select-none" #workspace 
      (mousedown)="onWorkspaceMouseDown($event)" 
      (wheel)="onWheel($event)"
+     (contextmenu)="onWorkspaceContextMenu($event)"
      [style.background-image]="'radial-gradient(circle, #e2e8f0 1px, transparent 1px)'"
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
      style="background-attachment: local;">
@@ -25,11 +26,21 @@
             <!-- Connections Layer -->
             <svg class="absolute inset-0 w-full h-full pointer-events-none" style="overflow: visible; z-index: 0;">
                 <path *ngFor="let conn of connections"
-                      [attr.d]="getConnectionPath(conn)"
+                      [attr.d]="conn.path"
                       fill="none"
-                      stroke="#a5b4fc"
+                      [attr.stroke]="conn.color || '#a5b4fc'"
                       stroke-width="3"
                       class="transition-all duration-75 ease-linear">
+                </path>
+                
+                <!-- Dragged Connection -->
+                <path *ngIf="draggedConnection"
+                      [attr.d]="draggedConnection.path"
+                      fill="none"
+                      [attr.stroke]="draggedConnection.color || '#818cf8'"
+                      stroke-width="3"
+                      stroke-dasharray="5,5"
+                      class="pointer-events-none">
                 </path>
             </svg>
 
@@ -41,7 +52,9 @@
                  [style.top.px]="node.y"
                  [style.width.px]="280"
                  [style.z-index]="draggedNode === node ? 100 : 10"
-                 (mousedown)="onNodeMouseDown($event, node)">
+                 (mousedown)="onNodeMouseDown($event, node)"
+                 (mouseenter)="hoveredNode = node"
+                 (mouseleave)="hoveredNode = null">
                 <!-- Inner wrapper for clipping content but not ports -->
                 <div class="rounded-2xl flex flex-col w-full h-full pointer-events-auto transition-all duration-200">
                 <!-- Node Header -->
@@ -122,14 +135,20 @@
 
                 <!-- Input Ports (Left) -->
                 <div class="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.inputs.length > 0">
-                    <div *ngFor="let port of node.inputs" class="w-6 h-6 bg-indigo-100 border border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 cursor-crosshair hover:bg-indigo-200 transition-colors">
+                    <div *ngFor="let port of node.inputs" 
+                         (mousedown)="onInputPortMouseDown($event, node, port)"
+                         (mouseenter)="hoveredInput = {node: node, port: port}; $event.stopPropagation()"
+                         (mouseleave)="hoveredInput = null"
+                         class="w-6 h-6 bg-indigo-100 border border-indigo-200 rounded-full flex items-center justify-center text-indigo-500 cursor-crosshair hover:bg-indigo-200 transition-colors">
                         <div class="w-2 h-2 bg-indigo-500 rounded-full"></div>
                     </div>
                 </div>
 
                 <!-- Output Ports (Right) -->
                 <div class="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 flex flex-col space-y-8 pointer-events-auto" *ngIf="node.outputs.length > 0">
-                    <div *ngFor="let port of node.outputs" class="w-6 h-6 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-500 cursor-crosshair hover:bg-blue-200 transition-colors">
+                    <div *ngFor="let port of node.outputs" 
+                         (mousedown)="onOutputPortMouseDown($event, node, port)"
+                         class="w-6 h-6 bg-blue-100 border border-blue-200 rounded-full flex items-center justify-center text-blue-500 cursor-crosshair hover:bg-blue-200 transition-colors">
                         <div class="w-2 h-2 bg-blue-500 rounded-full"></div>
                     </div>
                 </div>
@@ -324,4 +343,44 @@
             </div>
         </div>
     </div>
+
+    <!-- Invisible trigger for MatMenu -->
+    <div #contextMenuTrigger="matMenuTrigger" [matMenuTriggerFor]="contextMenu" 
+         class="fixed z-0 pointer-events-none" 
+         style="width: 1px; height: 1px;"
+         [style.left.px]="contextMenuPosition.x" 
+         [style.top.px]="contextMenuPosition.y"></div>
+
+    <mat-menu #contextMenu="matMenu" class="rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100 py-1.5 w-52">
+        <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
+            <div class="flex items-center space-x-3 w-full">
+                <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-indigo-500">movie</mat-icon>
+                </div>
+                <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
+            </div>
+        </button>
+        
+        <div class="h-px bg-gray-100 my-1 mx-2"></div>
+        
+        <button mat-menu-item (click)="addNewAudioNode()" class="hover:bg-gray-50 transition-colors">
+            <div class="flex items-center space-x-3 w-full">
+                <div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-amber-500">audiotrack</mat-icon>
+                </div>
+                <span class="text-sm font-semibold text-gray-700">Thêm mới Audio</span>
+            </div>
+        </button>
+
+        <div class="h-px bg-gray-100 my-1 mx-2"></div>
+        
+        <button mat-menu-item (click)="autoArrangeAllNodes()" class="hover:bg-gray-50 transition-colors">
+            <div class="flex items-center space-x-3 w-full">
+                <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-emerald-500">format_align_center</mat-icon>
+                </div>
+                <span class="text-sm font-semibold text-gray-700">Sắp xếp lại vị trí</span>
+            </div>
+        </button>
+    </mat-menu>
 </div>
