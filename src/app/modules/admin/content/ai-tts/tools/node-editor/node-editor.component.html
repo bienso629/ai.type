@@ -138,12 +138,12 @@
 <div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
     
     <!-- Light Theme Prompt Bar -->
-    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-2xl p-3 pointer-events-auto transition-all">
+    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-2xl p-4 pointer-events-auto transition-all">
         
         <!-- Top Context Chips -->
-        <div class="flex items-center flex-wrap gap-2 mb-3 px-2">
-            <!-- Scene Chip (only if no characters) -->
-            <div *ngIf="!selectedNode?.data?.projectCharacters?.length && selectedNode" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
+        <div *ngIf="selectedNode?.type !== 'tts'" class="flex items-center flex-wrap gap-2 mb-3 px-3">
+            <!-- Selected Node Chip -->
+            <div *ngIf="selectedNode" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
                 <div class="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center mr-2">
                     <mat-icon *ngIf="selectedNode?.type === 'image'" class="icon-size-4 text-gray-800">image</mat-icon>
                     <mat-icon *ngIf="selectedNode?.type === 'video'" class="icon-size-4 text-gray-800">movie</mat-icon>
@@ -190,7 +190,7 @@
         </div>
 
         <!-- Main Input Area -->
-        <div class="px-2">
+        <div class="px-3 py-2">
             <textarea
                 cdkTextareaAutosize
                 cdkAutosizeMinRows="1"
@@ -204,7 +204,7 @@
         </div>
 
         <!-- Bottom Toolbar -->
-        <div class="flex items-center justify-between mt-3 px-2">
+        <div class="flex items-center justify-between mt-3 px-3">
             <!-- Left Actions -->
             <div class="flex items-center space-x-2">
                 <button matTooltip="Đính kèm video/hình ảnh" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
@@ -226,7 +226,7 @@
             <div class="flex items-center space-x-3">
                 
                 <!-- Character List Menu -->
-                <div [matMenuTriggerFor]="charMenu" class="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
+                <div *ngIf="selectedNode?.type !== 'tts'" [matMenuTriggerFor]="charMenu" class="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
                     <div class="flex items-center">
                         <ng-container *ngIf="activeCharacters.length > 0; else defaultIcon">
                             <div *ngFor="let char of activeCharacters | slice:0:3; let i = index" 
@@ -262,8 +262,8 @@
                     <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)" class="!px-3">
                         <div class="flex items-center justify-between w-full group">
                             <div class="flex items-center space-x-3">
-                                <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 rounded-full object-cover shadow-sm">
-                                <div *ngIf="!char.avatarUrl" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
+                                <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full object-cover shadow-sm">
+                                <div *ngIf="!char.avatarUrl" class="w-8 h-8 min-w-[32px] min-h-[32px] bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
                                     <mat-icon class="icon-size-5 text-gray-500 !m-0">person</mat-icon>
                                 </div>
                                 <span class="font-medium text-gray-700">{{char.name}}</span>
@@ -277,9 +277,9 @@
                         <span>Chưa có nhân vật nào</span>
                     </button>
                     <div class="h-px bg-gray-200 my-1"></div>
-                    <button mat-menu-item (click)="openAddCharacter()">
+                    <button mat-menu-item (click)="openAddCharacter()" class="!px-3">
                         <div class="flex items-center space-x-3 text-indigo-600">
-                            <div class="w-8 h-8 bg-indigo-50 border border-dashed border-indigo-300 rounded-full flex items-center justify-center shadow-sm">
+                            <div class="w-8 h-8 min-w-[32px] min-h-[32px] bg-indigo-50 border border-dashed border-indigo-300 rounded-full flex items-center justify-center shadow-sm">
                                 <mat-icon class="icon-size-5 text-indigo-600 !m-0">person_add</mat-icon>
                             </div>
                             <span class="font-medium">Tạo nhân vật mới</span>
