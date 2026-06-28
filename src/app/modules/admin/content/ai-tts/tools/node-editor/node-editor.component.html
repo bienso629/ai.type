@@ -87,7 +87,7 @@
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
                         
-                        <div class="relative w-full rounded-xl overflow-hidden bg-indigo-50 shadow-[0_0_0_1px_#a5b4fc] group" [ngClass]="{'ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-indigo-50 group" [ngClass]="{'shadow-[0_0_0_1px_#a5b4fc] ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -116,15 +116,15 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-emerald-50 shadow-[0_0_0_1px_#10b981] rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'ring-[6px] ring-emerald-500/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-emerald-100 !shadow-[0_0_0_1px_#34d399]': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-indigo-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'shadow-[0_0_0_1px_#a5b4fc] ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-indigo-100 !shadow-[0_0_0_1px_#818cf8]': node.data.isGeneratingAudio}">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
                                 <mat-icon class="icon-size-5 text-blue-500 animate-spin">refresh</mat-icon>
                             </div>
                             
-                            <div *ngIf="!node.data.isGeneratingAudio" class="w-8 h-8 rounded-full border flex items-center justify-center transition-colors"
-                                 [ngClass]="node.data.audioUrl ? 'bg-white border-gray-300 cursor-pointer hover:bg-gray-50' : 'bg-gray-200 border-gray-300 opacity-50 cursor-not-allowed'"
+                            <div *ngIf="!node.data.isGeneratingAudio" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
+                                 [ngClass]="node.data.audioUrl ? 'cursor-pointer hover:bg-black/5' : 'opacity-50 cursor-not-allowed'"
                                  (click)="toggleAudio(node, audioEl, $event)">
                                 <ng-container *ngIf="audioEl && audioEl.paused === false; else playIcon">
                                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-gray-600">
@@ -164,8 +164,7 @@
                          (mouseenter)="hoveredInput = {node: node, port: port}; $event.stopPropagation()"
                          (mouseleave)="hoveredInput = null"
                          class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150" 
-                             [ngClass]="port.startsWith('tts_in') ? 'bg-emerald-400' : 'bg-indigo-400'"></div>
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-indigo-400"></div>
                     </div>
                 </div>
 
@@ -174,8 +173,7 @@
                     <div *ngFor="let port of node.outputs" 
                          (mousedown)="onOutputPortMouseDown($event, node, port)"
                          class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150" 
-                             [ngClass]="node.type === 'tts' ? 'bg-emerald-400' : 'bg-indigo-400'"></div>
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-indigo-400"></div>
                     </div>
                 </div>
                 
@@ -188,10 +186,10 @@
 <div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
     
     <!-- Light Theme Prompt Bar -->
-    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-2xl p-4 pointer-events-auto transition-all">
+    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-2xl p-2.5 pointer-events-auto transition-all">
         
         <!-- Top Context Chips -->
-        <div *ngIf="selectedNode?.type !== 'tts'" class="flex items-center flex-wrap gap-2 mb-3 px-3">
+        <div *ngIf="selectedNode?.type !== 'tts'" class="flex items-center flex-wrap gap-2 mb-2 px-2">
             <!-- Selected Node Chip -->
             <div *ngIf="selectedNode" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
                 <div class="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center mr-2">
@@ -240,7 +238,7 @@
         </div>
 
         <!-- Main Input Area -->
-        <div class="px-3 py-2">
+        <div class="px-2 py-1">
             <textarea
                 cdkTextareaAutosize
                 cdkAutosizeMinRows="1"
@@ -254,12 +252,15 @@
         </div>
 
         <!-- Bottom Toolbar -->
-        <div class="flex items-center justify-between mt-3 px-3">
+        <div class="flex items-center justify-between mt-2 px-2">
             <!-- Left Actions -->
             <div class="flex items-center space-x-2">
                 <button matTooltip="Đính kèm video/hình ảnh" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
                     <mat-icon class="icon-size-5">add</mat-icon>
                     <input type="file" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer" (change)="onFileSelected($event)" title="Đính kèm video/hình ảnh">
+                </button>
+                <button [matMenuTriggerFor]="charMenu" matTooltip="Nhân vật" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                    <mat-icon class="icon-size-5">person</mat-icon>
                 </button>
                 <button (click)="openDirectorMode($event)" matTooltip="Chế độ đạo diễn" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">movie_filter</mat-icon>
@@ -272,37 +273,7 @@
             <!-- Right Actions -->
             <div class="flex items-center space-x-3">
                 
-                <!-- Character List Menu -->
-                <div *ngIf="selectedNode?.type !== 'tts'" [matMenuTriggerFor]="charMenu" class="flex items-center cursor-pointer hover:opacity-80 transition-opacity">
-                    <div class="flex items-center">
-                        <ng-container *ngIf="activeCharacters.length > 0; else defaultIcon">
-                            <div *ngFor="let char of activeCharacters | slice:0:3; let i = index" 
-                                 class="relative w-10 h-10 rounded-full flex items-center justify-center"
-                                 [ngStyle]="{'margin-left': i > 0 ? '-16px' : '0', 'z-index': 10 - i}"
-                                 (dblclick)="onAvatarDoubleClick($event, char)">
-                                <!-- Hiệu ứng lan tỏa nhỏ (w-6 h-6 -> ping lên 48px) -->
-                                <div class="absolute w-6 h-6 rounded-full bg-indigo-500 animate-ping opacity-60"></div>
-                                <!-- Avatar chính -->
-                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border border-indigo-500 shadow-sm z-10">
-                                    <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-full h-full object-cover">
-                                    <mat-icon *ngIf="!char.avatarUrl" class="icon-size-5 text-gray-500">person</mat-icon>
-                                </div>
-                            </div>
-                        </ng-container>
-                        <ng-template #defaultIcon>
-                            <div class="relative w-10 h-10 rounded-full flex items-center justify-center"
-                                 (dblclick)="onAvatarDoubleClick($event, null)">
-                                <!-- Hiệu ứng lan tỏa nhỏ (w-6 h-6 -> ping lên 48px) -->
-                                <div class="absolute w-6 h-6 rounded-full bg-indigo-500 animate-ping opacity-60"></div>
-                                <!-- Avatar chính -->
-                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border border-indigo-500 shadow-sm z-10">
-                                    <mat-icon class="icon-size-5 text-gray-500">person</mat-icon>
-                                </div>
-                            </div>
-                        </ng-template>
-                    </div>
-                </div>
-                
+
                 <input type="file" #avatarFileInput class="hidden" accept="image/*" (change)="onAvatarFileSelected($event)">
 
                 <mat-menu #charMenu="matMenu">
@@ -359,8 +330,8 @@
                     </mat-autocomplete>
 
                     <!-- Submit Button -->
-                    <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0">
-                        <mat-icon class="icon-size-4 text-white">mic</mat-icon>
+                    <button class="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu">
+                        <mat-icon class="icon-size-4 text-white" style="margin-left: 2px;">send</mat-icon>
                     </button>
                 </div>
             </div>

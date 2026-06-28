@@ -426,12 +426,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.cleanupUnusedPorts();
     this.connections.forEach(conn => {
       conn.path = this.getConnectionPath(conn);
-      const fromNode = this.nodes.find(n => n.id === conn.fromNode);
-      if (fromNode && fromNode.type === 'tts') {
-        conn.color = '#10b981'; // emerald-500
-      } else {
-        conn.color = '#a5b4fc'; // indigo-300
-      }
+      conn.color = '#a5b4fc'; // indigo-300
     });
   }
 
@@ -493,15 +488,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
       const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
 
-      const fromNodeObj = this.nodes.find(n => n.id === conn.fromNode);
-      const isAudio = fromNodeObj && fromNodeObj.type === 'tts';
-
       this.draggedConnection = {
         fromNode: conn.fromNode,
         fromPort: conn.fromPort,
         toX: mouseX,
         toY: mouseY,
-        color: isAudio ? '#10b981' : '#818cf8'
+        color: '#818cf8'
       };
     }
   }
@@ -512,14 +504,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
     const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
     
-    const isAudio = node.type === 'tts';
-    
     this.draggedConnection = {
       fromNode: node.id,
       fromPort: port,
       toX: mouseX,
       toY: mouseY,
-      color: isAudio ? '#10b981' : '#818cf8'
+      color: '#818cf8'
     };
   }
 
@@ -1626,7 +1616,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       data: {
         prompt: promptText,
         targetName: target,
-        globalContext: this.projectData?.globalContext || null,
         aspectRatio: aspectRatio
       }
     });
