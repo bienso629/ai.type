@@ -15,6 +15,7 @@ import { VideoTimelineDialogComponent } from 'app/modules/admin/content/ai-tts/t
 import { AddSceneComponent } from 'app/modules/admin/content/ai-tts/tools/add-scene.component';
 import { AudioGenerationComponent } from 'app/modules/admin/content/ai-tts/tools/audio-generation.component';
 import { NodeEditorComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/node-editor.component';
+import { MagicPromptDialogComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/magic-prompt-dialog.component';
 import { SharedModule } from 'app/shared.module';
 
 const Routes: Route[] = [
@@ -51,6 +52,7 @@ const Routes: Route[] = [
         VideoTimelineDialogComponent,
         AddSceneComponent,
         AudioGenerationComponent,
+        MagicPromptDialogComponent,
         NodeEditorComponent,
         SharedModule,
     ],
