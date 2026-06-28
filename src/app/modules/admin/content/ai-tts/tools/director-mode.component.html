@@ -1,6 +1,5 @@
-<div class="light-theme flex flex-col font-sans bg-white">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-2">
+<!-- Header -->
+<div class="flex items-center justify-between mb-4">
         <div class="flex gap-4 items-center">
             <h2 class="text-lg font-semibold m-0">
                 {{ 'app.camera_angle_lighting_settings' | transloco }}
@@ -255,10 +254,9 @@
 
     </mat-dialog-content>
 
-    <!-- Footer Actions -->
-    <div class="px-0 mt-8 pb-4 flex justify-end gap-2">
-        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()">{{ data.targetName === 'Apply to
-            Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName
-            === 'Apply to Scene Prompt' ? 'Áp dụng vào Phân cảnh' : 'Áp dụng') }}</button>
-    </div>
-</div>
+<!-- Footer Actions -->
+<mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-2">
+    <button mat-flat-button color="primary" (click)="apply()">{{ data.targetName === 'Apply to
+        Master Prompt' ? 'Áp dụng vào Master Prompt' : (data.targetName
+        === 'Apply to Scene Prompt' ? 'Áp dụng vào Phân cảnh' : 'Áp dụng') }}</button>
+</mat-dialog-actions>
