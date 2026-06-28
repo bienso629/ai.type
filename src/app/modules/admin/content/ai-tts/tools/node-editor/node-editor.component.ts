@@ -239,15 +239,18 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                           imageUrl = scene.videos[0].imageUrl || scene.videos[0].controlImageUrl || imageUrl;
                           videoUrl = scene.videos[0].videoUrl || null;
                        }
-                       node.data.imageUrl = imageUrl;
-                       node.data.videoUrl = videoUrl;
-                       node.data.isVideo = !!videoUrl;
+                       node.data.imageUrl = imageUrl || node.data.imageUrl;
+                       node.data.videoUrl = videoUrl || node.data.videoUrl;
+                       node.data.isVideo = !!node.data.videoUrl;
                        node.data.text = scene.script;
                        node.data.sceneData = scene;
-                   } else if (node.type === 'tts' && scene.subtitles && scene.subtitles.length > 0) {
-                       node.data.audioUrl = scene.subtitles[0].audioUrl;
-                       node.data.text = scene.subtitles[0].text;
-                       node.data.sceneData = scene;
+                   } else if (node.type === 'tts') {
+                       if (scene.subtitles && scene.subtitles.length > 0) {
+                           node.data.audioUrl = scene.subtitles[0].audioUrl || node.data.audioUrl;
+                           node.data.text = scene.subtitles[0].text;
+                           node.data.sceneData = scene;
+                       }
+                       node.inputs = []; // Ensure TTS nodes don't have input ports
                    }
                 }
              }
@@ -513,7 +516,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
          }
      }
 
-     this.connections = this.connections.filter(c => !(c.toNode === toNode && c.toPort === toPort));
+     if (toPort !== 'tts_in') {
+         this.connections = this.connections.filter(c => !(c.toNode === toNode && c.toPort === toPort));
+     }
      
      this.connections.push({
        id: `c_${Date.now()}`,
@@ -747,7 +752,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       subtitle: '0s',
       x, y,
       baseX: x, baseY: y,
-      inputs: ['in1'],
+      inputs: [],
       outputs: ['out'],
       data: { 
         text: '', 
@@ -778,9 +783,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                  delete nCopy.data.projectCharacters;
                  // Chỉ strip media URLs nếu node có liên kết với scene
                  if (nCopy.data.sceneIndex !== undefined && nCopy.data.sceneIndex !== null) {
-                     delete nCopy.data.imageUrl;
-                     delete nCopy.data.videoUrl;
-                     delete nCopy.data.audioUrl;
                      delete nCopy.data.sceneData;
                  }
              }
@@ -1240,7 +1242,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               if (res && res.success !== false && !res.error) {
                   const rawPath = res.filePath || res.url || res.result;
                   if (rawPath) {
-                      const finalAudioUrl = rawPath.startsWith('file://') ? rawPath : `file://${rawPath}`;
+                      let finalAudioUrl = rawPath;
+                      if (!rawPath.startsWith('http://') && !rawPath.startsWith('https://') && !rawPath.startsWith('file://') && !rawPath.startsWith('media://')) {
+                          finalAudioUrl = `file://${rawPath}`;
+                      }
                       sub.audioUrl = finalAudioUrl;
                       if (sub.sceneData && sub.sceneData.subtitles && sub.sceneData.subtitles.length > 0) {
                           sub.sceneData.subtitles[0].audioUrl = finalAudioUrl;
