@@ -367,6 +367,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     this.editingType = 'scene';
     this.editingCharacter = null;
     
+    if (node.type === 'tts') {
+        this.globalPromptText = node.data?.text || '';
+        return;
+    }
+    
     let text = node.data?.sceneData?.prompt || node.data?.sceneData?.visualPrompt || node.data?.sceneData?.imagePrompt || node.data?.text || '';
     
     if (node.data?.sceneData) {
@@ -420,6 +425,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
         // We do not save character prompt changes back directly to the character here unless requested.
         // Actually, let's just let it be in globalPromptText for generation.
     } else if (this.editingType === 'scene' && this.selectedNode) {
+      if (this.selectedNode.type === 'tts') {
+          this.selectedNode.data = { ...this.selectedNode.data, text: text };
+          if (this.selectedNode.data.sceneData && this.selectedNode.data.sceneData.subtitles && this.selectedNode.data.sceneData.subtitles.length > 0) {
+              this.selectedNode.data.sceneData.subtitles[0].text = text;
+              this.saveProject();
+          }
+          return;
+      }
+
       // If the text contains 'Action/Visuals:', extract only that part to save to the raw prompt
       let savedText = text;
       const visualMarker = 'Action/Visuals: ';
