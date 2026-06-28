@@ -13,8 +13,11 @@ import { DirectorModeComponent } from '../director-mode.component';
 import { CharacterDialogComponent } from '../character-dialog.component';
 import { AudioGenerationComponent } from '../audio-generation.component';
 import { MagicPromptDialogComponent } from './magic-prompt-dialog.component';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { GenaiService } from 'app/genai.service';
+import { ToastrService } from 'ngx-toastr';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 interface NodeItem {
   id: string;
@@ -137,7 +140,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     private dialog: MatDialog,
     private cdr: ChangeDetectorRef,
     private genaiService: GenaiService,
-    private ngZone: NgZone
+    private ngZone: NgZone,
+    private _fuseConfirmationService: FuseConfirmationService,
+    private sanitizer: DomSanitizer,
+    private toastr: ToastrService
   ) { }
 
   ngAfterViewChecked() {
@@ -658,6 +664,44 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.contextMenuVisible = false;
   }
 
+  deleteNode(nodeId: string) {
+      const dialogRef = this._fuseConfirmationService.open({
+          title: 'Thông báo!',
+          message: 'Bạn có chắc chắn muốn xóa khối này không? Toàn bộ dây kết nối liên quan cũng sẽ bị xóa.',
+          icon: {
+              show: true,
+              name: 'feather:alert-triangle',
+              color: 'error',
+          },
+          actions: {
+              confirm: {
+                  show: true,
+                  label: 'Đồng ý',
+                  color: 'warn',
+              },
+              cancel: {
+                  show: true,
+                  label: 'Hủy',
+              },
+          },
+          dismissible: true,
+      });
+
+      dialogRef.afterClosed().subscribe((result) => {
+          if (result === 'confirmed') {
+              // Remove all connections associated with this node
+              this.connections = this.connections.filter(c => c.fromNode !== nodeId && c.toNode !== nodeId);
+              // Remove the node itself
+              this.nodes = this.nodes.filter(n => n.id !== nodeId);
+              
+              this.updateConnectionPaths();
+              this.calculateCanvasSize();
+              this.saveEditorState();
+              this.cdr.detectChanges();
+          }
+      });
+  }
+
   addNewSceneNode() {
     const id = `scene_${Date.now()}`;
     const x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
@@ -729,12 +773,18 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   saveEditorState() {
      if (this.projectData) {
          const strippedNodes = this.nodes.map(n => {
-             return JSON.parse(JSON.stringify(n, (key, value) => {
-                 if (key === 'imageUrl' || key === 'videoUrl' || key === 'audioUrl' || key === 'sceneData' || key === 'projectCharacters') {
-                     return undefined;
+             const nCopy = JSON.parse(JSON.stringify(n));
+             if (nCopy.data) {
+                 delete nCopy.data.projectCharacters;
+                 // Chỉ strip media URLs nếu node có liên kết với scene
+                 if (nCopy.data.sceneIndex !== undefined && nCopy.data.sceneIndex !== null) {
+                     delete nCopy.data.imageUrl;
+                     delete nCopy.data.videoUrl;
+                     delete nCopy.data.audioUrl;
+                     delete nCopy.data.sceneData;
                  }
-                 return value;
-             }));
+             }
+             return nCopy;
          });
 
          this.projectData.editorLayout = {
@@ -960,13 +1010,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   openAudioGeneration(node?: NodeItem) {
-    const isSpecificNode = !!node;
     const targetNode = node || this.selectedNode;
+    const isSpecificNode = !!targetNode;
     
-    if (isSpecificNode && targetNode?.type === 'tts' && targetNode.data?.sceneData) {
-        const sceneData = targetNode.data.sceneData;
-        if (sceneData.subtitles) {
-            sceneData.subtitles.forEach((sub: any) => sub.audioUrl = null);
+    if (isSpecificNode && targetNode.type === 'tts') {
+        if (targetNode.data?.sceneData) {
+            const sceneData = targetNode.data.sceneData;
+            if (sceneData.subtitles) {
+                sceneData.subtitles.forEach((sub: any) => sub.audioUrl = null);
+            }
+        } else {
+            targetNode.data.audioUrl = null;
         }
     }
 
@@ -977,16 +1031,296 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
             ...this.projectData,
             selectedModel: this.selectedModel, 
             scenePrompt: targetNode?.data?.text || '',
-            targetSceneIndex: isSpecificNode ? targetNode?.data?.sceneIndex : null
+            targetSceneIndex: isSpecificNode ? targetNode.data.sceneIndex : null,
+            standaloneTTSNode: (isSpecificNode && targetNode.type === 'tts' && !targetNode.data.sceneData) ? targetNode : null
         }
     });
 
     dialogRef.afterClosed().subscribe(data => {
-        if (data) {
-        this.projectData = data;
-        this.buildGraphFromData(this.projectData);
-      }
+        if (data && data.action === 'start') {
+            this.generateAudioInBackground(data, targetNode, isSpecificNode);
+        } else if (data && !data.action) {
+            // Backward compatibility
+            this.projectData = data;
+            this.saveEditorState();
+            this.buildGraphFromData(this.projectData);
+            this.cdr.detectChanges();
+        }
     });
+  }
+
+  async generateAudioInBackground(config: any, targetNode: NodeItem, isSpecificNode: boolean) {
+      const pendingSubs: {
+          sub: any;
+          sIdx: number;
+          subIdx: number;
+          globalIndex: number;
+      }[] = [];
+      let globalCounter = 0;
+
+      // Gom dữ liệu
+      if (isSpecificNode && targetNode.type === 'tts' && !targetNode.data.sceneData) {
+          targetNode.data.isGeneratingAudio = true;
+          this.cdr.detectChanges();
+          pendingSubs.push({
+              sub: targetNode.data,
+              sIdx: -1,
+              subIdx: -1,
+              globalIndex: 0
+          });
+      } else if (this.projectData.scenes) {
+          this.projectData.scenes.forEach((scene: any, sIdx: number) => {
+              const targetSceneIndex = isSpecificNode ? targetNode.data.sceneIndex : null;
+              if (targetSceneIndex !== undefined && targetSceneIndex !== null && targetSceneIndex !== sIdx) {
+                  return; 
+              }
+              if (targetSceneIndex === sIdx && targetNode) {
+                  targetNode.data.isGeneratingAudio = true;
+              }
+              scene.subtitles.forEach((sub: any, subIdx: number) => {
+                  if (!sub.audioUrl) {
+                      pendingSubs.push({
+                          sub,
+                          sIdx,
+                          subIdx,
+                          globalIndex: globalCounter,
+                      });
+                  }
+                  globalCounter++;
+              });
+          });
+          this.cdr.detectChanges();
+      }
+
+      if (pendingSubs.length === 0) return;
+
+      this.toastr.info(`Bắt đầu xử lý ${pendingSubs.length} mục...`, 'System');
+
+      const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+      const isEdgeVoice = edgeVoices.includes(config.selectedVoice);
+      const isTTSTypeVoice = config.selectedVoice.indexOf('tts.type.vn') !== -1;
+      const concurrencyLimit = (isEdgeVoice || isTTSTypeVoice) ? 3 : 1;
+
+      try {
+          let currentIndex = 0;
+          const worker = async () => {
+              while (currentIndex < pendingSubs.length) {
+                  const taskIndex = currentIndex++;
+                  const item = pendingSubs[taskIndex];
+
+                  await this.generateAudioForSub(
+                      item.sub,
+                      item.globalIndex,
+                      config
+                  );
+
+                  this.ngZone.run(() => {
+                      this.saveEditorState();
+                      this.buildGraphFromData(this.projectData);
+                      this.cdr.detectChanges();
+                  });
+              }
+          };
+
+          const workers = [];
+          for (let i = 0; i < concurrencyLimit; i++) {
+              workers.push(worker());
+          }
+          await Promise.all(workers);
+
+          this.ngZone.run(() => {
+              this.nodes.forEach(n => { if(n.data) n.data.isGeneratingAudio = false; });
+              if (this.projectData.scenes) {
+                  this.projectData.scenes.forEach((scene: any) => {
+                      scene.subtitles.forEach((sub: any) => { sub.isGeneratingAudio = false; });
+                  });
+              }
+              
+              const hasErrors = pendingSubs.some(item => item.sub.hasError);
+              if (hasErrors) {
+                  this.toastr.warning('Quá trình hoàn tất nhưng có lỗi xảy ra ở một số tiến trình.');
+              } else {
+                  this.toastr.success('Đã hoàn tất quá trình tạo audio!');
+              }
+              this.saveEditorState();
+              this.buildGraphFromData(this.projectData);
+              this.cdr.detectChanges();
+          });
+      } catch (err) {
+          this.ngZone.run(() => {
+              this.nodes.forEach(n => { if(n.data) n.data.isGeneratingAudio = false; });
+              console.error('Concurrency processing error:', err);
+              this.toastr.error('Có lỗi xảy ra trong quá trình xử lý liên tục.');
+              this.cdr.detectChanges();
+          });
+      }
+  }
+
+  toSlug(str: string): string {
+      str = str || '';
+      str = str.toLowerCase();
+      str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      str = str.replace(/[đĐ]/g, 'd');
+      str = str.replace(/([^0-9a-z-\s])/g, '');
+      str = str.replace(/(\s+)/g, '-');
+      str = str.replace(/^-+|-+$/g, '');
+      return str;
+  }
+
+  async generateAudioForSub(sub: any, globalIndex: number, config: any): Promise<void> {
+      return new Promise(async (resolve) => {
+          if (!sub.text || !sub.text.trim()) { resolve(); return; }
+          if (!(window as any).electron || !(window as any).electron.invoke) {
+              this.toastr.error('Cần chạy trên App Desktop (Electron).');
+              resolve(); return;
+          }
+
+          const username = this.projectData.username || 'anonymous';
+          const subPath = `${username}/${this.projectData.uuid || 'default'}`;
+          const prefix = (globalIndex >= 0 ? globalIndex + 1 : 0).toString().padStart(3, '0');
+          const slug = this.toSlug(sub.text.substring(0, 50));
+
+          const edgeVoices = ['vi-VN-NamMinhNeural', 'vi-VN-HoaiMyNeural'];
+          const isEdgeVoice = edgeVoices.includes(config.selectedVoice);
+
+          let res: any;
+          try {
+              if (isEdgeVoice) {
+                  const niceFilename = `${prefix}_${slug}`;
+                  const payload = {
+                      text: sub.text,
+                      voice: config.selectedVoice,
+                      rate: config.selectedRate,
+                      pitch: config.selectedPitch,
+                      filename: niceFilename,
+                      username: subPath,
+                  };
+                  res = await (window as any).electron.invoke('tts-generate', payload);
+              } else {
+                  const isTTSTypeVoice = config.selectedVoice.endsWith('tts.type.vn');
+                  const isAusyncVoice = config.selectedVoice.endsWith('ausynclab.io');
+
+                  if (isTTSTypeVoice) {
+                      const voice_id = config.selectedVoice.replace('-tts.type.vn', '');
+                      const niceFilename = `${prefix}_${slug}`;
+                      const voice = await config.myvoices.filter((voice: any) => (String(voice['id']) === String(voice_id)));
+                      let safeText = sub.text;
+                      if (safeText.length < 150) {
+                          safeText = safeText.replace(/[.!?\n]+/g, ', ');
+                          safeText = safeText.replace(/,\s*$/, '').trim(); 
+                      }
+                      const payload = {
+                          text: safeText,
+                          voice_id: voice[0]['id'],
+                          key: voice[0]['api_key'],
+                          ref_audio_name: voice[0]['ref_audio_name'],
+                          ref_text: voice[0]['ref_text'],
+                          speed: voice[0]['speed'] || config.selectedRate || 1.0,
+                          num_step: voice[0]['num_step'] || 16,
+                          filename: niceFilename,
+                          username: subPath,
+                      };
+                      res = await (window as any).electron.invoke('tts-type-generate', payload);
+                  } else if (isAusyncVoice) {
+                      const voice_id = config.selectedVoice.replace('-ausynclab.io', '');
+                      const niceFilename = `${prefix}_${slug}_ausync`;
+                      const voice = await config.myvoices.filter((voice: any) => (String(voice['id']) === String(voice_id)));
+                      const payload = {
+                          text: sub.text,
+                          voice_id: voice_id,
+                          key: voice[0]['api_key'],
+                          speed: voice[0]['speed'] || config.selectedRate || 1.0,
+                          filename: niceFilename,
+                          username: subPath,
+                      };
+                      res = await (window as any).electron.invoke('tts-ausync-generate', payload);
+                  }
+              }
+
+              if (res && res.success !== false && !res.error) {
+                  const rawPath = res.filePath || res.url || res.result;
+                  if (rawPath) {
+                      const finalAudioUrl = rawPath.startsWith('file://') ? rawPath : `file://${rawPath}`;
+                      sub.audioUrl = finalAudioUrl;
+                      if (sub.sceneData && sub.sceneData.subtitles && sub.sceneData.subtitles.length > 0) {
+                          sub.sceneData.subtitles[0].audioUrl = finalAudioUrl;
+                      }
+                      sub.hasError = false;
+                      sub.errorMessage = '';
+                  }
+              } else {
+                  let errorMsg = res?.error || 'Lỗi không xác định từ API';
+                  if (errorMsg.includes('CUDA error') || errorMsg.includes('device-side assert')) {
+                      errorMsg = 'Hệ thống đang bị quá tải hoặc gặp sự cố phần cứng (GPU).';
+                  }
+                  console.error(`Error processing sub ${sub.text}:`, errorMsg);
+                  this.toastr.error(`Lỗi tạo âm thanh: ${errorMsg}`);
+                  sub.hasError = true;
+                  sub.errorMessage = errorMsg;
+              }
+          } catch (err: any) {
+              console.error(`Lỗi Electron cho sub ${sub.id}:`, err.message);
+          } finally {
+              resolve();
+          }
+      });
+  }
+
+  private safeUrlCache: { [url: string]: SafeUrl | string } = {};
+
+  getSafeUrl(url: string | null): SafeUrl | string | null {
+      if (!url) return null;
+      if (url.startsWith('http://') || url.startsWith('https://')) return url;
+      
+      let cleanUrl = url.replace('unsafe:', '');
+      
+      // Sử dụng cấu trúc media://SMART_FIND/ để Chromium phân tích URL hợp lệ có hostname
+      if (cleanUrl.startsWith('file://')) {
+          const originalPath = cleanUrl.replace('file://', '');
+          cleanUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}`;
+      }
+
+      if (this.safeUrlCache[cleanUrl]) return this.safeUrlCache[cleanUrl];
+      
+      const safeUrl = this.sanitizer.bypassSecurityTrustUrl(cleanUrl);
+      this.safeUrlCache[cleanUrl] = safeUrl;
+      return safeUrl;
+  }
+
+  updateDuration(node: NodeItem, durationSec: number) {
+      if (durationSec && !isNaN(durationSec)) {
+          const m = Math.floor(durationSec / 60);
+          const s = Math.floor(durationSec % 60);
+          node.data.duration = `${m > 0 ? m + ':' : '00:'}${s.toString().padStart(2, '0')}`;
+          this.cdr.detectChanges();
+      }
+  }
+
+  onAudioError(event: any, node: NodeItem) {
+      if (!node.data.audioUrl) return;
+      console.error('Lỗi tải Audio:', event);
+      console.error('URL thực tế trong thẻ audio:', event.target?.src);
+      console.error('URL gốc trong node.data:', node.data.audioUrl);
+      const errorMsg = event.target?.error ? ` (Mã lỗi: ${event.target.error.code})` : '';
+      this.toastr.error(`Lỗi tải âm thanh từ: ${node.data.audioUrl}${errorMsg}`);
+  }
+
+  toggleAudio(node: NodeItem, audioEl: HTMLAudioElement, event: Event) {
+      if (!node.data.audioUrl || !audioEl) return;
+      event.stopPropagation();
+      
+      if (audioEl.paused) {
+          const playPromise = audioEl.play();
+          if (playPromise !== undefined) {
+              playPromise.catch(error => {
+                  console.error("Audio playback error:", error);
+                  this.toastr.error("Không thể phát âm thanh: " + error.message);
+              });
+          }
+      } else {
+          audioEl.pause();
+      }
+      this.cdr.detectChanges();
   }
 
   openMagicPromptDialog() {
@@ -1287,8 +1621,5 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.startY = event.clientY;
     this.nodeStartX = node.x;
     this.nodeStartY = node.y;
-    
-    this.nodes = this.nodes.filter(n => n.id !== node.id);
-    this.nodes.push(node);
   }
 }

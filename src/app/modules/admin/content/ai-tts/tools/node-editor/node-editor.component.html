@@ -66,14 +66,19 @@
                         <mat-icon class="icon-size-4" *ngIf="node.type === 'composition'">layers</mat-icon>
                         <span class="text-sm font-medium">{{ node.title }}</span>
                     </div>
-                    <ng-container *ngIf="node.type === 'tts'; else defaultSubtitle">
-                        <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
-                            <mat-icon class="icon-size-4 !m-0">chevron_right</mat-icon>
+                    <div class="flex items-center space-x-2">
+                        <ng-container *ngIf="node.type === 'tts'; else defaultSubtitle">
+                            <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
+                                <mat-icon class="icon-size-4 !m-0">mic</mat-icon>
+                            </div>
+                        </ng-container>
+                        <ng-template #defaultSubtitle>
+                            <span class="text-xs text-gray-400 font-medium">{{ node.subtitle }}</span>
+                        </ng-template>
+                        <div *ngIf="node.type !== 'composition'" class="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center cursor-pointer text-gray-400 hover:text-red-500 transition-colors" (click)="deleteNode(node.id); $event.stopPropagation()" matTooltip="Xóa khối này">
+                            <mat-icon class="icon-size-4 !m-0">close</mat-icon>
                         </div>
-                    </ng-container>
-                    <ng-template #defaultSubtitle>
-                        <span class="text-xs text-gray-400 font-medium">{{ node.subtitle }}</span>
-                    </ng-template>
+                    </div>
                 </div>
 
                 <!-- Node Content -->
@@ -84,10 +89,10 @@
                         
                         <div class="relative w-full rounded-xl overflow-hidden bg-gray-100 group transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                             <!-- Video Element -->
-                            <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
+                            <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
                             <!-- Image Fallback -->
-                            <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="node.data.imageUrl" class="w-full h-full object-cover pointer-events-none" />
+                            <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-full h-full object-cover pointer-events-none" />
                             
                             <!-- Empty State -->
                             <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
@@ -109,22 +114,31 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-gray-100 rounded-xl p-3 flex items-center space-x-3 relative transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node}">
-                            <audio #audioEl [hidden]="true" [src]="node.data.audioUrl"></audio>
-                            <div class="w-8 h-8 rounded-full bg-white border border-gray-300 flex items-center justify-center cursor-pointer transition-colors hover:bg-gray-50"
-                                 (click)="audioEl.paused ? audioEl.play() : audioEl.pause()">
-                                <mat-icon class="icon-size-5 text-gray-700">{{ audioEl.paused ? 'play_arrow' : 'pause' }}</mat-icon>
+                        <div class="w-full bg-gray-100 rounded-xl p-3 flex items-center space-x-3 relative transition-all duration-200" [ngClass]="{'ring-2 ring-indigo-500': selectedNode === node || draggedNode === node, 'animate-pulse bg-blue-50 border border-blue-200': node.data.isGeneratingAudio}">
+                            <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
+                            
+                            <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 rounded-full border border-blue-200 flex items-center justify-center bg-white">
+                                <mat-icon class="icon-size-5 text-blue-500 animate-spin">refresh</mat-icon>
                             </div>
-                            <span class="text-sm font-medium text-gray-700">{{ node.data.duration }}</span>
+                            
+                            <div *ngIf="!node.data.isGeneratingAudio" class="w-8 h-8 rounded-full border flex items-center justify-center transition-colors"
+                                 [ngClass]="node.data.audioUrl ? 'bg-white border-gray-300 cursor-pointer hover:bg-gray-50' : 'bg-gray-200 border-gray-300 opacity-50 cursor-not-allowed'"
+                                 (click)="toggleAudio(node, audioEl, $event)">
+                                <mat-icon class="icon-size-5 text-gray-700">{{ (audioEl && audioEl.paused === false) ? 'pause' : 'play_arrow' }}</mat-icon>
+                            </div>
+
+                            <span class="text-sm font-medium text-gray-700 whitespace-nowrap" *ngIf="!node.data.isGeneratingAudio">{{ node.data.duration || '0s' }}</span>
+                            <span class="text-sm font-medium text-blue-600 whitespace-nowrap italic" *ngIf="node.data.isGeneratingAudio">Đang tạo...</span>
+                            
                             <!-- Fake Waveform (animated when playing) -->
-                            <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl.paused">
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '4px' : '8px'"></div>
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-150" [style.height]="audioEl.paused ? '12px' : '24px'"></div>
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-75" [style.height]="audioEl.paused ? '8px' : '16px'"></div>
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150" [style.height]="audioEl.paused ? '10px' : '20px'"></div>
-                                <div class="w-1 bg-indigo-400 rounded-full transition-all duration-150 delay-100" [style.height]="audioEl.paused ? '6px' : '12px'"></div>
+                            <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl?.paused !== false && !node.data.isGeneratingAudio">
+                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '8px' : '4px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '24px' : '12px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '16px' : '8px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
                             </div>
                         </div>
                     </div>
@@ -312,7 +326,7 @@
                 </mat-menu>
 
                 <!-- Model Selector & Submit Button Combo -->
-                <div class="relative flex items-center bg-gray-50 border border-gray-200 hover:border-indigo-300 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 rounded-full h-10 w-48 sm:w-64 transition-all shadow-sm ml-2">
+                <div class="relative flex items-center bg-gray-50 border border-gray-200 hover:border-indigo-300 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 rounded-full h-10 w-48 sm:w-64 transition-all ml-2">
                     <!-- Input Area -->
                     <div class="relative flex-1 h-full flex items-center">
                         <input type="text"
@@ -336,8 +350,8 @@
                     </mat-autocomplete>
 
                     <!-- Submit Button -->
-                    <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0 shadow-[0_2px_4px_rgba(13,148,136,0.3)]">
-                        <mat-icon class="icon-size-4 text-white">arrow_upward</mat-icon>
+                    <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0">
+                        <mat-icon class="icon-size-4 text-white">mic</mat-icon>
                     </button>
                 </div>
             </div>
@@ -360,8 +374,6 @@
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
             </div>
         </button>
-        
-        <div class="h-px bg-gray-100 my-1 mx-2"></div>
         
         <button mat-menu-item (click)="addNewAudioNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
