@@ -732,14 +732,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Kiểm tra xem project có dữ liệu scenes thực tế không
                 if (videoProject.scenes && videoProject.scenes.length > 0) {
                     this.videoProject = videoProject; // [MỚI] Gán vào biến class
-
-                    const isDialogOpen = this.dialog.openDialogs.some(
-                        (d) => d.componentInstance instanceof VideoTimelineDialogComponent
-                    );
-
-                    if (!isDialogOpen) {
-                        this.openTimelineDialog(this.videoProject);
-                    }
                     return true;
                 }
             } catch (e) {

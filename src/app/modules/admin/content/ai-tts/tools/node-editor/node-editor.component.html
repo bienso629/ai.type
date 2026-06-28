@@ -5,7 +5,12 @@
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
      style="background-attachment: local;">
     
-    <!-- Title Overlay Removed -->
+    <!-- Back Button -->
+    <div class="sticky top-4 left-4 z-50 pointer-events-none" style="width: 0; height: 0; overflow: visible;">
+        <a href="javascript:history.back()" matTooltip="Quay lại" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-indigo-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
+            <mat-icon class="icon-size-6">arrow_back</mat-icon>
+        </a>
+    </div>
 
     <!-- Huge canvas for native scrolling -->
     <div class="relative" [style.width.px]="canvasWidth" [style.height.px]="canvasHeight" [style.minWidth.px]="canvasWidth" [style.minHeight.px]="canvasHeight">
