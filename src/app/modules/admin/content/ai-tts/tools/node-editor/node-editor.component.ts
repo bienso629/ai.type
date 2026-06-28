@@ -50,6 +50,8 @@ interface NodeConnection {
 })
 export class NodeEditorComponent implements OnInit, AfterViewChecked {
   @ViewChild('workspace', { static: true }) workspace!: ElementRef;
+  @ViewChild('avatarFileInput') avatarFileInput!: ElementRef<HTMLInputElement>;
+  targetAvatarChar: any = null;
 
   nodes: NodeItem[] = [];
   connections: NodeConnection[] = [];
@@ -70,6 +72,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
   projectData: any = null;
 
   get activeCharacters(): any[] {
+    if (this.editingType === 'character' && this.editingCharacter) {
+      return [this.editingCharacter];
+    }
     if (!this.selectedNode || !this.projectData?.characters?.length) return [];
     
     const prompt = this.selectedNode.data?.sceneData?.prompt || 
@@ -101,7 +106,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
   selectedModel: string = '3.1 Pro';
 
   globalPromptText: string = '';
-  editingType: 'scene' | 'character' | 'master' = 'master';
+  editingType: 'scene' | 'character' | 'master' | 'none' = 'none';
   editingCharacter: any = null;
 
   constructor(
@@ -206,13 +211,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
         videoUrl = scene.videos[0].videoUrl || null;
       }
 
+      let ttsDuration = 0;
       if (scene.subtitles && scene.subtitles.length > 0) {
         const sub = scene.subtitles[0];
-        const ttsDuration = sub.duration ? Math.round(sub.duration) : 5;
+        ttsDuration = sub.duration ? Math.round(sub.duration) : 5;
         this.nodes.push({
           id: ttsNodeId, type: 'tts', title: 'Text to Speech', subtitle: `${ttsDuration}s`,
           x: sceneX, y: 450 + yOffset, inputs: [], outputs: ['out'],
-          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl },
+          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl, sceneData: scene, sceneIndex: index },
           baseX: sceneX, baseY: 450 + yOffset
         });
         hasTts = true;
@@ -220,7 +226,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
 
       const visualUrl = videoUrl || imageUrl || null;
 
-      const vidSubtitle = videoUrl ? `${duration}s` : (imageUrl ? 'Source Image' : 'Empty');
+      const estimatedDuration = videoUrl ? duration : (ttsDuration > 0 ? ttsDuration : duration);
+      const vidSubtitle = videoUrl ? `${estimatedDuration}s` : `~${estimatedDuration}s`;
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: vidSubtitle,
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
@@ -340,9 +347,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     }
     this.isPanning = true;
     this.selectedNode = null;
-    this.editingType = 'master';
+    this.editingType = 'none';
     this.editingCharacter = null;
-    this.globalPromptText = this.projectData?.masterPrompt || '';
+    this.globalPromptText = '';
     this.startX = event.clientX;
     this.startY = event.clientY;
     this.startScrollLeft = this.workspace.nativeElement.scrollLeft;
@@ -559,19 +566,34 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     this.attachedFiles.splice(index, 1);
   }
 
-  openAudioGeneration() {
+  openAudioGeneration(node?: NodeItem) {
+    const isSpecificNode = !!node;
+    const targetNode = node || this.selectedNode;
+    
+    // If we are generating for a specific node, we need to clear the audioUrl of its subtitles so it gets re-generated.
+    if (isSpecificNode && targetNode?.type === 'tts' && targetNode.data?.sceneData) {
+        const sceneData = targetNode.data.sceneData;
+        if (sceneData.subtitles) {
+            sceneData.subtitles.forEach((sub: any) => sub.audioUrl = null);
+        }
+    }
+
     const dialogRef = this.dialog.open(AudioGenerationComponent, {
-        width: '800px',
+        width: '400px',
         maxWidth: '100vw',
         data: { 
+            ...this.projectData,
             selectedModel: this.selectedModel, 
-            scenePrompt: this.selectedNode?.data?.text || '' 
+            scenePrompt: targetNode?.data?.text || '',
+            targetSceneIndex: isSpecificNode ? targetNode?.data?.sceneIndex : null
         }
     });
 
     dialogRef.afterClosed().subscribe(result => {
         if (result) {
-            // Handle result if needed
+            this.projectData = result;
+            this.buildGraphFromData(this.projectData);
+            this.saveProject();
         }
     });
   }
@@ -639,6 +661,37 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     
     this.globalPromptText = charDesc;
     this.saveProject();
+  }
+
+  onAvatarDoubleClick(event: MouseEvent, char: any) {
+    event.stopPropagation();
+    event.preventDefault();
+    if (char) {
+      this.targetAvatarChar = char;
+    } else if (this.editingType === 'character' && this.editingCharacter) {
+      this.targetAvatarChar = this.editingCharacter;
+    } else {
+      return;
+    }
+    if (this.avatarFileInput?.nativeElement) {
+      this.avatarFileInput.nativeElement.click();
+    }
+  }
+
+  onAvatarFileSelected(event: any) {
+    const file = event.target.files[0];
+    if (file && this.targetAvatarChar) {
+      const reader = new FileReader();
+      reader.onload = (e: any) => {
+        this.targetAvatarChar.avatarUrl = e.target.result;
+        this.saveProject();
+        this.targetAvatarChar = null;
+        if (this.avatarFileInput?.nativeElement) {
+          this.avatarFileInput.nativeElement.value = '';
+        }
+      };
+      reader.readAsDataURL(file);
+    }
   }
 
   removeCharacterFromPrompt(char: any, event: Event) {

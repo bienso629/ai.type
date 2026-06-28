@@ -56,7 +56,14 @@
                         <mat-icon class="icon-size-4" *ngIf="node.type === 'composition'">layers</mat-icon>
                         <span class="text-sm font-medium">{{ node.title }}</span>
                     </div>
-                    <span class="text-xs text-gray-400 font-medium">{{ node.subtitle }}</span>
+                    <ng-container *ngIf="node.type === 'tts'; else defaultSubtitle">
+                        <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
+                            <mat-icon class="icon-size-4 !m-0">chevron_right</mat-icon>
+                        </div>
+                    </ng-container>
+                    <ng-template #defaultSubtitle>
+                        <span class="text-xs text-gray-400 font-medium">{{ node.subtitle }}</span>
+                    </ng-template>
                 </div>
 
                 <!-- Node Content -->
@@ -131,7 +138,7 @@
 <div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
     
     <!-- Light Theme Prompt Bar -->
-    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-[28px] p-3 pointer-events-auto transition-all">
+    <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-2xl p-3 pointer-events-auto transition-all">
         
         <!-- Top Context Chips -->
         <div class="flex items-center flex-wrap gap-2 mb-3 px-2">
@@ -150,7 +157,8 @@
             </div>
 
             <!-- Character Chips -->
-            <div *ngFor="let char of activeCharacters" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
+            <ng-container *ngIf="editingType !== 'character'">
+                <div *ngFor="let char of activeCharacters" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
                 <div class="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center mr-2">
                     <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)"
                          [src]="char.avatarUrl || char.avatarUrls[0]"
@@ -163,6 +171,7 @@
                 </span>
                 <mat-icon class="icon-size-4 text-gray-400 ml-2 hover:text-gray-800 transition-colors" (click)="removeCharacterFromPrompt(char, $event)">close</mat-icon>
             </div>
+            </ng-container>
         </div>
 
         <!-- Attached Files Preview -->
@@ -188,8 +197,9 @@
                 cdkAutosizeMaxRows="6"
                 [ngModel]="globalPromptText"
                 (ngModelChange)="updatePrompt($event)"
-                placeholder="Bạn muốn thay đổi hoặc tạo nội dung gì?"
-                class="w-full bg-transparent text-[16px] leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none resize-none block">
+                [placeholder]="editingType === 'none' ? 'Chọn một scene hoặc đoạn âm thanh để chỉnh sửa...' : 'Bạn muốn thay đổi hoặc tạo nội dung gì?'"
+                [disabled]="editingType === 'none'"
+                class="w-full bg-transparent text-[16px] leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none resize-none block disabled:opacity-50 disabled:cursor-not-allowed">
             </textarea>
         </div>
 
@@ -220,28 +230,47 @@
                     <div class="flex items-center">
                         <ng-container *ngIf="activeCharacters.length > 0; else defaultIcon">
                             <div *ngFor="let char of activeCharacters | slice:0:3; let i = index" 
-                                 class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100 shadow-sm"
-                                 [ngStyle]="{'margin-left': i > 0 ? '-12px' : '0', 'z-index': 10 - i}">
-                                <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-full h-full object-cover">
-                                <mat-icon *ngIf="!char.avatarUrl" class="icon-size-5 text-gray-500">person</mat-icon>
+                                 class="relative w-10 h-10 rounded-full flex items-center justify-center"
+                                 [ngStyle]="{'margin-left': i > 0 ? '-16px' : '0', 'z-index': 10 - i}"
+                                 (dblclick)="onAvatarDoubleClick($event, char)">
+                                <!-- Hiệu ứng lan tỏa nhỏ (w-6 h-6 -> ping lên 48px) -->
+                                <div class="absolute w-6 h-6 rounded-full bg-indigo-500 animate-ping opacity-60"></div>
+                                <!-- Avatar chính -->
+                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border-2 border-indigo-500 shadow-sm z-10">
+                                    <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-full h-full object-cover">
+                                    <mat-icon *ngIf="!char.avatarUrl" class="icon-size-5 text-gray-500">person</mat-icon>
+                                </div>
                             </div>
                         </ng-container>
                         <ng-template #defaultIcon>
-                            <div class="w-8 h-8 rounded-full border border-gray-300 overflow-hidden relative flex items-center justify-center bg-gray-100 shadow-sm">
-                                <mat-icon class="icon-size-5 text-gray-500">person</mat-icon>
+                            <div class="relative w-10 h-10 rounded-full flex items-center justify-center"
+                                 (dblclick)="onAvatarDoubleClick($event, null)">
+                                <!-- Hiệu ứng lan tỏa nhỏ (w-6 h-6 -> ping lên 48px) -->
+                                <div class="absolute w-6 h-6 rounded-full bg-indigo-500 animate-ping opacity-60"></div>
+                                <!-- Avatar chính -->
+                                <div class="relative w-full h-full rounded-full overflow-hidden flex items-center justify-center bg-white border-2 border-indigo-500 shadow-sm z-10">
+                                    <mat-icon class="icon-size-5 text-gray-500">person</mat-icon>
+                                </div>
                             </div>
                         </ng-template>
                     </div>
                 </div>
+                
+                <input type="file" #avatarFileInput class="hidden" accept="image/*" (change)="onAvatarFileSelected($event)">
 
                 <mat-menu #charMenu="matMenu">
-                    <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)">
-                        <div class="flex items-center space-x-3">
-                            <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 rounded-full object-cover shadow-sm">
-                            <div *ngIf="!char.avatarUrl" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
-                                <mat-icon class="icon-size-5 text-gray-500 !m-0">person</mat-icon>
+                    <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)" class="!px-3">
+                        <div class="flex items-center justify-between w-full group">
+                            <div class="flex items-center space-x-3">
+                                <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 rounded-full object-cover shadow-sm">
+                                <div *ngIf="!char.avatarUrl" class="w-8 h-8 bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
+                                    <mat-icon class="icon-size-5 text-gray-500 !m-0">person</mat-icon>
+                                </div>
+                                <span class="font-medium text-gray-700">{{char.name}}</span>
                             </div>
-                            <span class="font-medium text-gray-700">{{char.name}}</span>
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-8 h-8 hover:bg-gray-200 rounded-full cursor-pointer" (click)="onAvatarDoubleClick($event, char)" matTooltip="Tải ảnh lên (Upload image)">
+                                <mat-icon class="icon-size-5 text-gray-500 hover:text-blue-600 transition-colors !m-0">upload</mat-icon>
+                            </div>
                         </div>
                     </button>
                     <button mat-menu-item *ngIf="!projectData?.characters?.length" disabled>
@@ -258,17 +287,20 @@
                     </button>
                 </mat-menu>
 
-                <!-- Model Selector Autocomplete -->
-                <div class="relative flex items-center bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full h-8 cursor-pointer transition-colors w-40 sm:w-48">
-                    <input type="text"
-                           class="w-full h-full bg-transparent border-none outline-none pl-3 pr-8 text-sm font-medium text-gray-700 truncate"
-                           [(ngModel)]="selectedModel"
-                           [matAutocomplete]="modelAuto"
-                           (focus)="filterModels($event.target.value)"
-                           (input)="filterModels($event.target.value)"
-                           placeholder="Chọn Model">
-                    <mat-icon class="icon-size-4 text-gray-500 absolute right-2 pointer-events-none">keyboard_arrow_down</mat-icon>
-                    
+                <!-- Model Selector & Submit Button Combo -->
+                <div class="relative flex items-center bg-gray-50 border border-gray-200 hover:border-indigo-300 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 rounded-full h-10 w-48 sm:w-64 transition-all shadow-sm ml-2">
+                    <!-- Input Area -->
+                    <div class="relative flex-1 h-full flex items-center">
+                        <input type="text"
+                               class="w-full h-full bg-transparent border-none outline-none pl-4 pr-6 text-sm font-medium text-gray-700 truncate rounded-l-full cursor-pointer"
+                               [(ngModel)]="selectedModel"
+                               [matAutocomplete]="modelAuto"
+                               (focus)="filterModels($event.target.value)"
+                               (input)="filterModels($event.target.value)"
+                               placeholder="Chọn Model">
+                        <mat-icon class="icon-size-4 text-gray-400 absolute right-1 pointer-events-none">keyboard_arrow_down</mat-icon>
+                    </div>
+
                     <mat-autocomplete #modelAuto="matAutocomplete" panelClass="model-autocomplete-panel" (optionSelected)="onModelSelected($event.option.value)">
                         <mat-option *ngFor="let model of filteredModels" [value]="model">
                             <span class="text-sm">{{ model }}</span>
@@ -278,14 +310,12 @@
                             <span class="text-sm">Đang tải...</span>
                         </mat-option>
                     </mat-autocomplete>
+
+                    <!-- Submit Button -->
+                    <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0 shadow-[0_2px_4px_rgba(13,148,136,0.3)]">
+                        <mat-icon class="icon-size-4 text-white">arrow_upward</mat-icon>
+                    </button>
                 </div>
-
-                <!-- Model Selector -->
-
-                <!-- Submit Button -->
-                <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 border border-teal-600 flex items-center justify-center text-white transition-colors ml-2">
-                    <mat-icon class="icon-size-4 text-white">arrow_upward</mat-icon>
-                </button>
             </div>
         </div>
     </div>
