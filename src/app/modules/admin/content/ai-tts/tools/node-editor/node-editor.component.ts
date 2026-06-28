@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild, ElementRef, HostListener, AfterViewChecked, ChangeDetectorRef } from '@angular/core';
+import { Component, OnInit, ViewChild, ElementRef, HostListener, AfterViewChecked, ChangeDetectorRef, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
@@ -7,7 +7,7 @@ import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatMenuModule } from '@angular/material/menu';
+import { MatMenuModule, MatMenuTrigger } from '@angular/material/menu';
 import { AddSceneComponent } from '../add-scene.component';
 import { DirectorModeComponent } from '../director-mode.component';
 import { CharacterDialogComponent } from '../character-dialog.component';
@@ -36,6 +36,8 @@ interface NodeConnection {
   fromPort: string;
   toNode: string;
   toPort: string;
+  path?: string;
+  color?: string;
 }
 
 @Component({
@@ -48,8 +50,9 @@ interface NodeConnection {
     'class': 'absolute inset-0 flex flex-col overflow-hidden'
   }
 })
-export class NodeEditorComponent implements OnInit, AfterViewChecked {
+export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy {
   @ViewChild('workspace', { static: true }) workspace!: ElementRef;
+  @ViewChild('contextMenuTrigger') contextMenuTrigger!: MatMenuTrigger;
   @ViewChild('avatarFileInput') avatarFileInput!: ElementRef<HTMLInputElement>;
   targetAvatarChar: any = null;
 
@@ -67,6 +70,24 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
   draggedNode: NodeItem | null = null;
   nodeStartX = 0;
   nodeStartY = 0;
+
+  draggedConnection: {
+    fromNode: string;
+    fromPort: string;
+    toX: number;
+    toY: number;
+    path?: string;
+    color?: string;
+  } | null = null;
+  hoveredNode: NodeItem | null = null;
+  hoveredInput: { node: NodeItem, port: string } | null = null;
+
+  private mouseMoveListener: any;
+  private mouseUpListener: any;
+
+  contextMenuVisible = false;
+  contextMenuPosition = { x: 0, y: 0 };
+  contextMenuCanvasPosition = { x: 0, y: 0 };
 
   uuid: string | null = null;
   projectData: any = null;
@@ -115,7 +136,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     private multiAccountService: MultiAccountService,
     private dialog: MatDialog,
     private cdr: ChangeDetectorRef,
-    private genaiService: GenaiService
+    private genaiService: GenaiService,
+    private ngZone: NgZone
   ) { }
 
   ngAfterViewChecked() {
@@ -134,12 +156,20 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     if (changed) {
        setTimeout(() => {
            this.nodeHeights = { ...this.nodeHeights, ...newHeights };
+           this.updateConnectionPaths();
            this.cdr.detectChanges();
        }, 0);
     }
   }
 
   ngOnInit(): void {
+    this.mouseMoveListener = this.onMouseMoveOutside.bind(this);
+    this.mouseUpListener = this.onMouseUpOutside.bind(this);
+    this.ngZone.runOutsideAngular(() => {
+      window.addEventListener('mousemove', this.mouseMoveListener, { passive: true });
+      window.addEventListener('mouseup', this.mouseUpListener);
+    });
+
     this.uuid = this.route.snapshot.paramMap.get('uuid');
     if (!this.uuid) {
       this.router.navigate(['../'], { relativeTo: this.route });
@@ -156,6 +186,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     }
 
     this.loadModels();
+  }
+
+  ngOnDestroy(): void {
+    if (this.mouseMoveListener) window.removeEventListener('mousemove', this.mouseMoveListener);
+    if (this.mouseUpListener) window.removeEventListener('mouseup', this.mouseUpListener);
   }
 
   async loadModels() {
@@ -178,7 +213,50 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     }
   }
 
-    buildGraphFromData(data: any) {
+  buildGraphFromData(data: any) {
+    if (!data) return;
+
+    if (data.editorLayout && data.editorLayout.nodes && data.editorLayout.connections) {
+       this.nodes = data.editorLayout.nodes;
+       this.connections = data.editorLayout.connections;
+       
+       // Sync backend data back into nodes
+       if (data.scenes) {
+          this.nodes.forEach(node => {
+             if (node.data && node.data.sceneIndex !== undefined) {
+                const scene = data.scenes[node.data.sceneIndex];
+                if (scene) {
+                   if (node.type === 'video') {
+                       let imageUrl = scene.imageUrl;
+                       let videoUrl = null;
+                       if (scene.videos && scene.videos.length > 0) {
+                          imageUrl = scene.videos[0].imageUrl || scene.videos[0].controlImageUrl || imageUrl;
+                          videoUrl = scene.videos[0].videoUrl || null;
+                       }
+                       node.data.imageUrl = imageUrl;
+                       node.data.videoUrl = videoUrl;
+                       node.data.isVideo = !!videoUrl;
+                       node.data.text = scene.script;
+                       node.data.sceneData = scene;
+                   } else if (node.type === 'tts' && scene.subtitles && scene.subtitles.length > 0) {
+                       node.data.audioUrl = scene.subtitles[0].audioUrl;
+                       node.data.text = scene.subtitles[0].text;
+                       node.data.sceneData = scene;
+                   }
+                }
+             }
+          });
+       }
+       
+       const compNode = this.nodes.find(n => n.id === 'comp_final');
+       if (compNode) {
+          compNode.data.videoUrl = data.finalVideoUrl || null;
+       }
+       
+       this.calculateCanvasSize();
+       return;
+    }
+
     this.nodes = [];
     this.connections = [];
     let startX = 150;
@@ -192,7 +270,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
 
     data.scenes.forEach((scene: any, index: number) => {
       const sceneX = startX + index * 400;
-      const yOffset = Math.floor(Math.random() * 100) - 50; // Random offset to make them not perfectly aligned
+      const yOffset = Math.floor(Math.random() * 100) - 50; 
 
       
       const ttsNodeId = `tts_${index}`;
@@ -200,7 +278,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
 
       let hasTts = false;
 
-      // Extract image
       let imageUrl = scene.imageUrl;
       let videoUrl = null;
       let duration = scene.forcedDuration || 5;
@@ -231,7 +308,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: vidSubtitle,
         x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
-        data: { imageUrl: imageUrl, videoUrl: videoUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters },
+        data: { imageUrl: imageUrl, videoUrl: videoUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters, sceneIndex: index },
         baseX: sceneX, baseY: 150 + yOffset
       };
       
@@ -260,6 +337,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     }
     
     this.calculateCanvasSize();
+    this.saveEditorState();
   }
 
   buildFakeGraph() {
@@ -297,6 +375,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     ];
     
     this.calculateCanvasSize();
+    this.saveEditorState();
   }
 
   calculateCanvasSize() {
@@ -306,10 +385,21 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
       if (n.x > maxX) maxX = n.x;
       if (n.y > maxY) maxY = n.y;
     });
-    // Add 280px for node width + 150px right margin
     this.canvasWidth = Math.max(1200, maxX + 280 + 150);
-    // Add 300px for node height + 150px bottom margin
     this.canvasHeight = Math.max(800, maxY + 300 + 150);
+    this.updateConnectionPaths();
+  }
+
+  updateConnectionPaths() {
+    this.connections.forEach(conn => {
+      conn.path = this.getConnectionPath(conn);
+      const fromNode = this.nodes.find(n => n.id === conn.fromNode);
+      if (fromNode && fromNode.type === 'tts') {
+        conn.color = '#10b981'; // emerald-500
+      } else {
+        conn.color = '#a5b4fc'; // indigo-300
+      }
+    });
   }
 
   getConnectionPath(conn: NodeConnection): string {
@@ -340,7 +430,98 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   }
 
+  getDraggedConnectionPath(): string {
+    if (!this.draggedConnection) return '';
+    const from = this.nodes.find(n => n.id === this.draggedConnection!.fromNode);
+    if (!from) return '';
+    
+    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : 250);
+    let fromWidth = 280;
+    
+    const fromX = from.x + fromWidth; 
+    const fromY = from.y + (fromHeight / 2); 
+    
+    const toX = this.draggedConnection.toX;
+    const toY = this.draggedConnection.toY;
+    
+    const dx = Math.abs(toX - fromX) * 0.5;
+    
+    return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
+  }
+
+  onInputPortMouseDown(event: MouseEvent, node: NodeItem, port: string) {
+    event.stopPropagation();
+    const existingConnIndex = this.connections.findIndex(c => c.toNode === node.id && c.toPort === port);
+    if (existingConnIndex >= 0) {
+      const conn = this.connections[existingConnIndex];
+      this.connections.splice(existingConnIndex, 1);
+      
+      const rect = this.workspace.nativeElement.getBoundingClientRect();
+      const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
+      const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
+
+      const fromNodeObj = this.nodes.find(n => n.id === conn.fromNode);
+      const isAudio = fromNodeObj && fromNodeObj.type === 'tts';
+
+      this.draggedConnection = {
+        fromNode: conn.fromNode,
+        fromPort: conn.fromPort,
+        toX: mouseX,
+        toY: mouseY,
+        color: isAudio ? '#10b981' : '#818cf8'
+      };
+    }
+  }
+
+  onOutputPortMouseDown(event: MouseEvent, node: NodeItem, port: string) {
+    event.stopPropagation();
+    const rect = this.workspace.nativeElement.getBoundingClientRect();
+    const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
+    const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
+    
+    const isAudio = node.type === 'tts';
+    
+    this.draggedConnection = {
+      fromNode: node.id,
+      fromPort: port,
+      toX: mouseX,
+      toY: mouseY,
+      color: isAudio ? '#10b981' : '#818cf8'
+    };
+  }
+
+  createConnection(fromNode: string, fromPort: string, toNode: string, toPort: string) {
+     if (fromNode === toNode) return;
+     
+     // Connection validation rules (râu ông nọ cắm cằm bà kia)
+     const fromObj = this.nodes.find(n => n.id === fromNode);
+     const toObj = this.nodes.find(n => n.id === toNode);
+     
+     if (fromObj && toObj) {
+         if (fromObj.type === 'tts') {
+             // Audio MUST connect to tts_in
+             if (toPort !== 'tts_in') return;
+         } else if (fromObj.type === 'video' || fromObj.type === 'image') {
+             // Video MUST connect to prev_scene_in (or any port on Composition)
+             if (toObj.type !== 'composition' && toPort !== 'prev_scene_in') return;
+         }
+     }
+
+     this.connections = this.connections.filter(c => !(c.toNode === toNode && c.toPort === toPort));
+     
+     this.connections.push({
+       id: `c_${Date.now()}`,
+       fromNode, fromPort, toNode, toPort
+     });
+
+     this.updateConnectionPaths();
+     this.saveEditorState();
+  }
+
   onWorkspaceMouseDown(event: MouseEvent) {
+    if (this.contextMenuVisible) {
+      this.closeContextMenu();
+    }
     const target = event.target as HTMLElement;
     if (target.closest('.cursor-move') || target.closest('.fixed.bottom-12')) {
       return;
@@ -356,10 +537,212 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     this.startScrollTop = this.workspace.nativeElement.scrollTop;
   }
 
+  onWorkspaceContextMenu(event: MouseEvent) {
+    const target = event.target as HTMLElement;
+    if (target.closest('.cursor-move') || target.closest('.fixed.bottom-12')) {
+      return;
+    }
+
+    event.preventDefault();
+    this.contextMenuPosition = { x: event.clientX, y: event.clientY };
+
+    const rect = this.workspace.nativeElement.getBoundingClientRect();
+    const x = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
+    const y = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
+    this.contextMenuCanvasPosition = { x, y };
+    
+    if (this.contextMenuTrigger) {
+      this.contextMenuTrigger.openMenu();
+    }
+  }
+
+  autoArrangeAllNodes() {
+      const isPrimary = (type: string) => type === 'video' || type === 'image';
+      const isComp = (type: string) => type === 'composition' || type === 'comp';
+      
+      const primaryNodes = this.nodes.filter(n => isPrimary(n.type));
+      const compNodes = this.nodes.filter(n => isComp(n.type));
+      const secondaryNodes = this.nodes.filter(n => !isPrimary(n.type) && !isComp(n.type));
+      
+      const colMap = new Map<string, number>();
+      primaryNodes.forEach(n => colMap.set(n.id, 0));
+      
+      let changed = true;
+      let iterations = 0;
+      while (changed && iterations < 100) {
+          changed = false;
+          iterations++;
+          this.connections.forEach(c => {
+             const fromNode = this.nodes.find(n => n.id === c.fromNode);
+             const toNode = this.nodes.find(n => n.id === c.toNode);
+             
+             if (fromNode && toNode && isPrimary(fromNode.type) && isPrimary(toNode.type)) {
+                 const fromCol = colMap.get(fromNode.id) || 0;
+                 const toCol = colMap.get(toNode.id) || 0;
+                 if (fromCol + 1 > toCol) {
+                     colMap.set(toNode.id, fromCol + 1);
+                     changed = true;
+                 }
+             }
+          });
+      }
+      
+      primaryNodes.sort((a, b) => {
+          const colA = colMap.get(a.id) || 0;
+          const colB = colMap.get(b.id) || 0;
+          if (colA !== colB) return colA - colB;
+          return a.x - b.x;
+      });
+      
+      const secondaryToPrimary = new Map<string, string>();
+      this.connections.forEach(c => {
+          const fromNode = this.nodes.find(n => n.id === c.fromNode);
+          const toNode = this.nodes.find(n => n.id === c.toNode);
+          if (fromNode && toNode && !isPrimary(fromNode.type) && isPrimary(toNode.type)) {
+              secondaryToPrimary.set(fromNode.id, toNode.id);
+          }
+      });
+      
+      const blockPositions = new Map<string, {x: number, currentY: number}>();
+      let maxPrimaryX = 150;
+      
+      primaryNodes.forEach((pNode, index) => {
+          pNode.x = 150 + index * 450;
+          pNode.baseX = pNode.x;
+          maxPrimaryX = Math.max(maxPrimaryX, pNode.x);
+          
+          pNode.y = 150 + (Math.random() * 60 - 30);
+          if (pNode.y < 50) pNode.y = 50;
+          pNode.baseY = pNode.y;
+          
+          blockPositions.set(pNode.id, {
+              x: pNode.x,
+              currentY: pNode.y + 320 
+          });
+      });
+      
+      compNodes.forEach((cNode, index) => {
+          cNode.x = maxPrimaryX + 450 + index * 400;
+          cNode.baseX = cNode.x;
+          cNode.y = 300; 
+          cNode.baseY = cNode.y;
+      });
+      
+      let unconnectedX = 150 + primaryNodes.length * 450;
+      
+      secondaryNodes.forEach(sNode => {
+          const targetId = secondaryToPrimary.get(sNode.id);
+          if (targetId && blockPositions.has(targetId)) {
+              const pos = blockPositions.get(targetId)!;
+              sNode.x = pos.x;
+              sNode.baseX = sNode.x;
+              sNode.y = pos.currentY;
+              sNode.baseY = sNode.y;
+              pos.currentY += 180;
+          } else {
+              sNode.x = unconnectedX;
+              sNode.baseX = sNode.x;
+              sNode.y = 470; 
+              sNode.baseY = sNode.y;
+              unconnectedX += 450;
+          }
+      });
+      
+      this.updateConnectionPaths();
+      this.calculateCanvasSize();
+      this.saveEditorState();
+      this.cdr.detectChanges();
+  }
+  
+  closeContextMenu() {
+    this.contextMenuVisible = false;
+  }
+
+  addNewSceneNode() {
+    const id = `scene_${Date.now()}`;
+    const x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
+    const y = this.contextMenuCanvasPosition.y ? Math.round(this.contextMenuCanvasPosition.y) : 150;
+    
+    const newScene: NodeItem = {
+      id,
+      type: 'video',
+      title: `Scene Visuals ${this.nodes.filter(n => n.type === 'video' || n.type === 'composition').length + 1}`,
+      subtitle: '~5s',
+      x, y,
+      baseX: x, baseY: y,
+      inputs: ['in1'],
+      outputs: ['out'],
+      data: { 
+        imageUrl: '',
+        videoUrl: '',
+        text: '', 
+        isVideo: false, 
+        aspectRatio: '16:9', 
+        sceneData: { visualPrompt: '' },
+        projectCharacters: []
+      }
+    };
+    this.nodes = [...this.nodes, newScene];
+    this.selectedNode = newScene;
+    this.calculateCanvasSize();
+    this.closeContextMenu();
+    this.saveEditorState();
+    
+    setTimeout(() => this.cdr.detectChanges(), 0);
+  }
+
+  addNewAudioNode() {
+    const id = `tts_${Date.now()}`;
+    const x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
+    const y = this.contextMenuCanvasPosition.y ? Math.round(this.contextMenuCanvasPosition.y) : 150;
+    
+    const newAudio: NodeItem = {
+      id,
+      type: 'tts',
+      title: 'Text to Speech',
+      subtitle: '0s',
+      x, y,
+      baseX: x, baseY: y,
+      inputs: ['in1'],
+      outputs: ['out'],
+      data: { 
+        text: '', 
+        audioUrl: '',
+        duration: '0s'
+      }
+    };
+    this.nodes = [...this.nodes, newAudio];
+    this.selectedNode = newAudio;
+    this.calculateCanvasSize();
+    this.closeContextMenu();
+    this.saveEditorState();
+    
+    setTimeout(() => this.cdr.detectChanges(), 0);
+  }
+
   saveProject() {
     if (!this.uuid || !this.projectData) return;
     const storageKey = `ai_type_video_ready_data_${this.uuid}`;
     this.multiAccountService.setItem(storageKey, this.projectData);
+  }
+
+  saveEditorState() {
+     if (this.projectData) {
+         const strippedNodes = this.nodes.map(n => {
+             return JSON.parse(JSON.stringify(n, (key, value) => {
+                 if (key === 'imageUrl' || key === 'videoUrl' || key === 'audioUrl' || key === 'sceneData' || key === 'projectCharacters') {
+                     return undefined;
+                 }
+                 return value;
+             }));
+         });
+
+         this.projectData.editorLayout = {
+             nodes: strippedNodes,
+             connections: JSON.parse(JSON.stringify(this.connections))
+         };
+         this.saveProject();
+     }
   }
 
   selectNode(node: NodeItem) {
@@ -422,8 +805,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
             this.saveProject();
         }
     } else if (this.editingType === 'character' && this.editingCharacter) {
-        // We do not save character prompt changes back directly to the character here unless requested.
-        // Actually, let's just let it be in globalPromptText for generation.
     } else if (this.editingType === 'scene' && this.selectedNode) {
       if (this.selectedNode.type === 'tts') {
           this.selectedNode.data = { ...this.selectedNode.data, text: text };
@@ -434,15 +815,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
           return;
       }
 
-      // If the text contains 'Action/Visuals:', extract only that part to save to the raw prompt
       let savedText = text;
       const visualMarker = 'Action/Visuals: ';
       const index = text.lastIndexOf(visualMarker);
       if (index !== -1) {
           savedText = text.substring(index + visualMarker.length).trim();
       } else {
-          // Fallback if user accidentally deleted the marker
-          // Try to extract text after the last known section
           const dialogMarker = 'Dialogue: ';
           const charMarker = 'Characters:\n';
           const masterMarker = 'Master Prompt: ';
@@ -528,6 +906,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
         this.nodes.push(newNode);
         this.selectedNode = newNode;
         this.calculateCanvasSize();
+        this.saveEditorState();
       }
     });
   }
@@ -584,7 +963,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     const isSpecificNode = !!node;
     const targetNode = node || this.selectedNode;
     
-    // If we are generating for a specific node, we need to clear the audioUrl of its subtitles so it gets re-generated.
     if (isSpecificNode && targetNode?.type === 'tts' && targetNode.data?.sceneData) {
         const sceneData = targetNode.data.sceneData;
         if (sceneData.subtitles) {
@@ -603,12 +981,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
         }
     });
 
-    dialogRef.afterClosed().subscribe(result => {
-        if (result) {
-            this.projectData = result;
-            this.buildGraphFromData(this.projectData);
-            this.saveProject();
-        }
+    dialogRef.afterClosed().subscribe(data => {
+        if (data) {
+        this.projectData = data;
+        this.buildGraphFromData(this.projectData);
+      }
     });
   }
 
@@ -736,8 +1113,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
     this.saveProject();
   }
 
-  @HostListener('window:mousemove', ['$event'])
-  onMouseMove(event: MouseEvent) {
+  onMouseMoveOutside(event: MouseEvent) {
     if (this.isPanning) {
       const dx = event.clientX - this.startX;
       const dy = event.clientY - this.startY;
@@ -749,7 +1125,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
       let newX = this.nodeStartX + dx;
       let newY = this.nodeStartY + dy;
       
-      const maxRadius = 50; // Limited drag radius
+      const maxRadius = 50; 
       if (this.draggedNode.baseX !== undefined && this.draggedNode.baseY !== undefined) {
          const dist = Math.sqrt(Math.pow(newX - this.draggedNode.baseX, 2) + Math.pow(newY - this.draggedNode.baseY, 2));
          if (dist > maxRadius) {
@@ -758,16 +1134,74 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked {
              newY = this.draggedNode.baseY + Math.sin(angle) * maxRadius;
          }
       }
-      
       this.draggedNode.x = newX;
       this.draggedNode.y = newY;
+      
+      const el = document.getElementById(this.draggedNode.id);
+      if (el) {
+          el.style.left = newX + 'px';
+          el.style.top = newY + 'px';
+      }
+      
+      this.connections.forEach(conn => {
+          if (conn.fromNode === this.draggedNode!.id || conn.toNode === this.draggedNode!.id) {
+              conn.path = this.getConnectionPath(conn);
+              const cEl = document.getElementById('conn_' + conn.id);
+              if (cEl && conn.path) {
+                  cEl.setAttribute('d', conn.path);
+              }
+          }
+      });
+    } else if (this.draggedConnection) {
+      const rect = this.workspace.nativeElement.getBoundingClientRect();
+      const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
+      const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
+      this.draggedConnection.toX = mouseX;
+      this.draggedConnection.toY = mouseY;
+      this.draggedConnection.path = this.getDraggedConnectionPath();
+      
+      const dEl = document.getElementById('dragged_conn');
+      if (dEl && this.draggedConnection.path) {
+          dEl.setAttribute('d', this.draggedConnection.path);
+      }
     }
   }
 
-  @HostListener('window:mouseup')
-  onMouseUp() {
-    this.isPanning = false;
-    this.draggedNode = null;
+  onMouseUpOutside() {
+    this.ngZone.run(() => {
+        if (this.draggedConnection) {
+          if (this.hoveredInput) {
+             this.createConnection(this.draggedConnection.fromNode, this.draggedConnection.fromPort, this.hoveredInput.node.id, this.hoveredInput.port);
+          } else if (this.hoveredNode) {
+             const fromObj = this.nodes.find(n => n.id === this.draggedConnection!.fromNode);
+             let targetPort = null;
+             
+             if (fromObj?.type === 'tts') {
+                 targetPort = this.hoveredNode.inputs.includes('tts_in') ? 'tts_in' : null;
+             } else if (fromObj?.type === 'video' || fromObj?.type === 'image') {
+                 targetPort = this.hoveredNode.inputs.includes('prev_scene_in') ? 'prev_scene_in' : 
+                              (this.hoveredNode.type === 'composition' && this.hoveredNode.inputs.length > 0 ? this.hoveredNode.inputs[0] : null);
+             } else {
+                 targetPort = this.hoveredNode.inputs.length > 0 ? this.hoveredNode.inputs[0] : null;
+             }
+             
+             if (targetPort) {
+                this.createConnection(this.draggedConnection.fromNode, this.draggedConnection.fromPort, this.hoveredNode.id, targetPort);
+             }
+          } else {
+             this.saveEditorState();
+          }
+          this.draggedConnection = null;
+        }
+        
+        if (this.draggedNode) {
+           this.saveEditorState();
+        }
+        
+        this.isPanning = false;
+        this.draggedNode = null;
+        this.cdr.detectChanges();
+    });
   }
 
   openDirectorMode(event?: Event) {
