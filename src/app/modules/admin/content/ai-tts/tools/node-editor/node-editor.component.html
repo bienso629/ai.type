@@ -225,8 +225,8 @@
         </div>
 
         <!-- Attached Files Preview -->
-        <div *ngIf="attachedFiles.length > 0" class="flex flex-wrap gap-2 px-2 pb-2">
-            <div *ngFor="let f of attachedFiles; let i = index" class="relative group w-16 h-16 rounded-lg overflow-hidden border border-gray-200 shadow-sm bg-gray-50">
+        <div *ngIf="attachedFiles.length > 0" class="flex flex-wrap gap-2 px-3 pb-2">
+            <div *ngFor="let f of attachedFiles; let i = index" class="relative group w-16 h-16 rounded-lg overflow-hidden shadow-sm bg-gray-50">
                 <img *ngIf="f.mimeType.startsWith('image/')" [src]="f.url" class="w-full h-full object-cover">
                 <video *ngIf="f.mimeType.startsWith('video/')" [src]="f.url" class="w-full h-full object-cover"></video>
                 <div *ngIf="!f.mimeType.startsWith('image/') && !f.mimeType.startsWith('video/')" class="w-full h-full flex items-center justify-center">
