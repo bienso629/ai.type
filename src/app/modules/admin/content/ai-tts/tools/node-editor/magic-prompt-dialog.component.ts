@@ -12,6 +12,9 @@ import { ToastrService } from 'ngx-toastr';
 import { GenaiService } from 'app/genai.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
+import { MatInputModule } from '@angular/material/input';
+import { TextFieldModule } from '@angular/cdk/text-field';
+
 @Component({
     selector: 'app-magic-prompt-dialog',
     standalone: true,
@@ -24,6 +27,8 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
         MatButtonModule,
         MatTooltipModule,
         FormsModule,
+        MatInputModule,
+        TextFieldModule
     ],
     templateUrl: './magic-prompt-dialog.component.html',
     styles: [`

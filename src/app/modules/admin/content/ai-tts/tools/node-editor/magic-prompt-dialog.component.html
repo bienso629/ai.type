@@ -1,77 +1,75 @@
-<div class="light-theme flex flex-col font-sans bg-white">
-    <!-- Header -->
-    <div class="flex items-center justify-between mb-2">
-        <div class="flex gap-2 items-center">
-            <mat-icon class="icon-size-5 text-indigo-600">auto_fix_high</mat-icon>
-            <h2 class="text-lg font-semibold m-0">Magic Prompt</h2>
-        </div>
-        <div class="flex items-center gap-2">
-            <button mat-icon-button (click)="cancel()">
-                <mat-icon svgIcon="heroicons_outline:x"></mat-icon>
-            </button>
-        </div>
+<!-- Header -->
+<div class="flex items-center justify-between mb-4">
+    <div class="flex gap-2 items-center">
+        <mat-icon class="icon-size-5 text-indigo-600">auto_fix_high</mat-icon>
+        <h2 class="text-lg font-semibold m-0">Magic Prompt</h2>
     </div>
+    <div class="flex items-center gap-2">
+        <button mat-icon-button (click)="cancel()">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
+    </div>
+</div>
 
     <!-- Content body -->
-    <mat-dialog-content class="flex-1 bg-white overflow-y-auto max-h-[75vh] p-0 scrollbar-hide"
+    <mat-dialog-content class="flex flex-col gap-2 p-0 scrollbar-hide !max-h-none"
         style="-ms-overflow-style: none; scrollbar-width: none;">
 
         <!-- Yêu cầu bổ sung -->
-        <div class="section-card">
-            <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Yêu cầu bổ sung</h3>
-            <p class="text-xs text-gray-500 mb-2">Mô tả thêm điều bạn muốn AI cải thiện trong prompt, ví dụ: ánh sáng, phong cách, hành động...</p>
-            <textarea
+        <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+            <mat-label>Yêu cầu bổ sung</mat-label>
+            <textarea matInput
                 [(ngModel)]="userInstruction"
-                placeholder="Ví dụ: Thêm ánh sáng neon cyberpunk, góc máy kịch tính, slow-motion..."
-                rows="3"
-                class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none"></textarea>
-        </div>
+                placeholder="Mô tả thêm điều bạn muốn AI cải thiện trong prompt, ví dụ: ánh sáng, phong cách, hành động..."
+                cdkTextareaAutosize cdkAutosizeMinRows="3" class="px-2 text-base leading-relaxed"></textarea>
+        </mat-form-field>
 
         <!-- Hình ảnh tham khảo -->
-        <div class="section-card">
-            <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Nhân vật / Hình ảnh tham chiếu</h3>
-            <p class="text-xs text-gray-500 mb-2">Tải lên ảnh để AI hiểu phong cách hoặc nhân vật bạn muốn mô tả.</p>
+        <div class="flex items-center gap-1.5 mb-1 mt-1">
+            <mat-label class="font-semibold text-slate-800">Nhân vật / Hình ảnh tham chiếu</mat-label>
+        </div>
+        <p class="text-xs text-gray-500 mb-1">Tải lên ảnh để AI hiểu phong cách hoặc nhân vật bạn muốn mô tả.</p>
 
-            <div class="w-full relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[100px]"
-                *ngIf="!imageBase64">
-                <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" (change)="onFileSelected($event)">
-                <div class="flex flex-col items-center">
-                    <mat-icon svgIcon="heroicons_outline:photo" class="text-gray-400 w-10 h-10 mb-1"></mat-icon>
-                    <p class="text-gray-600 font-medium text-sm mb-0.5">Tải ảnh tham chiếu</p>
-                    <p class="text-gray-400 text-xs">JPG, PNG</p>
-                </div>
+        <div class="w-full relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[100px]"
+            *ngIf="!imageBase64">
+            <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" (change)="onFileSelected($event)">
+            <div class="flex flex-col items-center">
+                <mat-icon svgIcon="heroicons_outline:photo" class="text-gray-400 w-10 h-10 mb-1"></mat-icon>
+                <p class="text-gray-600 font-medium text-sm mb-0.5">Tải ảnh tham chiếu</p>
+                <p class="text-gray-400 text-xs">JPG, PNG</p>
             </div>
+        </div>
 
-            <div *ngIf="imageBase64" class="relative w-full border border-gray-200 rounded-lg overflow-hidden group min-h-[120px]">
-                <img [src]="imageBase64" class="w-full object-cover max-h-[200px]">
-                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                    <button mat-icon-button class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors" (click)="removeImage()">
-                        <mat-icon class="icon-size-5">delete</mat-icon>
-                    </button>
-                </div>
+        <div *ngIf="imageBase64" class="relative w-full border border-gray-200 rounded-lg overflow-hidden group min-h-[120px]">
+            <img [src]="imageBase64" class="w-full object-cover max-h-[200px]">
+            <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                <button mat-icon-button class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors" (click)="removeImage()">
+                    <mat-icon class="icon-size-5">delete</mat-icon>
+                </button>
             </div>
         </div>
 
         <!-- Kết quả -->
-        <div class="section-card">
-            <div class="flex items-center justify-between mb-2">
-                <h3 class="text-gray-800 font-semibold text-[13px] m-0">
-                    {{ generatedPrompt ? 'Kết quả từ AI' : 'Prompt hiện tại' }}
-                </h3>
-                <button *ngIf="generatedPrompt" (click)="generatedPrompt = ''" class="text-xs text-gray-400 hover:text-red-400 transition-colors">
-                    Hoàn tác
-                </button>
-            </div>
-            <textarea
-                [(ngModel)]="generatedPrompt || currentPrompt"
-                rows="6"
-                class="w-full border border-gray-300 rounded-lg p-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none bg-gray-50"></textarea>
+        <div class="flex items-center justify-between mb-1 mt-1">
+            <mat-label class="font-semibold text-slate-800">
+                {{ generatedPrompt ? 'Kết quả từ AI' : 'Prompt hiện tại' }}
+            </mat-label>
+            <button *ngIf="generatedPrompt" (click)="generatedPrompt = ''" class="text-xs text-gray-400 hover:text-red-400 transition-colors">
+                Hoàn tác
+            </button>
         </div>
+        <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+            <textarea matInput
+                [ngModel]="generatedPrompt || currentPrompt"
+                (ngModelChange)="generatedPrompt ? generatedPrompt = $event : currentPrompt = $event"
+                cdkTextareaAutosize cdkAutosizeMinRows="6"
+                class="px-2 text-base leading-relaxed"></textarea>
+        </mat-form-field>
 
     </mat-dialog-content>
 
     <!-- Footer Actions -->
-    <div class="px-0 mt-4 flex justify-end gap-2">
+    <mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-2">
         <button mat-button (click)="cancel()" class="text-gray-500">Đóng</button>
         <button mat-stroked-button color="primary"
                 (click)="generate()"
@@ -80,9 +78,8 @@
             <mat-icon class="icon-size-4 mr-1 animate-spin" *ngIf="isGenerating">autorenew</mat-icon>
             {{ isGenerating ? 'Đang tạo...' : 'Tạo Prompt' }}
         </button>
-        <button mat-flat-button class="bg-indigo-600 text-white" (click)="apply()"
+        <button mat-flat-button color="primary" (click)="apply()"
                 [disabled]="!generatedPrompt && !currentPrompt">
             Áp dụng
         </button>
-    </div>
-</div>
+    </mat-dialog-actions>

@@ -1376,7 +1376,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         width: '600px',
         maxWidth: '95vw',
         maxHeight: '95vh',
-        panelClass: 'dark-theme-dialog',
         data: {
             currentPrompt: this.globalPromptText,
             type: this.editingType,
