@@ -21,7 +21,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 interface NodeItem {
   id: string;
-  type: 'image' | 'video' | 'tts' | 'composition';
+  type: 'image' | 'video' | 'tts' | 'composition' | 'storyboard';
   title: string;
   subtitle: string;
   x: number;
@@ -426,7 +426,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.cleanupUnusedPorts();
     this.connections.forEach(conn => {
       conn.path = this.getConnectionPath(conn);
-      conn.color = '#5eead4'; // teal-300
+      const fromObj = this.nodes.find(n => n.id === conn.fromNode);
+      conn.color = fromObj?.type === 'storyboard' ? '#eab308' : '#5eead4';
     });
   }
 
@@ -435,9 +436,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const to = this.nodes.find(n => n.id === conn.toNode);
     if (!from || !to) return '';
 
-    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : 250);
-    let fromWidth = from.type === 'video' || from.type === 'composition' ? 360 : 280;
-    let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 130 : 250);
+    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : (from.type === 'storyboard' ? 140 : 250));
+    let fromWidth = from.type === 'video' || from.type === 'composition' || from.type === 'storyboard' ? 360 : 280;
+    let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 130 : (to.type === 'storyboard' ? 140 : 250));
 
     const fromX = from.x + fromWidth; 
     const fromY = from.y + (fromHeight / 2); 
@@ -453,7 +454,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
        toY = startY + (portIndex * 32) + 12;
     }
 
-    const dx = Math.abs(toX - fromX) * 0.5;
+    const dx = toX > fromX ? (toX - fromX) * 0.5 : 250;
     
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   }
@@ -463,8 +464,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const from = this.nodes.find(n => n.id === this.draggedConnection!.fromNode);
     if (!from) return '';
     
-    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : 250);
-    let fromWidth = from.type === 'video' || from.type === 'composition' ? 360 : 280;
+    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : (from.type === 'storyboard' ? 140 : 250));
+    let fromWidth = from.type === 'video' || from.type === 'composition' || from.type === 'storyboard' ? 360 : 280;
     
     const fromX = from.x + fromWidth; 
     const fromY = from.y + (fromHeight / 2); 
@@ -472,7 +473,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const toX = this.draggedConnection.toX;
     const toY = this.draggedConnection.toY;
     
-    const dx = Math.abs(toX - fromX) * 0.5;
+    const dx = toX > fromX ? (toX - fromX) * 0.5 : 250;
     
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   }
@@ -542,7 +543,20 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                  }
              }
          } else if (fromObj.type === 'video' || fromObj.type === 'image') {
-             if (toObj.type !== 'composition' && toPort !== 'prev_scene_in') return;
+             if (toObj.type !== 'composition' && toPort !== 'prev_scene_in' && !toPort.startsWith('storyboard_in')) return;
+         } else if (fromObj.type === 'storyboard') {
+             if (toObj.type !== 'video' && toObj.type !== 'image') return;
+             if (!toPort.startsWith('storyboard_in')) {
+                 const usedPorts = this.connections.filter(c => c.toNode === toNode).map(c => c.toPort);
+                 let freePort = toObj.inputs.find(p => p.startsWith('storyboard_in') && !usedPorts.includes(p));
+                 if (!freePort) {
+                     let i = 1;
+                     while(toObj.inputs.includes(`storyboard_in_${i}`)) i++;
+                     freePort = `storyboard_in_${i}`;
+                     toObj.inputs.push(freePort);
+                 }
+                 toPort = freePort;
+             }
          }
      }
 
@@ -615,7 +629,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       
       const primaryNodes = this.nodes.filter(n => isPrimary(n.type));
       const compNodes = this.nodes.filter(n => isComp(n.type));
-      const secondaryNodes = this.nodes.filter(n => !isPrimary(n.type) && !isComp(n.type));
+      const storyboardNodes = this.nodes.filter(n => n.type === 'storyboard');
+      const secondaryNodes = this.nodes.filter(n => !isPrimary(n.type) && !isComp(n.type) && n.type !== 'storyboard');
       
       const colMap = new Map<string, number>();
       primaryNodes.forEach(n => colMap.set(n.id, 0));
@@ -680,6 +695,19 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           cNode.y = 300; 
           cNode.baseY = cNode.y;
       });
+
+      if (primaryNodes.length > 0) {
+          const minX = Math.min(...primaryNodes.map(n => n.x));
+          const maxX = Math.max(...primaryNodes.map(n => n.x));
+          const centerX = (minX + maxX) / 2;
+          
+          storyboardNodes.forEach((sNode, index) => {
+              sNode.x = centerX;
+              sNode.baseX = sNode.x;
+              sNode.y = 550 + (index * 200); 
+              sNode.baseY = sNode.y;
+          });
+      }
       
       let unconnectedX = 150 + primaryNodes.length * 450;
       
@@ -798,8 +826,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       outputs: ['out'],
       data: { 
         text: '', 
-        audioUrl: '',
-        duration: '0s'
+        duration: '0s', 
+        audioUrl: '', 
+        isGeneratingAudio: false,
+        sceneData: {} 
       }
     };
     this.nodes = [...this.nodes, newAudio];
@@ -808,6 +838,66 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.closeContextMenu();
     this.saveEditorState();
     
+    setTimeout(() => this.cdr.detectChanges(), 0);
+  }
+
+  addStoryboardNode() {
+    const id = `storyboard_${Date.now()}`;
+    
+    // Auto center below scenes
+    const primaryNodes = this.nodes.filter(n => n.type === 'video' || n.type === 'image');
+    let x = 150;
+    let y = 750;
+    if (primaryNodes.length > 0) {
+        const minX = Math.min(...primaryNodes.map(n => n.x));
+        const maxX = Math.max(...primaryNodes.map(n => n.x));
+        x = (minX + maxX) / 2;
+        const maxY = Math.max(...primaryNodes.map(n => n.y + (this.nodeHeights[n.id] || 250)));
+        y = maxY + 150;
+    } else {
+        x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
+        y = this.contextMenuCanvasPosition.y ? Math.round(this.contextMenuCanvasPosition.y) : 150;
+    }
+    
+    const newStoryboard: NodeItem = {
+      id,
+      type: 'storyboard',
+      title: 'Bản vẽ',
+      subtitle: '',
+      x, y,
+      baseX: x, baseY: y,
+      inputs: [],
+      outputs: ['out'],
+      data: { 
+        prompt: ''
+      }
+    };
+    this.nodes = [...this.nodes, newStoryboard];
+
+    // Connect to all existing video nodes
+    this.nodes.forEach(n => {
+      if (n.type === 'video' || n.type === 'image') {
+        let freePort = n.inputs.find(p => p.startsWith('storyboard_in') && !this.connections.some(c => c.toNode === n.id && c.toPort === p));
+        if (!freePort) {
+            let i = 1;
+            while(n.inputs.includes(`storyboard_in_${i}`)) i++;
+            freePort = `storyboard_in_${i}`;
+            n.inputs.push(freePort);
+        }
+        this.connections.push({
+          id: `c_${Date.now()}_${Math.random()}`,
+          fromNode: newStoryboard.id,
+          fromPort: 'out',
+          toNode: n.id,
+          toPort: freePort
+        });
+      }
+    });
+
+    this.selectNode(newStoryboard);
+    this.calculateCanvasSize();
+    this.closeContextMenu();
+    this.saveEditorState();
     setTimeout(() => this.cdr.detectChanges(), 0);
   }
 

@@ -74,13 +74,12 @@
 
     <!-- Footer Actions -->
     <mat-dialog-actions align="end" class="p-0 mt-4 mb-0 gap-2">
-        <button mat-button (click)="cancel()" class="text-gray-500">Đóng</button>
         <button mat-stroked-button color="primary"
                 (click)="generate()"
                 [disabled]="isGenerating || (!userInstruction && !imageBase64)">
-            <mat-icon class="icon-size-4 mr-1" *ngIf="!isGenerating">auto_fix_high</mat-icon>
-            <mat-icon class="icon-size-4 mr-1 animate-spin" *ngIf="isGenerating">autorenew</mat-icon>
-            {{ isGenerating ? 'Đang tạo...' : 'Tạo Prompt' }}
+            <mat-icon class="icon-size-4" *ngIf="!isGenerating">auto_fix_high</mat-icon>
+            <mat-icon class="icon-size-4 animate-spin" *ngIf="isGenerating">autorenew</mat-icon>
+            <mat-label class="ml-2">{{ isGenerating ? 'Đang tạo...' : 'Tạo Prompt' }}</mat-label>
         </button>
         <button mat-flat-button color="primary" (click)="apply()"
                 [disabled]="!generatedPrompt && !currentPrompt">
