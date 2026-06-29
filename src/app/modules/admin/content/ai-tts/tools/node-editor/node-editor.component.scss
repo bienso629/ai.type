@@ -32,4 +32,9 @@
     border-radius: 9999px;
     animation: strongBreathingGlow 1.2s ease-in-out infinite !important;
   }
+
+  .faint-shadow-menu {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
+    border: none !important;
+  }
 }

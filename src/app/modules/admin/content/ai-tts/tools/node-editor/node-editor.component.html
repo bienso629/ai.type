@@ -117,7 +117,7 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-gray-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-gray-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-gray-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40 transition-all" [ngClass]="{'ring-teal-400/70': selectedNode === node || draggedNode === node, 'animate-pulse bg-gray-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
@@ -156,7 +156,7 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" class="w-full bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none pr-12 pb-8" rows="4" placeholder="Nhập prompt cho bản vẽ..."></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 transition-all focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..."></textarea>
                         
                         <button class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ">
                             <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
@@ -357,7 +357,7 @@
          [style.left.px]="contextMenuPosition.x" 
          [style.top.px]="contextMenuPosition.y"></div>
 
-    <mat-menu #contextMenu="matMenu" class="rounded-xl border border-gray-100 py-1.5 w-60">
+    <mat-menu #contextMenu="matMenu" class="rounded-xl py-1.5 w-60" panelClass="faint-shadow-menu">
         <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
@@ -369,8 +369,8 @@
         
         <button mat-menu-item (click)="addNewAudioNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
-                <div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-amber-500 !m-0">audiotrack</mat-icon>
+                <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">audiotrack</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Audio</span>
             </div>
@@ -378,8 +378,8 @@
 
         <button mat-menu-item (click)="addStoryboardNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
-                <div class="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-yellow-500 !m-0">brush</mat-icon>
+                <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">brush</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Tạo bản vẽ cho video</span>
             </div>
@@ -389,8 +389,8 @@
         
         <button mat-menu-item (click)="autoArrangeAllNodes()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
-                <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-emerald-500 !m-0">format_align_center</mat-icon>
+                <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">format_align_center</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Sắp xếp lại vị trí</span>
             </div>
