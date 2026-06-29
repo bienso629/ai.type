@@ -1190,6 +1190,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         const antiDuplicationRule = `
             - 🚫 CHỐNG TRÙNG LẶP: Mỗi ID thoại CHỈ ĐƯỢC XUẤT HIỆN ĐÚNG 1 LẦN DUY NHẤT trong toàn bộ JSON trả về.`;
 
+        let targetLanguage = "TIẾNG ANH (ENGLISH)";
+        if (this.settings?.language) {
+            const langMap: { [key: string]: string } = {
+                'vi': 'TIẾNG VIỆT',
+                'en': 'TIẾNG ANH',
+                'fr': 'TIẾNG PHÁP',
+                'es': 'TIẾNG TÂY BAN NHA',
+                'ja': 'TIẾNG NHẬT',
+                'ko': 'TIẾNG HÀN',
+                'zh': 'TIẾNG TRUNG'
+            };
+            targetLanguage = langMap[this.settings.language] || `MÃ NGÔN NGỮ: ${this.settings.language.toUpperCase()}`;
+        }
+
         // PROMPT TỔNG LỰC GỬI CHO GEMINI
         const promptText = `
             BẠN LÀ GIÁM ĐỐC SÁNG TẠO ĐA PHƯƠNG TIỆN XUẤT SẮC. 
@@ -1198,8 +1212,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             🎯 ĐỊNH DẠNG TÁC PHẨM YÊU CẦU: "${finalFormatRequest}"${formatInstruction}
 
             🌍 QUY TẮC NGÔN NGỮ BẮT BUỘC:
-            - TẤT CẢ CÁC TRƯỜNG "masterPrompt", "characters" (kể cả "prompt" tạo hình nhân vật), "imagePrompt", và "prompt" bên trong "scenes" BẮT BUỘC PHẢI VIẾT BẰNG TIẾNG ANH (ENGLISH).
-            - Riêng phần tên nhân vật ("name") nếu là tên riêng tiếng Việt thì giữ nguyên (VD: "Ông Bảy", "Lan").
+            - TẤT CẢ CÁC TRƯỜNG "masterPrompt", "characters" (kể cả "prompt" tạo hình nhân vật), "imagePrompt", và "prompt" bên trong "scenes" BẮT BUỘC PHẢI VIẾT BẰNG ${targetLanguage}.
+            - Riêng phần tên nhân vật ("name") nếu là tên riêng thì giữ nguyên ngôn ngữ gốc (VD: "Ông Bảy", "Lan").
             - Mọi mô tả, hành động, bối cảnh, hãy sử dụng các từ khóa chuyên ngành kỹ thuật điện ảnh (như Close-up, Tracking shot, Cinematic lighting...) để AI video dễ hiểu nhất.
 
             NHIỆM VỤ CỦA BẠN:
@@ -1229,20 +1243,20 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
             KẾT QUẢ TRẢ VỀ DUY NHẤT LÀ JSON OBJECT NÀY:
             {
-              "masterPrompt": "Write a detailed Master Prompt about art style and render quality in English...",
+              "masterPrompt": "Write a detailed Master Prompt about art style and render quality in the requested language...",
               "characters": [
                 {
                   "name": "Tên nhân vật (giữ nguyên nếu là tên riêng)",
-                  "role": "Role in the story (in English)...",
-                  "appearance": "Detailed physical description (in English)...",
-                  "personality": "Personality description (in English)...",
-                  "prompt": "Character design prompt (IN ENGLISH). Focus on highly detailed appearance, clothing, colors, materials. Write it as a 'Character design sheet, multiple angles (front, back, side view), highly detailed materials'."
+                  "role": "Role in the story in the requested language...",
+                  "appearance": "Detailed physical description in the requested language...",
+                  "personality": "Personality description in the requested language...",
+                  "prompt": "Character design prompt (IN REQUESTED LANGUAGE). Focus on highly detailed appearance, clothing, colors, materials. Write it as a 'Character design sheet, multiple angles (front, back, side view), highly detailed materials'."
                 }
               ],
               "scenes": [
                 {
-                  "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN ENGLISH, EMPTY SCENE NO CHARACTERS)",
-                  "prompt": "[Subject (Character Name)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN ENGLISH)",
+                  "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN REQUESTED LANGUAGE, EMPTY SCENE NO CHARACTERS)",
+                  "prompt": "[Subject (Character Name)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN REQUESTED LANGUAGE)",
                   "subtitleIds": ["id1", "id2"],
                   "estimatedDuration": 3 // BẮT BUỘC (nhập số giây ước lượng cho shot hình này, vd: 2, 3.5, 4.2)
                 }
