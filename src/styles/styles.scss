@@ -1053,3 +1053,29 @@ input[type=checkbox]:checked:after {
         }
     }
 }
+/* Yennq Model Autocomplete Panel Override */
+.cdk-overlay-pane:has(.custom-model-panel) {
+    max-width: 100vw !important;
+}
+
+.mat-mdc-autocomplete-panel.custom-model-panel,
+.mat-mdc-menu-panel.custom-char-menu {
+    max-height: 85vh !important;
+    height: 85vh !important;
+    width: 450px !important;
+    min-width: 450px !important;
+    max-width: 90vw !important;
+    border-radius: 12px !important;
+    overflow-y: auto !important;
+}
+
+/* Forcing Model list height */
+.cdk-overlay-pane:has(.custom-model-panel) {
+    max-height: 900px !important;
+    height: 800px !important;
+}
+
+.mat-mdc-autocomplete-panel.custom-model-panel {
+    max-height: 900px !important;
+    height: 800px !important;
+}

@@ -286,7 +286,7 @@
 
                 <input type="file" #avatarFileInput class="hidden" accept="image/*" (change)="onAvatarFileSelected($event)">
 
-                <mat-menu #charMenu="matMenu">
+                <mat-menu #charMenu="matMenu" panelClass="custom-char-menu">
                     <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)" class="!pl-3 !pr-5">
                         <div class="flex items-center justify-between w-full group min-w-[220px]">
                             <div class="flex items-center space-x-3">
@@ -331,7 +331,7 @@
                                placeholder="Chọn Model">
                     </div>
 
-                    <mat-autocomplete #modelAuto="matAutocomplete" panelClass="custom-model-panel" (optionSelected)="onModelSelected($event.option.value)">
+                    <mat-autocomplete #modelAuto="matAutocomplete" panelClass="custom-model-panel" panelWidth="450px" (optionSelected)="onModelSelected($event.option.value)">
                         <ng-container *ngFor="let group of filteredModelGroups">
                             <mat-optgroup [label]="group.name">
                                 <mat-option *ngFor="let model of group.models" [value]="model">
