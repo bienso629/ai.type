@@ -93,7 +93,7 @@
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
                             <!-- Image Fallback -->
-                            <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-full h-full object-cover pointer-events-none" />
+                            <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-full h-full object-contain pointer-events-none" />
                             
                             <!-- Empty State -->
                             <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
