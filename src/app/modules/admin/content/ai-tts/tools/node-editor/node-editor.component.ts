@@ -95,28 +95,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   uuid: string | null = null;
   projectData: any = null;
 
-  get activeCharacters(): any[] {
-    if (this.editingType === 'character' && this.editingCharacter) {
-      return [this.editingCharacter];
-    }
-    if (!this.selectedNode || !this.projectData?.characters?.length) return [];
-    
-    const prompt = this.selectedNode.data?.sceneData?.prompt || 
-                   this.selectedNode.data?.sceneData?.visualPrompt || 
-                   this.selectedNode.data?.sceneData?.imagePrompt || 
-                   this.selectedNode.data?.text || '';
-                   
-    if (!prompt) return [];
-    
-    const lowerPrompt = prompt.toLowerCase();
-    const matched = [];
-    for (const char of this.projectData.characters) {
-      if (lowerPrompt.includes(char.name.toLowerCase())) {
-        matched.push(char);
-      }
-    }
-    return matched;
-  }
+  activeCharacters: any[] = [];
 
   expandedCharIndex: number | null = null;
 
@@ -127,6 +106,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   availableModels: string[] = ['3.1 Pro'];
   filteredModels: string[] = [];
+  filteredModelGroups: { name: string, models: string[] }[] = [];
   selectedModel: string = '3.1 Pro';
 
   globalPromptText: string = '';
@@ -206,6 +186,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       if (models && models.length > 0) {
         this.availableModels = models;
         this.filteredModels = [...this.availableModels];
+        this.filteredModelGroups = this.groupModels(this.filteredModels);
 
         const savedModel = localStorage.getItem('ai_type_selected_model');
         if (savedModel && this.availableModels.includes(savedModel)) {
@@ -973,12 +954,24 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
        text = parts.join('\n\n');
     }
     this.globalPromptText = text;
+    
+    this.activeCharacters = [];
+    if (this.projectData?.characters?.length && text) {
+        const lowerPrompt = text.toLowerCase();
+        for (const char of this.projectData.characters) {
+            if (char.name && lowerPrompt.includes(char.name.toLowerCase())) {
+                this.activeCharacters.push(char);
+            }
+        }
+    }
 
     if (node.id === 'master') {
       this.selectedNode = null;
       this.editingType = 'master';
       this.globalPromptText = this.projectData?.masterPrompt || '';
     }
+    
+    this.cdr.detectChanges();
   }
 
   async submitPrompt() {
@@ -1056,6 +1049,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   updatePrompt(text: string) {
     this.globalPromptText = text;
+    
+    this.activeCharacters = [];
+    if (this.projectData?.characters?.length && text) {
+        const lowerPrompt = text.toLowerCase();
+        for (const char of this.projectData.characters) {
+            if (char.name && lowerPrompt.includes(char.name.toLowerCase())) {
+                this.activeCharacters.push(char);
+            }
+        }
+    }
     
     if (this.editingType === 'master') {
         if (this.projectData) {
@@ -1181,10 +1184,38 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   filterModels(query: string) {
     if (!query) {
       this.filteredModels = [...this.availableModels];
-      return;
+    } else {
+      const lowerQuery = query.toLowerCase();
+      this.filteredModels = this.availableModels.filter(m => m.toLowerCase().includes(lowerQuery));
     }
-    const lowerQuery = query.toLowerCase();
-    this.filteredModels = this.availableModels.filter(m => m.toLowerCase().includes(lowerQuery));
+    this.filteredModelGroups = this.groupModels(this.filteredModels);
+  }
+
+  groupModels(models: string[]): { name: string, models: string[] }[] {
+      const textModels = [];
+      const imageModels = [];
+      const videoModels = [];
+      const otherModels = [];
+      
+      for (const m of models) {
+          const lower = m.toLowerCase();
+          if (lower.includes('dall-e') || lower.includes('midjourney') || lower.includes('stable-diffusion') || lower.includes('imagen') || lower.includes('flux')) {
+              imageModels.push(m);
+          } else if (lower.includes('sora') || lower.includes('runway') || lower.includes('pika') || lower.includes('luma') || lower.includes('kling') || lower.includes('video')) {
+              videoModels.push(m);
+          } else if (lower.includes('gpt') || lower.includes('claude') || lower.includes('gemini') || lower.includes('llama') || lower.includes('mixtral') || lower.includes('qwen') || lower.includes('deepseek')) {
+              textModels.push(m);
+          } else {
+              otherModels.push(m);
+          }
+      }
+      
+      const groups = [];
+      if (textModels.length) groups.push({ name: 'Text / Ngôn ngữ', models: textModels });
+      if (imageModels.length) groups.push({ name: 'Hình ảnh', models: imageModels });
+      if (videoModels.length) groups.push({ name: 'Video', models: videoModels });
+      if (otherModels.length) groups.push({ name: 'Khác', models: otherModels });
+      return groups;
   }
 
   onModelSelected(model: string) {
@@ -1584,6 +1615,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.selectedNode = null;
     this.editingType = 'character';
     this.editingCharacter = char;
+    this.activeCharacters = [char];
 
     let parts = [];
     if (char.name) parts.push(`Name: ${char.name}`);
@@ -1740,7 +1772,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         }
         
         if (this.draggedNode) {
-           this.saveEditorState();
+           if (this.draggedNode.x !== this.nodeStartX || this.draggedNode.y !== this.nodeStartY) {
+               this.saveEditorState();
+           }
         }
         
         this.isPanning = false;

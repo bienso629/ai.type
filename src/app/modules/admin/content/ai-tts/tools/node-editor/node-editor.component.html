@@ -88,7 +88,7 @@
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
 
-                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}" [class.node-selected-ring]="selectedNode === node || draggedNode === node">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -117,7 +117,7 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-gray-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40 transition-all" [ngClass]="{'ring-teal-400/70': selectedNode === node || draggedNode === node, 'animate-pulse bg-gray-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-gray-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngClass]="{'animate-pulse bg-gray-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}" [class.node-selected-ring]="selectedNode === node || draggedNode === node">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
@@ -156,7 +156,7 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 transition-all focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..."></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node"></textarea>
                         
                         <button class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ">
                             <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
@@ -202,12 +202,12 @@
         <div *ngIf="selectedNode?.type !== 'tts'" class="flex items-center flex-wrap gap-2 mb-2 px-2">
             <!-- Selected Node Chip -->
             <div *ngIf="selectedNode && selectedNode.type !== 'storyboard'" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
-                <div class="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center mr-2">
-                    <mat-icon *ngIf="selectedNode?.type === 'image'" class="icon-size-4 text-gray-800">image</mat-icon>
-                    <mat-icon *ngIf="selectedNode?.type === 'video'" class="icon-size-4 text-gray-800">movie</mat-icon>
-                    <mat-icon *ngIf="selectedNode?.type === 'tts'" class="icon-size-4 text-gray-800">mic</mat-icon>
-                    <mat-icon *ngIf="!selectedNode?.type" class="icon-size-4 text-gray-800">explore</mat-icon>
-                </div>
+                <ng-container [ngSwitch]="selectedNode?.type">
+                    <mat-icon *ngSwitchCase="'image'" class="icon-size-4 text-gray-500 mr-1.5">image</mat-icon>
+                    <mat-icon *ngSwitchCase="'video'" class="icon-size-4 text-gray-500 mr-1.5">movie</mat-icon>
+                    <mat-icon *ngSwitchCase="'tts'" class="icon-size-4 text-gray-500 mr-1.5">mic</mat-icon>
+                    <mat-icon *ngSwitchDefault class="icon-size-4 text-gray-500 mr-1.5">explore</mat-icon>
+                </ng-container>
                 <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">
                     {{ selectedNode?.title }}
                 </span>
@@ -217,12 +217,12 @@
             <!-- Character Chips -->
             <ng-container *ngIf="editingType !== 'character'">
                 <div *ngFor="let char of activeCharacters" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
-                <div class="w-5 h-5 rounded-full bg-gray-200 overflow-hidden flex items-center justify-center mr-2">
+                <div class="flex items-center justify-center mr-1.5">
                     <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)"
                          [src]="char.avatarUrl || char.avatarUrls[0]"
-                         class="w-full h-full object-cover">
+                         class="w-5 h-5 rounded-full object-cover">
                     <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)"
-                              class="text-gray-400 text-[16px] w-4 h-4 flex items-center justify-center">person</mat-icon>
+                              class="text-gray-500 icon-size-4">person</mat-icon>
                 </div>
                 <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">
                     {{ char.name || char.role }}
@@ -331,10 +331,14 @@
                                placeholder="Chọn Model">
                     </div>
 
-                    <mat-autocomplete #modelAuto="matAutocomplete" panelClass="model-autocomplete-panel" (optionSelected)="onModelSelected($event.option.value)">
-                        <mat-option *ngFor="let model of filteredModels" [value]="model">
-                            <span class="text-sm">{{ model }}</span>
-                        </mat-option>
+                    <mat-autocomplete #modelAuto="matAutocomplete" panelClass="custom-model-panel" (optionSelected)="onModelSelected($event.option.value)">
+                        <ng-container *ngFor="let group of filteredModelGroups">
+                            <mat-optgroup [label]="group.name">
+                                <mat-option *ngFor="let model of group.models" [value]="model">
+                                    <span class="text-sm">{{ model }}</span>
+                                </mat-option>
+                            </mat-optgroup>
+                        </ng-container>
 
                         <mat-option disabled *ngIf="!availableModels?.length">
                             <span class="text-sm">Đang tải...</span>
