@@ -222,19 +222,21 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   async loadModels() {
     try {
       const models = await this.genaiService.getUModelverseModels();
+      const allModels = ['Local ComfyUI'];
       if (models && models.length > 0) {
-        this.availableModels = models;
-        this.filteredModels = [...this.availableModels];
-        this.filteredModelGroups = this.groupModels(this.filteredModels);
-
-        const savedModel = localStorage.getItem('ai_type_selected_model');
-        if (savedModel && this.availableModels.includes(savedModel)) {
-            this.selectedModel = savedModel;
-        } else if (!this.availableModels.includes(this.selectedModel)) {
-            this.selectedModel = this.availableModels[0];
-        }
-        this.cdr.detectChanges();
+        allModels.push(...models);
       }
+      this.availableModels = allModels;
+      this.filteredModels = [...this.availableModels];
+      this.filteredModelGroups = this.groupModels(this.filteredModels);
+
+      const savedModel = localStorage.getItem('ai_type_selected_model');
+      if (savedModel && this.availableModels.includes(savedModel)) {
+        this.selectedModel = savedModel;
+      } else if (!this.availableModels.includes(this.selectedModel)) {
+        this.selectedModel = this.availableModels[0];
+      }
+      this.cdr.detectChanges();
     } catch (e) {
       console.error("Failed to load models", e);
     }
@@ -1108,11 +1110,22 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
       const prompts: string[] = [];
       const nodesMapping: any[] = [];
+      const refImagesUrls: (string | null)[] = [];
       const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
       for (const n of sceneNodes) {
           let finalPrompt = '';
-          
+
+          let promptTextRaw = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
+          const fullSceneText = (promptTextRaw + ' ' + (n.data?.text || '') + ' ' + (n.data?.sceneData?.script || '')).toLowerCase();
+          const sceneChars = this.projectData?.characters ? this.projectData.characters.filter((c: any) => c.name && fullSceneText.includes(c.name.toLowerCase())) : [];
+          let refImgUrl = null;
+          if (sceneChars.length > 0) {
+             const c = sceneChars[0];
+             refImgUrl = c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0 ? c.avatarUrls[0] : null);
+          }
+          refImagesUrls.push(refImgUrl);
+
           // Lấy prompt ưu tiên sketchPrompt
           if (n.data?.sceneData?.sketchPrompt) {
               finalPrompt = n.data.sceneData.sketchPrompt;
@@ -1124,7 +1137,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                   promptText = promptText.replace(master, '').trim();
               }
               // Ép cứng thành bản vẽ phác thảo tiếng Anh vì người dùng đang bấm "Tạo bản vẽ"
-              finalPrompt = `storyboard sketch, pencil drawing style, rough sketch, (single frame, one single image, monochrome, line art, white background:1.2), ${promptText}`;
+              finalPrompt = `traditional graphite pencil sketch, rough hand-drawn draft, smudged shading, (monochrome, white background:1.2), ${promptText}`;
           }
 
           prompts.push(finalPrompt);
@@ -1136,23 +1149,113 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.cdr.detectChanges();
 
       this.toastr.info(`Đang gửi ${finalPrompts.length} prompts lên server vẽ...`);
+        try {
+            const ratio = this.projectData?.aspectRatio || '16:9';
+            if (this.selectedModel && this.selectedModel !== 'Local ComfyUI') {
+                for (let i = 0; i < finalPrompts.length; i++) {
+                    try {
+                        let requestParts: any[] = [{text: finalPrompts[i]}];
+                        if (refImagesUrls[i]) {
+                            try {
+                                const base64Data = await this.getBase64FromImageUrl(refImagesUrls[i] as string);
+                                requestParts.push({
+                                    inlineData: {
+                                        data: base64Data,
+                                        mimeType: 'image/png'
+                                    }
+                                });
+                            } catch (e) {
+                                console.error('Không thể load ảnh nhân vật reference:', e);
+                            }
+                        }
 
-      try {
-          const apiRes = await fetch('https://pangolin-innocent-especially.ngrok-free.app/api/storyboard', {
+                        const response = await this.genaiService.generateContent({
+                            model: this.selectedModel,
+                            contents: [{ role: 'user', parts: requestParts }],
+                            config: {
+                                aspectRatio: ratio,
+                                responseModalities: ['IMAGE']
+                            } as any
+                        });
+
+                        let base64Data = null;
+                        if ((response as any)?.image?.base64) {
+                            base64Data = (response as any).image.base64;
+                        } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+                            base64Data = (response as any).candidates[0].content.parts[0].inlineData.data;
+                        }
+
+                        if (base64Data) {
+                            const username = this.projectData?.username || 'anonymous';
+                            const projectUuid = this.uuid || this.projectData?.uuid || 'default';
+                            const saveResult = await electron.saveBase64({
+                                base64: base64Data,
+                                fileName: `scene_${nodesMapping[i].id}_${Date.now()}.png`,
+                                folder: 'storyboards',
+                                username: username,
+                                customDir: `tts/${username}/${projectUuid}`
+                            });
+
+                            if (saveResult && saveResult.success) {
+                                const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                nodesMapping[i].data.imageUrl = localPath;
+
+                                if (electron.createThumbnail) {
+                                    try {
+                                        const thumbPath = saveResult.path.replace('.png', '_thumb.jpg');
+                                        await electron.createThumbnail({
+                                            source: saveResult.path,
+                                            target: thumbPath,
+                                            width: 200
+                                        });
+                                        nodesMapping[i].data.thumbnailUrl = `file://${thumbPath.replace(/\\/g, '/')}`;
+                                    } catch (e) {
+                                        console.error("Thumbnail error", e);
+                                    }
+                                }
+                            }
+                        }
+                    } catch (e) {
+                        console.error('Lỗi khi vẽ cảnh', i, e);
+                        this.toastr.error(`Lỗi vẽ cảnh ${i + 1}: ${e}`);
+                    }
+                    
+                    this.cdr.detectChanges();
+                    this.toastr.success(`Đã hoàn thành ${i + 1}/${finalPrompts.length} bản vẽ!`);
+                }
+                this.saveProject();
+                this.isGeneratingPrompt = false;
+                this.cdr.detectChanges();
+                return;
+            }
+
+            let width = 1024;
+            let height = 576;
+            if (ratio === '9:16') { width = 576; height = 1024; }
+            else if (ratio === '1:1') { width = 1024; height = 1024; }
+            else if (ratio === '4:3') { width = 1024; height = 768; }
+
+            const apiRes = await fetch('https://pangolin-innocent-especially.ngrok-free.app/api/storyboard', {
               method: 'POST',
               headers: { 
                   'Content-Type': 'application/json',
                   'ngrok-skip-browser-warning': 'true'
               },
-              body: JSON.stringify({ prompts: finalPrompts })
+              body: JSON.stringify({ 
+                  prompts: finalPrompts,
+                  aspect_ratio: ratio,
+                  aspectRatio: ratio,
+                  width: width,
+                  height: height
+              })
           });
-          
-          if (!apiRes.ok) {
-              if (apiRes.status === 503 || apiRes.status === 502) {
-                  throw new Error("ComfyUI chưa khởi động xong hoặc bị lỗi! Vui lòng kiểm tra lại log bên Kaggle.");
-              }
-              throw new Error(`Lỗi kết nối API: ${apiRes.status}`);
-          }
+            
+            if (!apiRes.ok) {
+                if (apiRes.status === 503 || apiRes.status === 502) {
+                    throw new Error("ComfyUI chưa khởi động xong hoặc bị lỗi! Vui lòng kiểm tra lại log bên Kaggle.");
+                }
+                throw new Error(`Lỗi kết nối API: ${apiRes.status}`);
+            }
           
           const data = await apiRes.json();
           if (!data.job_id) throw new Error('Không nhận được job_id từ ComfyUI');
@@ -2086,5 +2189,40 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.startY = event.clientY;
     this.nodeStartX = node.x;
     this.nodeStartY = node.y;
+  }
+
+  private getBase64FromImageUrl(url: string): Promise<string> {
+      return new Promise((resolve, reject) => {
+          if (!url) {
+              reject('Empty URL');
+              return;
+          }
+          if (url.startsWith('data:image')) {
+              resolve(url.split(',')[1]);
+              return;
+          }
+
+          let finalUrl = url;
+          if (!finalUrl.startsWith('http') && !finalUrl.startsWith('data:') && !finalUrl.startsWith('blob:') && !finalUrl.startsWith('media://')) {
+              finalUrl = finalUrl.replace(/^unsafe:/, '');
+              let originalPath = finalUrl.split('?')[0];
+              originalPath = originalPath.replace(/^file:\/\//i, '');
+              finalUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=&uuid=default`;
+          }
+
+          const img = new Image();
+          img.crossOrigin = 'Anonymous';
+          img.onload = () => {
+              const canvas = document.createElement('canvas');
+              canvas.width = img.width;
+              canvas.height = img.height;
+              const ctx = canvas.getContext('2d');
+              if (ctx) ctx.drawImage(img, 0, 0);
+              const dataURL = canvas.toDataURL('image/png');
+              resolve(dataURL.replace(/^data:image\/(png|jpg|jpeg);base64,/, ""));
+          };
+          img.onerror = error => reject(error);
+          img.src = finalUrl;
+      });
   }
 }

@@ -1257,7 +1257,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 {
                   "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN REQUESTED LANGUAGE, EMPTY SCENE NO CHARACTERS)",
                   "prompt": "[Subject (Character Name and Physical Appearance ONLY. DO NOT USE 'character design sheet' or 'multiple angles' here!)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN REQUESTED LANGUAGE)",
-                  "sketchPrompt": "storyboard sketch, pencil drawing style, rough sketch, (single frame, one single image, monochrome, line art, white background:1.2), [Subject Physical Appearance ONLY. NO 'multiple angles' or 'character sheet'] + [Action] + [Setting]. ABSOLUTELY NO 3D/realistic/colored/storyboard grid adjectives. Remove words like cinematic, hyper-realistic, photography, colorful, etc. MUST BE IN ENGLISH.",
+                  "sketchPrompt": "traditional graphite pencil sketch, rough hand-drawn draft, smudged shading, (monochrome, white background:1.2), [Subject Physical Appearance ONLY. NO 'multiple angles' or 'character sheet'] + [Action] + [Setting]. ABSOLUTELY NO manga, anime, comic book, 3D, realistic, colored, storyboard grid adjectives. MUST BE IN ENGLISH.",
                   "subtitleIds": ["id1", "id2"],
                   "estimatedDuration": 3 // BẮT BUỘC (nhập số giây ước lượng cho shot hình này, vd: 2, 3.5, 4.2)
                 }
