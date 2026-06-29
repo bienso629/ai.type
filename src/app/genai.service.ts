@@ -655,7 +655,7 @@ export class GenaiService {
         // --- KẾT THÚC XỬ LÝ GEMINI ---
 
         const candidateRequests: any[] = [
-            // Option 0: Format cơ bản không có response_format (tránh strict validation)
+            // Option 0: Format cơ bản chuẩn OpenAI (n, size)
             {
                 model: activeModel,
                 prompt: promptText,
@@ -663,13 +663,7 @@ export class GenaiService {
                 size: size,
                 image: referenceBase64 ? `data:image/png;base64,${referenceBase64}` : undefined
             },
-            // Option 1: Format dành cho Gemini/Midjourney (chỉ có aspect_ratio)
-            {
-                model: activeModel,
-                prompt: promptText,
-                aspect_ratio: configRatio || '1:1'
-            },
-            // Option 2: Format siêu tối giản, không n, không size, không image, không aspect_ratio
+            // Option 1: Format siêu tối giản (bỏ n, size) để bypass các strict validation của model khác
             {
                 model: activeModel,
                 prompt: promptText
