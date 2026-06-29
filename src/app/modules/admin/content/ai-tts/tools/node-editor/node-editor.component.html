@@ -193,7 +193,7 @@
 </div>
 
 <!-- Docked Global Prompt Editor (Fixed at bottom of viewport) -->
-<div class="fixed bottom-12 left-0 right-0 flex justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
+<div class="fixed bottom-12 left-0 right-0 flex flex-col items-center justify-center z-[200] transition-all duration-300 pointer-events-none p-6">
     
     <!-- Light Theme Prompt Bar -->
     <div class="w-full max-w-4xl flex flex-col bg-white border border-gray-200/60 rounded-2xl p-2.5 pointer-events-auto transition-all relative overflow-hidden">
@@ -354,6 +354,11 @@
         </div>
     </div>
 
+    <!-- Model Hint -->
+    <div *ngIf="modelHint" class="px-4 pt-1.5 mt-1 text-xs text-gray-500 flex items-center space-x-1.5 animate-fade-in w-full max-w-4xl pointer-events-auto">
+        <mat-icon class="icon-size-4 text-teal-600/70 flex-shrink-0">tips_and_updates</mat-icon>
+        <span class="leading-relaxed">{{ modelHint }}</span>
+    </div>
     <!-- Invisible trigger for MatMenu -->
     <div #contextMenuTrigger="matMenuTrigger" [matMenuTriggerFor]="contextMenu" 
          class="fixed z-0 pointer-events-none" 

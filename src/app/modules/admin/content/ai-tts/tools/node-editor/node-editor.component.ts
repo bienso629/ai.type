@@ -18,6 +18,7 @@ import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { MODEL_HINTS } from './model-hints.constant';
 
 interface NodeItem {
   id: string;
@@ -178,6 +179,44 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   ngOnDestroy(): void {
     if (this.mouseMoveListener) window.removeEventListener('mousemove', this.mouseMoveListener);
     if (this.mouseUpListener) window.removeEventListener('mouseup', this.mouseUpListener);
+  }
+
+  get modelHint(): string {
+    if (!this.selectedModel) return '';
+    const m = this.selectedModel.toLowerCase();
+    
+    let info = MODEL_HINTS[this.selectedModel];
+    if (!info) {
+       for (const key of Object.keys(MODEL_HINTS)) {
+           if (m.includes(key.toLowerCase()) || key.toLowerCase().includes(m)) {
+               info = MODEL_HINTS[key];
+               break;
+           }
+       }
+    }
+    
+    let defaultHint = 'Gõ nội dung, kịch bản hoặc ý tưởng bạn muốn AI thực hiện...';
+    if (m.includes('image') || m.includes('dall-e') || m.includes('midjourney') || m.includes('flux')) {
+      defaultHint = 'Mô tả chi tiết bằng tiếng Anh (ánh sáng, phong cách, camera...).';
+    } else if (m.includes('video') || m.includes('sora') || m.includes('runway') || m.includes('kling') || m.includes('hailuo') || m.includes('wan') || m.includes('vidu')) {
+      defaultHint = 'Tả rõ hành động, sự kiện và góc máy (pan, zoom, tilt) để video mượt mà hơn.';
+    } else if (m.includes('tts') || m.includes('voice') || m.includes('elevenlabs') || m.includes('kokoro') || m.includes('audio')) {
+      defaultHint = 'Viết nội dung cần đọc. Dùng dấu câu hợp lý để AI ngắt nghỉ đúng nhịp, tự nhiên hơn.';
+    } else if (m.includes('gpt') || m.includes('claude') || m.includes('gemini') || m.includes('pro') || m.includes('doubao') || m.includes('qwen') || m.includes('deepseek')) {
+      defaultHint = 'Bạn có thể yêu cầu AI viết kịch bản, lên ý tưởng hoặc tóm tắt nội dung.';
+    }
+    
+    if (info) {
+        const supports = [];
+        if (info.text) supports.push('văn bản');
+        if (info.max_images > 0) supports.push(`tối đa ${info.max_images} hình ảnh`);
+        if (info.max_videos > 0) supports.push(`tối đa ${info.max_videos} video`);
+        
+        const limitsText = supports.length > 0 ? `Hỗ trợ đầu vào: ${supports.join(', ')}.` : '';
+        return limitsText + ' ' + defaultHint;
+    }
+
+    return defaultHint;
   }
 
   async loadModels() {
@@ -580,6 +619,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.editingType = 'none';
     this.editingCharacter = null;
     this.globalPromptText = '';
+    this.activeCharacters = [];
+    this.attachedFiles = [];
     this.startX = event.clientX;
     this.startY = event.clientY;
     this.startScrollLeft = this.workspace.nativeElement.scrollLeft;
