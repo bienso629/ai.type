@@ -273,6 +273,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                             node.data.sceneData = scene;
                         }
                        node.inputs = []; // Ensure TTS nodes don't have input ports
+                   } else if (node.type === 'storyboard') {
+                        if (scene.sketchPrompt && !node.data.prompt) {
+                            node.data.prompt = scene.sketchPrompt;
+                        }
+                        node.data.sceneData = scene;
                    }
                 }
              }
@@ -343,6 +348,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         baseX: sceneX, baseY: 150 + yOffset
       };
       
+
+
       if (hasTts) {
         vidNode.inputs.push('tts_in');
         this.connections.push({ id: `c_tts_${index}`, fromNode: ttsNodeId, fromPort: 'out', toNode: vidNodeId, toPort: 'tts_in' });
@@ -1104,16 +1111,31 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
       for (const n of sceneNodes) {
-          let promptText = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
+          let finalPrompt = '';
           
-          let finalPrompt = master ? `${master}\n\n${promptText}` : promptText;
+          // Lấy prompt ưu tiên sketchPrompt
+          if (n.data?.sceneData?.sketchPrompt) {
+              finalPrompt = n.data.sceneData.sketchPrompt;
+          } else {
+              let promptText = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
+              // Loại bỏ các chữ rác hoặc master prompt 3D nếu lỡ dính vào
+              promptText = promptText.replace(/Style:/g, '').replace(/Scene details:/g, '').trim();
+              if (master && promptText.includes(master)) {
+                  promptText = promptText.replace(master, '').trim();
+              }
+              // Ép cứng thành bản vẽ phác thảo tiếng Anh vì người dùng đang bấm "Tạo bản vẽ"
+              finalPrompt = `storyboard sketch, pencil drawing style, rough sketch, (single frame, one single image, monochrome, line art, white background:1.2), ${promptText}`;
+          }
+
           prompts.push(finalPrompt);
           nodesMapping.push(n);
       }
 
-      this.toastr.info(`Đang gửi yêu cầu tạo bản vẽ cho ${prompts.length} scenes...`);
+      let finalPrompts = prompts;
       this.isGeneratingPrompt = true;
       this.cdr.detectChanges();
+
+      this.toastr.info(`Đang gửi ${finalPrompts.length} prompts lên server vẽ...`);
 
       try {
           const apiRes = await fetch('https://pangolin-innocent-especially.ngrok-free.app/api/storyboard', {
@@ -1122,8 +1144,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                   'Content-Type': 'application/json',
                   'ngrok-skip-browser-warning': 'true'
               },
-              body: JSON.stringify({ prompts: prompts })
+              body: JSON.stringify({ prompts: finalPrompts })
           });
+          
+          if (!apiRes.ok) {
+              if (apiRes.status === 503 || apiRes.status === 502) {
+                  throw new Error("ComfyUI chưa khởi động xong hoặc bị lỗi! Vui lòng kiểm tra lại log bên Kaggle.");
+              }
+              throw new Error(`Lỗi kết nối API: ${apiRes.status}`);
+          }
+          
           const data = await apiRes.json();
           if (!data.job_id) throw new Error('Không nhận được job_id từ ComfyUI');
           
@@ -1141,6 +1171,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               const statusRes = await fetch(`https://pangolin-innocent-especially.ngrok-free.app/api/storyboard/${jobId}`, {
                   headers: { 'ngrok-skip-browser-warning': 'true' }
               });
+              
+              if (!statusRes.ok) {
+                  if (statusRes.status === 503 || statusRes.status === 502) {
+                      throw new Error("ComfyUI chưa khởi động xong hoặc bị lỗi! Vui lòng kiểm tra lại log bên Kaggle.");
+                  }
+                  throw new Error(`Lỗi kết nối API: ${statusRes.status}`);
+              }
+              
               const statusData = await statusRes.json();
               
               if (statusData.error) {

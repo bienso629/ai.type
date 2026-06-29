@@ -1256,7 +1256,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               "scenes": [
                 {
                   "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN REQUESTED LANGUAGE, EMPTY SCENE NO CHARACTERS)",
-                  "prompt": "[Subject (Character Name)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN REQUESTED LANGUAGE)",
+                  "prompt": "[Subject (Character Name and Physical Appearance ONLY. DO NOT USE 'character design sheet' or 'multiple angles' here!)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN REQUESTED LANGUAGE)",
+                  "sketchPrompt": "storyboard sketch, pencil drawing style, rough sketch, (single frame, one single image, monochrome, line art, white background:1.2), [Subject Physical Appearance ONLY. NO 'multiple angles' or 'character sheet'] + [Action] + [Setting]. ABSOLUTELY NO 3D/realistic/colored/storyboard grid adjectives. Remove words like cinematic, hyper-realistic, photography, colorful, etc. MUST BE IN ENGLISH.",
                   "subtitleIds": ["id1", "id2"],
                   "estimatedDuration": 3 // BẮT BUỘC (nhập số giây ước lượng cho shot hình này, vd: 2, 3.5, 4.2)
                 }
@@ -1361,6 +1362,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // KHÔNG TỰ ĐỘNG DÁN MASTER PROMPT VÀO ĐÂY vì ở VideoTimelineDialogComponent (khi bấm Copy) đã có logic tự dán masterPrompt rồi!
                 // Nếu dán ở đây sẽ bị nhân đôi. Chỉ lấy đúng prompt của scene do AI tạo ra.
+                if (scene.sketchPrompt) {
+                    scene.sketchPrompt = scene.sketchPrompt.trim();
+                }
                 let originalScenePrompt = scene.prompt ? scene.prompt.trim() : '';
                 let originalImagePrompt = scene.imagePrompt ? scene.imagePrompt.trim() : originalScenePrompt;
 
@@ -1507,6 +1511,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 return {
                     prompt: finalScenePrompt,
+                    visualPrompt: finalImagePrompt,
+                    sketchPrompt: scene.sketchPrompt || '',
                     imageUrl: null,
                     subtitles: mappedSubtitles,
                     videos: videos,
@@ -1530,6 +1536,17 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             if (aiResponse.characters && aiResponse.characters.length > 0) {
                 this.multiAccountService.setItem(`casting_list_${data.uuid}`, aiResponse.characters);
             }
+
+            // [QUAN TRỌNG] Xóa editorLayout cũ vì kịch bản đã được tạo mới hoàn toàn
+            // Tránh tình trạng lưu lại các node cũ (vd: sinh ra 8 cảnh nhưng trên UI vẫn còn node thứ 9 cũ)
+            const storageKey = `ai_type_video_ready_data_${data.uuid}`;
+            const existingData = this.multiAccountService.getItem(storageKey);
+            if (existingData && existingData.editorLayout) {
+                delete existingData.editorLayout;
+                this.multiAccountService.setItem(storageKey, existingData);
+            }
+            // Đảm bảo object hiện tại cũng không bị dính layout cũ
+            delete this.videoProject.editorLayout;
 
             this.saveToLocal();
             this.openTimelineDialog(this.videoProject);
