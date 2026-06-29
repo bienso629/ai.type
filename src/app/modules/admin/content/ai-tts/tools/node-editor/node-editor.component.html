@@ -156,10 +156,11 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node"></textarea>
                         
-                        <button class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ">
-                            <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                        <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt()" class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
+                            <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                            <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-5 text-white animate-spin" [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
                         </button>
                     </div>
 
