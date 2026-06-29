@@ -8,7 +8,7 @@
     
     <!-- Back Button -->
     <div class="sticky top-4 left-4 z-50 pointer-events-none" style="width: 0; height: 0; overflow: visible;">
-        <a href="javascript:history.back()" matTooltip="Quay lại" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-indigo-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
+        <a href="javascript:history.back()" matTooltip="Quay lại" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-teal-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
             <mat-icon class="icon-size-6">arrow_back</mat-icon>
         </a>
     </div>
@@ -28,7 +28,7 @@
                 <path *ngFor="let conn of connections"
                       [attr.d]="conn.path"
                       fill="none"
-                      [attr.stroke]="conn.color || '#a5b4fc'"
+                      [attr.stroke]="conn.color || '#5eead4'"
                       stroke-width="3"
                       class="transition-all duration-75 ease-linear">
                 </path>
@@ -37,7 +37,7 @@
                 <path *ngIf="draggedConnection"
                       [attr.d]="draggedConnection.path"
                       fill="none"
-                      [attr.stroke]="draggedConnection.color || '#818cf8'"
+                      [attr.stroke]="draggedConnection.color || '#2dd4bf'"
                       stroke-width="3"
                       stroke-dasharray="5,5"
                       class="pointer-events-none">
@@ -68,7 +68,7 @@
                     </div>
                     <div class="flex items-center space-x-2 shrink-0">
                         <ng-container *ngIf="node.type === 'tts'; else defaultSubtitle">
-                            <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-indigo-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
+                            <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-teal-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
                                 <mat-icon class="icon-size-4 !m-0">mic</mat-icon>
                             </div>
                         </ng-container>
@@ -87,7 +87,7 @@
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
                         
-                        <div class="relative w-full rounded-xl overflow-hidden bg-indigo-50 group" [ngClass]="{'shadow-[0_0_0_1px_#a5b4fc] ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group" [ngClass]="{'shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -116,23 +116,23 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-indigo-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'shadow-[0_0_0_1px_#a5b4fc] ring-[6px] ring-indigo-300/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-indigo-100 !shadow-[0_0_0_1px_#818cf8]': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-teal-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-teal-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
-                                <mat-icon class="icon-size-5 text-blue-500 animate-spin">refresh</mat-icon>
+                                <mat-icon class="icon-size-5 text-teal-500 animate-spin">refresh</mat-icon>
                             </div>
                             
                             <div *ngIf="!node.data.isGeneratingAudio" class="w-8 h-8 rounded-full flex items-center justify-center transition-colors"
                                  [ngClass]="node.data.audioUrl ? 'cursor-pointer hover:bg-black/5' : 'opacity-50 cursor-not-allowed'"
                                  (click)="toggleAudio(node, audioEl, $event)">
                                 <ng-container *ngIf="audioEl && audioEl.paused === false; else playIcon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 text-teal-600">
                                       <path fill-rule="evenodd" d="M6.75 5.25a.75.75 0 01.75-.75H9a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H7.5a.75.75 0 01-.75-.75V5.25zm7.5 0A.75.75 0 0115 4.5h1.5a.75.75 0 01.75.75v13.5a.75.75 0 01-.75.75H15a.75.75 0 01-.75-.75V5.25z" clip-rule="evenodd" />
                                     </svg>
                                 </ng-container>
                                 <ng-template #playIcon>
-                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 ml-0.5 text-gray-600">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-4 h-4 ml-0.5 text-teal-600">
                                       <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" />
                                     </svg>
                                 </ng-template>
@@ -142,13 +142,13 @@
                             
                             <!-- Fake Waveform (animated when playing) -->
                             <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl?.paused !== false && !node.data.isGeneratingAudio">
-                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '8px' : '4px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '24px' : '12px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '16px' : '8px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-indigo-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '8px' : '4px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '24px' : '12px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '16px' : '8px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-blue-400' : 'bg-teal-400'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
                             </div>
                         </div>
                     </div>
@@ -164,7 +164,7 @@
                          (mouseenter)="hoveredInput = {node: node, port: port}; $event.stopPropagation()"
                          (mouseleave)="hoveredInput = null"
                          class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-indigo-400"></div>
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-teal-400"></div>
                     </div>
                 </div>
 
@@ -173,7 +173,7 @@
                     <div *ngFor="let port of node.outputs" 
                          (mousedown)="onOutputPortMouseDown($event, node, port)"
                          class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-indigo-400"></div>
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-teal-400"></div>
                     </div>
                 </div>
                 
@@ -277,8 +277,8 @@
                 <input type="file" #avatarFileInput class="hidden" accept="image/*" (change)="onAvatarFileSelected($event)">
 
                 <mat-menu #charMenu="matMenu">
-                    <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)" class="!px-3">
-                        <div class="flex items-center justify-between w-full group">
+                    <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)" class="!pl-3 !pr-5">
+                        <div class="flex items-center justify-between w-full group min-w-[220px]">
                             <div class="flex items-center space-x-3">
                                 <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full object-cover shadow-sm">
                                 <div *ngIf="!char.avatarUrl" class="w-8 h-8 min-w-[32px] min-h-[32px] bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
@@ -286,8 +286,8 @@
                                 </div>
                                 <span class="font-medium text-gray-700">{{char.name}}</span>
                             </div>
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-8 h-8 hover:bg-gray-200 rounded-full cursor-pointer" (click)="onAvatarDoubleClick($event, char)" matTooltip="Tải ảnh lên (Upload image)">
-                                <mat-icon class="icon-size-5 text-gray-500 hover:text-blue-600 transition-colors !m-0">upload</mat-icon>
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-8 h-8 hover:bg-gray-200 rounded-full cursor-pointer ml-4" (click)="onAvatarDoubleClick($event, char)" matTooltip="Tải ảnh lên (Upload image)">
+                                <mat-icon class="icon-size-5 text-gray-500 hover:text-teal-600 transition-colors !m-0">upload</mat-icon>
                             </div>
                         </div>
                     </button>
@@ -296,9 +296,9 @@
                     </button>
                     <div class="h-px bg-gray-200 my-1"></div>
                     <button mat-menu-item (click)="openAddCharacter()" class="!px-3">
-                        <div class="flex items-center space-x-3 text-indigo-600">
-                            <div class="w-8 h-8 min-w-[32px] min-h-[32px] bg-indigo-50 border border-dashed border-indigo-300 rounded-full flex items-center justify-center shadow-sm">
-                                <mat-icon class="icon-size-5 text-indigo-600 !m-0">person_add</mat-icon>
+                        <div class="flex items-center space-x-3 text-teal-600">
+                            <div class="w-8 h-8 min-w-[32px] min-h-[32px] bg-teal-50 border border-dashed border-teal-300 rounded-full flex items-center justify-center shadow-sm">
+                                <mat-icon class="icon-size-5 text-teal-600 !m-0">person_add</mat-icon>
                             </div>
                             <span class="font-medium">Tạo nhân vật mới</span>
                         </div>
@@ -306,7 +306,7 @@
                 </mat-menu>
 
                 <!-- Model Selector & Submit Button Combo -->
-                <div class="relative flex items-center bg-gray-50 border border-gray-200 hover:border-indigo-300 focus-within:border-indigo-400 focus-within:ring-2 focus-within:ring-indigo-100 rounded-full h-10 w-48 sm:w-64 transition-all ml-2">
+                <div class="relative flex items-center bg-gray-50 border border-gray-200 hover:border-teal-300 focus-within:border-teal-400 focus-within:ring-2 focus-within:ring-teal-100 rounded-full h-10 w-48 sm:w-64 transition-all ml-2">
                     <!-- Input Area -->
                     <div class="relative flex-1 h-full flex items-center">
                         <input type="text"
@@ -330,7 +330,7 @@
                     </mat-autocomplete>
 
                     <!-- Submit Button -->
-                    <button class="w-8 h-8 rounded-full bg-indigo-600 hover:bg-indigo-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu">
+                    <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu">
                         <mat-icon class="icon-size-4 text-white" style="margin-left: 2px;">send</mat-icon>
                     </button>
                 </div>
@@ -348,8 +348,8 @@
     <mat-menu #contextMenu="matMenu" class="rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100 py-1.5 w-52">
         <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
-                <div class="w-8 h-8 rounded-full bg-indigo-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-indigo-500">movie</mat-icon>
+                <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-teal-500">movie</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
             </div>
