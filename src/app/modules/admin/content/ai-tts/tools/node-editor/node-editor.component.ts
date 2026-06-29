@@ -132,6 +132,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   globalPromptText: string = '';
   editingType: 'scene' | 'character' | 'master' | 'none' = 'none';
   editingCharacter: any = null;
+  isGeneratingPrompt: boolean = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -977,6 +978,79 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.selectedNode = null;
       this.editingType = 'master';
       this.globalPromptText = this.projectData?.masterPrompt || '';
+    }
+  }
+
+  async submitPrompt() {
+    if (this.editingType === 'character' && this.editingCharacter) {
+      if (!this.globalPromptText) {
+          this.toastr.warning('Vui lòng nhập prompt cho nhân vật!');
+          return;
+      }
+      
+      const electron = (window as any).electron;
+      if (!electron || !electron.saveBase64) {
+          this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+          return;
+      }
+
+      this.toastr.info('Đang gửi yêu cầu tạo hình nhân vật...');
+      
+      this.isGeneratingPrompt = true;
+      this.cdr.detectChanges();
+      
+      try {
+          const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+          let finalPrompt = master ? `${master}\n\n${this.globalPromptText}` : this.globalPromptText;
+          
+          if (this.editingType === 'character' && !finalPrompt.includes('--ar')) {
+              finalPrompt += ' --ar 1:1';
+          }
+          
+          const response = await this.genaiService.generateContent({
+              model: this.selectedModel || 'gemini-3.1-flash-image-preview',
+              contents: [{ role: 'user', parts: [{text: finalPrompt}] }],
+              config: {
+                  aspectRatio: '1:1',
+                  responseModalities: ['IMAGE']
+              } as any
+          });
+
+          let base64Data = null;
+          if ((response as any)?.image?.base64) {
+              base64Data = (response as any).image.base64;
+          } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
+              base64Data = (response as any).candidates[0].content.parts[0].inlineData.data;
+          }
+
+          if (base64Data) {
+              const username = this.projectData?.username || 'anonymous';
+              const projectUuid = this.uuid || this.projectData?.uuid || 'default';
+              const result = await electron.saveBase64({
+                  base64: base64Data,
+                  fileName: `char_${Date.now()}.png`,
+                  folder: 'characters',
+                  username: username,
+                  customDir: `tts/${username}/${projectUuid}`
+              });
+
+              if (result && result.success) {
+                  this.editingCharacter.avatarUrl = `file://${result.path.replace(/\\/g, '/')}`;
+                  this.toastr.success('Đã tạo hình nhân vật thành công!');
+                  this.saveProject();
+              } else {
+                  this.toastr.error('Lỗi khi lưu ảnh xuống đĩa');
+              }
+          } else {
+              this.toastr.error('Không nhận được ảnh từ AI');
+          }
+      } catch (error) {
+          console.error(error);
+          this.toastr.error('Lỗi khi tạo ảnh nhân vật: ' + error);
+      } finally {
+          this.isGeneratingPrompt = false;
+          this.cdr.detectChanges();
+      }
     }
   }
 
