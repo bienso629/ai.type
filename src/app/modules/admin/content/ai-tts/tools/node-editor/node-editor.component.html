@@ -50,7 +50,7 @@
                  class="absolute rounded-2xl transition-shadow duration-200 cursor-move"
                  [style.left.px]="node.x"
                  [style.top.px]="node.y"
-                 [style.width.px]="node.type === 'video' || node.type === 'composition' ? 360 : 280"
+                 [style.width.px]="node.type === 'video' || node.type === 'composition' || node.type === 'storyboard' ? 360 : 280"
                  [style.z-index]="draggedNode === node ? 100 : 10"
                  (mousedown)="onNodeMouseDown($event, node)"
                  (mouseenter)="hoveredNode = node"
@@ -64,6 +64,7 @@
                         <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'video'">movie</mat-icon>
                         <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'tts'">graphic_eq</mat-icon>
                         <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'composition'">layers</mat-icon>
+                        <mat-icon class="icon-size-4 shrink-0" *ngIf="node.type === 'storyboard'">brush</mat-icon>
                         <span class="text-sm font-medium truncate" [title]="node.title">{{ node.title }}</span>
                     </div>
                     <div class="flex items-center space-x-2 shrink-0">
@@ -86,8 +87,8 @@
                     <!-- Image / Video Preview -->
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
-                        
-                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group" [ngClass]="{'shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40': selectedNode === node || draggedNode === node}" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
+
+                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -116,7 +117,7 @@
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
 
                         
-                        <div class="w-full bg-teal-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-teal-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}">
+                        <div class="w-full bg-gray-50 rounded-xl py-2 px-3 flex items-center space-x-3 relative" [ngClass]="{'shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40': selectedNode === node || draggedNode === node, 'animate-pulse bg-gray-100 !shadow-[0_0_0_1px_#2dd4bf]': node.data.isGeneratingAudio}">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center">
@@ -153,6 +154,15 @@
                         </div>
                     </div>
 
+                    <!-- Storyboard Textarea -->
+                    <div *ngIf="node.type === 'storyboard'" class="relative w-full">
+                        <textarea [(ngModel)]="node.data.prompt" class="w-full bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-yellow-400 resize-none pr-12 pb-8" rows="4" placeholder="Nhập prompt cho bản vẽ..."></textarea>
+                        
+                        <button class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ">
+                            <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                        </button>
+                    </div>
+
                     <!-- Text Content (Removed to save space) -->
                 </div>
                 </div>
@@ -164,7 +174,7 @@
                          (mouseenter)="hoveredInput = {node: node, port: port}; $event.stopPropagation()"
                          (mouseleave)="hoveredInput = null"
                          class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-teal-400"></div>
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150" [ngClass]="port.startsWith('storyboard') ? 'bg-yellow-400' : 'bg-teal-400'"></div>
                     </div>
                 </div>
 
@@ -173,7 +183,7 @@
                     <div *ngFor="let port of node.outputs" 
                          (mousedown)="onOutputPortMouseDown($event, node, port)"
                          class="w-6 h-6 rounded-full flex items-center justify-center cursor-crosshair group">
-                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150 bg-teal-400"></div>
+                        <div class="w-3.5 h-3.5 rounded-full shadow-sm transition-transform duration-200 group-hover:scale-150" [ngClass]="node.type === 'storyboard' ? 'bg-yellow-400' : 'bg-teal-400'"></div>
                     </div>
                 </div>
                 
@@ -191,7 +201,7 @@
         <!-- Top Context Chips -->
         <div *ngIf="selectedNode?.type !== 'tts'" class="flex items-center flex-wrap gap-2 mb-2 px-2">
             <!-- Selected Node Chip -->
-            <div *ngIf="selectedNode" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
+            <div *ngIf="selectedNode && selectedNode.type !== 'storyboard'" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
                 <div class="w-5 h-5 rounded-full bg-white overflow-hidden flex items-center justify-center mr-2">
                     <mat-icon *ngIf="selectedNode?.type === 'image'" class="icon-size-4 text-gray-800">image</mat-icon>
                     <mat-icon *ngIf="selectedNode?.type === 'video'" class="icon-size-4 text-gray-800">movie</mat-icon>
@@ -331,7 +341,7 @@
 
                     <!-- Submit Button -->
                     <button class="w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu">
-                        <mat-icon class="icon-size-4 text-white" style="margin-left: 2px;">send</mat-icon>
+                        <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                     </button>
                 </div>
             </div>
@@ -345,11 +355,11 @@
          [style.left.px]="contextMenuPosition.x" 
          [style.top.px]="contextMenuPosition.y"></div>
 
-    <mat-menu #contextMenu="matMenu" class="rounded-xl shadow-[0_4px_20px_rgba(0,0,0,0.08)] border border-gray-100 py-1.5 w-52">
+    <mat-menu #contextMenu="matMenu" class="rounded-xl border border-gray-100 py-1.5 w-60">
         <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-teal-500">movie</mat-icon>
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
             </div>
@@ -358,9 +368,18 @@
         <button mat-menu-item (click)="addNewAudioNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-amber-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-amber-500">audiotrack</mat-icon>
+                    <mat-icon class="icon-size-5 text-amber-500 !m-0">audiotrack</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Audio</span>
+            </div>
+        </button>
+
+        <button mat-menu-item (click)="addStoryboardNode()" class="hover:bg-gray-50 transition-colors">
+            <div class="flex items-center space-x-3 w-full">
+                <div class="w-8 h-8 rounded-full bg-yellow-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-yellow-500 !m-0">brush</mat-icon>
+                </div>
+                <span class="text-sm font-semibold text-gray-700">Tạo bản vẽ cho video</span>
             </div>
         </button>
 
@@ -369,7 +388,7 @@
         <button mat-menu-item (click)="autoArrangeAllNodes()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-emerald-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-emerald-500">format_align_center</mat-icon>
+                    <mat-icon class="icon-size-5 text-emerald-500 !m-0">format_align_center</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Sắp xếp lại vị trí</span>
             </div>
