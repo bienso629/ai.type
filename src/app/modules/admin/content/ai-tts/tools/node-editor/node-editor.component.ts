@@ -1085,6 +1085,149 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           this.isGeneratingPrompt = false;
           this.cdr.detectChanges();
       }
+    } else if (this.editingType === 'scene' || this.editingType === 'master') {
+      const electron = (window as any).electron;
+      if (!electron || !electron.saveBase64) {
+          this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+          return;
+      }
+
+      // Lấy tất cả các node scene (video hoặc storyboard)
+      const sceneNodes = this.nodes.filter(n => n.type === 'video' || n.type === 'storyboard');
+      if (sceneNodes.length === 0) {
+          this.toastr.warning('Không tìm thấy scene nào để tạo bản vẽ!');
+          return;
+      }
+
+      const prompts: string[] = [];
+      const nodesMapping: any[] = [];
+      const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
+
+      for (const n of sceneNodes) {
+          let promptText = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
+          
+          let finalPrompt = master ? `${master}\n\n${promptText}` : promptText;
+          prompts.push(finalPrompt);
+          nodesMapping.push(n);
+      }
+
+      this.toastr.info(`Đang gửi yêu cầu tạo bản vẽ cho ${prompts.length} scenes...`);
+      this.isGeneratingPrompt = true;
+      this.cdr.detectChanges();
+
+      try {
+          const apiRes = await fetch('https://pangolin-innocent-especially.ngrok-free.app/api/storyboard', {
+              method: 'POST',
+              headers: { 
+                  'Content-Type': 'application/json',
+                  'ngrok-skip-browser-warning': 'true'
+              },
+              body: JSON.stringify({ prompts: prompts })
+          });
+          const data = await apiRes.json();
+          if (!data.job_id) throw new Error('Không nhận được job_id từ ComfyUI');
+          
+          const jobId = data.job_id;
+          this.toastr.info('Đã đưa vào hàng đợi, đang xử lý...');
+          
+          // Polling và xử lý từng phần
+          let completed = false;
+          let processedCount = 0;
+          const username = this.projectData?.username || 'anonymous';
+          const projectUuid = this.uuid || this.projectData?.uuid || 'default';
+
+          while(!completed) {
+              await new Promise(r => setTimeout(r, 3000));
+              const statusRes = await fetch(`https://pangolin-innocent-especially.ngrok-free.app/api/storyboard/${jobId}`, {
+                  headers: { 'ngrok-skip-browser-warning': 'true' }
+              });
+              const statusData = await statusRes.json();
+              
+              if (statusData.error) {
+                  throw new Error(statusData.error);
+              }
+
+              const results = statusData.results || [];
+              
+              // Xử lý các ảnh mới hoàn thành
+              if (results.length > processedCount) {
+                  for (let i = processedCount; i < results.length; i++) {
+                      if (results[i] && nodesMapping[i]) {
+                          const imgUrl = 'https://pangolin-innocent-especially.ngrok-free.app' + results[i];
+                          try {
+                              const imgRes = await fetch(imgUrl, {
+                                  headers: { 'ngrok-skip-browser-warning': 'true' }
+                              });
+                              const blob = await imgRes.blob();
+                              
+                              // Convert blob to base64
+                              const base64Data = await new Promise<string>((resolve, reject) => {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                      const b64 = (reader.result as string).split(',')[1];
+                                      resolve(b64);
+                                  };
+                                  reader.onerror = reject;
+                                  reader.readAsDataURL(blob);
+                              });
+        
+                              const saveResult = await electron.saveBase64({
+                                  base64: base64Data,
+                                  fileName: `scene_${nodesMapping[i].id}_${Date.now()}.png`,
+                                  folder: 'storyboards',
+                                  username: username,
+                                  customDir: `tts/${username}/${projectUuid}`
+                              });
+        
+                              if (saveResult && saveResult.success) {
+                                  const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                  nodesMapping[i].data.imageUrl = localPath;
+                                  
+                                  // Tạo thumbnail file
+                                  if (electron.createThumbnail) {
+                                      try {
+                                          const thumbPath = saveResult.path.replace('.png', '_thumb.jpg');
+                                          await electron.createThumbnail({
+                                              source: saveResult.path,
+                                              target: thumbPath,
+                                              width: 200
+                                          });
+                                          nodesMapping[i].data.thumbnailUrl = `file://${thumbPath.replace(/\\/g, '/')}`;
+                                      } catch (e) {
+                                          console.error("Thumbnail error", e);
+                                      }
+                                  }
+                              }
+                          } catch (err) {
+                              console.error(`Lỗi khi tải ảnh cho scene ${i}:`, err);
+                          }
+                          
+                          // Cập nhật giao diện ngay lập tức
+                          this.cdr.detectChanges();
+                          this.toastr.success(`Đã hoàn thành ${i + 1}/${statusData.total} bản vẽ!`);
+                      }
+                  }
+                  processedCount = results.length;
+                  this.saveProject(); // Lưu project sau mỗi lần có ảnh mới
+              }
+
+              if (statusData.status === 'completed') {
+                  completed = true;
+              } else {
+                  console.log(`Tiến độ: ${statusData.completed}/${statusData.total}`);
+              }
+          }
+          
+          this.toastr.success('Hoàn tất tạo bản vẽ cho tất cả scenes!');
+          this.saveProject();
+          
+      } catch (error) {
+          console.error(error);
+          this.toastr.error('Lỗi khi tạo bản vẽ: ' + error);
+      } finally {
+          this.isGeneratingPrompt = false;
+          this.cdr.detectChanges();
+      }
     }
   }
 
