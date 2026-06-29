@@ -426,7 +426,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.cleanupUnusedPorts();
     this.connections.forEach(conn => {
       conn.path = this.getConnectionPath(conn);
-      conn.color = '#a5b4fc'; // indigo-300
+      conn.color = '#5eead4'; // teal-300
     });
   }
 

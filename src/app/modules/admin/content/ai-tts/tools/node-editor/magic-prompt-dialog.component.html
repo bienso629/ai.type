@@ -1,7 +1,7 @@
 <!-- Header -->
 <div class="flex items-center justify-between mb-4">
     <div class="flex gap-2 items-center">
-        <mat-icon class="icon-size-5 text-indigo-600">auto_fix_high</mat-icon>
+        <mat-icon class="icon-size-5 text-teal-600">auto_fix_high</mat-icon>
         <h2 class="text-lg font-semibold m-0">Magic Prompt</h2>
     </div>
     <div class="flex items-center gap-2">
@@ -24,24 +24,28 @@
                 cdkTextareaAutosize cdkAutosizeMinRows="3" class="px-2 text-base leading-relaxed"></textarea>
         </mat-form-field>
 
-        <!-- Hình ảnh tham khảo -->
-        <div class="flex items-center gap-1.5 mb-1 mt-1">
-            <mat-label class="font-semibold text-slate-800">Nhân vật / Hình ảnh tham chiếu</mat-label>
+        <!-- Hình ảnh/Video tham khảo -->
+        <div class="flex flex-col mt-2">
+            <mat-label class="font-semibold text-slate-800 leading-tight">Nhân vật / Hình ảnh tham chiếu</mat-label>
+            <p class="text-xs text-gray-500 mt-1 mb-0 leading-tight">Tải lên file ảnh hoặc video để AI hiểu phong cách hoặc nhân vật bạn muốn mô tả.</p>
         </div>
-        <p class="text-xs text-gray-500 mb-1">Tải lên ảnh để AI hiểu phong cách hoặc nhân vật bạn muốn mô tả.</p>
 
         <div class="w-full relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[100px]"
             *ngIf="!imageBase64">
-            <input type="file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" (change)="onFileSelected($event)">
-            <div class="flex flex-col items-center">
-                <mat-icon svgIcon="heroicons_outline:photo" class="text-gray-400 w-10 h-10 mb-1"></mat-icon>
-                <p class="text-gray-600 font-medium text-sm mb-0.5">Tải ảnh tham chiếu</p>
-                <p class="text-gray-400 text-xs">JPG, PNG</p>
+            <input type="file" title="" accept="image/*,video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" (change)="onFileSelected($event)">
+            <div class="flex flex-col items-center justify-center pointer-events-none">
+                <p class="text-gray-600 font-medium text-sm mb-0.5">Tải ảnh/video tham chiếu</p>
+                <p class="text-gray-400 text-xs">JPG, PNG, MP4</p>
             </div>
         </div>
 
         <div *ngIf="imageBase64" class="relative w-full border border-gray-200 rounded-lg overflow-hidden group min-h-[120px]">
-            <img [src]="imageBase64" class="w-full object-cover max-h-[200px]">
+            <ng-container *ngIf="!isVideo()">
+                <img [src]="imageBase64" class="w-full object-cover max-h-[200px]">
+            </ng-container>
+            <ng-container *ngIf="isVideo()">
+                <video [src]="getSafeUrl()" class="w-full object-cover max-h-[200px]" controls playsinline preload="metadata"></video>
+            </ng-container>
             <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                 <button mat-icon-button class="bg-white/20 hover:bg-red-500 text-white rounded-full transition-colors" (click)="removeImage()">
                     <mat-icon class="icon-size-5">delete</mat-icon>

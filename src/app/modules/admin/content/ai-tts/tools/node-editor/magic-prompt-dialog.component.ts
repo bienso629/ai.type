@@ -14,6 +14,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 
 import { MatInputModule } from '@angular/material/input';
 import { TextFieldModule } from '@angular/cdk/text-field';
+import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 
 @Component({
     selector: 'app-magic-prompt-dialog',
@@ -49,7 +50,8 @@ export class MagicPromptDialogComponent implements OnInit {
         public dialogRef: MatDialogRef<MagicPromptDialogComponent>,
         @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
-        private genaiService: GenaiService
+        private genaiService: GenaiService,
+        private sanitizer: DomSanitizer
     ) {
         if (data?.currentPrompt) {
             this.currentPrompt = data.currentPrompt;
@@ -81,6 +83,14 @@ export class MagicPromptDialogComponent implements OnInit {
     removeImage(): void {
         this.imageFile = null;
         this.imageBase64 = null;
+    }
+
+    isVideo(): boolean {
+        return this.imageFile?.type?.startsWith('video/') || false;
+    }
+
+    getSafeUrl(): SafeUrl | string {
+        return this.imageBase64 ? this.sanitizer.bypassSecurityTrustUrl(this.imageBase64) : '';
     }
 
     async generate(): Promise<void> {
