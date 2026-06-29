@@ -35,7 +35,7 @@
 
         <!-- Upload Area -->
         <div class="flex-1 w-full flex flex-col items-center justify-center transition-colors relative"
-            [ngClass]="isPromptingForPose ? 'p-0 min-h-0' : 'p-6 border-2 border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 min-h-[200px]'">
+            [ngClass]="isPromptingForPose ? 'p-0 min-h-0' : 'p-6 border border-dashed border-slate-300 rounded-xl bg-slate-50 hover:bg-slate-100 min-h-[200px]'">
             <input *ngIf="!isPromptingForPose" type="file" (change)="onControlImageSelected($event)" accept="image/*"
                 class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10">
 

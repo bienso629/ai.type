@@ -38,7 +38,7 @@
                       [attr.d]="draggedConnection.path"
                       fill="none"
                       [attr.stroke]="draggedConnection.color || '#2dd4bf'"
-                      stroke-width="3"
+                      stroke-width="1"
                       stroke-dasharray="5,5"
                       class="pointer-events-none">
                 </path>
@@ -323,13 +323,12 @@
                     <!-- Input Area -->
                     <div class="relative flex-1 h-full flex items-center z-10">
                         <input type="text"
-                               class="w-full h-full bg-transparent border-none outline-none pl-4 pr-6 text-sm font-medium text-gray-700 truncate rounded-l-full cursor-pointer"
+                               class="w-full h-full bg-transparent border-none outline-none pl-4 pr-3 text-sm font-medium text-gray-700 truncate rounded-l-full cursor-pointer"
                                [(ngModel)]="selectedModel"
                                [matAutocomplete]="modelAuto"
                                (focus)="filterModels($event.target.value)"
                                (input)="filterModels($event.target.value)"
                                placeholder="Chọn Model">
-                        <mat-icon class="icon-size-4 text-gray-400 absolute right-1 pointer-events-none">keyboard_arrow_down</mat-icon>
                     </div>
 
                     <mat-autocomplete #modelAuto="matAutocomplete" panelClass="model-autocomplete-panel" (optionSelected)="onModelSelected($event.option.value)">
