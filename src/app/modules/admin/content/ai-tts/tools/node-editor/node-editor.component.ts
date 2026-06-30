@@ -1332,11 +1332,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                         nodesMapping[i].data.isGenerating = true;
                         this.cdr.detectChanges();
 
+                        const nodeDuration = nodesMapping[i].data?.sceneData?.forcedDuration || 5;
+
                         const response = await this.genaiService.generateContent({
                             model: this.selectedModel,
                             contents: [{ role: 'user', parts: requestParts }],
                             config: {
                                 aspectRatio: ratio,
+                                duration: nodeDuration,
                                 responseModalities: [targetModality],
                                 bypassModelOverride: true
                             } as any
@@ -2364,6 +2367,34 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     
     this.globalPromptText = charDesc;
     this.saveProject();
+  }
+
+  insertVoiceTag() {
+    if (this.editingType === 'none') return;
+    
+    let subtitleText = '';
+    if (this.selectedNode && this.selectedNode.type === 'video' && this.selectedNode.data?.sceneData?.subtitles?.length > 0) {
+        subtitleText = this.selectedNode.data.sceneData.subtitles[0].text || '';
+    } else if (this.selectedNode && this.selectedNode.type === 'tts' && this.selectedNode.data?.text) {
+        subtitleText = this.selectedNode.data.text;
+    }
+    
+    let charName = 'Tên Nhân Vật';
+    if (this.projectData && this.projectData.characters && this.projectData.characters.length > 0) {
+        charName = this.projectData.characters[0].name || charName;
+    }
+    
+    let voiceTag = `\n[Voice: ${charName} - ]`;
+    if (subtitleText && subtitleText.trim() !== '') {
+        voiceTag = `\n[Voice: ${charName} - "${subtitleText.trim()}"]`;
+    }
+
+    if (!this.globalPromptText) {
+        this.globalPromptText = voiceTag.trim();
+    } else {
+        this.globalPromptText += voiceTag;
+    }
+    this.updatePrompt(this.globalPromptText);
   }
 
   onAvatarDoubleClick(event: MouseEvent, char: any) {

@@ -1291,7 +1291,7 @@ export class GenaiService {
                 const seedParams = parsedSeed !== undefined ? { seed: parsedSeed } : {};
                 const commonParams = {
                     ratio: aspectRatio || '16:9',
-                    duration: Math.ceil(duration || config.defaultDuration || 5),
+                    duration: Math.max(4, Math.min(10, Math.round(duration || config.defaultDuration || 5))),
                     ...seedParams
                 };
 
@@ -1638,7 +1638,7 @@ export class GenaiService {
                         }
 
                         if (statusVal === 'success' || statusVal === 'succeeded' || statusVal === 'completed' || statusVal === 'done') {
-                            const videoUrl = data.video_url || data.url || data.output?.video_url || data.output?.url || data.output?.video || data.data?.url || (data.output?.urls && data.output.urls[0]) || data.data?.video_url;
+                            const videoUrl = data.video_url || data.url || (data.urls && data.urls[0]) || data.output?.video_url || data.output?.url || data.output?.video || data.data?.url || (data.output?.urls && data.output.urls[0]) || data.data?.video_url;
                             if (videoUrl) {
                                 console.log(`[Poll Success] Video đã tạo xong! Tiến hành download: ${videoUrl}`);
                                 return await this.downloadVideoAsBase64(videoUrl);
