@@ -341,9 +341,46 @@ export class GenaiService {
         };
 
         const isImageGeneration = params.config?.responseModalities?.includes('IMAGE');
+        const isVideoGeneration = params.config?.responseModalities?.includes('VIDEO');
 
         if (isImageGeneration) {
             return await this.generateImageUModelverse(url, headers, params);
+        } else if (isVideoGeneration) {
+            let promptText = '';
+            let referenceImages: any[] = [];
+            
+            if (params.contents && (params.contents as any).length > 0) {
+                const firstContent = params.contents[0];
+                if (firstContent.parts) {
+                    promptText = firstContent.parts
+                        .filter((p: any) => p.text)
+                        .map((p: any) => p.text)
+                        .join(' ');
+                    
+                    const imageParts = firstContent.parts.filter((p: any) => p.inlineData);
+                    if (imageParts && imageParts.length > 0) {
+                        for (let i = 0; i < imageParts.length; i++) {
+                            const p = imageParts[i];
+                            referenceImages.push({
+                                referenceType: i === 0 ? 'START_FRAME' : 'CONTROL_IMAGE',
+                                image: {
+                                    imageBytes: p.inlineData.data
+                                }
+                            });
+                        }
+                    }
+                }
+            }
+
+            const overrideModel = params.model;
+            const configRatio = (params.config as any)?.aspectRatio || '16:9';
+            const b64 = await this.generateVideoUModelverse(promptText, configRatio, referenceImages, 5, undefined, overrideModel);
+            
+            return {
+                video: {
+                    base64: b64
+                }
+            };
         } else {
             return await this.generateChatUModelverse(url, headers, params);
         }
@@ -474,10 +511,10 @@ export class GenaiService {
                         body.max_completion_tokens = params.config.maxOutputTokens;
                     }
                 } else {
-                    body.max_tokens = params.config.maxOutputTokens;
+                    body.max_tokens = targetModel.includes('doubao') ? Math.min(params.config.maxOutputTokens, 4096) : params.config.maxOutputTokens;
                 }
             } else if (!isReasoningModel) {
-                body.max_tokens = 8192;
+                body.max_tokens = targetModel.includes('doubao') ? 4096 : 8192;
             }
 
             // Tạm thời tắt để tránh lỗi regex trên UModelverse proxy
@@ -1227,26 +1264,19 @@ export class GenaiService {
                         if (imgRaw && !imgRaw.startsWith('data:')) {
                             imgUri = `data:image/png;base64,${imgRaw}`;
                         }
-                        if (ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD') {
-                            contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'first_frame' });
-                        } else if (ref.referenceType === 'END_FRAME') {
-                            contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'last_frame' });
+                        if (ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD' || ref.referenceType === 'END_FRAME' || !hasFirstOrLast) {
+                            contentArr.push({ type: 'image_url', image_url: { url: imgUri } });
                         } else {
-                            // Any other reference image is treated as a character/style reference
-                            if (!hasFirstOrLast) {
-                                contentArr.push({ type: 'image_url', image_url: { url: imgUri }, role: 'reference_image' });
-                            } else {
-                                console.warn("[Doubao SDK] Bỏ qua ảnh tham chiếu vì model không cho phép dùng chung với khung hình bắt đầu/kết thúc.");
-                            }
+                            console.warn("[Doubao SDK] Bỏ qua ảnh tham chiếu vì model không cho phép dùng chung với khung hình bắt đầu/kết thúc.");
                         }
                     }
                 } else {
                     // Fallback using single image references
                     if (refBase64Raw) {
-                        contentArr.push({ type: 'image_url', image_url: { url: `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` }, role: 'first_frame' });
+                        contentArr.push({ type: 'image_url', image_url: { url: `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` } });
                     }
                     if (endRefBase64Raw) {
-                        contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` }, role: 'last_frame' });
+                        contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` } });
                     }
                 }
 
@@ -1258,15 +1288,35 @@ export class GenaiService {
                     }
                 }
 
-                payload = {
+                const seedParams = parsedSeed !== undefined ? { seed: parsedSeed } : {};
+                const commonParams = {
+                    ratio: aspectRatio || '16:9',
+                    duration: Math.ceil(duration || config.defaultDuration || 5),
+                    ...seedParams
+                };
+
+                // Option 0: Format chuẩn Volcengine Ark (có input và parameters)
+                candidateTaskRequests.push({
                     model: model,
                     input: { content: contentArr },
-                    parameters: {
-                        ratio: aspectRatio || '16:9',
-                        duration: Math.ceil(duration || config.defaultDuration || 5),
-                        ...(parsedSeed !== undefined ? { seed: parsedSeed } : {})
-                    }
-                };
+                    parameters: commonParams
+                });
+
+                // Option 1: Format có input nhưng ratio/duration ở root
+                candidateTaskRequests.push({
+                    model: model,
+                    input: { content: contentArr },
+                    ...commonParams
+                });
+
+                // Option 2: Format phẳng hoàn toàn (Doubao API flat format)
+                candidateTaskRequests.push({
+                    model: model,
+                    content: contentArr,
+                    ...commonParams
+                });
+                
+                payload = null; // Do not push again at the end
             } else if (config.payloadFormat === 'pixverse_sdk') {
                 let firstFrameBase64Raw = '';
                 let lastFrameBase64Raw = '';

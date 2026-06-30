@@ -888,7 +888,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         duration: '0s', 
         audioUrl: '', 
         isGeneratingAudio: false,
-        sceneData: {} 
+        sceneData: {},
+        showOnCanvas: true
       }
     };
     this.nodes = [...this.nodes, newAudio];
@@ -898,6 +899,40 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.saveEditorState();
     
     setTimeout(() => this.cdr.detectChanges(), 0);
+  }
+
+  get unusedAudioNodes(): NodeItem[] {
+      return this.nodes.filter(n => 
+          n.type === 'tts' && 
+          !this.connections.some(c => c.fromNode === n.id || c.toNode === n.id) && 
+          !n.data?.showOnCanvas
+      );
+  }
+
+  isNodeVisible(node: NodeItem): boolean {
+      if (node.type === 'tts') {
+          if (node.data?.showOnCanvas) return true;
+          return this.connections.some(c => c.fromNode === node.id || c.toNode === node.id);
+      }
+      return true;
+  }
+
+  addUnusedAudioToCanvas(node: NodeItem) {
+      if (!node.data) node.data = {};
+      node.data.showOnCanvas = true;
+      
+      const x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
+      const y = this.contextMenuCanvasPosition.y ? Math.round(this.contextMenuCanvasPosition.y) : 150;
+      
+      node.x = x;
+      node.y = y;
+      node.baseX = x;
+      node.baseY = y;
+      
+      this.selectNode(node);
+      this.closeContextMenu();
+      this.saveEditorState();
+      setTimeout(() => this.cdr.detectChanges(), 0);
   }
 
   addStoryboardNode() {
@@ -1154,7 +1189,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const lowerModel = (this.selectedModel || '').toLowerCase();
       if (lowerModel.includes('audio') || lowerModel.includes('tts') || lowerModel.includes('speech')) {
           targetModality = 'AUDIO';
-      } else if (lowerModel.includes('video') || lowerModel.includes('kling') || lowerModel.includes('luma') || lowerModel.includes('runway') || lowerModel.includes('sora') || lowerModel.includes('haiper') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('veo') || lowerModel.includes('hunyuan')) {
+      } else if (lowerModel.includes('video') || lowerModel.includes('kling') || lowerModel.includes('luma') || lowerModel.includes('runway') || lowerModel.includes('sora') || lowerModel.includes('haiper') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('veo') || lowerModel.includes('hunyuan') || lowerModel.includes('doubao') || lowerModel.includes('seedance')) {
           targetModality = 'VIDEO';
       }
       if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
@@ -1179,6 +1214,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                   sceneAvatars.push(url);
               }
           }
+          
+          if (targetModality === 'VIDEO') {
+              const sceneImg = n.data?.imageUrl || n.data?.sceneData?.imageUrl || n.data?.thumbnailUrl;
+              if (sceneImg) {
+                  sceneAvatars.unshift(sceneImg);
+              }
+          }
+          
           refImagesUrls.push(sceneAvatars);
 
           let promptText = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
@@ -1882,6 +1925,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                   }
                   this.selectedNode.data.prompt = prompt;
                   this.selectNode(this.selectedNode);
+                  this.saveProject();
                   if (previousVideoUrl) {
                       this.toastr.success('Đã trích xuất và gán khung hình nối tiếp thành công!');
                   }
@@ -1907,6 +1951,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               this.selectedNode.data.imageUrl = null;
               this.selectedNode.data.thumbnailUrl = null;
               this.selectNode(this.selectedNode);
+              this.saveProject();
           }
           this.saveProject();
           this.cdr.detectChanges();

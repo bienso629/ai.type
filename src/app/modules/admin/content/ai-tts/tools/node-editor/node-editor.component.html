@@ -48,6 +48,7 @@
             <div *ngFor="let node of nodes"
                  [id]="node.id"
                  class="absolute rounded-2xl transition-shadow duration-200 cursor-move"
+                 [class.hidden]="!isNodeVisible(node)"
                  [style.left.px]="node.x"
                  [style.top.px]="node.y"
                  [style.width.px]="node.type === 'video' || node.type === 'composition' || node.type === 'storyboard' ? 360 : 280"
@@ -399,20 +400,31 @@
         <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
+                    <mat-icon class="icon-size-4 text-teal-500 !m-0">movie</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
             </div>
         </button>
-        
-        <button mat-menu-item (click)="addNewAudioNode()" class="hover:bg-gray-50 transition-colors">
+        <button mat-menu-item [matMenuTriggerFor]="audioSubMenu" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-teal-500 !m-0">audiotrack</mat-icon>
+                    <mat-icon class="icon-size-4 text-teal-500 !m-0">mic</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Audio</span>
             </div>
         </button>
+
+        <mat-menu #audioSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
+            <button mat-menu-item (click)="addNewAudioNode()">
+                <mat-icon class="icon-size-5 text-teal-500">add_circle_outline</mat-icon>
+                <span class="text-sm">Tạo Audio trống</span>
+            </button>
+            <mat-divider *ngIf="unusedAudioNodes.length > 0"></mat-divider>
+            <button mat-menu-item *ngFor="let node of unusedAudioNodes" (click)="addUnusedAudioToCanvas(node)">
+                <mat-icon class="icon-size-5 text-gray-400">mic</mat-icon>
+                <span class="truncate block w-48 text-sm" [title]="node.title || node.data?.text">{{ node.title || node.data?.text || 'Audio' }}</span>
+            </button>
+        </mat-menu>
 
         <button mat-menu-item (click)="editingType = 'scene'; submitPrompt(true)" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
