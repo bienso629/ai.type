@@ -1448,6 +1448,19 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                             }
                         }
 
+                        if (!generateAll && i === 0 && this.attachedFiles && this.attachedFiles.length > 0) {
+                            for (const attachedFile of this.attachedFiles) {
+                                if (attachedFile.base64 && attachedFile.mimeType) {
+                                    requestParts.push({
+                                        inlineData: {
+                                            data: attachedFile.base64,
+                                            mimeType: attachedFile.mimeType
+                                        }
+                                    });
+                                }
+                            }
+                        }
+
                         nodesMapping[i].data.isGenerating = true;
                         this.cdr.detectChanges();
 
