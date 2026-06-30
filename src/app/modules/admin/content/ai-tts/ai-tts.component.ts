@@ -1088,12 +1088,8 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         // Rút gọn format đầu vào để AI dễ đọc. Phân biệt rõ dòng nào có thoại (có số giây), dòng nào hành động (NO_AUDIO)
-        // Nếu chọn "Tự do" (maxDuration === 0), giấu luôn số giây để AI không cố gắng cộng trừ cho khớp
         const continuousText = allClips
             .map((c: any) => {
-                if (this.maxDuration === 0) {
-                    return `[${c.id}] ${c.description}`;
-                }
                 return `[${c.id} | ${c.localFilePath ? (c.duration + 's') : 'NO_AUDIO'}] ${c.description}`;
             })
             .join('\n');
@@ -1156,12 +1152,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             TUYỆT ĐỐI KHÔNG ĐƯỢC TỰ Ý CHIA CẮT một ID ra làm nhiều scene riêng biệt trong JSON.`;
             } else {
                 maxDurationRule = `
-            - THỜI LƯỢNG TỰ DO: Bạn TỰ QUYẾT ĐỊNH thời lượng hợp lý (thường từ 3s đến 8s) cho mỗi video clip dựa vào nội dung. ĐẶC BIỆT chú ý:
-              + TỐI GIẢN HOÁ CẢNH QUAY: Phân tích ĐOẠN VĂN và gom nhóm triệt để các ID thoại thành chung 1 scene nếu chúng miêu tả cùng một chuỗi hành động/bối cảnh. CÀNG SÚC TÍCH, CÔ ĐỌNG CÀNG TỐT (VD: một chuỗi dài chỉ cần 1-3 cảnh là đủ).
-              + TUYỆT ĐỐI KHÔNG CHIA NHỎ MÔ TẢ: Không bao giờ được chia nhỏ 1 mô tả ra thành nhiều đoạn "Prompt 1", "Prompt 2" ở trong JSON. Mỗi scene trong JSON chỉ được chứa MỘT câu prompt duy nhất.
-              + LƯỢC BỎ TỪ NGỮ THỪA THÃI: Rút gọn prompt cực kỳ ngắn gọn (Tối đa 15-20 từ). Chỉ tập trung vào Danh từ (Chủ thể, Đạo cụ) và Động từ (Hành động). Bỏ qua những chi tiết rườm rà.
-              + TẬP TRUNG VÀO HÀNH ĐỘNG CỐT LÕI: Nếu câu thoại dài lê thê nhưng hình ảnh chỉ diễn tả MỘT CẢNH TĨNH hoặc hành động lặp lại, hãy CHỈ VIẾT 1 PROMPT DUY NHẤT và gán thời gian vừa đủ cho hành động đó (VD: 5s). KHÔNG CẦN cố đẻ thêm hình ảnh để lấp đầy thời gian đọc thoại.
-              + BẮT BUỘC ghi rõ thời lượng ước tính "estimatedDuration" cho mỗi scene. TUYỆT ĐỐI KHÔNG tự ý chia cắt 1 ID ra nhiều scene riêng biệt.`;
+            - THỜI LƯỢNG TỰ DO: Bạn TỰ QUYẾT ĐỊNH thời lượng hợp lý cho mỗi video clip dựa vào nội dung. ĐẶC BIỆT chú ý:
+              + BẢO TOÀN SỐ LƯỢNG ID: BẮT BUỘC toàn bộ 100% các ID thoại đầu vào PHẢI xuất hiện trong JSON trả về. TUYỆT ĐỐI KHÔNG bỏ sót, lược bớt hay tự ý xóa bất kỳ ID nào.
+              + CHI TIẾT HÓA CẢNH QUAY: Hạn chế gom nhóm quá nhiều ID vào một scene. Hãy tách chúng thành các scene riêng biệt (mỗi scene 1-2 ID) để tạo ra nhiều góc máy và chuyển động đa dạng cho video.
+              + TUYỆT ĐỐI KHÔNG CHIA NHỎ MÔ TẢ: Mỗi scene trong JSON chỉ được chứa MỘT câu prompt duy nhất.
+              + LƯỢC BỎ TỪ NGỮ THỪA THÃI: Rút gọn câu prompt cực kỳ ngắn gọn (Tối đa 15-20 từ). Tập trung vào Chủ thể và Hành động.
+              + BẮT BUỘC ghi rõ thời lượng ước tính "estimatedDuration" cho mỗi scene. TUYỆT ĐỐI KHÔNG tự ý cắt 1 ID ra làm nhiều scene.`;
             }
 
             if (isVertical) {
@@ -1172,7 +1168,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
         } else {
             // LUẬT TỰ DO CHO TRUYỆN TRANH, SLIDE, PODCAST
             maxDurationRule = `
-            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene.`;
+            - GOM NHÓM TỰ DO: Gom nhóm các thoại phù hợp với diễn biến câu chuyện, KHÔNG bị giới hạn số giây cho mỗi scene. TỰ DO QUYẾT ĐỊNH THỜI LƯỢNG VIDEO CỦA TỪNG SCENE, không phụ thuộc vào độ dài của Audio. Kể cả audio dài 20s, bạn có quyền tạo Scene video 3s.`;
 
             if (isComic) {
                 if (isVertical) {
@@ -1235,7 +1231,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia".
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
-            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. QUAN TRỌNG: Video càng nhiều scene ngắn thì càng mượt. NẾU hành động kéo dài (trên 5s), BẮT BUỘC PHẢI TÁCH CHÚNG THÀNH NHIỀU SCENE LIÊN TIẾP (mỗi scene 2-4s, góc máy khác nhau). HÃY CHỦ ĐỘNG TẠO RA THẬT NHIỀU SCENE HÀNH ĐỘNG NGẮN VÀ CHI TIẾT ĐỂ LÀM PHONG PHÚ VIDEO. Không gom chung vào 1 scene dài.
+            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC PHẢI ĐIỀN CHO MỌI SCENE (dù có Audio hay không). Đóng vai trò đạo diễn, bạn tự quyết định cảnh quay này nên kéo dài bao nhiêu giây (chỉ nên từ 2s-5s để video mượt và liên tục cắt cảnh). Thời lượng Scene KHÔNG BỊ RÀNG BUỘC bởi thời lượng Audio. Kể cả 1 câu thoại dài 20s, bạn có thể tạo 1 Scene 4s cho nhân vật đang nói, rồi tự động sáng tạo thêm các Scene NO_AUDIO (góc quay khác, reaction) tiếp nối ngay sau đó để che lấp phần thời gian còn lại của Audio. HÃY CHỦ ĐỘNG TẠO RA THẬT NHIỀU SCENE HÀNH ĐỘNG NGẮN VÀ CHI TIẾT ĐỂ LÀM PHONG PHÚ VIDEO. Không gom chung vào 1 scene dài.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
@@ -1483,7 +1479,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                         if (timeMatch && timeMatch[1]) {
                             partDuration = parseFloat(timeMatch[1]);
                         }
-                        // GIỚI HẠN CỨNG: Không quá 10s
+                        
+                        // Tôn trọng quyết định của AI, kể cả khi thời gian không khớp audio
+                        // Chỉ giới hạn phần cứng API (ví dụ không quá 10s/scene để tránh lỗi khi render)
                         if (partDuration > 10) partDuration = 10;
 
                         videos.push({
@@ -1525,6 +1523,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 masterPrompt: aiResponse.masterPrompt || "",
                 extraPrompt: this.extraPrompt,
                 characters: aiResponse.characters || [],
+                originalClips: allClips,
                 totalOriginalClips: allClips.length,
                 totalScenes: finalScenes.length,
                 scenes: finalScenes,

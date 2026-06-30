@@ -324,7 +324,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
 
       let ttsDuration = 0;
+      let usedClipIds = new Set<string>();
+
       if (scene.subtitles && scene.subtitles.length > 0) {
+        scene.subtitles.forEach((s: any) => usedClipIds.add(s.id));
         const sub = scene.subtitles[0];
         ttsDuration = sub.duration ? Math.round(sub.duration) : 5;
         this.nodes.push({
@@ -338,7 +341,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
       const visualUrl = videoUrl || imageUrl || null;
 
-      const estimatedDuration = videoUrl ? duration : (ttsDuration > 0 ? ttsDuration : duration);
+      const estimatedDuration = duration;
       const vidSubtitle = videoUrl ? `${estimatedDuration}s` : `~${estimatedDuration}s`;
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: vidSubtitle,
@@ -367,6 +370,33 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const lastVidNodeId = `vid_${data.scenes.length - 1}`;
       compNode.inputs.push(lastVidNodeId);
       this.connections.push({ id: `c_comp`, fromNode: lastVidNodeId, fromPort: 'out', toNode: compNode.id, toPort: lastVidNodeId });
+    }
+
+    if (data.originalClips && data.originalClips.length > 0) {
+      let floatingX = 150;
+      let floatingY = 600;
+      data.originalClips.forEach((clip: any) => {
+          // Xử lý id (vì trong AI trả về có thể là số, nhưng clip.id có thể là string/số)
+          if (!this.nodes.find(n => n.type === 'tts' && n.data?.text === clip.description)) {
+              let safeAudioUrl = null;
+              if (clip.localFilePath) {
+                  const safePath = clip.localFilePath.replace(/\\/g, '/');
+                  safeAudioUrl = safePath.startsWith('/') ? `file://${safePath}` : `file:///${safePath}`;
+              }
+              const ttsDuration = clip.duration ? Math.round(clip.duration) : 5;
+              this.nodes.push({
+                  id: `tts_floating_${clip.id}`, type: 'tts', title: clip.description || 'Text to Speech', subtitle: `${ttsDuration}s`,
+                  x: floatingX, y: floatingY, inputs: [], outputs: ['out'],
+                  data: { text: clip.description, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: safeAudioUrl },
+                  baseX: floatingX, baseY: floatingY
+              });
+              floatingX += 300;
+              if (floatingX > 1500) {
+                  floatingX = 150;
+                  floatingY += 150;
+              }
+          }
+      });
     }
 
     if (compNode.inputs.length > 0) {
@@ -930,10 +960,19 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     setTimeout(() => this.cdr.detectChanges(), 0);
   }
 
+  private saveProjectTimeout: any;
+
   saveProject() {
     if (!this.uuid || !this.projectData) return;
-    const storageKey = `ai_type_video_ready_data_${this.uuid}`;
-    this.multiAccountService.setItem(storageKey, this.projectData);
+    
+    if (this.saveProjectTimeout) {
+      clearTimeout(this.saveProjectTimeout);
+    }
+    
+    this.saveProjectTimeout = setTimeout(() => {
+      const storageKey = `ai_type_video_ready_data_${this.uuid}`;
+      this.multiAccountService.setItem(storageKey, this.projectData);
+    }, 3000);
   }
 
   saveEditorState() {
@@ -1196,6 +1235,54 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                                 } catch (e) {
                                     console.error('Không thể load ảnh nhân vật reference:', e);
                                 }
+                            }
+                        }
+
+                        // Nếu bật kế thừa khung hình cảnh trước, thêm ảnh đó vào prompt cho Gemini (Image-to-Image / Context)
+                        if (nodesMapping[i].data?.sceneData?.videos?.[0]?.usePreviousSceneFrame) {
+                            try {
+                                const prevNode = this.nodes.find(x => x.type === 'video' && x.data?.sceneIndex === nodesMapping[i].data.sceneIndex - 1);
+                                let previousUrl = prevNode?.data?.imageUrl || prevNode?.data?.thumbnailUrl;
+                                
+                                // Nếu cảnh trước là video, ưu tiên gọi extractLastFrame
+                                let previousVideoUrl = prevNode?.data?.videoUrl || prevNode?.data?.sceneData?.videos?.[0]?.videoUrl;
+                                if (previousVideoUrl) {
+                                    let cleanUrl = previousVideoUrl.replace('file://', '');
+                                    if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
+                                        cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                                    }
+                                    const electron = (window as any).electron;
+                                    if (electron && electron.extractLastFrame) {
+                                        // @ts-ignore
+                                        const extractResult = await electron.extractLastFrame(cleanUrl);
+                                        if (extractResult && extractResult.success) {
+                                            if (extractResult.base64) {
+                                                previousUrl = 'data:image/png;base64,' + extractResult.base64;
+                                            } else if (extractResult.path) {
+                                                let properPath = extractResult.path.replace(/\\/g, '/');
+                                                if (!properPath.startsWith('/')) properPath = '/' + properPath;
+                                                previousUrl = 'file://' + properPath;
+                                            }
+                                        }
+                                    }
+                                }
+
+                                if (previousUrl) {
+                                    const base64Data = await this.getBase64FromImageUrl(previousUrl);
+                                    requestParts.push({
+                                        inlineData: {
+                                            data: base64Data,
+                                            mimeType: 'image/jpeg'
+                                        }
+                                    });
+                                    
+                                    // Ensure the constraint is in the text prompt
+                                    if (!requestParts[0].text.includes('Seamless continuous motion from previous frame')) {
+                                        requestParts[0].text += '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
+                                    }
+                                }
+                            } catch (e) {
+                                console.error('Không thể load ảnh kế thừa frame cuối:', e);
                             }
                         }
 
@@ -1474,6 +1561,30 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
             this.saveProject();
         }
     } else if (this.editingType === 'character' && this.editingCharacter) {
+        let nameMatch = text.match(/Name:\s*(.*?)(?=\n|$)/i);
+        if (nameMatch) this.editingCharacter.name = nameMatch[1].trim();
+        
+        let variantMatch = text.match(/Variant:\s*(.*?)(?=\n|$)/i);
+        if (variantMatch) this.editingCharacter.variant = variantMatch[1].trim();
+
+        let roleMatch = text.match(/Role:\s*(.*?)(?=\n|$)/i);
+        if (roleMatch) this.editingCharacter.role = roleMatch[1].trim();
+
+        let appMatch = text.match(/Appearance:\s*(.*?)(?=\n(?:Name|Variant|Role|Appearance|Personality|Prompt):|$)/is);
+        if (appMatch) this.editingCharacter.appearance = appMatch[1].trim();
+
+        let persMatch = text.match(/Personality:\s*(.*?)(?=\n(?:Name|Variant|Role|Appearance|Personality|Prompt):|$)/is);
+        if (persMatch) this.editingCharacter.personality = persMatch[1].trim();
+
+        let promptMatch = text.match(/Prompt:\s*([\s\S]*)/i);
+        if (promptMatch) {
+            this.editingCharacter.prompt = promptMatch[1].trim();
+        } else if (!nameMatch && !roleMatch && !appMatch && !persMatch) {
+            // Nếu người dùng xóa hết các tag và chỉ gõ text thuần, coi toàn bộ là prompt
+            this.editingCharacter.prompt = text;
+        }
+
+        this.saveProject();
     } else if (this.editingType === 'scene' && this.selectedNode) {
       if (this.selectedNode.type === 'tts') {
           this.selectedNode.data = { ...this.selectedNode.data, text: text };
@@ -1486,6 +1597,43 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
 
       let savedText = text;
+      
+      // Parse Master Prompt
+      const masterMarker = 'Master Prompt: ';
+      let masterMatch = text.match(/Master Prompt:\s*([\s\S]*?)(?=\n\nCharacters:|\n\nAction\/Visuals:|$)/is);
+      if (masterMatch && this.projectData) {
+          this.projectData.masterPrompt = masterMatch[1].trim();
+      }
+
+      // Parse Characters
+      let charMatch = text.match(/Characters:\n([\s\S]*?)(?=\n\nAction\/Visuals:|$)/is);
+      if (charMatch && this.projectData && this.projectData.characters) {
+          const charLines = charMatch[1].split('\n');
+          for (const line of charLines) {
+              if (line.trim().startsWith('- Name:')) {
+                  const nameM = line.match(/- Name:\s*(.*?)(?:, Role:|, Appearance:|, Personality:|, Prompt:|$)/i);
+                  if (nameM) {
+                      const cName = nameM[1].trim().toLowerCase();
+                      const character = this.projectData.characters.find((c: any) => c.name && c.name.toLowerCase() === cName);
+                      if (character) {
+                          const roleM = line.match(/Role:\s*(.*?)(?:, Appearance:|, Personality:|, Prompt:|$)/i);
+                          if (roleM) character.role = roleM[1].trim();
+                          
+                          const appM = line.match(/Appearance:\s*(.*?)(?:, Personality:|, Prompt:|$)/i);
+                          if (appM) character.appearance = appM[1].trim();
+                          
+                          const persM = line.match(/Personality:\s*(.*?)(?:, Prompt:|$)/i);
+                          if (persM) character.personality = persM[1].trim();
+                          
+                          const prM = line.match(/Prompt:\s*(.*?)$/i);
+                          if (prM) character.prompt = prM[1].trim();
+                      }
+                  }
+              }
+          }
+      }
+
+      // Parse Scene Prompt (Action/Visuals)
       const visualMarker = 'Action/Visuals: ';
       const index = text.lastIndexOf(visualMarker);
       if (index !== -1) {
@@ -1493,7 +1641,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       } else {
           const dialogMarker = 'Dialogue: ';
           const charMarker = 'Characters:\n';
-          const masterMarker = 'Master Prompt: ';
           
           let lastKnownIndex = Math.max(
               text.lastIndexOf(dialogMarker) > -1 ? text.lastIndexOf(dialogMarker) + dialogMarker.length : -1,
@@ -1516,12 +1663,25 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         } else {
           this.selectedNode.data.sceneData.prompt = savedText;
         }
+        // Luôn cập nhật .data.prompt để UI Sticky note nhận diện
+        this.selectedNode.data.prompt = savedText;
       } else {
         if (!this.selectedNode.data) this.selectedNode.data = {};
         this.selectedNode.data.text = savedText;
+        this.selectedNode.data.prompt = savedText;
       }
       this.saveProject();
     }
+  }
+
+  onScenePromptChange(node: any, text: string) {
+    if (node.data) {
+        node.data.prompt = text;
+        if (node.data.sceneData) {
+            node.data.sceneData.prompt = text;
+        }
+    }
+    this.saveProject();
   }
 
   addSceneNode() {
@@ -1639,14 +1799,117 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     localStorage.setItem('ai_type_selected_model', model);
   }
 
-  toggleUsePreviousFrame() {
+  async toggleUsePreviousFrame() {
       if (this.selectedNode && this.selectedNode.type === 'video' && this.selectedNode.data) {
           if (!this.selectedNode.data.sceneData) return;
           if (!this.selectedNode.data.sceneData.videos || this.selectedNode.data.sceneData.videos.length === 0) return;
           
           const videoObj = this.selectedNode.data.sceneData.videos[0];
           videoObj.usePreviousSceneFrame = !videoObj.usePreviousSceneFrame;
+          
+          if (videoObj.usePreviousSceneFrame) {
+              const prevNode = this.nodes.find(x => x.type === 'video' && x.data?.sceneIndex === this.selectedNode.data.sceneIndex - 1);
+              let previousVideoUrl = prevNode?.data?.videoUrl || prevNode?.data?.sceneData?.videos?.[0]?.videoUrl;
+              let previousImageUrl = prevNode?.data?.imageUrl || prevNode?.data?.thumbnailUrl;
+              
+              let finalUrl = '';
+
+              if (previousVideoUrl) {
+                  try {
+                      this.toastr.info('Đang trích xuất khung hình từ cảnh trước...', 'Hệ thống');
+                      let cleanUrl = previousVideoUrl.replace('file://', '');
+                      if (typeof cleanUrl !== 'string' && (cleanUrl as any).changingThisBreaksApplicationSecurity) {
+                          cleanUrl = (cleanUrl as any).changingThisBreaksApplicationSecurity.replace('file://', '');
+                      }
+      
+                      const electron = (window as any).electron;
+                      if (!electron || !electron.extractLastFrame) {
+                          this.toastr.error('Lỗi cấu hình. Yêu cầu App Desktop (Electron).');
+                          videoObj.usePreviousSceneFrame = false;
+                          return;
+                      }
+                      
+                      // @ts-ignore
+                      const extractResult = await electron.extractLastFrame(cleanUrl);
+                      if (extractResult && extractResult.success) {
+                          if (extractResult.base64) {
+                              finalUrl = 'data:image/png;base64,' + extractResult.base64;
+                          } else if (extractResult.path) {
+                              let properPath = extractResult.path.replace(/\\/g, '/');
+                              if (!properPath.startsWith('/')) properPath = '/' + properPath;
+                              finalUrl = 'file://' + properPath;
+                          }
+                      } else {
+                          this.toastr.error('Không thể trích xuất khung hình từ video trước.');
+                          videoObj.usePreviousSceneFrame = false;
+                          return;
+                      }
+                  } catch (e) {
+                      this.toastr.error('Lỗi khi trích xuất khung hình.');
+                      videoObj.usePreviousSceneFrame = false;
+                      console.error(e);
+                      return;
+                  }
+              } else if (previousImageUrl) {
+                  // Fallback to image if video is not available
+                  finalUrl = previousImageUrl;
+                  this.toastr.info('Đã lấy hình ảnh từ cảnh trước để kế thừa.', 'Hệ thống');
+              } else {
+                  this.toastr.warning('Cảnh trước chưa có Hình ảnh/Video để kế thừa!');
+                  videoObj.usePreviousSceneFrame = false;
+                  return;
+              }
+
+              if (finalUrl) {
+                  this.selectedNode.data.imageUrl = finalUrl;
+                  // Update thumbnail explicitly to show in UI
+                  this.selectedNode.data.thumbnailUrl = finalUrl;
+                  
+                  const constraintMsg = '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
+                  let prompt = this.selectedNode.data.prompt || this.selectedNode.data.sceneData?.prompt || this.selectedNode.data.sceneData?.visualPrompt || '';
+                  if (prompt && !prompt.includes('Seamless continuous motion from previous frame')) {
+                      prompt += constraintMsg;
+                  } else if (!prompt) {
+                      prompt = constraintMsg.trim();
+                  }
+                  
+                  if (this.selectedNode.data.sceneData) {
+                      if (this.selectedNode.data.sceneData.prompt !== undefined) {
+                          this.selectedNode.data.sceneData.prompt = prompt;
+                      } else {
+                          this.selectedNode.data.sceneData.visualPrompt = prompt;
+                      }
+                  }
+                  this.selectedNode.data.prompt = prompt;
+                  this.selectNode(this.selectedNode);
+                  if (previousVideoUrl) {
+                      this.toastr.success('Đã trích xuất và gán khung hình nối tiếp thành công!');
+                  }
+              }
+          } else {
+              const constraintMsg = '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
+              let prompt = this.selectedNode.data.prompt || this.selectedNode.data.sceneData?.prompt || this.selectedNode.data.sceneData?.visualPrompt || '';
+              
+              if (prompt.includes(constraintMsg)) {
+                  prompt = prompt.replace(constraintMsg, '');
+              } else if (prompt.includes(constraintMsg.trim())) {
+                  prompt = prompt.replace(constraintMsg.trim(), '');
+              }
+              
+              if (this.selectedNode.data.sceneData) {
+                  if (this.selectedNode.data.sceneData.prompt !== undefined) {
+                      this.selectedNode.data.sceneData.prompt = prompt;
+                  } else {
+                      this.selectedNode.data.sceneData.visualPrompt = prompt;
+                  }
+              }
+              this.selectedNode.data.prompt = prompt;
+              this.selectedNode.data.imageUrl = null;
+              this.selectedNode.data.thumbnailUrl = null;
+              this.selectNode(this.selectedNode);
+          }
           this.saveProject();
+          this.cdr.detectChanges();
       }
   }
 
