@@ -347,7 +347,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         this.nodes.push({
           id: ttsNodeId, type: 'tts', title: sub.text || 'Text to Speech', subtitle: `${ttsDuration}s`,
           x: sceneX, y: 450 + yOffset, inputs: [], outputs: ['out'],
-          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl, sceneData: scene, sceneIndex: index },
+          data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl, sceneData: scene, sceneIndex: index, showOnCanvas: true },
           baseX: sceneX, baseY: 450 + yOffset
         });
         hasTts = true;
@@ -359,7 +359,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const vidSubtitle = videoUrl ? `${estimatedDuration}s` : `~${estimatedDuration}s`;
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: vidSubtitle,
-        x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
+        x: sceneX, y: 150 + yOffset, inputs: ['in1'], outputs: ['out'],
         data: { imageUrl: imageUrl, videoUrl: videoUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters, sceneIndex: index },
         baseX: sceneX, baseY: 150 + yOffset
       };
@@ -572,6 +572,21 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   onOutputPortMouseDown(event: MouseEvent, node: NodeItem, port: string) {
     event.stopPropagation();
+    
+    if (node.type === 'tts') {
+        const existingConnIndex = this.connections.findIndex(c => c.fromNode === node.id && c.fromPort === port);
+        if (existingConnIndex >= 0) {
+            const conn = this.connections[existingConnIndex];
+            this.connections.splice(existingConnIndex, 1);
+            
+            // Xóa input port tts_in_x bên target node nếu có
+            const toObj = this.nodes.find(n => n.id === conn.toNode);
+            if (toObj) {
+                toObj.inputs = toObj.inputs.filter(p => p !== conn.toPort);
+            }
+        }
+    }
+    
     const rect = this.workspace.nativeElement.getBoundingClientRect();
     const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
     const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
@@ -614,7 +629,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                  }
              }
          } else if (fromObj.type === 'video' || fromObj.type === 'image') {
-             if (toObj.type !== 'composition' && toPort !== 'prev_scene_in' && !toPort.startsWith('storyboard_in')) return;
+             if (toObj.type !== 'composition' && toPort !== 'prev_scene_in' && toPort !== 'in1' && !toPort.startsWith('storyboard_in')) return;
          } else if (fromObj.type === 'storyboard') {
              if (toObj.type !== 'video' && toObj.type !== 'image') return;
              if (!toPort.startsWith('storyboard_in')) {
@@ -1928,13 +1943,21 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   async toggleUsePreviousFrame() {
       if (this.selectedNode && this.selectedNode.type === 'video' && this.selectedNode.data) {
           if (!this.selectedNode.data.sceneData) return;
-          if (!this.selectedNode.data.sceneData.videos || this.selectedNode.data.sceneData.videos.length === 0) return;
+          
+          if (!this.selectedNode.data.sceneData.videos) {
+              this.selectedNode.data.sceneData.videos = [{}];
+          }
+          if (this.selectedNode.data.sceneData.videos.length === 0) {
+              this.selectedNode.data.sceneData.videos.push({});
+          }
           
           const videoObj = this.selectedNode.data.sceneData.videos[0];
           videoObj.usePreviousSceneFrame = !videoObj.usePreviousSceneFrame;
           
           if (videoObj.usePreviousSceneFrame) {
-              const prevNode = this.nodes.find(x => x.type === 'video' && x.data?.sceneIndex === this.selectedNode.data.sceneIndex - 1);
+              const incomingConn = this.connections.find(c => c.toNode === this.selectedNode!.id);
+              const prevNode = incomingConn ? this.nodes.find(x => x.id === incomingConn.fromNode) : null;
+              
               let previousVideoUrl = prevNode?.data?.videoUrl || prevNode?.data?.sceneData?.videos?.[0]?.videoUrl;
               let previousImageUrl = prevNode?.data?.imageUrl || prevNode?.data?.thumbnailUrl;
               
@@ -2687,8 +2710,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
              if (fromObj?.type === 'tts') {
                  targetPort = this.hoveredNode.inputs.includes('tts_in') ? 'tts_in' : null;
              } else if (fromObj?.type === 'video' || fromObj?.type === 'image') {
-                 targetPort = this.hoveredNode.inputs.includes('prev_scene_in') ? 'prev_scene_in' : 
-                              (this.hoveredNode.type === 'composition' && this.hoveredNode.inputs.length > 0 ? this.hoveredNode.inputs[0] : null);
+                 if (this.hoveredNode.type === 'video' || this.hoveredNode.type === 'image') {
+                     targetPort = this.hoveredNode.inputs.includes('in1') ? 'in1' : (this.hoveredNode.inputs.includes('prev_scene_in') ? 'prev_scene_in' : (this.hoveredNode.inputs.length > 0 ? this.hoveredNode.inputs[0] : 'in1'));
+                 } else if (this.hoveredNode.type === 'composition') {
+                     targetPort = this.hoveredNode.inputs.length > 0 ? this.hoveredNode.inputs[0] : null;
+                 }
              } else {
                  targetPort = this.hoveredNode.inputs.length > 0 ? this.hoveredNode.inputs[0] : null;
              }
@@ -2795,6 +2821,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.startY = event.clientY;
     this.nodeStartX = node.x;
     this.nodeStartY = node.y;
+  }
+
+  hasIncomingConnection(node: NodeItem | null): boolean {
+    if (!node) return false;
+    return this.connections.some(c => c.toNode === node.id);
   }
 
   private getBase64FromImageUrl(url: string): Promise<string> {
