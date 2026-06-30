@@ -266,6 +266,7 @@
         <div class="flex items-center justify-between mt-2 px-2">
             <!-- Left Actions -->
             <div class="flex items-center space-x-2">
+
                 <button matTooltip="Đính kèm video/hình ảnh" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
                     <mat-icon class="icon-size-5">add</mat-icon>
                     <input type="file" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer" (change)="onFileSelected($event)" title="Đính kèm video/hình ảnh">
@@ -279,6 +280,19 @@
                 <button (click)="openMagicPromptDialog()" matTooltip="Magic prompt" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">auto_fix_high</mat-icon>
                 </button>
+                <div *ngIf="selectedNode?.type === 'video' && selectedNode?.data?.sceneIndex > 0" class="flex items-center ml-2 pl-3 border-l border-gray-200 h-8 cursor-pointer group" (click)="toggleUsePreviousFrame()">
+                    <div class="relative inline-flex flex-shrink-0 items-center justify-center w-[34px] h-[18px]">
+                        <div class="w-full h-full rounded-full transition-colors duration-200 ease-in-out" 
+                             [ngClass]="selectedNode?.data?.sceneData?.videos?.[0]?.usePreviousSceneFrame ? 'bg-[#7fe1d3]' : 'bg-gray-200'"></div>
+                        <div class="absolute left-[-2px] w-[22px] h-[22px] rounded-full transition-transform duration-200 ease-in-out flex items-center justify-center shadow-[0_1px_3px_rgba(0,0,0,0.3)]"
+                             [ngClass]="selectedNode?.data?.sceneData?.videos?.[0]?.usePreviousSceneFrame ? 'translate-x-[16px] bg-[#1a5f56]' : 'translate-x-0 bg-white'">
+                             <mat-icon *ngIf="selectedNode?.data?.sceneData?.videos?.[0]?.usePreviousSceneFrame" class="icon-size-4 text-white font-bold" style="font-size: 16px; width: 16px; height: 16px;">check</mat-icon>
+                        </div>
+                    </div>
+                    <span class="text-[14px] ml-2.5 text-gray-700 select-none group-hover:text-gray-900 transition-colors">
+                        Kế thừa frame cuối <span class="text-[#9ca3af] group-hover:text-gray-500 transition-colors">(chuyển cảnh mượt mà)</span>
+                    </span>
+                </div>
             </div>
 
             <!-- Right Actions -->
