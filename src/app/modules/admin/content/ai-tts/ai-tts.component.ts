@@ -1231,7 +1231,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
               + "imagePrompt": Bản thiết kế bối cảnh. PHẢI LÀ CẢNH TRỐNG (Empty Set). Chỉ bao gồm: [Bối cảnh] + [Góc máy] + [Ánh sáng] + [Phong cách]. TUYỆT ĐỐI KHÔNG CÓ CON NGƯỜI HAY NHÂN VẬT.
               + "prompt": Bản thiết kế hành động. Gom đủ 6 yếu tố của CÔNG THỨC TRÊN. Phải bao gồm toàn bộ không gian từ imagePrompt VÀ BỔ SUNG THÊM Chủ thể, Hành động, Chuyển động camera. Hãy TỐI GIẢN HOÁ, chỉ cần 15-20 từ.
             - 🌓 NHẤT QUÁN BỐI CẢNH & THỜI GIAN (TUYỆT ĐỐI QUAN TRỌNG): Xuyên suốt toàn bộ câu chuyện, bạn PHẢI phân tích bối cảnh chung và giữ CỐ ĐỊNH Thời gian (VD: "night time", "daylight") và Thiết lập Ánh sáng (VD: "cinematic lighting", "bright sunlight"). NẾU ĐÃ LÀ BAN ĐÊM, TẤT CẢ CÁC CẢNH TIẾP THEO PHẢI CÓ "night time" trong prompt, KHÔNG ĐƯỢC để tự động chuyển sang ban ngày.
-            - 🎥 CHẤT LƯỢNG HÌNH ẢNH (REALISTIC VIDEO): BẮT BUỘC chèn cụm từ "photorealistic, hyper-realistic, live-action, 8k resolution, shot on 35mm lens" vào cuối MỌI PROMPT để đảm bảo video có chất lượng giống cảnh quay người thật (trừ khi master prompt yêu cầu thể loại khác như anime/comic).
+            - 🎥 CHẤT LƯỢNG HÌNH ẢNH (REALISTIC VIDEO): BẮT BUỘC chèn cụm từ "photorealistic, hyper-realistic, live-action, 8k resolution, shot on 35mm lens" vào cuối MỌI PROMPT để đảm bảo video có chất lượng giống cảnh quay người thật (TRỪ KHI master prompt yêu cầu thể loại khác như hoạt hình 3D, 3D animation, anime, comic, illustration thì tuyệt đối KHÔNG được chèn các từ live-action, photorealistic).
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia".
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
@@ -1257,7 +1257,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 {
                   "imagePrompt": "[Setting] + [Camera Angle] + [Lighting] + [Style] (IN REQUESTED LANGUAGE, EMPTY SCENE NO CHARACTERS)",
                   "prompt": "[Subject (Character Name and Physical Appearance ONLY. DO NOT USE 'character design sheet' or 'multiple angles' here!)] + [Action] + [Setting] + [Camera Angle & Movement] + [Lighting] + [Quality] (IN REQUESTED LANGUAGE)",
-                  "sketchPrompt": "traditional graphite pencil sketch, rough hand-drawn draft, smudged shading, (monochrome, white background:1.2), [Subject Physical Appearance ONLY. NO 'multiple angles' or 'character sheet'] + [Action] + [Setting]. ABSOLUTELY NO manga, anime, comic book, 3D, realistic, colored, storyboard grid adjectives. MUST BE IN ENGLISH.",
                   "subtitleIds": ["id1", "id2"],
                   "estimatedDuration": 3 // BẮT BUỘC (nhập số giây ước lượng cho shot hình này, vd: 2, 3.5, 4.2)
                 }
