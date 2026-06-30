@@ -225,18 +225,40 @@
             <!-- Character Chips -->
             <ng-container *ngIf="editingType !== 'character'">
                 <div *ngFor="let char of activeCharacters" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
-                <div class="flex items-center justify-center mr-1.5">
-                    <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)"
-                         [src]="char.avatarUrl || char.avatarUrls[0]"
-                         class="w-5 h-5 rounded-full object-cover">
-                    <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)"
-                              class="text-gray-500 icon-size-4">person</mat-icon>
+                    <div class="flex items-center justify-center mr-1.5">
+                        <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)"
+                             [src]="char.avatarUrl || char.avatarUrls[0]"
+                             class="w-5 h-5 rounded-full object-cover">
+                        <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)"
+                                  class="text-gray-500 icon-size-4">person</mat-icon>
+                    </div>
+                    <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">
+                        {{ char.name || char.role }}
+                    </span>
+                    <mat-icon class="icon-size-4 text-gray-400 ml-2 hover:text-gray-800 transition-colors" (click)="removeCharacterFromPrompt(char, $event)">close</mat-icon>
                 </div>
-                <span class="text-sm font-medium text-gray-700 truncate max-w-[150px]">
-                    {{ char.name || char.role }}
-                </span>
-                <mat-icon class="icon-size-4 text-gray-400 ml-2 hover:text-gray-800 transition-colors" (click)="removeCharacterFromPrompt(char, $event)">close</mat-icon>
-            </div>
+                
+                <!-- Add Character Chip -->
+                <button *ngIf="editingType !== 'none'" [matMenuTriggerFor]="addCharMenu" class="flex items-center bg-gray-50 hover:bg-gray-100 text-teal-600 transition-colors border border-dashed border-gray-300 rounded-full px-2 py-1.5 cursor-pointer h-[34px]">
+                    <mat-icon class="icon-size-4 mr-1">add</mat-icon>
+                    <span class="text-sm font-medium pr-1">Thêm</span>
+                </button>
+                <mat-menu #addCharMenu="matMenu" class="rounded-xl py-1.5" panelClass="faint-shadow-menu">
+                    <ng-container *ngIf="getUnusedCharacters().length > 0; else noChars">
+                        <button mat-menu-item *ngFor="let char of getUnusedCharacters()" (click)="addCharacterToPrompt(char)">
+                            <div class="flex items-center space-x-3 w-full">
+                                <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden">
+                                    <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)" [src]="char.avatarUrl || char.avatarUrls[0]" class="w-full h-full object-cover">
+                                    <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)" class="text-gray-400 icon-size-4">person</mat-icon>
+                                </div>
+                                <span class="text-sm font-semibold text-gray-700">{{ char.name || char.role }}</span>
+                            </div>
+                        </button>
+                    </ng-container>
+                    <ng-template #noChars>
+                        <div class="px-4 py-2 text-sm text-gray-500 italic">Tất cả nhân vật đã có trong scene</div>
+                    </ng-template>
+                </mat-menu>
             </ng-container>
         </div>
 
