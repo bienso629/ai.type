@@ -2552,6 +2552,23 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     }
   }
 
+  getUnusedCharacters(): any[] {
+    if (!this.projectData?.characters) return [];
+    return this.projectData.characters.filter((c: any) => 
+        !this.activeCharacters.some(ac => ac.name === c.name || ac.id === c.id)
+    );
+  }
+
+  addCharacterToPrompt(char: any) {
+    if (char && char.name) {
+        if (this.globalPromptText && !this.globalPromptText.endsWith(' ') && !this.globalPromptText.endsWith('\n')) {
+            this.globalPromptText += ', ';
+        }
+        this.globalPromptText += char.name;
+        this.updatePrompt(this.globalPromptText);
+    }
+  }
+
   removeCharacterFromPrompt(char: any, event: Event) {
     event.stopPropagation();
     if (!this.selectedNode) return;
