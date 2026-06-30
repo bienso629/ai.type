@@ -159,10 +159,16 @@
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
                         <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
                         
-                        <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false)" class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
-                            <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
-                            <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-5 text-white animate-spin">autorenew</mat-icon>
-                        </button>
+                        <div class="absolute bottom-2 right-2 flex space-x-1.5">
+                            <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'IMAGE')" class="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo ảnh" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
+                                <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-4 text-white">image</mat-icon>
+                                <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-4 text-white animate-spin">autorenew</mat-icon>
+                            </button>
+                            <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'VIDEO')" class="w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo video" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
+                                <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-4 text-white">movie</mat-icon>
+                                <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-4 text-white animate-spin">autorenew</mat-icon>
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Text Content (Removed to save space) -->
@@ -354,14 +360,34 @@
                     <div *ngIf="isGeneratingPrompt" class="ai-breathing-overlay"></div>
                     
                     <!-- Input Area -->
-                    <div class="relative flex-1 h-full flex items-center z-10">
-                        <input type="text"
-                               class="w-full h-full bg-transparent border-none outline-none pl-4 pr-3 text-sm font-medium text-gray-700 truncate rounded-l-full cursor-pointer"
-                               [(ngModel)]="selectedModel"
+                    <div class="relative flex-1 h-full flex items-center z-10 overflow-hidden cursor-pointer rounded-l-full">
+                        <ng-container *ngIf="!isModelInputFocused">
+                            <!-- Left half (Image) -->
+                            <div (click)="activateModality('IMAGE', realInput)"
+                                 (mouseenter)="globalActiveModality = 'IMAGE'"
+                                 class="flex-1 h-full flex items-center justify-center px-2 text-xs font-medium transition-colors border-r border-gray-200 hover:bg-gray-100"
+                                 [ngClass]="globalActiveModality === 'IMAGE' ? 'text-teal-600' : 'text-gray-500'">
+                                {{ trimModel(selectedModel) }}
+                            </div>
+                            <!-- Right half (Video) -->
+                            <div (click)="activateModality('VIDEO', realInput)"
+                                 (mouseenter)="globalActiveModality = 'VIDEO'"
+                                 class="flex-1 h-full flex items-center justify-center px-2 text-xs font-medium transition-colors hover:bg-gray-100"
+                                 [ngClass]="globalActiveModality === 'VIDEO' ? 'text-teal-600' : 'text-gray-500'">
+                                {{ trimModel(selectedVideoModel) }}
+                            </div>
+                        </ng-container>
+                        
+                        <!-- Actual Input for searching (Hidden when not focused) -->
+                        <input type="text" #realInput
+                               class="w-full h-full bg-transparent border-none outline-none pl-4 pr-3 text-sm font-medium text-gray-700 truncate cursor-pointer absolute inset-0"
+                               [ngClass]="{'opacity-0 pointer-events-none': !isModelInputFocused}"
+                               [(ngModel)]="modelSearchValue"
                                [matAutocomplete]="modelAuto"
-                               (focus)="filterModels($event.target.value)"
+                               (blur)="onModelInputBlur()"
                                (input)="filterModels($event.target.value)"
-                               placeholder="Chọn Model">
+                               matTooltip="Chọn model sinh Ảnh & Video"
+                               placeholder="Tìm kiếm model...">
                     </div>
 
                     <mat-autocomplete #modelAuto="matAutocomplete" panelClass="custom-model-panel" panelWidth="450px" (optionSelected)="onModelSelected($event.option.value)">
@@ -379,7 +405,7 @@
                     </mat-autocomplete>
 
                     <!-- Submit Button -->
-                    <button class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu" (click)="submitPrompt(false)">
+                    <button class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu" (click)="submitPrompt(false, globalActiveModality)">
                         <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                     </button>
                 </div>
@@ -403,7 +429,7 @@
         <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-4 text-teal-500 !m-0">movie</mat-icon>
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
             </div>
@@ -411,7 +437,7 @@
         <button mat-menu-item [matMenuTriggerFor]="audioSubMenu" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-4 text-teal-500 !m-0">mic</mat-icon>
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">mic</mat-icon>
                 </div>
                 <span class="text-sm font-semibold text-gray-700">Thêm mới Audio</span>
             </div>
@@ -429,12 +455,21 @@
             </button>
         </mat-menu>
 
-        <button mat-menu-item (click)="editingType = 'scene'; submitPrompt(true)" class="hover:bg-gray-50 transition-colors">
+        <button mat-menu-item (click)="editingType = 'scene'; submitPrompt(true, 'IMAGE')" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
-                    <mat-icon class="icon-size-5 text-teal-500 !m-0">brush</mat-icon>
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">image</mat-icon>
                 </div>
-                <span class="text-sm font-semibold text-gray-700">Tạo bản vẽ cho video</span>
+                <span class="text-sm font-semibold text-gray-700">Tạo toàn bộ Ảnh cho scene</span>
+            </div>
+        </button>
+
+        <button mat-menu-item (click)="editingType = 'scene'; submitPrompt(true, 'VIDEO')" class="hover:bg-gray-50 transition-colors">
+            <div class="flex items-center space-x-3 w-full">
+                <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
+                    <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
+                </div>
+                <span class="text-sm font-semibold text-gray-700">Tạo toàn bộ Video cho scene</span>
             </div>
         </button>
 

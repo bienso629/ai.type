@@ -109,6 +109,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   filteredModels: string[] = [];
   filteredModelGroups: { name: string, models: string[] }[] = [];
   selectedModel: string = '3.1 Pro';
+  selectedVideoModel: string = '';
+  globalActiveModality: 'IMAGE' | 'VIDEO' = 'IMAGE';
+  isModelInputFocused: boolean = false;
+  modelSearchValue: string = '';
+  modelInputValue: string = '';
 
   globalPromptText: string = '';
   editingType: 'scene' | 'character' | 'master' | 'none' = 'none';
@@ -236,6 +241,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       } else if (!this.availableModels.includes(this.selectedModel)) {
         this.selectedModel = this.availableModels[0];
       }
+
+      const savedVideoModel = localStorage.getItem('ai_type_selected_video_model');
+      if (savedVideoModel && this.availableModels.includes(savedVideoModel)) {
+        this.selectedVideoModel = savedVideoModel;
+      } else {
+        const defaultVideoModel = this.availableModels.find(m => m.toLowerCase().includes('video') || m.toLowerCase().includes('seedance') || m.toLowerCase().includes('kling'));
+        this.selectedVideoModel = defaultVideoModel || this.availableModels[0];
+      }
+
       this.cdr.detectChanges();
     } catch (e) {
       console.error("Failed to load models", e);
@@ -1095,7 +1109,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.cdr.detectChanges();
   }
 
-  async submitPrompt(generateAll: boolean = false) {
+  async submitPrompt(generateAll: boolean = false, forceModality?: 'IMAGE' | 'VIDEO' | 'AUDIO') {
     if (this.editingType === 'character' && this.editingCharacter) {
       if (!this.globalPromptText) {
           this.toastr.warning('Vui lòng nhập prompt cho nhân vật!');
@@ -1172,28 +1186,35 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           return;
       }
 
+      let targetModality = forceModality || 'IMAGE';
+      if (!forceModality) {
+          const lowerModel = (this.selectedModel || '').toLowerCase();
+          if (lowerModel.includes('audio') || lowerModel.includes('tts') || lowerModel.includes('speech')) {
+              targetModality = 'AUDIO';
+          } else if (lowerModel.includes('video') || lowerModel.includes('kling') || lowerModel.includes('luma') || lowerModel.includes('runway') || lowerModel.includes('sora') || lowerModel.includes('haiper') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('veo') || lowerModel.includes('hunyuan') || lowerModel.includes('doubao') || lowerModel.includes('seedance')) {
+              targetModality = 'VIDEO';
+          }
+          if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
+              targetModality = 'IMAGE';
+          }
+      }
+
       // Lấy các node scene
       let sceneNodes = [];
       if (!generateAll && this.selectedNode && (this.selectedNode.type === 'video' || this.selectedNode.type === 'storyboard' || this.selectedNode.type === 'tts')) {
           sceneNodes = [this.selectedNode];
       } else if (generateAll) {
-          sceneNodes = this.nodes.filter(n => n.type === 'video' || n.type === 'storyboard');
+          sceneNodes = this.nodes.filter(n => {
+              if (n.type !== 'video' && n.type !== 'storyboard') return false;
+              if (targetModality === 'IMAGE' && n.data?.imageUrl) return false;
+              if (targetModality === 'VIDEO' && n.data?.videoUrl) return false;
+              return true;
+          });
       }
 
       if (sceneNodes.length === 0) {
-          this.toastr.warning('Vui lòng chọn một scene cụ thể để tạo!');
+          this.toastr.warning(generateAll ? 'Tất cả các scene đều đã có hình/video, không có gì mới để tạo!' : 'Vui lòng chọn một scene cụ thể để tạo!');
           return;
-      }
-
-      let targetModality = 'IMAGE';
-      const lowerModel = (this.selectedModel || '').toLowerCase();
-      if (lowerModel.includes('audio') || lowerModel.includes('tts') || lowerModel.includes('speech')) {
-          targetModality = 'AUDIO';
-      } else if (lowerModel.includes('video') || lowerModel.includes('kling') || lowerModel.includes('luma') || lowerModel.includes('runway') || lowerModel.includes('sora') || lowerModel.includes('haiper') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('veo') || lowerModel.includes('hunyuan') || lowerModel.includes('doubao') || lowerModel.includes('seedance')) {
-          targetModality = 'VIDEO';
-      }
-      if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
-          targetModality = 'IMAGE';
       }
 
       const prompts: string[] = [];
@@ -1335,7 +1356,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                         const nodeDuration = nodesMapping[i].data?.sceneData?.forcedDuration || 5;
 
                         const response = await this.genaiService.generateContent({
-                            model: this.selectedModel,
+                            model: targetModality === 'VIDEO' ? (this.selectedVideoModel || this.selectedModel) : this.selectedModel,
                             contents: [{ role: 'user', parts: requestParts }],
                             config: {
                                 aspectRatio: ratio,
@@ -1866,9 +1887,38 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       return groups;
   }
 
+  trimModel(m: string): string {
+      if (!m) return 'Chưa chọn';
+      return m.length > 14 ? m.substring(0, 14) + '...' : m;
+  }
+
+  activateModality(modality: 'IMAGE' | 'VIDEO', inputEl: HTMLInputElement) {
+      this.globalActiveModality = modality;
+      this.isModelInputFocused = true;
+      this.modelSearchValue = '';
+      this.filterModels('');
+      setTimeout(() => inputEl.focus(), 50);
+  }
+
+  onModelInputBlur() {
+      setTimeout(() => {
+          this.isModelInputFocused = false;
+          this.cdr.detectChanges();
+      }, 250);
+  }
+
   onModelSelected(model: string) {
-    this.selectedModel = model;
-    localStorage.setItem('ai_type_selected_model', model);
+    const isVideo = model.toLowerCase().includes('sora') || model.toLowerCase().includes('runway') || model.toLowerCase().includes('pika') || model.toLowerCase().includes('luma') || model.toLowerCase().includes('kling') || model.toLowerCase().includes('video') || model.toLowerCase().includes('seedance') || model.toLowerCase().includes('hailuo') || model.toLowerCase().includes('wan') || model.toLowerCase().includes('vidu');
+
+    if (isVideo) {
+        this.selectedVideoModel = model;
+        localStorage.setItem('ai_type_selected_video_model', model);
+        this.globalActiveModality = 'VIDEO';
+    } else {
+        this.selectedModel = model;
+        localStorage.setItem('ai_type_selected_model', model);
+        this.globalActiveModality = 'IMAGE';
+    }
   }
 
   async toggleUsePreviousFrame() {
