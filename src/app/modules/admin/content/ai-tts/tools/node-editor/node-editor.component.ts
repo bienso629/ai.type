@@ -742,38 +742,101 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
              }
           });
       }
-      
-      primaryNodes.sort((a, b) => {
-          const colA = colMap.get(a.id) || 0;
-          const colB = colMap.get(b.id) || 0;
-          if (colA !== colB) return colA - colB;
-          return a.x - b.x;
-      });
+
+      const sortedByScene = [...primaryNodes].sort((a, b) => (a.data?.sceneIndex || 0) - (b.data?.sceneIndex || 0));
+      for (let i = 1; i < sortedByScene.length; i++) {
+          const curr = sortedByScene[i];
+          const prev = sortedByScene[i - 1];
+          const hasIncoming = this.connections.some(c => c.toNode === curr.id && isPrimary(this.nodes.find(n => n.id === c.fromNode)?.type || ''));
+          if (!hasIncoming) {
+              const expectedCol = (colMap.get(prev.id) || 0) + 1;
+              if ((colMap.get(curr.id) || 0) < expectedCol) {
+                  colMap.set(curr.id, expectedCol);
+              }
+          }
+      }
+
+      changed = true;
+      iterations = 0;
+      while (changed && iterations < 100) {
+          changed = false;
+          iterations++;
+          this.connections.forEach(c => {
+             const fromNode = this.nodes.find(n => n.id === c.fromNode);
+             const toNode = this.nodes.find(n => n.id === c.toNode);
+             
+             if (fromNode && toNode && isPrimary(fromNode.type) && isPrimary(toNode.type)) {
+                 const fromCol = colMap.get(fromNode.id) || 0;
+                 const toCol = colMap.get(toNode.id) || 0;
+                 if (fromCol + 1 > toCol) {
+                     colMap.set(toNode.id, fromCol + 1);
+                     changed = true;
+                 }
+             }
+          });
+      }
       
       const secondaryToPrimary = new Map<string, string>();
+      const primaryToSecondaries = new Map<string, NodeItem[]>();
       this.connections.forEach(c => {
           const fromNode = this.nodes.find(n => n.id === c.fromNode);
           const toNode = this.nodes.find(n => n.id === c.toNode);
           if (fromNode && toNode && !isPrimary(fromNode.type) && isPrimary(toNode.type)) {
               secondaryToPrimary.set(fromNode.id, toNode.id);
+              if (!primaryToSecondaries.has(toNode.id)) primaryToSecondaries.set(toNode.id, []);
+              primaryToSecondaries.get(toNode.id)!.push(fromNode);
           }
       });
+      
+      const cols = new Map<number, NodeItem[]>();
+      primaryNodes.forEach(n => {
+          const col = colMap.get(n.id) || 0;
+          if (!cols.has(col)) cols.set(col, []);
+          cols.get(col)!.push(n);
+      });
+      
+      const sortedCols = Array.from(cols.keys()).sort((a, b) => a - b);
       
       const blockPositions = new Map<string, {x: number, currentY: number}>();
       let maxPrimaryX = 150;
       
-      primaryNodes.forEach((pNode, index) => {
-          pNode.x = 150 + index * 450;
-          pNode.baseX = pNode.x;
-          maxPrimaryX = Math.max(maxPrimaryX, pNode.x);
+      sortedCols.forEach((colIndex, cIdx) => {
+          const colNodes = cols.get(colIndex)!;
+          colNodes.sort((a, b) => (a.data?.sceneIndex || 0) - (b.data?.sceneIndex || 0));
           
-          pNode.y = 150 + (Math.random() * 60 - 30);
-          if (pNode.y < 50) pNode.y = 50;
-          pNode.baseY = pNode.y;
+          let totalColHeight = 0;
+          const nodeHeights = colNodes.map(pNode => {
+              const secondaries = primaryToSecondaries.get(pNode.id) || [];
+              const h = 320 + secondaries.length * 180;
+              totalColHeight += h;
+              return h;
+          });
+          totalColHeight += Math.max(0, colNodes.length - 1) * 50;
           
-          blockPositions.set(pNode.id, {
-              x: pNode.x,
-              currentY: pNode.y + 320 
+          let currentY = 150;
+          if (colNodes.length > 1) {
+              currentY = Math.max(50, 300 - totalColHeight / 2);
+          } else {
+              currentY = 150 + (Math.random() * 60 - 30);
+              if (currentY < 50) currentY = 50;
+          }
+          
+          colNodes.forEach((pNode, rIdx) => {
+              pNode.x = 150 + cIdx * 450;
+              pNode.baseX = pNode.x;
+              maxPrimaryX = Math.max(maxPrimaryX, pNode.x);
+              
+              pNode.y = currentY;
+              pNode.baseY = pNode.y;
+              
+              blockPositions.set(pNode.id, {
+                  x: pNode.x,
+                  currentY: pNode.y + 320 
+              });
+              
+              if (colNodes.length > 1) {
+                  currentY += nodeHeights[rIdx] + 50;
+              }
           });
       });
       
@@ -797,7 +860,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           });
       }
       
-      let unconnectedX = 150 + primaryNodes.length * 450;
+      let unconnectedX = 150 + sortedCols.length * 450;
       
       secondaryNodes.forEach(sNode => {
           const targetId = secondaryToPrimary.get(sNode.id);
