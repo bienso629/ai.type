@@ -1392,6 +1392,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                             let videoUrl = (response as any)?.video?.url || (response as any)?.candidates?.[0]?.content?.parts?.[0]?.videoUrl;
                             let videoBase64 = (response as any)?.video?.base64;
                             
+                            let finalVideoUrl = null;
                             if (videoBase64) {
                                 const saveResult = await electron.saveBase64({
                                     base64: videoBase64,
@@ -1401,10 +1402,35 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                                     customDir: `tts/${username}/${projectUuid}`
                                 });
                                 if (saveResult && saveResult.success) {
-                                    nodesMapping[i].data.videoUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                    finalVideoUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
                                 }
                             } else if (videoUrl) {
-                                nodesMapping[i].data.videoUrl = videoUrl;
+                                finalVideoUrl = videoUrl;
+                            }
+
+                            if (finalVideoUrl) {
+                                nodesMapping[i].data.videoUrl = finalVideoUrl;
+                                nodesMapping[i].data.isVideo = true;
+
+                                if (electron.extractLastFrame) {
+                                    const thumbPath = finalVideoUrl.replace('file://', '');
+                                    const thumbRes = await electron.extractLastFrame(thumbPath);
+                                    if (thumbRes && thumbRes.success) {
+                                        if (thumbRes.path) {
+                                            nodesMapping[i].data.imageUrl = `file://${thumbRes.path.replace(/\\/g, '/')}`;
+                                        } else if (thumbRes.base64) {
+                                            nodesMapping[i].data.imageUrl = `data:image/jpeg;base64,${thumbRes.base64}`;
+                                        }
+                                    }
+                                }
+
+                                if (nodesMapping[i].data.sceneData && nodesMapping[i].data.sceneData.videos) {
+                                    if (nodesMapping[i].data.sceneData.videos.length === 0) {
+                                        nodesMapping[i].data.sceneData.videos.push({});
+                                    }
+                                    nodesMapping[i].data.sceneData.videos[0].videoUrl = finalVideoUrl;
+                                    nodesMapping[i].data.sceneData.videos[0].imageUrl = nodesMapping[i].data.imageUrl;
+                                }
                             }
                         } else if (targetModality === 'AUDIO') {
                             let audioUrl = (response as any)?.audio?.url || (response as any)?.candidates?.[0]?.content?.parts?.[0]?.audioUrl;
@@ -2367,6 +2393,54 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     
     this.globalPromptText = charDesc;
     this.saveProject();
+  }
+
+  async onNodeVisualDoubleClick(event: MouseEvent, node: NodeItem) {
+    if (node.type !== 'video' && node.type !== 'composition') return;
+    event.stopPropagation();
+    event.preventDefault();
+
+    if (!(window as any).electron || !(window as any).electron.invoke) {
+        this.toastr.warning('Chỉ hỗ trợ trên ứng dụng Desktop.');
+        return;
+    }
+
+    try {
+        const filePath = await (window as any).electron.invoke('select-video-file');
+        
+        if (filePath) {
+            const safeUrl = `file://${filePath.replace(/\\/g, '/')}`;
+            
+            node.data.videoUrl = safeUrl;
+            node.data.isVideo = true;
+            
+            if ((window as any).electron.extractLastFrame) {
+                const thumbRes = await (window as any).electron.extractLastFrame(filePath);
+                if (thumbRes && thumbRes.success) {
+                    if (thumbRes.path) {
+                         node.data.imageUrl = `file://${thumbRes.path.replace(/\\/g, '/')}`;
+                    } else if (thumbRes.base64) {
+                         node.data.imageUrl = `data:image/jpeg;base64,${thumbRes.base64}`;
+                    }
+                }
+            }
+
+            if (node.data.sceneData && node.data.sceneData.videos) {
+                if (node.data.sceneData.videos.length === 0) {
+                    node.data.sceneData.videos.push({});
+                }
+                node.data.sceneData.videos[0].videoUrl = safeUrl;
+                node.data.sceneData.videos[0].imageUrl = node.data.imageUrl;
+            }
+            
+            this.saveProject();
+            this.cdr.detectChanges();
+            this.toastr.success('Đã import video thành công!');
+        }
+    } catch (e) {
+        console.error('Lỗi khi import video:', e);
+        this.toastr.error('Có lỗi xảy ra khi import video.');
+    }
   }
 
   insertVoiceTag() {

@@ -374,7 +374,8 @@ export class GenaiService {
 
             const overrideModel = params.model;
             const configRatio = (params.config as any)?.aspectRatio || '16:9';
-            const b64 = await this.generateVideoUModelverse(promptText, configRatio, referenceImages, 5, undefined, overrideModel);
+            const configDuration = (params.config as any)?.duration || 5;
+            const b64 = await this.generateVideoUModelverse(promptText, configRatio, referenceImages, configDuration, undefined, overrideModel);
             
             return {
                 video: {
