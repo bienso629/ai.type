@@ -156,7 +156,7 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
                         
                         <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false)" class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
                             <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
@@ -244,6 +244,20 @@
                 <!-- Remove button overlay -->
                 <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" (click)="removeAttachedFile(i)">
                     <mat-icon class="text-white icon-size-5">close</mat-icon>
+                </div>
+            </div>
+        </div>
+
+        <!-- Large Character Avatar Preview -->
+        <div *ngIf="editingType === 'character' && editingCharacter" class="px-3 pb-2 w-full flex justify-center">
+            <div class="relative group w-full max-w-[200px] sm:max-w-[300px] rounded-xl overflow-hidden bg-transparent transition-all">
+                <img *ngIf="editingCharacter.avatarUrl" [src]="editingCharacter.avatarUrl" class="w-full h-auto object-cover max-h-[250px]">
+                <div *ngIf="!editingCharacter.avatarUrl" class="w-full h-[150px] flex items-center justify-center bg-gray-100">
+                    <mat-icon class="text-gray-400 icon-size-10">person</mat-icon>
+                </div>
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer backdrop-blur-[2px]" (click)="onAvatarDoubleClick($event, editingCharacter)" matTooltip="Tải ảnh nhân vật lên">
+                    <mat-icon class="text-white icon-size-8 mb-1">upload</mat-icon>
+                    <span class="text-white text-sm font-medium">Đổi ảnh</span>
                 </div>
             </div>
         </div>
