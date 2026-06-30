@@ -218,7 +218,7 @@ export class DirectorModeComponent implements OnInit {
     ) {
         // Init with existing prompt if any
         if (data && data.prompt) {
-            const match = data.prompt.match(/\[(?:Director|Cinematography):\s*(.*?)\]/);
+            const match = data.prompt.match(/[\[\(](?:Director|Cinematography):\s*(.*?)[\]\)]/);
             if (match && match[1]) {
                 const parts = match[1].split(',').map((p: string) => p.trim());
                 parts.forEach((part: string) => {
