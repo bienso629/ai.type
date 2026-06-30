@@ -589,6 +589,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   onOutputPortMouseDown(event: MouseEvent, node: NodeItem, port: string) {
     event.stopPropagation();
     
+    if (!node.data) node.data = {};
+    node.data.showOnCanvas = true;
+    
     if (node.type === 'tts') {
         const existingConnIndex = this.connections.findIndex(c => c.fromNode === node.id && c.fromPort === port);
         if (existingConnIndex >= 0) {
@@ -2147,6 +2150,13 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                   // Update thumbnail explicitly to show in UI
                   this.selectedNode.data.thumbnailUrl = finalUrl;
                   
+                  // Clear existing video so the UI can show the new extracted image frame
+                  this.selectedNode.data.isVideo = false;
+                  this.selectedNode.data.videoUrl = null;
+                  if (this.selectedNode.data.sceneData?.videos?.length > 0) {
+                      this.selectedNode.data.sceneData.videos[0].videoUrl = null;
+                  }
+                  
                   const constraintMsg = '\n\n[MANDATORY: Seamless continuous motion from previous frame. NO teleportation. NO cuts.]';
                   let prompt = this.selectedNode.data.prompt || this.selectedNode.data.sceneData?.prompt || this.selectedNode.data.sceneData?.visualPrompt || '';
                   if (prompt && !prompt.includes('Seamless continuous motion from previous frame')) {
@@ -2951,6 +2961,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   onNodeMouseDown(event: MouseEvent, node: NodeItem) {
     event.stopPropagation();
+    
+    if (!node.data) node.data = {};
+    node.data.showOnCanvas = true;
+    
     this.draggedNode = node;
     const isNewSelection = this.selectedNode !== node || this.editingType !== 'scene';
     if (isNewSelection) {
