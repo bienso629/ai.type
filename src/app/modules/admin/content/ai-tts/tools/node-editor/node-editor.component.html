@@ -88,7 +88,7 @@
                     <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
 
 
-                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}" [class.node-selected-ring]="selectedNode === node || draggedNode === node">
+                        <div class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}" [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating" [ngClass]="{'!bg-teal-100': node.data?.isGenerating}">
                             <!-- Video Element -->
                             <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
                             
@@ -156,9 +156,9 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
                         
-                        <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt()" class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
+                        <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false)" class="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-yellow-500 hover:bg-yellow-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo bản vẽ" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
                             <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                             <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-5 text-white animate-spin">autorenew</mat-icon>
                         </button>
@@ -347,7 +347,7 @@
                     </mat-autocomplete>
 
                     <!-- Submit Button -->
-                    <button class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu" (click)="submitPrompt()">
+                    <button class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu" (click)="submitPrompt(false)">
                         <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                     </button>
                 </div>
@@ -386,7 +386,7 @@
             </div>
         </button>
 
-        <button mat-menu-item (click)="editingType = 'scene'; submitPrompt()" class="hover:bg-gray-50 transition-colors">
+        <button mat-menu-item (click)="editingType = 'scene'; submitPrompt(true)" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">brush</mat-icon>

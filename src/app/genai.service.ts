@@ -237,17 +237,20 @@ export class GenaiService {
         this.syncConfigFromStorage();
 
         // Restore model compatibility with existing UModelverse config
-        if (params.model === 'gemini-3.5-flash') {
-            params.model = 'gemini-3.5-flash';
-        } else if (
-            params.model === 'gemini-3.1-flash-image-preview' ||
-            params.model === 'imagen-3.0-generate-001' ||
-            params.model === 'gemini-3-pro-image-preview' ||
-            params.model?.includes('image') ||
-            params.model?.includes('imagen')
-        ) {
-            // Nếu dùng UModelverse thì chuyển đổi sang Image Model tuỳ chọn của họ (mặc định dall-e-3), nếu dùng trực tiếp thì dùng model chuẩn của Google
-            params.model = this.isUModelverseEnabled() ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+        const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
+        if (!bypassModelOverride) {
+            if (params.model === 'gemini-3.5-flash') {
+                params.model = 'gemini-3.5-flash';
+            } else if (
+                params.model === 'gemini-3.1-flash-image-preview' ||
+                params.model === 'imagen-3.0-generate-001' ||
+                params.model === 'gemini-3-pro-image-preview' ||
+                params.model?.includes('image') ||
+                params.model?.includes('imagen')
+            ) {
+                // Nếu dùng UModelverse thì chuyển đổi sang Image Model tuỳ chọn của họ (mặc định dall-e-3), nếu dùng trực tiếp thì dùng model chuẩn của Google
+                params.model = this.isUModelverseEnabled() ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+            }
         }
 
         this._start(scope);
@@ -572,18 +575,21 @@ export class GenaiService {
         const configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
         let size = (params.config as any)?.imageConfig?.imageSize || '1024x1024';
 
+        let activeModel = params.model || 'dall-e-3';
+        
+        let ratioStr = '16:9';
         if (configRatio) {
-            const ratioStr = String(configRatio).trim();
+            ratioStr = String(configRatio).trim();
+            const isDalle = activeModel.includes('dall-e');
+            
             if (['16:9', '3:2', '4:3', '21:9', '5:4', '8:1', '4:1'].includes(ratioStr)) {
-                size = '1792x1024'; // Chiều ngang rộng (Landscape)
+                size = isDalle ? '1792x1024' : '1920x1080'; // Chiều ngang rộng (Landscape)
             } else if (['9:16', '2:3', '3:4', '1:4', '4:5', '1:8'].includes(ratioStr)) {
-                size = '1024x1792'; // Chiều dọc cao (Portrait)
+                size = isDalle ? '1024x1792' : '1080x1920'; // Chiều dọc cao (Portrait)
             } else if (ratioStr === '1:1') {
                 size = '1024x1024'; // Vuông
             }
         }
-
-        let activeModel = params.model || 'dall-e-3';
 
         // Auto-correct model names for UModelverse / Astraflow
         if (activeModel === 'gemini-3-pro-image') {
@@ -600,11 +606,14 @@ export class GenaiService {
             const geminiUrl = `${baseUrl}/v1beta/models/${activeModel}:generateContent`;
 
             try {
+                // Keep all original parts (text and any attached images)
+                const originalParts = params.contents?.[0]?.parts || [{ text: promptText }];
+                
                 const geminiBody: any = {
                     contents: [
                         {
                             role: 'user',
-                            parts: [{ text: promptText }]
+                            parts: originalParts
                         }
                     ],
                     tools: [{ google_search: {} }]
@@ -654,21 +663,61 @@ export class GenaiService {
         }
         // --- KẾT THÚC XỬ LÝ GEMINI ---
 
-        const candidateRequests: any[] = [
-            // Option 0: Format cơ bản chuẩn OpenAI (n, size)
-            {
+        let b64DataUris: string[] = [];
+        if (params.contents && params.contents[0] && params.contents[0].parts) {
+            const imgParts = params.contents[0].parts.filter((p: any) => p.inlineData && p.inlineData.data);
+            for (const imgPart of imgParts) {
+                b64DataUris.push(`data:${imgPart.inlineData.mimeType || 'image/png'};base64,${imgPart.inlineData.data}`);
+            }
+        }
+
+        const candidateRequests: any[] = [];
+
+        if (b64DataUris.length > 0) {
+            candidateRequests.push(
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size,
+                    aspect_ratio: ratioStr,
+                    image: b64DataUris[0],
+                    images: b64DataUris
+                },
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    n: 1,
+                    size: size,
+                    aspect_ratio: ratioStr,
+                    images: b64DataUris
+                },
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    image: b64DataUris[0]
+                },
+                {
+                    model: activeModel,
+                    prompt: promptText,
+                    images: b64DataUris
+                }
+            );
+        } else {
+            candidateRequests.push({
                 model: activeModel,
                 prompt: promptText,
                 n: 1,
                 size: size,
-                image: referenceBase64 ? `data:image/png;base64,${referenceBase64}` : undefined
-            },
-            // Option 1: Format siêu tối giản (bỏ n, size) để bypass các strict validation của model khác
-            {
-                model: activeModel,
-                prompt: promptText
-            }
-        ];
+                aspect_ratio: ratioStr
+            });
+        }
+
+        // Option: Format siêu tối giản (bỏ n, size, image) để bypass các strict validation của model khác
+        candidateRequests.push({
+            model: activeModel,
+            prompt: promptText
+        });
 
         let lastErrorMsg = '';
         let lastResponseStatus = 200;

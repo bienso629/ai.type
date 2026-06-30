@@ -276,9 +276,6 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                         }
                        node.inputs = []; // Ensure TTS nodes don't have input ports
                    } else if (node.type === 'storyboard') {
-                        if (scene.sketchPrompt && !node.data.prompt) {
-                            node.data.prompt = scene.sketchPrompt;
-                        }
                         node.data.sceneData = scene;
                    }
                 }
@@ -1024,7 +1021,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.cdr.detectChanges();
   }
 
-  async submitPrompt() {
+  async submitPrompt(generateAll: boolean = false) {
     if (this.editingType === 'character' && this.editingCharacter) {
       if (!this.globalPromptText) {
           this.toastr.warning('Vui lòng nhập prompt cho nhân vật!');
@@ -1101,16 +1098,33 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           return;
       }
 
-      // Lấy tất cả các node scene (video hoặc storyboard)
-      const sceneNodes = this.nodes.filter(n => n.type === 'video' || n.type === 'storyboard');
+      // Lấy các node scene
+      let sceneNodes = [];
+      if (!generateAll && this.selectedNode && (this.selectedNode.type === 'video' || this.selectedNode.type === 'storyboard' || this.selectedNode.type === 'tts')) {
+          sceneNodes = [this.selectedNode];
+      } else if (generateAll) {
+          sceneNodes = this.nodes.filter(n => n.type === 'video' || n.type === 'storyboard');
+      }
+
       if (sceneNodes.length === 0) {
-          this.toastr.warning('Không tìm thấy scene nào để tạo bản vẽ!');
+          this.toastr.warning('Vui lòng chọn một scene cụ thể để tạo!');
           return;
+      }
+
+      let targetModality = 'IMAGE';
+      const lowerModel = (this.selectedModel || '').toLowerCase();
+      if (lowerModel.includes('audio') || lowerModel.includes('tts') || lowerModel.includes('speech')) {
+          targetModality = 'AUDIO';
+      } else if (lowerModel.includes('video') || lowerModel.includes('kling') || lowerModel.includes('luma') || lowerModel.includes('runway') || lowerModel.includes('sora') || lowerModel.includes('haiper') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('veo') || lowerModel.includes('hunyuan')) {
+          targetModality = 'VIDEO';
+      }
+      if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
+          targetModality = 'IMAGE';
       }
 
       const prompts: string[] = [];
       const nodesMapping: any[] = [];
-      const refImagesUrls: (string | null)[] = [];
+      const refImagesUrls: (string[])[] = [];
       const master = this.projectData?.masterPrompt ? this.projectData.masterPrompt.trim() : "";
 
       for (const n of sceneNodes) {
@@ -1119,26 +1133,40 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           let promptTextRaw = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
           const fullSceneText = (promptTextRaw + ' ' + (n.data?.text || '') + ' ' + (n.data?.sceneData?.script || '')).toLowerCase();
           const sceneChars = this.projectData?.characters ? this.projectData.characters.filter((c: any) => c.name && fullSceneText.includes(c.name.toLowerCase())) : [];
-          let refImgUrl = null;
-          if (sceneChars.length > 0) {
-             const c = sceneChars[0];
-             refImgUrl = c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0 ? c.avatarUrls[0] : null);
-          }
-          refImagesUrls.push(refImgUrl);
-
-          // Lấy prompt ưu tiên sketchPrompt
-          if (n.data?.sceneData?.sketchPrompt) {
-              finalPrompt = n.data.sceneData.sketchPrompt;
-          } else {
-              let promptText = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
-              // Loại bỏ các chữ rác hoặc master prompt 3D nếu lỡ dính vào
-              promptText = promptText.replace(/Style:/g, '').replace(/Scene details:/g, '').trim();
-              if (master && promptText.includes(master)) {
-                  promptText = promptText.replace(master, '').trim();
+          let sceneAvatars: string[] = [];
+          for (const c of sceneChars) {
+              const url = c.avatarUrl || (c.avatarUrls && c.avatarUrls.length > 0 ? c.avatarUrls[0] : null);
+              if (url) {
+                  sceneAvatars.push(url);
               }
-              // Ép cứng thành bản vẽ phác thảo tiếng Anh vì người dùng đang bấm "Tạo bản vẽ"
-              finalPrompt = `traditional graphite pencil sketch, rough hand-drawn draft, smudged shading, (monochrome, white background:1.2), ${promptText}`;
           }
+          refImagesUrls.push(sceneAvatars);
+
+          let promptText = n.data?.prompt || n.data?.sceneData?.prompt || n.data?.sceneData?.visualPrompt || n.data?.text || n.title || '';
+          // Loại bỏ các chữ rác nếu lỡ dính vào
+          promptText = promptText.replace(/Style:/g, '').replace(/Scene details:/g, '').trim();
+          if (master && promptText.includes(master)) {
+              promptText = promptText.replace(master, '').trim();
+          }
+          
+          // Xử lý xung đột prompt: Nếu master prompt là hoạt hình, xóa các từ khóa người thật bị AI nhét vào do lỗi cũ
+          const lowerMaster = master.toLowerCase();
+          if (lowerMaster.includes('3d') || lowerMaster.includes('hoạt hình') || lowerMaster.includes('anime') || lowerMaster.includes('comic') || lowerMaster.includes('illustration')) {
+              promptText = promptText.replace(/photorealistic/gi, '')
+                                     .replace(/hyper-realistic/gi, '')
+                                     .replace(/hyper realistic/gi, '')
+                                     .replace(/live-action/gi, '')
+                                     .replace(/live action/gi, '')
+                                     .replace(/, ,/g, ',')
+                                     .trim();
+          }
+
+          let characterContext = '';
+          if (sceneChars.length > 0) {
+              characterContext = 'Character reference: ' + sceneChars.map((c: any) => c.name + (c.appearance ? ' (' + c.appearance + ')' : '')).join(', ') + '.\n';
+          }
+          
+          finalPrompt = `${master ? 'Master Style: ' + master + '\n' : ''}${characterContext}Scene details: ${promptText}`;
 
           prompts.push(finalPrompt);
           nodesMapping.push(n);
@@ -1155,67 +1183,122 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                 for (let i = 0; i < finalPrompts.length; i++) {
                     try {
                         let requestParts: any[] = [{text: finalPrompts[i]}];
-                        if (refImagesUrls[i]) {
-                            try {
-                                const base64Data = await this.getBase64FromImageUrl(refImagesUrls[i] as string);
-                                requestParts.push({
-                                    inlineData: {
-                                        data: base64Data,
-                                        mimeType: 'image/png'
-                                    }
-                                });
-                            } catch (e) {
-                                console.error('Không thể load ảnh nhân vật reference:', e);
+                        if (refImagesUrls[i] && refImagesUrls[i].length > 0) {
+                            for (const url of refImagesUrls[i]) {
+                                try {
+                                    const base64Data = await this.getBase64FromImageUrl(url);
+                                    requestParts.push({
+                                        inlineData: {
+                                            data: base64Data,
+                                            mimeType: 'image/png'
+                                        }
+                                    });
+                                } catch (e) {
+                                    console.error('Không thể load ảnh nhân vật reference:', e);
+                                }
                             }
                         }
+
+                        nodesMapping[i].data.isGenerating = true;
+                        this.cdr.detectChanges();
 
                         const response = await this.genaiService.generateContent({
                             model: this.selectedModel,
                             contents: [{ role: 'user', parts: requestParts }],
                             config: {
                                 aspectRatio: ratio,
-                                responseModalities: ['IMAGE']
+                                responseModalities: [targetModality],
+                                bypassModelOverride: true
                             } as any
                         });
 
-                        let base64Data = null;
-                        if ((response as any)?.image?.base64) {
-                            base64Data = (response as any).image.base64;
-                        } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-                            base64Data = (response as any).candidates[0].content.parts[0].inlineData.data;
-                        }
+                        const username = this.projectData?.username || 'anonymous';
+                        const projectUuid = this.uuid || this.projectData?.uuid || 'default';
 
-                        if (base64Data) {
-                            const username = this.projectData?.username || 'anonymous';
-                            const projectUuid = this.uuid || this.projectData?.uuid || 'default';
-                            const saveResult = await electron.saveBase64({
-                                base64: base64Data,
-                                fileName: `scene_${nodesMapping[i].id}_${Date.now()}.png`,
-                                folder: 'storyboards',
-                                username: username,
-                                customDir: `tts/${username}/${projectUuid}`
-                            });
+                        if (targetModality === 'IMAGE') {
+                            let base64Data = null;
+                            if ((response as any)?.image?.base64) {
+                                base64Data = (response as any).image.base64;
+                            } else if ((response as any)?.candidates?.[0]?.content?.parts) {
+                                const parts = (response as any).candidates[0].content.parts;
+                                const imgPart = parts.find((p: any) => p.inlineData && p.inlineData.data);
+                                if (imgPart) {
+                                    base64Data = imgPart.inlineData.data;
+                                }
+                            }
 
-                            if (saveResult && saveResult.success) {
-                                const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
-                                nodesMapping[i].data.imageUrl = localPath;
+                            if (base64Data) {
+                                const saveResult = await electron.saveBase64({
+                                    base64: base64Data,
+                                    fileName: `scene_${nodesMapping[i].id}_${Date.now()}.png`,
+                                    folder: 'storyboards',
+                                    username: username,
+                                    customDir: `tts/${username}/${projectUuid}`
+                                });
 
-                                if (electron.createThumbnail) {
-                                    try {
-                                        const thumbPath = saveResult.path.replace('.png', '_thumb.jpg');
-                                        await electron.createThumbnail({
-                                            source: saveResult.path,
-                                            target: thumbPath,
-                                            width: 200
-                                        });
-                                        nodesMapping[i].data.thumbnailUrl = `file://${thumbPath.replace(/\\/g, '/')}`;
-                                    } catch (e) {
-                                        console.error("Thumbnail error", e);
+                                if (saveResult && saveResult.success) {
+                                    const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                    nodesMapping[i].data.imageUrl = localPath;
+
+                                    if (electron.createThumbnail) {
+                                        try {
+                                            const thumbPath = saveResult.path.replace('.png', '_thumb.jpg');
+                                            await electron.createThumbnail({
+                                                source: saveResult.path,
+                                                target: thumbPath,
+                                                width: 200
+                                            });
+                                            nodesMapping[i].data.thumbnailUrl = `file://${thumbPath.replace(/\\/g, '/')}`;
+                                        } catch (e) {
+                                            console.error("Thumbnail error", e);
+                                        }
                                     }
                                 }
                             }
+                        } else if (targetModality === 'VIDEO') {
+                            let videoUrl = (response as any)?.video?.url || (response as any)?.candidates?.[0]?.content?.parts?.[0]?.videoUrl;
+                            let videoBase64 = (response as any)?.video?.base64;
+                            
+                            if (videoBase64) {
+                                const saveResult = await electron.saveBase64({
+                                    base64: videoBase64,
+                                    fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp4`,
+                                    folder: 'videos',
+                                    username: username,
+                                    customDir: `tts/${username}/${projectUuid}`
+                                });
+                                if (saveResult && saveResult.success) {
+                                    nodesMapping[i].data.videoUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                }
+                            } else if (videoUrl) {
+                                nodesMapping[i].data.videoUrl = videoUrl;
+                            }
+                        } else if (targetModality === 'AUDIO') {
+                            let audioUrl = (response as any)?.audio?.url || (response as any)?.candidates?.[0]?.content?.parts?.[0]?.audioUrl;
+                            let audioBase64 = (response as any)?.audio?.base64;
+                            
+                            if (audioBase64) {
+                                const saveResult = await electron.saveBase64({
+                                    base64: audioBase64,
+                                    fileName: `scene_${nodesMapping[i].id}_${Date.now()}.mp3`,
+                                    folder: 'audio',
+                                    username: username,
+                                    customDir: `tts/${username}/${projectUuid}`
+                                });
+                                if (saveResult && saveResult.success) {
+                                    nodesMapping[i].data.audioUrl = `file://${saveResult.path.replace(/\\/g, '/')}`;
+                                }
+                            } else if (audioUrl) {
+                                nodesMapping[i].data.audioUrl = audioUrl;
+                            }
                         }
+                        
+                        nodesMapping[i].data.isGenerating = false;
+                        this.cdr.detectChanges();
+
                     } catch (e) {
+                        nodesMapping[i].data.isGenerating = false;
+                        this.cdr.detectChanges();
                         console.error('Lỗi khi vẽ cảnh', i, e);
                         this.toastr.error(`Lỗi vẽ cảnh ${i + 1}: ${e}`);
                     }
