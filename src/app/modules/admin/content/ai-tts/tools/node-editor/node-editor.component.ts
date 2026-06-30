@@ -1393,6 +1393,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                                 if (saveResult && saveResult.success) {
                                     const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
                                     nodesMapping[i].data.imageUrl = localPath;
+                                    
+                                    if (nodesMapping[i].data.sceneData) {
+                                        nodesMapping[i].data.sceneData.imageUrl = localPath;
+                                    }
 
                                     if (electron.createThumbnail) {
                                         try {
@@ -2554,9 +2558,13 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   getUnusedCharacters(): any[] {
     if (!this.projectData?.characters) return [];
-    return this.projectData.characters.filter((c: any) => 
-        !this.activeCharacters.some(ac => ac.name === c.name || ac.id === c.id)
-    );
+    
+    const currentPromptText = (this.globalPromptText || '').toLowerCase();
+    
+    return this.projectData.characters.filter((c: any) => {
+        if (!c.name) return false;
+        return !currentPromptText.includes(c.name.toLowerCase());
+    });
   }
 
   addCharacterToPrompt(char: any) {
@@ -2566,6 +2574,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         }
         this.globalPromptText += char.name;
         this.updatePrompt(this.globalPromptText);
+        
+        // Refresh the node to rebuild the Characters section with the new character's details
+        if (this.selectedNode) {
+            this.selectNode(this.selectedNode);
+        }
     }
   }
 
@@ -2576,25 +2589,36 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const charNameEscaped = escapeRegExp(char.name);
     
-    const blockRegex = new RegExp(`\\[Character '${charNameEscaped}'.*?\\]\\n*`, 'g');
-    const nameRegex = new RegExp(`\\b${charNameEscaped}\\b\\s*`, 'gi');
+    // Loại bỏ tên nhân vật và các dấu câu thừa xung quanh (như phẩy, khoảng trắng)
+    const nameRegex = new RegExp(`[,\\s]*\\b${charNameEscaped}\\b[,\\s]*`, 'gi');
 
     const sd = this.selectedNode.data?.sceneData;
 
     if (sd) {
       if (sd.prompt !== undefined) {
-        sd.prompt = sd.prompt.replace(blockRegex, '').replace(nameRegex, '').trim();
+        sd.prompt = sd.prompt.replace(nameRegex, ' ').trim();
+        // Xóa dấu phẩy thừa ở cuối nếu có
+        if (sd.prompt.endsWith(',')) sd.prompt = sd.prompt.slice(0, -1).trim();
       }
       if (sd.imagePrompt !== undefined) {
-        sd.imagePrompt = sd.imagePrompt.replace(blockRegex, '').replace(nameRegex, '').trim();
+        sd.imagePrompt = sd.imagePrompt.replace(nameRegex, ' ').trim();
+        if (sd.imagePrompt.endsWith(',')) sd.imagePrompt = sd.imagePrompt.slice(0, -1).trim();
+      }
+      if (sd.script !== undefined) {
+        sd.script = sd.script.replace(nameRegex, ' ').trim();
+      }
+      if (sd.setting !== undefined) {
+        sd.setting = sd.setting.replace(nameRegex, ' ').trim();
       }
     } else {
       if (this.selectedNode.data?.text) {
-         this.selectedNode.data.text = this.selectedNode.data.text.replace(blockRegex, '').replace(nameRegex, '').trim();
+         this.selectedNode.data.text = this.selectedNode.data.text.replace(nameRegex, ' ').trim();
+         if (this.selectedNode.data.text.endsWith(',')) this.selectedNode.data.text = this.selectedNode.data.text.slice(0, -1).trim();
       }
     }
     
     this.saveProject();
+    this.selectNode(this.selectedNode);
   }
 
   onMouseMoveOutside(event: MouseEvent) {
