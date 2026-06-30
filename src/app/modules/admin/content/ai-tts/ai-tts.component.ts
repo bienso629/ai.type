@@ -1219,7 +1219,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             NHIỆM VỤ CỦA BẠN:
             1. Sáng tạo MASTER PROMPT: Viết prompt định hướng hình ảnh chung. Định hình rõ phong cách chia khung (nếu là truyện tranh). ${masterPromptDurationLimit}
             2. Xây dựng TẠO HÌNH (CHARACTER DESIGN): Mô tả NHẤT QUÁN và CỐ ĐỊNH về ngoại hình nhân vật (tuổi, tóc, trang phục đặc trưng).
-            3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH (STORYBOARD/SHOT LIST): Đây là bản thiết kế kỹ thuật (blueprint) để hình ảnh hóa kịch bản. Bạn phải gom nhóm các câu thoại và TỰ ĐỘNG phân tích nội dung để tạo ra bối cảnh (prompt) chi tiết, định hướng rõ ràng cho khâu tiền kỳ và hậu kỳ.
+            3. CHIA PHÂN CẢNH VÀ TẠO BỐI CẢNH (STORYBOARD/SHOT LIST): Đây là bản thiết kế kỹ thuật để hình ảnh hóa kịch bản. ĐẶC BIỆT QUAN TRỌNG: Hãy TỰ DO SÁNG TẠO THÊM THẬT NHIỀU CẢNH HÀNH ĐỘNG KHÔNG LỜI (NO_AUDIO) đan xen để minh họa chi tiết cho câu chuyện. Video càng có nhiều cảnh hành động nhỏ (góc cận, phản ứng, bước đi...) thì càng sinh động và mượt mà. Đừng chỉ bê nguyên xi thoại vào!
 
             QUY TẮC BẮT BUỘC (QUAN TRỌNG NHẤT):${maxDurationRule}${antiDuplicationRule}
             - 👤 TỐI ƯU NHÂN VẬT: TUYỆT ĐỐI KHÔNG mô tả lại ngoại hình chi tiết của nhân vật trong cảnh. Việc tạo hình do hệ thống tự động xử lý.
@@ -1235,7 +1235,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia".
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
-            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. Bạn phải tự tưởng tượng một cảnh hành động như vậy tốn bao nhiêu giây trong thực tế để gán số (ví dụ: 2, 3, 4.5). TUYỆT ĐỐI KHÔNG vượt quá 5 giây cho các cảnh hành động (nếu hành động rất nhỏ, chỉ cho 2-3s). KHÔNG cộng dồn thời gian vô lý.
+            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. QUAN TRỌNG: Video càng nhiều scene ngắn thì càng mượt. NẾU hành động kéo dài (trên 5s), BẮT BUỘC PHẢI TÁCH CHÚNG THÀNH NHIỀU SCENE LIÊN TIẾP (mỗi scene 2-4s, góc máy khác nhau). HÃY CHỦ ĐỘNG TẠO RA THẬT NHIỀU SCENE HÀNH ĐỘNG NGẮN VÀ CHI TIẾT ĐỂ LÀM PHONG PHÚ VIDEO. Không gom chung vào 1 scene dài.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
@@ -1355,11 +1355,6 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // Không lấy estimatedDuration từ AI để đảm bảo khớp tổng thời gian
                 } else if (!hasAnyAudio && scene.estimatedDuration) {
                     exactSceneDuration = scene.estimatedDuration;
-                }
-                
-                // GIỚI HẠN CỨNG: Nếu không có âm thanh (không có thoại), một cảnh hành động không nên quá 5s
-                if (!hasAnyAudio && exactSceneDuration > 5) {
-                    exactSceneDuration = 5;
                 }
 
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;
