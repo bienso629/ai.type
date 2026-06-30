@@ -261,6 +261,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
     if (data.editorLayout && data.editorLayout.nodes && data.editorLayout.connections) {
        this.nodes = data.editorLayout.nodes;
+       this.nodes.forEach(node => {
+           if (node.data) {
+               node.data.isGenerating = false;
+               node.data.isGeneratingAudio = false;
+           }
+       });
        this.connections = data.editorLayout.connections;
        
        // Sync backend data back into nodes
@@ -1118,6 +1124,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
              const nCopy = JSON.parse(JSON.stringify(n));
              if (nCopy.data) {
                  delete nCopy.data.projectCharacters;
+                 delete nCopy.data.isGenerating;
+                 delete nCopy.data.isGeneratingAudio;
                  // Chỉ strip media URLs nếu node có liên kết với scene
                  if (nCopy.data.sceneIndex !== undefined && nCopy.data.sceneIndex !== null) {
                      delete nCopy.data.sceneData;
@@ -1403,7 +1411,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                         // Nếu bật kế thừa khung hình cảnh trước, thêm ảnh đó vào prompt cho Gemini (Image-to-Image / Context)
                         if (nodesMapping[i].data?.sceneData?.videos?.[0]?.usePreviousSceneFrame) {
                             try {
-                                const prevNode = this.nodes.find(x => x.type === 'video' && x.data?.sceneIndex === nodesMapping[i].data.sceneIndex - 1);
+                                let prevNode = null;
+                                const incomingConnection = this.connections.find(c => c.toNode === nodesMapping[i].id);
+                                if (incomingConnection) {
+                                    prevNode = this.nodes.find(n => n.id === incomingConnection.fromNode);
+                                }
+                                if (!prevNode || prevNode.type !== 'video') {
+                                    prevNode = this.nodes.find(x => x.type === 'video' && x.data?.sceneIndex === nodesMapping[i].data.sceneIndex - 1);
+                                }
                                 let previousUrl = prevNode?.data?.imageUrl || prevNode?.data?.thumbnailUrl;
                                 
                                 // Nếu cảnh trước là video, ưu tiên gọi extractLastFrame
@@ -1504,9 +1519,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                                 if (saveResult && saveResult.success) {
                                     const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
                                     nodesMapping[i].data.imageUrl = localPath;
+                                    nodesMapping[i].data.isVideo = false;
+                                    nodesMapping[i].data.videoUrl = null;
                                     
                                     if (nodesMapping[i].data.sceneData) {
                                         nodesMapping[i].data.sceneData.imageUrl = localPath;
+                                        if (nodesMapping[i].data.sceneData.videos) {
+                                            nodesMapping[i].data.sceneData.videos[0].videoUrl = null;
+                                            nodesMapping[i].data.sceneData.videos[0].imageUrl = localPath;
+                                        }
                                     }
 
                                     if (electron.createThumbnail) {
@@ -1701,6 +1722,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                               if (saveResult && saveResult.success) {
                                   const localPath = `file://${saveResult.path.replace(/\\/g, '/')}`;
                                   nodesMapping[i].data.imageUrl = localPath;
+                                  nodesMapping[i].data.isVideo = false;
+                                  nodesMapping[i].data.videoUrl = null;
+                                  
+                                  if (nodesMapping[i].data.sceneData) {
+                                      nodesMapping[i].data.sceneData.imageUrl = localPath;
+                                      if (nodesMapping[i].data.sceneData.videos) {
+                                          nodesMapping[i].data.sceneData.videos[0].videoUrl = null;
+                                          nodesMapping[i].data.sceneData.videos[0].imageUrl = localPath;
+                                      }
+                                  }
                                   
                                   // Tạo thumbnail file
                                   if (electron.createThumbnail) {
@@ -2051,11 +2082,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           videoObj.usePreviousSceneFrame = !videoObj.usePreviousSceneFrame;
           
           if (videoObj.usePreviousSceneFrame) {
+              let prevNode = null;
               const incomingConn = this.connections.find(c => c.toNode === this.selectedNode!.id);
-              const prevNode = incomingConn ? this.nodes.find(x => x.id === incomingConn.fromNode) : null;
+              if (incomingConn) {
+                  prevNode = this.nodes.find(x => x.id === incomingConn.fromNode);
+              }
+              if (!prevNode || prevNode.type !== 'video') {
+                  prevNode = this.nodes.find(x => x.type === 'video' && x.data?.sceneIndex === this.selectedNode!.data.sceneIndex - 1);
+              }
               
               let previousVideoUrl = prevNode?.data?.videoUrl || prevNode?.data?.sceneData?.videos?.[0]?.videoUrl;
-              let previousImageUrl = prevNode?.data?.imageUrl || prevNode?.data?.thumbnailUrl;
+              let previousImageUrl = prevNode?.data?.imageUrl || prevNode?.data?.thumbnailUrl || prevNode?.data?.sceneData?.imageUrl;
               
               let finalUrl = '';
 
@@ -2872,21 +2909,28 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     dialogRef.afterClosed().subscribe((result) => {
       if (result && result.prompt !== undefined) {
         let currentPrompt = promptText;
-        currentPrompt = currentPrompt.replace(/\[(?:Director|Cinematography):.*?\]/g, '').replace(/\n{3,}/g, '\n\n').trim();
+        currentPrompt = currentPrompt.replace(/[\[\(](?:Director|Cinematography):.*?[\]\)]/g, '').replace(/\n{3,}/g, '\n\n').trim();
 
         if (result.prompt) {
           if (currentPrompt) {
-            currentPrompt = '[Cinematography: ' + result.prompt + ']\n\n' + currentPrompt;
+            currentPrompt = '(Cinematography: ' + result.prompt + ')\n\n' + currentPrompt;
           } else {
-            currentPrompt = '[Cinematography: ' + result.prompt + ']';
+            currentPrompt = '(Cinematography: ' + result.prompt + ')';
           }
         }
         
         if (this.selectedNode) {
-            this.updatePrompt(currentPrompt);
+            this.selectedNode.data.prompt = currentPrompt;
+            if (this.selectedNode.data.sceneData) {
+                this.selectedNode.data.sceneData.prompt = currentPrompt;
+                this.selectedNode.data.sceneData.visualPrompt = currentPrompt;
+            }
+            this.saveProject();
+            this.selectNode(this.selectedNode);
         } else if (this.projectData) {
             this.projectData.masterPrompt = currentPrompt;
             this.saveProject();
+            this.selectNode({ id: 'master', type: 'master' } as any);
         }
       }
     });
