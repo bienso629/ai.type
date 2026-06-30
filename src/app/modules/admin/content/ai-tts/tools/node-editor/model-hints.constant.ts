@@ -42,7 +42,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "text-to-sound-v2": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "ttts": {
     "text": true,
@@ -51,7 +51,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "Qwen-Qwen-Image": {
     "text": true,
-    "max_images": 1,
+    "max_images": 0,
     "max_videos": 0
   },
   "Qwen-Qwen-Image-Edit": {
@@ -61,12 +61,12 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "Wan-AI-Wan2.7-Image": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "doubao-seedream": {
     "text": true,
-    "max_images": 1,
+    "max_images": 14,
     "max_videos": 0
   },
   "flux-2-pro": {
@@ -86,17 +86,17 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "gemini-2.5-flash-image": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "gemini-3-pro-image": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "gemini-3.1-flash-image": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "gpt-image-1": {
@@ -121,7 +121,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "midjourney": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "stepfun-ai-step1x-edit": {
@@ -131,7 +131,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "claude_compatible": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "deepseek": {
@@ -182,7 +182,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "gemini-embedding-2": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "gemini-media-analysis": {
     "text": true,
@@ -191,7 +191,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "gemini_compatible": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "model-competi": {
@@ -201,13 +201,13 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   },
   "openai_compatible": {
     "text": true,
-    "max_images": 1,
+    "max_images": 5,
     "max_videos": 0
   },
   "qwen-mt": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "rerank": {
     "text": true,
@@ -222,12 +222,12 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "volce-asset": {
     "text": false,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "HappyHorse-1.0-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "HappyHorse-1.0-R2V": {
     "text": true,
@@ -237,7 +237,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "HappyHorse-1.0-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "HappyHorse-1.0-Video-Edit": {
     "text": true,
@@ -247,7 +247,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "Kling-O1": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Kling-O3": {
     "text": true,
@@ -257,14 +257,19 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "Kling-v2.6-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Kling-v2.6-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Kling-v3": {
+    "text": true,
+    "max_images": 1,
+    "max_videos": 1
+  },
+  "kling-v3-omni": {
     "text": true,
     "max_images": 1,
     "max_videos": 1
@@ -277,7 +282,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "MiniMax-Hailuo-02": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "MiniMax-Hailuo-2.3-Fast": {
     "text": true,
@@ -287,47 +292,47 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "MiniMax-Hailuo-2.3-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "MiniMax-Hailuo-2.3-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "OpenAI-Sora-2": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "OpenAI-Sora2-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "OpenAI-Sora2-I2V-Pro": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "OpenAI-Sora2-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "OpenAI-Sora2-T2V-Pro": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Pixverse-v6": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Veo-3.1": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Vidu-Extend": {
     "text": true,
@@ -337,7 +342,7 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "Vidu-Img2Video": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Vidu-LipSync": {
     "text": true,
@@ -362,32 +367,32 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "Vidu-Text2Video": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Wan-AI-Wan2.2-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Wan-AI-Wan2.2-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Wan-AI-Wan2.5-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Wan-AI-Wan2.5-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Wan-AI-Wan2.6-I2V": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "Wan-AI-Wan2.6-R2V": {
     "text": true,
@@ -402,16 +407,16 @@ export const MODEL_HINTS: Record<string, {text: boolean, max_images: number, max
   "Wan-AI-Wan2.6-T2V": {
     "text": true,
     "max_images": 0,
-    "max_videos": 1
+    "max_videos": 0
   },
   "doubao-seedance-1-5-pro-251215": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   },
   "doubao-seedance-2-0-260128": {
     "text": true,
     "max_images": 1,
-    "max_videos": 1
+    "max_videos": 0
   }
 };

@@ -1235,7 +1235,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             - 🎯 KIÊN ĐỊNH PHONG CÁCH: Khi miêu tả phong cách ở Master Prompt, hãy xác định MỘT phong cách duy nhất và kiên định với nó. TUYỆT ĐỐI KHÔNG sử dụng văn phong lựa chọn kiểu "hoặc thế này hoặc thế kia".
             - 🖼️ BẢO TOÀN KHUNG TRUYỆN: (Nếu là truyện tranh) BẮT BUỘC nhắc lại quy cách khung viền thống nhất ở mọi trang.
             - 🚫 TUYỆT ĐỐI KHÔNG CÓ CHỮ (NO TEXT): Không yêu cầu có chữ viết, bảng hiệu, logo trong hình. Hình ảnh phải hoàn toàn sạch.
-            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. Bạn phải tự tưởng tượng một cảnh hành động như vậy tốn bao nhiêu giây trong thực tế để gán số (ví dụ: 2, 3.5, 5). KHÔNG cộng dồn thời gian một cách vô lý.
+            - ⏱️ THỜI LƯỢNG CẢNH (estimatedDuration): BẮT BUỘC NẾU toàn bộ các ID trong scene đều mang trạng thái là NO_AUDIO. Bạn phải tự tưởng tượng một cảnh hành động như vậy tốn bao nhiêu giây trong thực tế để gán số (ví dụ: 2, 3, 4.5). TUYỆT ĐỐI KHÔNG vượt quá 5 giây cho các cảnh hành động (nếu hành động rất nhỏ, chỉ cho 2-3s). KHÔNG cộng dồn thời gian vô lý.
             - GIỮ NGUYÊN THỨ TỰ thoại, không bỏ sót ID nào.
 
             DỮ LIỆU ĐẦU VÀO:
@@ -1355,6 +1355,11 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     // Không lấy estimatedDuration từ AI để đảm bảo khớp tổng thời gian
                 } else if (!hasAnyAudio && scene.estimatedDuration) {
                     exactSceneDuration = scene.estimatedDuration;
+                }
+                
+                // GIỚI HẠN CỨNG: Nếu không có âm thanh (không có thoại), một cảnh hành động không nên quá 5s
+                if (!hasAnyAudio && exactSceneDuration > 5) {
+                    exactSceneDuration = 5;
                 }
 
                 const roundedDuration = Math.round(exactSceneDuration * 10) / 10;

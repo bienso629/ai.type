@@ -1594,7 +1594,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.filteredModels = [...this.availableModels];
     } else {
       const lowerQuery = query.toLowerCase();
-      this.filteredModels = this.availableModels.filter(m => m.toLowerCase().includes(lowerQuery));
+      const matchedFromApi = this.availableModels.filter(m => m.toLowerCase().includes(lowerQuery));
+      
+      // Auto-suggest models that have hints (i.e. documented) even if not in API yet
+      const matchedFromHints = Object.keys(MODEL_HINTS).filter(hintKey => 
+          hintKey.toLowerCase().includes(lowerQuery) && 
+          !this.availableModels.some(m => m.toLowerCase() === hintKey.toLowerCase())
+      );
+      
+      this.filteredModels = [...matchedFromApi, ...matchedFromHints];
     }
     this.filteredModelGroups = this.groupModels(this.filteredModels);
   }
@@ -1629,6 +1637,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   onModelSelected(model: string) {
     this.selectedModel = model;
     localStorage.setItem('ai_type_selected_model', model);
+  }
+
+  toggleUsePreviousFrame() {
+      if (this.selectedNode && this.selectedNode.type === 'video' && this.selectedNode.data) {
+          if (!this.selectedNode.data.sceneData) return;
+          if (!this.selectedNode.data.sceneData.videos || this.selectedNode.data.sceneData.videos.length === 0) return;
+          
+          const videoObj = this.selectedNode.data.sceneData.videos[0];
+          videoObj.usePreviousSceneFrame = !videoObj.usePreviousSceneFrame;
+          this.saveProject();
+      }
   }
 
   attachedFiles: { file: File, base64: string, mimeType: string, url: string }[] = [];
