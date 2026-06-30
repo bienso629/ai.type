@@ -1,6 +1,7 @@
 <div class="w-full h-full relative overflow-auto bg-white select-none" #workspace 
      (mousedown)="onWorkspaceMouseDown($event)" 
      (wheel)="onWheel($event)"
+     (scroll)="onWorkspaceScroll($event)"
      (contextmenu)="onWorkspaceContextMenu($event)"
      [style.background-image]="'radial-gradient(circle, #e2e8f0 1px, transparent 1px)'"
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"

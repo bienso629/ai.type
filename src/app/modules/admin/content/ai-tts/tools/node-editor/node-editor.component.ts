@@ -303,6 +303,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
        }
        
        this.calculateCanvasSize();
+       
+       if (data.editorLayout.scrollLeft !== undefined && data.editorLayout.scrollTop !== undefined) {
+           setTimeout(() => {
+               if (this.workspace && this.workspace.nativeElement) {
+                   this.workspace.nativeElement.scrollLeft = data.editorLayout.scrollLeft;
+                   this.workspace.nativeElement.scrollTop = data.editorLayout.scrollTop;
+               }
+           }, 100);
+       }
+       
        return;
     }
 
@@ -1118,10 +1128,20 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
          this.projectData.editorLayout = {
              nodes: strippedNodes,
-             connections: JSON.parse(JSON.stringify(this.connections))
+             connections: JSON.parse(JSON.stringify(this.connections)),
+             scrollLeft: this.workspace?.nativeElement?.scrollLeft || 0,
+             scrollTop: this.workspace?.nativeElement?.scrollTop || 0
          };
          this.saveProject();
      }
+  }
+  
+  onWorkspaceScroll(event: Event) {
+      if (this.projectData && this.projectData.editorLayout) {
+          this.projectData.editorLayout.scrollLeft = this.workspace.nativeElement.scrollLeft;
+          this.projectData.editorLayout.scrollTop = this.workspace.nativeElement.scrollTop;
+          this.saveProject();
+      }
   }
 
   selectNode(node: NodeItem) {
