@@ -126,7 +126,9 @@
                                         <select [ngModel]="node.data.videoSpeed || 1" 
                                                 (ngModelChange)="changeVideoSpeed(node, $event, videoEl)"
                                                 class="bg-gray-800 text-gray-300 text-[9px] font-mono border-0 rounded px-0.5 py-0 outline-none cursor-pointer hover:bg-gray-750 transition-colors">
-                                            <option *ngFor="let s of [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]" [value]="s">x{{ s }}</option>
+                                            <option *ngFor="let s of [-5, -4.5, -4, -3.5, -3, -2.5, -2, -1.5, -1, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]" [value]="s">
+                                                {{ s < 0 ? '-x' + (-s) : 'x' + s }}
+                                            </option>
                                         </select>
                                     </div>
                                 </div>
