@@ -112,13 +112,14 @@
                                       <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" />
                                     </svg>
                                 </div>
+                            </div>
                                          <!-- Hover Video Timeline Slider -->
                             <div *ngIf="hoveredNode === node && node.data?.isVideo && (node.data?.videoUrl || node.data?.imageUrl)" 
                                  class="absolute bottom-1.5 left-1.5 right-1.5 bg-black/80 backdrop-blur-md rounded-lg py-1 px-1.5 flex flex-col z-50 pointer-events-auto shadow-lg"
                                  (mousedown)="$event.stopPropagation()">
                                 <div class="flex items-center justify-between text-[9px] font-mono text-gray-300 mb-0.5 select-none px-0.5">
                                     <span>Start: <b>{{ (node.data.videoStart !== undefined ? node.data.videoStart : 0) | number:'1.1-1' }}s</b></span>
-                                    <span class="text-teal-400 font-bold">Dur: {{ (node.data.sceneData?.forcedDuration || 5) | number:'1.1-1' }}s</span>
+                                    <span>Dur: <b>{{ (node.data.sceneData?.forcedDuration || 5) | number:'1.1-1' }}s</b></span>
                                     <span>End: <b>{{ (node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) | number:'1.1-1' }}s</b></span>
                                     <div class="flex items-center space-x-1 ml-1">
                                         <span class="text-gray-400">Speed:</span>
@@ -131,21 +132,21 @@
                                 </div>
                                 
                                 <!-- Track Slider Container -->
-                                <div class="relative h-1.5 bg-gray-700/50 hover:bg-gray-700/80 rounded-full flex items-center cursor-pointer select-none transition-colors"
+                                <div class="relative h-2 bg-gray-700/50 hover:bg-gray-700/80 rounded-full flex items-center cursor-pointer select-none transition-colors"
                                      #trackEl 
                                      (mousedown)="onTimelineTrackMouseDown($event, node, trackEl, videoEl)">
                                      
                                      <!-- Range Track Highlight -->
-                                     <div class="absolute h-0.75 bg-teal-400 rounded-full transition-all" 
+                                     <div class="absolute h-full bg-emerald-500 rounded-full transition-all" 
                                           [style.left.%]="((node.data.videoStart || 0) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100" 
                                           [style.right.%]="100 - ((node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100">
+                                          
+                                          <!-- Playhead indicator (Cyan round ball) inside green track highlight -->
+                                          <div class="absolute w-1.5 h-1.5 bg-cyan-300 rounded-full pointer-events-none top-1/2 -translate-y-1/2 shadow"
+                                               [style.left]="'calc(1.5px + ' + (getPlayheadPercentInsideGreen(node, videoEl) / 100) + ' * (100% - 9px))'">
+                                          </div>
                                      </div>
  
-                                     <!-- Playhead indicator (Red round ball) -->
-                                     <div class="absolute w-2 h-2 bg-red-500 rounded-full pointer-events-none -ml-1 top-1/2 -translate-y-1/2 shadow"
-                                          [style.left.%]="getPlayheadPercent(node, videoEl)">
-                                     </div>
-                                     
                                      <!-- Start Handle (Invisible Drag Zone) -->
                                      <div class="absolute w-4 h-full bg-transparent cursor-ew-resize -ml-2 z-10"
                                           [style.left.%]="((node.data.videoStart || 0) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100"
