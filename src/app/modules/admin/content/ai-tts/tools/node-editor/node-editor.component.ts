@@ -1118,7 +1118,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.saveProjectTimeout = setTimeout(() => {
       const storageKey = `ai_type_video_ready_data_${this.uuid}`;
       this.multiAccountService.setItem(storageKey, this.projectData);
-    }, 3000);
+    }, 10000);
   }
 
   saveEditorState() {

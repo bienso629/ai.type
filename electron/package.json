@@ -1,11 +1,11 @@
 {
     "name": "typing",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "description": "ứng dụng quản lý công việc và tạo nội dung mạnh mẽ",
     "main": "dist/main.js",
     "scripts": {
         "dev": "nodemon --watch src --exec electron --no-sandbox src/main.js",
-        "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json",
+        "obfuscate": "javascript-obfuscator src/main.js --output dist/main.js --config .obfuscatorrc.json && javascript-obfuscator src/export-import-project.js --output dist/export-import-project.js --config .obfuscatorrc.json && mkdir -p dist/type-lite && javascript-obfuscator src/type-lite --output dist/type-lite --config .obfuscatorrc.json && cp -r src/type-lite/views dist/type-lite/",
         "build:win": "npm run obfuscate && electron-builder --win -p always",
         "build:mac": "npm run obfuscate && electron-builder --mac",
         "build:linux": "npm run obfuscate && electron-builder --linux",
@@ -21,6 +21,7 @@
         "files": [
             "dist/main.js",
             "dist/export-import-project.js",
+            "dist/type-lite/**/*",
             "preload.js",
             "fallback/**/*",
             "icons/**/*",
@@ -31,7 +32,6 @@
             "ffmpeg-*",
             "yt-dlp-*",
             "edge-tts-*",
-            "type-lite-*",
             "crm/**/*",
             {
                 "from": "bin",
@@ -123,6 +123,7 @@
         "https": "^1.0.0",
         "kill-port": "^2.0.1",
         "lodash": "^4.17.23",
+        "mime-types": "^3.0.2",
         "minimist": "^1.2.8",
         "msedge-tts": "^2.0.3",
         "node-cache": "^5.1.2",
@@ -139,11 +140,13 @@
         "puppeteer-extra-plugin-user-data-dir": "^2.4.1",
         "random-useragent": "^0.5.0",
         "rcedit": "^4.0.1",
+        "request": "^2.88.2",
         "stream": "^0.0.3",
         "sync-request": "^6.1.0",
         "url": "^0.11.4",
         "util": "^0.12.5",
-        "ws": "^8.18.3"
+        "ws": "^8.18.3",
+        "xml2js": "^0.6.2"
     },
     "devDependencies": {
         "@babel/cli": "^7.24.5",

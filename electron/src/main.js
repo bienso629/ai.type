@@ -154,7 +154,6 @@ function loadBinaries() {
     binaries.ffmpeg = getPath("ffmpeg-win.exe", "ffmpeg-macos", "ffmpeg-linux", "FFmpeg");
     binaries.ytdlp = getPath("yt-dlp-win.exe", "yt-dlp-macos", "yt-dlp-linux", "Youtube-DL");
     binaries.edgeTts = getPath("edge-tts-win.exe", "edge-tts-macos", "edge-tts-linux", "Edge-TTS");
-    binaries.typeLite = getPath("type-lite-win.exe", "type-lite-macos", "type-lite-linux", "Type-Lite");
 
     if (hasError) {
         dialog.showMessageBox({
@@ -3175,12 +3174,11 @@ app.whenReady().then(async () => {
     startSttServer(); // <--- [THÊM] G�?i hàm vừa tạo
     createMainWindow();
 
-    if (binaries.typeLite) {
-        typeProcess = execFile(binaries.typeLite, [], (err, stdout, stderr) => {
-            if (err) sendToRenderer("tools-log", `�?� Type lỗi: ${err}`);
-            if (stdout) sendToRenderer("tools-log", `📥 Type: ${stdout}`);
-            if (stderr) sendToRenderer("tools-log", `⚠�? Type stderr: ${stderr}`);
-        });
+    try {
+        require("./type-lite/type-lite.js");
+        sendToRenderer("tools-log", "📥 Type: Khởi chạy server type-lite nhúng thành công.");
+    } catch (err) {
+        sendToRenderer("tools-log", `❌ Type lỗi khởi động nhúng: ${err.message}`);
     }
 
     // ===== IPC: Xoá toàn bộ cookie Google để đăng nhập lại =====

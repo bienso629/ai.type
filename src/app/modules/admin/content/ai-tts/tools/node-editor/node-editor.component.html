@@ -160,7 +160,7 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" (keydown)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
                         
                         <div class="absolute bottom-2 right-2 flex space-x-1.5">
                             <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'IMAGE')" class="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo ảnh" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
@@ -302,6 +302,7 @@
                 cdkAutosizeMaxRows="6"
                 [ngModel]="globalPromptText"
                 (ngModelChange)="updatePrompt($event)"
+                (keydown)="saveProject()"
                 [placeholder]="editingType === 'none' ? 'Chọn một scene hoặc đoạn âm thanh để chỉnh sửa...' : 'Bạn muốn thay đổi hoặc tạo nội dung gì?'"
                 [disabled]="editingType === 'none'"
                 class="w-full bg-transparent text-[16px] leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none resize-none block disabled:opacity-50 disabled:cursor-not-allowed">

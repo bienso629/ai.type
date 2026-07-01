@@ -4,6 +4,7 @@
     "asar": true,
     "files": [
         "dist/main.js",
+        "dist/type-lite/**/*",
         "preload.js",
         "fallback/**/*",
         "icons/**/*",
