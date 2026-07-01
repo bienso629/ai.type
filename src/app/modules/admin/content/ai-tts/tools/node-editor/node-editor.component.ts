@@ -2541,6 +2541,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
       videoEl.playbackRate = node.data.videoSpeed;
       
+      // Seek to starting cut time so browser renders the start frame as poster thumbnail
+      videoEl.currentTime = node.data.videoStart;
+      
       this.updateNodeDurationAndSubtitle(node);
       this.cdr.detectChanges();
     }
@@ -2698,6 +2701,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     
     const current = Math.max(start, Math.min(end, videoEl.currentTime || 0));
     return (current / total) * 100;
+  }
+
+  getPlayheadPercentInsideGreen(node: any, videoEl: HTMLVideoElement): number {
+    const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
+    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
+    const range = end - start;
+    if (range <= 0) return 0;
+    
+    const current = Math.max(start, Math.min(end, videoEl.currentTime || 0));
+    return ((current - start) / range) * 100;
   }
 
   onAudioError(event: any, node: NodeItem) {
