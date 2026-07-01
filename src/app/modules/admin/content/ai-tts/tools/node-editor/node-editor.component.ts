@@ -944,6 +944,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               
               this.updateConnectionPaths();
               this.calculateCanvasSize();
+              this.autoStashDisconnectedAudios(true);
               this.saveEditorState();
               this.cdr.detectChanges();
           }
@@ -1013,6 +1014,28 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.saveEditorState();
     
     setTimeout(() => this.cdr.detectChanges(), 0);
+  }
+
+  autoStashDisconnectedAudios(silent: boolean = false) {
+      let stashedCount = 0;
+      this.nodes.forEach(n => {
+          if (n.type === 'tts') {
+              const hasConnection = this.connections.some(c => c.fromNode === n.id || c.toNode === n.id);
+              if (!hasConnection && n.data?.showOnCanvas) {
+                  n.data.showOnCanvas = false;
+                  stashedCount++;
+              }
+          }
+      });
+      if (stashedCount > 0) {
+          if (!silent) this.toastr.success(`Đã cất ${stashedCount} khối Audio chưa kết nối vào kho!`);
+          this.saveEditorState();
+          this.calculateCanvasSize();
+          this.cdr.detectChanges();
+      } else if (!silent) {
+          this.toastr.info('Không có khối Audio chưa kết nối nào trên bản vẽ.');
+      }
+      this.closeContextMenu();
   }
 
   get unusedAudioNodes(): NodeItem[] {
@@ -2885,7 +2908,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         this.cdr.detectChanges();
         
         setTimeout(() => {
-          node.data.videoUrl = 'file://' + res.path;
+          node.data.videoUrl = 'file://' + res.path + '?t=' + Date.now();
           node.data.isVideo = true;
           node.data.imageUrl = '';
           
@@ -3258,6 +3281,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               this.saveEditorState();
            }
            this.draggedConnection = null;
+           this.autoStashDisconnectedAudios(true);
         }
         
         if (this.draggedNode) {
