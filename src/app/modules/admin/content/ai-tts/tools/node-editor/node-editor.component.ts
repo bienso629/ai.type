@@ -572,6 +572,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const conn = this.connections[existingConnIndex];
       this.connections.splice(existingConnIndex, 1);
       
+      this.updateConnectionPaths();
+      
       const rect = this.workspace.nativeElement.getBoundingClientRect();
       const mouseX = (event.clientX - rect.left + this.workspace.nativeElement.scrollLeft) / this.scale;
       const mouseY = (event.clientY - rect.top + this.workspace.nativeElement.scrollTop) / this.scale;
@@ -603,6 +605,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
             if (toObj) {
                 toObj.inputs = toObj.inputs.filter(p => p !== conn.toPort);
             }
+            this.updateConnectionPaths();
         }
     }
     
@@ -2527,12 +2530,20 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     if (videoEl && videoEl.duration) {
       node.data.totalDuration = videoEl.duration;
       
-      // Initialize start and end if not defined
-      if (node.data.videoStart === undefined || node.data.videoStart === null) {
+      if (node.type === 'composition' || node.id === 'comp1' || node.id === 'comp_final' || node.subtitle === 'Final Output' || videoEl.duration > 20) {
         node.data.videoStart = 0;
-      }
-      if (node.data.videoEnd === undefined || node.data.videoEnd === null) {
         node.data.videoEnd = videoEl.duration;
+        node.data.sceneData = { forcedDuration: videoEl.duration };
+        node.subtitle = `${Math.round(videoEl.duration)}s`;
+        this.saveEditorState();
+      } else {
+        // Initialize start and end if not defined
+        if (node.data.videoStart === undefined || node.data.videoStart === null) {
+          node.data.videoStart = 0;
+        }
+        if (node.data.videoEnd === undefined || node.data.videoEnd === null) {
+          node.data.videoEnd = videoEl.duration;
+        }
       }
       
       // Initialize speed if not defined
@@ -2684,8 +2695,24 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   onVideoTimeUpdate(node: any, videoEl: HTMLVideoElement) {
+    if (node.type === 'composition' || node.id === 'comp1' || node.id === 'comp_final' || node.subtitle === 'Final Output' || (videoEl && videoEl.duration > 20)) {
+      if (videoEl && videoEl.duration && !isNaN(videoEl.duration)) {
+        if (node.data.totalDuration !== videoEl.duration || node.data.videoEnd !== videoEl.duration) {
+          node.data.totalDuration = videoEl.duration;
+          node.data.videoStart = 0;
+          node.data.videoEnd = videoEl.duration;
+          node.data.sceneData = { forcedDuration: videoEl.duration };
+          node.subtitle = `${Math.round(videoEl.duration)}s`;
+          this.cdr.detectChanges();
+          this.saveEditorState();
+        }
+      }
+      this.cdr.detectChanges();
+      return;
+    }
+
     const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
-    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration);
+    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
     
     if (videoEl.currentTime < start) {
       videoEl.currentTime = start;
@@ -2699,7 +2726,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   getPlayheadPercent(node: any, videoEl: HTMLVideoElement): number {
     const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
-    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
+    let end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
+    
+    if (node.type === 'composition' || node.id === 'comp1' || node.id === 'comp_final' || node.subtitle === 'Final Output' || (videoEl && videoEl.duration > 20)) {
+      end = videoEl.duration || (node.data.totalDuration || 5);
+    }
+    
     const total = node.data.totalDuration || node.data.sceneData?.forcedDuration || 5;
     
     const current = Math.max(start, Math.min(end, videoEl.currentTime || 0));
@@ -2708,12 +2740,175 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   getPlayheadPercentInsideGreen(node: any, videoEl: HTMLVideoElement): number {
     const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
-    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
+    let end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
+    
+    if (node.type === 'composition' || node.id === 'comp1' || node.id === 'comp_final' || node.subtitle === 'Final Output' || (videoEl && videoEl.duration > 20)) {
+      end = videoEl.duration || (node.data.totalDuration || 5);
+    }
+    
     const range = end - start;
     if (range <= 0) return 0;
     
     const current = Math.max(start, Math.min(end, videoEl.currentTime || 0));
     return ((current - start) / range) * 100;
+  }
+
+  getConnectedVideoNodes(compositionNodeId: string): any[] {
+    const visited = new Set<string>();
+    const tempVisited = new Set<string>();
+    const sortedNodes: any[] = [];
+    
+    const reachable = new Set<string>();
+    const queue = [compositionNodeId];
+    const backwardAdj = new Map<string, string[]>();
+    
+    this.connections.forEach(c => {
+      if (!backwardAdj.has(c.toNode)) {
+        backwardAdj.set(c.toNode, []);
+      }
+      backwardAdj.get(c.toNode)!.push(c.fromNode);
+    });
+    
+    let head = 0;
+    while (head < queue.length) {
+      const curr = queue[head++];
+      reachable.add(curr);
+      const parents = backwardAdj.get(curr) || [];
+      parents.forEach(p => {
+        if (!queue.includes(p)) {
+          queue.push(p);
+        }
+      });
+    }
+    
+    const forwardAdj = new Map<string, string[]>();
+    this.connections.forEach(c => {
+      if (reachable.has(c.fromNode) && reachable.has(c.toNode)) {
+        if (!forwardAdj.has(c.fromNode)) {
+          forwardAdj.set(c.fromNode, []);
+        }
+        forwardAdj.get(c.fromNode)!.push(c.toNode);
+      }
+    });
+    
+    const visit = (nodeId: string) => {
+      if (tempVisited.has(nodeId)) {
+        return;
+      }
+      if (!visited.has(nodeId)) {
+        tempVisited.add(nodeId);
+        const children = forwardAdj.get(nodeId) || [];
+        children.forEach(childId => visit(childId));
+        tempVisited.delete(nodeId);
+        visited.add(nodeId);
+        
+        const nodeObj = this.nodes.find(n => n.id === nodeId);
+        if (nodeObj && nodeId !== compositionNodeId && (nodeObj.type === 'video' || nodeObj.type === 'composition')) {
+          sortedNodes.unshift(nodeObj);
+        }
+      }
+    };
+    
+    const hasIncoming = new Set<string>();
+    this.connections.forEach(c => {
+      if (reachable.has(c.toNode)) {
+        hasIncoming.add(c.toNode);
+      }
+    });
+    
+    reachable.forEach(nodeId => {
+      if (!hasIncoming.has(nodeId)) {
+        visit(nodeId);
+      }
+    });
+    
+    reachable.forEach(nodeId => {
+      if (!visited.has(nodeId)) {
+        visit(nodeId);
+      }
+    });
+    
+    return sortedNodes;
+  }
+
+  async renderFinalOutput(node: any, event: MouseEvent) {
+    if (event) {
+      event.stopPropagation();
+      event.preventDefault();
+    }
+    
+    const videoNodes = this.getConnectedVideoNodes(node.id)
+      .filter(n => n.data?.videoUrl);
+      
+    if (videoNodes.length === 0) {
+      this.toastr.warning('Không tìm thấy video nào được kết nối đến khối Final Output. Hãy kết nối các khối video của bạn!');
+      return;
+    }
+    
+    const videosData = videoNodes.map(n => {
+      const connectedAudios = this.connections
+        .filter(c => c.toNode === n.id)
+        .map(c => this.nodes.find(nodeObj => nodeObj.id === c.fromNode))
+        .filter(nodeObj => nodeObj && nodeObj.type === 'tts' && nodeObj.data?.audioUrl)
+        .map(nodeObj => nodeObj.data.audioUrl);
+        
+      return {
+        videoUrl: n.data.videoUrl,
+        videoStart: n.data.videoStart !== undefined ? n.data.videoStart : 0,
+        videoEnd: n.data.videoEnd !== undefined ? n.data.videoEnd : (n.data.totalDuration || 5),
+        videoSpeed: n.data.videoSpeed || 1,
+        title: n.title || 'scene',
+        audios: connectedAudios
+      };
+    });
+    
+    node.data.isGenerating = true;
+    this.cdr.detectChanges();
+    this.toastr.info('Đang chuẩn bị render và ghép video...');
+    
+    try {
+      const res = await (window as any).electron.invoke('render-final-composition', {
+        projectTitle: this.projectData?.title || 'final_video',
+        projectUuid: this.uuid,
+        aspectRatio: this.projectData?.settings?.aspectRatio || '16:9',
+        videos: videosData
+      });
+      
+      node.data.isGenerating = false;
+      this.cdr.detectChanges();
+      
+      if (res && res.success) {
+        this.toastr.success('Ghép video thành công!');
+        
+        // Force the video element to reload by clearing it temporarily
+        node.data.videoUrl = '';
+        this.cdr.detectChanges();
+        
+        setTimeout(() => {
+          node.data.videoUrl = 'file://' + res.path;
+          node.data.isVideo = true;
+          node.data.imageUrl = '';
+          
+          // Clear any old boundaries so that the video element's duration determines them on load
+          delete node.data.totalDuration;
+          delete node.data.videoStart;
+          delete node.data.videoEnd;
+          
+          this.cdr.detectChanges();
+          this.saveEditorState();
+        }, 50);
+        
+        if (res.path) {
+          (window as any).electron.invoke('open-file-path', res.path);
+        }
+      } else {
+        this.toastr.error('Lỗi render: ' + (res?.error || 'Không rõ nguyên nhân'));
+      }
+    } catch (err: any) {
+      node.data.isGenerating = false;
+      this.cdr.detectChanges();
+      this.toastr.error('Lỗi ghép video: ' + err.message);
+    }
   }
 
   onAudioError(event: any, node: NodeItem) {
@@ -3058,10 +3253,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
              if (targetPort) {
                 this.createConnection(this.draggedConnection.fromNode, this.draggedConnection.fromPort, this.hoveredNode.id, targetPort);
              }
-          } else {
-             this.saveEditorState();
-          }
-          this.draggedConnection = null;
+           } else {
+              this.updateConnectionPaths();
+              this.saveEditorState();
+           }
+           this.draggedConnection = null;
         }
         
         if (this.draggedNode) {

@@ -100,6 +100,26 @@
                             <!-- Empty State -->
                             <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
                             
+                            <!-- Render Button / Loading Spinner for Composition -->
+                            <div *ngIf="node.type === 'composition' && selectedNode === node" 
+                                 class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] transition-opacity z-20">
+                                <div *ngIf="node.data.isGenerating" class="flex flex-col items-center justify-center text-teal-400">
+                                    <mat-icon class="icon-size-8 text-teal-400 animate-spin">refresh</mat-icon>
+                                    <span class="text-[10px] font-medium tracking-wide mt-2 text-teal-400">Đang xuất video...</span>
+                                </div>
+                                <div *ngIf="!node.data.isGenerating" class="relative w-16 h-16 flex items-center justify-center">
+                                    <!-- Ripple effect rings -->
+                                    <div class="absolute inset-0 rounded-full bg-teal-500/40 animate-ping pointer-events-none"></div>
+                                    <div class="absolute -inset-2 rounded-full bg-teal-500/20 animate-pulse pointer-events-none"></div>
+                                    
+                                    <button (click)="renderFinalOutput(node, $event)" 
+                                            class="absolute inset-0 rounded-full bg-teal-500 hover:bg-teal-400 text-white shadow-lg flex flex-col items-center justify-center transition-all hover:scale-110 active:scale-95 group/btn pointer-events-auto cursor-pointer border-0 z-10">
+                                        <mat-icon class="icon-size-6 text-white group-hover/btn:animate-pulse">movie</mat-icon>
+                                        <span class="text-[9px] font-bold uppercase tracking-wider mt-1 text-white">Render</span>
+                                    </button>
+                                </div>
+                            </div>
+                            
                             <!-- Play/Pause Overlay -->
                             <div *ngIf="node.data.isVideo && (node.data.videoUrl || node.data.imageUrl) && videoEl.paused" 
                                  class="absolute inset-0 flex items-center justify-center transition-colors pointer-events-none bg-black/10 hover:bg-black/20">
@@ -119,8 +139,8 @@
                                  (mousedown)="$event.stopPropagation()">
                                 <div class="flex items-center justify-between text-[9px] font-mono text-gray-300 mb-0.5 select-none px-0.5">
                                     <span>Start: <b>{{ (node.data.videoStart !== undefined ? node.data.videoStart : 0) | number:'1.1-1' }}s</b></span>
-                                    <span>Dur: <b>{{ (node.data.sceneData?.forcedDuration || 5) | number:'1.1-1' }}s</b></span>
-                                    <span>End: <b>{{ (node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) | number:'1.1-1' }}s</b></span>
+                                    <span>Dur: <b>{{ ((node.type === 'composition' || node.id === 'comp1' || node.id === 'comp_final' || node.subtitle === 'Final Output' || (videoEl && videoEl.duration > 20)) ? (node.data.totalDuration || videoEl.duration || 5) : (node.data.sceneData?.forcedDuration || 5)) | number:'1.1-1' }}s</b></span>
+                                    <span>End: <b>{{ (node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5)) | number:'1.1-1' }}s</b></span>
                                     <div class="flex items-center space-x-1 ml-1">
                                         <span class="text-gray-400">Speed:</span>
                                         <select [ngModel]="node.data.videoSpeed || 1" 
