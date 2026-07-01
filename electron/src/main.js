@@ -6154,8 +6154,9 @@ ipcMain.handle('render-final-composition', async (event, payload) => {
 
             await new Promise((resolve, reject) => {
                 const { spawn } = require('child_process');
+                console.log("SPAWNING FFMPEG WITH ARGS: ", args);
                 const child = spawn(ffmpegPath, args);
-                let errLog = "";
+                let errLog = "ARGS: " + JSON.stringify(args) + "\n";
                 child.stderr.on('data', (data) => { errLog += data.toString(); });
                 child.on('close', (code) => {
                     if (code === 0) resolve();
