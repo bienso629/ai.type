@@ -2539,7 +2539,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       if (node.data.videoSpeed === undefined || node.data.videoSpeed === null) {
         node.data.videoSpeed = 1;
       }
-      videoEl.playbackRate = node.data.videoSpeed;
+      const speed = node.data.videoSpeed;
+      videoEl.playbackRate = speed < 0 ? (1 / Math.abs(speed)) : speed;
       
       // Seek to starting cut time so browser renders the start frame as poster thumbnail
       videoEl.currentTime = node.data.videoStart;
@@ -2662,7 +2663,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const numSpeed = Number(speed) || 1;
     node.data.videoSpeed = numSpeed;
     if (videoEl) {
-      videoEl.playbackRate = numSpeed;
+      const actualSpeed = numSpeed < 0 ? (1 / Math.abs(numSpeed)) : numSpeed;
+      videoEl.playbackRate = actualSpeed;
     }
     this.updateNodeDurationAndSubtitle(node);
     this.saveProject();
@@ -2675,7 +2677,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const end = node.data.videoEnd !== undefined ? node.data.videoEnd : totalDur;
       const speed = node.data.videoSpeed || 1;
       
-      node.data.sceneData.forcedDuration = parseFloat(((end - start) / speed).toFixed(1));
+      const actualSpeed = speed < 0 ? (1 / Math.abs(speed)) : speed;
+      node.data.sceneData.forcedDuration = parseFloat(((end - start) / actualSpeed).toFixed(1));
       node.subtitle = `${Math.round(node.data.sceneData.forcedDuration)}s`;
     }
   }
