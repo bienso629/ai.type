@@ -2937,6 +2937,10 @@ app.whenReady().then(async () => {
             const params = new URLSearchParams(queryString);
             let originalPath = params.get('path') || '';
             originalPath = originalPath.replace(/^file:\/\//i, '');
+            if (originalPath.includes('?')) originalPath = originalPath.split('?')[0];
+            if (originalPath.includes('#')) originalPath = originalPath.split('#')[0];
+            if (originalPath.includes('?')) originalPath = originalPath.split('?')[0];
+            if (originalPath.includes('#')) originalPath = originalPath.split('#')[0];
             const mediaDir = params.get('dir') || '';
             const uuid = params.get('uuid') || 'default';
 
@@ -4645,6 +4649,37 @@ function cleanFilePath(fileUrl) {
     if (!fileUrl) return '';
     let p = fileUrl;
 
+    if (p.startsWith('media://')) {
+        p = p.substring(8);
+        if (p.toLowerCase().startsWith('auto_find/')) {
+            const rest = p.substring(10);
+            const parts = rest.split('/');
+            const uuid = parts[0];
+            const basename = parts.slice(1).join('/');
+            const docPath = app.getPath('documents');
+            p = require('path').join(docPath, 'ai.type', 'data', 'tts', 'admin', uuid, basename);
+        } else if (p.toLowerCase().startsWith('smart_find/')) {
+            // Very simplified smart_find resolver for safety
+            const queryString = p.substring(p.indexOf('?') + 1);
+            const params = new URLSearchParams(queryString);
+            let originalPath = params.get('path') || '';
+            originalPath = originalPath.replace(/^file:\/\//i, '');
+            if (originalPath.includes('?')) originalPath = originalPath.split('?')[0];
+            if (originalPath.includes('#')) originalPath = originalPath.split('#')[0];
+            p = originalPath;
+        } else {
+            if (p.startsWith('/')) p = p.substring(1);
+            const driveMatch = p.match(/^([a-zA-Z])(:?)\//);
+            if (driveMatch) {
+                const driveLetter = driveMatch[1].toUpperCase();
+                if (driveMatch[2] === ':') p = driveLetter + p.substring(1);
+                else p = driveLetter + ':' + p.substring(1);
+            } else {
+                p = '/' + p;
+            }
+        }
+    }
+
     if (p.startsWith('file://')) {
         try {
             const url = require('url');
@@ -4661,12 +4696,40 @@ function cleanFilePath(fileUrl) {
         p = decodeURIComponent(p); // Giải mã %20 thành dấu cách
     } catch (e) { }
 
-    // �?ổi gạch chéo thành gạch chéo ngược chuẩn của Windows
     if (process.platform === 'win32') {
         p = p.replace(/\//g, '\\');
     }
 
     return p;
+}
+
+
+async function checkAudioStream(filePath) {
+    const ffmpegCmd = binaries.ffmpeg || "ffmpeg";
+    try {
+        await execPromise(`"${ffmpegCmd}" -i "${filePath}"`);
+        return false;
+    } catch (e) {
+        return e.message.includes('Audio:');
+    }
+}
+
+function getAudioTempoFilter(speed) {
+    if (speed === 1) return 'atempo=1.0';
+    if (speed > 2.0) {
+        let filter = '';
+        let s = speed;
+        while (s > 2.0) { filter += 'atempo=2.0,'; s /= 2.0; }
+        filter += `atempo=${s}`;
+        return filter;
+    } else if (speed < 0.5) {
+        let filter = '';
+        let s = speed;
+        while (s < 0.5) { filter += 'atempo=0.5,'; s /= 0.5; }
+        filter += `atempo=${s}`;
+        return filter;
+    }
+    return `atempo=${speed}`;
 }
 
 async function getAudioDuration(filePath) {
@@ -6013,3 +6076,121 @@ ipcMain.on('open-crm', () => {
     crmWindow.loadURL('http://127.0.0.1:2929');
 });
 // --- K?T THÚC CRM SERVICES ---
+
+// =====================================================================
+// RENDER FINAL COMPOSITION
+// =====================================================================
+ipcMain.handle('render-final-composition', async (event, payload) => {
+    try {
+        const { projectTitle, projectUuid, aspectRatio, videos } = payload;
+        if (!videos || videos.length === 0) {
+            return { success: false, error: "Không có video nào để ghép." };
+        }
+
+        let targetWidth = 1920;
+        let targetHeight = 1080;
+        if (aspectRatio === '9:16') {
+            targetWidth = 1080;
+            targetHeight = 1920;
+        }
+
+        const ffmpegPath = binaries.ffmpeg || "ffmpeg";
+        const docPath = app.getPath('documents');
+        const workspaceDir = path.join(docPath, 'ai.type', 'data', 'exports', 'workspace', projectUuid);
+        const outputDir = path.join(docPath, 'ai.type', 'data', 'exports', 'output', projectUuid);
+
+        if (!fs.existsSync(workspaceDir)) fs.mkdirSync(workspaceDir, { recursive: true });
+        if (!fs.existsSync(outputDir)) fs.mkdirSync(outputDir, { recursive: true });
+
+        // Generate safe output name
+        const safeTitle = (projectTitle || 'Untitled').replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const finalOutputPath = path.join(outputDir, `${safeTitle}_final.mp4`);
+
+        let finalAudioListContent = "ffconcat version 1.0\n";
+        const sceneFiles = [];
+        
+        for (let i = 0; i < videos.length; i++) {
+            const video = videos[i];
+            const cleanPath = cleanFilePath(video.videoUrl || video.src);
+            const partPath = path.join(workspaceDir, `final_scene_${i}.mp4`);
+            sceneFiles.push(partPath);
+
+            const actualSpeed = video.playbackRate || 1.0;
+            const hasAudio = await checkAudioStream(cleanPath);
+            let args = [];
+
+            const scalePadFilter = `scale=${targetWidth}:${targetHeight}:force_original_aspect_ratio=decrease,pad=${targetWidth}:${targetHeight}:(ow-iw)/2:(oh-ih)/2,fps=30,format=yuv420p`;
+
+            if (hasAudio) {
+                const atempoFilter = getAudioTempoFilter(actualSpeed);
+                args = [
+                    '-y',
+                    '-ss', video.videoStart.toString(),
+                    '-to', video.videoEnd.toString(),
+                    '-i', cleanPath,
+                    '-filter_complex', `[0:v]setpts=${1/actualSpeed}*PTS,${scalePadFilter}[v];[0:a]${atempoFilter}[a]`,
+                    '-map', '[v]',
+                    '-map', '[a]',
+                    '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
+                    '-c:a', 'aac', '-b:a', '128k',
+                    partPath
+                ];
+            } else {
+                args = [
+                    '-y',
+                    '-ss', video.videoStart.toString(),
+                    '-to', video.videoEnd.toString(),
+                    '-i', cleanPath,
+                    '-f', 'lavfi', '-i', 'anullsrc=channel_layout=stereo:sample_rate=44100',
+                    '-filter_complex', `[0:v]setpts=${1/actualSpeed}*PTS,${scalePadFilter}[v]`,
+                    '-map', '[v]',
+                    '-map', '1:a',
+                    '-c:v', 'libx264', '-crf', '23', '-preset', 'fast',
+                    '-c:a', 'aac',
+                    '-shortest',
+                    partPath
+                ];
+            }
+
+            await new Promise((resolve, reject) => {
+                const { spawn } = require('child_process');
+                const child = spawn(ffmpegPath, args);
+                let errLog = "";
+                child.stderr.on('data', (data) => { errLog += data.toString(); });
+                child.on('close', (code) => {
+                    if (code === 0) resolve();
+                    else reject(new Error(`Failed to encode scene ${i}: ${errLog}`));
+                });
+            });
+
+            finalAudioListContent += `file '${partPath}'\n`;
+        }
+
+        const concatListPath = path.join(workspaceDir, 'final_concat.txt');
+        fs.writeFileSync(concatListPath, finalAudioListContent, 'utf-8');
+
+        // Concat the scenes
+        const concatArgs = [
+            '-y',
+            '-f', 'concat',
+            '-safe', '0',
+            '-i', concatListPath,
+            '-c', 'copy',
+            finalOutputPath
+        ];
+
+        await new Promise((resolve, reject) => {
+            const { spawn } = require('child_process');
+            const child = spawn(ffmpegPath, concatArgs);
+            child.on('close', (code) => {
+                if (code === 0) resolve();
+                else reject(new Error(`Failed to concat final video`));
+            });
+        });
+
+        return { success: true, path: finalOutputPath };
+
+    } catch (error) {
+        return { success: false, error: error.message };
+    }
+});
