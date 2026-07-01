@@ -92,7 +92,7 @@
 
                         <div (dblclick)="onNodeVisualDoubleClick($event, node)" class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}" [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating" [ngClass]="{'!bg-teal-100': node.data?.isGenerating}">
                             <!-- Video Element -->
-                            <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused"></video>
+                            <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover" [controls]="!videoEl.paused" (loadedmetadata)="onVideoLoaded(node, videoEl)" (timeupdate)="onVideoTimeUpdate(node, videoEl)"></video>
                             
                             <!-- Image Fallback -->
                             <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-full h-full object-contain pointer-events-none" />
@@ -111,6 +111,52 @@
                                     <svg *ngIf="videoEl.paused" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" class="w-6 h-6 ml-1">
                                       <path fill-rule="evenodd" d="M4.5 5.653c0-1.426 1.529-2.33 2.779-1.643l11.54 6.348c1.295.712 1.295 2.573 0 3.285L7.28 19.991c-1.25.687-2.779-.217-2.779-1.643V5.653z" clip-rule="evenodd" />
                                     </svg>
+                                </div>
+                                         <!-- Hover Video Timeline Slider -->
+                            <div *ngIf="hoveredNode === node && node.data?.isVideo && (node.data?.videoUrl || node.data?.imageUrl)" 
+                                 class="absolute bottom-1.5 left-1.5 right-1.5 bg-black/80 backdrop-blur-md rounded-lg py-1 px-1.5 flex flex-col z-50 pointer-events-auto shadow-lg"
+                                 (mousedown)="$event.stopPropagation()">
+                                <div class="flex items-center justify-between text-[9px] font-mono text-gray-300 mb-0.5 select-none px-0.5">
+                                    <span>Start: <b>{{ (node.data.videoStart !== undefined ? node.data.videoStart : 0) | number:'1.1-1' }}s</b></span>
+                                    <span class="text-teal-400 font-bold">Dur: {{ (node.data.sceneData?.forcedDuration || 5) | number:'1.1-1' }}s</span>
+                                    <span>End: <b>{{ (node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) | number:'1.1-1' }}s</b></span>
+                                    <div class="flex items-center space-x-1 ml-1">
+                                        <span class="text-gray-400">Speed:</span>
+                                        <select [ngModel]="node.data.videoSpeed || 1" 
+                                                (ngModelChange)="changeVideoSpeed(node, $event, videoEl)"
+                                                class="bg-gray-800 text-gray-300 text-[9px] font-mono border-0 rounded px-0.5 py-0 outline-none cursor-pointer hover:bg-gray-750 transition-colors">
+                                            <option *ngFor="let s of [1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5]" [value]="s">x{{ s }}</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                
+                                <!-- Track Slider Container -->
+                                <div class="relative h-1.5 bg-gray-700/50 hover:bg-gray-700/80 rounded-full flex items-center cursor-pointer select-none transition-colors"
+                                     #trackEl 
+                                     (mousedown)="onTimelineTrackMouseDown($event, node, trackEl, videoEl)">
+                                     
+                                     <!-- Range Track Highlight -->
+                                     <div class="absolute h-0.75 bg-teal-400 rounded-full transition-all" 
+                                          [style.left.%]="((node.data.videoStart || 0) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100" 
+                                          [style.right.%]="100 - ((node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100">
+                                     </div>
+ 
+                                     <!-- Playhead indicator (Red round ball) -->
+                                     <div class="absolute w-2 h-2 bg-red-500 rounded-full pointer-events-none -ml-1 top-1/2 -translate-y-1/2 shadow"
+                                          [style.left.%]="getPlayheadPercent(node, videoEl)">
+                                     </div>
+                                     
+                                     <!-- Start Handle (Invisible Drag Zone) -->
+                                     <div class="absolute w-4 h-full bg-transparent cursor-ew-resize -ml-2 z-10"
+                                          [style.left.%]="((node.data.videoStart || 0) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100"
+                                          (mousedown)="onHandleMouseDown($event, 'start', node, trackEl, videoEl)">
+                                     </div>
+                                     
+                                     <!-- End Handle (Invisible Drag Zone) -->
+                                     <div class="absolute w-4 h-full bg-transparent cursor-ew-resize -ml-2 z-10"
+                                          [style.left.%]="((node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) / (node.data.totalDuration || node.data.sceneData?.forcedDuration || 5)) * 100"
+                                          (mousedown)="onHandleMouseDown($event, 'end', node, trackEl, videoEl)">
+                                     </div>
                                 </div>
                             </div>
                         </div>

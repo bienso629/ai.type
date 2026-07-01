@@ -2523,6 +2523,183 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
   }
 
+  onVideoLoaded(node: any, videoEl: HTMLVideoElement) {
+    if (videoEl && videoEl.duration) {
+      node.data.totalDuration = videoEl.duration;
+      
+      // Initialize start and end if not defined
+      if (node.data.videoStart === undefined || node.data.videoStart === null) {
+        node.data.videoStart = 0;
+      }
+      if (node.data.videoEnd === undefined || node.data.videoEnd === null) {
+        node.data.videoEnd = videoEl.duration;
+      }
+      
+      // Initialize speed if not defined
+      if (node.data.videoSpeed === undefined || node.data.videoSpeed === null) {
+        node.data.videoSpeed = 1;
+      }
+      videoEl.playbackRate = node.data.videoSpeed;
+      
+      this.updateNodeDurationAndSubtitle(node);
+      this.cdr.detectChanges();
+    }
+  }
+
+  // Video timeline drag state variables
+  private activeDragNode: any = null;
+  private activeDragType: 'start' | 'end' | null = null;
+  private activeDragVideoEl: HTMLVideoElement | null = null;
+  private dragTrackWidth = 0;
+  private dragTrackLeft = 0;
+
+  onHandleMouseDown(event: MouseEvent, type: 'start' | 'end', node: any, trackEl: HTMLElement, videoEl: HTMLVideoElement) {
+    event.stopPropagation();
+    event.preventDefault();
+    this.activeDragNode = node;
+    this.activeDragType = type;
+    this.activeDragVideoEl = videoEl;
+    
+    const rect = trackEl.getBoundingClientRect();
+    this.dragTrackWidth = rect.width;
+    this.dragTrackLeft = rect.left;
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      this.handleTimelineDrag(moveEvent);
+    };
+    
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      this.activeDragNode = null;
+      this.activeDragType = null;
+      this.activeDragVideoEl = null;
+      this.saveProject();
+    };
+    
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  onTimelineTrackMouseDown(event: MouseEvent, node: any, trackEl: HTMLElement, videoEl: HTMLVideoElement) {
+    event.stopPropagation();
+    event.preventDefault();
+    
+    const rect = trackEl.getBoundingClientRect();
+    const clickX = event.clientX - rect.left;
+    const percentage = clickX / rect.width;
+    const totalDur = node.data.totalDuration || node.data.sceneData?.forcedDuration || 5;
+    const clickTime = percentage * totalDur;
+    
+    const distToStart = Math.abs(clickTime - (node.data.videoStart || 0));
+    const distToEnd = Math.abs(clickTime - (node.data.videoEnd !== undefined ? node.data.videoEnd : totalDur));
+    
+    const dragType = distToStart < distToEnd ? 'start' : 'end';
+    this.activeDragNode = node;
+    this.activeDragType = dragType;
+    this.activeDragVideoEl = videoEl;
+    this.dragTrackWidth = rect.width;
+    this.dragTrackLeft = rect.left;
+    
+    this.updateTimelineValue(event.clientX);
+    
+    const onMouseMove = (moveEvent: MouseEvent) => {
+      this.handleTimelineDrag(moveEvent);
+    };
+    
+    const onMouseUp = () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      this.activeDragNode = null;
+      this.activeDragType = null;
+      this.activeDragVideoEl = null;
+      this.saveProject();
+    };
+    
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+  }
+
+  private handleTimelineDrag(event: MouseEvent) {
+    if (!this.activeDragNode || !this.activeDragType) return;
+    this.updateTimelineValue(event.clientX);
+  }
+
+  private updateTimelineValue(clientX: number) {
+    const node = this.activeDragNode;
+    const type = this.activeDragType;
+    const totalDuration = node.data.totalDuration || node.data.sceneData?.forcedDuration || 5;
+    
+    let relativeX = clientX - this.dragTrackLeft;
+    relativeX = Math.max(0, Math.min(this.dragTrackWidth, relativeX));
+    const percentage = relativeX / this.dragTrackWidth;
+    let newTime = parseFloat((percentage * totalDuration).toFixed(1));
+    
+    if (type === 'start') {
+      const currentEnd = node.data.videoEnd !== undefined ? node.data.videoEnd : totalDuration;
+      newTime = Math.min(newTime, currentEnd - 0.5);
+      node.data.videoStart = Math.max(0, newTime);
+      if (this.activeDragVideoEl) {
+        this.activeDragVideoEl.currentTime = node.data.videoStart;
+      }
+    } else if (type === 'end') {
+      const currentStart = node.data.videoStart !== undefined ? node.data.videoStart : 0;
+      newTime = Math.max(newTime, currentStart + 0.5);
+      node.data.videoEnd = Math.min(totalDuration, newTime);
+      if (this.activeDragVideoEl) {
+        this.activeDragVideoEl.currentTime = node.data.videoEnd;
+      }
+    }
+    
+    this.updateNodeDurationAndSubtitle(node);
+    this.cdr.detectChanges();
+  }
+
+  changeVideoSpeed(node: any, speed: any, videoEl: HTMLVideoElement) {
+    const numSpeed = Number(speed) || 1;
+    node.data.videoSpeed = numSpeed;
+    if (videoEl) {
+      videoEl.playbackRate = numSpeed;
+    }
+    this.updateNodeDurationAndSubtitle(node);
+    this.saveProject();
+  }
+
+  updateNodeDurationAndSubtitle(node: any) {
+    if (node.data && node.data.sceneData) {
+      const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
+      const totalDur = node.data.totalDuration || node.data.sceneData?.forcedDuration || 5;
+      const end = node.data.videoEnd !== undefined ? node.data.videoEnd : totalDur;
+      const speed = node.data.videoSpeed || 1;
+      
+      node.data.sceneData.forcedDuration = parseFloat(((end - start) / speed).toFixed(1));
+      node.subtitle = `${Math.round(node.data.sceneData.forcedDuration)}s`;
+    }
+  }
+
+  onVideoTimeUpdate(node: any, videoEl: HTMLVideoElement) {
+    const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
+    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration);
+    
+    if (videoEl.currentTime < start) {
+      videoEl.currentTime = start;
+    }
+    if (videoEl.currentTime > end) {
+      videoEl.pause();
+      videoEl.currentTime = start;
+    }
+    this.cdr.detectChanges();
+  }
+
+  getPlayheadPercent(node: any, videoEl: HTMLVideoElement): number {
+    const start = node.data.videoStart !== undefined ? node.data.videoStart : 0;
+    const end = node.data.videoEnd !== undefined ? node.data.videoEnd : (node.data.totalDuration || videoEl.duration || 5);
+    const total = node.data.totalDuration || node.data.sceneData?.forcedDuration || 5;
+    
+    const current = Math.max(start, Math.min(end, videoEl.currentTime || 0));
+    return (current / total) * 100;
+  }
+
   onAudioError(event: any, node: NodeItem) {
       if (!node.data.audioUrl) return;
       console.error('Lỗi tải Audio:', event);
