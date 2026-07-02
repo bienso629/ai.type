@@ -536,9 +536,11 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domainOptions = result.data;
-                        this.selectedDomain = this.domainOptions[0]['domain'];
-                        this.cd.markForCheck();
+                    } else {
+                        this.domainOptions = [{ domain: 'https://type.vn' }] as any;
                     }
+                    this.selectedDomain = this.domainOptions[0]['domain'];
+                    this.cd.markForCheck();
                 },
                 error: () => {
                 },

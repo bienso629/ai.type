@@ -219,12 +219,14 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domainOptions = result.data;
-                        this.siteUrl = this.domainOptions[0]['domain'];
-                        // Lấy danh mục ngay khi có domain
-                        this.getCategories();
-
-                        this.cd.markForCheck();
+                    } else {
+                        this.domainOptions = [{ domain: 'https://type.vn' }] as any;
                     }
+                    this.siteUrl = this.domainOptions[0]['domain'];
+                    // Lấy danh mục ngay khi có domain
+                    this.getCategories();
+
+                    this.cd.markForCheck();
                 },
                 error: () => {
                 },

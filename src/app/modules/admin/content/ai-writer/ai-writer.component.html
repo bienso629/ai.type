@@ -947,7 +947,7 @@
                                         </div>
                                     </mat-expansion-panel>
 
-                                    <mat-expansion-panel [expanded]="expanded">
+                                    <mat-expansion-panel [expanded]="expanded" [style.display]="permissionVideo ? '' : 'none'">
                                         <mat-expansion-panel-header #panelPlaylistYoutube>
                                             <mat-panel-title (click)="panelPlaylistYoutube._toggle()"
                                                 class="flex flex-row items-center w-full">

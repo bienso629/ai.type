@@ -1224,8 +1224,12 @@ export class GenaiService {
                     }
                 };
             } else if (config.payloadFormat === 'flat') {
+                let actualModel = model;
+                if (actualModel.toLowerCase().includes('pixverse')) {
+                    actualModel = actualModel.toLowerCase();
+                }
                 payload = {
-                    model: model,
+                    model: actualModel,
                     ...inputPayload,
                     aspect_ratio: aspectRatio || '16:9',
                     duration: Math.ceil(duration || config.defaultDuration || 5),
@@ -1359,15 +1363,17 @@ export class GenaiService {
                     }
                 }
 
+                let sanitizedPrompt = prompt.replace(/\n/g, ' ').trim();
+                if (sanitizedPrompt.length > 800) sanitizedPrompt = sanitizedPrompt.substring(0, 800);
                 const inputPayload: any = {
-                    prompt: prompt
+                    prompt: sanitizedPrompt
                 };
                 if (firstFrameBase64Raw) inputPayload.first_frame_url = firstFrameBase64Raw;
                 if (lastFrameBase64Raw) inputPayload.last_frame_url = lastFrameBase64Raw;
                 if (imgUrlBase64Raw) inputPayload.img_url = imgUrlBase64Raw;
 
                 payload = {
-                    model: model,
+                    model: model.toLowerCase(),
                     input: inputPayload,
                     parameters: {
                         resolution: "720p",
@@ -1701,6 +1707,8 @@ export class GenaiService {
         }
 
         const candidateRequests: any[] = [
+            // [NEW] Thử lại các payload chuẩn xác của model đã tạo ở bước Async
+            ...candidateTaskRequests,
             // Option 0 (Đầy đủ & đa dạng): Đầy đủ các tham số và nhiều cách biểu diễn để tương thích tối đa
             {
                 model: model,

@@ -206,10 +206,10 @@ export class AIImageComponent
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domains = result.data;
-                        this.domain = this.domains[0];
                         this.alldomain = this.domains;
-                        this.cd.markForCheck();
                     }
+                    this.domain = this.domains[0];
+                    this.cd.markForCheck();
                 },
             });
     }
