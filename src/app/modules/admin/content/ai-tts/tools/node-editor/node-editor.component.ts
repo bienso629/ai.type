@@ -236,14 +236,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.filteredModelGroups = this.groupModels(this.filteredModels);
 
       const savedModel = localStorage.getItem('ai_type_selected_model');
-      if (savedModel && this.availableModels.includes(savedModel)) {
+      if (savedModel && (this.availableModels.includes(savedModel) || Object.keys(MODEL_HINTS).some(k => k.toLowerCase() === savedModel.toLowerCase()))) {
         this.selectedModel = savedModel;
       } else if (!this.availableModels.includes(this.selectedModel)) {
         this.selectedModel = this.availableModels[0];
       }
 
       const savedVideoModel = localStorage.getItem('ai_type_selected_video_model');
-      if (savedVideoModel && this.availableModels.includes(savedVideoModel)) {
+      if (savedVideoModel && (this.availableModels.includes(savedVideoModel) || Object.keys(MODEL_HINTS).some(k => k.toLowerCase() === savedVideoModel.toLowerCase()))) {
         this.selectedVideoModel = savedVideoModel;
       } else {
         const defaultVideoModel = this.availableModels.find(m => m.toLowerCase().includes('video') || m.toLowerCase().includes('seedance') || m.toLowerCase().includes('kling'));
@@ -375,7 +375,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       const vidSubtitle = videoUrl ? `${estimatedDuration}s` : `~${estimatedDuration}s`;
       const vidNode: NodeItem = {
         id: vidNodeId, type: 'video', title: `Scene Visuals ${index + 1}`, subtitle: vidSubtitle,
-        x: sceneX, y: 150 + yOffset, inputs: ['in1'], outputs: ['out'],
+        x: sceneX, y: 150 + yOffset, inputs: [], outputs: ['out'],
         data: { imageUrl: imageUrl, videoUrl: videoUrl, text: scene.script, isVideo: !!videoUrl, aspectRatio: aspectRatio, sceneData: scene, projectCharacters: data.characters, sceneIndex: index },
         baseX: sceneX, baseY: 150 + yOffset
       };
@@ -1417,7 +1417,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.toastr.info(`Đang gửi ${finalPrompts.length} prompts lên server vẽ...`);
         try {
             const ratio = this.projectData?.aspectRatio || '16:9';
-            if (this.selectedModel && this.selectedModel !== 'Local ComfyUI') {
+            const currentModel = targetModality === 'VIDEO' ? this.selectedVideoModel : this.selectedModel;
+            if (currentModel && currentModel !== 'Local ComfyUI') {
                 for (let i = 0; i < finalPrompts.length; i++) {
                     try {
                         let requestParts: any[] = [{text: finalPrompts[i]}];
@@ -1979,7 +1980,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           subtitle: 'Video',
           x: 150,
           y: 150,
-          inputs: ['in1'],
+          inputs: [],
           outputs: ['out'],
           data: {
             text: clip.description,
@@ -2083,17 +2084,13 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   onModelSelected(model: string) {
-    const isVideo = model.toLowerCase().includes('sora') || model.toLowerCase().includes('runway') || model.toLowerCase().includes('pika') || model.toLowerCase().includes('luma') || model.toLowerCase().includes('kling') || model.toLowerCase().includes('video') || model.toLowerCase().includes('seedance') || model.toLowerCase().includes('hailuo') || model.toLowerCase().includes('wan') || model.toLowerCase().includes('vidu');
-
-    if (isVideo) {
-        this.selectedVideoModel = model;
-        localStorage.setItem('ai_type_selected_video_model', model);
-        this.globalActiveModality = 'VIDEO';
-    } else {
-        this.selectedModel = model;
-        localStorage.setItem('ai_type_selected_model', model);
-        this.globalActiveModality = 'IMAGE';
-    }
+      if (this.globalActiveModality === 'VIDEO') {
+          this.selectedVideoModel = model;
+          localStorage.setItem('ai_type_selected_video_model', model);
+      } else {
+          this.selectedModel = model;
+          localStorage.setItem('ai_type_selected_model', model);
+      }
   }
 
   async toggleUsePreviousFrame() {

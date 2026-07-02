@@ -263,6 +263,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     favoriteSeason: number = 1;
 
     permissionText2Voice: boolean = false;
+    permissionVideo: boolean = false;
 
     private saveRouterStrategyReuseLogic: any;
 
@@ -2099,14 +2100,14 @@ ${content}`;
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domains = result.data;
-
-                        if (!this.multiAccountService.getItem('domain')) {
-                            this.domain = this.domains[0];
-                        }
-
-                        // lam moi lai giao dien
-                        this.cd.markForCheck();
                     }
+
+                    if (!this.multiAccountService.getItem('domain')) {
+                        this.domain = this.domains[0];
+                    }
+
+                    // lam moi lai giao dien
+                    this.cd.markForCheck();
                 },
                 error: () => { },
                 complete: () => { },
@@ -4219,6 +4220,8 @@ ${content}`;
 
                 this.permissionText2Voice =
                     this._userService.permissionText2Voice(this.user);
+                this.permissionVideo = 
+                    this._userService.permissionVideo(this.user);
 
                 this.alldomains();
                 this.synonymlocal();

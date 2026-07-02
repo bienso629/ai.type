@@ -83,7 +83,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     extraPrompt: string = ''; // [MỚI] Biến lưu trữ prompt người dùng nhập thêm
     videoFormat: string = 'video'; // Biến lưu định dạng tác phẩm
     aspectRatio: string = '16:9'; // [MỚI] Tỉ lệ khung hình
-    maxDuration: number = 8; // [MỚI] Thời lượng mặc định của mỗi cảnh
+    maxDuration: number = 0; // [MỚI] Thời lượng mặc định của mỗi cảnh
     attachedVideoFiles: { file: File, base64: string, mimeType: string }[] = [];
 
     // [MỚI] Lưu lại params để dùng cho tính năng "Làm mới" (Reload)
@@ -712,7 +712,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
 
                 if (parsed.maxDuration !== undefined) {
-                    this.maxDuration = parsed.maxDuration;
+                    this.maxDuration = parsed.maxDuration === 8 ? 0 : parsed.maxDuration;
                 }
 
                 const clips = parsed.clips || [];
@@ -2010,7 +2010,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (data.extraPrompt !== undefined) this.extraPrompt = data.extraPrompt;
                 if (data.videoFormat !== undefined) this.videoFormat = data.videoFormat;
                 if (data.aspectRatio !== undefined) this.aspectRatio = data.aspectRatio;
-                if (data.maxDuration !== undefined) this.maxDuration = data.maxDuration;
+                if (data.maxDuration !== undefined) this.maxDuration = data.maxDuration === 8 ? 0 : data.maxDuration;
 
                 if (data.videoProject) {
                     this.videoProject = data.videoProject;

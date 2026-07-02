@@ -469,10 +469,12 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
                 next: async (result) => {
                     if (result && result.success && result.data.length > 0) {
                         this.domains = result.data;
-
-                        // lam moi lai giao dien
-                        this.cd.markForCheck();
+                    } else {
+                        this.domains = [{ domain: 'https://type.vn' }] as any;
                     }
+
+                    // lam moi lai giao dien
+                    this.cd.markForCheck();
                 },
                 error: () => {},
                 complete: () => {},
