@@ -50,7 +50,7 @@
                 <div class="animated-box-content">
                     <button mat-flat-button class="bg-gray-500 text-white">
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:cloud-snow'"></mat-icon>
-                        <mat-label class="ml-2">Cho AI ăn sáng</mat-label>
+                        <mat-label class="ml-2">{{ 'app.auto_feed_ai_breakfast' | transloco }}</mat-label>
                     </button>
                 </div>
             </div> -->
@@ -75,7 +75,7 @@
                 </mat-select>
 
                 <!-- <button mat-icon-button matSuffix title="{{domain.value}}" class="btn-login" [color]="'secondary'"
-                    matTooltipPosition="above" matTooltip="Chưa có kết nối nào">
+                    matTooltipPosition="above" [matTooltip]="'app.auto_no_connection_yet' | transloco">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:user-check'"></mat-icon>
                 </button> -->
 
@@ -96,9 +96,9 @@
                 [mode]="drawerMode" [opened]="drawerOpened" #matDrawer>
                 <!-- <a href="https://type.vn/post/109" target="_blank">
                     <div matTooltipPosition="above"
-                        matTooltip="Tại sao dân content lại thích Spin Content? Click xem lý do."
+                        [matTooltip]="'app.auto_why_do_content_creators_like_s' | transloco"
                         class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-400 text-white">
-                        Clone bài viết
+                        {{ 'app.auto_clone_post' | transloco }}
                     </div>
                 </a> -->
 
@@ -127,7 +127,7 @@
                                         [placeholder]="'Hôm nay bạn muốn viết gì?'" required>
                                     <!-- <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon> -->
                                     <button mat-icon-button matSuffix [color]="'primary'" matTooltipPosition="above"
-                                        matTooltip="Lưu kết quả công việc của bạn"
+                                        [matTooltip]="'app.auto_save_your_work_results' | transloco"
                                         (click)="(name && name !== user.name) ? alert('Vì bạn không phải là tác giả của bài viết này nên bạn không được lưu.') : (uuid ? update(true) : archive())">
                                         <mat-icon class="icon-size-4"
                                             [svgIcon]="(new_version >= -1) ? 'feather:check' : 'feather:plus'"></mat-icon>
@@ -195,7 +195,7 @@
                                             </button>
                                             <button (click)="removeThumbnail(i)"
                                                 class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 text-red-500 transition-colors focus:outline-none"
-                                                type="button" matTooltip="Xoá file này">
+                                                type="button" [matTooltip]="'app.auto_delete_this_file' | transloco">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                                             </button>
                                         </div>
@@ -229,9 +229,7 @@
                                     <mat-label>{{ 'app.formula' | transloco }}</mat-label>
                                     <textarea class="px-2" [formControlName]="'request'" [placeholder]="'Code'" required
                                         matInput cdkTextareaAutosize></textarea>
-                                    <mat-hint>Yêu cầu biết sử dụng thẻ HTML, attr, id hoặc class để lấy nguyên liệu
-                                        chính xác hơn. Theo công thức tag,attr[href, src]|parent[class, id,
-                                        tag]</mat-hint>
+                                    <mat-hint>{{ 'app.auto_requires_knowing_how_to_use_ht' | transloco }}</mat-hint>
                                 </mat-form-field>
                             </div>
 
@@ -248,8 +246,7 @@
                                 </button>
 
                                 <!-- <mat-label color="primary" (click)="clone($event)"
-                                    class="items-center px-2 rounded text-md cursor-pointer font-normal">Chỉ lấy
-                                    mã</mat-label> -->
+                                    class="items-center px-2 rounded text-md cursor-pointer font-normal">{{ 'app.auto_only_take_the_code' | transloco }}</mat-label> -->
                             </div>
                         </mat-step>
 
@@ -281,7 +278,7 @@
                                 <pre *ngIf="source;else empty"
                                     class="text-sm rounded border overflow-auto max-h-100 p-2">{{done | json}}</pre>
                                 <ng-template #empty>
-                                    <mat-label class="text-base">Không có data</mat-label>
+                                    <mat-label class="text-base">{{ 'app.auto_no_data' | transloco }}</mat-label>
                                 </ng-template>
                             </div>
                         </mat-step> -->
@@ -436,7 +433,7 @@
                                     <div class="flex items-center justify-self-stretch">
                                         <mat-icon class="icon-size-4 text-yellow-500"
                                             [svgIcon]="'feather:check-square'"></mat-icon>
-                                        <mat-label class="ml-2 text-yellow-500">H1 không vượt quá 75 ký tự</mat-label>
+                                        <mat-label class="ml-2 text-yellow-500">{{ 'app.auto_h1_does_not_exceed_75_characte' | transloco }}</mat-label>
                                     </div>
                                 </li>
                                 <li class="font-normal text-base mb-2"
@@ -582,12 +579,12 @@
                                 </button>
 
                                 <!-- <button class="ml-2" mat-flat-button type="button" matStepperPrevious>
-                                    <mat-label>Quay lại</mat-label>
+                                    <mat-label>{{ 'app.auto_go_back' | transloco }}</mat-label>
                                 </button> -->
 
                                 <!-- <button class="" mat-flat-button [color]="'primary'" type="button"
                                     (click)="stepper.selectedIndex = 0;">
-                                    URL khác
+                                    {{ 'app.auto_other_url' | transloco }}
                                 </button> -->
                             </div>
                         </mat-step>
@@ -605,7 +602,7 @@
                         <div class="flex flex-col gt-sm:flex-row px-3 pt-6 pb-3 sticky top-0 bg-white z-10">
                             <!-- <div
                                 class="absolute right-1 top-1 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-200 text-primary-700">
-                                Sáng tạo nội dung
+                                {{ 'app.auto_content_creation' | transloco }}
                             </div> -->
 
                             <div class="flex flex-row gt-sm:flex-row px-3">
@@ -646,20 +643,20 @@
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above" [matTooltip]="'app.add_new_prompt' | transloco"
-                                                    (click)="createPrompt()">thêm</mat-label> -->
+                                                    (click)="createPrompt()">{{ 'app.auto_add' | transloco }}</mat-label> -->
 
                                                 <input type="file" class="hidden" multiple accept="*/*"
                                                     (change)="uploadFilesToPrompt($event)" #fileUploadPrompt>
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="fileUploadPrompt.click(); $event.stopPropagation()"
-                                                    matTooltipPosition="above" matTooltip="Đính kèm tệp">
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_attach_file' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'feather:paperclip'"></mat-icon>
                                                 </button>
 
                                                 <button mat-icon-button class="icon-size-8"
                                                     (click)="processPromptWithFiles($event); $event.stopPropagation()"
-                                                    matTooltipPosition="above" matTooltip="Yêu cầu AI làm việc ngay">
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_request_ai_to_work_immediately' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
                                                         [svgIcon]="'feather:send'"></mat-icon>
                                                 </button>
@@ -729,7 +726,7 @@
                                                                 (click)="clearitem(i, source.prompt)">
                                                                 <mat-icon class="icon-size-4"
                                                                     svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá prompt</span>
+                                                                <span>{{ 'app.auto_delete_prompt' | transloco }}</span>
                                                             </button>
                                                         </mat-menu>
                                                     </div>
@@ -747,7 +744,7 @@
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above" [matTooltip]="'app.add_new_content' | transloco"
-                                                    (click)="createNode()">thêm</mat-label>
+                                                    (click)="createNode()">{{ 'app.auto_add' | transloco }}</mat-label>
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above" [matTooltip]="'app.move_to_outline' | transloco"
@@ -756,7 +753,7 @@
 
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-500 text-white"
-                                                    matTooltipPosition="above" matTooltip="Xóa nhanh"
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_quick_delete' | transloco"
                                                     (click)="clearall($event); source.text = []">
                                                     xoá ({{source.text.length}})</mat-label> -->
 
@@ -780,7 +777,7 @@
                                                     (click)="clearall($event); source.text = []"
                                                     [matBadge]="source.text.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" matTooltip="Xóa nhanh">
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_quick_delete' | transloco">
                                                     <mat-icon class="icon-size-4 text-red-600"
                                                         [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                                                 </button>
@@ -797,7 +794,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.text, i, 'text');"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -838,7 +835,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:twitch'"></mat-icon>
-                                                            <span>Viết chú thích</span>
+                                                            <span>{{ 'app.auto_write_a_caption' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item (click)="keyword(source.text, i)"
                                                             [color]="'primary'">
@@ -879,12 +876,12 @@
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above"
                                                     [matTooltip]="'app.select_multiple_images_for' | transloco"
-                                                    (click)="fileUpload.click()">tải lên</mat-label> -->
+                                                    (click)="fileUpload.click()">{{ 'app.auto_upload' | transloco }}</mat-label> -->
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-900 text-white"
                                                     matTooltipPosition="above"
                                                     [matTooltip]="'app.select_an_image_from' | transloco"
-                                                    (click)="allFiles()">có sẵn</mat-label> -->
+                                                    (click)="allFiles()">{{ 'app.auto_available' | transloco }}</mat-label> -->
 
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="fileUpload.click()" matTooltipPosition="above"
@@ -918,7 +915,7 @@
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                         <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(item)"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                         <button mat-icon-button class="icon-size-8"
@@ -932,13 +929,13 @@
                                                                 [color]="'primary'">
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                                <span>Viết blog nhanh</span>
+                                                                <span>{{ 'app.auto_write_a_blog_quickly' | transloco }}</span>
                                                             </button>
                                                             <button mat-menu-item [color]="'primary'" type="button"
                                                                 (click)="clearitem(i, source.img)">
                                                                 <mat-icon class="icon-size-4"
                                                                     svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá ảnh</span>
+                                                                <span>{{ 'app.auto_delete_photo' | transloco }}</span>
                                                             </button>
                                                         </mat-menu>
                                                     </div>
@@ -962,7 +959,7 @@
                                                     <input type="number" [(ngModel)]="videoExtractInterval" min="0.1"
                                                         max="60" step="0.5"
                                                         class="w-16 h-7 px-2 border rounded border-slate-300 text-xs text-center mr-1 outline-none focus:border-primary">
-                                                    <span class="text-xs text-gray-500 mr-4">giây/frame</span>
+                                                    <span class="text-xs text-gray-500 mr-4">{{ 'app.auto_seconds_frame' | transloco }}</span>
                                                 </div>
 
                                                 <button mat-icon-button class="icon-size-8"
@@ -986,7 +983,7 @@
                                             <mat-form-field class="flex-1 fuse-mat-dense m-0"
                                                 [subscriptSizing]="'dynamic'">
                                                 <input matInput [(ngModel)]="videoUrl"
-                                                    placeholder="Nhập đường dẫn Youtube hoặc Facebook..."
+                                                    [placeholder]="'app.auto_enter_youtube_or_facebook_url' | transloco"
                                                     (keydown.enter)="insertVideoUrlSubmit()">
                                             </mat-form-field>
                                             <button mat-flat-button color="primary" class="ml-4"
@@ -1004,7 +1001,7 @@
                                                     <div
                                                         class="flex flex-0 flex-row items-center justify-self-stretch font-normal text-green-600 truncate hover:text-clip mr-2">
                                                         <mat-label matTooltipPosition="above"
-                                                            matTooltip="Nếu tiến trình chuyển đổi chưa hoàn tất, nhấn để thử lại"
+                                                            [matTooltip]="'app.auto_if_the_conversion_process_is_n' | transloco"
                                                             class="flex flex-row items-center h-7 px-3 rounded-full text-sm leading-7 cursor-pointer mx-1"
                                                             (click)="retryConvertVideo2Post(item, i)"
                                                             [ngClass]="{'bg-gray-200 hover:bg-grey-300': job?.status !== 'done', 'bg-primary-400 hover:bg-primary-500 text-white': job?.status === 'done'}">
@@ -1015,7 +1012,7 @@
                                                             <span *ngIf="job?.status_step && job?.status !== 'done'"
                                                                 class="mr-2 font-medium">{{ job?.status_step }}</span>
                                                             <span *ngIf="job?.status === 'done'"
-                                                                class="mr-2 font-medium">Hoàn tất</span>
+                                                                class="mr-2 font-medium">{{ 'app.auto_complete' | transloco }}</span>
                                                             <mat-icon *ngIf="job?.status === 'done'" class="icon-size-4"
                                                                 svgIcon="feather:check"></mat-icon>
                                                         </mat-label>
@@ -1036,7 +1033,7 @@
                                                             (click)="convertVideo2Post(item, i)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:file-text"></mat-icon>
-                                                            <span>Phân tích video</span>
+                                                            <span>{{ 'app.auto_video_analysis' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
                                                             (click)="editVideo(item)">
@@ -1067,7 +1064,7 @@
                                                             (click)="clearitem(i, source.playlist[0].youtube)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:trash"></mat-icon>
-                                                            <span>Xoá link</span>
+                                                            <span>{{ 'app.auto_delete_link' | transloco }}</span>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1084,13 +1081,13 @@
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
-                                                    matTooltip="Chép tất cả chatgpt sang Dàn ý"
+                                                    [matTooltip]="'app.auto_copy_all_chatgpt_to_the_outlin' | transloco"
                                                     (click)="moveall(source.chatgpt, $event); source.chatgpt = []">
                                                     chuyển ({{source.chatgpt.length}})</mat-label>
 
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-500 text-white"
-                                                    matTooltipPosition="above" matTooltip="Xoá hẳn"
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_delete_completely_1' | transloco"
                                                     (click)="clearall($event); source.chatgpt = []">
                                                     xoá ({{source.chatgpt.length}})</mat-label> -->
 
@@ -1107,7 +1104,7 @@
                                                     (click)="clearall($event); source.chatgpt = []"
                                                     [matBadge]="source.chatgpt.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" matTooltip="Xóa nhanh">
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_quick_delete' | transloco">
                                                     <mat-icon class="icon-size-4 text-red-600"
                                                         [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                                                 </button>
@@ -1124,7 +1121,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.chatgpt, i, 'chatgpt')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -1159,7 +1156,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.chatgpt, item, i)"
                                                             [color]="'primary'">
@@ -1208,7 +1205,7 @@
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-blue-600 text-white"
                                                     matTooltipPosition="above" [matTooltip]="'app.add_new_link' | transloco"
-                                                    (click)="createlink()">thêm</mat-label> -->
+                                                    (click)="createlink()">{{ 'app.auto_add' | transloco }}</mat-label> -->
 
                                                 <button mat-icon-button class="ml-auto icon-size-8"
                                                     (click)="createlink()" matTooltipPosition="above"
@@ -1232,7 +1229,7 @@
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                         <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(item)"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                         <button mat-icon-button class="icon-size-8"
@@ -1256,7 +1253,7 @@
                                                                 (click)="clearitem(i, source.a)">
                                                                 <mat-icon class="icon-size-4"
                                                                     svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá liên kết</span>
+                                                                <span>{{ 'app.auto_remove_link' | transloco }}</span>
                                                             </button>
                                                         </mat-menu>
                                                     </div>
@@ -1321,7 +1318,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                             <button mat-menu-item (click)="comment(source.pre, item, i)"
                                                                 [color]="'primary'">
@@ -1359,7 +1356,7 @@
                                                                 (click)="clearitem(i, source.pre)">
                                                                 <mat-icon class="icon-size-4"
                                                                     svgIcon="feather:trash"></mat-icon>
-                                                                <span>Xoá code</span>
+                                                                <span>{{ 'app.auto_delete_code' | transloco }}</span>
                                                             </button>
                                                         </mat-menu>
                                                     </div>
@@ -1377,13 +1374,13 @@
                                                 <!-- <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
                                                     matTooltipPosition="above"
-                                                    matTooltip="Chép tất cả giải nghĩa sang Dàn ý"
+                                                    [matTooltip]="'app.auto_copy_all_the_explanations_to_t' | transloco"
                                                     (click)="moveall(source.word, $event); source.word = []">
                                                     chuyển ({{source.word.length}})</mat-label>
 
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-500 text-white"
-                                                    matTooltipPosition="above" matTooltip="Xoá hẳn"
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_delete_completely_1' | transloco"
                                                     (click)="clearall($event); source.word = []">
                                                     xoá ({{source.word.length}})</mat-label> -->
 
@@ -1400,7 +1397,7 @@
                                                     (click)="clearall($event); source.word = []"
                                                     [matBadge]="source.word.length" matBadgePosition="above after"
                                                     matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" matTooltip="Xóa nhanh">
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_quick_delete' | transloco">
                                                     <mat-icon class="icon-size-4 text-red-600"
                                                         [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                                                 </button>
@@ -1417,7 +1414,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.word, i, 'word')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -1446,7 +1443,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.word, item, i)"
                                                             [color]="'primary'">
@@ -1499,7 +1496,7 @@
 
                                                     <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                         <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(item)"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                         <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                         <button mat-icon-button class="icon-size-8"
@@ -1573,8 +1570,7 @@
                                                         <button mat-menu-item (click)="keywordGoogle(item, $event)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:rss"></mat-icon>
-                                                            <mat-label class="clamp-1">Phát triển nội dung
-                                                                từ</mat-label>
+                                                            <mat-label class="clamp-1">{{ 'app.auto_develop_content_from' | transloco }}</mat-label>
                                                         </button>
                                                     </mat-menu>
                                                 </div>
@@ -1607,7 +1603,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(source.h1, i, 'h1')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                     <button mat-icon-button class="icon-size-8"
@@ -1636,7 +1632,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.h1, item, i)"
                                                             [color]="'primary'">
@@ -1686,7 +1682,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(source.h2, i, 'h2')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                     <button mat-icon-button class="icon-size-8"
@@ -1715,7 +1711,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.h2, item, i)"
                                                             [color]="'primary'">
@@ -1765,7 +1761,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(source.h3, i, 'h3')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                     <button mat-icon-button class="icon-size-8"
@@ -1794,7 +1790,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.h3, item, i)"
                                                             [color]="'primary'">
@@ -1844,7 +1840,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(source.h4, i, 'h4')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                     <button mat-icon-button class="icon-size-8"
@@ -1873,7 +1869,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.h4, item, i)"
                                                             [color]="'primary'">
@@ -1923,7 +1919,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <!-- <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp" class="icon-size-8"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco" class="icon-size-8"
                                                         (click)="synonymsForSentence(source.h5, i, 'h5')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div> -->
                                                     <button mat-icon-button class="icon-size-8"
@@ -1952,7 +1948,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.h5, item, i)"
                                                             [color]="'primary'">
@@ -2002,11 +1998,11 @@
 
                                                 <mat-label
                                                     class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-500 text-white"
-                                                    matTooltipPosition="above" matTooltip="Xoá hẳn"
+                                                    matTooltipPosition="above" [matTooltip]="'app.auto_delete_completely_1' | transloco"
                                                     (click)="clearall($event); source.p = []">
                                                     xoá ({{source.p.length}})</mat-label>
                                                 <!-- <mat-label class="ml-2 text-primary-500" matTooltipPosition="above"
-                                                    matTooltip="Sao chép tất cả thẻ p sang Dàn ý"
+                                                    [matTooltip]="'app.auto_copy_all_p_tags_to_outline' | transloco"
                                                     (click)="clear(source.p)">[clear all]</mat-label> -->
                                             </mat-panel-title>
                                         </mat-expansion-panel-header>
@@ -2022,7 +2018,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.p, i, 'p')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2051,7 +2047,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.p, item, i)"
                                                             [color]="'primary'">
@@ -2101,7 +2097,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.span, i, 'span')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2130,7 +2126,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.span, item, i)"
                                                             [color]="'primary'">
@@ -2180,7 +2176,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.label, i, 'label')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2209,7 +2205,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.label, item, i)"
                                                             [color]="'primary'">
@@ -2258,7 +2254,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.dd, i, 'dd')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2287,7 +2283,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.dd, item, i)"
                                                             [color]="'primary'">
@@ -2336,7 +2332,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.td, i, 'td')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2365,7 +2361,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.td, item, i)"
                                                             [color]="'primary'">
@@ -2414,7 +2410,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.li, i, 'li')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2443,7 +2439,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.li, item, i)"
                                                             [color]="'primary'">
@@ -2492,7 +2488,7 @@
 
                                                 <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
                                                     <button mat-icon-button matTooltipPosition="above"
-                                                        matTooltip="Dễ dàng tạo ra đoạn văn mới để không trùng lặp"
+                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
                                                         class="icon-size-8"
                                                         (click)="synonymsForSentence(source.i, i, 'i')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
                                                     <div class="border-t border-soild h-0 w-full my-1"></div><button
@@ -2521,7 +2517,7 @@
                                                             [color]="'primary'">
                                                             <mat-icon class="icon-size-4"
                                                                 [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>Tự động tách đoạn</span>
+                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                         </button> -->
                                                         <button mat-menu-item (click)="comment(source.i, item, i)"
                                                             [color]="'primary'">
@@ -2569,7 +2565,7 @@
                                 </button>
 
                                 <!-- <button *ngIf="!uuid" mat-icon-button class="ml-2" matTooltipPosition="above"
-                                    matTooltip="Xoá nháp">
+                                    [matTooltip]="'app.auto_delete_draft' | transloco">
                                     <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:trash'"></mat-icon>
                                 </button> -->
                             </ng-container>
@@ -2577,7 +2573,7 @@
                             <ng-container *ngIf="uuid">
                                 <button mat-flat-button color="primary" (click)="export()" type="button">
                                     <mat-icon class="icon-size-4" svgIcon="feather:monitor"></mat-icon>
-                                    <mat-label class="ml-2">Xuất bản</mat-label>
+                                    <mat-label class="ml-2">{{ 'app.auto_publish' | transloco }}</mat-label>
                                 </button>
 
                                 <button mat-flat-button [matMenuTriggerFor]="menu" class="text-white bg-green-500 ml-2">
@@ -2594,13 +2590,13 @@
 
                                     <button mat-menu-item (click)="share()" [color]="'primary'">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-                                        <span>Tải xuống (PDF)</span>
+                                        <span>{{ 'app.auto_download_pdf' | transloco }}</span>
                                     </button>
 
                                     <button *ngIf="score >= 0" mat-menu-item (click)="share()"
                                         [matMenuTriggerFor]="forumActions">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:type'"></mat-icon>
-                                        <mat-label>Đăng lên Diễn đàn</mat-label>
+                                        <mat-label>{{ 'app.auto_post_on_the_forum' | transloco }}</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="autoCreatePost()">
@@ -2639,7 +2635,7 @@
                                             </ng-container>
                                             <ng-template #elseTemplate>
                                                 <div class="flex w-full place-items-center">
-                                                    <p class="w-full p-4 text-left text-base">Đang tải danh mục</p>
+                                                    <p class="w-full p-4 text-left text-base">{{ 'app.auto_loading_catalog' | transloco }}</p>
                                                 </div>
                                             </ng-template>
                                         </div>
@@ -2649,7 +2645,7 @@
                                         <button mat-menu-item [color]="'primary'" (click)="createTopic()">
                                             <mat-icon class="icon-size-4"
                                                 [svgIcon]="'feather:arrow-up-right'"></mat-icon>
-                                            <span>Đăng lên type.vn</span>
+                                            <span>{{ 'app.auto_post_on_type_vn' | transloco }}</span>
                                         </button>
                                     </div>
                                 </mat-menu>
@@ -2657,7 +2653,7 @@
                         </div>
 
                         <div class="pb-3">
-                            <!-- <h2 class="text-base font-semibold border-b border-dashed border-opacity-70 py-2">Xem trước</h2> -->
+                            <!-- <h2 class="text-base font-semibold border-b border-dashed border-opacity-70 py-2">{{ 'app.auto_preview' | transloco }}</h2> -->
                             <mat-tab-group class="mt-0" mat-stretch-tabs="false" (selectedTabChange)="changetab($event)"
                                 [animationDuration]="'0'">
                                 <mat-tab label="{{ 'app.outline' | transloco }}">
@@ -2670,7 +2666,7 @@
                                                             }}/5 link, {{
                                                             seo['heading']['h1'] + seo['heading']['h2'] }}/3 {{ 'app.headings_count_label' | transloco }}, {{
                                                             seo['images'] }}/1 {{ 'app.images_count_label' | transloco }}</mat-label>
-                                                        <button class="ml-2" matTooltipPosition="left" matTooltip="Xoá toàn bộ Dàn ý"
+                                                        <button class="ml-2" matTooltipPosition="left" [matTooltip]="'app.auto_delete_the_entire_outline' | transloco"
                                                             mat-icon-button [color]="'warn'" type="button"
                                                             (click)="clear(done)">
                                                             <mat-icon class="icon-size-4"
@@ -2719,7 +2715,7 @@
                                                                         [color]="'primary'">
                                                                         <mat-icon class="icon-size-4"
                                                                             [svgIcon]="'feather:minus'"></mat-icon>
-                                                                        <span>Tự động tách đoạn</span>
+                                                                        <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
                                                                     </button> -->
                                                             <button mat-menu-item (click)="comment(done, item, i)"
                                                                 [color]="'primary'">
@@ -2800,7 +2796,7 @@
                                 <mat-tab label="{{ 'app.deleted' | transloco }} ({{trash.length}})">
                                     <div (click)="trash = [];"
                                         class="flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-600 text-white mb-4 cursor-pointer absolute right-1 top-1 z-50">
-                                        Xóa hẳn
+                                        {{ 'app.auto_delete_completely' | transloco }}
                                     </div>
                                     <div class="example-container w-full">
                                         <div cdkDropList #emptyList="cdkDropList" [cdkDropListData]="trash"

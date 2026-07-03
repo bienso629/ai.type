@@ -82,10 +82,10 @@
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 <div class="flex items-center justify-self-stretch">
                     <mat-label *ngIf="row.activationInfo | checkExpirationDate : row.expirationDate"
-                        matTooltipPosition="above" matTooltip="Gia hạn sử dụng"
+                        matTooltipPosition="above" [matTooltip]="'app.auto_extend_usage' | transloco"
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white mr-2"
                         (click)="extend(row)">
-                        Gia hạn
+                        {{ 'app.auto_extend' | transloco }}
                     </mat-label>
 
                     <mat-label matTooltipPosition="above" matTooltip="Nhân bản License Key "
@@ -94,10 +94,10 @@
                         {{ 'app.copy' | transloco }}
                     </mat-label>
 
-                    <mat-label matTooltipPosition="above" matTooltip="Gửi email cho người mua"
+                    <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_send_an_email_to_the_buyer' | transloco"
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-amber-500 hover:bg-amber-600 text-white mr-2"
                         (click)="sendMail(row)">
-                        Gửi mail
+                        {{ 'app.auto_send_mail' | transloco }}
                     </mat-label>
                 </div>
             </ng-template>

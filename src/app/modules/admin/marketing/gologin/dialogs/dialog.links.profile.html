@@ -1,7 +1,7 @@
 <div class="text-xl font-normal text-gray-500 tracking-tight flex flex-col items-stretch">
   <div>
     <mat-icon class="self-center mr-2 icon-size-4" [svgIcon]="'feather:file-text'"></mat-icon>
-    <mat-label class="self-center">Danh sách Link chạy tự động</mat-label>
+    <mat-label class="self-center">{{ 'app.auto_list_of_links_running_automati' | transloco }}</mat-label>
   </div>
 </div>
 
@@ -11,7 +11,7 @@
     <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between">
       <div class="flex-1 min-w-0">
         <mat-form-field class="flex-auto w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-          <!-- <mat-label>Thêm Link tự động:</mat-label> -->
+          <!-- <mat-label>{{ 'app.auto_add_automatic_link' | transloco }}</mat-label> -->
           <input matInput [formControlName]="'link'" [placeholder]="'Địa chỉ website'" required>
           <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:link'"></mat-icon>
         </mat-form-field>
@@ -20,7 +20,7 @@
       <!-- Actions -->
       <div class="flex shrink-0 items-center min-w-60 mt-6 sm:mt-0 ml-2">
         <mat-form-field class="flex-auto w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-          <!-- <mat-label>Thời lượng video:</mat-label> -->
+          <!-- <mat-label>{{ 'app.auto_video_duration' | transloco }}</mat-label> -->
           <input matInput [formControlName]="'duration'" [placeholder]="'2:09'">
           <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
         </mat-form-field>
@@ -35,7 +35,7 @@
   </form>
 
   <div class="mt-6 mb-2">
-    <h2>Link của bạn</h2>
+    <h2>{{ 'app.auto_your_link' | transloco }}</h2>
 
     <ngx-datatable [virtualization]="true" class="material shadow-none border rounded-lg min-h-100 mt-2"
       [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="getRowHeight"

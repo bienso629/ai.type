@@ -39,7 +39,7 @@
     <div class="flex flex-col shrink-0 border-l min-w-100 h-full">
         <div class="flex flex-row p-6 py-4">
             <div class="flex flex-1 flex-col">
-                <p class="text-base"><b>Tắt/Mở</b> danh sách Livestream</p>
+                <p class="text-base"><b>{{ 'app.auto_off_on' | transloco }}</b> {{ 'app.auto_livestream_list' | transloco }}</p>
                 <p class="text-gray-400 text-sm">
                     Tự động làm mới sau {{ countdown$ | async }} giây
                 </p>
@@ -144,7 +144,7 @@
 
                                 <div class="flex shrink-0 items-center gap-0">
                                     <button mat-icon-button [color]="'warn'" (click)="resetScriptContext()"
-                                        matTooltip="Xóa kịch bản và ngữ cảnh AI">
+                                        [matTooltip]="'app.auto_delete_ai_script_and_context' | transloco">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                                     </button>
                                 </div>
@@ -159,7 +159,7 @@
 
         <div class="p-6">
             <a class="h-6 leading-6 px-4 py-2 cursor-pointer items-center rounded-full text-sm bg-blue-600 hover:bg-blue-700 text-white"
-                (click)="n8nComments()">Tổng duyệt</a>
+                (click)="n8nComments()">{{ 'app.auto_rehearsal' | transloco }}</a>
         </div>
     </div>
 </div>
@@ -176,33 +176,27 @@
         </div>
         <div class="p-6">
             <p class="text-gray-600 text-sm">
-                Nhập chỉ đạo cụ thể (Ví dụ: "10h ngày 15/01/2026...", "Tập trung
-                hỏi giá...") và link video TikTok nếu có.
+                {{ 'app.auto_enter_specific_instructions_fo' | transloco }}
             </p>
 
             <mat-form-field class="w-full mt-3" appearance="outline">
-                <mat-label>Nhập prompt bổ sung</mat-label>
+                <mat-label>{{ 'app.auto_enter_additional_prompt' | transloco }}</mat-label>
                 <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5"
-                    placeholder="Ví dụ: Link video https://..."></textarea>
+                    [placeholder]="'app.auto_for_example_video_link_https' | transloco"></textarea>
             </mat-form-field>
 
             <p class="text-blue-700 text-xs">
-                <strong>Ví dụ: </strong> "Tạo kịch bản comment và giả định
-                câu trả lời của chủ Shop cho mỗi profile ngắn gọn và xúc
-                tích nhất trong phiên livestream
-                https://www.tiktok.com/&#64;yen.ai.386/live diễn ra vào lúc
-                15h tới 16h ngày 17/01/2026 Việt Nam. Mỗi kịch bản khoảng
-                2-3 comment, thời gian đăng comment giãn cách hợp lý."
+                <strong>Ví dụ: </strong> {{ 'app.auto_create_a_comment_script_and_as' | transloco }}
             </p>
         </div>
 
         <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
             <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
-                Hủy
+                {{ 'app.auto_cancel' | transloco }}
             </button>
             <button mat-flat-button color="primary" (click)="confirmGenerateComment()" class="ml-2">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:check'"></mat-icon>
-                <span class="ml-2">Xác nhận tạo kịch bản</span>
+                <span class="ml-2">{{ 'app.auto_confirm_script_creation' | transloco }}</span>
             </button>
         </div>
     </div>
@@ -213,7 +207,7 @@
         <div class="flex items-center justify-between px-6 py-4 bg-gray-50 border-b shrink-0 z-10">
             <div>
                 <h2 class="text-2xl font-semibold m-0 text-gray-800">
-                    Duyệt kịch bản (Tổng số đã chọn: <strong>{{ totalSelected }}</strong> comment)
+                    {{ 'app.auto_approve_script_total_selected' | transloco }} <strong>{{ totalSelected }}</strong> comment)
                 </h2>
             </div>
             <button mat-icon-button (click)="_matDialog.closeAll()">
@@ -251,9 +245,9 @@
                                     <th class="w-28 px-4 py-2">{{ 'app.time' | transloco }}</th>
                                     <th class="w-28 px-4 py-2">Link Video</th>
                                     <th class="w-1/4 px-4 py-2">
-                                        Nội dung Comment
+                                        {{ 'app.auto_comment_content' | transloco }}
                                     </th>
-                                    <th class="px-4 py-2">Phản hồi (Gợi ý)</th>
+                                    <th class="px-4 py-2">{{ 'app.auto_feedback_suggestion' | transloco }}</th>
                                     <th class="w-24 px-4 py-2 text-center">
                                         {{ 'app.action' | transloco }}
                                     </th>
@@ -320,9 +314,7 @@
                                                 <textarea *ngIf="item.type === 'COMMENT'"
                                                     class="w-full p-2 border border-gray-200 rounded focus:outline-none"
                                                     rows="3" [(ngModel)]="item.commentDraft"></textarea>
-                                                <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">Nội dung
-                                                    Like không thể
-                                                    sửa</span>
+                                                <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">{{ 'app.auto_content_like_cannot_be_edited' | transloco }}</span>
                                             </ng-container>
 
                                             <div class="text-[10px] text-gray-400 truncate mt-1"
@@ -350,16 +342,16 @@
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
                                             </button>
                                             <button mat-icon-button (click)="deleteComment(group, item)"
-                                                matTooltip="Xóa" class="text-red-500 hover:bg-red-50">
+                                                [matTooltip]="'app.auto_delete' | transloco" class="text-red-500 hover:bg-red-50">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                                             </button>
                                         </div>
                                         <div *ngIf="item.isEditing" class="flex justify-center items-center gap-2">
-                                            <button mat-icon-button (click)="saveEdit(item)" matTooltip="Lưu"
+                                            <button mat-icon-button (click)="saveEdit(item)" [matTooltip]="'app.auto_save' | transloco"
                                                 class="text-green-600 hover:bg-green-50">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
                                             </button>
-                                            <button mat-icon-button (click)="cancelEdit(item)" matTooltip="Hủy"
+                                            <button mat-icon-button (click)="cancelEdit(item)" [matTooltip]="'app.auto_cancel' | transloco"
                                                 class="text-gray-500 hover:bg-gray-50">
                                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
                                             </button>
@@ -418,14 +410,14 @@
             <div class="flex flex-col gap-2">
                 <div class="flex gap-6">
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label>Từ thời điểm</mat-label>
+                        <mat-label>{{ 'app.auto_from_the_moment' | transloco }}</mat-label>
                         <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()"
                             [(ngModel)]="likeStartTime" />
                         <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:calendar'"></mat-icon>
                     </mat-form-field>
 
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label>Đến thời điểm</mat-label>
+                        <mat-label>{{ 'app.auto_by_the_time' | transloco }}</mat-label>
                         <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()"
                             [(ngModel)]="likeEndTime" />
                         <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>
@@ -434,18 +426,17 @@
             </div>
 
             <p class="text-blue-700 text-xs m-0">
-                <strong>Ghi chú:</strong> Hệ thống sẽ rải ngẫu nhiên lệnh
-                Like cho <b>{{ items.length }} Profiles</b>
-                trong khoảng thời gian bạn đã chọn ở trên.
+                <strong>{{ 'app.auto_note_1' | transloco }}</strong> {{ 'app.auto_the_system_will_randomly_sprea' | transloco }} <b>{{ items.length }} Profiles</b>
+                {{ 'app.auto_during_the_time_period_you_sel' | transloco }}
             </p>
         </div>
 
         <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
             <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
-                Hủy
+                {{ 'app.auto_cancel' | transloco }}
             </button>
             <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="ml-2 px-6">
-                Xác nhận tạo
+                {{ 'app.auto_confirm_creation' | transloco }}
             </button>
         </div>
     </div>

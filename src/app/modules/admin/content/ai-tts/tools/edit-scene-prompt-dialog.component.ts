@@ -655,7 +655,7 @@ Instructions:
         }
 
         this.isGeneratingImage = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             // Sử dụng prompt video để AI vẽ ảnh bám sát mô tả của video
@@ -814,7 +814,7 @@ Instructions:
             this.toastr.error('Lỗi tạo ảnh AI: ' + errorMsg);
         } finally {
             this.isGeneratingImage = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -831,7 +831,7 @@ Instructions:
         }
 
         this.isGeneratingVideo = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             let base64 = '';
@@ -966,7 +966,7 @@ Instructions:
             if (byteLength > 2500 && isProxy) {
                 this.toastr.warning(`Độ dài prompt (${byteLength} bytes) vượt quá giới hạn 2500 của hệ thống. Vui lòng rút gọn kịch bản hoặc Master Prompt.`);
                 this.isGeneratingVideo = false;
-                this.cd.markForCheck();
+                this.cd.detectChanges();
                 return;
             }
 
@@ -998,7 +998,7 @@ Instructions:
                 if (!apiKey) {
                     this.toastr.error('Thiếu API Key cho AI (Gemini). Vui lòng cấu hình trong Cài đặt.');
                     this.isGeneratingVideo = false;
-                    this.cd.markForCheck();
+                    this.cd.detectChanges();
                     return;
                 }
 
@@ -1087,7 +1087,7 @@ Instructions:
             this.toastr.error('Lỗi tạo video AI: ' + errorMsg);
         } finally {
             this.isGeneratingVideo = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -1161,7 +1161,7 @@ Instructions:
                         } else if (!this.editingScenePrompt.prompt) {
                             this.editingScenePrompt.prompt = constraintMsg.trim();
                         }
-                        this.cd.markForCheck();
+                        this.cd.detectChanges();
                         this.toastr.success('Đã trích xuất và gán khung hình nối tiếp thành công!');
                     } else {
                         throw new Error('Kết quả trích xuất không chứa ảnh hoặc đường dẫn hợp lệ.');
@@ -1169,13 +1169,13 @@ Instructions:
                 } else {
                     this.toastr.error('Không thể trích xuất khung hình từ video trước.');
                     this.usePreviousSceneFrame = false;
-                    this.cd.markForCheck();
+                    this.cd.detectChanges();
                 }
             } catch (e) {
                 console.error('Lỗi trích xuất frame:', e);
                 this.toastr.error('Lỗi khi trích xuất khung hình: ' + e);
                 this.usePreviousSceneFrame = false;
-                this.cd.markForCheck();
+                this.cd.detectChanges();
             }
         } else {
             // Khi bỏ check, xoá ảnh kế thừa đi (nếu đó là ảnh last_frame)
@@ -1185,7 +1185,7 @@ Instructions:
             if (this.editingScenePrompt.prompt && this.editingScenePrompt.prompt.includes('Seamless continuous motion from previous frame')) {
                 this.editingScenePrompt.prompt = this.editingScenePrompt.prompt.replace(constraintMsg, '').replace(constraintMsg.trim(), '').trim();
             }
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -1364,7 +1364,7 @@ Instructions:
         }
 
         this.isGeneratingVideo = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             this.toastr.info('Đang trích xuất đoạn video làm mẫu...', 'Hệ thống');
@@ -1423,7 +1423,7 @@ Instructions:
             console.error('Error generating from trimmed video:', e);
             this.toastr.error('Lỗi khi tạo từ video cắt: ' + (e.message || e));
             this.isGeneratingVideo = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 

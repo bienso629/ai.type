@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { OverlayModule } from '@angular/cdk/overlay';
@@ -13,6 +14,8 @@ import { SharedModule } from 'app/shared.module';
         NotificationsComponent
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule,
         OverlayModule,
         PortalModule,

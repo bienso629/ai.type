@@ -141,9 +141,7 @@
                         <input [formControlName]="'chatbot'" type="text" matInput>
                     </mat-form-field>
                     <div class="mt-1 text-md text-hint">{{ 'app.integrate_chatbot_for_your' | transloco }} <a
-                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên
-                            hệ</a> nhận
-                        API.</div>
+                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">{{ 'app.auto_contact' | transloco }}</a> {{ 'app.auto_receive_api' | transloco }}</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-x-cms')">
@@ -155,9 +153,7 @@
                         <input [formControlName]="'customer'" type="text" matInput>
                     </mat-form-field>
                     <div class="mt-1 text-md text-hint">{{ 'app.integrate_zalo_crm_for' | transloco }} <a
-                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">Liên
-                            hệ</a> nhận
-                        API.</div>
+                            href="https://ai.type.vn/lien-he" target="_blank" class="font-semibold">{{ 'app.auto_contact' | transloco }}</a> {{ 'app.auto_receive_api' | transloco }}</div>
                 </div>
 
                 <div class="w-full mt-2" *ngIf="user.groups?.includes('nhóm-big-data')">
@@ -240,7 +236,7 @@
                     </div>
 
                     <div class="flex items-center mt-2" *ngIf="user.groups?.includes('nhóm-big-data')">
-                        <!-- <mat-label class="text-secondary text-base mr-4">Keys của Gemini AI Studio</mat-label> -->
+                        <!-- <mat-label class="text-secondary text-base mr-4">{{ 'app.auto_keys_of_gemini_ai_studio' | transloco }}</mat-label> -->
                         <button mat-flat-button type="button" [color]="'primary'" (click)="addGeminiKey()">
                             <mat-icon [svgIcon]="'heroicons_outline:plus'"></mat-icon>
                             <mat-label class="ml-2">{{ 'account.ai.add_key' | transloco }}</mat-label>

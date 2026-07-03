@@ -14,13 +14,13 @@
     <!-- Reference Images Section -->
     @if (characters && characters.length > 0) {
     <div class="flex flex-col mt-2">
-        <!-- <span class="font-semibold text-slate-800 text-sm mb-1">Ảnh nhân vật tham khảo (Dành cho tạo ảnh Storyboard)</span> -->
+        <!-- <span class="font-semibold text-slate-800 text-sm mb-1">{{ 'app.auto_reference_character_images_for' | transloco }}</span> -->
         <div class="flex flex-wrap gap-2">
             @for (char of characters; track char) {
             @if (char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)) {
             <div class="relative cursor-pointer border-2 rounded-lg p-1 transition-all"
                 [ngClass]="isReferenceCharSelected(char) ? 'border-blue-500 bg-blue-50' : 'border-transparent hover:border-slate-300'"
-                (click)="toggleReferenceChar(char)" matTooltip="Dùng làm ảnh tham khảo cho AI">
+                (click)="toggleReferenceChar(char)" [matTooltip]="'app.auto_used_as_a_reference_image_for' | transloco">
                 <img [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])" class="w-12 h-12 object-cover rounded-md">
                 @if (isReferenceCharSelected(char)) {
                 <div class="absolute -top-2 -right-2 bg-blue-500 rounded-full w-5 h-5 flex items-center justify-center">
@@ -132,11 +132,11 @@
             </button>
             <button mat-menu-item (click)="imageInput.click()">
                 <mat-icon class="text-green-600 icon-size-5">upload_file</mat-icon>
-                <span>Tải ảnh lên từ máy tính</span>
+                <span>{{ 'app.auto_upload_image_from_computer' | transloco }}</span>
             </button>
             <button mat-menu-item (click)="refImageInput.click()">
                 <mat-icon class="text-purple-500 icon-size-5">add_photo_alternate</mat-icon>
-                <span>Tải ảnh mẫu cho AI</span>
+                <span>{{ 'app.auto_upload_sample_image_for_ai' | transloco }}</span>
             </button>
 
         </mat-menu>
@@ -147,10 +147,9 @@
             accept="video/mp4,video/quicktime,video/webm" class="hidden">
 
         <div class="flex flex-col gap-1 text-sm text-slate-500 pt-1 flex-1">
-            <span class="font-semibold text-slate-800 text-base">Hình thể hiện Phân cảnh</span>
+            <span class="font-semibold text-slate-800 text-base">{{ 'app.auto_scene_representation_diagram' | transloco }}</span>
             <span>
-                Dùng làm ảnh đại diện cho phân cảnh này. Bạn có thể chọn ảnh có sẵn từ máy tính hoặc để AI tự vẽ dựa
-                trên nội dung mô tả prompt.
+                {{ 'app.auto_use_it_as_a_thumbnail_for_this' | transloco }}
             </span>
         </div>
     </div>
@@ -159,7 +158,7 @@
         <!-- Cột 1: Prompt Hình ảnh -->
         <div class="flex flex-col">
             <div class="flex items-center gap-1.5 mb-1">
-                <span class="font-semibold text-slate-800 text-sm">Prompt tạo phân cảnh (Hình ảnh)</span>
+                <span class="font-semibold text-slate-800 text-sm">{{ 'app.auto_scene_creation_prompt_image' | transloco }}</span>
                 <button mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center ml-1 hover:bg-white rounded-full"
                     (click)="copyPrompt(getFullImagePrompt()); $event.preventDefault(); $event.stopPropagation()"
@@ -170,7 +169,7 @@
             </div>
             <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
-                    [(ngModel)]="editingScenePrompt.imagePrompt" placeholder="Prompt hình ảnh..." cdkTextareaAutosize
+                    [(ngModel)]="editingScenePrompt.imagePrompt" [placeholder]="'app.auto_image_prompt' | transloco" cdkTextareaAutosize
                     cdkAutosizeMinRows="4"></textarea>
             </mat-form-field>
         </div>
@@ -178,7 +177,7 @@
         <!-- Cột 2: Prompt Video -->
         <div class="flex flex-col">
             <div class="flex items-center gap-1.5 mb-1">
-                <span class="font-semibold text-slate-800 text-sm">Prompt tạo Video (Chi tiết)</span>
+                <span class="font-semibold text-slate-800 text-sm">{{ 'app.auto_video_creation_prompt_detailed' | transloco }}</span>
 
                 <button mat-icon-button
                     class="w-6 h-6 min-h-0 min-w-0 p-0 flex items-center justify-center rounded-full ml-1 hover:bg-white hover:opacity-70"
@@ -204,7 +203,7 @@
             </div>
             <mat-form-field class="custom-textarea fuse-mat-dense w-full flex-1 fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                 <textarea matInput class="px-2 overflow-x-hidden text-base leading-relaxed"
-                    [(ngModel)]="editingScenePrompt.prompt" placeholder="Mô tả hành động, bối cảnh..."
+                    [(ngModel)]="editingScenePrompt.prompt" [placeholder]="'app.auto_describe_the_action_context' | transloco"
                     cdkTextareaAutosize cdkAutosizeMinRows="4"></textarea>
             </mat-form-field>
         </div>
@@ -226,7 +225,7 @@
             <input type="checkbox" [(ngModel)]="usePreviousSceneFrame"
                 (ngModelChange)="onUsePreviousFrameChange($event)"
                 class="w-4 h-4 text-indigo-600 border-gray-300 rounded focus:ring-indigo-500 cursor-pointer">
-            <span class="text-sm font-medium text-slate-700">Kế thừa khung hình cuối từ cảnh trước</span>
+            <span class="text-sm font-medium text-slate-700">{{ 'app.auto_inherit_the_last_frame_from_th' | transloco }}</span>
         </label>
     </div>
 </mat-dialog-content>
@@ -235,7 +234,7 @@
     <div class="flex items-center gap-2 mr-auto">
         <a href="javascript:void(0)" class="text-teal-700 text-sm hover:text-teal-900" (click)="openControlNetDialog()">
             <span class="flex items-center">
-                <mat-icon class="icon-size-4 mr-2 text-teal-600">accessibility_new</mat-icon> Khung xương
+                <mat-icon class="icon-size-4 mr-2 text-teal-600">accessibility_new</mat-icon> {{ 'app.auto_skeleton' | transloco }}
             </span>
         </a>
 
@@ -253,5 +252,5 @@
 
     </div>
 
-    <button mat-flat-button color="primary" (click)="save()">Lưu thông tin</button>
+    <button mat-flat-button color="primary" (click)="save()">{{ 'app.auto_save_information' | transloco }}</button>
 </mat-dialog-actions>

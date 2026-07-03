@@ -1,3 +1,5 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -27,6 +29,8 @@ const Routes: Route[] = [
         SynonymFormComponent
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(Routes),
         MatButtonModule,
         MatIconModule,

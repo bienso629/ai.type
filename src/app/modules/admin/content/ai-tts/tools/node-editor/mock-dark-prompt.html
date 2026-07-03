@@ -26,7 +26,7 @@
                 cdkAutosizeMaxRows="6"
                 [ngModel]="selectedNode?.type === 'video' ? selectedNode?.data?.text : ''"
                 (ngModelChange)="updatePrompt($event)"
-                placeholder="Bạn muốn thay đổi hoặc tạo nội dung gì?"
+                [placeholder]="'app.auto_what_do_you_want_to_change_or' | transloco"
                 class="w-full bg-transparent text-[16px] leading-relaxed text-gray-100 placeholder:text-gray-500 outline-none resize-none block">
             </textarea>
         </div>

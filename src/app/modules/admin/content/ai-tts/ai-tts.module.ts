@@ -17,6 +17,7 @@ import { AudioGenerationComponent } from 'app/modules/admin/content/ai-tts/tools
 import { NodeEditorComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/node-editor.component';
 import { MagicPromptDialogComponent } from 'app/modules/admin/content/ai-tts/tools/node-editor/magic-prompt-dialog.component';
 import { SharedModule } from 'app/shared.module';
+import { TranslocoModule } from '@ngneat/transloco';
 
 const Routes: Route[] = [
     {
@@ -38,6 +39,9 @@ const Routes: Route[] = [
         Voice2videoComponent,
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
+        TranslocoModule,
         RouterModule.forChild(Routes),
         MatButtonModule,
         MatFormFieldModule,

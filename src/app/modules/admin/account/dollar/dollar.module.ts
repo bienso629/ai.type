@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -25,6 +26,8 @@ const Routes: Route[] = [
         DollarComponent
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(Routes),
         MatButtonModule,
         MatButtonToggleModule,

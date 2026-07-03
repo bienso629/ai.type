@@ -19,12 +19,18 @@ import { ShortcutsModule } from 'app/layout/common/shortcuts/shortcuts.module';
 import { UserModule } from 'app/layout/common/user/user.module';
 import { SharedModule } from 'app/shared.module';
 import { CompactLayoutComponent } from 'app/layout/layouts/vertical/compact/compact.component';
+import { TranslocoModule } from '@ngneat/transloco';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @NgModule({
     declarations: [
         CompactLayoutComponent
     ],
-    imports     : [
+    imports: [
+        TranslocoModule,
+        MatTooltipModule,
+        MatTooltipModule,
+        TranslocoModule,
         HttpClientModule,
         RouterModule,
         MatButtonModule,

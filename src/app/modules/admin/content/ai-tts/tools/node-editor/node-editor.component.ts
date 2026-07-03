@@ -1,3 +1,5 @@
+import { TranslocoModule } from '@ngneat/transloco';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { Component, OnInit, ViewChild, ElementRef, HostListener, AfterViewChecked, ChangeDetectorRef, NgZone, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +21,7 @@ import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { MODEL_HINTS } from './model-hints.constant';
+import { UserClientService } from 'app/modules/_services/user';
 
 interface NodeItem {
   id: string;
@@ -47,7 +50,8 @@ interface NodeConnection {
 @Component({
   selector: 'app-node-editor',
   standalone: true,
-  imports: [CommonModule, MatIconModule, RouterModule, TextFieldModule, FormsModule, MatButtonModule, MatDialogModule, MatMenuModule, MatAutocompleteModule],
+  providers: [UserClientService],
+  imports: [MatTooltipModule, TranslocoModule, CommonModule, MatIconModule, RouterModule, TextFieldModule, FormsModule, MatButtonModule, MatDialogModule, MatMenuModule, MatAutocompleteModule],
   templateUrl: './node-editor.component.html',
   styleUrls: ['./node-editor.component.scss'],
   host: {
@@ -130,7 +134,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     private ngZone: NgZone,
     private _fuseConfirmationService: FuseConfirmationService,
     private sanitizer: DomSanitizer,
-    private toastr: ToastrService
+    private toastr: ToastrService,
+    private _userClientService: UserClientService
   ) { }
 
   ngAfterViewChecked() {
@@ -235,14 +240,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       this.filteredModels = [...this.availableModels];
       this.filteredModelGroups = this.groupModels(this.filteredModels);
 
-      const savedModel = localStorage.getItem('ai_type_selected_model');
+      const settings = this.multiAccountService.getItem('settings') || {};
+
+      const savedModel = settings.umodelverseImageModel || settings.ai_type_selected_model || localStorage.getItem('ai_type_selected_model');
       if (savedModel && (this.availableModels.includes(savedModel) || Object.keys(MODEL_HINTS).some(k => k.toLowerCase() === savedModel.toLowerCase()))) {
         this.selectedModel = savedModel;
       } else if (!this.availableModels.includes(this.selectedModel)) {
         this.selectedModel = this.availableModels[0];
       }
 
-      const savedVideoModel = localStorage.getItem('ai_type_selected_video_model');
+      const savedVideoModel = settings.umodelverseVideoModel || settings.ai_type_selected_video_model || localStorage.getItem('ai_type_selected_video_model');
       if (savedVideoModel && (this.availableModels.includes(savedVideoModel) || Object.keys(MODEL_HINTS).some(k => k.toLowerCase() === savedVideoModel.toLowerCase()))) {
         this.selectedVideoModel = savedVideoModel;
       } else {
@@ -1282,8 +1289,13 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           let base64Data = null;
           if ((response as any)?.image?.base64) {
               base64Data = (response as any).image.base64;
-          } else if ((response as any)?.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data) {
-              base64Data = (response as any).candidates[0].content.parts[0].inlineData.data;
+          } else if ((response as any)?.candidates?.[0]?.content?.parts) {
+              for (const part of (response as any).candidates[0].content.parts) {
+                  if (part.inlineData && part.inlineData.data) {
+                      base64Data = part.inlineData.data;
+                      break;
+                  }
+              }
           }
 
           if (base64Data) {
@@ -2084,12 +2096,35 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   onModelSelected(model: string) {
+      const settings = this.multiAccountService.getItem('settings') || {};
       if (this.globalActiveModality === 'VIDEO') {
           this.selectedVideoModel = model;
+          settings.ai_type_selected_video_model = model;
+          settings.umodelverseVideoModel = model;
           localStorage.setItem('ai_type_selected_video_model', model);
       } else {
           this.selectedModel = model;
+          settings.ai_type_selected_model = model;
+          settings.umodelverseImageModel = model;
           localStorage.setItem('ai_type_selected_model', model);
+      }
+      this.multiAccountService.setItem('settings', settings);
+
+      const activeInfo = this.multiAccountService.getItem('active_info');
+      const username = activeInfo?.user?.name || 'anonymous';
+      const editor = this.multiAccountService.getItem('editor');
+      const following_users = this.multiAccountService.getItem('following_users');
+
+      if (this._userClientService && username !== 'anonymous') {
+          this._userClientService.updateProfile({
+              profile: {
+                  settings: settings,
+                  active_info: activeInfo,
+                  editor: (editor && editor !== 'undefined') ? editor : {},
+                  following_users: (following_users && following_users !== 'undefined') ? following_users : [],
+              },
+              username: username
+          }).subscribe();
       }
   }
 

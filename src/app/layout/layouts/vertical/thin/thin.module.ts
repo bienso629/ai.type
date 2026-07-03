@@ -20,12 +20,18 @@ import { UserModule } from 'app/layout/common/user/user.module';
 import { SharedModule } from 'app/shared.module';
 import { ThinLayoutComponent } from 'app/layout/layouts/vertical/thin/thin.component';
 import { EcoFabSpeedDialModule } from '@ecodev/fab-speed-dial';
+import { TranslocoModule } from '@ngneat/transloco';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @NgModule({
     declarations: [
         ThinLayoutComponent,
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
+        MatTooltipModule,
+        TranslocoModule,
         HttpClientModule,
         RouterModule,
         MatButtonModule,

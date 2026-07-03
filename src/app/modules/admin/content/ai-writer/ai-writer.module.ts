@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { CUSTOM_ELEMENTS_SCHEMA, NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -66,6 +67,8 @@ const Routes: Route[] = [{
         SettingsDomainLoginComponent,
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(Routes),
         MatButtonModule,
         MatCheckboxModule,

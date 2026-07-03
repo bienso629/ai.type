@@ -1,3 +1,4 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { NgModule } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { NgxDatatableModule } from '@swimlane/ngx-datatable';
@@ -14,6 +15,8 @@ import { TranslocoModule } from '@ngneat/transloco';
         CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe, StopPropagationDirective, DatatableScrollLockDirective
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         CommonModule,
         FormsModule,
         NgxDatatableModule,

@@ -30,7 +30,7 @@
             </div>
             <!-- Title -->
             <!-- <div class="mt-2">
-                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate lowercase">lấy nội dung từ bài viết trên nhóm facebook</p>
+                <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate lowercase">{{ 'app.auto_take_content_from_the_article' | transloco }}</p>
             </div> -->
         </div>
 
@@ -40,7 +40,7 @@
             <!-- <form [formGroup]="chatgptForm">
                 <mat-form-field class="w-60 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                     <input [formControlName]="'chatgpt'" type="text" (keyup.enter)="find($event)"
-                        placeholder="Tìm kiếm post" matInput>
+                        [placeholder]="'app.auto_search_post' | transloco" matInput>
                     <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:search'"></mat-icon>
                 </mat-form-field>
             </form> -->
@@ -138,7 +138,7 @@
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>{{ 'app.which_domain_will_ai' | transloco }}</mat-label>
-                                        <input placeholder="Danh sách domain" [formControlName]="'domain1'"
+                                        <input [placeholder]="'app.auto_domain_list' | transloco" [formControlName]="'domain1'"
                                             aria-label="Number" matInput [matAutocomplete]="auto1">
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
 
@@ -156,10 +156,10 @@
                                     <mat-form-field
                                         class="w-full mt-2 mb-3 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix">
                                         <mat-label>{{ 'app.create_backlink_for_which' | transloco }}</mat-label>
-                                        <input placeholder="Ví dụ: type.vn" [formControlName]="'domain2'"
+                                        <input [placeholder]="'app.auto_example_type_vn' | transloco" [formControlName]="'domain2'"
                                             aria-label="Number" matInput>
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:globe'"></mat-icon>
-                                        <mat-hint>Tốt hơn cho SEO</mat-hint>
+                                        <mat-hint>{{ 'app.auto_better_for_seo' | transloco }}</mat-hint>
                                     </mat-form-field>
 
                                     <!-- Title tham chiếu -->
@@ -169,7 +169,7 @@
                                         <input [placeholder]="'app.reference_title' | transloco" [formControlName]="'titledomain2'"
                                             aria-label="Number" matInput>
                                         <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:type'"></mat-icon>
-                                        <mat-hint>Nhập vào sẽ tốt hơn cho SEO</mat-hint>
+                                        <mat-hint>{{ 'app.auto_entering_it_will_be_better_for' | transloco }}</mat-hint>
                                     </mat-form-field>
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
@@ -179,7 +179,7 @@
 
                                     <!-- <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
                                         [formControlName]="'createmore100nodes'">
-                                        <mat-label class="ml-2 text-sm">Viết trên 100 bài</mat-label>
+                                        <mat-label class="ml-2 text-sm">{{ 'app.auto_write_over_100_articles' | transloco }}</mat-label>
                                     </mat-slide-toggle> -->
 
                                     <mat-slide-toggle class="example-margin" [color]="'primary'" labelPosition="after"
@@ -465,7 +465,7 @@
                                     <div class="flex flex-row">
                                         <button mat-flat-button [color]="'primary'" (click)="facePost2Node()">
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
-                                            <span class="ml-2">Tạo bài viết</span>
+                                            <span class="ml-2">{{ 'app.auto_create_post_1' | transloco }}</span>
                                         </button>
                                     </div>
                                 </footer> -->

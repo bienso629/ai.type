@@ -9,7 +9,7 @@
     <ng-container fuseVerticalNavigationContentHeader>
         <!-- Logo -->
         <div class="flex items-center justify-center mt-2 cursor-pointer" [routerLink]="['/']">
-            <img class="w-10" src="assets/images/logo/favicon.svg" title="Về trang chủ">
+            <img class="w-10" src="assets/images/logo/favicon.svg" [title]="'app.auto_back_to_homepage' | transloco">
         </div>
     </ng-container>
 </fuse-vertical-navigation>
@@ -21,19 +21,19 @@
         class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden">
         <!-- Navigation toggle button -->
         <div class="space-x-1 sm:space-x-1">
-            <button mat-icon-button (click)="toggleNavigation('mainNavigation')" title="Thu gọn/ Mở rộng menu">
+            <button mat-icon-button (click)="toggleNavigation('mainNavigation')" [title]="'app.auto_collapse_expand_menu' | transloco">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:sidebar'"></mat-icon>
             </button>
 
-            <button mat-icon-button (click)="catureScreen()" title="Chụp ảnh báo lỗi">
+            <button mat-icon-button (click)="catureScreen()" [title]="'app.auto_take_a_screenshot_to_report_an' | transloco">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:aperture'"></mat-icon>
             </button>
 
-            <!-- <button mat-icon-button (click)="openPopup()" title="Giải trí">
+            <!-- <button mat-icon-button (click)="openPopup()" [title]="'app.auto_entertainment' | transloco">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:smile'"></mat-icon>
             </button> -->
 
-            <button mat-icon-button (click)="help()" title="Trợ giúp">
+            <button mat-icon-button (click)="help()" [title]="'app.auto_help' | transloco">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:help-circle'"></mat-icon>
             </button>
 
@@ -47,9 +47,9 @@
 
         <!-- Components -->
         <div class="flex items-center pl-0 ml-auto space-x-1 sm:space-x-1">
-            <div class="flex items-center px-3 hidden sm:flex" matTooltip="Tắt để sử dụng mô hình gốc">
+            <div class="flex items-center px-3 hidden sm:flex" [matTooltip]="'app.auto_turn_off_to_use_the_original_m' | transloco">
                 <mat-slide-toggle [checked]="enableUmodelverse" (change)="toggleUmodelverse()" [color]="'primary'">
-                    <span class="font-semibold text-sm">Mì Tôm AI</span>
+                    <span class="font-semibold text-sm">{{ 'app.auto_ai_instant_noodles' | transloco }}</span>
                 </mat-slide-toggle>
             </div>
 
@@ -93,7 +93,7 @@
                 <span>{{ 'app.footer_unverified' | transloco }} [<a class="underline" [routerLink]="['/settings']"
                         [queryParams]="{ tab: 'active' }">{{ 'app.footer_verify_now' | transloco }}</a>]. </span>
             </ng-template>
-            <a href="https://ai.type.vn" title="Phần mềm Tự động viết bài" class="underline">{{ 'app.footer_policies' | transloco }}</a>
+            <a href="https://ai.type.vn" [title]="'app.auto_automatic_article_writing_soft' | transloco" class="underline">{{ 'app.footer_policies' | transloco }}</a>
         </span>
     </div>
 
@@ -106,7 +106,7 @@
 
         <eco-fab-speed-dial-actions>
             <button mat-mini-fab [color]="isRecording ? 'warn' : 'primary'" [class.animate-pulse]="isRecording"
-                (click)="startRecording()" matTooltip="Thu âm hệ thống" matTooltipPosition="left">
+                (click)="startRecording()" [matTooltip]="'app.auto_system_recording' | transloco" matTooltipPosition="left">
                 <mat-icon class="icon-size-4" svgIcon="feather:mic"></mat-icon>
             </button>
 

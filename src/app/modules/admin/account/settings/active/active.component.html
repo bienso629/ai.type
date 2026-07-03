@@ -3,8 +3,8 @@
     <form [formGroup]="activeForm" (ngSubmit)="save()">
         <!-- Section -->
         <div class="w-full">
-            <!-- <div class="text-xl">Gia hạn</div> -->
-            <!-- <div class="text-secondary mt-2">Thêm số ngày sử dụng phần mềm viết bài ai.type</div> -->
+            <!-- <div class="text-xl">{{ 'app.auto_extend' | transloco }}</div> -->
+            <!-- <div class="text-secondary mt-2">{{ 'app.auto_add_the_number_of_days_using_t' | transloco }}</div> -->
 
             <div class="text-secondary leading-8 mt-4">
                 <ng-container *ngIf="(activeInfo && activeInfo.user); else elseTemplate">
@@ -81,7 +81,7 @@
 
             <div class="mt-4 flex items-center">
                 <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
-                <a class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">Nhận license key</a>
+                <a class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">{{ 'app.auto_receive_license_key' | transloco }}</a>
             </div>
         </div>
     </form>

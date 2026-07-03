@@ -22,7 +22,7 @@
             <div class="flex flex-col">
                 <!-- Art Style -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Phong cách đồ họa / Rendering</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_graphic_style_rendering' | transloco }}</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.artStyle; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -56,7 +56,7 @@
 
                 <!-- Lighting -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Ánh sáng</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_light' | transloco }}</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.lighting; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -109,7 +109,7 @@
 
                 <!-- Focus depth -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Độ sâu trường ảnh</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_depth_of_field' | transloco }}</h3>
                     <div class="grid grid-cols-3 gap-2">
                         @for (opt of categories.focusDepth; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -126,7 +126,7 @@
 
                 <!-- Camera speed -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Tốc độ quay</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_rotation_speed' | transloco }}</h3>
                     <div class="grid grid-cols-3 gap-2">
                         @for (opt of categories.cameraSpeed; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -162,7 +162,7 @@
                 </div>
                 <!-- Camera Angle -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Góc đặt máy</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_camera_placement_angle' | transloco }}</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.cameraAngle; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -180,7 +180,7 @@
 
                 <!-- Shot size -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Cỡ cảnh</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_shot_size' | transloco }}</h3>
                     <div class="grid grid-cols-5 gap-2">
                         @for (opt of categories.shotSize; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -197,7 +197,7 @@
 
                 <!-- Lenses -->
                 <div class="section-card">
-                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">Ống kính</h3>
+                    <h3 class="text-gray-800 font-semibold text-[13px] mb-2">{{ 'app.auto_lens' | transloco }}</h3>
                     <div class="grid grid-cols-4 gap-2">
                         @for (opt of categories.lenses; track opt) {
                         <div class="option-item flex flex-col items-center cursor-pointer"
@@ -230,20 +230,20 @@
 
                     <div class="flex gap-2 mb-2 bg-gray-200 p-1 rounded-lg">
                         <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Subtle'"
-                            (click)="selections.movementSpeed = 'Subtle'">Nhẹ nhàng</div>
+                            (click)="selections.movementSpeed = 'Subtle'">{{ 'app.auto_gently' | transloco }}</div>
                         <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Standard movement'"
                             (click)="selections.movementSpeed = 'Standard movement'">{{ 'app.normal' | transloco }}</div>
                         <div class="toggle-btn" [class.selected]="selections.movementSpeed === 'Intense'"
-                            (click)="selections.movementSpeed = 'Intense'">Mạnh mẽ</div>
+                            (click)="selections.movementSpeed = 'Intense'">{{ 'app.auto_strong' | transloco }}</div>
                     </div>
 
                     <div class="flex gap-2 bg-gray-200 p-1 rounded-lg">
                         <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Linear'"
-                            (click)="selections.movementEasing = 'Linear'">Đều đặn</div>
+                            (click)="selections.movementEasing = 'Linear'">{{ 'app.auto_regularly' | transloco }}</div>
                         <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Standard easing'"
                             (click)="selections.movementEasing = 'Standard easing'">{{ 'app.normal' | transloco }}</div>
                         <div class="toggle-btn" [class.selected]="selections.movementEasing === 'Natural'"
-                            (click)="selections.movementEasing = 'Natural'">Tự nhiên</div>
+                            (click)="selections.movementEasing = 'Natural'">{{ 'app.auto_natural' | transloco }}</div>
                     </div>
                 </div>
 

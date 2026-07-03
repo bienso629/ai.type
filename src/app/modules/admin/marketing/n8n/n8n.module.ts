@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { CUSTOM_ELEMENTS_SCHEMA, NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -41,6 +42,8 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         EditAccountDialog
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(settingsRoutes),
         MatButtonModule,
         MatFormFieldModule,

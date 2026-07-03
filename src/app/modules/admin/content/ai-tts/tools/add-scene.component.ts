@@ -1,3 +1,4 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -16,7 +17,7 @@ import { GenaiService } from 'app/genai.service';
 @Component({
     selector: 'app-add-scene',
     standalone: true,
-    imports: [
+    imports: [TranslocoModule, MatTooltipModule, 
         TranslocoModule,
         CommonModule,
         FormsModule,

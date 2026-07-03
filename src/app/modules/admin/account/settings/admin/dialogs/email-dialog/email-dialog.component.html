@@ -8,23 +8,23 @@
     
     <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
         <mat-label>{{ 'app.sender_name' | transloco }}</mat-label>
-        <input matInput [(ngModel)]="emailComposer.senderName" placeholder="Ví dụ: Ban Quản Trị Type.vn" required>
+        <input matInput [(ngModel)]="emailComposer.senderName" [placeholder]="'app.auto_example_type_vn_management_boa' | transloco" required>
     </mat-form-field>
 
     <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
         <mat-label>{{ 'app.email_title' | transloco }}</mat-label>
-        <input matInput [(ngModel)]="emailComposer.subject" placeholder="Nhập tiêu đề..." required>
+        <input matInput [(ngModel)]="emailComposer.subject" [placeholder]="'app.auto_enter_title' | transloco" required>
     </mat-form-field>
 
     <mat-form-field class="w-full mb-3 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-        <mat-label>Nội dung Email (Hỗ trợ HTML)</mat-label>
-        <textarea class="max-h-60 min-h-20 px-2" matInput [(ngModel)]="emailComposer.content" placeholder="Nhập nội dung thư..." required cdkTextareaAutosize></textarea>
+        <mat-label>{{ 'app.auto_email_content_html_support' | transloco }}</mat-label>
+        <textarea class="max-h-60 min-h-20 px-2" matInput [(ngModel)]="emailComposer.content" [placeholder]="'app.auto_enter_the_content_of_the_lette' | transloco" required cdkTextareaAutosize></textarea>
     </mat-form-field>
 </div>
 
 <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
     <button mat-flat-button color="primary" (click)="submit()" [disabled]="!emailComposer.subject || !emailComposer.content">
-        Gửi Email
+        {{ 'app.auto_send_email' | transloco }}
     </button>
     <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
 </div>

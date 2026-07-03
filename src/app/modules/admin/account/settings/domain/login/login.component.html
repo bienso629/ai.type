@@ -5,7 +5,7 @@
   </div>
 
   <div mat-dialog-content class="mt-4 p-0">
-    <div class="mb-1 text-md text-hint">Hệ thống đang hỗ trợ những site bằng Wordpress FW</div>
+    <div class="mb-1 text-md text-hint">{{ 'app.auto_the_system_is_supporting_sites' | transloco }}</div>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-4"
       [subscriptSizing]="'dynamic'">
@@ -24,7 +24,7 @@
 
   <div mat-dialog-actions class="p-0 mt-4">
     <button mat-flat-button color="primary" type="submit" class="float-right">
-      <mat-label>Kết nối</mat-label>
+      <mat-label>{{ 'app.auto_connect' | transloco }}</mat-label>
     </button>
     <button mat-flat-button color="medium" [mat-dialog-close] class="float-right">Đóng cửa sổ</button>
   </div>

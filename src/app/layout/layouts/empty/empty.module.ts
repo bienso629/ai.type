@@ -1,3 +1,5 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
 import { RouterModule } from '@angular/router';
 import { FuseLoadingBarModule } from '@fuse/components/loading-bar';

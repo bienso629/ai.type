@@ -33,7 +33,7 @@
                     </div>
 
                     <div class="absolute right-10 bottom-10 z-99 w-20 h-20 bg-gray-30 grayscale-0 opacity-10 hover:opacity-100 transition-opacity duration-1000 ease-drawer"
-                        matTooltipPosition="above" matTooltip="Sử dụng 3 ngón tay vuốt lên hoặc xuống để chuyển trang">
+                        matTooltipPosition="above" [matTooltip]="'app.auto_use_three_fingers_to_swipe_up' | transloco">
                         <img src="./assets/icons/80636_aggressive_finger_gestureworks_three_tilt_icon.png" />
                     </div>
                 </div>
@@ -180,19 +180,19 @@
                                             <a href="http://ai.type.vn/v1.0.0/type-lite-macos" target="_self"
                                                 class="rounded-md border border-primary border-opacity-40 hover:border-opacity-50 bg-slate-50 flex flex-row items-center justify-start p-3">
                                                 <img src="assets/icons/download_mac.svg" class="h-10 w-auto" />
-                                                <mat-label class="ml-2">Tải xuống MacOS</mat-label>
+                                                <mat-label class="ml-2">{{ 'app.auto_download_macos' | transloco }}</mat-label>
                                             </a>
 
                                             <a href="http://ai.type.vn/v1.0.0/type-lite-win.exe" target="_self"
                                                 class="rounded-md border border-primary border-opacity-40 hover:border-opacity-50 bg-slate-50 flex flex-row items-center justify-start p-3">
                                                 <img src="assets/icons/download_windows.svg" class="h-10 w-auto" />
-                                                <mat-label class="ml-2">Tải xuống Windows</mat-label>
+                                                <mat-label class="ml-2">{{ 'app.auto_download_windows' | transloco }}</mat-label>
                                             </a>
 
                                             <!-- <a href="http://ai.type.vn/v1.0.0/type-lite-linux" target="_self"
                                                 class="rounded-md border border-primary border-opacity-40 hover:border-opacity-50 bg-slate-50 flex flex-row items-center justify-start p-3">
                                                 <img src="assets/icons/download_linux.svg" class="h-10 w-auto" />
-                                                <mat-label class="ml-2">Tải xuống Linux</mat-label>
+                                                <mat-label class="ml-2">{{ 'app.auto_download_linux' | transloco }}</mat-label>
                                             </a> -->
                                         </div>
                                     </div>
@@ -213,17 +213,17 @@
             </div>
 
             <div class="flex shrink-0 ml-2 items-end">
-                <a class="ml-2" title="Mã nguồn mở" mat-icon-button href="https://www.facebook.com/manguonmo"
+                <a class="ml-2" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
                     target="_blank">
                     <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'mat_solid:facebook'"></mat-icon>
                 </a>
 
-                <a mat-icon-button color="warn" title="Học lập trình" href="https://www.youtube.com/@manguonmo"
+                <a mat-icon-button color="warn" [title]="'app.auto_learning_programming' | transloco" href="https://www.youtube.com/@manguonmo"
                     target="_blank">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
                 </a>
 
-                <a title="Khoá học công nghệ" mat-icon-button href="https://buy.type.vn" target="_blank">
+                <a [title]="'app.auto_technology_course' | transloco" mat-icon-button href="https://buy.type.vn" target="_blank">
                     <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:shopping-cart'"></mat-icon>
                 </a>
             </div>

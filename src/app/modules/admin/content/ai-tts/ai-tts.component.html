@@ -32,7 +32,7 @@
         </div>
 
         <div class="flex items-center gap-2 mt-4 sm:mt-0">
-            <button mat-icon-button (click)="exportProject()" matTooltip="Xuất dự án (.ait)">
+            <button mat-icon-button (click)="exportProject()" [matTooltip]="'app.auto_export_project_ait' | transloco">
                 <mat-icon class="icon-size-5 text-gray-500 hover:text-primary-500"
                     [svgIcon]="'heroicons_outline:save'"></mat-icon>
             </button>
@@ -43,12 +43,12 @@
                 <input type="text" [(ngModel)]="extraPrompt" (ngModelChange)="onInputChanged()"
                     [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
                     class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 dark:bg-gray-800 bg-white placeholder-gray-400 transition-all duration-300"
-                    placeholder="Ví dụ: Hãy làm theo phong cách Cyberpunk, Nhân vật chính mặc áo dài đỏ...">
+                    [placeholder]="'app.auto_for_example_follow_the_cyberpu' | transloco">
 
                 <div class="absolute right-1 flex items-center">
                     <button mat-icon-button
                         class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 w-8 h-8 min-h-8 flex items-center justify-center relative"
-                        matTooltip="Đính kèm hình ảnh/tài liệu tham khảo" (click)="videoAttachment.click()"
+                        [matTooltip]="'app.auto_attach_images_reference_docume' | transloco" (click)="videoAttachment.click()"
                         [disabled]="isAnalyzing">
                         <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
                         <span *ngIf="attachedVideoFiles.length > 0"
@@ -57,19 +57,19 @@
                         </span>
 
                         <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md"
-                            (change)="onVideoAttachmentSelected($event)" class="hidden" title="Đính kèm tài liệu">
+                            (change)="onVideoAttachmentSelected($event)" class="hidden" [title]="'app.auto_attached_document' | transloco">
                     </button>
 
                     <button *ngIf="attachedVideoFiles.length > 0" mat-icon-button
                         class="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 min-h-8 flex items-center justify-center ml-1"
-                        (click)="attachedVideoFiles = []" matTooltip="Xóa file đính kèm">
+                        (click)="attachedVideoFiles = []" [matTooltip]="'app.auto_delete_attachment' | transloco">
                         <mat-icon class="icon-size-4">close</mat-icon>
                     </button>
                 </div>
             </div>
 
             <mat-form-field class="w-32 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="videoFormat" (ngModelChange)="onInputChanged()" placeholder="Định dạng">
+                <mat-select [(ngModel)]="videoFormat" (ngModelChange)="onInputChanged()" [placeholder]="'app.auto_format' | transloco">
                     <mat-option value="video">Video</mat-option>
                     <mat-option value="comic">{{ t('app.comic') }}</mat-option>
                     <mat-option value="slide">{{ t('app.slide_static') }}</mat-option>
@@ -78,7 +78,7 @@
             </mat-form-field>
 
             <mat-form-field class="w-20 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="aspectRatio" (ngModelChange)="onInputChanged()" placeholder="Tỉ lệ">
+                <mat-select [(ngModel)]="aspectRatio" (ngModelChange)="onInputChanged()" [placeholder]="'app.auto_rate' | transloco">
                     <mat-option value="16:9">16:9</mat-option>
                     <mat-option value="9:16">9:16</mat-option>
                     <mat-option value="4:3">4:3</mat-option>
@@ -88,7 +88,7 @@
 
             <mat-form-field class="w-28 field-hidden-subscript fuse-mat-dense" appearance="fill">
                 <mat-select [(ngModel)]="maxDuration" (ngModelChange)="onInputChanged()" [placeholder]="t('app.duration')">
-                    <mat-option [value]="0">Tự do</mat-option>
+                    <mat-option [value]="0">{{ 'app.auto_freedom' | transloco }}</mat-option>
                     <mat-option [value]="4">4s</mat-option>
                     <mat-option [value]="6">6s</mat-option>
                     <mat-option [value]="8">8s</mat-option>
@@ -110,7 +110,7 @@
             <button *ngIf="videoProject" class="bg-blue-600 hover:bg-blue-700 text-white"
                 (click)="openTimelineDialog(videoProject)" mat-flat-button>
                 <mat-icon class="icon-size-5 text-white" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
-                <mat-label class="ml-2 text-white">Kịch bản</mat-label>
+                <mat-label class="ml-2 text-white">{{ 'app.auto_script_1' | transloco }}</mat-label>
             </button>
         </div>
     </div>
@@ -134,11 +134,11 @@
                                 Danh sách phát ({{ audioList.length }})
                             </div>
                         </div>
-                        <!-- <span class="text-sm text-gray-400 mr-1">Kéo thả để sắp xếp</span> -->
+                        <!-- <span class="text-sm text-gray-400 mr-1">{{ 'app.auto_drag_and_drop_to_arrange' | transloco }}</span> -->
                         <div class="flex items-center">
                             <!-- Removed bulk setting dropdowns and "Cài đặt" button as requested -->
                             <button mat-icon-button class="ml-0" (click)="clear()" *ngIf="audioList.length > 0"
-                                matTooltip="Làm mới nội dung">
+                                [matTooltip]="'app.auto_refresh_content' | transloco">
                                 <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
                             </button>
 
@@ -159,7 +159,7 @@
                             <button mat-flat-button color="warn" (click)="cancelProcessing()" *ngIf="isGlobalProcessing"
                                 class="ml-2">
                                 <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
-                                <span class="ml-2">Dừng</span>
+                                <span class="ml-2">{{ 'app.auto_stop' | transloco }}</span>
                             </button>
 
                             <button mat-flat-button color="primary" (click)="generateAll()"
@@ -209,7 +209,7 @@
                                     <button mat-icon-button
                                         class="w-6 h-6 min-h-6 ml-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
                                         (click)="$event.stopPropagation(); splitClip(clip, i)"
-                                        matTooltip="Tự động chia nhỏ">
+                                        [matTooltip]="'app.auto_automatically_split' | transloco">
                                         <mat-icon class="icon-size-4 text-orange-500"
                                             [svgIcon]="'heroicons_outline:scissors'"></mat-icon>
                                     </button>
@@ -294,7 +294,7 @@
                                 <div class="flex justify-start">
                                     <button *ngIf="i === 0" mat-icon-button
                                         (click)="$event.stopPropagation(); syncSettingsFromFirst()"
-                                        matTooltip="Đồng bộ Cài đặt xuống các dòng dưới">
+                                        [matTooltip]="'app.auto_synchronize_settings_down_to_t' | transloco">
                                         <mat-icon
                                             class="icon-size-5 text-indigo-500 hover:text-indigo-600 focus:text-indigo-600"
                                             [svgIcon]="'heroicons_outline:arrow-down'"></mat-icon>
@@ -314,7 +314,7 @@
 
                                     <!-- <button *ngIf="!clip.localFilePath" mat-icon-button [disabled]="clip.isProcessing"
                                             (click)="applyRvcToClip(clip)" class="ml-1 transition-colors text-purple-500 hover:text-purple-600"
-                                            matTooltip="Biến đổi giọng bằng AI (RVC)">
+                                            [matTooltip]="'app.auto_voice_transformation_using_ai' | transloco">
                                             <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
                                                 [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                         </button> -->
@@ -355,7 +355,7 @@
                         class="flex flex-col items-center justify-center py-16 text-gray-400 rounded-lg bg-gray-50 dark:bg-gray-800/50">
                         <mat-icon class="icon-size-12 mb-3 opacity-30"
                             [svgIcon]="'heroicons_outline:music-note'"></mat-icon>
-                        <span class="text-lg font-medium">Danh sách trống</span>
+                        <span class="text-lg font-medium">{{ 'app.auto_empty_list' | transloco }}</span>
                     </div>
                 </div>
             </div>
