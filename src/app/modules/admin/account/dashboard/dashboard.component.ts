@@ -10,6 +10,7 @@ import { UserClientService } from 'app/modules/_services/user';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { Subject, takeUntil } from 'rxjs';
+import { TranslocoService } from '@ngneat/transloco';
 
 @Component({
     selector: 'dashboard',
@@ -41,60 +42,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
-                        this.collections = result.data;
-                        // Calculate real usage and max updated date for each collection
-                        let allUuids = new Set<string>();
-                        for (let col of this.collections) {
-                            // Default values
-                            col.totalUsed = 0;
-                            col.lastItemUpdatedAt = col.updatedAt;
-                            
+                        this.collections = result.data.map((col: any) => {
                             let uuids = Array.isArray(col.uuid) ? col.uuid : (col.uuid ? [col.uuid] : []);
-                            uuids.forEach(u => allUuids.add(u));
-                        }
-
-                        if (allUuids.size > 0) {
-                            this._crawlService.archive({
-                                username: this.user.name,
-                                keyword: '',
-                                uuids: Array.from(allUuids),
-                                page: { size: 10000, pageNumber: 0 },
-                                bookmark: null
-                            }).subscribe((res: any) => {
-                                if (res && res.data && res.data.docs) {
-                                    const allDocs = res.data.docs;
-                                    
-                                    for (let col of this.collections) {
-                                        let uuids = Array.isArray(col.uuid) ? col.uuid : (col.uuid ? [col.uuid] : []);
-                                        if (uuids.length === 0) continue;
-                                        
-                                        let totalUsed = 0;
-                                        let maxTime = new Date(col.updatedAt).getTime();
-                                        let maxDate = col.updatedAt;
-                                        
-                                        const colDocs = allDocs.filter((doc: any) => uuids.includes(doc.uuid) || uuids.includes(doc._id));
-                                        
-                                        colDocs.forEach((doc: any) => {
-                                            if (doc.used && doc.used > 0) {
-                                                totalUsed += doc.used;
-                                            }
-                                            if (doc.updatedAt) {
-                                                const docTime = new Date(doc.updatedAt).getTime();
-                                                if (docTime > maxTime) {
-                                                    maxTime = docTime;
-                                                    maxDate = doc.updatedAt;
-                                                }
-                                            }
-                                        });
-                                        
-                                        col.totalUsed = totalUsed;
-                                        col.lastItemUpdatedAt = maxDate;
-                                    }
-                                    
-                                    // Trigger change detection implicitly if needed or let Angular handle it
-                                }
-                            });
-                        }
+                            col.count = uuids.length;
+                            return col;
+                        });
                     }
                 },
                 error: () => { },
@@ -153,9 +105,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private router: Router,
         private _fuseConfigService: FuseConfigService,
         private multiAccountService: MultiAccountService,
-        private _crawlService: CrawlService
+        private _crawlService: CrawlService,
+        private translocoService: TranslocoService
     ) {
-        this.titleService.setTitle(`thống kê | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(this.translocoService.translate('nav.dashboard.title'));
 
         // Subscribe to config changes
         this._fuseConfigService.config$
@@ -187,21 +140,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     let projects = this.multiAccountService.getItemsByPrefix('ai_type_audio_merger_data_') || [];
                     const allProjects = projects.filter(p => p.uuid && p.title).reverse().map(p => {
                         // Calculate dynamic status
-                        let statusLabel = 'Bản nháp';
+                        let statusLabel = 'app.draft';
                         let statusClass = 'bg-blue-100 text-blue-600';
                         
                         if (!p.clips || p.clips.length === 0) {
-                            statusLabel = 'Trống';
+                            statusLabel = 'app.empty';
                             statusClass = 'bg-gray-100 text-gray-600';
                         } else {
                             const hasAudio = p.clips.some((c: any) => c.localFilePath || c.audioFileName);
                             const allAudio = p.clips.every((c: any) => c.localFilePath || c.audioFileName);
                             
                             if (allAudio) {
-                                statusLabel = 'Sẵn sàng';
+                                statusLabel = 'app.ready';
                                 statusClass = 'bg-green-100 text-green-600';
                             } else if (hasAudio) {
-                                statusLabel = 'Đang làm';
+                                statusLabel = 'app.working';
                                 statusClass = 'bg-amber-100 text-amber-600';
                             }
                         }
@@ -226,8 +179,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
     error(message?: string) {
         const dialogRef = this._fuseConfirmationService.open({
-            title: 'Thông báo!',
-            message: (message) ? message : 'Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.',
+            title: this.translocoService.translate('app.notification'),
+            message: (message) ? message : this.translocoService.translate('app.request_not_found'),
             icon: {
                 show: true,
                 name: 'feather:alert-triangle',
@@ -236,12 +189,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             actions: {
                 confirm: {
                     show: true,
-                    label: 'Đóng',
+                    label: this.translocoService.translate('app.close'),
                     color: 'warn'
                 },
                 cancel: {
                     show: false,
-                    label: 'Đóng lại'
+                    label: this.translocoService.translate('app.close_again')
                 }
             },
             dismissible: false
@@ -257,8 +210,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
         event.stopPropagation();
         
         const dialogRef = this._fuseConfirmationService.open({
-            title: 'Xóa kịch bản video',
-            message: `Bạn có chắc chắn muốn xóa kịch bản "<b>${project.title || 'Dự án mới'}</b>"?<br>Hành động này không thể hoàn tác và sẽ xóa toàn bộ dữ liệu âm thanh, hình ảnh liên quan.`,
+            title: this.translocoService.translate('app.delete_video_script'),
+            message: `${this.translocoService.translate('app.are_you_sure_delete_script')} "<b>${project.title || this.translocoService.translate('app.new_project')}</b>"?<br>${this.translocoService.translate('app.action_cannot_be_undone_delete_all')}`,
             icon: {
                 show: true,
                 name: 'heroicons_outline:question-mark-circle',
@@ -267,12 +220,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
             actions: {
                 confirm: {
                     show: true,
-                    label: 'Xóa',
+                    label: this.translocoService.translate('app.delete'),
                     color: 'warn'
                 },
                 cancel: {
                     show: true,
-                    label: 'Hủy'
+                    label: this.translocoService.translate('app.cancel')
                 }
             },
             dismissible: true

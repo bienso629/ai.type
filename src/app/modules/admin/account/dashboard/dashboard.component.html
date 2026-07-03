@@ -24,7 +24,7 @@
                             </span>
                             <span
                                 class="bg-blue-50 text-blue-600 px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">
-                                {{item.count || 0}} {{ 'app.records' | transloco }} • {{item.totalUsed || item.used || item.total_used || 0}} {{ 'app.times_used' | transloco }}
+                                {{item.count || 0}} {{ 'app.records' | transloco }}
                             </span>
                         </div>
                     </div>
@@ -119,10 +119,10 @@
                         <div class="mt-4 flex items-center justify-between text-xs text-secondary">
                             <span class="flex items-center">
                                 <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:video'"></mat-icon>
-                                {{project.clips?.length || 0}} cảnh quay
+                                {{project.clips?.length || 0}} {{ 'app.scenes' | transloco }}
                             </span>
                             <span [ngClass]="project.statusClass"
-                                class="px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{project.statusLabel}}</span>
+                                class="px-2 py-0.5 rounded text-[11px] uppercase tracking-wider font-medium">{{project.statusLabel | transloco}}</span>
                         </div>
                     </div>
                 </div>
