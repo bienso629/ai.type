@@ -1662,52 +1662,23 @@ function createMainWindow() {
             webSecurity: false,
             webviewTag: true,
             devTools: true,
-            nodeIntegration: true,
-            nodeIntegrationInSubFrames: true,
+            nodeIntegration: false,
+            nodeIntegrationInSubFrames: false,
             preload: resolvePreload(),
         },
     });
 
     mainWindow.maximize();
 
-    const targetURL = "http://localhost:4200";
-    const fallbackURL = `http://localhost:${fallbackPort}`;
-
-    const req = http.get(targetURL, (res) => {
-        if (res.statusCode === 200) {
-            sendToRenderer("tools-log", "[✓] Angular app đã chạy, loadURL");
-            mainWindow.loadURL(targetURL);
-        } else {
-            sendToRenderer("tools-log", "[!] Không mong muốn, dùng fallback");
-            mainWindow.webPreferences.devTools = false; // Tắt devtools cho main window (vẫn mở được bằng shortcut nếu cần)
-            loadFallback();
-        }
-    });
-
-    req.on("error", () => {
-        sendToRenderer(
-            "tools-log",
-            "[x] Không kết nối được Angular → fallback",
-        );
-        loadFallback();
-    });
-
-    function loadFallback() {
-        startFallbackServer();
-        mainWindow
-            .loadURL(fallbackURL)
-            .then(() =>
-                sendToRenderer(
-                    "tools-log",
-                    "[Fallback] Load fallback thành công",
-                ),
-            )
-            .catch((err) =>
-                sendToRenderer(
-                    "tools-log",
-                    `[Fallback] Lỗi khi load fallback: ${err.message}`,
-                ),
-            );
+    if (app.isPackaged) {
+        mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"))
+            .then(() => sendToRenderer("tools-log", `[WebApp] Đã load fallback/index.html thành công`))
+            .catch((err) => sendToRenderer("tools-log", `[WebApp] Lỗi khi load fallback/index.html: ${err.message}`));
+    } else {
+        const targetURL = "http://localhost:4200";
+        mainWindow.loadURL(targetURL)
+            .then(() => sendToRenderer("tools-log", `[WebApp] Đã load ${targetURL} thành công`))
+            .catch((err) => sendToRenderer("tools-log", `[WebApp] Lỗi khi load ${targetURL}: ${err.message}`));
     }
 
     mainWindow.on("closed", () => {

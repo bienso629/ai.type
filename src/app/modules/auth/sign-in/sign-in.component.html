@@ -77,9 +77,16 @@
                         target="_blank">Quên tài khoản?
                     </a>
                 </div>
-
-                <ngx-captcha [config]="captchaConfig"
-                    [ngClass]="{correct: captchaStatus === true, incorrect: captchaStatus === false}"></ngx-captcha>
+                <div class="ngx-captcha block mb-6" [ngClass]="{correct: captchaStatus === true, incorrect: captchaStatus === false}">
+                    <div class="captcha-container captcha-container-custom">
+                        <canvas #nativeCaptchaCanvas id="nativeCaptchaCanvas" width="316" height="80" (click)="generateCaptcha()" style="cursor: pointer;" title="Bấm để đổi mã mới"></canvas>
+                        <div class="captcha-actions">
+                            <input type="text" [(ngModel)]="captchaInput" [ngModelOptions]="{standalone: true}" placeholder="Nhập các ký tự và bấm kiểm tra" (keyup)="validateCaptcha()">
+                            <input type="button" value="Kiểm tra" (click)="validateCaptcha()">
+                            <a href="javascript:void(0)" class="cpt-btn reload" (click)="generateCaptcha()">&#x21bb;</a>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Submit button -->
                 <button class="w-full mt-6" mat-flat-button [color]="'primary'" [disabled]="signInForm.disabled">

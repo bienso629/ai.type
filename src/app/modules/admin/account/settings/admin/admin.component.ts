@@ -457,6 +457,40 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             });
     }
 
+    backupDatabase() {
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Backup Cơ Sở Dữ Liệu',
+            message: `Bạn có chắc chắn muốn đẩy toàn bộ cơ sở dữ liệu hiện tại lên máy chủ <b>data.type.vn</b> không?<br>Quá trình này sẽ chạy ngầm và đồng bộ dữ liệu.`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:cloud-upload',
+                color: 'info'
+            },
+            actions: {
+                confirm: { show: true, label: 'Bắt đầu Backup', color: 'primary' },
+                cancel: { show: true, label: 'Hủy' }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this._userClientService.backupDatabase({}).subscribe((res) => {
+                    if (res && res.success) {
+                        this._fuseConfirmationService.open({
+                            title: 'Thành công',
+                            message: res.message || 'Lệnh backup đã được gửi tới hệ thống.',
+                            icon: { show: true, name: 'heroicons_outline:check-circle', color: 'success' },
+                            actions: { confirm: { show: true, label: 'Đóng', color: 'primary' }, cancel: { show: false } }
+                        });
+                    } else {
+                        this.error(res?.message || 'Có lỗi xảy ra khi thực hiện backup.');
+                    }
+                });
+            }
+        });
+    }
+
     // -----------------------------------------------------------------------------------------------------
     // @ N8N METHODS (Đã cập nhật Confirm Dialog đẹp hơn)
     // -----------------------------------------------------------------------------------------------------

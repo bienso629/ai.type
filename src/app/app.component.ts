@@ -93,7 +93,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
-            const groups = data.user?.groups;
+            const groups = data?.user?.groups;
             if (groups && groups.length === 0) {
                 this.multiAccountService.clearCurrentAccountData();
             }

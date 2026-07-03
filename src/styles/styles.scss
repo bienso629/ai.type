@@ -1079,3 +1079,38 @@ input[type=checkbox]:checked:after {
     max-height: 900px !important;
     height: 800px !important;
 }
+
+/* Make ngx-datatable loading progress bar thinner */
+ngx-datatable.material .datatable-body .progress-linear {
+    display: block;
+    position: relative;
+    width: 100%;
+    height: 3px !important; /* Slightly larger */
+    padding: 0;
+    margin: 0;
+    position: absolute;
+}
+ngx-datatable.material .datatable-body .progress-linear .container {
+    display: block;
+    position: relative;
+    overflow: hidden;
+    width: 100%;
+    height: 3px !important; /* Slightly larger */
+    -webkit-transform: translate(0, 0) scale(1, 1);
+    transform: translate(0, 0) scale(1, 1);
+    background-color: rgb(170, 209, 249);
+}
+ngx-datatable.material .datatable-body .progress-linear .container .bar {
+    transition: all .2s linear;
+    -webkit-animation: query .8s infinite cubic-bezier(.39, .575, .565, 1);
+    animation: query .8s infinite cubic-bezier(.39, .575, .565, 1);
+    transition: -webkit-transform .2s linear;
+    transition: transform .2s linear;
+    background-color: #106cc8;
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 100%;
+    height: 3px !important; /* Slightly larger */
+}

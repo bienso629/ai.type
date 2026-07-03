@@ -5,6 +5,7 @@ import {
     OnInit,
     ViewChild,
     ViewEncapsulation,
+    ElementRef
 } from '@angular/core';
 import {
     UntypedFormBuilder,
@@ -17,7 +18,7 @@ import { fuseAnimations } from '@fuse/animations';
 import { FuseAlertType } from '@fuse/components/alert';
 import { AuthService } from 'app/core/auth/auth.service';
 import { Subject, takeUntil } from 'rxjs';
-import { NgxCaptchaService } from '@binssoft/ngx-captcha';
+
 import { ForumService } from 'app/modules/_services/forum';
 import { UserService } from 'app/core/user/user.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
@@ -35,19 +36,8 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 })
 export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     captchaStatus: boolean = false;
-    captchaConfig: any = {
-        type: 1, // 1 or 2 or 3 or 4
-        length: 6,
-        cssClass: 'captcha-container-custom',
-        back: {
-            stroke: '#2F9688',
-            solid: '#ffffff',
-        },
-        font: {
-            color: '#222222',
-            size: '20px',
-        },
-    };
+    captchaCode: string = '';
+    captchaInput: string = '';
 
     foods = [
         // { value: 'local', viewValue: 'Máy tính cá nhân' },
@@ -60,6 +50,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     accounts = [];
 
     @ViewChild('signInNgForm') signInNgForm: NgForm;
+    @ViewChild('nativeCaptchaCanvas') nativeCaptchaCanvas: ElementRef<HTMLCanvasElement>;
 
     alert: { type: FuseAlertType; message: string } = {
         type: 'success',
@@ -84,6 +75,15 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
      * Sign in
      */
     signIn(): void {
+        if (!this.captchaStatus) {
+            this.alert = {
+                type: 'error',
+                message: 'Vui lòng nhập đúng mã Captcha.',
+            };
+            this.showAlert = true;
+            return;
+        }
+
         if (this.signInForm.invalid) {
             this.alert = {
                 type: 'error',
@@ -216,31 +216,62 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         private _userClientService: UserClientService,
         private _authService: AuthService,
         private _formBuilder: UntypedFormBuilder,
-        private captchaService: NgxCaptchaService,
         private _forumService: ForumService,
         private _router: Router,
         private multiAccountService: MultiAccountService
     ) {
-        this.captchaService.captchStatus.subscribe((status) => {
-            this.captchaStatus = status;
-            if (status === false) {
-                this.alert = {
-                    type: 'error',
-                    message: 'Vui lòng nhập đúng mã Captcha.',
-                };
+    }
 
-                this.showAlert = true;
+    generateCaptcha(retryCount = 0) {
+        const characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        const charactersLength = characters.length;
+        for (let i = 0; i < 6; i++) {
+            result += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        this.captchaCode = result;
+        this.captchaStatus = null;
+        this.captchaInput = '';
+
+        setTimeout(() => {
+            let canvas = null;
+            if (this.nativeCaptchaCanvas && this.nativeCaptchaCanvas.nativeElement) {
+                canvas = this.nativeCaptchaCanvas.nativeElement;
+            } else {
+                canvas = document.getElementById('nativeCaptchaCanvas') as HTMLCanvasElement;
             }
 
-            if (status === true) {
-                this.alert = {
-                    type: 'success',
-                    message: 'Mã captcha đã nhập đúng.',
-                };
-
-                this.showAlert = true;
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#f8f9fa';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                
+                ctx.strokeStyle = '#2F9688';
+                for (let i = 0; i < 15; i++) {
+                    ctx.beginPath();
+                    ctx.moveTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.lineTo(Math.random() * canvas.width, Math.random() * canvas.height);
+                    ctx.stroke();
+                }
+                
+                ctx.font = '24px Arial';
+                ctx.fillStyle = '#222222';
+                ctx.fillText(this.captchaCode, 40, 35);
+            } else if (retryCount < 5) {
+                // Retry if DOM is not ready
+                setTimeout(() => this.generateCaptcha(retryCount + 1), 200);
             }
-        });
+        }, 50);
+    }
+
+    validateCaptcha() {
+        if (this.captchaInput && this.captchaInput.toLowerCase() === this.captchaCode.toLowerCase()) {
+            this.captchaStatus = true;
+            this.showAlert = false;
+        } else {
+            this.captchaStatus = false;
+        }
     }
     /**
      * On init
@@ -267,23 +298,7 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     ngAfterViewInit() {
-        setTimeout(() => {
-            const text = document.querySelector(
-                'ngx-captcha .captcha-actions input[type=text]'
-            ) as HTMLInputElement;
-
-            if (text) {
-                text.placeholder = "Nhập các ký tự và bấm kiểm tra";
-            }
-
-            const btn = document.querySelector(
-                'ngx-captcha .captcha-actions input[type=button]'
-            ) as HTMLInputElement;
-
-            if (btn) {
-                btn.value = "Kiểm tra";
-            }
-        }, 100);
+        setTimeout(() => this.generateCaptcha(), 100);
     }
 
     ngOnDestroy(): void {
@@ -292,6 +307,6 @@ export class AuthSignInComponent implements OnInit, OnDestroy, AfterViewInit {
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();
 
-        this.captchaService.unsubscribe();
+        this._unsubscribeAll.complete();
     }
 }
