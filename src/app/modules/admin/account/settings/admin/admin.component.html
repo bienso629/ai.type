@@ -314,8 +314,20 @@
             </div>
         </mat-tab>
 
-        <!-- <mat-tab label="Hệ thống">
-            <mat-label class="text-base text-gray-300">Hệ thống ổn</mat-label>
-        </mat-tab> -->
+        <mat-tab label="Hệ thống">
+            <div class="w-full mt-4">
+                <div class="text-secondary leading-8">
+                    <p class="font-semibold text-lg">Sao lưu và Khôi phục</p>
+                    <p class="text-base text-gray-500">Đẩy toàn bộ dữ liệu CouchDB hiện tại lên máy chủ lưu trữ (data.type.vn). Quá trình này sẽ chạy ngầm.</p>
+                </div>
+
+                <div class="flex items-center justify-start mt-4">
+                    <button mat-flat-button type="button" (click)="backupDatabase()" color="accent">
+                        <mat-icon [svgIcon]="'heroicons_outline:cloud-upload'"></mat-icon>
+                        <span class="ml-2">Backup Database</span>
+                    </button>
+                </div>
+            </div>
+        </mat-tab>
     </mat-tab-group>
 </div>

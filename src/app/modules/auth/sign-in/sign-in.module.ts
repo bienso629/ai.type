@@ -11,7 +11,6 @@ import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
 import { AuthSignInComponent } from 'app/modules/auth/sign-in/sign-in.component';
 import { authSignInRoutes } from 'app/modules/auth/sign-in/sign-in.routing';
-import { NgxCaptchaModule } from '@binssoft/ngx-captcha';
 
 @NgModule({
     declarations: [
@@ -27,8 +26,7 @@ import { NgxCaptchaModule } from '@binssoft/ngx-captcha';
         MatSelectModule,
         FuseCardModule,
         FuseAlertModule,
-        SharedModule,
-        NgxCaptchaModule
+        SharedModule
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })

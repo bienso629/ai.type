@@ -62,7 +62,7 @@
     display: inline-flex;
 }
 
-ngx-captcha {
+.ngx-captcha {
     &.incorrect {
         .captcha-actions input[type=button] {
             &:hover {
@@ -85,3 +85,9 @@ ngx-captcha {
         }
     }
 }
+
+// Fallback styles from original ngx-captcha to ensure identical look
+.captcha-container { width: 100%; box-shadow: 1px 1px 1px #ccc; }
+.captcha-actions input[type=text] { outline: none; }
+.captcha-actions input[type=button] { outline: none; border: none; }
+.captcha-actions a { cursor: pointer; font-weight: 700; text-decoration: none; }
