@@ -846,5 +846,17 @@
     "app.update_completed": "Cập nhật xong!",
     "app.cannot_edit": "Không thể chỉnh sửa.",
     "app.seo_evaluation_results_of": "Kết quả đánh giá SEO của {{link}}",
-    "app.export_pdf": "Xuất PDF"
+    "app.export_pdf": "Xuất PDF",
+    "app.scenes": "cảnh quay",
+    "app.draft": "Bản nháp",
+    "app.empty": "Trống",
+    "app.ready": "Sẵn sàng",
+    "app.working": "Đang làm",
+    "app.notification": "Thông báo!",
+    "app.request_not_found": "Yêu cầu hiển thị của bạn không được tìm thấy vào lúc này.",
+    "app.close": "Đóng",
+    "app.close_again": "Đóng lại",
+    "app.delete_video_script": "Xóa kịch bản video",
+    "app.are_you_sure_delete_script": "Bạn có chắc chắn muốn xóa kịch bản",
+    "app.action_cannot_be_undone_delete_all": "Hành động này không thể hoàn tác và sẽ xóa toàn bộ dữ liệu âm thanh, hình ảnh liên quan."
 }
