@@ -39,7 +39,7 @@
                                 <div class="flex items-center w-full h-full shrink-0 px-2">
                                     <a href="https://developers.facebook.com/tools/explorer/" target="_blank"
                                         class="flex items-center justify-center p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-100 rounded transition-colors shrink-0 mr-1"
-                                        matTooltip="Mở Facebook Graph Explorer"
+                                        [matTooltip]="'app.auto_open_facebook_graph_explorer' | transloco"
                                         (click)="$event.stopPropagation()">
                                         <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
                                     </a>
@@ -66,7 +66,7 @@
                                         [svgIcon]="'feather:key'"></mat-icon>
                                     <input type="text"
                                         class="flex-1 outline-none text-sm bg-transparent placeholder-blue-300 text-blue-700 min-w-0 h-full"
-                                        placeholder="Nhập Token EAAC..." (input)="fbTokenInput = $event.target.value"
+                                        [placeholder]="'app.auto_enter_eaac_token' | transloco" (input)="fbTokenInput = $event.target.value"
                                         [value]="fbTokenInput" (keydown)="$event.stopPropagation()"
                                         (keydown.enter)="fetchFacebookPages(); $event.stopPropagation(); $event.preventDefault()">
                                     <button *ngIf="fbTokenInput && !isFetchingPages" mat-icon-button
@@ -96,7 +96,7 @@
                             <button mat-icon-button
                                 class="text-blue-600 hover:text-blue-700 hover:bg-blue-50 flex items-center justify-center transition-colors"
                                 [ngClass]="{'bg-blue-100': showTokenInput}"
-                                (click)="toggleTokenInput(); $event.stopPropagation()" matTooltip="Đồng bộ Fanpage">
+                                (click)="toggleTokenInput(); $event.stopPropagation()" [matTooltip]="'app.auto_synchronize_fanpage' | transloco">
                                 <mat-icon *ngIf="!isFetchingPages" class="icon-size-4"
                                     [svgIcon]="'feather:refresh-cw'"></mat-icon>
                                 <mat-spinner *ngIf="isFetchingPages" diameter="16"></mat-spinner>
@@ -105,7 +105,7 @@
                     </div>
 
                     <mat-option *ngIf="filteredFbPages.length === 0" disabled
-                        class="text-center italic text-gray-400 py-4">Không tìm thấy Fanpage nào</mat-option>
+                        class="text-center italic text-gray-400 py-4">{{ 'app.auto_no_fanpage_found' | transloco }}</mat-option>
                     <mat-option *ngFor="let page of filteredFbPages" [value]="page.id" class="h-auto py-2 !mt-0 !mb-0">
                         <div class="flex items-center gap-3 w-full min-w-0">
                             <img [src]="'https://graph.facebook.com/' + page.id + '/picture?type=normal'"
@@ -121,15 +121,15 @@
 
             <mat-form-field class="w-1/2 fuse-mat-dense">
                 <mat-label>{{ 'app.post_title' | transloco }}</mat-label>
-                <input matInput [formControlName]="'title'" placeholder="Hôm nay bạn muốn đăng gì?" required>
+                <input matInput [formControlName]="'title'" [placeholder]="'app.auto_what_do_you_want_to_post_today' | transloco" required>
                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
             </mat-form-field>
         </div>
 
         <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-2">
-            <mat-label>Nội dung bài viết</mat-label>
+            <mat-label>{{ 'app.auto_article_content' | transloco }}</mat-label>
             <textarea matInput cdkTextareaAutosize [cdkAutosizeMinRows]="5" [formControlName]="'description'"
-                placeholder="Nội dung chi tiết..."></textarea>
+                [placeholder]="'app.auto_detailed_content' | transloco"></textarea>
         </mat-form-field>
 
         <div class="flex flex-col mt-2 mb-6">
@@ -172,22 +172,20 @@
                         </span>
                     </div>
                     <button mat-icon-button (click)="removeThumbnail(i)" class="text-red-500 flex-shrink-0 ml-2"
-                        type="button" matTooltip="Xoá file này">
+                        type="button" [matTooltip]="'app.auto_delete_this_file' | transloco">
                         <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
                     </button>
                 </div>
             </div>
-            <mat-hint class="text-xs text-secondary mt-1">Đường dẫn ảnh/video dưới local để chia sẻ lên các fanpage hoặc
-                group</mat-hint>
+            <mat-hint class="text-xs text-secondary mt-1">{{ 'app.auto_local_image_video_path_to_shar' | transloco }}</mat-hint>
         </div>
 
         <mat-form-field class="w-full fuse-mat-dense mb-2">
-            <mat-label>Hẹn giờ đăng bài</mat-label>
+            <mat-label>{{ 'app.auto_schedule_post' | transloco }}</mat-label>
             <input #scheduleInput matInput type="datetime-local" [formControlName]="'scheduleTime'"
                 (click)="scheduleInput.showPicker()">
             <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>
-            <mat-hint>Để trống hoặc chọn giờ trong quá khứ/hiện tại để đăng ngay lập tức. Chọn giờ tương lai để lên
-                lịch.</mat-hint>
+            <mat-hint>{{ 'app.auto_leave_blank_or_select_a_past_p' | transloco }}</mat-hint>
         </mat-form-field>
 
         <div class="flex justify-end mt-2">

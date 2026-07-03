@@ -9,7 +9,7 @@
     
     <!-- Back Button -->
     <div class="sticky top-4 left-4 z-50 pointer-events-none" style="width: 0; height: 0; overflow: visible;">
-        <a href="javascript:history.back()" matTooltip="Quay lại" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-teal-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
+        <a href="javascript:history.back()" [matTooltip]="'app.auto_go_back' | transloco" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-teal-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
             <mat-icon class="icon-size-6">arrow_back</mat-icon>
         </a>
     </div>
@@ -52,7 +52,7 @@
                  [class.hidden]="!isNodeVisible(node)"
                  [style.left.px]="node.x"
                  [style.top.px]="node.y"
-                 [style.width.px]="node.type === 'video' || node.type === 'composition' || node.type === 'storyboard' ? 360 : 280"
+                 [style.width.px]="node.type === 'composition' ? 540 : (node.type === 'video' || node.type === 'storyboard' ? 360 : 280)"
                  [style.z-index]="draggedNode === node ? 100 : 10"
                  (mousedown)="onNodeMouseDown($event, node)"
                  (mouseenter)="hoveredNode = node"
@@ -71,14 +71,14 @@
                     </div>
                     <div class="flex items-center space-x-2 shrink-0">
                         <ng-container *ngIf="node.type === 'tts'; else defaultSubtitle">
-                            <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-teal-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" matTooltip="Cài đặt giọng đọc">
+                            <div class="w-6 h-6 rounded-full hover:bg-gray-100 flex items-center justify-center cursor-pointer text-gray-500 hover:text-teal-600 transition-colors" (click)="openAudioGeneration(node); $event.stopPropagation()" [matTooltip]="'app.auto_set_up_voice' | transloco">
                                 <mat-icon class="icon-size-4 !m-0">mic</mat-icon>
                             </div>
                         </ng-container>
                         <ng-template #defaultSubtitle>
                             <span class="text-xs text-gray-400 font-medium">{{ node.subtitle }}</span>
                         </ng-template>
-                        <div *ngIf="node.type !== 'composition'" class="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center cursor-pointer text-gray-400 hover:text-red-500 transition-colors" (click)="deleteNode(node.id); $event.stopPropagation()" matTooltip="Xóa khối này">
+                        <div *ngIf="node.type !== 'composition'" class="w-6 h-6 rounded-full hover:bg-red-50 flex items-center justify-center cursor-pointer text-gray-400 hover:text-red-500 transition-colors" (click)="deleteNode(node.id); $event.stopPropagation()" [matTooltip]="'app.auto_delete_this_block' | transloco">
                             <mat-icon class="icon-size-4 !m-0">close</mat-icon>
                         </div>
                     </div>
@@ -105,7 +105,7 @@
                                  class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] transition-opacity z-20">
                                 <div *ngIf="node.data.isGenerating" class="flex flex-col items-center justify-center text-teal-400">
                                     <mat-icon class="icon-size-8 text-teal-400 animate-spin">refresh</mat-icon>
-                                    <span class="text-[10px] font-medium tracking-wide mt-2 text-teal-400">Đang xuất video...</span>
+                                    <span class="text-[10px] font-medium tracking-wide mt-2 text-teal-400">{{ 'app.auto_exporting_video' | transloco }}</span>
                                 </div>
                                 <div *ngIf="!node.data.isGenerating" class="relative w-16 h-16 flex items-center justify-center">
                                     <!-- Ripple effect rings -->
@@ -134,7 +134,7 @@
                                 </div>
                             </div>
                                          <!-- Hover Video Timeline Slider -->
-                            <div *ngIf="hoveredNode === node && node.data?.isVideo && (node.data?.videoUrl || node.data?.imageUrl)" 
+                            <div *ngIf="hoveredNode === node && node.data?.isVideo && (node.data?.videoUrl || node.data?.imageUrl) && node.type !== 'composition'" 
                                  class="absolute bottom-1.5 left-1.5 right-1.5 bg-black/80 backdrop-blur-md rounded-lg py-1 px-1.5 flex flex-col z-50 pointer-events-auto shadow-lg"
                                  (mousedown)="$event.stopPropagation()">
                                 <div class="flex items-center justify-between text-[9px] font-mono text-gray-300 mb-0.5 select-none px-0.5">
@@ -229,14 +229,14 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" (keydown)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" placeholder="Nhập prompt cho bản vẽ..." [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" (keydown)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" [placeholder]="'app.auto_enter_prompt_for_the_drawing' | transloco" [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
                         
                         <div class="absolute bottom-2 right-2 flex space-x-1.5">
-                            <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'IMAGE')" class="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo ảnh" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
+                            <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'IMAGE')" class="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" [matTooltip]="'app.auto_create_image' | transloco" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
                                 <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-4 text-white">image</mat-icon>
                                 <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-4 text-white animate-spin">autorenew</mat-icon>
                             </button>
-                            <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'VIDEO')" class="w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" matTooltip="Tạo video" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
+                            <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'VIDEO')" class="w-8 h-8 rounded-full bg-indigo-500 hover:bg-indigo-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" [matTooltip]="'app.auto_create_video' | transloco" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
                                 <mat-icon *ngIf="!isGeneratingPrompt" class="icon-size-4 text-white">movie</mat-icon>
                                 <mat-icon *ngIf="isGeneratingPrompt" class="icon-size-4 text-white animate-spin">autorenew</mat-icon>
                             </button>
@@ -299,7 +299,7 @@
                 <div *ngFor="let char of activeCharacters" class="flex items-center bg-gray-50 hover:bg-gray-100 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer">
                     <div class="flex items-center justify-center mr-1.5">
                         <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)"
-                             [src]="char.avatarUrl || char.avatarUrls[0]"
+                             [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])"
                              class="w-5 h-5 rounded-full object-cover">
                         <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)"
                                   class="text-gray-500 icon-size-4">person</mat-icon>
@@ -313,14 +313,14 @@
                 <!-- Add Character Chip -->
                 <button *ngIf="editingType !== 'none'" [matMenuTriggerFor]="addCharMenu" class="flex items-center bg-gray-50 hover:bg-teal-50 text-teal-600 transition-colors border border-gray-200 rounded-full px-2 py-1.5 cursor-pointer h-[34px]">
                     <mat-icon class="icon-size-4 mr-1">add</mat-icon>
-                    <span class="text-sm font-medium pr-1">Thêm</span>
+                    <span class="text-sm font-medium pr-1">{{ 'app.auto_add_1' | transloco }}</span>
                 </button>
                 <mat-menu #addCharMenu="matMenu" class="rounded-xl py-1.5" panelClass="faint-shadow-menu">
                     <ng-container *ngIf="getUnusedCharacters().length > 0; else noChars">
                         <button mat-menu-item *ngFor="let char of getUnusedCharacters()" (click)="addCharacterToPrompt(char)">
                             <div class="flex items-center space-x-3 w-full">
                                 <div class="w-8 h-8 rounded-full bg-gray-50 flex items-center justify-center shrink-0 overflow-hidden">
-                                    <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)" [src]="char.avatarUrl || char.avatarUrls[0]" class="w-full h-full object-cover">
+                                    <img *ngIf="char.avatarUrl || (char.avatarUrls && char.avatarUrls.length > 0)" [src]="getSafeUrl(char.avatarUrl || char.avatarUrls[0])" class="w-full h-full object-cover">
                                     <mat-icon *ngIf="!char.avatarUrl && (!char.avatarUrls || char.avatarUrls.length === 0)" class="text-gray-400 icon-size-4">person</mat-icon>
                                 </div>
                                 <span class="text-sm font-semibold text-gray-700">{{ char.name || char.role }}</span>
@@ -328,7 +328,7 @@
                         </button>
                     </ng-container>
                     <ng-template #noChars>
-                        <div class="px-4 py-2 text-sm text-gray-500 italic">Tất cả nhân vật đã có trong scene</div>
+                        <div class="px-4 py-2 text-sm text-gray-500 italic">{{ 'app.auto_all_characters_already_in_the' | transloco }}</div>
                     </ng-template>
                 </mat-menu>
             </ng-container>
@@ -352,13 +352,13 @@
         <!-- Large Character Avatar Preview -->
         <div *ngIf="editingType === 'character' && editingCharacter" class="px-3 pb-2 w-full flex justify-center">
             <div class="relative group w-full max-w-[200px] sm:max-w-[300px] rounded-xl overflow-hidden bg-transparent transition-all">
-                <img *ngIf="editingCharacter.avatarUrl" [src]="editingCharacter.avatarUrl" class="w-full h-auto object-cover max-h-[250px]">
+                <img *ngIf="editingCharacter.avatarUrl" [src]="getSafeUrl(editingCharacter.avatarUrl)" class="w-full h-auto object-cover max-h-[250px]">
                 <div *ngIf="!editingCharacter.avatarUrl" class="w-full h-[150px] flex items-center justify-center bg-gray-100">
                     <mat-icon class="text-gray-400 icon-size-10">person</mat-icon>
                 </div>
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer backdrop-blur-[2px]" (click)="onAvatarDoubleClick($event, editingCharacter)" matTooltip="Tải ảnh nhân vật lên">
+                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center cursor-pointer backdrop-blur-[2px]" (click)="onAvatarDoubleClick($event, editingCharacter)" [matTooltip]="'app.auto_upload_character_image' | transloco">
                     <mat-icon class="text-white icon-size-8 mb-1">upload</mat-icon>
-                    <span class="text-white text-sm font-medium">Đổi ảnh</span>
+                    <span class="text-white text-sm font-medium">{{ 'app.auto_change_picture' | transloco }}</span>
                 </div>
             </div>
         </div>
@@ -383,20 +383,20 @@
             <!-- Left Actions -->
             <div class="flex items-center space-x-2">
 
-                <button matTooltip="Đính kèm video/hình ảnh" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
+                <button [matTooltip]="'app.auto_attach_video_image' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
                     <mat-icon class="icon-size-5">add</mat-icon>
-                    <input type="file" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer" (change)="onFileSelected($event)" title="Đính kèm video/hình ảnh">
+                    <input type="file" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer" (change)="onFileSelected($event)" [title]="'app.auto_attach_video_image' | transloco">
                 </button>
-                <button [matMenuTriggerFor]="charMenu" matTooltip="Nhân vật" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                <button [matMenuTriggerFor]="charMenu" [matTooltip]="'app.auto_character' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">person</mat-icon>
                 </button>
-                <button (click)="openDirectorMode($event)" matTooltip="Chế độ đạo diễn" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                <button (click)="openDirectorMode($event)" [matTooltip]="'app.auto_director_mode' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">movie_filter</mat-icon>
                 </button>
                 <button (click)="openMagicPromptDialog()" matTooltip="Magic prompt" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">auto_fix_high</mat-icon>
                 </button>
-                <button (click)="insertVoiceTag()" matTooltip="Chèn thoại (Voice)" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
+                <button (click)="insertVoiceTag()" [matTooltip]="'app.auto_insert_voice_voice' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">volume_up</mat-icon>
                 </button>
                 <div *ngIf="selectedNode?.type === 'video' && hasIncomingConnection(selectedNode)" class="flex items-center ml-2 pl-3 border-l border-gray-200 h-8 cursor-pointer group" (click)="toggleUsePreviousFrame()">
@@ -409,7 +409,7 @@
                         </div>
                     </div>
                     <span class="text-[14px] ml-2.5 text-gray-700 select-none group-hover:text-gray-900 transition-colors">
-                        Kế thừa frame cuối <span class="text-[#9ca3af] group-hover:text-gray-500 transition-colors">(chuyển cảnh mượt mà)</span>
+                        {{ 'app.auto_inherit_the_last_frame' | transloco }} <span class="text-[#9ca3af] group-hover:text-gray-500 transition-colors">{{ 'app.auto_smooth_transition' | transloco }}</span>
                     </span>
                 </div>
             </div>
@@ -424,19 +424,19 @@
                     <button mat-menu-item *ngFor="let char of projectData?.characters" (click)="insertCharacterToPrompt(char)" class="!pl-3 !pr-5">
                         <div class="flex items-center justify-between w-full group min-w-[220px]">
                             <div class="flex items-center space-x-3">
-                                <img *ngIf="char.avatarUrl" [src]="char.avatarUrl" class="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full object-cover shadow-sm">
+                                <img *ngIf="char.avatarUrl" [src]="getSafeUrl(char.avatarUrl)" class="w-8 h-8 min-w-[32px] min-h-[32px] rounded-full object-cover shadow-sm">
                                 <div *ngIf="!char.avatarUrl" class="w-8 h-8 min-w-[32px] min-h-[32px] bg-gray-100 rounded-full flex items-center justify-center shadow-sm">
                                     <mat-icon class="icon-size-5 text-gray-500 !m-0">person</mat-icon>
                                 </div>
                                 <span class="font-medium text-gray-700">{{char.name}}</span>
                             </div>
-                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-8 h-8 hover:bg-gray-200 rounded-full cursor-pointer ml-4" (click)="onAvatarDoubleClick($event, char)" matTooltip="Tải ảnh lên (Upload image)">
+                            <div class="opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center w-8 h-8 hover:bg-gray-200 rounded-full cursor-pointer ml-4" (click)="onAvatarDoubleClick($event, char)" [matTooltip]="'app.auto_upload_image' | transloco">
                                 <mat-icon class="icon-size-5 text-gray-500 hover:text-teal-600 transition-colors !m-0">upload</mat-icon>
                             </div>
                         </div>
                     </button>
                     <button mat-menu-item *ngIf="!projectData?.characters?.length" disabled>
-                        <span>Chưa có nhân vật nào</span>
+                        <span>{{ 'app.auto_there_is_no_character_yet' | transloco }}</span>
                     </button>
                     <div class="h-px bg-gray-200 my-1"></div>
                     <button mat-menu-item (click)="openAddCharacter()" class="!px-3">
@@ -444,7 +444,7 @@
                             <div class="w-8 h-8 min-w-[32px] min-h-[32px] bg-teal-50 border border-dashed border-teal-300 rounded-full flex items-center justify-center shadow-sm">
                                 <mat-icon class="icon-size-5 text-teal-600 !m-0">person_add</mat-icon>
                             </div>
-                            <span class="font-medium">Tạo nhân vật mới</span>
+                            <span class="font-medium">{{ 'app.auto_create_a_new_character' | transloco }}</span>
                         </div>
                     </button>
                 </mat-menu>
@@ -481,8 +481,8 @@
                                [matAutocomplete]="modelAuto"
                                (blur)="onModelInputBlur()"
                                (input)="filterModels($event.target.value)"
-                               matTooltip="Chọn model sinh Ảnh & Video"
-                               placeholder="Tìm kiếm model...">
+                               [matTooltip]="'app.auto_select_image_video_generation' | transloco"
+                               [placeholder]="'app.auto_searching_for_model' | transloco">
                     </div>
 
                     <mat-autocomplete #modelAuto="matAutocomplete" panelClass="custom-model-panel" panelWidth="450px" (optionSelected)="onModelSelected($event.option.value)">
@@ -495,12 +495,12 @@
                         </ng-container>
 
                         <mat-option disabled *ngIf="!availableModels?.length">
-                            <span class="text-sm">Đang tải...</span>
+                            <span class="text-sm">{{ 'app.auto_loading' | transloco }}</span>
                         </mat-option>
                     </mat-autocomplete>
 
                     <!-- Submit Button -->
-                    <button class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" matTooltip="Gửi yêu cầu" (click)="submitPrompt(false, globalActiveModality)">
+                    <button class="relative z-10 w-8 h-8 rounded-full bg-teal-600 hover:bg-teal-700 flex items-center justify-center text-white transition-colors mr-1 shrink-0" [matTooltip]="'app.auto_send_request' | transloco" (click)="submitPrompt(false, globalActiveModality)">
                         <mat-icon class="icon-size-5 text-white rotate-90 ml-0.5" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
                     </button>
                 </div>
@@ -526,7 +526,7 @@
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
                 </div>
-                <span class="text-sm font-semibold text-gray-700">Thêm mới Scene</span>
+                <span class="text-sm font-semibold text-gray-700">{{ 'app.auto_add_new_scene' | transloco }}</span>
             </div>
         </button>
         <button mat-menu-item [matMenuTriggerFor]="audioSubMenu" class="hover:bg-gray-50 transition-colors">
@@ -534,14 +534,14 @@
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">mic</mat-icon>
                 </div>
-                <span class="text-sm font-semibold text-gray-700">Thêm mới Audio</span>
+                <span class="text-sm font-semibold text-gray-700">{{ 'app.auto_add_new_audio' | transloco }}</span>
             </div>
         </button>
 
         <mat-menu #audioSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
             <button mat-menu-item (click)="addNewAudioNode()">
                 <mat-icon class="icon-size-5 text-teal-500">add_circle_outline</mat-icon>
-                <span class="text-sm">Tạo Audio trống</span>
+                <span class="text-sm">{{ 'app.auto_create_empty_audio' | transloco }}</span>
             </button>
             <mat-divider *ngIf="unusedAudioNodes.length > 0"></mat-divider>
             <button mat-menu-item *ngFor="let node of unusedAudioNodes" (click)="addUnusedAudioToCanvas(node)">
@@ -555,7 +555,7 @@
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">image</mat-icon>
                 </div>
-                <span class="text-sm font-semibold text-gray-700">Tạo toàn bộ Ảnh phác họa</span>
+                <span class="text-sm font-semibold text-gray-700">{{ 'app.auto_create_all_sketch_images' | transloco }}</span>
             </div>
         </button>
 
@@ -564,7 +564,7 @@
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
                 </div>
-                <span class="text-sm font-semibold text-gray-700">Tạo toàn bộ Video cho Scene</span>
+                <span class="text-sm font-semibold text-gray-700">{{ 'app.auto_create_the_entire_video_for_th' | transloco }}</span>
             </div>
         </button>
 
@@ -575,7 +575,7 @@
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">format_align_center</mat-icon>
                 </div>
-                <span class="text-sm font-semibold text-gray-700">Sắp xếp lại vị trí</span>
+                <span class="text-sm font-semibold text-gray-700">{{ 'app.auto_rearrange_the_position' | transloco }}</span>
             </div>
         </button>
     </mat-menu>

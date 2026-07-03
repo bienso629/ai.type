@@ -115,12 +115,11 @@
             <!-- Section -->
             <!-- <div class="w-full mt-8">
                 <div class="text-secondary leading-8">
-                    <p class="font-semibold">Tính năng Text2Speech</p>
+                    <p class="font-semibold">{{ 'app.auto_text2speech_feature' | transloco }}</p>
                 </div>
 
                 <div class="flex items-center justify-start mt-4">
-                    <button mat-flat-button type="button" (click)="turnOnTTSModel()" [color]="'primary'">Bật
-                        model</button>
+                    <button mat-flat-button type="button" (click)="turnOnTTSModel()" [color]="'primary'">{{ 'app.auto_turn_on_model' | transloco }}</button>
                 </div>
             </div> -->
         </mat-tab>
@@ -302,7 +301,7 @@
 
                 <p class="text-base mt-2">{{ 'app.download_ffmpeg_for_macos' | transloco }} <a href="https://evermeet.cx/ffmpeg"
                         target="_blank">https://evermeet.cx/ffmpeg</a></p>
-                <p class="text-base">hoặc cho window, linux <a href="https://github.com/BtbN/FFmpeg-Builds/releases"
+                <p class="text-base">{{ 'app.auto_or_for_windows_linux' | transloco }} <a href="https://github.com/BtbN/FFmpeg-Builds/releases"
                         target="_blank">https://github.com/BtbN/FFmpeg-Builds/releases</a></p>
                 <p class="text-base">{{ 'app.download_ytdlp_for_os' | transloco }} <a
                         href="https://github.com/yt-dlp/yt-dlp/releases"
@@ -314,11 +313,11 @@
             </div>
         </mat-tab>
 
-        <mat-tab label="Hệ thống">
+        <mat-tab [label]="'app.auto_system' | transloco">
             <div class="w-full mt-4">
                 <div class="text-secondary leading-8">
-                    <p class="font-semibold text-lg">Sao lưu và Khôi phục</p>
-                    <p class="text-base text-gray-500">Đẩy toàn bộ dữ liệu CouchDB hiện tại lên máy chủ lưu trữ (data.type.vn). Quá trình này sẽ chạy ngầm.</p>
+                    <p class="font-semibold text-lg">{{ 'app.auto_backup_and_restore' | transloco }}</p>
+                    <p class="text-base text-gray-500">{{ 'app.auto_push_all_current_couchdb_data' | transloco }}</p>
                 </div>
 
                 <div class="flex items-center justify-start mt-4">

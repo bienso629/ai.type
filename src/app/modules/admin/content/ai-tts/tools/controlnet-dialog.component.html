@@ -26,7 +26,7 @@
                     </div>
                     <button
                         class="absolute top-1 right-1 bg-red-500/80 hover:bg-red-600 text-white rounded-full w-6 h-6 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                        (click)="deleteControlTemplate(template.id, $event)" title="Xoá">
+                        (click)="deleteControlTemplate(template.id, $event)" [title]="'app.auto_delete_1' | transloco">
                         <mat-icon class="text-[14px] w-[14px] h-[14px] text-white">close</mat-icon>
                     </button>
                 </div>
@@ -43,14 +43,14 @@
                 class="flex flex-col items-center relative z-20 pointer-events-none">
                 <mat-icon [svgIcon]="'heroicons_outline:cloud-upload'"
                     class="text-indigo-400 w-12 h-12 mb-3"></mat-icon>
-                <p class="text-slate-600 font-medium mb-1">Kéo thả hoặc click để tải lên</p>
-                <p class="text-slate-400 text-xs mb-4">Hỗ trợ JPG, PNG (Tối đa 5MB)</p>
+                <p class="text-slate-600 font-medium mb-1">{{ 'app.auto_drag_and_drop_or_click_to_uplo' | transloco }}</p>
+                <p class="text-slate-400 text-xs mb-4">{{ 'app.auto_supports_jpg_png_up_to_5mb' | transloco }}</p>
 
                 <div class="flex gap-2 mt-2 pointer-events-auto">
                     <button mat-flat-button class="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 transition-colors"
                         (click)="openPosePrompt($event)">
                         <mat-icon>auto_awesome</mat-icon>
-                        <mat-label class="ml-2">Tự tạo bằng AI</mat-label>
+                        <mat-label class="ml-2">{{ 'app.auto_self_created_by_ai' | transloco }}</mat-label>
                     </button>
                     <button mat-flat-button class="bg-blue-100 text-blue-700 hover:bg-blue-200 transition-colors"
                         (click)="triggerVideoUpload($event)">
@@ -73,11 +73,11 @@
                     </h4>
                 </div>
 
-                <p class="text-sm font-medium text-slate-600 mb-2 w-full">Mô tả tư thế / bố cục bạn muốn tạo:</p>
+                <p class="text-sm font-medium text-slate-600 mb-2 w-full">{{ 'app.auto_describe_the_pose_composition' | transloco }}</p>
                 <textarea [(ngModel)]="posePromptText" cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="8"
                     class="w-full border border-slate-300 rounded-lg p-3 mb-3 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none resize-none overflow-hidden"
                     rows="3"
-                    placeholder="Ví dụ: Góc máy ngang tầm mắt, trung cảnh (Medium Shot). Một kiếm khách đang đứng thủ thế..."></textarea>
+                    [placeholder]="'app.auto_for_example_eye_level_camera_a' | transloco"></textarea>
 
                 <div class="flex items-center w-full justify-between">
                     <!-- Đính kèm ảnh mẫu -->
@@ -96,12 +96,12 @@
                         <button *ngIf="!poseReferenceImageUrl" mat-flat-button class="text-white bg-green-300"
                             (click)="poseImageInput.click()">
                             <mat-icon>add_photo_alternate</mat-icon>
-                            <mat-label class="ml-2">Đính kèm ảnh mẫu</mat-label>
+                            <mat-label class="ml-2">{{ 'app.auto_attached_sample_photo' | transloco }}</mat-label>
                         </button>
                     </div>
 
                     <div class="flex gap-2">
-                        <button mat-button (click)="isPromptingForPose = false">Hủy</button>
+                        <button mat-button (click)="isPromptingForPose = false">{{ 'app.auto_cancel' | transloco }}</button>
                         <button mat-flat-button class="bg-indigo-600 text-white hover:bg-indigo-700"
                             (click)="submitGeneratePose($event)">
                             <mat-icon>brush</mat-icon>
@@ -121,8 +121,8 @@
         <div *ngIf="extractedFrames.length > 0"
             class="flex flex-col gap-2 bg-white p-4 rounded-xl border border-slate-200 shadow-sm w-full overflow-hidden">
             <div class="flex justify-between items-center mb-1">
-                <label class="font-semibold text-slate-800 text-sm">Khung hình trích xuất từ Video (Chọn 1):</label>
-                <button mat-icon-button color="warn" (click)="extractedFrames = []" matTooltip="Hủy bỏ">
+                <label class="font-semibold text-slate-800 text-sm">{{ 'app.auto_frame_extracted_from_video_sel' | transloco }}</label>
+                <button mat-icon-button color="warn" (click)="extractedFrames = []" [matTooltip]="'app.auto_cancel_1' | transloco">
                     <mat-icon>close</mat-icon>
                 </button>
             </div>

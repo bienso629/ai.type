@@ -4,21 +4,21 @@
     <mat-label class="self-center">{{data.title}}</mat-label>
   </div>
 
-  <div class="mb-0 text-md text-hint">Nhập đầy đủ thông tin form dưới đây</div>
+  <div class="mb-0 text-md text-hint">{{ 'app.auto_fill_in_all_the_information_in' | transloco }}</div>
 
   <div mat-dialog-content class="mt-4 p-0">
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-0" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">ID phần mềm</span>
+      <span matPrefix class="w-30">{{ 'app.auto_software_id' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:code'"></mat-icon>
       <input [formControlName]="'appId'" [readonly]="data && data.type === 'extend'" [placeholder]="'Ví dụ: ai.type'"
         type="text" (input)="licensekey()" required matInput />
-      <!-- <mat-hint class="px-1">ID phần mềm dùng để truy xuất API</mat-hint> -->
+      <!-- <mat-hint class="px-1">{{ 'app.auto_software_id_used_to_access_the' | transloco }}</mat-hint> -->
     </mat-form-field>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">Phiên bản</span>
+      <span matPrefix class="w-30">{{ 'app.auto_version' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:package'"></mat-icon>
       <input [formControlName]="'appVersion'" [readonly]="data && data.type === 'extend'" [placeholder]="'1.0.1'"
         type="text" (input)="licensekey()" required matInput />
@@ -29,7 +29,7 @@
       <span matPrefix class="w-30">App Token</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:shield'"></mat-icon>
       <input [formControlName]="'appToken'" [placeholder]="'App Token'" type="text" readonly required matInput />
-      <!-- <mat-hint class="px-1">App Token dùng để truy xuất API</mat-hint> -->
+      <!-- <mat-hint class="px-1">{{ 'app.auto_app_token_is_used_to_access_th' | transloco }}</mat-hint> -->
     </mat-form-field>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
@@ -42,7 +42,7 @@
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">Địa chỉ</span>
+      <span matPrefix class="w-30">{{ 'app.auto_address' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:map'"></mat-icon>
       <input [formControlName]="'address'" [readonly]="data && data.type === 'extend'" [placeholder]="'Tp.HCM'"
         type="text" (input)="licensekey()" matInput />
@@ -58,38 +58,38 @@
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
-      <span matPrefix class="w-30">Email người mua</span>
+      <span matPrefix class="w-30">{{ 'app.auto_buyer_s_email' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
       <input [formControlName]="'email'" [readonly]="data && data.type === 'extend'"
         [placeholder]="'nguyenvana@gmail.com'" type="text" (input)="licensekey()" matInput />
     </mat-form-field>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">Điểm uy tín</span>
+      <span matPrefix class="w-30">{{ 'app.auto_reputation_score' | transloco }}</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:heart'"></mat-icon>
       <input [formControlName]="'reputationScore'" [placeholder]="'1000'" type="number" required matInput />
     </mat-form-field>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">Ngày mua</span>
+      <span matPrefix class="w-30">{{ 'app.auto_purchase_date' | transloco }}</span>
       <input [formControlName]="'createDate'" [placeholder]="'20/11/1986'" [matDatepicker]="picker1"
         (dateInput)="licensekey()" required readonly matInput />
       <mat-datepicker-toggle matIconSuffix [for]="picker1">
         <mat-icon matDatepickerToggleIcon class="icon-size-4" [svgIcon]="'feather:clock'"></mat-icon>
       </mat-datepicker-toggle>
       <mat-datepicker #picker1></mat-datepicker>
-      <!-- <mat-hint class="px-1">Ví dụ: 30/06/2024 (Ba mươi tháng sáu năm hai không hai tư)</mat-hint> -->
+      <!-- <mat-hint class="px-1">{{ 'app.auto_for_example_30_06_2024_thirty' | transloco }}</mat-hint> -->
     </mat-form-field>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'">
-      <span matPrefix class="w-30">Ngày hết hạn</span>
+      <span matPrefix class="w-30">{{ 'app.auto_expiration_date' | transloco }}</span>
       <input [formControlName]="'expirationDate'" [placeholder]="'20/11/1987'" [matDatepicker]="picker2"
         (dateInput)="licensekey()" required readonly matInput />
       <mat-datepicker-toggle matIconSuffix [for]="picker2">
         <mat-icon matDatepickerToggleIcon class="icon-size-4" [svgIcon]="'feather:clock'"></mat-icon>
       </mat-datepicker-toggle>
       <mat-datepicker #picker2></mat-datepicker>
-      <!-- <mat-hint class="px-1">Ví dụ: 30/06/2025 (Ba mươi tháng sáu năm hai không hai năm)</mat-hint> -->
+      <!-- <mat-hint class="px-1">{{ 'app.auto_for_example_30_06_2025_thirty' | transloco }}</mat-hint> -->
     </mat-form-field>
 
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-2" [subscriptSizing]="'dynamic'"
@@ -97,7 +97,7 @@
       <span matPrefix class="w-30">License Key</span>
       <mat-icon matSuffix class="icon-size-4" [svgIcon]="'feather:key'"></mat-icon>
       <input [formControlName]="'licenseKey'" [placeholder]="'Tự động tạo ra'" type="text" readonly required matInput />
-      <!-- <mat-hint class="px-1">License Key tự động tạo ra</mat-hint> -->
+      <!-- <mat-hint class="px-1">{{ 'app.auto_license_key_automatically_gene' | transloco }}</mat-hint> -->
     </mat-form-field>
   </div>
 

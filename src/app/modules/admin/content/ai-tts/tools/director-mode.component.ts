@@ -1,3 +1,4 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, OnInit, ViewChild, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
@@ -21,7 +22,7 @@ export interface ControlTemplate {
 @Component({
     selector: 'app-director-mode',
     standalone: true,
-    imports: [
+    imports: [TranslocoModule, MatTooltipModule, 
         TranslocoModule,CommonModule, MatDialogModule, MatButtonModule, MatIconModule, MatProgressSpinnerModule, FormsModule],
     templateUrl: './director-mode.component.html',
     styles: [`

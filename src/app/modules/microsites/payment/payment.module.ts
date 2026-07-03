@@ -1,3 +1,5 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 
@@ -25,6 +27,8 @@ const Routes: Route[] = [
         PaymentComponent,
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(Routes),
         MatFormFieldModule,
         MatButtonModule,

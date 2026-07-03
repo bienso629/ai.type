@@ -1,3 +1,4 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { HttpClient } from "@angular/common/http";
 import {
   TRANSLOCO_LOADER,
@@ -22,6 +23,8 @@ export class TranslocoHttpLoader implements TranslocoLoader {
 
 @NgModule({
   imports: [
+        TranslocoModule,
+        MatTooltipModule,
     // TranslocoPreloadLangsModule.forRoot(['lazy-page/es']),
     TranslocoMessageFormatModule.forRoot(),
     TranslocoLocaleModule.forRoot({

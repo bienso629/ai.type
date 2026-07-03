@@ -16,24 +16,24 @@
 
         <!-- Yêu cầu bổ sung -->
         <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-            <mat-label>Yêu cầu bổ sung</mat-label>
+            <mat-label>{{ 'app.auto_request_for_supplementation' | transloco }}</mat-label>
             <textarea matInput
                 [(ngModel)]="userInstruction"
-                placeholder="Mô tả thêm điều bạn muốn AI cải thiện trong prompt, ví dụ: ánh sáng, phong cách, hành động..."
+                [placeholder]="'app.auto_describe_additionally_what_you' | transloco"
                 cdkTextareaAutosize cdkAutosizeMinRows="3" class="px-2 text-base leading-relaxed"></textarea>
         </mat-form-field>
 
         <!-- Hình ảnh/Video tham khảo -->
         <div class="flex flex-col mt-2">
-            <mat-label class="font-semibold text-slate-800 leading-tight">Nhân vật / Hình ảnh tham chiếu</mat-label>
-            <p class="text-xs text-gray-500 mt-1 mb-0 leading-tight">Tải lên file ảnh hoặc video để AI hiểu phong cách hoặc nhân vật bạn muốn mô tả.</p>
+            <mat-label class="font-semibold text-slate-800 leading-tight">{{ 'app.auto_character_reference_image' | transloco }}</mat-label>
+            <p class="text-xs text-gray-500 mt-1 mb-0 leading-tight">{{ 'app.auto_upload_an_image_or_video_file' | transloco }}</p>
         </div>
 
         <div class="w-full relative border border-dashed border-gray-300 rounded-lg bg-gray-50 hover:bg-gray-100 transition-colors flex flex-col items-center justify-center overflow-hidden min-h-[100px]"
             *ngIf="!imageBase64">
             <input type="file" title="" accept="image/*,video/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" (change)="onFileSelected($event)">
             <div class="flex flex-col items-center justify-center pointer-events-none">
-                <p class="text-gray-600 font-medium text-sm mb-0.5">Tải ảnh/video tham chiếu</p>
+                <p class="text-gray-600 font-medium text-sm mb-0.5">{{ 'app.auto_upload_reference_image_video' | transloco }}</p>
                 <p class="text-gray-400 text-xs">JPG, PNG, MP4</p>
             </div>
         </div>
@@ -58,7 +58,7 @@
                 {{ generatedPrompt ? 'Kết quả từ AI' : 'Prompt hiện tại' }}
             </mat-label>
             <button *ngIf="generatedPrompt" (click)="generatedPrompt = ''" class="text-xs text-gray-400 hover:text-red-400 transition-colors">
-                Hoàn tác
+                {{ 'app.auto_undo' | transloco }}
             </button>
         </div>
         <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
@@ -82,6 +82,6 @@
         </button>
         <button mat-flat-button color="primary" (click)="apply()"
                 [disabled]="!generatedPrompt && !currentPrompt">
-            Áp dụng
+            {{ 'app.auto_apply' | transloco }}
         </button>
     </mat-dialog-actions>

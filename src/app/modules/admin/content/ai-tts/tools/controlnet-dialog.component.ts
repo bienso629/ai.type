@@ -222,7 +222,7 @@ export class ControlNetDialogComponent implements OnInit {
 
         this.isUploadingControlImage = true;
         this.loadingMessage = 'Đang vẽ phác thảo...';
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             let requestParts: any[] = [{ text: "Create a highly detailed skeleton/pose reference sketch for video generation. It is CRITICAL that the sketch EXACTLY captures the specific pose and illustrates the full sequence of actions or movements of the character from the beginning to the end, as described in this prompt: " + this.posePromptText }];
@@ -304,7 +304,7 @@ export class ControlNetDialogComponent implements OnInit {
         } finally {
             this.isUploadingControlImage = false;
             this.loadingMessage = '';
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -376,7 +376,7 @@ export class ControlNetDialogComponent implements OnInit {
         if (!electron || !electron.extractFramesFromVideo) {
             this.isUploadingControlImage = true;
             this.loadingMessage = 'Đang trích xuất khung hình...';
-            this.cd.markForCheck();
+            this.cd.detectChanges();
             try {
                 const frames = await this.extractFramesFromVideoBrowser(file, 5);
                 if (frames && frames.length > 0) {
@@ -394,14 +394,14 @@ export class ControlNetDialogComponent implements OnInit {
                 if (this.videoUploadInput && this.videoUploadInput.nativeElement) {
                     this.videoUploadInput.nativeElement.value = '';
                 }
-                this.cd.markForCheck();
+                this.cd.detectChanges();
             }
             return;
         }
 
         this.isUploadingControlImage = true;
         this.loadingMessage = 'Đang trích xuất khung hình...';
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const result = await electron.extractFramesFromVideo({
@@ -428,7 +428,7 @@ export class ControlNetDialogComponent implements OnInit {
             if (this.videoUploadInput && this.videoUploadInput.nativeElement) {
                 this.videoUploadInput.nativeElement.value = '';
             }
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -458,7 +458,7 @@ export class ControlNetDialogComponent implements OnInit {
                 this.toastr.success('Tải ảnh bố cục thành công!');
                 event.target.value = '';
                 this.close();
-                this.cd.markForCheck();
+                this.cd.detectChanges();
             };
             reader.readAsDataURL(file);
             return;
@@ -466,7 +466,7 @@ export class ControlNetDialogComponent implements OnInit {
 
         this.isUploadingControlImage = true;
         this.loadingMessage = 'Đang tải ảnh lên...';
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const fileName = `control_${Date.now()}_${file.name}`;
@@ -494,7 +494,7 @@ export class ControlNetDialogComponent implements OnInit {
             this.isUploadingControlImage = false;
             this.loadingMessage = '';
             event.target.value = '';
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 

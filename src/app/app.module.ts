@@ -1,3 +1,5 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule } from '@ngneat/transloco';
 import { APP_INITIALIZER, importProvidersFrom, NgModule, CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA } from '@angular/core';
 import { BrowserModule, DomSanitizer, Title } from '@angular/platform-browser';
 import { AppTitleService } from 'app/core/services/app-title.service';
@@ -36,6 +38,8 @@ const routerConfig: ExtraOptions = {
         AppComponent
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         BrowserModule,
         BrowserAnimationsModule,
         DragDropModule,

@@ -50,9 +50,9 @@
 	<div class="flex-auto overflow-y-auto" *ngIf="details" cdkScrollable>
 		<fuse-alert *ngIf="details.authors.includes(user.name)" class="w-full rounded-none" [type]="'warning'"
 			[name]="'alertBox4'" [appearance]="'soft'" [dismissible]="true">
-			<span fuseAlertTitle>Mời viết chung</span>
-			Tác giả <b>{{name}}</b> đã mời bạn viết cùng nội dung này. Bạn sẽ đồng ý chứ? <mat-label
-				class="cursor-pointer hover:opacity-50 font-semibold" (click)="agree()">Đồng ý</mat-label>
+			<span fuseAlertTitle>{{ 'app.auto_please_write_together' | transloco }}</span>
+			{{ 'app.auto_author' | transloco }} <b>{{name}}</b> {{ 'app.auto_has_invited_you_to_write_the_s' | transloco }} <mat-label
+				class="cursor-pointer hover:opacity-50 font-semibold" (click)="agree()">{{ 'app.auto_agree' | transloco }}</mat-label>
 		</fuse-alert>
 
 		<!-- CONTENT GOES HERE -->
@@ -89,7 +89,7 @@
 				</div>
 			</mat-tab>
 
-			<mat-tab label="Điểm SEO">
+			<mat-tab [label]="'app.auto_seo_score' | transloco">
 				<div class="px-4">
 					<p class="my-2 pb-2 font-normal text-base">Thông tin kiểm tra {{score}}/100</p>
 
@@ -118,8 +118,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Tiêu đề không tìm thấy khoá
-									chính</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.auto_title_not_found_main_key' | transloco }}</mat-label>
 							</div>
 						</li>
 						<!-- <li class="font-normal text-base mb-2" *ngIf="seo.title.characters <= 60 && seo.title.characters >= 30">
@@ -206,28 +205,28 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Content chưa có H1</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.auto_content_does_not_have_h1' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total > 1">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Content chứa quá nhiều H1</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.auto_content_contains_too_many_h1s' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.total == 1">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-green-600"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-green-600">Content đã có H1</mat-label>
+								<mat-label class="ml-2 text-green-600">{{ 'app.auto_content_already_has_h1' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.heading.h1.characters > 75">
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-yellow-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-yellow-500">H1 không vượt quá 75 ký tự</mat-label>
+								<mat-label class="ml-2 text-yellow-500">{{ 'app.auto_h1_does_not_exceed_75_characte' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2"
@@ -254,7 +253,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Content chưa xuất hiện</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.auto_content_has_not_appeared' | transloco }}</mat-label>
 							</div>
 						</li>
 						<li class="font-normal text-base mb-2" *ngIf="seo.words.total < 300">
@@ -360,8 +359,7 @@
 							<div class="flex items-center justify-self-stretch">
 								<mat-icon class="icon-size-4 text-red-500"
 									[svgIcon]="'feather:check-square'"></mat-icon>
-								<mat-label class="ml-2 text-red-500">Thêm liên kết để cải thiện trải
-									nghiệm</mat-label>
+								<mat-label class="ml-2 text-red-500">{{ 'app.auto_add_link_to_improve_experience' | transloco }}</mat-label>
 							</div>
 						</li>
 					</ul>
@@ -371,11 +369,11 @@
 			<mat-tab label="Từ khoá">
 				<div class="w-full p-4">
 					<mat-form-field class="w-full custom-textarea col">
-						<mat-label>Chọn ít nhất 1 từ khoá</mat-label>
+						<mat-label>{{ 'app.auto_select_at_least_1_keyword' | transloco }}</mat-label>
 						<mat-chip-grid #chipGrid aria-label="Enter keywords" [formControl]="formControl">
 							<mat-chip-option class="" *ngFor="let item of arr_keyword"
 								(click)="changeSelected(item)">{{item}}</mat-chip-option>
-							<input class="py-2 border rounded" placeholder="Tạo từ khoá mới"
+							<input class="py-2 border rounded" [placeholder]="'app.auto_create_new_keyword' | transloco"
 								[matChipInputFor]="chipGrid" (matChipInputTokenEnd)="add($event)" />
 						</mat-chip-grid>
 						<mat-hint>Từ khoá đã chọn: {{selectedChips.join(';')}}</mat-hint>
@@ -387,7 +385,7 @@
 				</div>
 			</mat-tab>
 
-			<mat-tab label="Xem trước">
+			<mat-tab [label]="'app.auto_preview' | transloco">
 				<div class="p-4">
 					<quill-view-html theme="snow" [content]="editor"></quill-view-html>
 				</div>
@@ -400,7 +398,7 @@
 		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative">
 		<div class="flex-1 min-w-0">
 			<span class="font-normal text-base text-secondary">
-				<a href="https://type.vn" title="Phần mềm AI xây dựng bài viết chuyên nghiệp">type.vn</a> &copy;
+				<a href="https://type.vn" [title]="'app.auto_ai_software_for_creating_profe' | transloco">type.vn</a> &copy;
 				{{currentYear}}
 			</span>
 		</div>

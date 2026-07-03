@@ -1,3 +1,4 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, OnInit, ChangeDetectorRef, OnDestroy, NgZone } from '@angular/core';
 import {
@@ -19,7 +20,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 @Component({
     selector: 'app-video-generation',
     standalone: true,
-    imports: [
+    imports: [TranslocoModule, MatTooltipModule, 
         TranslocoModule,
         CommonModule,
         MatDialogModule,

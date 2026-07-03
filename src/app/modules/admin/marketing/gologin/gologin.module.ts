@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { CUSTOM_ELEMENTS_SCHEMA, NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
@@ -33,6 +34,8 @@ const Routes: Route[] = [
         DialogLinksProfile
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(Routes),
         MatButtonModule,
         MatIconModule,

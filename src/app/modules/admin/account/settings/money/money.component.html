@@ -3,12 +3,12 @@
     <form [formGroup]="planBillingForm" (ngSubmit)="save()">
         <!-- Section -->
         <div class="w-full">
-            <div class="text-xl">Nạp tiền vào ví cho ứng dụng ai.type</div>
+            <div class="text-xl">{{ 'app.auto_add_money_to_the_wallet_for_th' | transloco }}</div>
             <div class="text-secondary mt-2">{{ 'app.typing_co_ltd' | transloco }}</div>
 
             <div class="text-secondary leading-8 mt-4">
                 <fuse-alert [appearance]="'outline'" [type]="'warning'">
-                    ai.type hiện chỉ hỗ trợ nạp tiền bằng ví điện tử MoMo
+                    {{ 'app.auto_ai_type_currently_only_support' | transloco }}
                 </fuse-alert>
             </div>
         </div>
@@ -35,7 +35,7 @@
 
                     <div class="mt-8 text-lg">
                         <span>{{plan.price | currency:'VND'}}</span>
-                        <span class="text-secondary"> / tháng</span>
+                        <span class="text-secondary"> {{ 'app.auto_month' | transloco }}</span>
                     </div>
                 </div>
             </ng-container> -->
@@ -47,11 +47,11 @@
                 <mat-label>{{ 'app.amount_to_top_up' | transloco }}</mat-label>
                 <!-- <span matPrefix>MoMo</span> -->
                 <input [currencyMask]="options" [formControlName]="'amountCtrl'" [placeholder]="'25.000'" required matInput>
-                <mat-hint>Lưu ý: Số tiền muốn nạp phải ít nhất 25.000đ</mat-hint>
+                <mat-hint>{{ 'app.auto_note_the_amount_you_want_to_to' | transloco }}</mat-hint>
                 <span matSuffix>đ</span>
             </mat-form-field>
 
-            <button class="ml-2" mat-flat-button type="submit" [color]="'primary'">Xác nhận</button>
+            <button class="ml-2" mat-flat-button type="submit" [color]="'primary'">{{ 'app.auto_confirm' | transloco }}</button>
         </div>
     </form>
 </div>

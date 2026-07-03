@@ -12,7 +12,7 @@
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">lưu trữ</a>
+                        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
                     </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
@@ -31,7 +31,7 @@
             <!-- Title -->
             <!-- <div class="mt-2">
                 <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    khám phá và tạo ra những node của riêng bạn
+                    {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
                 </p>
             </div> -->
         </div>
@@ -160,7 +160,7 @@
                             <button mat-flat-button class="w-full" [color]="'primary'"
                                 (click)="together(row.uuid, row.authors)">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:mail'"></mat-icon>
-                                <span class="ml-2 text-base">Gửi thư mời</span>
+                                <span class="ml-2 text-base">{{ 'app.auto_send_an_invitation_letter' | transloco }}</span>
                             </button>
                         </ng-template>
                     </ng-select>

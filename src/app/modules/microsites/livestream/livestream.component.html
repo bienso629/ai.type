@@ -19,7 +19,7 @@
 
 			<button mat-icon-button (click)="toggleScreenRatio()"
 				class="text-gray-300 hover:text-white transition-colors bg-white/10 rounded-full"
-				matTooltip="Đổi tỉ lệ Mobile/Desktop">
+				[matTooltip]="'app.auto_change_mobile_desktop_ratio' | transloco">
 				<mat-icon class="icon-size-5" [svgIcon]="isMobileRatio ? 'feather:smartphone' : 'feather:monitor'">
 				</mat-icon>
 			</button>
@@ -36,11 +36,11 @@
 			<div *ngIf="!hasStarted"
 				class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-gray-900/90 backdrop-blur-sm">
 				<mat-icon class="icon-size-24 text-blue-500 mb-6" svgIcon="heroicons_solid:play"></mat-icon>
-				<h2 class="text-2xl font-semibold mb-2">Hệ thống Livestream Sẵn Sàng</h2>
-				<p class="text-gray-400 mb-8">Video và âm thanh sẽ tự động lặp lại liên tục.</p>
+				<h2 class="text-2xl font-semibold mb-2">{{ 'app.auto_livestream_system_ready' | transloco }}</h2>
+				<p class="text-gray-400 mb-8">{{ 'app.auto_video_and_audio_will_automatic' | transloco }}</p>
 				<button mat-flat-button color="primary" class="px-8 py-6 text-lg rounded-full shadow-lg"
 					(click)="startLivestream()">
-					Bắt Đầu Phát Sóng
+					{{ 'app.auto_start_broadcasting' | transloco }}
 				</button>
 			</div>
 
@@ -93,7 +93,7 @@
 					<div
 						class="absolute bottom-full left-0 mb-0 w-80 bg-gray-900/95 border border-gray-700 rounded-xl shadow-2xl opacity-0 pointer-events-none group-hover/menu:opacity-100 group-hover/menu:pointer-events-auto transition-all duration-200 flex flex-col max-h-[60vh] overflow-hidden">
 						<div class="p-3 border-b border-gray-700 flex justify-between items-center bg-black/40">
-							<span class="font-semibold text-gray-200 font-sans tracking-wide">Danh sách phân cảnh</span>
+							<span class="font-semibold text-gray-200 font-sans tracking-wide">{{ 'app.auto_scene_list' | transloco }}</span>
 							<span class="bg-blue-600/30 text-blue-400 px-2 py-0.5 rounded text-[10px]">{{
 								projectData.scenes.length }} Scenes</span>
 						</div>
@@ -123,7 +123,7 @@
 								<span class="flex items-center justify-center text-white"
 									[matMenuTriggerFor]="mainExportMenu">
 									<mat-icon class="icon-size-3 text-white" [svgIcon]="'feather:download'"></mat-icon>
-									<mat-label class="ml-2 text-white">Xuất Video</mat-label>
+									<mat-label class="ml-2 text-white">{{ 'app.auto_export_video' | transloco }}</mat-label>
 								</span>
 
 								<div class="flex items-center">
@@ -132,7 +132,7 @@
 										class="w-5 h-5 rounded border-gray-600 bg-gray-800 text-blue-600 focus:ring-blue-500 focus:ring-offset-gray-900 cursor-pointer appearance-auto">
 									<label for="toggleSub"
 										class="ml-2 text-sm font-medium text-gray-700 cursor-pointer select-none">
-										Gắn phụ đề cứng
+										{{ 'app.auto_burn_subtitles' | transloco }}
 									</label>
 								</div>
 							</div>
@@ -153,30 +153,21 @@
 							</mat-menu>
 
 							<mat-menu #tiktokMenu="matMenu">
-								<button mat-menu-item (click)="exportCustomVideo('9:16', '1080p')">Tiêu chuẩn
-									(1080x1920)</button>
-								<button mat-menu-item (click)="exportCustomVideo('9:16', '2k')">Sắc nét 2K
-									(1440x2560)</button>
-								<button mat-menu-item (click)="exportCustomVideo('9:16', '4k')">Siêu nét 4K
-									(2160x3840)</button>
+								<button mat-menu-item (click)="exportCustomVideo('9:16', '1080p')">{{ 'app.auto_standard_1080x1920' | transloco }}</button>
+								<button mat-menu-item (click)="exportCustomVideo('9:16', '2k')">{{ 'app.auto_2k_sharpness_1440x2560' | transloco }}</button>
+								<button mat-menu-item (click)="exportCustomVideo('9:16', '4k')">{{ 'app.auto_ultra_hd_4k_2160x3840' | transloco }}</button>
 							</mat-menu>
 
 							<mat-menu #youtubeMenu="matMenu">
-								<button mat-menu-item (click)="exportCustomVideo('16:9', '1080p')">Tiêu chuẩn
-									(1920x1080)</button>
-								<button mat-menu-item (click)="exportCustomVideo('16:9', '2k')">Sắc nét 2K
-									(2560x1440)</button>
-								<button mat-menu-item (click)="exportCustomVideo('16:9', '4k')">Siêu nét 4K
-									(3840x2160)</button>
+								<button mat-menu-item (click)="exportCustomVideo('16:9', '1080p')">{{ 'app.auto_standard_1920x1080' | transloco }}</button>
+								<button mat-menu-item (click)="exportCustomVideo('16:9', '2k')">{{ 'app.auto_2k_sharpness_2560x1440' | transloco }}</button>
+								<button mat-menu-item (click)="exportCustomVideo('16:9', '4k')">{{ 'app.auto_ultra_hd_4k_3840x2160' | transloco }}</button>
 							</mat-menu>
 
 							<mat-menu #squareMenu="matMenu">
-								<button mat-menu-item (click)="exportCustomVideo('1:1', '1080p')">Tiêu chuẩn
-									(1080x1080)</button>
-								<button mat-menu-item (click)="exportCustomVideo('1:1', '2k')">Sắc nét 2K
-									(1440x1440)</button>
-								<button mat-menu-item (click)="exportCustomVideo('1:1', '4k')">Siêu nét 4K
-									(2160x2160)</button>
+								<button mat-menu-item (click)="exportCustomVideo('1:1', '1080p')">{{ 'app.auto_standard_1080x1080' | transloco }}</button>
+								<button mat-menu-item (click)="exportCustomVideo('1:1', '2k')">{{ 'app.auto_2k_sharpness_1440x1440' | transloco }}</button>
+								<button mat-menu-item (click)="exportCustomVideo('1:1', '4k')">{{ 'app.auto_ultra_hd_4k_2160x2160' | transloco }}</button>
 							</mat-menu>
 						</div>
 					</div>
@@ -197,10 +188,9 @@
 		<ng-template #noData>
 			<div class="flex flex-col items-center justify-center text-center p-8">
 				<mat-icon class="icon-size-20 text-gray-600 mb-4" svgIcon="feather:alert-circle"></mat-icon>
-				<h2 class="text-2xl font-semibold mb-2">Không tìm thấy dữ liệu Video</h2>
-				<p class="text-gray-400 max-w-md mb-6">Bạn cần hoàn tất các bước tạo kịch bản, chèn ảnh/video và tạo âm
-					thanh ở công cụ Timeline trước khi Livestream.</p>
-				<button mat-flat-button color="primary" (click)="stopAudio()">Quay lại công cụ</button>
+				<h2 class="text-2xl font-semibold mb-2">{{ 'app.auto_video_data_not_found' | transloco }}</h2>
+				<p class="text-gray-400 max-w-md mb-6">{{ 'app.auto_you_need_to_complete_the_steps' | transloco }}</p>
+				<button mat-flat-button color="primary" (click)="stopAudio()">{{ 'app.auto_back_to_tool' | transloco }}</button>
 			</div>
 		</ng-template>
 	</div>

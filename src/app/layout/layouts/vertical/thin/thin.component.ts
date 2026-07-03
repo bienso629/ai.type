@@ -25,11 +25,13 @@ import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserClientService } from 'app/modules/_services/user';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
+import { TranslocoModule } from '@ngneat/transloco';
+import { MatTooltipModule } from '@angular/material/tooltip';
 
 @Component({
     selector: 'app-bug-report-dialog',
     standalone: true,
-    imports: [FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatDialogModule, MatIconModule, NgIf],
+    imports: [TranslocoModule, MatTooltipModule, MatTooltipModule, TranslocoModule, FormsModule, MatFormFieldModule, MatInputModule, MatButtonModule, MatDialogModule, MatIconModule, NgIf],
     template: `
         <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
             <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>

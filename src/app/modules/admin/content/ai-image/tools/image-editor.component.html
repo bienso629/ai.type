@@ -9,11 +9,11 @@
             </button>
             <div class="w-px h-6 bg-gray-300 mx-1"></div>
 
-            <button mat-icon-button (click)="undo()" [disabled]="historyIndex <= 0" matTooltip="Hoàn tác (Ctrl+Z)">
+            <button mat-icon-button (click)="undo()" [disabled]="historyIndex <= 0" [matTooltip]="'app.auto_undo_ctrl_z' | transloco">
                 <mat-icon svgIcon="heroicons_outline:reply"></mat-icon>
             </button>
             <button mat-icon-button (click)="redo()" [disabled]="historyIndex >= history.length - 1"
-                matTooltip="Làm lại (Ctrl+Y)">
+                [matTooltip]="'app.auto_redo_ctrl_y' | transloco">
                 <mat-icon svgIcon="heroicons_outline:reply" class="transform -scale-x-100"></mat-icon>
             </button>
             <button mat-icon-button (click)="hardReset()" [matTooltip]="'app.hard_reset' | transloco" color="warn">
@@ -21,7 +21,7 @@
             </button>
 
             <div class="w-px h-6 bg-gray-300 mx-1"></div>
-            <button mat-icon-button (click)="startCrop()" matTooltip="Cắt ảnh" class="text-blue-600">
+            <button mat-icon-button (click)="startCrop()" [matTooltip]="'app.auto_crop_image' | transloco" class="text-blue-600">
                 <mat-icon svgIcon="heroicons_outline:scissors"></mat-icon>
             </button>
             <div class="w-px h-6 bg-gray-300 mx-1"></div>
@@ -45,9 +45,9 @@
 
             <button mat-flat-button color="primary" class="h-9 px-6" (click)="applyCrop()">
                 <mat-icon class="icon-size-4" svgIcon="heroicons_outline:check"></mat-icon>
-                <span class="ml-2">Áp dụng</span>
+                <span class="ml-2">{{ 'app.auto_apply' | transloco }}</span>
             </button>
-            <button mat-button (click)="cancelCrop()">Hủy</button>
+            <button mat-button (click)="cancelCrop()">{{ 'app.auto_cancel' | transloco }}</button>
         </div>
 
         <button mat-icon-button (click)="close()" [disabled]="isCropping">
@@ -69,7 +69,7 @@
 
         <div class="w-80 bg-white border-l overflow-y-auto shrink-0 flex flex-col z-10 shadow-xl relative">
             <div *ngIf="isCropping" class="p-5 space-y-6 animate-fade-in">
-                <h3 class="font-semibold text-gray-800 border-b pb-2">Kích thước vùng cắt</h3>
+                <h3 class="font-semibold text-gray-800 border-b pb-2">{{ 'app.auto_cutting_area_size' | transloco }}</h3>
 
                 <div class="flex gap-2">
                     <mat-form-field class="w-1/2 fuse-mat-dense" appearance="outline" subscriptSizing="dynamic">
@@ -82,7 +82,7 @@
                     </mat-form-field>
                 </div>
 
-                <h3 class="font-semibold text-gray-800 border-b pb-2 pt-2">Tỉ lệ phổ biến</h3>
+                <h3 class="font-semibold text-gray-800 border-b pb-2 pt-2">{{ 'app.auto_popularity_rate' | transloco }}</h3>
                 <div class="grid grid-cols-2 gap-3">
                     <button mat-flat-button (click)="setCropRatio(1, 1)" class="justify-start">
                         <mat-icon class="icon-size-4 mr-2 text-gray-500" svgIcon="feather:image"></mat-icon> {{ 'app.1_1_square' | transloco }}
@@ -106,7 +106,7 @@
                 </div>
 
                 <div class="p-3 bg-blue-50 text-blue-800 text-sm rounded border border-blue-100">
-                    Kéo các góc vuông trắng trên hình để thay đổi vùng cắt tự do.
+                    {{ 'app.auto_drag_the_white_corner_squares' | transloco }}
                 </div>
             </div>
 
@@ -115,7 +115,7 @@
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-2">
                             <mat-icon class="icon-size-5 text-blue-600" svgIcon="feather:type"></mat-icon>
-                            <h3 class="font-semibold text-sm text-blue-600">Văn Bản</h3>
+                            <h3 class="font-semibold text-sm text-blue-600">{{ 'app.auto_text' | transloco }}</h3>
                         </div>
 
                         <button mat-icon-button color="primary" class="icon-size-8 shadow-none" (click)="addTextLayer()"
@@ -151,7 +151,7 @@
                                 <div
                                     class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
                                     <span
-                                        class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">MỜ</span>
+                                        class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">{{ 'app.auto_blurry' | transloco }}</span>
                                     <span
                                         class="text-[10px] font-semibold text-blue-600 bg-white/80 px-1 rounded">{{(txt.opacity*100).toFixed(0)}}%</span>
                                 </div>
@@ -180,7 +180,7 @@
 
                         <div class="border-t pt-3 border-gray-50">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-semibold text-gray-600">Màu sắc</span>
+                                <span class="text-xs font-semibold text-gray-600">{{ 'app.auto_color' | transloco }}</span>
                                 <mat-slide-toggle labelPosition="before" [(ngModel)]="txt.isGradient"
                                     (change)="draw(); recordHistory()" color="primary" class="scale-75">
                                     {{ txt.isGradient ? 'Gradient' : 'Màu đơn' }}
@@ -198,8 +198,7 @@
                                 class="animate-fade-in relative h-10 w-full flex items-center bg-white rounded border border-gray-50">
                                 <div
                                     class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
-                                    <span class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">GÓC
-                                        MÀU</span>
+                                    <span class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">{{ 'app.auto_color_corner' | transloco }}</span>
                                     <span
                                         class="text-[10px] font-semibold text-pink-600 bg-white/80 px-1 rounded">{{txt.gradientAngle}}°</span>
                                 </div>
@@ -213,7 +212,7 @@
 
                         <div class="border-t pt-3 border-gray-50">
                             <div class="flex items-center justify-between mb-2">
-                                <span class="text-xs font-semibold text-gray-600">Viền (Border)</span>
+                                <span class="text-xs font-semibold text-gray-600">{{ 'app.auto_border' | transloco }}</span>
                                 <mat-slide-toggle [(ngModel)]="txt.hasBorder" (change)="draw(); recordHistory()"
                                     color="primary" class="scale-75"></mat-slide-toggle>
                             </div>
@@ -339,7 +338,7 @@
                                 <div
                                     class="absolute inset-0 flex justify-between items-center px-2 pointer-events-none z-10">
                                     <span
-                                        class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">MỜ</span>
+                                        class="text-[10px] font-semibold text-gray-500 bg-white/80 px-1 rounded">{{ 'app.auto_blurry' | transloco }}</span>
                                     <span
                                         class="text-[10px] font-semibold text-blue-600 bg-white/80 px-1 rounded">{{(logo.opacity
                                         * 100).toFixed(0)}}%</span>
@@ -372,7 +371,7 @@
                 <div class="rounded-lg p-4 bg-white border border-gray-100">
                     <h3 class="font-semibold text-sm text-gray-800 mb-3 flex items-center gap-2">
                         <mat-icon class="icon-size-5 text-pink-600" svgIcon="heroicons_outline:collection"></mat-icon>
-                        <span class="text-pink-600">Danh sách Lớp</span>
+                        <span class="text-pink-600">{{ 'app.auto_class_list' | transloco }}</span>
                     </h3>
 
                     <div class="space-y-2">
@@ -400,7 +399,7 @@
 
                             <mat-icon class="icon-size-4 text-gray-400 hover:text-red-500 cursor-pointer mr-1"
                                 svgIcon="heroicons_outline:trash"
-                                (click)="deleteLayer(layer.id); $event.stopPropagation()" matTooltip="Xóa"></mat-icon>
+                                (click)="deleteLayer(layer.id); $event.stopPropagation()" [matTooltip]="'app.auto_delete' | transloco"></mat-icon>
                             <mat-icon class="icon-size-4 text-gray-300" svgIcon="heroicons_outline:menu"></mat-icon>
                         </div>
                         <div *ngIf="layers.length === 0" class="text-xs text-center text-gray-100 py-4">{{ 'app.no_layers' | transloco }}
@@ -412,7 +411,7 @@
                     <div class="flex items-center gap-2 mb-6">
                         <mat-icon class="icon-size-5 text-primary-700"
                             svgIcon="heroicons_outline:photograph"></mat-icon>
-                        <h3 class="font-semibold text-sm text-primary-700">Lưu Hình Ảnh</h3>
+                        <h3 class="font-semibold text-sm text-primary-700">{{ 'app.auto_save_image' | transloco }}</h3>
                     </div>
 
                     <div class="flex gap-2 mb-3">
@@ -441,7 +440,7 @@
 
                     <button mat-flat-button color="primary" class="w-full" (click)="saveImage()"
                         [disabled]="processing">
-                        <span *ngIf="!processing">Lưu Hình Ảnh</span>
+                        <span *ngIf="!processing">{{ 'app.auto_save_image' | transloco }}</span>
                         <mat-spinner *ngIf="processing" [diameter]="20" class="text-white"></mat-spinner>
                     </button>
                 </div>

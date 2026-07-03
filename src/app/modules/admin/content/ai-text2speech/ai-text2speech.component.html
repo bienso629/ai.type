@@ -13,19 +13,19 @@
                                 <mat-select [formControlName]="'voice'" required
                                     (selectionChange)="onVoiceChange($event)">
                                     <mat-option [value]="'vi-VN-NamMinhNeural'">Nam Minh</mat-option>
-                                    <mat-option [value]="'vi-VN-HoaiMyNeural'">Hoài My</mat-option>
+                                    <mat-option [value]="'vi-VN-HoaiMyNeural'">{{ 'app.auto_hoai_my' | transloco }}</mat-option>
                                     <!-- <mat-divider></mat-divider>
-                                <mat-option [value]="'nam-calm'">Nam điềm tĩnh</mat-option>
-                                <mat-option [value]="'nam-cham'">Nam chậm</mat-option>
+                                <mat-option [value]="'nam-calm'">{{ 'app.auto_nam_is_calm' | transloco }}</mat-option>
+                                <mat-option [value]="'nam-cham'">{{ 'app.auto_nam_is_slow' | transloco }}</mat-option>
                                 <mat-option [value]="'nam-nhanh'">Nam nhanh</mat-option>
-                                <mat-option [value]="'nam-truyen-cam'">Nam truyền cảm</mat-option>
-                                <mat-option [value]="'nu-calm'">Nữ điềm tĩnh</mat-option>
-                                <mat-option [value]="'nu-cham'">Nữ chậm</mat-option>
-                                <mat-option [value]="'nu-luu-loat'">Nữ lưu loát</mat-option>
-                                <mat-option [value]="'nu-nhan-nha'">Nữ nhẩn nha</mat-option>
-                                <mat-option [value]="'nu-nhe-nhang'">Nữ nhẹ nhàng</mat-option> -->
+                                <mat-option [value]="'nam-truyen-cam'">{{ 'app.auto_men_s_fragrance' | transloco }}</mat-option>
+                                <mat-option [value]="'nu-calm'">{{ 'app.auto_calm_woman' | transloco }}</mat-option>
+                                <mat-option [value]="'nu-cham'">{{ 'app.auto_slow_woman' | transloco }}</mat-option>
+                                <mat-option [value]="'nu-luu-loat'">{{ 'app.auto_fluent_woman' | transloco }}</mat-option>
+                                <mat-option [value]="'nu-nhan-nha'">{{ 'app.auto_the_woman_dawdles' | transloco }}</mat-option>
+                                <mat-option [value]="'nu-nhe-nhang'">{{ 'app.auto_gentle_woman' | transloco }}</mat-option> -->
                                 </mat-select>
-                                <!-- <mat-hint>Chọn giọng đọc</mat-hint> -->
+                                <!-- <mat-hint>{{ 'app.auto_choose_a_voice' | transloco }}</mat-hint> -->
                             </mat-form-field>
 
                             <mat-form-field class="w-full sm:w-2/4 fuse-mat-dense fuse-mat-emphasized-affix">

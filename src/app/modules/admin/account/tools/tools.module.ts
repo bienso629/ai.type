@@ -1,3 +1,5 @@
+import { MatTooltipModule } from '@angular/material/tooltip';
+import { TranslocoModule } from '@ngneat/transloco';
 import { CUSTOM_ELEMENTS_SCHEMA, NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 import { MatGridListModule } from '@angular/material/grid-list';
@@ -22,6 +24,8 @@ const Routes: Route[] = [
         AIToolsComponent
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         RouterModule.forChild(Routes),
         MatButtonModule,
         MatGridListModule,

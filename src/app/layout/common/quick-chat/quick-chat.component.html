@@ -8,7 +8,7 @@
                 <div class="flex items-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover">
                     <div class="relative flex flex-0 items-center justify-center w-10 h-10">
                         <mat-icon class="icon-size-5 text-primary transition-all cursor-pointer hover:scale-110"
-                            title="Mở Quản lý Tools" [svgIcon]="'feather:grid'"></mat-icon>
+                            [title]="'app.auto_open_tools_manager' | transloco" [svgIcon]="'feather:grid'"></mat-icon>
                     </div>
                 </div>
             </ng-container>
@@ -46,17 +46,16 @@
             <div class="flex flex-col flex-auto border-l overflow-hidden bg-gray-50 dark:bg-transparent">
                 <div class="flex flex-col flex-auto p-6 overflow-y-auto">
                     <div class="mb-8">
-                        <h2 class="text-xl font-semibold mb-2 text-secondary">Quản lý Web Tools</h2>
-                        <p class="text-sm text-gray-500">Thêm các trang web thường xuyên sử dụng vào thanh tiện ích để
-                            mở nhanh trên màn hình phụ.</p>
+                        <h2 class="text-xl font-semibold mb-2 text-secondary">{{ 'app.auto_web_tools_management' | transloco }}</h2>
+                        <p class="text-sm text-gray-500">{{ 'app.auto_add_frequently_used_websites_t' | transloco }}</p>
                     </div>
 
                     <!-- Tool Management List -->
                     <div class="bg-card rounded-2xl border overflow-hidden">
                         <div class="flex items-center px-4 py-3 bg-gray-50 border-b">
-                            <span class="font-medium flex-auto">Danh sách hiện tại</span>
+                            <span class="font-medium flex-auto">{{ 'app.auto_current_list' | transloco }}</span>
                             <button mat-icon-button color="primary" (click)="openAddDialog()"
-                                matTooltip="Thêm công cụ mới">
+                                [matTooltip]="'app.auto_add_new_tool' | transloco">
                                 <mat-icon class="icon-size-5">add_circle</mat-icon>
                             </button>
                         </div>
@@ -69,48 +68,48 @@
                                         <div class="font-medium truncate">{{ tool.name }}</div>
                                         <div class="text-xs text-gray-500 truncate" dir="ltr">{{ tool.url }}</div>
                                     </div>
-                                    <button mat-icon-button (click)="removeTool(tool.id)" matTooltip="Xoá">
+                                    <button mat-icon-button (click)="removeTool(tool.id)" [matTooltip]="'app.auto_delete_1' | transloco">
                                         <mat-icon class="icon-size-5 text-red-400 hover:bg-red-500">delete</mat-icon>
                                     </button>
                                 </div>
                             </ng-container>
 
                             <div *ngIf="tools.length === 0" class="p-4 text-center text-gray-500 italic">
-                                Chưa có công cụ nào.
+                                {{ 'app.auto_there_is_no_tool_yet' | transloco }}
                             </div>
                         </div>
                     </div>
 
-                    <p class="text-sm text-gray-500 mb-2 mt-4">Để sử dụng được đầy đủ các công cụ của Google mời bạn đăng nhập</p>
+                    <p class="text-sm text-gray-500 mb-2 mt-4">{{ 'app.auto_to_fully_use_google_s_tools_pl' | transloco }}</p>
                     <div class="flex gap-2">
-                        <button mat-flat-button color="primary" (click)="openLoginBrowser()" matTooltip="Mở trình duyệt riêng để đăng nhập Google">
-                            Đăng Nhập
+                        <button mat-flat-button color="primary" (click)="openLoginBrowser()" [matTooltip]="'app.auto_open_a_private_browser_to_sign' | transloco">
+                            {{ 'app.auto_log_in_2' | transloco }}
                         </button>
-                        <button mat-flat-button color="warn" (click)="clearWebviewCookie()" matTooltip="Xoá toàn bộ Cookie & Session của Webview">
-                            Xoá Cookie
+                        <button mat-flat-button color="warn" (click)="clearWebviewCookie()" [matTooltip]="'app.auto_delete_all_cookies_session_of' | transloco">
+                            {{ 'app.auto_delete_cookie' | transloco }}
                         </button>
                     </div>
 
                     <ng-template #addDialogTemplate>
-                        <h2 class="text-lg p-0 py-3">Thêm công cụ mới</h2>
+                        <h2 class="text-lg p-0 py-3">{{ 'app.auto_add_new_tool' | transloco }}</h2>
                         <mat-dialog-content class="p-0">
                             <mat-form-field class="w-full mt-2 mb-4 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Tên hiển thị</mat-label>
+                                <mat-label>{{ 'app.auto_display_name' | transloco }}</mat-label>
                                 <input matInput [(ngModel)]="newToolName" placeholder="VD: Facebook, Capcut..." />
                             </mat-form-field>
 
                             <mat-form-field class="w-full mb-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
-                                <mat-label>Đường dẫn (URL)</mat-label>
+                                <mat-label>{{ 'app.auto_path_url' | transloco }}</mat-label>
                                 <input matInput [(ngModel)]="newToolUrl" placeholder="https://..." />
                             </mat-form-field>
                         </mat-dialog-content>
                         <mat-dialog-actions align="end" class="p-0 mt-2 gap-2">
-                            <button mat-button color="acent" mat-dialog-close>Hủy</button>
+                            <button mat-button color="acent" mat-dialog-close>{{ 'app.auto_cancel' | transloco }}</button>
                             <button mat-flat-button color="primary" [disabled]="!newToolName || !newToolUrl"
                                 (click)="saveTool()">
-                                Thêm vào danh sách
+                                {{ 'app.auto_add_to_list' | transloco }}
                             </button>
                         </mat-dialog-actions>
                     </ng-template>

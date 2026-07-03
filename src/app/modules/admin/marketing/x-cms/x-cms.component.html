@@ -12,12 +12,12 @@
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">lưu trữ</a>
+                        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
                     </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <span class="ml-1 text-base text-secondary">quản lý hhách hàng bằng e-mail, sms & zns</span>
+                        <span class="ml-1 text-base text-secondary">{{ 'app.auto_manage_customers_by_e_mail_sms' | transloco }}</span>
                     </div>
                 </div>
                 <div class="flex sm:hidden">
@@ -31,7 +31,7 @@
             <!-- Title -->
             <!-- <div class="mt-2">
                 <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    khám phá và tạo ra những node của riêng bạn
+                    {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
                 </p>
             </div> -->
         </div>
@@ -136,16 +136,16 @@
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row" class="flex items-center justify-self-stretch">
-                        <mat-label matTooltipPosition="above" matTooltip="Gửi tin nhắn kích hoạt"
+                        <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_send_activation_message' | transloco"
                             [routerLink]="['/ai-writer', user.name, row.uuid]"
                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
-                            Gửi ZNS
+                            {{ 'app.auto_send_zns' | transloco }}
                         </mat-label>
 
                         <!-- <mat-label (click)="edit(row)" matTooltipPosition="above"
-                            matTooltip="Cập nhật thông tin khách hàng"
+                            [matTooltip]="'app.auto_update_customer_information' | transloco"
                             class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white">
-                            Thông tin
+                            {{ 'app.auto_information' | transloco }}
                         </mat-label> -->
                     </div>
                 </ng-template>

@@ -8,10 +8,10 @@
             </div>
 
             <!-- Title -->
-            <div class="mt-8 text-4xl font-extrabold tracking-tight leading-tight">Đăng ký tài khoản</div>
+            <div class="mt-8 text-4xl font-extrabold tracking-tight leading-tight">{{ 'app.auto_register_an_account' | transloco }}</div>
             <div class="flex items-baseline mt-0.5 font-medium text-base">
-                <div>Đã có tài khoản?</div>
-                <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['/sign-in']">Đăng nhập
+                <div>{{ 'app.auto_already_have_an_account' | transloco }}</div>
+                <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['/sign-in']">{{ 'app.auto_log_in' | transloco }}
                 </a>
             </div>
 
@@ -26,16 +26,16 @@
 
                 <!-- Name field -->
                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                    <mat-label>Tên đầy đủ</mat-label>
+                    <mat-label>{{ 'app.auto_full_name' | transloco }}</mat-label>
                     <input id="name" matInput [formControlName]="'name'">
                     <mat-error *ngIf="signUpForm.get('name').hasError('required')">
-                        Yêu cầu tên đầy đủ của bạn
+                        {{ 'app.auto_please_provide_your_full_name' | transloco }}
                     </mat-error>
                 </mat-form-field>
 
                 <!-- Email field -->
                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                    <mat-label>Địa chỉ E-mail</mat-label>
+                    <mat-label>{{ 'app.auto_email_address' | transloco }}</mat-label>
                     <input id="email" matInput [formControlName]="'email'">
                     <mat-error *ngIf="signUpForm.get('email').hasError('required')">
                         Email address is required
@@ -47,7 +47,7 @@
 
                 <!-- Password field -->
                 <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
-                    <mat-label>Mật khẩu</mat-label>
+                    <mat-label>{{ 'app.auto_password' | transloco }}</mat-label>
                     <input id="password" matInput type="password" [formControlName]="'password'" #passwordField>
                     <button mat-icon-button type="button"
                         (click)="passwordField.type === 'password' ? passwordField.type = 'text' : passwordField.type = 'password'"
@@ -65,11 +65,11 @@
                 <!-- ToS and PP -->
                 <div class="inline-flex items-end w-full mt-1.5">
                     <mat-checkbox class="-ml-2" [color]="'primary'" [formControlName]="'agreements'">
-                        <span>Tôi đồng ý với</span>
-                        <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['./']">Điều khoản
+                        <span>{{ 'app.auto_i_agree_with' | transloco }}</span>
+                        <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['./']">{{ 'app.auto_term' | transloco }}
                         </a>
                         <span>và</span>
-                        <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['./']">Chính sách
+                        <a class="ml-1 text-primary-500 hover:underline" [routerLink]="['./']">{{ 'app.auto_policy' | transloco }}
                         </a>
                     </mat-checkbox>
                 </div>
@@ -78,7 +78,7 @@
                 <button class="fuse-mat-button-large w-full mt-6" mat-flat-button [color]="'primary'"
                     [disabled]="signUpForm.disabled" (click)="signUp()">
                     <span *ngIf="!signUpForm.disabled">
-                        Đăng ký tài khoản ai.type
+                        {{ 'app.auto_register_an_ai_type_account' | transloco }}
                     </span>
                     <mat-progress-spinner *ngIf="signUpForm.disabled" [diameter]="24" [mode]="'indeterminate'"
                         [strokeWidth]="4"></mat-progress-spinner>
@@ -95,10 +95,10 @@
         <div class="z-10 relative w-full">
             <div class="text-7xl font-semibold leading-normal text-dark-100">
                 <div><span class="bg-yellow-100 px-2">ai.type</span></div>
-                <div><span class="bg-yellow-100 px-2">viết bài phải có AI</span></div>
+                <div><span class="bg-yellow-100 px-2">{{ 'app.auto_writing_articles_must_have_ai' | transloco }}</span></div>
             </div>
             <!-- <div class="mt-6 text-base tracking-tight leading-6 text-dark-400 max-w-2xl">
-                ai.type là phần mềm hỗ trợ tạo content bằng văn bản, video, hình ảnh hoặc âm thanh
+                {{ 'app.auto_ai_type_is_software_that_suppo' | transloco }}
             </div> -->
             <div class="flex items-center mt-8">
                 <div class="flex flex-0 items-center -space-x-1.5">
@@ -107,8 +107,7 @@
                     <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/male-09.jpg">
                     <img class="flex-0 w-10 h-10 rounded-full object-cover" src="assets/images/avatars/male-16.jpg">
                 </div>
-                <div class="ml-4 text-base tracking-tight leading-6 text-gray-700">hơn 1k thành viên tham gia sử dụng
-                    ai.type</div>
+                <div class="ml-4 text-base tracking-tight leading-6 text-gray-700">{{ 'app.auto_more_than_1k_members_participa' | transloco }}</div>
             </div>
         </div>
     </div>

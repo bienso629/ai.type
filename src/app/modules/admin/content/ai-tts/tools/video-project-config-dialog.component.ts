@@ -137,7 +137,7 @@ export class VideoProjectConfigDialogComponent implements OnInit {
         if (!this.projectData?.scenes || this.projectData.scenes.length === 0) return;
 
         this.isReanalyzingScenes = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const sceneDataToAnalyze = [];
@@ -217,7 +217,7 @@ Nhiệm vụ của bạn là:
             this.toastr.error('Có lỗi xảy ra khi gọi AI phân tích bối cảnh.');
         } finally {
             this.isReanalyzingScenes = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -255,7 +255,7 @@ Nhiệm vụ của bạn là:
 
     async generateCharacterAndOpenDialog() {
         this.isGeneratingCharacter = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const prompt = `Từ kịch bản gốc và master prompt sau đây, hãy trích xuất hoặc sáng tạo ra MỘT nhân vật chính/quan trọng nhất chưa có trong danh sách dàn cast hiện tại. 
@@ -301,7 +301,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             this.openCharacterDialog();
         } finally {
             this.isGeneratingCharacter = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -409,7 +409,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
     async duplicateCharacter(char: any) {
         if (this.isGeneratingCharacter) return;
         this.isGeneratingCharacter = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         this.toastr.info(`Đang dùng AI phân tích cốt truyện để nhân bản "${char.name || char.role}"...`, 'Hệ thống', { timeOut: 3000 });
 
@@ -512,7 +512,7 @@ Lưu ý: Chỉ trả về object JSON, không kèm thêm bất kỳ text nào kh
             this.toastr.warning(`Lỗi AI, đã nhân bản bản sao thông thường cho: ${char.name}`);
         } finally {
             this.isGeneratingCharacter = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 

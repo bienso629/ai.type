@@ -12,7 +12,7 @@
                     <!-- <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                             [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                        <a class="ml-1 text-base text-primary-500">lưu trữ</a>
+                        <a class="ml-1 text-base text-primary-500">{{ 'app.auto_archive' | transloco }}</a>
                     </div> -->
                     <div class="flex items-center ml-1 whitespace-nowrap">
                         <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
@@ -31,7 +31,7 @@
             <!-- Title -->
             <!-- <div class="mt-2">
                 <p class="tracking-tight leading-7 text-base text-gray-400 sm:leading-10 truncate">
-                    khám phá và tạo ra những node của riêng bạn
+                    {{ 'app.auto_explore_and_create_your_own_no' | transloco }}
                 </p>
             </div> -->
         </div>
@@ -58,7 +58,7 @@
 
             <button mat-flat-button class="bg-green-400 text-white" (click)="scanSitemap()">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:map'"></mat-icon>
-                <mat-label class="ml-2">Nhập sitemap.xml</mat-label>
+                <mat-label class="ml-2">{{ 'app.auto_enter_sitemap_xml' | transloco }}</mat-label>
             </button>
 
             <button mat-flat-button class="ml-2 bg-green-500 text-white" (click)="neverLinks()">
@@ -143,7 +143,7 @@
                         <!-- Actions -->
                         <div class="flex shrink-0 items-center pr-6">
                             <a href="javascript:void(0)" [color]="'primary'" class="ml-0">
-                                Tải xuống *.gz
+                                {{ 'app.auto_download_gz' | transloco }}
                             </a>
 
                             <div class="border-l border-gray-300 mx-2 w-0 min-h-5"></div>

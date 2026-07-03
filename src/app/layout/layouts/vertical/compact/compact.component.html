@@ -52,7 +52,7 @@
     <div
         class="relative flex flex-0 items-center justify-start w-full h-14 px-4 md:px-6 z-49 border-t bg-card dark:bg-transparent print:hidden">
         <span class="font-medium text-secondary"><a href="https://type.vn"
-                title="Phần mềm AI xây dựng bài viết chuyên nghiệp">type.vn</a> &copy; {{currentYear}}</span>
+                [title]="'app.auto_ai_software_for_creating_profe' | transloco">type.vn</a> &copy; {{currentYear}}</span>
     </div>
 </div>
 
@@ -67,7 +67,7 @@
     </eco-fab-speed-dial-trigger>
 
     <eco-fab-speed-dial-actions>
-        <button mat-mini-fab [color]="isRecording ? 'warn' : 'primary'" [class.animate-pulse]="isRecording" (click)="startRecording()" matTooltip="Thu âm hệ thống" matTooltipPosition="left">
+        <button mat-mini-fab [color]="isRecording ? 'warn' : 'primary'" [class.animate-pulse]="isRecording" (click)="startRecording()" [matTooltip]="'app.auto_system_recording' | transloco" matTooltipPosition="left">
             <mat-icon svgIcon="feather:mic"></mat-icon>
         </button>
         <button mat-mini-fab [routerLink]="['/ai-writer']">

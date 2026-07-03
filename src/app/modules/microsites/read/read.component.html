@@ -39,11 +39,11 @@
 
 		<!-- Actions -->
 		<div class="flex flex-row shrink-0 items-center mt-2 sm:mt-0 sm:ml-4">
-			<a class="ml-0" title="Mã nguồn mở" mat-icon-button (click)="fontSize(1)">
+			<a class="ml-0" [title]="'app.auto_open_source' | transloco" mat-icon-button (click)="fontSize(1)">
 				<mat-icon class="icon-size-4 text-gray-400" [svgIcon]="'feather:plus'"></mat-icon>
 			</a>
 
-			<a class="ml-1" title="Mã nguồn mở" mat-icon-button (click)="fontSize(-1)">
+			<a class="ml-1" [title]="'app.auto_open_source' | transloco" mat-icon-button (click)="fontSize(-1)">
 				<mat-icon class="icon-size-4 text-gray-400" [svgIcon]="'feather:minus'"></mat-icon>
 			</a>
 		</div>
@@ -69,12 +69,12 @@
 		class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 border-t relative">
 		<!-- Actions -->
 		<div class="flex flex-row items-center justify-center">
-			<a class="ml-0" title="Mã nguồn mở" mat-icon-button href="https://www.facebook.com/manguonmo"
+			<a class="ml-0" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
 				target="_blank">
 				<mat-icon class="icon-size-4 text-green-600" [svgIcon]="'feather:thumbs-up'"></mat-icon>
 			</a>
 
-			<a class="ml-2" title="Mã nguồn mở" mat-icon-button href="https://www.facebook.com/manguonmo"
+			<a class="ml-2" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
 				target="_blank">
 				<mat-icon class="icon-size-4 text-red-300" [svgIcon]="'feather:thumbs-down'"></mat-icon>
 			</a>
@@ -83,24 +83,24 @@
 		<div class="flex">
 			<div class="flex flex-col sm:flex-row items-center justify-center text-center sm:text-start w-full">
 				<div class="font-normal text-center sm:text-start text-base text-secondary">
-					Công ty TNHH <a class="mx-1" href="https://type.vn"
-						title="Phần mềm AI xây dựng bài viết chuyên nghiệp">TYPING</a>
+					{{ 'app.auto_limited_liability_company' | transloco }} <a class="mx-1" href="https://type.vn"
+						[title]="'app.auto_ai_software_for_creating_profe' | transloco">TYPING</a>
 					&copy;
 					2019-{{currentYear}}
 				</div>
 
 				<div class="flex-1 shrink-0 sm:ml-2 items-end">
-					<a class="ml-2" title="Mã nguồn mở" mat-icon-button href="https://www.facebook.com/manguonmo"
+					<a class="ml-2" [title]="'app.auto_open_source' | transloco" mat-icon-button href="https://www.facebook.com/manguonmo"
 						target="_blank">
 						<mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'mat_solid:facebook'"></mat-icon>
 					</a>
 
-					<a mat-icon-button color="warn" title="Học lập trình" href="https://www.youtube.com/@manguonmo"
+					<a mat-icon-button color="warn" [title]="'app.auto_learning_programming' | transloco" href="https://www.youtube.com/@manguonmo"
 						target="_blank">
 						<mat-icon class="icon-size-4" [svgIcon]="'feather:youtube'"></mat-icon>
 					</a>
 
-					<a title="Khoá học công nghệ" mat-icon-button href="https://buy.type.vn" target="_blank">
+					<a [title]="'app.auto_technology_course' | transloco" mat-icon-button href="https://buy.type.vn" target="_blank">
 						<mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:shopping-cart'"></mat-icon>
 					</a>
 				</div>

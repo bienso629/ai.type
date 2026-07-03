@@ -68,14 +68,14 @@ export class CharacterDialogComponent {
         if (typeof url !== 'string') return url;
         let cleanUrl = url;
 
-        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:')) {
+        if (cleanUrl.startsWith('http') || cleanUrl.startsWith('data:') || cleanUrl.startsWith('blob:') || cleanUrl.startsWith('media://')) {
             // do nothing
         } else {
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             const originalPath = cleanUrl;
 
             const mediaDir = this.data?.mediaDir || '';
-            let projectUuid = this.data?.uuid;
+            let projectUuid = this.data?.uuid || this.data?.projectUuid;
             if (!projectUuid) {
                 const parts = window.location.href.split('/');
                 projectUuid = parts[parts.length - 1];
@@ -214,7 +214,7 @@ export class CharacterDialogComponent {
         const apiKey = keys[Math.floor(Math.random() * keys.length)];
 
         this.isGeneratingAvatar = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             // Build the prompt
@@ -306,7 +306,7 @@ export class CharacterDialogComponent {
             }
 
             const fileName = `avatar_${this.editingChar.name || 'char'}_${Date.now()}.png`.replace(/[^a-zA-Z0-9_.]/g, '');
-            const uuid = this.data?.uuid;
+            const uuid = this.data?.uuid || this.data?.projectUuid;
             const username = this.data?.username || 'anonymous';
             const saveParams: any = {
                 base64: base64Data,
@@ -343,7 +343,7 @@ export class CharacterDialogComponent {
         } finally {
             this.isGeneratingAvatar = false;
             this.referenceImageUrl = null;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -384,7 +384,7 @@ export class CharacterDialogComponent {
         }
 
         this.isGeneratingProfile = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const prompt = `Bạn là Giám đốc Sáng tạo và Chuyên gia Thiết kế Nhân vật.
@@ -443,7 +443,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
 
                     this.showFullForm = true;
                     this.toastr.success('AI đã tạo xong hồ sơ nhân vật!');
-                    this.cd.markForCheck();
+                    this.cd.detectChanges();
                     return;
                 }
             }
@@ -454,7 +454,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             this.toastr.error('Lỗi AI: ' + errorMsg);
         } finally {
             this.isGeneratingProfile = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -478,7 +478,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                     const originalPath = electron.getPathForFile(file);
 
                     if (originalPath) {
-                        const uuid = this.data?.uuid;
+                        const uuid = this.data?.uuid || this.data?.projectUuid;
                         const username = this.data?.username || 'anonymous';
                         const customDir = uuid ? `tts/${username}/${uuid}` : undefined;
 
@@ -495,6 +495,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
                 }
 
                 this.toastr.success('Đã tải ảnh nhân vật thành công!');
+                this.cd.detectChanges();
             } catch (error) {
                 console.error('Process error:', error);
                 this.toastr.error('Có lỗi xảy ra: ' + error);

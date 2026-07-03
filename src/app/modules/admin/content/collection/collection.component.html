@@ -67,12 +67,12 @@
                                     <div *ngIf="editingTitle" class="flex items-center ml-2 gap-1">
                                         <input type="text" class="px-2 py-1 border rounded w-64 text-sm bg-white"
                                             [(ngModel)]="newTitle" (keyup.enter)="saveTitle()"
-                                            (keyup.escape)="cancelEditTitle()" autofocus placeholder="Nhập tên mới">
-                                        <button mat-icon-button color="primary" (click)="saveTitle()" matTooltip="Lưu">
+                                            (keyup.escape)="cancelEditTitle()" autofocus [placeholder]="'app.auto_enter_new_name' | transloco">
+                                        <button mat-icon-button color="primary" (click)="saveTitle()" [matTooltip]="'app.auto_save' | transloco">
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
                                         </button>
                                         <button mat-icon-button color="warn" (click)="cancelEditTitle()"
-                                            matTooltip="Hủy">
+                                            [matTooltip]="'app.auto_cancel' | transloco">
                                             <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
                                         </button>
                                     </div>
@@ -167,7 +167,7 @@
                                         <mat-icon class="icon-size-4 text-green-500" [svgIcon]="'feather:share-2'"></mat-icon>
                                     </button>
 
-                                    <button mat-icon-button matTooltipPosition="above" matTooltip="Gỡ khỏi tập"
+                                    <button mat-icon-button matTooltipPosition="above" [matTooltip]="'app.auto_remove_from_album' | transloco"
                                         (click)="removeFromCollection(row)" class="transition-colors">
                                         <mat-icon class="icon-size-4 text-gray-500 hover:text-red-500"
                                             [svgIcon]="'feather:trash-2'"></mat-icon>
@@ -191,7 +191,7 @@
                                                 class="ml-4 h-8" (click)="removeSelectedFromCollection()">
                                                 <mat-icon class="icon-size-4 mr-1.5"
                                                     [svgIcon]="'feather:trash-2'"></mat-icon>
-                                                Gỡ các item đã chọn
+                                                {{ 'app.auto_remove_selected_items' | transloco }}
                                             </button>
                                         </div>
                                     </div>

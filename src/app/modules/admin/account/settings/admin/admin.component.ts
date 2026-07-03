@@ -91,8 +91,9 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     // -----------------------------------------------------------------------------------------------------
 
     ngOnInit(): void {
+        const settings = this.multiAccountService.getItem('settings') || {};
         this.chatgptForm = this._formBuilder.group({
-            'gradio_gologin': [localStorage.getItem('gradio_gologin'), Validators.required],
+            'gradio_gologin': [settings.gradio_gologin || '', Validators.required],
         });
 
         this._userService.user$
@@ -133,14 +134,14 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
     onTabChanged(event: any) {
-        if (event.tab.textLabel === 'Thành viên') {
+        if (event.index === 4) {
             if (!this.forumUsers || this.forumUsers.length === 0) {
                 this.getForumUsers();
             }
             if (!this.forumGroups || this.forumGroups.length === 0) {
                 this.getForumGroups();
             }
-        } else if (event.tab.textLabel === 'N8N Workflows') {
+        } else if (event.index === 1) {
             if (!this.n8nWorkflows || this.n8nWorkflows.length === 0) {
                 this.getN8nWorkflows();
             }
@@ -162,7 +163,34 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     }
 
     save() {
-        localStorage.setItem('gradio_gologin', this.chatgptForm.get('gradio_gologin').value);
+        const settings = this.multiAccountService.getItem('settings') || {};
+        settings.gradio_gologin = this.chatgptForm.get('gradio_gologin').value;
+        this.multiAccountService.setItem('settings', settings);
+
+        const editor = this.multiAccountService.getItem('editor');
+        const following_users = this.multiAccountService.getItem('following_users');
+
+        this._userClientService.updateProfile({
+            profile: {
+                settings: settings,
+                active_info: this.multiAccountService.getItem('active_info'),
+                editor: (editor && editor !== 'undefined') ? editor : {},
+                following_users: (following_users && following_users !== 'undefined') ? following_users : [],
+            },
+            username: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result: any) => {
+                    if (result && result.success) {
+                        this.toastr.success(`Đã lưu thiết lập API lên server.`);
+                    } else {
+                        this.toastr.error('Lưu thiết lập API thất bại.');
+                    }
+                },
+                error: () => this.toastr.error('Lưu không thành công.')
+            });
+        
         let url = [this.chatgptForm.get('gradio_gologin').value];
 
         this._blogService.save({
@@ -170,12 +198,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             username: this.user.name
         })
             .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result: any) => {
-                    if (result) this.toastr.success(`Lưu cấu hình API.`);
-                },
-                error: () => this.toastr.error('Lưu không thành công.')
-            });
+            .subscribe();
     }
 
     getUsers() {

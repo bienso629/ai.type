@@ -9,7 +9,7 @@
                 <div class="flex items-center ml-1 whitespace-nowrap">
                     <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;"
                         [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
-                    <span class="ml-1 text-base text-secondary">báo cáo đề xuất chỉnh sửa SEO</span>
+                    <span class="ml-1 text-base text-secondary">{{ 'app.auto_report_proposing_seo_revisions' | transloco }}</span>
                 </div>
             </div>
         </div>
@@ -17,7 +17,7 @@
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 space-x-2">
             <button mat-flat-button color="primary" (click)="exportPdf()">
                 <mat-icon svgIcon="feather:file-text" class="icon-size-4"></mat-icon>
-                <mat-label class="ml-2">Xuất báo cáo</mat-label>
+                <mat-label class="ml-2">{{ 'app.auto_export_report' | transloco }}</mat-label>
             </button>
             <input type="file" (change)="readFile($event)" class="hidden" #csvInput>
         </div>
@@ -43,7 +43,7 @@
 
             <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
                 [subscriptSizing]="'dynamic'">
-                <mat-label>Đến</mat-label>
+                <mat-label>{{ 'app.auto_arrive' | transloco }}</mat-label>
                 <input matInput type="date" [(ngModel)]="endDate">
             </mat-form-field>
         </div>
@@ -75,14 +75,14 @@
                 </mat-form-field>
 
                 <div class="text-sm text-gray-200">
-                    Nhấp vào 1 hoặc nhiều dòng trong bảng để chọn từ khóa đưa vào các biểu đồ theo ngày.
+                    {{ 'app.auto_click_on_one_or_more_rows_in_t' | transloco }}
                 </div>
             </div>
 
             <div class="flex items-start justify-start pt-2">
                 <ng-container *ngIf="filteredRows && filteredRows.length === 0">
                     <div class="text-sm text-gray-500">
-                        Không có dữ liệu phù hợp với từ khóa tìm kiếm.
+                        {{ 'app.auto_no_data_matches_the_search_key' | transloco }}
                     </div>
                 </ng-container>
 
@@ -124,11 +124,11 @@
                 <div class="pt-8 w-full">
                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
                         <div class="p-4 border rounded-lg">
-                            <div class="text-base text-gray-500">Tổng lượt nhấp</div>
+                            <div class="text-base text-gray-500">{{ 'app.auto_total_clicks' | transloco }}</div>
                             <div class="text-xl font-semibold">{{ totalClicks | number }}</div>
                         </div>
                         <div class="p-4 border rounded-lg">
-                            <div class="text-base text-gray-500">Tổng lượt hiển thị</div>
+                            <div class="text-base text-gray-500">{{ 'app.auto_total_impressions' | transloco }}</div>
                             <div class="text-xl font-semibold">{{ totalImpressions | number }}</div>
                         </div>
                         <div class="p-4 border rounded-lg">
@@ -136,7 +136,7 @@
                             <div class="text-xl font-semibold">{{ avgCtr | number:'1.1-2' }}%</div>
                         </div>
                         <div class="p-4 border rounded-lg">
-                            <div class="text-base text-gray-500">Vị trí trung bình</div>
+                            <div class="text-base text-gray-500">{{ 'app.auto_average_position' | transloco }}</div>
                             <div class="text-xl font-semibold">{{ avgPosition | number:'1.1-2' }}</div>
                         </div>
                     </div>
@@ -145,7 +145,7 @@
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 w-full">
                     <div class="w-full">
                         <h3 class="text-base mb-2">
-                            Lượt nhấp & Lượt hiển thị theo từ khóa hàng đầu
+                            {{ 'app.auto_clicks_impressions_by_top_keyw' | transloco }}
                         </h3>
 
                         <apx-chart *ngIf="chartOptionsTopQueries" [series]="chartOptionsTopQueries.series"
@@ -157,7 +157,7 @@
 
                     <div class="w-full">
                         <h3 class="text-base mb-2">
-                            Tỉ lệ CTR trung bình theo từ khóa hàng đầu
+                            {{ 'app.auto_average_ctr_rate_by_top_keywor' | transloco }}
                         </h3>
 
                         <apx-chart *ngIf="chartOptionsCtr" [series]="chartOptionsCtr.series"
@@ -222,7 +222,7 @@
                     </div>
 
                     <div *ngIf="adsLoading" class="text-base text-blue-500">
-                        Đang gọi Google Ads API...
+                        {{ 'app.auto_calling_google_ads_api' | transloco }}
                     </div>
 
                     <div *ngIf="adsError" class="text-base text-red-500">
@@ -276,8 +276,7 @@
                         </div>
                         <ng-template #noAdsData>
                             <div class="text-base text-gray-500">
-                                Không có dữ liệu Google Ads cho keyword này.
-                                Kiểm tra lại Developer Token, Customer ID, refresh token nếu cần.
+                                {{ 'app.auto_no_google_ads_data_for_this_ke' | transloco }}
                             </div>
                         </ng-template>
                     </div>
@@ -288,7 +287,7 @@
                 <div class="mt-2 w-full">
                     <div>
                         <h3 class="text-xl sm:text-2xl text-primary mb-2">
-                            Google Analytics 4 – Người dùng & Tương tác
+                            {{ 'app.auto_google_analytics_4_users_engag' | transloco }}
                         </h3>
 
                         <div class="flex flex-col gap-4 mb-4">
@@ -315,7 +314,7 @@
                                         svgIcon="feather:bar-chart-2"></mat-icon>
                                     <mat-icon *ngIf="gaLoading" class="icon-size-4 animate-spin"
                                         svgIcon="feather:loader"></mat-icon>
-                                    <span class="ml-2">Lấy dữ liệu & Phân tích đa chiều</span>
+                                    <span class="ml-2">{{ 'app.auto_data_retrieval_multidimensiona' | transloco }}</span>
                                 </button>
                             </div>
 
@@ -333,22 +332,22 @@
                         <ng-container *ngIf="!gaLoading && !gaError && gaSummary">
                             <div class="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-6">
                                 <div class="p-4 border rounded-lg bg-blue-50 border-blue-100">
-                                    <div class="text-base text-blue-600">Người dùng</div>
+                                    <div class="text-base text-blue-600">{{ 'app.auto_user' | transloco }}</div>
                                     <div class="text-xl font-semibold text-blue-800">{{ gaSummary.totalUsers | number
                                         }}</div>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-green-50 border-green-100">
-                                    <div class="text-base text-green-600">Phiên truy cập</div>
+                                    <div class="text-base text-green-600">{{ 'app.auto_session' | transloco }}</div>
                                     <div class="text-xl font-semibold text-green-800">{{ gaSummary.sessions | number }}
                                     </div>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-purple-50 border-purple-100">
-                                    <div class="text-base text-purple-600">Lượt xem trang</div>
+                                    <div class="text-base text-purple-600">{{ 'app.auto_page_views' | transloco }}</div>
                                     <div class="text-xl font-semibold text-purple-800">{{ gaSummary.screenPageViews |
                                         number }}</div>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-orange-50 border-orange-100">
-                                    <div class="text-base text-orange-600">Tỷ lệ tương tác</div>
+                                    <div class="text-base text-orange-600">{{ 'app.auto_engagement_rate' | transloco }}</div>
                                     <div class="text-xl font-semibold text-orange-800">{{ gaSummary.engagementRate * 100
                                         | number:'1.1-2' }}%</div>
                                 </div>
@@ -411,12 +410,12 @@
 
                             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
                                 <div class="border rounded-lg p-3">
-                                    <!-- <div class="text-base font-semibold mb-1">Top quốc gia</div> -->
+                                    <!-- <div class="text-base font-semibold mb-1">{{ 'app.auto_top_countries' | transloco }}</div> -->
                                     <table class="w-full text-base" *ngIf="gaByCountry.length > 0">
                                         <thead>
                                             <tr>
                                                 <th class="text-left py-1">{{ 'app.country' | transloco }}</th>
-                                                <th class="text-right py-1">Người dùng</th>
+                                                <th class="text-right py-1">{{ 'app.auto_user' | transloco }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -438,7 +437,7 @@
                                         <thead>
                                             <tr>
                                                 <th class="text-left py-1">{{ 'app.device' | transloco }}</th>
-                                                <th class="text-right py-1">Người dùng</th>
+                                                <th class="text-right py-1">{{ 'app.auto_user' | transloco }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -454,12 +453,12 @@
                                 </div>
 
                                 <div class="border rounded-lg p-3">
-                                    <div class="text-base font-semibold mb-1">Độ tuổi</div>
+                                    <div class="text-base font-semibold mb-1">{{ 'app.auto_age' | transloco }}</div>
                                     <table class="w-full text-base" *ngIf="gaByAge.length > 0">
                                         <thead>
                                             <tr>
-                                                <th class="text-left py-1">Độ tuổi</th>
-                                                <th class="text-right py-1">Người dùng</th>
+                                                <th class="text-left py-1">{{ 'app.auto_age' | transloco }}</th>
+                                                <th class="text-right py-1">{{ 'app.auto_user' | transloco }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -479,7 +478,7 @@
                                         <thead>
                                             <tr>
                                                 <th class="text-left py-1">{{ 'app.event' | transloco }}</th>
-                                                <th class="text-right py-1">Lượt tương tác</th>
+                                                <th class="text-right py-1">{{ 'app.auto_interactions' | transloco }}</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -508,8 +507,8 @@
                                 <mat-icon class="icon-size-5" svgIcon="feather:command"></mat-icon>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-800 m-0">Những việc cần làm</h3>
-                                <p class="text-sm text-slate-500 m-0">Phân tích số liệu để đề xuất những việc cần làm
+                                <h3 class="text-lg font-semibold text-slate-800 m-0">{{ 'app.auto_things_to_do' | transloco }}</h3>
+                                <p class="text-sm text-slate-500 m-0">{{ 'app.auto_analyze_data_to_propose_necess' | transloco }}
                                 </p>
                             </div>
                         </div>
@@ -518,8 +517,8 @@
                             <mat-icon *ngIf="!aiLoading" class="icon-size-4" svgIcon="feather:zap"></mat-icon>
                             <mat-icon *ngIf="aiLoading" class="icon-size-4 animate-spin"
                                 svgIcon="feather:loader"></mat-icon>
-                            <mat-label class="ml-2" *ngIf="!aiLoading">Xem đề xuất việc cần làm</mat-label>
-                            <mat-label class="ml-2" *ngIf="aiLoading">Đang phân tích (có thể mất 15s)...</mat-label>
+                            <mat-label class="ml-2" *ngIf="!aiLoading">{{ 'app.auto_view_suggested_tasks' | transloco }}</mat-label>
+                            <mat-label class="ml-2" *ngIf="aiLoading">{{ 'app.auto_analyzing_may_take_15s' | transloco }}</mat-label>
                         </button>
                     </div>
 
@@ -532,15 +531,14 @@
 
                 <!-- <div class="mt-8 w-full flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
-                    <h3 class="text-base font-semibold mb-1">Tự động gửi báo cáo hằng ngày qua email</h3>
+                    <h3 class="text-base font-semibold mb-1">{{ 'app.auto_automatically_send_daily_repor' | transloco }}</h3>
                     <div class="text-base text-gray-500 max-w-lg">
-                        Tính năng này cần backend / Electron IPC <code>scheduleSeoEmail</code>.
-                        Hiện tại hàm đã được hook sẵn trong component.
+                        {{ 'app.auto_this_feature_requires_backend' | transloco }} <code>scheduleSeoEmail</code>{{ 'app.auto_currently_the_function_has_alr' | transloco }}
                     </div>
                 </div>
                 <button mat-flat-button color="primary" (click)="scheduleDailyEmail()">
                     <mat-icon svgIcon="feather:mail"></mat-icon>
-                    <mat-label class="ml-2">Tạo lịch gửi báo cáo</mat-label>
+                    <mat-label class="ml-2">{{ 'app.auto_create_a_report_sending_schedu' | transloco }}</mat-label>
                 </button>
             </div> -->
             </div>

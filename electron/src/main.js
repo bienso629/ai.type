@@ -2522,7 +2522,13 @@ ipcMain.handle("save-base64", async (event, args) => {
     }
 
     const filePath = path.join(saveDir, fileName);
-    const buffer = Buffer.from(base64, "base64");
+    
+    // An toàn: Xóa tiền tố data:image/...;base64, nếu có
+    let cleanBase64 = base64;
+    if (typeof cleanBase64 === 'string' && cleanBase64.includes(',')) {
+        cleanBase64 = cleanBase64.split(',')[1];
+    }
+    const buffer = Buffer.from(cleanBase64, "base64");
 
     try {
         fs.writeFileSync(filePath, buffer);

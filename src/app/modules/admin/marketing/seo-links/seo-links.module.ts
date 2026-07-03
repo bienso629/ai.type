@@ -1,3 +1,4 @@
+import { TranslocoModule } from '@ngneat/transloco';
 import { Component, Inject, NgModule } from '@angular/core';
 import { Route, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
@@ -162,6 +163,8 @@ const logsRoutes: Route[] = [
         EditDialog
     ],
     imports: [
+        TranslocoModule,
+        MatTooltipModule,
         MatButtonModule,
         MatButtonToggleModule,
         MatFormFieldModule,

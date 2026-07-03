@@ -8,7 +8,7 @@
                     <mat-icon [svgIcon]="'heroicons_outline:arrow-left'"></mat-icon>
                 </button>
                 <div>
-                    <div class="text-4xl font-extrabold tracking-tight leading-none">Danh sách kịch bản video</div>
+                    <div class="text-4xl font-extrabold tracking-tight leading-none">{{ 'app.auto_video_script_list' | transloco }}</div>
                     <div class="ml-0.5 mt-1 text-md font-medium text-secondary">
                         Đang hiển thị {{videoProjects?.length || 0}} kịch bản
                     </div>
@@ -18,7 +18,7 @@
         <div class="flex items-center mt-6 sm:mt-0 sm:ml-4">
             <button mat-flat-button color="primary" (click)="importProject()">
                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:upload'"></mat-icon>
-                <mat-label class="ml-2">Nhập kịch bản</mat-label>
+                <mat-label class="ml-2">{{ 'app.auto_enter_script' | transloco }}</mat-label>
             </button>
         </div>
     </div>
@@ -41,7 +41,7 @@
                             </div>
                             <button mat-icon-button (click)="deleteVideoProject(project, $event)"
                                 class="absolute -top-2 -right-2 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors opacity-0 group-hover:opacity-100"
-                                matTooltip="Xóa kịch bản">
+                                [matTooltip]="'app.auto_delete_script' | transloco">
                                 <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                             </button>
                         </div>

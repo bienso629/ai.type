@@ -4,7 +4,7 @@
 		<div class="flex-1 flex-row shrink-0 items-center">
 			<!-- Title -->
 			<label class="uppercase text-primary font-semibold">
-				Hướng dẫn sử dụng phần mềm Ai.Type
+				{{ 'app.auto_ai_type_software_user_guide' | transloco }}
 			</label>
 		</div>
 
@@ -21,7 +21,7 @@
 				(opened)="code = 'gAxcp3WfEzE'">
 				<mat-expansion-panel-header>
 					<mat-panel-title class="font-base">
-						1. Đăng ký sử dụng phần mềm ai.type
+						{{ 'app.auto_1_register_to_use_the_ai_type' | transloco }}
 					</mat-panel-title>
 				</mat-expansion-panel-header>
 				<p *ngIf="code === 'gAxcp3WfEzE'" class="p-3" [innerHTML]="code | youtube"></p>
@@ -31,7 +31,7 @@
 				(opened)="code = 'PqmwHobKyAg'">
 				<mat-expansion-panel-header>
 					<mat-panel-title class="font-base">
-						2. Hướng dẫn tạo Văn bản đầu tiên
+						{{ 'app.auto_2_guide_to_creating_the_first' | transloco }}
 					</mat-panel-title>
 				</mat-expansion-panel-header>
 				<p *ngIf="code === 'PqmwHobKyAg'" class="p-3" [innerHTML]="code | youtube"></p>
@@ -41,7 +41,7 @@
 				(opened)="code = 'gAxcp3WfEzE'">
 				<mat-expansion-panel-header>
 					<mat-panel-title class="font-base">
-						3. Hướng dẫn tạo Văn bản hoàn chỉnh
+						{{ 'app.auto_3_guide_to_creating_a_complete' | transloco }}
 					</mat-panel-title>
 				</mat-expansion-panel-header>
 				<p *ngIf="code === 'gAxcp3WfEzE'" class="p-3" [innerHTML]="code | youtube"></p>
