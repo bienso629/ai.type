@@ -79,9 +79,10 @@
             <!-- Divider -->
              <div class="mt-8 border-t"></div>
 
-            <p class="mt-4">
+            <div class="mt-4 flex items-center">
                 <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
-            </p>
+                <a class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">Nhận license key</a>
+            </div>
         </div>
     </form>
 </div>

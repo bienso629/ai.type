@@ -1,6 +1,6 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, Inject } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config';
@@ -214,5 +214,182 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         dialogRef.afterClosed().subscribe((_) => {
             this.router.navigate(['/tools']);
         });
+    }
+
+    openMomoPayment() {
+        const dialogRef = this.dialog.open(MomoQrDialog, {
+            data: { user: this.user },
+            width: '400px',
+            disableClose: false
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this.fireConfetti();
+                this._fuseConfirmationService.open({
+                    title: 'Thanh toán thành công',
+                    message: 'Cảm ơn bạn! Vui lòng kiểm tra email của bạn để nhận License Key. (Có thể mất vài phút để chúng tôi kiểm tra giao dịch và gửi email cho bạn).',
+                    icon: {
+                        show: true,
+                        name: 'heroicons_outline:check-circle',
+                        color: 'success'
+                    },
+                    actions: {
+                        confirm: {
+                            show: false,
+                            label: 'Đóng',
+                            color: 'primary'
+                        },
+                        cancel: {
+                            show: false,
+                            label: ''
+                        }
+                    },
+                    dismissible: true
+                });
+            }
+        });
+    }
+    
+    fireConfetti() {
+        const triggerConfetti = () => {
+            const canvas = document.createElement('canvas');
+            canvas.style.position = 'fixed';
+            canvas.style.top = '0';
+            canvas.style.left = '0';
+            canvas.style.width = '100vw';
+            canvas.style.height = '100vh';
+            canvas.style.zIndex = '999999';
+            canvas.style.pointerEvents = 'none';
+            document.body.appendChild(canvas);
+            
+            const myConfetti = (window as any).confetti.create(canvas, { resize: true });
+            myConfetti({ particleCount: 150, spread: 70, origin: { y: 0.6 } }).then(() => {
+                if (canvas.parentNode) {
+                    canvas.parentNode.removeChild(canvas);
+                }
+            });
+        };
+
+        if ((window as any).confetti) {
+            triggerConfetti();
+        } else {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js';
+            script.onload = triggerConfetti;
+            document.body.appendChild(script);
+        }
+    }
+}
+
+@Component({
+    selector: 'momo-qr-dialog',
+    template: `
+        <div class="flex flex-col">
+            <!-- Header -->
+            <div class="flex items-center justify-between mb-2">
+                <div class="flex items-center">
+                    <div class="flex items-center justify-center w-10 h-10 rounded-full text-blue-600 bg-blue-100 mr-3">
+                        <mat-icon class="text-current" [svgIcon]="'heroicons_outline:qrcode'"></mat-icon>
+                    </div>
+                    <h2 class="m-0 text-xl font-medium">Thanh toán chuyển khoản</h2>
+                </div>
+                <button mat-icon-button [matDialogClose]="undefined">
+                    <mat-icon class="text-secondary" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                </button>
+            </div>
+            
+            <!-- Content -->
+            <div class="text-secondary text-center text-sm">
+                Để nhận License Key, bạn vui lòng quét mã QR bên dưới để thanh toán <b>2.000đ</b>.<br/>
+                ⚠️ Bắt buộc nhập Mã thanh toán: <b class="text-primary">{{orderCode}}</b>
+            </div>
+            
+            <div class="flex justify-center w-full my-4">
+                <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=2000&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=C%E1%BB%ADa%20h%C3%A0ng%20AI%20Type&memo=' + orderCode" class="w-64 rounded" alt="Mã QR Chuyển Khoản" />
+            </div>
+        </div>
+    `
+})
+export class MomoQrDialog implements OnInit, OnDestroy {
+    private pollInterval: any;
+    private sepayToken = 'LSSRM1WYJUTDKOWHOJ9XQ6LSGVW5CX96FTNHVOMAK0CJ7PNIF3UNDQVG8XBMTCEP';
+    private initialLatestTxId: number = 0;
+    private isFirstLoad: boolean = true;
+    public orderCode: string = '';
+
+    constructor(
+        public dialogRef: MatDialogRef<MomoQrDialog>,
+        @Inject(MAT_DIALOG_DATA) public data: { user: User }
+    ) {
+        this.orderCode = this.generateOrderCode(this.data.user?.email || '');
+    }
+
+    private generateOrderCode(email: string): string {
+        if (!email) return 'AITYPE';
+        let hash = 0;
+        for (let i = 0; i < email.length; i++) {
+            const char = email.charCodeAt(i);
+            hash = ((hash << 5) - hash) + char;
+            hash = hash & hash; // Convert to 32bit integer
+        }
+        const positiveHash = Math.abs(hash) % 1000000;
+        return 'AITYPE' + positiveHash.toString().padStart(6, '0');
+    }
+
+    ngOnInit() {
+        // Bắt đầu tự động kiểm tra giao dịch mỗi 3 giây
+        this.pollInterval = setInterval(() => {
+            this.checkPayment();
+        }, 3000);
+    }
+
+    ngOnDestroy() {
+        if (this.pollInterval) {
+            clearInterval(this.pollInterval);
+        }
+    }
+
+    async checkPayment() {
+        try {
+            const response = await fetch('https://my.sepay.vn/userapi/transactions/list', {
+                method: 'GET',
+                headers: {
+                    'Authorization': 'Bearer ' + this.sepayToken,
+                    'Content-Type': 'application/json'
+                }
+            });
+            const resData = await response.json();
+            
+            if (resData && resData.status === 200 && resData.transactions) {
+                const transactions = resData.transactions;
+                
+                if (transactions.length > 0) {
+                    if (this.isFirstLoad) {
+                        // Lưu lại ID của giao dịch gần nhất khi vừa mở popup
+                        this.initialLatestTxId = parseInt(transactions[0].id, 10);
+                        this.isFirstLoad = false;
+                        return;
+                    }
+                    
+                    const orderCodeLower = this.orderCode.toLowerCase();
+                    
+                    // Tìm giao dịch có chứa đúng mã orderCode
+                    const found = transactions.find((t: any) => {
+                        const content = (t.transaction_content || '').toLowerCase();
+                        const amount = parseFloat(t.amount_in);
+                        
+                        return content.includes(orderCodeLower) && amount >= 2000;
+                    });
+
+                    if (found) {
+                        // Đóng popup quét QR và chuyển sang popup thông báo thành công
+                        this.dialogRef.close('confirmed');
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Lỗi khi kiểm tra giao dịch SePay', error);
+        }
     }
 }

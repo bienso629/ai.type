@@ -38,6 +38,8 @@ import { SettingsTeamComponent } from 'app/modules/admin/account/settings/team/t
 import { AddStyleDialog } from 'app/modules/admin/account/settings/style/dialogs/add-dialog';
 import { EmailDialogComponent } from 'app/modules/admin/account/settings/admin/dialogs/email-dialog/email-dialog.component';
 import { settingsRoutes } from 'app/modules/admin/account/settings/settings.routing';
+import { QRCodeModule } from 'angularx-qrcode';
+import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.component';
 
 @NgModule({
     declarations: [
@@ -53,7 +55,8 @@ import { settingsRoutes } from 'app/modules/admin/account/settings/settings.rout
         SettingsDomainComponent,
         AddStyleDialog,
         EmailDialogComponent,
-        SettingsTeamComponent
+        SettingsTeamComponent,
+        MomoQrDialog
     ],
     imports: [
         RouterModule.forChild(settingsRoutes),
@@ -79,7 +82,8 @@ import { settingsRoutes } from 'app/modules/admin/account/settings/settings.rout
         NgxCurrencyDirective,
         FuseAlertModule,
         FuseCardModule,
-        SharedModule
+        SharedModule,
+        QRCodeModule
     ],
     exports: [
         SettingsLicenseKeysComponent,
