@@ -15,6 +15,8 @@ import { DeviceUUID } from "device-uuid";
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { TranslocoService } from '@ngneat/transloco';
+
 @Component({
     selector: 'settings-active',
     templateUrl: './active.component.html',
@@ -26,6 +28,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     activeForm: UntypedFormGroup;
     activeInfo: any = {};
     plans: any[];
+    showPaymentButton: boolean = true;
 
     config: AppConfig;
     user: User;
@@ -68,7 +71,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
     copy(appToken: string) {
         this.clipboard.copy(`${appToken}`);
-        this.toastr.success(`Copy appToken xong.`);
+        this.toastr.success(this._translocoService.translate('app.copy_apptoken_success'));
     }
 
     /**
@@ -77,7 +80,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     save(): void {
         // Return if the form is invalid
         if (this.activeForm.invalid) {
-            this.toastr.warning(`Chưa có License Key kích hoạt.`);
+            this.toastr.warning(this._translocoService.translate('app.no_license_key_active'));
             return;
         } else {
             const licensekey = `${this.activeForm.value['licensekey1'].toUpperCase()}-${this.activeForm.value['licensekey2'].toUpperCase()}-${this.activeForm.value['licensekey3'].toUpperCase()}-${this.activeForm.value['licensekey4'].toUpperCase()}-${this.activeForm.value['licensekey5'].toUpperCase()}-${this.activeForm.value['licensekey6'].toUpperCase()}`;
@@ -98,16 +101,19 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                             const activeInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
 
                             if (activeInfo) {
-                                this.multiAccountService.setItem('active_info', activeInfo);
+                                await this.multiAccountService.setItem('active_info', activeInfo);
+                                if ((window as any).electron) {
+                                    await (window as any).electron.invoke('register-license', activeInfo);
+                                }
                             }
 
-                            this.toastr.success(`Kích hoạt thành công!`);
+                            this.toastr.success(this._translocoService.translate('app.activate_success'));
 
                             if ((window as any).electron) {
                                 (window as any).electron.relaunchApp();
                             }
                         } else {
-                            this.toastr.error(`Key này không thể sử dụng.`);
+                            this.toastr.error(this._translocoService.translate('app.key_invalid'));
                         }
                     },
                     error: () => {
@@ -132,13 +138,29 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         private router: Router,
         public dialog: MatDialog,
         private _formBuilder: UntypedFormBuilder,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _translocoService: TranslocoService
     ) {
-        this.titleService.setTitle(`kích hoạt phần mềm | ai.type - công cụ tạo content`);
+        this.titleService.setTitle(this._translocoService.translate('app.activate_software_title'));
 
-        const activeInfo = this.multiAccountService.getItem('active_info');
-        if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
-            this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
+        const activeInfoStr = this.multiAccountService.getItem('active_info');
+        if (activeInfoStr && activeInfoStr != 'null' && activeInfoStr != 'undefined') {
+            this.activeInfo = AuthUtils._getActiveInfo(activeInfoStr);
+            
+            // Nếu có key, kiểm tra xem nó còn bao lâu thì hết hạn
+            const expirationDate = AuthUtils._getTokenExpirationDate(activeInfoStr);
+            if (expirationDate) {
+                const now = new Date().valueOf();
+                const exp = expirationDate.valueOf();
+                const daysLeft = (exp - now) / (1000 * 60 * 60 * 24);
+                
+                // Nếu còn hơn 45 ngày thì ẩn nút, ngược lại (<= 45 ngày hoặc đã hết hạn) thì hiện
+                if (daysLeft > 45) {
+                    this.showPaymentButton = false;
+                } else {
+                    this.showPaymentButton = true;
+                }
+            }
         }
     }
 
@@ -218,17 +240,36 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
     openMomoPayment() {
         const dialogRef = this.dialog.open(MomoQrDialog, {
-            data: { user: this.user },
+            data: { 
+                user: this.user,
+                apiUrl: this.config.settings.api[this.user.server]
+            },
             width: '400px',
             disableClose: false
         });
 
-        dialogRef.afterClosed().subscribe((result) => {
-            if (result === 'confirmed') {
+        dialogRef.afterClosed().subscribe((result: any) => {
+            if (result && result.status === 'confirmed') {
                 this.fireConfetti();
+                
+                const generatedKey = result.licenseKey || '...';
+                const monthsText = result.months ? `${result.months} ${this._translocoService.translate('app.months')}` : '';
+                
+                // Tự động điền key vào form và thông báo
+                if (generatedKey && generatedKey.length >= 30) {
+                    this.onDigitPaste({
+                        clipboardData: { getData: () => generatedKey }
+                    });
+                    
+                    // Tự động Active luôn cho tài khoản
+                    setTimeout(() => {
+                        this.save();
+                    }, 500);
+                }
+
                 this._fuseConfirmationService.open({
-                    title: 'Thanh toán thành công',
-                    message: 'Cảm ơn bạn! Vui lòng kiểm tra email của bạn để nhận License Key. (Có thể mất vài phút để chúng tôi kiểm tra giao dịch và gửi email cho bạn).',
+                    title: this._translocoService.translate('app.payment_success_title'),
+                    message: this._translocoService.translate('app.payment_success_message', { months: monthsText, key: generatedKey }),
                     icon: {
                         show: true,
                         name: 'heroicons_outline:check-circle',
@@ -237,7 +278,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     actions: {
                         confirm: {
                             show: false,
-                            label: 'Đóng',
+                            label: this._translocoService.translate('app.close'),
                             color: 'primary'
                         },
                         cancel: {
@@ -292,7 +333,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     <div class="flex items-center justify-center w-10 h-10 rounded-full text-blue-600 bg-blue-100 mr-3">
                         <mat-icon class="text-current" [svgIcon]="'heroicons_outline:qrcode'"></mat-icon>
                     </div>
-                    <h2 class="m-0 text-xl font-medium">Thanh toán chuyển khoản</h2>
+                    <h2 class="m-0 text-xl font-medium">{{ 'app.bank_transfer' | transloco }}</h2>
                 </div>
                 <button mat-icon-button [matDialogClose]="undefined">
                     <mat-icon class="text-secondary" [svgIcon]="'heroicons_outline:x'"></mat-icon>
@@ -300,33 +341,43 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             </div>
             
             <!-- Content -->
-            <div class="text-secondary text-center text-sm">
-                Để nhận License Key, bạn vui lòng quét mã QR bên dưới để thanh toán <b>2.000đ</b>.<br/>
-                ⚠️ Bắt buộc nhập Mã thanh toán: <b class="text-primary">{{orderCode}}</b>
-            </div>
-            
-            <div class="flex justify-center w-full my-4">
-                <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=2000&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=C%E1%BB%ADa%20h%C3%A0ng%20AI%20Type&memo=' + orderCode" class="w-64 rounded" alt="Mã QR Chuyển Khoản" />
+            <div class="flex flex-col mt-2">
+                <mat-form-field class="fuse-mat-dense w-full mb-2" appearance="outline" subscriptSizing="dynamic">
+                    <mat-label>{{ 'app.select_duration' | transloco }}</mat-label>
+                    <mat-select [(value)]="selectedMonths">
+                        <mat-option [value]="1">1 {{ 'app.months' | transloco }} (2.000{{ 'app.currency' | transloco }})</mat-option>
+                        <mat-option [value]="3">3 {{ 'app.months' | transloco }} (6.000{{ 'app.currency' | transloco }})</mat-option>
+                        <mat-option [value]="6">6 {{ 'app.months' | transloco }} (12.000{{ 'app.currency' | transloco }})</mat-option>
+                        <mat-option [value]="12">1 {{ 'app.year' | transloco }} (24.000{{ 'app.currency' | transloco }})</mat-option>
+                    </mat-select>
+                </mat-form-field>
+
+                <div class="text-secondary text-center text-sm">
+                    {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 2000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
+                    ⚠️ {{ 'app.payment_code_required' | transloco }}: <b class="text-primary">{{orderCode}}</b>
+                </div>
+                
+                <div class="flex justify-center w-full my-4">
+                    <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 2000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&memo=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
+                </div>
             </div>
         </div>
     `
 })
 export class MomoQrDialog implements OnInit, OnDestroy {
     private pollInterval: any;
-    private sepayToken = 'LSSRM1WYJUTDKOWHOJ9XQ6LSGVW5CX96FTNHVOMAK0CJ7PNIF3UNDQVG8XBMTCEP';
-    private initialLatestTxId: number = 0;
-    private isFirstLoad: boolean = true;
     public orderCode: string = '';
+    public selectedMonths: number = 1;
 
     constructor(
         public dialogRef: MatDialogRef<MomoQrDialog>,
-        @Inject(MAT_DIALOG_DATA) public data: { user: User }
+        @Inject(MAT_DIALOG_DATA) public data: { user: User, apiUrl: string }
     ) {
         this.orderCode = this.generateOrderCode(this.data.user?.email || '');
     }
 
     private generateOrderCode(email: string): string {
-        if (!email) return 'AITYPE';
+        if (!email) return 'AITYP';
         let hash = 0;
         for (let i = 0; i < email.length; i++) {
             const char = email.charCodeAt(i);
@@ -334,7 +385,7 @@ export class MomoQrDialog implements OnInit, OnDestroy {
             hash = hash & hash; // Convert to 32bit integer
         }
         const positiveHash = Math.abs(hash) % 1000000;
-        return 'AITYPE' + positiveHash.toString().padStart(6, '0');
+        return 'AITYP' + positiveHash.toString().padStart(6, '0');
     }
 
     ngOnInit() {
@@ -352,44 +403,22 @@ export class MomoQrDialog implements OnInit, OnDestroy {
 
     async checkPayment() {
         try {
-            const response = await fetch('https://my.sepay.vn/userapi/transactions/list', {
+            // Thay vì gọi SePay trực tiếp, ta gọi API backend của mình
+            const url = `${this.data.apiUrl}/payment/check?orderCode=${this.orderCode}&username=${encodeURIComponent(this.data.user?.email || '')}`;
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: {
-                    'Authorization': 'Bearer ' + this.sepayToken,
                     'Content-Type': 'application/json'
                 }
             });
             const resData = await response.json();
             
-            if (resData && resData.status === 200 && resData.transactions) {
-                const transactions = resData.transactions;
-                
-                if (transactions.length > 0) {
-                    if (this.isFirstLoad) {
-                        // Lưu lại ID của giao dịch gần nhất khi vừa mở popup
-                        this.initialLatestTxId = parseInt(transactions[0].id, 10);
-                        this.isFirstLoad = false;
-                        return;
-                    }
-                    
-                    const orderCodeLower = this.orderCode.toLowerCase();
-                    
-                    // Tìm giao dịch có chứa đúng mã orderCode
-                    const found = transactions.find((t: any) => {
-                        const content = (t.transaction_content || '').toLowerCase();
-                        const amount = parseFloat(t.amount_in);
-                        
-                        return content.includes(orderCodeLower) && amount >= 2000;
-                    });
-
-                    if (found) {
-                        // Đóng popup quét QR và chuyển sang popup thông báo thành công
-                        this.dialogRef.close('confirmed');
-                    }
-                }
+            if (resData && resData.success && resData.licenseKey) {
+                // Đóng popup quét QR và chuyển sang popup thông báo thành công cùng với license key
+                this.dialogRef.close({ status: 'confirmed', licenseKey: resData.licenseKey, months: resData.months });
             }
         } catch (error) {
-            console.error('Lỗi khi kiểm tra giao dịch SePay', error);
+            console.error('Lỗi khi kiểm tra giao dịch từ backend', error);
         }
     }
 }

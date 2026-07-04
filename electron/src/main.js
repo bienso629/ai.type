@@ -6177,3 +6177,39 @@ ipcMain.handle('render-final-composition', async (event, payload) => {
         return { success: false, error: error.message };
     }
 });
+
+// =====================================================================
+// LICENSE CHECKER IN MAIN PROCESS (SECURITY)
+// =====================================================================
+let currentLicense = null;
+
+ipcMain.handle('register-license', (event, token) => {
+    currentLicense = token;
+});
+
+// Kiểm tra mỗi 5 phút
+setInterval(() => {
+    let isValid = false;
+    if (currentLicense && currentLicense !== 'null' && currentLicense !== 'undefined') {
+        try {
+            const parts = currentLicense.split('.');
+            if (parts.length === 3) {
+                const payloadStr = Buffer.from(parts[1], 'base64').toString('utf8');
+                const payload = JSON.parse(payloadStr);
+                // Payload 'exp' is usually in seconds. Date.now() is milliseconds.
+                if (payload.exp && (payload.exp * 1000) > Date.now()) {
+                    isValid = true;
+                }
+            }
+        } catch (e) {}
+    }
+
+    if (!isValid) {
+        // Broadcast force-renewal to all windows
+        BrowserWindow.getAllWindows().forEach(win => {
+            if (win && !win.isDestroyed()) {
+                win.webContents.send('force-renewal');
+            }
+        });
+    }
+}, 5 * 60 * 1000);

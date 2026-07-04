@@ -74,11 +74,11 @@ export class MultiAccountService {
     /**
      * Thay thế cho localStorage.setItem(key, value)
      */
-    setItem(key: string, value: any): void {
+    async setItem(key: string, value: any): Promise<void> {
         this.currentSessionData[key] = value;
 
         if (this.currentAccountId) {
-            this.saveToBackground();
+            await this.saveToBackground();
         }
         
         this.activeAccountSubject.next(this.currentSessionData);
@@ -94,11 +94,11 @@ export class MultiAccountService {
     /**
      * Thay thế cho localStorage.removeItem(key)
      */
-    removeItem(key: string): void {
+    async removeItem(key: string): Promise<void> {
         delete this.currentSessionData[key];
         
         if (this.currentAccountId) {
-            this.saveToBackground();
+            await this.saveToBackground();
         }
     }
 

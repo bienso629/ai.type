@@ -20,6 +20,13 @@ contextBridge.exposeInMainWorld('electron', {
     },
     requestContextMenu: () => ipcRenderer.send('show-context-menu'),
 
+    // ===== LICENSE CHECK =====
+    onForceRenewal: (callback) => {
+        const listener = (_event) => callback();
+        ipcRenderer.on('force-renewal', listener);
+        return () => ipcRenderer.removeListener('force-renewal', listener);
+    },
+
     // ===== DUAL SCREEN =====
     openSecondaryScreen: (url) => ipcRenderer.send('open-secondary-screen', url),
     sendToSecondary: (data) => ipcRenderer.send('send-to-secondary', data),

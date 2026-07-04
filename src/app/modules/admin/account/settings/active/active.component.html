@@ -81,7 +81,7 @@
 
             <div class="mt-4 flex items-center">
                 <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
-                <a class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">{{ 'app.auto_receive_license_key' | transloco }}</a>
+                <a *ngIf="showPaymentButton" class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">{{ 'app.auto_receive_license_key' | transloco }}</a>
             </div>
         </div>
     </form>
