@@ -1,0 +1,59 @@
+name: Build Desktop Apps
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install root dependencies
+        run: npm install
+
+      - name: Build Angular App
+        run: npm run build
+
+      - name: Install electron dependencies
+        working-directory: ./electron
+        run: npm install
+
+      - name: Build Electron App (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: ./electron
+        run: npm run build:win
+
+      - name: Build Electron App (macOS)
+        if: matrix.os == 'macos-latest'
+        working-directory: ./electron
+        run: npm run build:mac
+
+      - name: Build Electron App (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: ./electron
+        run: npm run build:linux
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-builds-${{ matrix.os }}
+          path: |
+            electron/dist/*.exe
+            electron/dist/*.dmg
+            electron/dist/*.deb
+            electron/dist/*.AppImage
+          retention-days: 7
