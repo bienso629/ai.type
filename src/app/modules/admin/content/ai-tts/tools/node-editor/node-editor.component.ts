@@ -138,6 +138,20 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     private _userClientService: UserClientService
   ) { }
 
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent) {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+      event.preventDefault();
+      
+      // Cập nhật lại prompt cuối cùng trước khi lưu nếu user đang gõ
+      this.saveEditorState(); // Cập nhật vị trí các khối
+      
+      // Tiến hành lưu
+      this.saveProject(true);
+      this.toastr.success('Đã lưu dữ liệu!');
+    }
+  }
+
   ngAfterViewChecked() {
     let changed = false;
     const newHeights: { [id: string]: number } = {};
@@ -342,7 +356,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
     data.scenes.forEach((scene: any, index: number) => {
       const sceneX = startX + index * 450;
-      const yOffset = Math.floor(Math.random() * 100) - 50; 
+      const yOffset = Math.floor(Math.random() * 300) - 150; 
 
       
       const ttsNodeId = `tts_${index}`;
@@ -741,6 +755,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   autoArrangeAllNodes() {
+      this.autoStashDisconnectedNodes(true);
+      
       const isPrimary = (type: string) => type === 'video' || type === 'image';
       const isComp = (type: string) => type === 'composition' || type === 'comp';
       
@@ -846,7 +862,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           if (colNodes.length > 1) {
               currentY = Math.max(50, 300 - totalColHeight / 2);
           } else {
-              currentY = 150 + (Math.random() * 60 - 30);
+              currentY = 150 + (Math.random() * 300 - 150);
               if (currentY < 50) currentY = 50;
           }
           
@@ -951,7 +967,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               
               this.updateConnectionPaths();
               this.calculateCanvasSize();
-              this.autoStashDisconnectedAudios(true);
+              this.autoStashDisconnectedNodes(true);
               this.saveEditorState();
               this.cdr.detectChanges();
           }
@@ -977,6 +993,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         videoUrl: '',
         text: '', 
         isVideo: false, 
+        showOnCanvas: true,
         aspectRatio: '16:9', 
         sceneData: { visualPrompt: '' },
         projectCharacters: []
@@ -1023,10 +1040,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     setTimeout(() => this.cdr.detectChanges(), 0);
   }
 
-  autoStashDisconnectedAudios(silent: boolean = false) {
+  autoStashDisconnectedNodes(silent: boolean = false) {
       let stashedCount = 0;
       this.nodes.forEach(n => {
-          if (n.type === 'tts') {
+          if (n.type !== 'composition') {
               const hasConnection = this.connections.some(c => c.fromNode === n.id || c.toNode === n.id);
               if (!hasConnection && n.data?.showOnCanvas) {
                   n.data.showOnCanvas = false;
@@ -1035,14 +1052,27 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           }
       });
       if (stashedCount > 0) {
-          if (!silent) this.toastr.success(`Đã cất ${stashedCount} khối Audio chưa kết nối vào kho!`);
+          if (!silent) this.toastr.success(`Đã cất ${stashedCount} khối chưa kết nối vào kho!`);
           this.saveEditorState();
           this.calculateCanvasSize();
           this.cdr.detectChanges();
       } else if (!silent) {
-          this.toastr.info('Không có khối Audio chưa kết nối nào trên bản vẽ.');
+          this.toastr.info('Không có khối nào cần cất!');
       }
       this.closeContextMenu();
+  }
+
+  stashNode(node: NodeItem) {
+      if (node.type === 'composition') return;
+      if (!node.data) node.data = {};
+      node.data.showOnCanvas = false;
+      
+      this.connections = this.connections.filter(c => c.fromNode !== node.id && c.toNode !== node.id);
+      
+      this.updateConnectionPaths();
+      this.saveEditorState();
+      this.toastr.success(`Đã cất ${node.title} vào kho!`);
+      this.cdr.detectChanges();
   }
 
   get unusedAudioNodes(): NodeItem[] {
@@ -1053,8 +1083,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       );
   }
 
+  get unusedVisualNodes(): NodeItem[] {
+      return this.nodes.filter(n => 
+          (n.type === 'video' || n.type === 'image' || n.type === 'storyboard') && 
+          !this.connections.some(c => c.fromNode === n.id || c.toNode === n.id) && 
+          !n.data?.showOnCanvas
+      );
+  }
+
   isNodeVisible(node: NodeItem): boolean {
-      if (node.type === 'tts') {
+      if (node.type !== 'composition') {
           if (node.data?.showOnCanvas) return true;
           return this.connections.some(c => c.fromNode === node.id || c.toNode === node.id);
       }
@@ -1062,6 +1100,24 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   addUnusedAudioToCanvas(node: NodeItem) {
+      if (!node.data) node.data = {};
+      node.data.showOnCanvas = true;
+      
+      const x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
+      const y = this.contextMenuCanvasPosition.y ? Math.round(this.contextMenuCanvasPosition.y) : 150;
+      
+      node.x = x;
+      node.y = y;
+      node.baseX = x;
+      node.baseY = y;
+      
+      this.selectNode(node);
+      this.closeContextMenu();
+      this.saveEditorState();
+      setTimeout(() => this.cdr.detectChanges(), 0);
+  }
+
+  addUnusedVisualToCanvas(node: NodeItem) {
       if (!node.data) node.data = {};
       node.data.showOnCanvas = true;
       
@@ -1141,17 +1197,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   private saveProjectTimeout: any;
 
-  saveProject() {
+  saveProject(immediate: boolean = false) {
     if (!this.uuid || !this.projectData) return;
     
-    if (this.saveProjectTimeout) {
-      clearTimeout(this.saveProjectTimeout);
+    // Nếu gọi saveProject() mà không có immediate=true, ta bỏ qua (không tự động lưu nữa)
+    // Người dùng sẽ chủ động bấm Ctrl+S để lưu.
+    if (immediate) {
+        const storageKey = `ai_type_video_ready_data_${this.uuid}`;
+        this.multiAccountService.setItem(storageKey, this.projectData);
     }
-    
-    this.saveProjectTimeout = setTimeout(() => {
-      const storageKey = `ai_type_video_ready_data_${this.uuid}`;
-      this.multiAccountService.setItem(storageKey, this.projectData);
-    }, 10000);
   }
 
   saveEditorState() {
@@ -2000,6 +2054,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               prompt: result.prompt,
               script: clip.description
             },
+            showOnCanvas: true,
             projectCharacters: this.projectData?.characters || []
           },
           baseX: 150,
@@ -2009,7 +2064,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         if (this.nodes.length > 0) {
           const lastNode = this.nodes[this.nodes.length - 1];
           newNode.x = lastNode.x + 350;
-          newNode.y = lastNode.y;
+          newNode.y = lastNode.y + (Math.random() * 200 - 100);
           newNode.baseX = newNode.x;
           newNode.baseY = newNode.y;
         }
@@ -3313,7 +3368,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               this.saveEditorState();
            }
            this.draggedConnection = null;
-           this.autoStashDisconnectedAudios(true);
+           this.autoStashDisconnectedNodes(true);
         }
         
         if (this.draggedNode) {
