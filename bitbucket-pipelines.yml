@@ -1,0 +1,40 @@
+pipelines:
+  custom:
+    build-all-apps:
+      - parallel:
+          - step:
+              name: Build for Linux
+              image: node:22
+              script:
+                - npm install
+                - npm run build
+                - cd electron
+                - npm install
+                - npm run build:linux
+              artifacts:
+                - electron/dist/*.AppImage
+                - electron/dist/*.deb
+
+          - step:
+              name: Build for Windows
+              runs-on: windows
+              script:
+                - npm install
+                - npm run build
+                - cd electron
+                - npm install
+                - npm run build:win
+              artifacts:
+                - electron/dist/*.exe
+
+          - step:
+              name: Build for macOS
+              runs-on: macos
+              script:
+                - npm install
+                - npm run build
+                - cd electron
+                - npm install
+                - npm run build:mac
+              artifacts:
+                - electron/dist/*.dmg
