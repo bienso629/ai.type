@@ -239,10 +239,16 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     }
 
     openMomoPayment() {
+        let formKey = '';
+        if (this.activeForm && this.activeForm.value && this.activeForm.value['licensekey1']) {
+            formKey = `${this.activeForm.value['licensekey1']}-${this.activeForm.value['licensekey2']}-${this.activeForm.value['licensekey3']}-${this.activeForm.value['licensekey4']}-${this.activeForm.value['licensekey5']}-${this.activeForm.value['licensekey6']}`.toUpperCase();
+        }
+        
         const dialogRef = this.dialog.open(MomoQrDialog, {
             data: { 
                 user: this.user,
-                apiUrl: this.config.settings.api[this.user.server]
+                apiUrl: this.config.settings.api[this.user.server],
+                licenseKey: this.activeInfo?.user?.licenseKey || this.activeInfo?.licenseKey || (formKey.length > 30 ? formKey : null)
             },
             width: '400px',
             disableClose: false
@@ -371,7 +377,7 @@ export class MomoQrDialog implements OnInit, OnDestroy {
 
     constructor(
         public dialogRef: MatDialogRef<MomoQrDialog>,
-        @Inject(MAT_DIALOG_DATA) public data: { user: User, apiUrl: string }
+        @Inject(MAT_DIALOG_DATA) public data: { user: User, apiUrl: string, licenseKey?: string }
     ) {
         this.orderCode = this.generateOrderCode(this.data.user?.email || '');
     }
@@ -404,7 +410,10 @@ export class MomoQrDialog implements OnInit, OnDestroy {
     async checkPayment() {
         try {
             // Thay vì gọi SePay trực tiếp, ta gọi API backend của mình
-            const url = `${this.data.apiUrl}/payment/check?orderCode=${this.orderCode}&username=${encodeURIComponent(this.data.user?.email || '')}`;
+            let url = `${this.data.apiUrl}/payment/check?orderCode=${this.orderCode}&username=${encodeURIComponent(this.data.user?.email || '')}`;
+            if (this.data.licenseKey) {
+                url += `&licenseKey=${encodeURIComponent(this.data.licenseKey)}`;
+            }
             const response = await fetch(url, {
                 method: 'GET',
                 headers: {
