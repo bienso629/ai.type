@@ -4588,7 +4588,7 @@ async function zaloCrawlDirect(tWindow, uniqueID) {
         `);
 
         if (result.error) {
-            sendToRenderer("tools-log", "[Zalo-Direct] ⚠�? " + result.error);
+            sendToRenderer("tools-log", "[Zalo-Direct] ⚠? " + result.error);
         } else {
             // --- PHẦN GHI FILE ---
             const timestamp = new Date().getTime();
@@ -4684,7 +4684,7 @@ function cleanFilePath(fileUrl) {
 async function checkAudioStream(filePath) {
     const ffmpegCmd = binaries.ffmpeg || "ffmpeg";
     try {
-        await execPromise(`"${ffmpegCmd}" -i "${filePath}"`);
+        await execPromise(`"${ffmpegCmd}" -i "${filePath}"`, { timeout: 10000 });
         return false;
     } catch (e) {
         return e.message.includes('Audio:');
@@ -6135,10 +6135,12 @@ ipcMain.handle('render-final-composition', async (event, payload) => {
                 const child = spawn(ffmpegPath, args);
                 let errLog = "ARGS: " + JSON.stringify(args) + "\n";
                 child.stderr.on('data', (data) => { errLog += data.toString(); });
+                child.stdout.on('data', () => {}); // Consume stdout
                 child.on('close', (code) => {
                     if (code === 0) resolve();
                     else reject(new Error(`Failed to encode scene ${i}: ${errLog}`));
                 });
+                child.on('error', reject);
             });
 
             finalAudioListContent += `file '${partPath}'\n`;
@@ -6160,10 +6162,13 @@ ipcMain.handle('render-final-composition', async (event, payload) => {
         await new Promise((resolve, reject) => {
             const { spawn } = require('child_process');
             const child = spawn(ffmpegPath, concatArgs);
+            child.stdout.on('data', () => {});
+            child.stderr.on('data', () => {});
             child.on('close', (code) => {
                 if (code === 0) resolve();
                 else reject(new Error(`Failed to concat final video`));
             });
+            child.on('error', reject);
         });
 
         return { success: true, path: finalOutputPath };
