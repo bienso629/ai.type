@@ -5,7 +5,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { DeviceUUID } from "device-uuid";
 import { UserService } from './core/user/user.service';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, take } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
 import { MultiAccountService } from './modules/_services/multi-account.service';
@@ -52,6 +52,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     // ===============================
 
     updateTime(): void {
+
         let activeInfo = this.multiAccountService.getItem('active_info');
 
         if (activeInfo && activeInfo != 'null' && activeInfo != 'undefined') {
@@ -59,13 +60,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             // this.checkActiveInfo = AuthUtils._verifyActiveInfo(activeInfo, this.uuid);
 
             if (isLicenseKeyExpired === true) {
-                this.error('Phần mềm của bạn đã hết hạn.');
-
                 this.router.navigate(['/settings'], {
                     queryParams: {
                         tab: 'active'
                     }
                 });
+                this._translocoService.selectTranslate('app.software_expired').pipe(take(1)).subscribe(t => this.error(t));
             } else {
                 // Phần mềm đã được kích hoạt
                 if (this.intervalId) {
@@ -73,7 +73,12 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
         } else {
-            this.error(this._translocoService.translate('app.software_not_activated'));
+            this.router.navigate(['/settings'], {
+                queryParams: {
+                    tab: 'active'
+                }
+            });
+            this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
         }
     }
 
@@ -141,9 +146,10 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         document.documentElement.style.setProperty('--main-pane-width', '100vw');
 
         // 2. Thiết lập bộ đếm (Timer)
-        // this.intervalId = setInterval(() => {
-        //     this.updateTime();
-        // }, this.ONE_HOUR_MS);
+        this.updateTime();
+        this.intervalId = setInterval(() => {
+            this.updateTime();
+        }, this.ONE_HOUR_MS);
 
         // Subscribe to user changes
         this._userService.user$
@@ -154,6 +160,18 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Lắng nghe sự kiện toggle webview từ main.js qua phím tắt
         if ((window as any).electron) {
+            // Đăng ký license cho main.js kiểm tra (Bảo mật hơn)
+            const activeInfo = this.multiAccountService.getItem('active_info');
+            if (activeInfo) {
+                (window as any).electron.invoke('register-license', activeInfo);
+            }
+
+            // Lắng nghe lệnh force-renewal từ main.js
+            (window as any).electron.onForceRenewal(() => {
+                this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
+                this._translocoService.selectTranslate('app.software_expired').pipe(take(1)).subscribe(t => this.error(t));
+            });
+
             (window as any).electron.onToolsResponse((data: any) => {
                 if (data && data.action === 'toggle-gemini-webview') {
                     this.toggleWebview();
@@ -533,7 +551,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // Subscribe to afterClosed from the dialog reference
         this.dialogRef.afterClosed().subscribe((_) => {
-            this.router.navigate(['/settings']);
+            this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
         });
     }
 }
