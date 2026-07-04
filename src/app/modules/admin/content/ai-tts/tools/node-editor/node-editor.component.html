@@ -229,7 +229,7 @@
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" (keydown)="saveProject()" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" [placeholder]="'app.auto_enter_prompt_for_the_drawing' | transloco" [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" [placeholder]="'app.auto_enter_prompt_for_the_drawing' | transloco" [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
                         
                         <div class="absolute bottom-2 right-2 flex space-x-1.5">
                             <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'IMAGE')" class="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" [matTooltip]="'app.auto_create_image' | transloco" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">
@@ -371,7 +371,6 @@
                 cdkAutosizeMaxRows="6"
                 [ngModel]="globalPromptText"
                 (ngModelChange)="updatePrompt($event)"
-                (keydown)="saveProject()"
                 [placeholder]="editingType === 'none' ? 'Chọn một scene hoặc đoạn âm thanh để chỉnh sửa...' : 'Bạn muốn thay đổi hoặc tạo nội dung gì?'"
                 [disabled]="editingType === 'none'"
                 class="w-full bg-transparent text-[16px] leading-relaxed text-gray-800 placeholder:text-gray-400 outline-none resize-none block disabled:opacity-50 disabled:cursor-not-allowed">
@@ -521,7 +520,7 @@
          [style.top.px]="contextMenuPosition.y"></div>
 
     <mat-menu #contextMenu="matMenu" class="rounded-xl py-1.5 w-60" panelClass="faint-shadow-menu">
-        <button mat-menu-item (click)="addNewSceneNode()" class="hover:bg-gray-50 transition-colors">
+        <button mat-menu-item [matMenuTriggerFor]="sceneSubMenu" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
                     <mat-icon class="icon-size-5 text-teal-500 !m-0">movie</mat-icon>
@@ -529,6 +528,21 @@
                 <span class="text-sm font-semibold text-gray-700">{{ 'app.auto_add_new_scene' | transloco }}</span>
             </div>
         </button>
+
+        <mat-menu #sceneSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
+            <button mat-menu-item (click)="addNewSceneNode()">
+                <mat-icon class="icon-size-5 text-teal-500">add_circle_outline</mat-icon>
+                <span class="text-sm">Tạo Scene Trống</span>
+            </button>
+            <mat-divider *ngIf="unusedVisualNodes.length > 0"></mat-divider>
+            <button mat-menu-item *ngFor="let node of unusedVisualNodes" (click)="addUnusedVisualToCanvas(node)" class="hover:bg-gray-50 transition-colors">
+                <mat-icon class="icon-size-5 text-gray-400">movie</mat-icon>
+                <span class="truncate block w-48 text-sm" [title]="node.title || node.data?.text">{{ node.title || node.data?.text || 'Scene' }}</span>
+            </button>
+            <button mat-menu-item *ngIf="unusedVisualNodes.length === 0" disabled>
+                <span>Không có khối Hình ảnh nào đang chờ</span>
+            </button>
+        </mat-menu>
         <button mat-menu-item [matMenuTriggerFor]="audioSubMenu" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
                 <div class="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center shrink-0">
