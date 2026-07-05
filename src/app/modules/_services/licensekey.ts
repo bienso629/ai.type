@@ -147,6 +147,24 @@ export class LicenseKeyService {
         );
     }
 
+    public restore(dataForm: any): Observable<any> {
+        const url = `${this.config.settings.api[this.user.server]}/licensekey/restore`;
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(data => {
+                return data;
+            }),
+            tap(_ => {
+                // this.log('restore');
+            }),
+            catchError(this.handleError('server', { success: false, status: 500 } as any))
+        );
+    }
+
     public extend(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -181,8 +199,8 @@ export class LicenseKeyService {
             // TODO: better job of transforming error for user consumption
             this.log(`${operation} failed: ${error.message}`);
 
-            // Let the app keep running by returning an empty result.
-            return of(result as T);
+            // Return an object that indicates failure and includes the status
+            return of({ success: false, status: error.status, error: error.message } as any as T);
         };
     }
 

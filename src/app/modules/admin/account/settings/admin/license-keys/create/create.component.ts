@@ -40,6 +40,7 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 	user: User;
 	createForm: UntypedFormGroup;
 	licenseInfo: any;
+	isCreating: boolean = false;
 
 	/* END TWO OBJECTS */
 	private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -86,6 +87,7 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 	}
 
 	add(): void {
+		this.isCreating = true;
 		this._licenseKeyService.add({
 			username: this.user.name,
 			licenseInfo: this.licenseInfo
@@ -101,14 +103,17 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 					}
 				},
 				error: () => {
+					this.isCreating = false;
 					this.toastr.error(`Tạo License Key lỗi.`);
 				},
 				complete: () => {
+					this.isCreating = false;
 				}
 			});
 	}
 
 	extend(): void {
+		this.isCreating = true;
 		this._licenseKeyService.extend({
 			username: this.user.name,
 			licenseInfo: {
@@ -137,9 +142,11 @@ export class SettingsCreateLicenseKeyComponent implements OnInit, OnDestroy {
 					}
 				},
 				error: () => {
+					this.isCreating = false;
 					this.toastr.error(`Gia hạn License Key lỗi.`);
 				},
 				complete: () => {
+					this.isCreating = false;
 				}
 			});
 	}

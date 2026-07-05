@@ -1,12 +1,15 @@
 <form [formGroup]="createForm" (ngSubmit)="submit()">
-  <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-    <mat-icon class="self-center mr-2 icon-size-4" [svgIcon]="data.icon"></mat-icon>
-    <mat-label class="self-center">{{data.title}}</mat-label>
+  <!-- Header -->
+  <div class="flex items-center justify-between mb-2">
+      <h2 class="text-xl font-bold text-gray-800 m-0">{{data.title}}</h2>
+      <button type="button" mat-icon-button mat-dialog-close class="text-gray-500 -mr-4">
+          <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+      </button>
   </div>
+  
+  <p class="text-gray-600 mb-6 text-sm">{{ 'app.auto_fill_in_all_the_information_in' | transloco }}</p>
 
-  <div class="mb-0 text-md text-hint">{{ 'app.auto_fill_in_all_the_information_in' | transloco }}</div>
-
-  <div mat-dialog-content class="mt-4 p-0">
+  <div class="flex flex-col gap-2">
     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix p-0 mt-0" [subscriptSizing]="'dynamic'"
       [ngClass]="{'input-disabled': data && data.type === 'extend'}">
       <span matPrefix class="w-30">{{ 'app.auto_software_id' | transloco }}</span>
@@ -101,11 +104,13 @@
     </mat-form-field>
   </div>
 
-  <div mat-dialog-actions class="p-0 mt-4">
-    <button mat-flat-button color="primary" type="submit" class="float-right">
-      <mat-label>{{data.title}}</mat-label>
+  <!-- Content -->
+  <div class="flex items-center justify-end mt-4 mb-2">
+    <button mat-flat-button [color]="'primary'" type="button" (click)="submit()" [disabled]="createForm.invalid || isCreating">
+      <mat-icon class="icon-size-4" [svgIcon]="data.type === 'extend' ? 'feather:check-circle' : 'heroicons_outline:plus-circle'" *ngIf="!isCreating"></mat-icon>
+      <mat-label class="ml-2 text-base" *ngIf="!isCreating && data.type !== 'extend'">Thêm mới License Key</mat-label>
+      <mat-label class="ml-2 text-base" *ngIf="!isCreating && data.type === 'extend'">Cập nhật License Key</mat-label>
+      <mat-progress-spinner *ngIf="isCreating" [diameter]="20" [mode]="'indeterminate'"></mat-progress-spinner>
     </button>
-
-    <button mat-flat-button color="medium" [mat-dialog-close] class="float-right">Đóng cửa sổ</button>
   </div>
 </form>

@@ -5,9 +5,9 @@
         <mat-label class="ml-2 text-base">{{ 'app.add_new_license_key' | transloco }}</mat-label>
     </a>
 
-    <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-64">
+    <mat-form-field class="fuse-mat-dense fuse-mat-no-subscript w-80">
         <mat-icon matPrefix [svgIcon]="'heroicons_outline:search'"></mat-icon>
-        <input matInput [placeholder]="'Tìm kiếm theo tên hoặc email'" (keyup)="filterData($event)">
+        <input matInput [placeholder]="'Tìm kiếm theo tên, email hoặc mã thanh toán'" (keyup)="filterData($event)">
     </mat-form-field>
 </div>
 
@@ -81,17 +81,10 @@
             [resizeable]="false" [width]="300">
             <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                 <div class="flex items-center justify-self-stretch">
-                    <mat-label *ngIf="row.activationInfo | checkExpirationDate : row.expirationDate"
-                        matTooltipPosition="above" [matTooltip]="'app.auto_extend_usage' | transloco"
-                        class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white mr-2"
-                        (click)="extend(row)">
-                        {{ 'app.auto_extend' | transloco }}
-                    </mat-label>
-
-                    <mat-label matTooltipPosition="above" matTooltip="Nhân bản License Key "
+                    <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_extend_usage' | transloco"
                         class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
-                        (click)="clone(row)">
-                        {{ 'app.copy' | transloco }}
+                        (click)="extend(row)">
+                        Gia hạn
                     </mat-label>
 
                     <mat-label matTooltipPosition="above" [matTooltip]="'app.auto_send_an_email_to_the_buyer' | transloco"
@@ -104,3 +97,44 @@
         </ngx-datatable-column>
     </ngx-datatable>
 </div>
+
+<!-- Popup Gia hạn thủ công -->
+<ng-template #extendDialogTemplate let-data>
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-2">
+        <h2 class="text-xl font-bold text-gray-800 m-0">Gia hạn tài khoản</h2>
+        <button type="button" mat-icon-button (click)="dialog.closeAll()" class="text-gray-500 -mr-4">
+            <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
+    </div>
+    
+    <p class="text-gray-600 mb-6 text-sm">Đang thao tác cho khách hàng: <b>{{data.info?.customerName || data.info?.email}}</b></p>
+
+    <!-- Content -->
+    <div class="flex flex-col gap-4">
+        <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+            <mat-label>License Key</mat-label>
+            <mat-icon class="icon-size-4" [svgIcon]="'feather:key'" matPrefix></mat-icon>
+            <input matInput [(ngModel)]="data.licenseKey" [disabled]="true">
+        </mat-form-field>
+
+        <mat-form-field class="w-full fuse-mat-dense" [subscriptSizing]="'dynamic'">
+            <mat-label>Chọn gói gia hạn</mat-label>
+            <mat-icon class="icon-size-4" [svgIcon]="'feather:calendar'" matPrefix></mat-icon>
+            <mat-select [(ngModel)]="manualMonths">
+                <mat-option [value]="1">1 tháng</mat-option>
+                <mat-option [value]="3">3 tháng</mat-option>
+                <mat-option [value]="6">6 tháng</mat-option>
+                <mat-option [value]="12">1 năm</mat-option>
+            </mat-select>
+        </mat-form-field>
+        
+        <div class="flex items-center justify-end mt-4 mb-2">
+            <button mat-flat-button [color]="'primary'" type="button" (click)="confirmExtend()" [disabled]="isActivating">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:check-circle'" *ngIf="!isActivating"></mat-icon>
+                <mat-label class="ml-2 text-base" *ngIf="!isActivating">Xác nhận gia hạn</mat-label>
+                <mat-progress-spinner *ngIf="isActivating" [diameter]="20" [mode]="'indeterminate'"></mat-progress-spinner>
+            </button>
+        </div>
+    </div>
+</ng-template>

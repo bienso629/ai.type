@@ -10,11 +10,13 @@ import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
 import { MultiAccountService } from './modules/_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
+import { LicenseKeyService } from 'app/modules/_services/licensekey';
 
 @Component({
     selector: 'app-root',
     templateUrl: './app.component.html',
-    styleUrls: ['./app.component.scss']
+    styleUrls: ['./app.component.scss'],
+    providers: [LicenseKeyService]
 })
 export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;
@@ -71,6 +73,9 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 if (this.intervalId) {
                     clearInterval(this.intervalId);
                 }
+                
+                // Tự động đồng bộ với server để lấy trạng thái mới nhất
+                this.syncActiveInfo(activeInfo);
             }
         } else {
             this.router.navigate(['/settings'], {
@@ -80,6 +85,40 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             });
             this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
         }
+    }
+
+    private syncActiveInfo(activeInfoStr: string): void {
+        const activeInfoObj = AuthUtils._getActiveInfo(activeInfoStr);
+        if (!activeInfoObj || !activeInfoObj.user || !activeInfoObj.user.licenseKey) return;
+        if (!this.user || !this.user.name) return;
+
+        const du = new DeviceUUID().parse();
+        this._licenseKeyService.activate({
+            username: this.user.name,
+            email: this.user.email,
+            machine: {
+                uuid: this.uuid,
+                du: du
+            },
+            licensekey: activeInfoObj.user.licenseKey
+        })
+        .pipe(take(1))
+        .subscribe(async (result) => {
+            if (result && result.success && result.data) {
+                const newActiveInfo = AuthUtils._generateActiveInfo(result.data, this.uuid);
+                if (newActiveInfo) {
+                    await this.multiAccountService.setItem('active_info', newActiveInfo);
+                    if ((window as any).electron) {
+                        await (window as any).electron.invoke('register-license', newActiveInfo);
+                    }
+                }
+            } else if (result && result.success === false && result.status === 403) {
+                // Key trên server đã bị xóa hoặc không hợp lệ -> Xóa bộ nhớ tạm và bắt nhập lại
+                await this.multiAccountService.removeItem('active_info');
+                this.router.navigate(['/settings'], { queryParams: { tab: 'active' } });
+                this._translocoService.selectTranslate('app.software_not_activated').pipe(take(1)).subscribe(t => this.error(t));
+            }
+        });
     }
 
     /**
@@ -94,7 +133,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         private cdr: ChangeDetectorRef,
         private toastr: ToastrService,
         private ngZone: NgZone,
-        private _translocoService: TranslocoService
+        private _translocoService: TranslocoService,
+        private _licenseKeyService: LicenseKeyService
     ) {
         // kiểm tra settings và khởi tạo
         this.multiAccountService.loadActiveAccount().then(data => {
