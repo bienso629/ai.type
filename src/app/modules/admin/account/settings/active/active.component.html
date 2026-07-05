@@ -19,7 +19,7 @@
                 </ng-template>
             </div>
 
-            <div class="text-secondary leading-8 mt-4">
+            <div class="text-secondary leading-8 mt-4" *ngIf="activeInfo && activeInfo.user">
                 <fuse-alert [appearance]="'outline'" [type]="'warning'" (click)="copy(activeInfo?.user?.appToken || uuid)">
                     <mat-icon class="icon-size-5" fuseAlertIcon [svgIcon]="'feather:copy'">
                     </mat-icon>
