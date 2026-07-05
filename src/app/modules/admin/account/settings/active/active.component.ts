@@ -77,7 +77,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     /**
      * Save
      */
-    save(): void {
+    save(relaunchApp: boolean = true): void {
         // Return if the form is invalid
         if (this.activeForm.invalid) {
             this.toastr.warning(this._translocoService.translate('app.no_license_key_active'));
@@ -102,6 +102,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
                             if (activeInfo) {
                                 await this.multiAccountService.setItem('active_info', activeInfo);
+                                this.activeInfo = AuthUtils._getActiveInfo(activeInfo);
                                 if ((window as any).electron) {
                                     await (window as any).electron.invoke('register-license', activeInfo);
                                 }
@@ -109,7 +110,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
                             this.toastr.success(this._translocoService.translate('app.activate_success'));
 
-                            if ((window as any).electron) {
+                            if (relaunchApp && (window as any).electron) {
                                 (window as any).electron.relaunchApp();
                             }
                         } else {
@@ -122,6 +123,39 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     }
                 });
         }
+    }
+
+    restoreLicense(): void {
+        this._licenseKeyService.restore({
+            email: this.user.email,
+            appId: 'ai.typing'
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (result) => {
+                    if (result && result.success && result.data && result.data.success && result.data.licenseKey) {
+                        this.toastr.success('Khôi phục thành công! Đang kích hoạt...');
+                        // Điền vào form và tự động submit
+                        const key = result.data.licenseKey.replace(/-/g, '');
+                        if (key.length === 30) {
+                            this.activeForm.patchValue({
+                                licensekey1: key.substring(0, 5),
+                                licensekey2: key.substring(5, 10),
+                                licensekey3: key.substring(10, 15),
+                                licensekey4: key.substring(15, 20),
+                                licensekey5: key.substring(20, 25),
+                                licensekey6: key.substring(25, 30),
+                            });
+                            this.save();
+                        }
+                    } else {
+                        this.toastr.error(result?.data?.message || result?.message || 'Không tìm thấy gói đăng ký nào.');
+                    }
+                },
+                error: (err) => {
+                    this.toastr.error('Có lỗi xảy ra khi khôi phục.');
+                }
+            });
     }
 
     /**
@@ -248,13 +282,18 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             data: { 
                 user: this.user,
                 apiUrl: this.config.settings.api[this.user.server],
-                licenseKey: this.activeInfo?.user?.licenseKey || this.activeInfo?.licenseKey || (formKey.length > 30 ? formKey : null)
+                licenseKey: this.activeInfo?.user?.licenseKey || this.activeInfo?.licenseKey || (formKey.length > 30 ? formKey : null),
+                isActivated: !!(this.activeInfo && this.activeInfo.user)
             },
             width: '400px',
             disableClose: false
         });
 
         dialogRef.afterClosed().subscribe((result: any) => {
+            if (result === 'restore') {
+                this.restoreLicense();
+                return;
+            }
             if (result && result.status === 'confirmed') {
                 this.fireConfetti();
                 
@@ -267,9 +306,10 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                         clipboardData: { getData: () => generatedKey }
                     });
                     
+                    const isAlreadyActivated = !!(this.activeInfo && this.activeInfo.user);
                     // Tự động Active luôn cho tài khoản
                     setTimeout(() => {
-                        this.save();
+                        this.save(!isAlreadyActivated);
                     }, 500);
                 }
 
@@ -348,6 +388,9 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
             
             <!-- Content -->
             <div class="flex flex-col mt-2">
+                <div class="flex justify-end mb-2" *ngIf="!data?.isActivated">
+                    <a class="text-sm font-medium text-primary cursor-pointer hover:underline" [matDialogClose]="'restore'">Khôi phục gói đăng ký</a>
+                </div>
                 <mat-form-field class="fuse-mat-dense w-full mb-2" appearance="outline" subscriptSizing="dynamic">
                     <mat-label>{{ 'app.select_duration' | transloco }}</mat-label>
                     <mat-select [(value)]="selectedMonths">
@@ -358,13 +401,24 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     </mat-select>
                 </mat-form-field>
 
-                <div class="text-secondary text-center text-sm">
+                <div class="text-secondary text-center text-sm mt-2">
                     {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 2000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
-                    ⚠️ {{ 'app.payment_code_required' | transloco }}: <b class="text-primary">{{orderCode}}</b>
+                    <div class="flex flex-col items-center gap-1 mt-6 mb-2 px-8 py-4 border border-dashed border-primary rounded-lg font-medium w-full">
+                        <div class="flex items-center gap-2 text-lg">
+                            <span>⚠️</span>
+                            <span>{{ 'app.payment_code_required' | transloco }}</span>
+                        </div>
+                        <div class="flex flex-col items-center gap-3 mt-2 w-full">
+                            <b class="text-primary text-2xl tracking-wider">{{orderCode}}</b>
+                        </div>
+                    </div>
                 </div>
                 
-                <div class="flex justify-center w-full my-4">
+                <div class="flex flex-col items-center justify-center w-full my-4">
                     <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 2000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&memo=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
+                    <p class="text-xs text-secondary mt-4 max-w-xs text-center italic">
+                        * Nếu bạn quên nhập mã hoặc giao dịch chưa được cộng, vui lòng liên hệ Fanpage/Zalo kèm biên lai để được hỗ trợ.
+                    </p>
                 </div>
             </div>
         </div>
@@ -377,9 +431,16 @@ export class MomoQrDialog implements OnInit, OnDestroy {
 
     constructor(
         public dialogRef: MatDialogRef<MomoQrDialog>,
-        @Inject(MAT_DIALOG_DATA) public data: { user: User, apiUrl: string, licenseKey?: string }
+        @Inject(MAT_DIALOG_DATA) public data: { user: User, apiUrl: string, licenseKey?: string, isActivated?: boolean },
+        private clipboard: Clipboard,
+        private toastr: ToastrService
     ) {
         this.orderCode = this.generateOrderCode(this.data.user?.email || '');
+    }
+
+    copyCode() {
+        this.clipboard.copy(this.orderCode);
+        this.toastr.success('Đã sao chép mã thanh toán!');
     }
 
     private generateOrderCode(email: string): string {

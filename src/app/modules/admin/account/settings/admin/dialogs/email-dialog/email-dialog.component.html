@@ -1,10 +1,14 @@
-<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-    <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:mail'"></mat-icon>
-    <mat-label class="self-center">{{ 'app.draft_mass_email' | transloco }}</mat-label>
+<!-- Header -->
+<div class="flex items-center justify-between mb-2">
+    <h2 class="text-xl font-bold text-gray-800 m-0">{{ 'app.draft_mass_email' | transloco }}</h2>
+    <button type="button" mat-icon-button mat-dialog-close class="text-gray-500 -mr-4">
+        <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:x'"></mat-icon>
+    </button>
 </div>
 
-<div mat-dialog-content class="mt-4 p-0">
-    <p class="text-blue-500 font-semibold mb-4">Bạn đang chọn {{ selectedCount }} thành viên để gửi.</p>
+<p class="text-gray-600 mb-6 text-sm">Bạn đang chọn <b class="text-blue-600">{{ selectedCount }}</b> thành viên để gửi.</p>
+
+<div class="flex flex-col gap-4">
     
     <mat-form-field class="w-full mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
         <mat-label>{{ 'app.sender_name' | transloco }}</mat-label>
@@ -22,9 +26,9 @@
     </mat-form-field>
 </div>
 
-<div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
-    <button mat-flat-button color="primary" (click)="submit()" [disabled]="!emailComposer.subject || !emailComposer.content">
-        {{ 'app.auto_send_email' | transloco }}
+<div class="flex items-center justify-end mt-4 mb-2">
+    <button mat-flat-button [color]="'primary'" type="button" (click)="submit()" [disabled]="!emailComposer.subject || !emailComposer.content">
+        <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
+        <mat-label class="ml-2 text-base">{{ 'app.auto_send_email' | transloco }}</mat-label>
     </button>
-    <button mat-flat-button color="medium" mat-dialog-close>Đóng cửa sổ</button>
 </div>

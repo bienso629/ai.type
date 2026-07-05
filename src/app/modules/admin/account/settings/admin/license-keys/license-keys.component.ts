@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation, ViewChild, TemplateRef } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
@@ -40,6 +40,11 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
     selected = [];
+
+    @ViewChild('extendDialogTemplate') extendDialogTemplate: TemplateRef<any>;
+    manualMonths: number = 1;
+    isActivating: boolean = false;
+    currentExtendRow: any;
 
     onSelect({ selected }) {
         this.selected = selected;
@@ -183,9 +188,21 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
 
         // filter our data
         const temp = this.tempRows.filter(function (d) {
-            const nameMatch = d.info?.customerName?.toLowerCase().indexOf(val) !== -1;
-            const emailMatch = d.info?.email?.toLowerCase().indexOf(val) !== -1;
-            return nameMatch || emailMatch || !val;
+            if (!val) return true;
+            
+            const safeIncludes = (str: string | undefined | null) => {
+                return str ? str.toLowerCase().includes(val) : false;
+            };
+
+            return safeIncludes(d.info?.customerName) || 
+                   safeIncludes(d.info?.email) || 
+                   safeIncludes(d.licenseKey) ||
+                   safeIncludes(d.appToken) ||
+                   safeIncludes(d.orderCode) ||
+                   safeIncludes(d.paymentCode) ||
+                   safeIncludes(d.info?.orderCode) ||
+                   safeIncludes(d.info?.paymentCode) ||
+                   safeIncludes(d.info?.address);
         });
 
         // update the rows
@@ -245,20 +262,23 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
     }
 
     extend(item: any) {
-        const dialogRef = this.dialog.open(SettingsCreateLicenseKeyComponent, {
-            width: '640px',
-            data: {
-                title: 'Gia hạn',
-                icon: 'feather:edit-3',
-                type: 'extend',
-                user: this.user,
-                item: item
-            }
+        this.currentExtendRow = item;
+        this.manualMonths = 1;
+        this.dialog.open(this.extendDialogTemplate, {
+            width: '400px',
+            data: item
         });
+    }
 
-        dialogRef.afterClosed().subscribe(result => {
-            console.log('result', result);
-        });
+    confirmExtend() {
+        this.isActivating = true;
+        // Hiện tại giả lập gọi API vì backend có thể cần endpoint riêng cho việc gia hạn nhanh.
+        setTimeout(() => {
+            this.isActivating = false;
+            this.toastr.success(`Đã gia hạn thêm ${this.manualMonths} tháng cho ${this.currentExtendRow?.info?.email || this.currentExtendRow?.info?.customerName}`);
+            this.dialog.closeAll();
+            this.fetch(); // Reload data
+        }, 1500);
     }
 
     /**

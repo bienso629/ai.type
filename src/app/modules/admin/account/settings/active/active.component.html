@@ -19,16 +19,16 @@
                 </ng-template>
             </div>
 
-            <div class="text-secondary leading-8 mt-4" *ngIf="activeInfo && activeInfo.user">
-                <fuse-alert [appearance]="'outline'" [type]="'warning'" (click)="copy(activeInfo.user.appToken)">
+            <div class="text-secondary leading-8 mt-4">
+                <fuse-alert [appearance]="'outline'" [type]="'warning'" (click)="copy(activeInfo?.user?.appToken || uuid)">
                     <mat-icon class="icon-size-5" fuseAlertIcon [svgIcon]="'feather:copy'">
                     </mat-icon>
-                    {{activeInfo.user.appToken}}
+                    {{activeInfo?.user?.appToken || uuid}}
                 </fuse-alert>
             </div>
         </div>
 
-        <div class="w-full mt-12">
+        <div class="w-full mt-12" *ngIf="!(activeInfo && activeInfo.user)">
             <mat-label class="text-base font-medium leading-8">{{ 'app.enter_license_key' | transloco }}</mat-label>
 
             <mat-grid-list class="max-w-140" cols="6" gutterSize="10px" rowHeight="60px">
@@ -83,6 +83,13 @@
                 <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
                 <a *ngIf="showPaymentButton" class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">{{ 'app.auto_receive_license_key' | transloco }}</a>
             </div>
+        </div>
+
+        <div class="w-full mt-8" *ngIf="activeInfo && activeInfo.user">
+            <button mat-flat-button type="button" [color]="'primary'" (click)="openMomoPayment()">
+                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
+                <span class="ml-2">Thêm ngày sử dụng</span>
+            </button>
         </div>
     </form>
 </div>

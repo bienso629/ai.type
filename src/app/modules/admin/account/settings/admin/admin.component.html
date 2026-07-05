@@ -78,52 +78,6 @@
             </div>
         </mat-tab>
 
-        <mat-tab [label]="('app.plugin' | transloco)">
-            <!-- Form -->
-            <form [formGroup]="chatgptForm">
-                <!-- Section -->
-                <div class="w-full">
-                    <div class="text-secondary leading-8 mt-2">
-                        <p class="font-semibold">{{ 'app.plugin_for_admin' | transloco }}</p>
-                    </div>
-                </div>
-
-                <!-- Divider -->
-                <!-- <div class="my-10 border-t"></div> -->
-
-                <div class="grid sm:grid-cols-4 gap-6 w-full mt-8">
-                    <!-- Secret key -->
-                    <div class="sm:col-span-4">
-                        <mat-form-field class="w-1/2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>Gologin Plugin</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:box'" matPrefix></mat-icon>
-                            <input [formControlName]="'gradio_gologin'" type="text" required matInput>
-                        </mat-form-field>
-                    </div>
-                </div>
-
-                <!-- Actions -->
-                <div class="flex items-center justify-start mt-4">
-                    <button mat-flat-button type="button" (click)="save()" [color]="'primary'">{{ 'app.save_configuration' | transloco }}</button>
-                </div>
-            </form>
-
-            <!-- Divider -->
-            <!-- <div class="mt-8 border-t"></div> -->
-
-            <!-- Section -->
-            <!-- <div class="w-full mt-8">
-                <div class="text-secondary leading-8">
-                    <p class="font-semibold">{{ 'app.auto_text2speech_feature' | transloco }}</p>
-                </div>
-
-                <div class="flex items-center justify-start mt-4">
-                    <button mat-flat-button type="button" (click)="turnOnTTSModel()" [color]="'primary'">{{ 'app.auto_turn_on_model' | transloco }}</button>
-                </div>
-            </div> -->
-        </mat-tab>
-
         <mat-tab [label]="'app.report' | transloco">
             <!-- Section -->
             <div class="w-full">
