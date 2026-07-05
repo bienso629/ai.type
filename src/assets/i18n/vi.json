@@ -1355,7 +1355,7 @@
     "app.activate_success": "Kích hoạt thành công!",
     "app.key_invalid": "Key này không thể sử dụng.",
     "app.payment_success_title": "Thanh toán thành công",
-    "app.payment_success_message": "Cảm ơn bạn! Hệ thống đã nhận thanh toán {{months}} và tự động sinh License Key: {{key}}. Bạn có thể bấm Kích Hoạt ngay bây giờ.",
+    "app.payment_success_message": "Chúc mừng bạn đã thanh toán thành công, hệ thống đã ghi nhận lịch sử thanh toán của bạn.",
     "app.close": "Đóng",
     "app.bank_transfer": "Thanh toán chuyển khoản",
     "app.select_duration": "Chọn thời hạn sử dụng",

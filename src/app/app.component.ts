@@ -186,7 +186,6 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
         document.documentElement.style.setProperty('--main-pane-width', '100vw');
 
         // 2. Thiết lập bộ đếm (Timer)
-        this.updateTime();
         this.intervalId = setInterval(() => {
             this.updateTime();
         }, this.ONE_HOUR_MS);
@@ -196,6 +195,8 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
+                // Run updateTime after user is loaded so syncActiveInfo has user data
+                this.updateTime();
             });
 
         // Lắng nghe sự kiện toggle webview từ main.js qua phím tắt

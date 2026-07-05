@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, Inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulation, Inject, ChangeDetectorRef } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { MatDialog, MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
@@ -107,6 +107,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                                     await (window as any).electron.invoke('register-license', activeInfo);
                                 }
                             }
+                            this._cdr.detectChanges();
 
                             this.toastr.success(this._translocoService.translate('app.activate_success'));
 
@@ -173,7 +174,8 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
         public dialog: MatDialog,
         private _formBuilder: UntypedFormBuilder,
         private multiAccountService: MultiAccountService,
-        private _translocoService: TranslocoService
+        private _translocoService: TranslocoService,
+        private _cdr: ChangeDetectorRef
     ) {
         this.titleService.setTitle(this._translocoService.translate('app.activate_software_title'));
 
@@ -315,7 +317,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
                 this._fuseConfirmationService.open({
                     title: this._translocoService.translate('app.payment_success_title'),
-                    message: this._translocoService.translate('app.payment_success_message', { months: monthsText, key: generatedKey }),
+                    message: this._translocoService.translate('app.payment_success_message'),
                     icon: {
                         show: true,
                         name: 'heroicons_outline:check-circle',
