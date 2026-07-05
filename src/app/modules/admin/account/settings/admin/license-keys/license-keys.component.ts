@@ -272,13 +272,41 @@ export class SettingsLicenseKeysComponent implements OnInit, OnDestroy {
 
     confirmExtend() {
         this.isActivating = true;
-        // Hiện tại giả lập gọi API vì backend có thể cần endpoint riêng cho việc gia hạn nhanh.
-        setTimeout(() => {
-            this.isActivating = false;
-            this.toastr.success(`Đã gia hạn thêm ${this.manualMonths} tháng cho ${this.currentExtendRow?.info?.email || this.currentExtendRow?.info?.customerName}`);
-            this.dialog.closeAll();
-            this.fetch(); // Reload data
-        }, 1500);
+        
+        const createDate = new Date();
+        const expirationDate = new Date();
+        expirationDate.setMonth(expirationDate.getMonth() + this.manualMonths);
+        
+        const licenseInfo = {
+            ...this.currentExtendRow,
+            info: {
+                ...this.currentExtendRow.info,
+                createDate: createDate.toISOString()
+            },
+            expirationDate: expirationDate.toISOString()
+        };
+
+        this._licenseKeyService.extend({
+            username: this.user.name,
+            licenseInfo: licenseInfo
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result) => {
+                this.isActivating = false;
+                if (result && result.success) {
+                    this.toastr.success(`Đã gia hạn thêm ${this.manualMonths} tháng cho ${this.currentExtendRow?.info?.email || this.currentExtendRow?.info?.customerName}`);
+                    this.dialog.closeAll();
+                    this.fetch(); // Reload data
+                } else {
+                    this.toastr.error(`Gia hạn lỗi.`);
+                }
+            },
+            error: () => {
+                this.isActivating = false;
+                this.toastr.error(`Gia hạn lỗi.`);
+            }
+        });
     }
 
     /**
