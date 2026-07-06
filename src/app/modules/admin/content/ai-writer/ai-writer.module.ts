@@ -29,6 +29,12 @@ import { TimeagoModule, TimeagoIntl } from 'ngx-timeago';
 import { strings as viStrings } from 'ngx-timeago/language-strings/vi';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { NgxCurrencyDirective } from "ngx-currency";
+import { Injectable } from '@angular/core';
+
+@Injectable()
+export class ViTimeagoIntl extends TimeagoIntl {
+    override strings = viStrings;
+}
 
 import { AIWriterComponent } from 'app/modules/admin/content/ai-writer/ai-writer.component';
 import { CopyPasteDialog } from 'app/modules/admin/content/ai-writer/tools/copy-paste-dialog';
@@ -125,14 +131,11 @@ const Routes: Route[] = [{
         SharedModule
     ],
     providers: [
-        WordpressService
+        WordpressService,
+        { provide: TimeagoIntl, useClass: ViTimeagoIntl }
     ],
     exports: [CopyPasteDialog, GeminiImageDialog, WordDataDialog, CommentDialog, EditBeforeExportSheet, ChatGPTDataDialog, ChatGPTQuestionSheet, KeywordGoogleDataDialog, MediaDataDialog],
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AIWriterModule {
-    constructor(intl: TimeagoIntl) {
-        intl.strings = viStrings;
-        intl.changes.next();
-    }
 }

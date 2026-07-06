@@ -509,14 +509,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   calculateCanvasSize() {
-    let maxX = 0;
-    let maxY = 0;
+    let maxRight = 0;
+    let maxBottom = 0;
     this.nodes.forEach(n => {
-      if (n.x > maxX) maxX = n.x;
-      if (n.y > maxY) maxY = n.y;
+      const nodeWidth = n.type === 'composition' ? 540 : (n.type === 'video' || n.type === 'storyboard' ? 360 : 280);
+      if (n.x + nodeWidth > maxRight) maxRight = n.x + nodeWidth;
+      if (n.y + 300 > maxBottom) maxBottom = n.y + 300;
     });
-    this.canvasWidth = Math.max(1200, maxX + 280 + 150);
-    this.canvasHeight = Math.max(800, maxY + 300 + 150);
+    this.canvasWidth = Math.max(1200, maxRight + 300);
+    this.canvasHeight = Math.max(800, maxBottom + 300);
     this.updateConnectionPaths();
   }
 

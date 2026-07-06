@@ -1635,10 +1635,38 @@ ${content}`;
     /**
      * Tạo a mới bằng cách gõ nhập
      */
-    createlink() {
-        this.source.a.push(`<p id="source-a-${uuid.v4()}"></p>`);
-        const lastIndex = this.source.a.length - 1;
-        this.edit(this.source.a, lastIndex);
+    async createlink(keyword?: string) {
+        if (keyword) {
+            try {
+                let query = keyword;
+                if (this.domain && this.domain.domain) {
+                    query = `site:${this.domain.domain} ${keyword}`;
+                }
+
+                const links: any = await this.googleSearch(query, 0);
+
+                if (links && links.length > 0) {
+                    const topLinks = links.slice(0, 10);
+                    
+                    topLinks.forEach(link => {
+                        const title = link.title || link.link;
+                        this.source.a.push(`<p id="source-a-${uuid.v4()}">Xem thêm: <a href="${link.link}" title="${title}" target="_blank">${title}</a></p>`);
+                    });
+                    
+                    this.toastr.success(`Đã thêm ${topLinks.length} backlink vào Gắn Backlink.`);
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.info(`Không tìm thấy kết quả nào cho từ khóa này.`);
+                }
+            } catch (error) {
+                this.toastr.error('Lỗi khi tìm kiếm google');
+                console.error(error);
+            }
+        } else {
+            this.source.a.push(`<p id="source-a-${uuid.v4()}"></p>`);
+            const lastIndex = this.source.a.length - 1;
+            this.edit(this.source.a, lastIndex);
+        }
     }
 
     /**
