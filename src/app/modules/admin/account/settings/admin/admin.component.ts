@@ -4,6 +4,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
+import { FuseConfigService } from '@fuse/services/config';
 import { EmailDialogComponent } from './dialogs/email-dialog/email-dialog.component';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
@@ -35,6 +36,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     statistics: any = {};
 
     users = [];
+    tempUsers = [];
     collectionNames = [];
 
     // Biến cũ
@@ -63,6 +65,13 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     isAddingToGroups: boolean = false;
     // -------------------------------
 
+    // --- BIẾN CHO LỊCH SỬ GIAO DỊCH ---
+    transactions: any[] = [];
+    transactionsLoading: boolean = false;
+    transactionEmailSearch: string = '';
+    config: any;
+    // -------------------------------
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
@@ -81,7 +90,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
         private _matDialog: MatDialog,
-        private _forumService: ForumService
+        private _forumService: ForumService,
+        private _fuseConfigService: FuseConfigService
     ) {
         this.titleService.setTitle(`admin | ai.type - công cụ tạo content`);
     }
@@ -108,6 +118,14 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
                 }
             });
 
+        if (this._fuseConfigService && this._fuseConfigService.config$) {
+            this._fuseConfigService.config$
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe((config: any) => {
+                    this.config = config;
+                });
+        }
+
         // Lắng nghe tiến trình gửi email từ Electron Main Process
         if ((window as any).electronAPI && (window as any).electronAPI.onEmailProgress) {
             (window as any).electronAPI.onEmailProgress((progress: any) => {
@@ -123,6 +141,10 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
                 this.cd.detectChanges();
             });
         }
+
+        // Tải dữ liệu cho tab mặc định (Thành viên - index 0) vì onTabChanged không kích hoạt ở lần tải trang đầu tiên
+        this.getForumUsers();
+        this.getForumGroups();
     }
 
     ngOnDestroy(): void {
@@ -134,17 +156,48 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
     onTabChanged(event: any) {
-        if (event.index === 4) {
+        if (event.index === 0) { // Member
             if (!this.forumUsers || this.forumUsers.length === 0) {
                 this.getForumUsers();
             }
             if (!this.forumGroups || this.forumGroups.length === 0) {
                 this.getForumGroups();
             }
-        } else if (event.index === 1) {
+        } else if (event.index === 4) { // N8N
             if (!this.n8nWorkflows || this.n8nWorkflows.length === 0) {
                 this.getN8nWorkflows();
             }
+        } else if (event.index === 2) { // Lịch sử giao dịch
+            if (!this.transactions || this.transactions.length === 0) {
+                this.getTransactions();
+            }
+        }
+    }
+
+    async getTransactions() {
+        this.transactionsLoading = true;
+        this.cd.markForCheck();
+        
+        try {
+            const apiUrl = this.config?.settings?.api[this.user?.server] || 'https://apiv1.type.vn/v1';
+            let url = `${apiUrl}/payment/transactions`;
+            if (this.transactionEmailSearch) {
+                url += `?email=${encodeURIComponent(this.transactionEmailSearch)}`;
+            }
+            const response = await fetch(url);
+            const res = await response.json();
+            
+            if (res && res.success) {
+                this.transactions = res.data || [];
+            } else {
+                this.toastr.error('Không thể lấy lịch sử giao dịch.');
+            }
+        } catch (error) {
+            console.error(error);
+            this.toastr.error('Lỗi khi lấy lịch sử giao dịch.');
+        } finally {
+            this.transactionsLoading = false;
+            this.cd.markForCheck();
         }
     }
 
@@ -207,7 +260,10 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result: any) => {
                     if (result && result.success) {
-                        if (result.data?.users) this.users = result.data.users;
+                        if (result.data?.users) {
+                            this.users = result.data.users;
+                            this.tempUsers = [...result.data.users];
+                        }
                         if (result.data?.collectionNames) this.collectionNames = result.data.collectionNames;
                         this.toastr.success(`Tải danh sách khách hàng.`);
                     }
@@ -230,7 +286,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         }
 
         this.n8nLoading = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const config = {
@@ -251,7 +307,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         }
 
         this.n8nLoading = false;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
     }
 
     async getForumGroups() {
@@ -268,11 +324,12 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             const result = await (window as any).electronAPI.fetchForumGroups(config);
             if (result && result.success) {
                 this.forumGroups = result.groups;
+                this.cd.detectChanges();
             }
         } catch (error) {
             console.error('Lỗi tải nhóm NodeBB', error);
         }
-        this.cd.markForCheck();
+        this.cd.detectChanges();
     }
 
     filterForumUsers(event: any) {
@@ -280,13 +337,28 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
 
         // filter our data
         const temp = this.tempForumUsers.filter(function (d) {
-            const nameMatch = d.username?.toLowerCase().indexOf(val) !== -1;
-            const emailMatch = d.email?.toLowerCase().indexOf(val) !== -1;
-            return nameMatch || emailMatch || !val;
+            return (d.username && d.username.toLowerCase().indexOf(val) !== -1) || 
+                   (d.email && d.email.toLowerCase().indexOf(val) !== -1) || 
+                   !val;
         });
 
         // update the rows
         this.forumUsers = temp;
+        this.cd.markForCheck();
+    }
+
+    filterReports(event: any) {
+        const val = event.target.value.toLowerCase();
+
+        // filter our data
+        const temp = this.tempUsers.filter(function (d) {
+            return (d.name && d.name.toLowerCase().indexOf(val) !== -1) || 
+                   (d.email && d.email.toLowerCase().indexOf(val) !== -1) || 
+                   !val;
+        });
+
+        // update the rows
+        this.users = temp;
         this.cd.markForCheck();
     }
 

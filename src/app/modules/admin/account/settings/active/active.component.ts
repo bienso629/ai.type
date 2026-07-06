@@ -418,15 +418,15 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     <mat-form-field class="fuse-mat-dense w-full mb-4" appearance="outline" subscriptSizing="dynamic">
                         <mat-label>{{ 'app.select_duration' | transloco }}</mat-label>
                         <mat-select [(value)]="selectedMonths">
-                            <mat-option [value]="1">1 {{ 'app.months' | transloco }} (2.000{{ 'app.currency' | transloco }})</mat-option>
-                            <mat-option [value]="3">3 {{ 'app.months' | transloco }} (6.000{{ 'app.currency' | transloco }})</mat-option>
-                            <mat-option [value]="6">6 {{ 'app.months' | transloco }} (12.000{{ 'app.currency' | transloco }})</mat-option>
-                            <mat-option [value]="12">1 {{ 'app.year' | transloco }} (24.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="1">1 {{ 'app.months' | transloco }} (145.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="3">3 {{ 'app.months' | transloco }} (435.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="6">6 {{ 'app.months' | transloco }} (870.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="12">1 {{ 'app.year' | transloco }} (1.740.000{{ 'app.currency' | transloco }})</mat-option>
                         </mat-select>
                     </mat-form-field>
 
                     <div class="text-secondary text-sm">
-                        {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 2000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
+                        {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 145000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
                         <div class="flex flex-col items-center gap-1 mt-6 px-4 py-4 border border-dashed border-primary rounded-lg font-medium w-full">
                             <div class="flex items-center gap-2 text-base text-red-500">
                                 <span>⚠️</span>
@@ -445,7 +445,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                 
                 <!-- Right Side -->
                 <div class="flex flex-col items-center justify-center w-full sm:w-1/2">
-                    <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 2000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&memo=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
+                    <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 145000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&memo=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
                 </div>
             </div>
         </div>
