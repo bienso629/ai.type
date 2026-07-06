@@ -287,7 +287,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                 licenseKey: this.activeInfo?.user?.licenseKey || this.activeInfo?.licenseKey || (formKey.length > 30 ? formKey : null),
                 isActivated: !!(this.activeInfo && this.activeInfo.user)
             },
-            width: '400px',
+            width: '700px',
             disableClose: false
         });
 
@@ -315,9 +315,31 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                     }, 500);
                 }
 
+                let messageHtml = `<div class="mb-4">${this._translocoService.translate('app.payment_success_message')}</div>`;
+                if (result.transaction) {
+                    messageHtml += `<div class="bg-gray-100 p-4 rounded-lg mt-4 text-left text-sm space-y-2">
+                        <div class="flex justify-between border-b pb-2">
+                            <span class="text-gray-500 font-medium">Mã giao dịch:</span>
+                            <span class="font-semibold text-gray-800">${result.transaction.transactionId || '---'}</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-2">
+                            <span class="text-gray-500 font-medium">Số tiền:</span>
+                            <span class="font-semibold text-gray-800">${(result.transaction.amount || 0).toLocaleString('vi-VN')} đ</span>
+                        </div>
+                        <div class="flex justify-between border-b pb-2">
+                            <span class="text-gray-500 font-medium">Gói đăng ký:</span>
+                            <span class="font-semibold text-gray-800">${monthsText || '---'}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-gray-500 font-medium mb-1">Nội dung thanh toán:</span>
+                            <span class="font-semibold text-gray-800 break-all text-xs">${result.transaction.content || '---'}</span>
+                        </div>
+                    </div>`;
+                }
+
                 this._fuseConfirmationService.open({
                     title: this._translocoService.translate('app.payment_success_title'),
-                    message: this._translocoService.translate('app.payment_success_message'),
+                    message: messageHtml,
                     icon: {
                         show: true,
                         name: 'heroicons_outline:check-circle',
@@ -376,7 +398,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
     template: `
         <div class="flex flex-col">
             <!-- Header -->
-            <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center justify-between">
                 <div class="flex items-center">
                     <div class="flex items-center justify-center w-10 h-10 rounded-full text-blue-600 bg-blue-100 mr-3">
                         <mat-icon class="text-current" [svgIcon]="'heroicons_outline:qrcode'"></mat-icon>
@@ -388,39 +410,42 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                 </button>
             </div>
             
-            <!-- Content -->
-            <div class="flex flex-col mt-2">
-                <div class="flex justify-end mb-2" *ngIf="!data?.isActivated">
-                    <a class="text-sm font-medium text-primary cursor-pointer hover:underline" [matDialogClose]="'restore'">Khôi phục gói đăng ký</a>
-                </div>
-                <mat-form-field class="fuse-mat-dense w-full mb-2" appearance="outline" subscriptSizing="dynamic">
-                    <mat-label>{{ 'app.select_duration' | transloco }}</mat-label>
-                    <mat-select [(value)]="selectedMonths">
-                        <mat-option [value]="1">1 {{ 'app.months' | transloco }} (2.000{{ 'app.currency' | transloco }})</mat-option>
-                        <mat-option [value]="3">3 {{ 'app.months' | transloco }} (6.000{{ 'app.currency' | transloco }})</mat-option>
-                        <mat-option [value]="6">6 {{ 'app.months' | transloco }} (12.000{{ 'app.currency' | transloco }})</mat-option>
-                        <mat-option [value]="12">1 {{ 'app.year' | transloco }} (24.000{{ 'app.currency' | transloco }})</mat-option>
-                    </mat-select>
-                </mat-form-field>
+            <!-- Content Horizontal Layout -->
+            <div class="flex flex-col sm:flex-row gap-6 mt-4">
+                <!-- Left Side -->
+                <div class="flex flex-col w-full sm:w-1/2 py-6">
 
-                <div class="text-secondary text-center text-sm mt-2">
-                    {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 2000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
-                    <div class="flex flex-col items-center gap-1 mt-6 mb-2 px-8 py-4 border border-dashed border-primary rounded-lg font-medium w-full">
-                        <div class="flex items-center gap-2 text-lg">
-                            <span>⚠️</span>
-                            <span>{{ 'app.payment_code_required' | transloco }}</span>
+                    <mat-form-field class="fuse-mat-dense w-full mb-4" appearance="outline" subscriptSizing="dynamic">
+                        <mat-label>{{ 'app.select_duration' | transloco }}</mat-label>
+                        <mat-select [(value)]="selectedMonths">
+                            <mat-option [value]="1">1 {{ 'app.months' | transloco }} (2.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="3">3 {{ 'app.months' | transloco }} (6.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="6">6 {{ 'app.months' | transloco }} (12.000{{ 'app.currency' | transloco }})</mat-option>
+                            <mat-option [value]="12">1 {{ 'app.year' | transloco }} (24.000{{ 'app.currency' | transloco }})</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+
+                    <div class="text-secondary text-sm">
+                        {{ 'app.scan_qr_to_pay' | transloco }} <b>{{(selectedMonths * 2000).toLocaleString('vi-VN')}}{{ 'app.currency' | transloco }}</b>.<br/>
+                        <div class="flex flex-col items-center gap-1 mt-6 px-4 py-4 border border-dashed border-primary rounded-lg font-medium w-full">
+                            <div class="flex items-center gap-2 text-base text-red-500">
+                                <span>⚠️</span>
+                                <span>{{ 'app.payment_code_required' | transloco }}</span>
+                            </div>
+                            <div class="flex flex-col items-center gap-3 w-full">
+                                <b class="text-primary text-2xl tracking-wider">{{orderCode}}</b>
+                            </div>
                         </div>
-                        <div class="flex flex-col items-center gap-3 mt-2 w-full">
-                            <b class="text-primary text-2xl tracking-wider">{{orderCode}}</b>
+                        <div class="text-center w-full mt-2" *ngIf="!data?.isActivated">
+                            <span class="text-secondary mr-1">hoặc</span>
+                            <a class="text-sm font-medium text-primary cursor-pointer hover:underline" [matDialogClose]="'restore'">Khôi phục gói đăng ký</a>
                         </div>
                     </div>
                 </div>
                 
-                <div class="flex flex-col items-center justify-center w-full my-4">
+                <!-- Right Side -->
+                <div class="flex flex-col items-center justify-center w-full sm:w-1/2">
                     <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 2000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&memo=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
-                    <p class="text-xs text-secondary mt-4 max-w-xs text-center italic">
-                        * Nếu bạn quên nhập mã hoặc giao dịch chưa được cộng, vui lòng liên hệ Fanpage/Zalo kèm biên lai để được hỗ trợ.
-                    </p>
                 </div>
             </div>
         </div>
@@ -446,15 +471,8 @@ export class MomoQrDialog implements OnInit, OnDestroy {
     }
 
     private generateOrderCode(email: string): string {
-        if (!email) return 'AITYP';
-        let hash = 0;
-        for (let i = 0; i < email.length; i++) {
-            const char = email.charCodeAt(i);
-            hash = ((hash << 5) - hash) + char;
-            hash = hash & hash; // Convert to 32bit integer
-        }
-        const positiveHash = Math.abs(hash) % 1000000;
-        return 'AITYP' + positiveHash.toString().padStart(6, '0');
+        const randomStr = Math.floor(100000 + Math.random() * 900000).toString();
+        return 'AITYP' + randomStr;
     }
 
     ngOnInit() {
@@ -487,7 +505,7 @@ export class MomoQrDialog implements OnInit, OnDestroy {
             
             if (resData && resData.success && resData.licenseKey) {
                 // Đóng popup quét QR và chuyển sang popup thông báo thành công cùng với license key
-                this.dialogRef.close({ status: 'confirmed', licenseKey: resData.licenseKey, months: resData.months });
+                this.dialogRef.close({ status: 'confirmed', licenseKey: resData.licenseKey, months: resData.months, transaction: resData.transaction });
             }
         } catch (error) {
             console.error('Lỗi khi kiểm tra giao dịch từ backend', error);
