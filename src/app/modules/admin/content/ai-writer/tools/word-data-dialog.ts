@@ -13,9 +13,11 @@ export interface DialogWordData {
 
 @Component({
     selector: 'word-data-dialog',
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:edit-3'"></mat-icon>
-        <mat-label class="self-center">Giải nghĩa "{{data.word}}"</mat-label>
+    template: `<div class="flex items-center justify-between mb-4">
+        <div class="text-2xl font-bold text-gray-800 tracking-tight">Giải nghĩa "{{data.word}}"</div>
+        <button mat-icon-button mat-dialog-close type="button">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
@@ -63,12 +65,11 @@ export interface DialogWordData {
         </ng-container>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
     <button mat-flat-button color="primary" class="" (click)="get()">
             <mat-label *ngIf="data.data['dn'].length > 0 && word">Hoán đổi "{{data.word}}" -> "{{word}}"</mat-label>
             <mat-label *ngIf="data.data['dn'].length === 0 || !word">Sử dụng kết quả</mat-label>
         </button>
-    <button mat-flat-button (click)="get()" color="medium" class="">Đóng cửa sổ</button>
 </div>`,
 })
 export class WordDataDialog {

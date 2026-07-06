@@ -8,9 +8,11 @@ export interface DialogChatGPTData {
 
 @Component({
     selector: 'chatgpt-data-dialog',
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:alert-circle'"></mat-icon>
-        <mat-label class="self-center">Hỏi "{{data.question}}"</mat-label>
+    template: `<div class="flex items-center justify-between mb-4">
+        <div class="text-2xl font-bold text-gray-800 tracking-tight">Hỏi "{{data.question}}"</div>
+        <button mat-icon-button mat-dialog-close type="button">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
@@ -18,11 +20,10 @@ export interface DialogChatGPTData {
         <p class="hover:bg-grey-50 border p-2 rounded">{{data.answer}}</p>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
     <button mat-flat-button color="primary" class="" [mat-dialog-close]="data.answer">
             Sử dụng câu trả lời này
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
 </div>`,
 })
 export class ChatGPTDataDialog {

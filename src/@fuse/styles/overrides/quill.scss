@@ -4,16 +4,16 @@
 .ql-toolbar {
     border-radius: 6px 6px 0 0;
     padding: 0 !important;
-    @apply bg-gray-100;
+    @apply bg-transparent;
     @apply border-gray-300 border-opacity-100 #{'!important'};
 
     .dark & {
-        background-color: rgba(0, 0, 0, 0.05);
+        background-color: transparent;
         @apply border-gray-500 #{'!important'};
     }
 
     .ql-formats {
-        margin: 11px 8px !important;
+        margin: 4px 8px !important;
     }
 
     .ql-picker {
