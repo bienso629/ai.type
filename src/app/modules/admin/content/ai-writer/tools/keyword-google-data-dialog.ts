@@ -14,11 +14,12 @@ import * as uuid from 'uuid';
 @Component({
     selector: 'keyword-google-data-dialog',
     providers: [CrawlService, BlogService],
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex flex-col items-stretch">
-    <div>
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:rss'"></mat-icon>
-        <mat-label class="self-center">Phát triển nội dung với "{{data.keyword}}"</mat-label>
-    </div>
+    template: `<div class="flex items-center justify-between mb-4">
+    <div class="text-2xl font-bold text-gray-800 tracking-tight">Phát triển nội dung với "{{data.keyword}}"</div>
+    <button mat-icon-button mat-dialog-close type="button">
+        <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+    </button>
+</div>
 
     <form [formGroup]="queryForm" class="flex flex-col mt-4">
         <div class="mb-1 text-md text-hint">
@@ -45,7 +46,7 @@ import * as uuid from 'uuid';
             </mat-grid-tile>
         </mat-grid-list>
     </form>
-</div>
+
 
 <div mat-dialog-content class="mt-4 p-0">
     <ng-container *ngIf="blocks.length > 0; else empty">
@@ -61,11 +62,10 @@ import * as uuid from 'uuid';
     </ng-template>
 </div>
 
-<div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+<div mat-dialog-actions *ngIf="blocks.length > 0" class="p-0 mt-6 flex justify-end gap-2">
     <button mat-flat-button color="primary" *ngIf="blocks.length > 0" (click)="get()" class="">
         <mat-label>Sử dụng kết quả</mat-label>
     </button>
-    <button mat-flat-button color="medium" (click)="dialogRef.close()" class="">Đóng</button>
 </div>`,
 })
 export class KeywordGoogleDataDialog implements OnInit, OnDestroy {

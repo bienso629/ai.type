@@ -25,7 +25,8 @@ import { MatExpansionModule } from '@angular/material/expansion';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { SharedModule } from 'app/shared.module';
 import { QuillModule } from 'ngx-quill';
-import { TimeagoModule } from 'ngx-timeago';
+import { TimeagoModule, TimeagoIntl } from 'ngx-timeago';
+import { strings as viStrings } from 'ngx-timeago/language-strings/vi';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { NgxCurrencyDirective } from "ngx-currency";
 
@@ -130,4 +131,8 @@ const Routes: Route[] = [{
     schemas: [CUSTOM_ELEMENTS_SCHEMA],
 })
 export class AIWriterModule {
+    constructor(intl: TimeagoIntl) {
+        intl.strings = viStrings;
+        intl.changes.next();
+    }
 }

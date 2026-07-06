@@ -18,26 +18,19 @@ declare var TurndownService: any;
             max-height: 50vh !important;
             min-height: 250px !important;
         }
+        ::ng-deep .edit-before-export-quill .ql-editor {
+            padding: 4px !important;
+        }
     `],
     template: `<div class="px-2 pb-4 pt-2">
-        <div *ngIf="data.function === 'share'" class="text-xl mt-4 mb-4 font-normal text-gray-500 tracking-tight flex items-stretch">
-            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:check-square'"></mat-icon>
-            <mat-label class="self-center">{{this.data.title}}</mat-label>
-        </div>
-
-        <div *ngIf="data.function === 'edit'" class="text-xl my-4 font-normal text-gray-500 tracking-tight flex items-stretch">
-            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:edit-3'"></mat-icon>
-            <mat-label class="self-center">Chỉnh sửa</mat-label>
-        </div>
-
-        <div *ngIf="data.function === 'new'" class="text-xl my-4 font-normal text-gray-500 tracking-tight flex items-stretch">
-            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:plus'"></mat-icon>
-            <mat-label class="self-center">Thêm nội dung</mat-label>
-        </div>
-
-        <div *ngIf="data.function === 'update'" class="text-xl my-4 font-normal text-gray-500 tracking-tight flex items-stretch">
-            <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-            <mat-label class="self-center">Cập nhật lên WordPress</mat-label>
+        <div class="flex items-center justify-between mb-4 mt-4">
+            <div *ngIf="data.function === 'share'" class="text-2xl font-bold text-gray-800 tracking-tight">{{this.data.title}}</div>
+            <div *ngIf="data.function === 'edit'" class="text-2xl font-bold text-gray-800 tracking-tight">Chỉnh sửa</div>
+            <div *ngIf="data.function === 'new'" class="text-2xl font-bold text-gray-800 tracking-tight">Thêm nội dung</div>
+            <div *ngIf="data.function === 'update'" class="text-2xl font-bold text-gray-800 tracking-tight">Cập nhật lên WordPress</div>
+            <button mat-icon-button (click)="close()" type="button">
+                <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+            </button>
         </div>
 
         <div mat-dialog-content class="mt-6 p-0 overflow-hidden" style="max-height: none;">
@@ -78,7 +71,7 @@ declare var TurndownService: any;
             </form>
         </div>
 
-        <div mat-dialog-actions class="p-0 mt-4">
+        <div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
             <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
                 <mat-label class="ml-2">Đăng bài</mat-label>
@@ -88,22 +81,17 @@ declare var TurndownService: any;
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
                 <mat-label class="ml-2">Cập nhật</mat-label>
             </button>
-
+            
             <button mat-flat-button *ngIf="data.function === 'edit'" color="primary" (click)="save($event)">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
                 <mat-label class="ml-2">Chỉnh xong</mat-label>
             </button>
 
-            <!-- chuyển thành markdown tạm dừng
-            <button mat-flat-button (click)="tomarkdown()" class="ml-2 bg-blue-500 text-white">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:copy'"></mat-icon>
-                <mat-label class="ml-2">Copy Markdown</mat-label>
+            <button mat-flat-button *ngIf="data.function === 'new'" color="primary" (click)="save($event)">
+                <mat-icon class="icon-size-4" [svgIcon]="'feather:save'"></mat-icon>
+                <mat-label class="ml-2">Lưu nội dung</mat-label>
             </button>
-            -->
-
-            <button mat-flat-button color="medium" (click)="close()" class="ml-2">Đóng</button>
-        </div>
-    </div>`,
+        </div>`,
     providers: [WordpressService, CrawlService]
 })
 export class EditBeforeExportSheet implements OnInit, OnDestroy {

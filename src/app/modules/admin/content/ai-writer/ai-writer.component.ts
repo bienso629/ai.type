@@ -3780,12 +3780,12 @@ ${content}`;
                         result.data.length > 0
                     ) {
                         this.comments = result.data;
-                        this.toastr.success(`Bình luận mới đã được tải về.`);
+                        this.toastr.success(`Ghi chú mới đã được tải về.`);
                         this.showComments();
                     }
                 },
                 error: () => {
-                    this.alert('Bình luận chưa được tải về.');
+                    this.alert('Ghi chú chưa được tải về.');
                 },
                 complete: () => {
                     // lam moi lai giao dien
@@ -3884,7 +3884,7 @@ ${content}`;
         let id = null;
         try {
             if (typeof item === 'string' && item.trim().startsWith('<')) {
-                id = $($.parseHTML(item)).attr('id');
+                id = $($.parseHTML(item.trim())).attr('id');
             }
         } catch (e) { }
 
@@ -3915,12 +3915,12 @@ ${content}`;
                                     this.comments.push(result.data);
                                     this.showComments();
                                     this.toastr.success(
-                                        `Bình luận thành công!`,
+                                        `Ghi chú thành công!`,
                                     );
                                 }
                             },
                             error: () => {
-                                this.alert('Bình luận thất bại.');
+                                this.alert('Ghi chú thất bại.');
                             },
                             complete: () => {
                                 // lam moi lai giao dien
@@ -3930,7 +3930,7 @@ ${content}`;
                 }
             });
         } else {
-            this.alert('Phiên bản cũ không thể tham gia bình luận.');
+            this.alert('Phiên bản cũ không thể thêm ghi chú.');
         }
     }
 

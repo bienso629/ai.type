@@ -4,9 +4,11 @@ import { BlogService } from "app/modules/_services/blog";
 
 @Component({
     selector: 'gemini-image-dialog',
-    template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
-        <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:edit-2'"></mat-icon>
-        <mat-label class="self-center">Prompt</mat-label>
+    template: `<div class="flex items-center justify-between mb-4">
+        <div class="text-2xl font-bold text-gray-800 tracking-tight">Prompt</div>
+        <button mat-icon-button mat-dialog-close type="button">
+            <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+        </button>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
@@ -17,11 +19,10 @@ import { BlogService } from "app/modules/_services/blog";
         </mat-form-field>
     </div>
 
-    <div mat-dialog-actions class="p-0 mt-4 flex justify-start gap-2">
+    <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
     <button mat-flat-button (click)="send()" color="primary" class="">
             Viết nhanh
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">Đóng cửa sổ</button>
 </div>`,
     providers: [BlogService],
 })

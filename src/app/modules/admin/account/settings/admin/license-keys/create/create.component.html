@@ -105,7 +105,7 @@
   </div>
 
   <!-- Content -->
-  <div class="flex items-center justify-end mt-4 mb-2">
+  <div class="flex items-center justify-end mt-4">
     <button mat-flat-button [color]="'primary'" type="button" (click)="submit()" [disabled]="createForm.invalid || isCreating">
       <mat-icon class="icon-size-4" [svgIcon]="data.type === 'extend' ? 'feather:check-circle' : 'heroicons_outline:plus-circle'" *ngIf="!isCreating"></mat-icon>
       <mat-label class="ml-2 text-base" *ngIf="!isCreating && data.type !== 'extend'">Thêm mới License Key</mat-label>
