@@ -1,5 +1,5 @@
 <!-- Header -->
-<div class="flex flex-row items-center justify-between pb-2 border-b">
+<div class="flex flex-row items-center justify-between">
     <a mat-flat-button (click)="addNewForm()" [color]="'primary'">
         <mat-icon class="icon-size-4" [svgIcon]="'feather:plus-circle'"></mat-icon>
         <mat-label class="ml-2 text-base">{{ 'app.add_new_license_key' | transloco }}</mat-label>
@@ -12,9 +12,9 @@
 </div>
 
 <!-- Main -->
-<div class="flex-auto overflow-y-auto min-h-100 relative">
+<div class="mt-4">
     <!-- CONTENT GOES HERE -->
-    <ngx-datatable [virtualization]="false" #mydatatable class="material fullscreen" [headerHeight]="50"
+    <ngx-datatable [virtualization]="false" #mydatatable class="material shadow-none border rounded-lg" [headerHeight]="50"
         [columnMode]="ColumnMode.force" [footerHeight]="50" [rowHeight]="getRowHeight" [scrollbarV]="false"
         [scrollbarH]="false" [rows]="rows" [selected]="selected" [selectionType]="SelectionType.checkbox"
         [selectAllRowsOnPage]="false" (select)="onSelect($event)">
