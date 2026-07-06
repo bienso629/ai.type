@@ -33,6 +33,15 @@
     border: none !important;
   }
 
+  .scrollable-menu {
+    max-height: 300px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+  }
+  .scrollable-menu .mat-mdc-menu-content, .scrollable-menu .mat-menu-content {
+    max-height: 300px !important;
+  }
+
   .node-selected-ring {
     box-shadow: 0 0 0 1px #ef4444, 0 0 0 6px rgba(239, 68, 68, 0.3) !important;
     transition: none !important;

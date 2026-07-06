@@ -529,19 +529,24 @@
             </div>
         </button>
 
-        <mat-menu #sceneSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
+        <mat-menu #sceneSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu scrollable-menu">
             <button mat-menu-item (click)="addNewSceneNode()">
                 <mat-icon class="icon-size-5 text-teal-500">add_circle_outline</mat-icon>
                 <span class="text-sm">Tạo Scene Trống</span>
             </button>
             <mat-divider *ngIf="unusedVisualNodes.length > 0"></mat-divider>
-            <button mat-menu-item *ngFor="let node of unusedVisualNodes" (click)="addUnusedVisualToCanvas(node)" class="hover:bg-gray-50 transition-colors">
-                <mat-icon class="icon-size-5 text-gray-400">movie</mat-icon>
-                <span class="truncate block w-48 text-sm" [title]="node.title || node.data?.text">{{ node.title || node.data?.text || 'Scene' }}</span>
-            </button>
-            <button mat-menu-item *ngIf="unusedVisualNodes.length === 0" disabled>
-                <span>Không có khối Hình ảnh nào đang chờ</span>
-            </button>
+            <div class="max-h-[250px] overflow-y-auto">
+                <button mat-menu-item *ngFor="let node of unusedVisualNodes" (click)="addUnusedVisualToCanvas(node)" class="hover:bg-gray-50 transition-colors !h-auto py-2">
+                    <div class="flex items-center w-full">
+                        <img *ngIf="node.data?.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-10 h-10 object-cover rounded shadow-sm mr-3 shrink-0" />
+                        <mat-icon *ngIf="!node.data?.imageUrl" class="icon-size-5 text-gray-400 mr-3 shrink-0">movie</mat-icon>
+                        <span class="truncate block flex-1 text-sm" [title]="node.title || node.data?.text">{{ node.title || node.data?.text || 'Scene' }}</span>
+                    </div>
+                </button>
+                <button mat-menu-item *ngIf="unusedVisualNodes.length === 0" disabled>
+                    <span>Không có khối Hình ảnh nào đang chờ</span>
+                </button>
+            </div>
         </mat-menu>
         <button mat-menu-item [matMenuTriggerFor]="audioSubMenu" class="hover:bg-gray-50 transition-colors">
             <div class="flex items-center space-x-3 w-full">
@@ -552,16 +557,18 @@
             </div>
         </button>
 
-        <mat-menu #audioSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu">
+        <mat-menu #audioSubMenu="matMenu" class="rounded-xl py-1 w-64" panelClass="faint-shadow-menu scrollable-menu">
             <button mat-menu-item (click)="addNewAudioNode()">
                 <mat-icon class="icon-size-5 text-teal-500">add_circle_outline</mat-icon>
                 <span class="text-sm">{{ 'app.auto_create_empty_audio' | transloco }}</span>
             </button>
             <mat-divider *ngIf="unusedAudioNodes.length > 0"></mat-divider>
-            <button mat-menu-item *ngFor="let node of unusedAudioNodes" (click)="addUnusedAudioToCanvas(node)">
-                <mat-icon class="icon-size-5 text-gray-400">mic</mat-icon>
-                <span class="truncate block w-48 text-sm" [title]="node.title || node.data?.text">{{ node.title || node.data?.text || 'Audio' }}</span>
-            </button>
+            <div class="max-h-[250px] overflow-y-auto">
+                <button mat-menu-item *ngFor="let node of unusedAudioNodes" (click)="addUnusedAudioToCanvas(node)">
+                    <mat-icon class="icon-size-5 text-gray-400">mic</mat-icon>
+                    <span class="truncate block w-48 text-sm" [title]="node.title || node.data?.text">{{ node.title || node.data?.text || 'Audio' }}</span>
+                </button>
+            </div>
         </mat-menu>
 
         <button mat-menu-item (click)="editingType = 'scene'; submitPrompt(true, 'IMAGE')" class="hover:bg-gray-50 transition-colors">

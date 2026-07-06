@@ -1710,8 +1710,8 @@ function createMainWindow() {
         },
     );
 
-    Menu.setApplicationMenu(
-        Menu.buildFromTemplate([
+    Menu.setApplicationMenu(null);
+    /* Menu.buildFromTemplate([
             { label: "Ứng dụng", submenu: [{ label: "Thoát", role: "quit" }] },
             {
                 label: "Văn bản",
@@ -1743,7 +1743,7 @@ function createMainWindow() {
             },
             { label: "Cửa sổ", role: "windowMenu" },
         ]),
-    );
+    */
 }
 
 // ==== TARGET WINDOW ====
