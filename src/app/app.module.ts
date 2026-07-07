@@ -32,6 +32,9 @@ const routerConfig: ExtraOptions = {
     scrollPositionRestoration: 'enabled'
 };
 
+import { RouteReuseStrategy } from '@angular/router';
+import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
+
 @NgModule({
     schemas: [CUSTOM_ELEMENTS_SCHEMA, NO_ERRORS_SCHEMA],
     declarations: [
@@ -71,6 +74,7 @@ const routerConfig: ExtraOptions = {
         AppComponent
     ],
     providers: [
+        { provide: RouteReuseStrategy, useClass: CustomRouteReuseStrategy },
         { provide: Title, useClass: AppTitleService },
         {
             provide: APP_INITIALIZER,

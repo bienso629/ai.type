@@ -2321,7 +2321,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       }
   }
 
-  attachedFiles: { file: File, base64: string, mimeType: string, url: string }[] = [];
+  attachedFiles: { file: File, base64: string, mimeType: string, url: string, referenceType?: string }[] = [];
+  pendingFileType: string = 'image';
+
+  @ViewChild('hiddenFileInput') hiddenFileInput!: ElementRef;
+
+  triggerFileInput(type: string) {
+      this.pendingFileType = type;
+      if (this.hiddenFileInput) {
+          this.hiddenFileInput.nativeElement.click();
+      }
+  }
 
   onFileSelected(event: any) {
     const files = event.target.files;
@@ -2335,16 +2345,51 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
             file: file,
             base64: base64String,
             mimeType: file.type,
-            url: reader.result as string
+            url: reader.result as string,
+            referenceType: this.pendingFileType
           });
         };
         reader.readAsDataURL(file);
       }
     }
+    // reset input
+    if (this.hiddenFileInput) {
+        this.hiddenFileInput.nativeElement.value = '';
+    }
   }
 
   removeAttachedFile(index: number) {
     this.attachedFiles.splice(index, 1);
+  }
+
+  getFirstFrame() {
+      return this.attachedFiles.find(f => f.referenceType === 'first_frame');
+  }
+
+  getLastFrame() {
+      return this.attachedFiles.find(f => f.referenceType === 'last_frame');
+  }
+
+  getRegularFiles() {
+      return this.attachedFiles.filter(f => f.referenceType !== 'first_frame' && f.referenceType !== 'last_frame');
+  }
+
+  hasFrameAttached() {
+      return this.getFirstFrame() != null || this.getLastFrame() != null;
+  }
+
+  removeFileByRef(file: any) {
+      const idx = this.attachedFiles.indexOf(file);
+      if (idx > -1) {
+          this.attachedFiles.splice(idx, 1);
+      }
+  }
+
+  swapFrames() {
+      const first = this.getFirstFrame();
+      const last = this.getLastFrame();
+      if (first) first.referenceType = 'last_frame';
+      if (last) last.referenceType = 'first_frame';
   }
 
   openAudioGeneration(node?: NodeItem) {

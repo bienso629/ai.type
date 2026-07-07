@@ -17,11 +17,13 @@ import { VideoProjectsComponent } from 'app/modules/admin/account/dashboard/vide
 const Routes: Route[] = [
     {
         path: '',
-        component: DashboardComponent
+        component: DashboardComponent,
+        data: { reuse: true }
     },
     {
         path: 'video-projects',
-        component: VideoProjectsComponent
+        component: VideoProjectsComponent,
+        data: { reuse: true }
     }
 ];
 

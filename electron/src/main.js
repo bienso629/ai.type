@@ -21,16 +21,26 @@ const path = require("path");
 const http = require("http");
 const fs = require("fs");
 
-// Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ đi�?u hành và app khác
+// Bắt phím tắt nội bộ thay vì globalShortcut để tránh xung đột với hệ đi?u hành và app khác
 app.on('web-contents-created', (e, webContents) => {
     webContents.on('before-input-event', (event, input) => {
         if (!app.isPackaged) {
+            // DevTools
             if ((input.control || input.meta) && input.shift && input.key.toLowerCase() === 'i') {
                 webContents.toggleDevTools();
                 event.preventDefault();
             }
             if (input.key === 'F12') {
                 webContents.toggleDevTools();
+                event.preventDefault();
+            }
+            // Reload
+            if ((input.control || input.meta) && input.key.toLowerCase() === 'r') {
+                webContents.reload();
+                event.preventDefault();
+            }
+            if (input.key === 'F5') {
+                webContents.reload();
                 event.preventDefault();
             }
         }

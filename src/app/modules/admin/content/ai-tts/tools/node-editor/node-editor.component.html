@@ -335,22 +335,57 @@
         </div>
 
         <!-- Attached Files Preview -->
-        <div *ngIf="attachedFiles.length > 0" class="flex flex-wrap gap-2 px-3 pb-2">
-            <div *ngFor="let f of attachedFiles; let i = index" class="relative group w-16 h-16 rounded-lg overflow-hidden shadow-sm bg-gray-50">
+        <!-- Special Frame Previews -->
+        <div *ngIf="hasFrameAttached()" class="flex flex-col items-start gap-2 px-3 pb-4">
+            <div class="flex items-center gap-4 w-full justify-start">
+                <!-- First Frame Preview -->
+                <div class="relative w-32 h-32 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden group cursor-pointer transition-all" (click)="!getFirstFrame() && triggerFileInput('first_frame')">
+                    <img *ngIf="getFirstFrame()" [src]="getFirstFrame()?.url" class="w-full h-full object-cover">
+                    <div *ngIf="!getFirstFrame()" class="text-gray-400 flex flex-col items-center">
+                        <mat-icon>flip_to_front</mat-icon>
+                        <span class="text-[10px] mt-1 font-medium uppercase tracking-wide">Frame đầu</span>
+                    </div>
+                    <div *ngIf="getFirstFrame()" class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-20" (click)="$event.stopPropagation(); removeFileByRef(getFirstFrame())">
+                        <mat-icon class="text-white">close</mat-icon>
+                    </div>
+                </div>
+
+                <!-- Swap Button -->
+                <button mat-icon-button (click)="swapFrames()" class="bg-white hover:bg-gray-50 flex-shrink-0 z-10" matTooltip="Hoán đổi">
+                    <mat-icon class="text-gray-600">swap_horiz</mat-icon>
+                </button>
+
+                <!-- Last Frame Preview -->
+                <div class="relative w-32 h-32 rounded-xl bg-gray-100 flex items-center justify-center overflow-hidden group cursor-pointer transition-all" (click)="!getLastFrame() && triggerFileInput('last_frame')">
+                    <img *ngIf="getLastFrame()" [src]="getLastFrame()?.url" class="w-full h-full object-cover">
+                    <div *ngIf="!getLastFrame()" class="text-gray-400 flex flex-col items-center">
+                        <mat-icon>flip_to_back</mat-icon>
+                        <span class="text-[10px] mt-1 font-medium uppercase tracking-wide">Frame cuối</span>
+                    </div>
+                    <div *ngIf="getLastFrame()" class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity z-20" (click)="$event.stopPropagation(); removeFileByRef(getLastFrame())">
+                        <mat-icon class="text-white">close</mat-icon>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Regular Attached Files Preview -->
+        <div *ngIf="getRegularFiles().length > 0" class="flex flex-wrap gap-2 px-3 pb-2">
+            <div *ngFor="let f of getRegularFiles()" class="relative group w-16 h-16 rounded-lg overflow-hidden bg-gray-50">
                 <img *ngIf="f.mimeType.startsWith('image/')" [src]="f.url" class="w-full h-full object-cover">
                 <video *ngIf="f.mimeType.startsWith('video/')" [src]="f.url" class="w-full h-full object-cover"></video>
                 <div *ngIf="!f.mimeType.startsWith('image/') && !f.mimeType.startsWith('video/')" class="w-full h-full flex items-center justify-center">
                     <mat-icon class="text-gray-400">insert_drive_file</mat-icon>
                 </div>
                 <!-- Remove button overlay -->
-                <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer" (click)="removeAttachedFile(i)">
+                <div class="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer z-20" (click)="removeFileByRef(f)">
                     <mat-icon class="text-white icon-size-5">close</mat-icon>
                 </div>
             </div>
         </div>
 
         <!-- Large Character Avatar Preview -->
-        <div *ngIf="editingType === 'character' && editingCharacter" class="px-3 pb-2 w-full flex justify-center">
+        <div *ngIf="editingType === 'character' && editingCharacter" class="px-3 pb-2 w-full flex justify-start">
             <div class="relative group w-full max-w-[200px] sm:max-w-[300px] rounded-xl overflow-hidden bg-transparent transition-all">
                 <img *ngIf="editingCharacter.avatarUrl" [src]="getSafeUrl(editingCharacter.avatarUrl)" class="w-full h-auto object-cover max-h-[250px]">
                 <div *ngIf="!editingCharacter.avatarUrl" class="w-full h-[150px] flex items-center justify-center bg-gray-100">
@@ -382,10 +417,28 @@
             <!-- Left Actions -->
             <div class="flex items-center space-x-2">
 
-                <button [matTooltip]="'app.auto_attach_video_image' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
+                <button [matMenuTriggerFor]="addAttachmentMenu" [matTooltip]="'app.auto_attach_video_image' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors relative overflow-hidden">
                     <mat-icon class="icon-size-5">add</mat-icon>
-                    <input type="file" multiple accept="image/*,video/*" class="absolute inset-0 opacity-0 cursor-pointer" (change)="onFileSelected($event)" [title]="'app.auto_attach_video_image' | transloco">
                 </button>
+                <mat-menu #addAttachmentMenu="matMenu">
+                    <button mat-menu-item (click)="triggerFileInput('image')">
+                        <mat-icon>image</mat-icon>
+                        <span>Hình ảnh</span>
+                    </button>
+                    <button mat-menu-item (click)="triggerFileInput('first_frame')">
+                        <mat-icon>flip_to_front</mat-icon>
+                        <span>Frame đầu tiên</span>
+                    </button>
+                    <button mat-menu-item (click)="triggerFileInput('last_frame')">
+                        <mat-icon>flip_to_back</mat-icon>
+                        <span>Frame cuối cùng</span>
+                    </button>
+                    <button mat-menu-item (click)="insertVoiceTag()">
+                        <mat-icon>mic</mat-icon>
+                        <span>Chèn thoại (voice)</span>
+                    </button>
+                </mat-menu>
+                <input type="file" #hiddenFileInput multiple accept="image/*,video/*" class="hidden" (change)="onFileSelected($event)">
                 <button [matMenuTriggerFor]="charMenu" [matTooltip]="'app.auto_character' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">person</mat-icon>
                 </button>
@@ -395,9 +448,7 @@
                 <button (click)="openMagicPromptDialog()" matTooltip="Magic prompt" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">auto_fix_high</mat-icon>
                 </button>
-                <button (click)="insertVoiceTag()" [matTooltip]="'app.auto_insert_voice_voice' | transloco" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
-                    <mat-icon class="icon-size-5">volume_up</mat-icon>
-                </button>
+
                 <div *ngIf="selectedNode?.type === 'video' && hasIncomingConnection(selectedNode)" class="flex items-center ml-2 pl-3 border-l border-gray-200 h-8 cursor-pointer group" (click)="toggleUsePreviousFrame()">
                     <div class="relative inline-flex flex-shrink-0 items-center justify-center w-[34px] h-[18px]">
                         <div class="w-full h-full rounded-full transition-colors duration-200 ease-in-out" 

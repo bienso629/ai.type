@@ -71,17 +71,24 @@ export class MultiAccountService {
     // 1. CÁC HÀM "ĐÓNG THẾ" CHO LOCALSTORAGE
     // ==========================================
 
+    private saveTimeout: any;
+
     /**
      * Thay thế cho localStorage.setItem(key, value)
      */
     async setItem(key: string, value: any): Promise<void> {
         this.currentSessionData[key] = value;
+        this.activeAccountSubject.next(this.currentSessionData);
 
         if (this.currentAccountId) {
-            await this.saveToBackground();
+            // Debounce ghi DB và mã hóa AES (Rất nặng CPU) để tránh lag khi gọi setItem liên tục
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+            this.saveTimeout = setTimeout(() => {
+                this.saveToBackground();
+            }, 500);
         }
-        
-        this.activeAccountSubject.next(this.currentSessionData);
     }
 
     /**
@@ -98,7 +105,12 @@ export class MultiAccountService {
         delete this.currentSessionData[key];
         
         if (this.currentAccountId) {
-            await this.saveToBackground();
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+            this.saveTimeout = setTimeout(() => {
+                this.saveToBackground();
+            }, 500);
         }
     }
 

@@ -29,6 +29,7 @@ import WaveSurfer from 'wavesurfer.js';
 
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
+import { MatMenuModule } from '@angular/material/menu';
 import {
     DragDropModule,
     CdkDragDrop,
@@ -66,7 +67,8 @@ interface electron {
         DragDropModule,
         ScrollingModule,
         MatProgressSpinnerModule,
-        MatTooltipModule
+        MatTooltipModule,
+        MatMenuModule
     ],
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
@@ -2470,6 +2472,36 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     selectedSceneIndex: number = -1;
+
+    addNode(insertAfterIndex: number, type: string) {
+        if (!this.projectData) this.projectData = { scenes: [] };
+        if (!this.projectData.scenes) this.projectData.scenes = [];
+
+        const newScene = {
+            id: `manual_${Date.now()}`,
+            subtitles: [],
+            prompt: '',
+            imageUrl: null,
+            type: type,
+            videos: [{
+                id: 1,
+                prompt: '',
+                imageUrl: null,
+                duration: 5,
+                maxDuration: 5,
+                referenceType: type === 'first_frame' ? 'START_FRAME' : (type === 'last_frame' ? 'END_FRAME' : undefined)
+            }]
+        };
+
+        if (insertAfterIndex !== undefined && insertAfterIndex >= 0) {
+            this.projectData.scenes.splice(insertAfterIndex + 1, 0, newScene);
+        } else {
+            this.projectData.scenes.push(newScene);
+        }
+        
+        this.saveData();
+        this.cd.detectChanges();
+    }
 
     addNewScene(insertAfterIndex?: number) {
         const dialogRef = this.dialog.open(AddSceneComponent, {
