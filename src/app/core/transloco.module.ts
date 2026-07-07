@@ -45,7 +45,7 @@ export class TranslocoHttpLoader implements TranslocoLoader {
         ],
         reRenderOnLangChange: true,
         fallbackLang: "en",
-        defaultLang: "en",
+        defaultLang: "vi",
         missingHandler: {
           useFallbackTranslation: false
         }

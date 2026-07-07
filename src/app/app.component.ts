@@ -153,7 +153,7 @@ export class AppComponent implements OnInit, OnDestroy, AfterViewInit {
                 closethread: true,
                 proccessing: false,
                 linkDonate: null,
-                language: 'en',
+                language: 'vi',
                 secretKey: null,
                 defaultlinks: null,
                 port: 12345,

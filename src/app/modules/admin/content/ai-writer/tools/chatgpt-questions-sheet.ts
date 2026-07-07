@@ -30,13 +30,13 @@ import { MultiAccountService } from "app/modules/_services/multi-account.service
 
                 <input hidden type="file" class="file-input" (change)="upload($event)" #fileUpload>
                 
-                <button type="button" mat-icon-button matSuffix class="mr-1" matTooltip="Đính kèm tệp" (click)="fileUpload.click()" [disabled]="loading">
-                    <mat-icon class="icon-size-5 text-current" [svgIcon]="'feather:paperclip'"></mat-icon>
+                <button type="button" mat-icon-button matSuffix class="mr-1 icon-size-8" matTooltip="Đính kèm tệp" (click)="fileUpload.click()" [disabled]="loading">
+                    <mat-icon class="icon-size-4 text-current" [svgIcon]="'feather:paperclip'"></mat-icon>
                 </button>
 
-                <button type="button" mat-icon-button matSuffix matTooltip="Gửi yêu cầu AI" (click)="chatgpt(chatgptForm.get('chatgpt').value, $event)" [disabled]="loading || !chatgptForm.get('chatgpt').value">
-                    <mat-icon *ngIf="!loading" class="icon-size-5 text-primary" [svgIcon]="'feather:send'"></mat-icon>
-                    <mat-icon *ngIf="loading" class="animate-spin icon-size-5 text-primary" [svgIcon]="'feather:loader'"></mat-icon>
+                <button type="button" mat-icon-button matSuffix class="icon-size-8" matTooltip="Gửi yêu cầu AI" (click)="chatgpt(chatgptForm.get('chatgpt').value, $event)" [disabled]="loading || !chatgptForm.get('chatgpt').value">
+                    <mat-icon *ngIf="!loading" class="icon-size-4 text-primary" [svgIcon]="'feather:send'"></mat-icon>
+                    <mat-icon *ngIf="loading" class="animate-spin icon-size-4 text-primary" [svgIcon]="'feather:loader'"></mat-icon>
                 </button>
             </mat-form-field>
 
