@@ -159,6 +159,7 @@ export class DollarComponent implements OnInit, OnDestroy {
                     if (!result || result.length === 0) {
                     } else {
                         if (result && result.success) {
+                            this.money[0].data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
                             let temp = _(result.data)
                                 .groupBy(v => moment(v.createdAt).format('MM'))
                                 .map((objs, key) => {
@@ -181,7 +182,11 @@ export class DollarComponent implements OnInit, OnDestroy {
                 error: () => {
                 },
                 complete: () => {
-                    this._prepareChartData(this.money);
+                    if (this.user) {
+                        const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
+                        localStorage.setItem(cacheKey, JSON.stringify(this.money));
+                    }
+                    this._prepareChartData(JSON.parse(JSON.stringify(this.money)));
                 }
             });
 
@@ -195,6 +200,7 @@ export class DollarComponent implements OnInit, OnDestroy {
                     if (!result || result.length === 0) {
                     } else {
                         if (result && result.success) {
+                            this.money[1].data = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
                             let temp = _(result.data)
                                 .groupBy(v => moment(v.createdAt).format('MM'))
                                 .map((objs, key) => {
@@ -217,7 +223,11 @@ export class DollarComponent implements OnInit, OnDestroy {
                 error: () => {
                 },
                 complete: () => {
-                    this._prepareChartData(this.money);
+                    if (this.user) {
+                        const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
+                        localStorage.setItem(cacheKey, JSON.stringify(this.money));
+                    }
+                    this._prepareChartData(JSON.parse(JSON.stringify(this.money)));
                 }
             });
     }
@@ -268,6 +278,19 @@ export class DollarComponent implements OnInit, OnDestroy {
                 if (user.reputation < 1000) {
                     this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
                     return;
+                }
+
+                // Cache màn hình thống kê để hiển thị tức thì
+                const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
+                const cachedData = localStorage.getItem(cacheKey);
+                if (cachedData) {
+                    try {
+                        const parsed = JSON.parse(cachedData);
+                        if (parsed && parsed.length === 2) {
+                            this.money = parsed;
+                            this._prepareChartData(JSON.parse(JSON.stringify(this.money)));
+                        }
+                    } catch (e) {}
                 }
 
                 this.fetch();

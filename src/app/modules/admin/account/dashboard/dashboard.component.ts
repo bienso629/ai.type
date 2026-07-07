@@ -32,21 +32,41 @@ export class DashboardComponent implements OnInit, OnDestroy {
      * Lấy toàn bộ collection
      */
     collection() {
+        // Hiển thị cache tức thì (Optimistic UI)
+        const cacheKey = `dashboard_collections_${this.user.name}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            try {
+                this.collections = JSON.parse(cachedData);
+            } catch (e) {}
+        }
+
         this._crawlService
             .collections({
                 username: this.user.name,
                 page: { size: 100 },
-                includeUuid: true
+                includeUuid: false // Tắt lấy mảng UUID để chống DB scan & Network payload khổng lồ
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
                         this.collections = result.data.map((col: any) => {
-                            let uuids = Array.isArray(col.uuid) ? col.uuid : (col.uuid ? [col.uuid] : []);
-                            col.count = uuids.length;
+                            // Nếu backend có trả về count sẵn thì dùng, ngược lại tạm bỏ qua tính count bằng uuid
+                            col.count = col.count || (col.uuid && Array.isArray(col.uuid) ? col.uuid.length : 0);
                             return col;
                         });
+                        // Cập nhật lại cache mới nhất (lược bỏ data nặng như mảng uuid)
+                        const lightweightCache = this.collections.map(col => ({
+                            _id: col._id,
+                            title: col.title,
+                            count: col.count,
+                            lastItemUpdatedAt: col.lastItemUpdatedAt,
+                            lastUpdatedAt: col.lastUpdatedAt,
+                            lastUpdated: col.lastUpdated,
+                            updatedAt: col.updatedAt
+                        }));
+                        localStorage.setItem(cacheKey, JSON.stringify(lightweightCache));
                     }
                 },
                 error: () => { },
@@ -54,24 +74,29 @@ export class DashboardComponent implements OnInit, OnDestroy {
             });
     }
 
-    // lấy account về để đồng bộ
+    // lấy account về để đồng bộ (chạy ngầm sau 5s để không làm nghẽn API lúc đầu)
     account() {
-        this._userClientService.profile({
-            name: this.user.name
-        })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data) {
-                        if (result.data.styles && result.data.styles.length > 0) this.multiAccountService.setItem('styles', result.data.styles);
-                        if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
-                        if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
-                        if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
-                    }
-                },
-                error: () => { },
-                complete: () => { }
-            });
+        if ((window as any)['profile_synced']) return;
+        (window as any)['profile_synced'] = true;
+
+        setTimeout(() => {
+            this._userClientService.profile({
+                name: this.user.name
+            })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: async (result) => {
+                        if (result && result.success && result.data) {
+                            if (result.data.styles && result.data.styles.length > 0) this.multiAccountService.setItem('styles', result.data.styles);
+                            if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
+                            if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
+                            if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
+                        }
+                    },
+                    error: () => { },
+                    complete: () => { }
+                });
+        }, 5000);
     }
 
     /**
@@ -86,7 +111,28 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
-                        localStorage.setItem('statistics', JSON.stringify(result.data));
+                        const nodes = result.data || [];
+                        const doneCount = nodes[0] ? nodes[0].length : 0;
+                        const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
+                        const writingData = nodes[1] || { total: 0 };
+                        const archivesData = nodes[2] || { total: 0 };
+
+                        // Lấy dữ liệu cũ để không ghi đè các trường khác
+                        let oldStats: any = {};
+                        try {
+                            const cached = localStorage.getItem('statistics');
+                            if (cached) oldStats = JSON.parse(cached);
+                        } catch (e) {}
+
+                        const newStats = {
+                            ...oldStats,
+                            done: doneCount,
+                            money: moneyCount,
+                            archives: archivesData.total || archivesData || 0,
+                            writing: writingData.total || writingData || 0
+                        };
+
+                        localStorage.setItem('statistics', JSON.stringify(newStats));
                     }
                 },
                 error: () => { },
@@ -133,7 +179,6 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.account();
 
                 this.collection();
-                this.statistic();
                 
                 // Get video projects being built
                 setTimeout(() => {

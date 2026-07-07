@@ -1050,8 +1050,9 @@ export class GenaiService {
             }
         }
 
-        // [NEW] Xử lý ảnh cuối (END_FRAME) cho Luma/Kling/Wan
+        // [NEW] Xử lý ảnh cuối (END_FRAME) cho Luma/Kling/Wan/Veo
         let endRefBase64Raw = '';
+        let endRefBase64RawOriginal = ''; // Giữ bản base64 gốc
         let endRefBase64DataUri = '';
         let endRefMimeType = 'image/png';
         if (referenceImages && referenceImages.length > 0) {
@@ -1070,6 +1071,7 @@ export class GenaiService {
                     endRefMimeType = endRefBase64Raw.substring(5, endRefBase64Raw.indexOf(';'));
                     endRefBase64Raw = endRefBase64Raw.split(',')[1];
                 }
+                endRefBase64RawOriginal = endRefBase64Raw;
                 
                 // Upload ảnh/video lên CDN để tránh gửi chuỗi base64 quá lớn làm lỗi API proxy
                 if (!endRefBase64Raw.startsWith('http')) {
@@ -1119,6 +1121,13 @@ export class GenaiService {
             // Thêm các tham số extra nếu có
             if (config.extraParams) {
                 Object.assign(inputPayload, config.extraParams);
+            }
+
+            let actualModel = model;
+            if (actualModel.toLowerCase() === 'veo-3.1' || actualModel === 'Veo-3.1') {
+                actualModel = 'veo-3.1-generate-001';
+            } else if (actualModel.toLowerCase().includes('pixverse')) {
+                actualModel = actualModel.toLowerCase();
             }
 
             let payload: any;
@@ -1215,7 +1224,7 @@ export class GenaiService {
                 candidateTaskRequests.push(motionControlPayload);
             } else if (config.payloadFormat === 'nested_input') {
                 payload = {
-                    model: model,
+                    model: actualModel,
                     input: inputPayload,
                     parameters: {
                         aspect_ratio: aspectRatio || '16:9',
@@ -1224,10 +1233,6 @@ export class GenaiService {
                     }
                 };
             } else if (config.payloadFormat === 'flat') {
-                let actualModel = model;
-                if (actualModel.toLowerCase().includes('pixverse')) {
-                    actualModel = actualModel.toLowerCase();
-                }
                 payload = {
                     model: actualModel,
                     ...inputPayload,
@@ -1237,14 +1242,27 @@ export class GenaiService {
                 };
             } else if (config.payloadFormat === 'google_sdk') {
                 // Xử lý riêng cho Veo / Google SDK format
+                let veoDuration = Math.ceil(duration || config.defaultDuration || 6);
+                if (actualModel.toLowerCase().includes('veo')) {
+                    if (![4, 6, 8].includes(veoDuration)) {
+                        veoDuration = veoDuration >= 8 ? 8 : (veoDuration >= 6 ? 6 : 4);
+                    }
+                }
+
                 payload = {
-                    model: model,
+                    model: actualModel,
                     input: {
                         prompt: prompt,
-                        ...(refBase64Raw ? {
+                        ...(refBase64RawOriginal ? {
                             image: {
-                                bytesBase64Encoded: refBase64Raw,
+                                bytesBase64Encoded: refBase64RawOriginal,
                                 mimeType: refMimeType
+                            }
+                        } : {}),
+                        ...(endRefBase64RawOriginal ? {
+                            last_frame: {
+                                bytesBase64Encoded: endRefBase64RawOriginal,
+                                mimeType: endRefMimeType
                             }
                         } : {})
                     },
@@ -1252,7 +1270,7 @@ export class GenaiService {
                         aspect_ratio: aspectRatio || '16:9',
                         resolution: '720p',
                         generate_audio: false,
-                        duration: Math.ceil(duration || config.defaultDuration || 6)
+                        duration: veoDuration
                     }
                 };
             } else if (config.payloadFormat === 'doubao_sdk') {
@@ -1656,7 +1674,9 @@ export class GenaiService {
                             let errMessage = data.error_message || data.output?.error_message || data.error?.message || data.output?.error || data.message || "Task thất bại.";
 
                             if (typeof errMessage === 'string') {
-                                if (errMessage.toLowerCase().includes('violate') || errMessage.toLowerCase().includes('safety')) {
+                                if (errMessage.toLowerCase() === 'success') {
+                                    errMessage = "Provider server gặp lỗi nội bộ trong quá trình render (Lỗi máy chủ). Vui lòng thử lại sau.";
+                                } else if (errMessage.toLowerCase().includes('violate') || errMessage.toLowerCase().includes('safety')) {
                                     errMessage = "Nội dung vi phạm tiêu chuẩn an toàn của AI (bạo lực, nhạy cảm...). Vui lòng thử từ khoá khác.";
                                 } else if (errMessage.includes('size must be between 0 and 2500')) {
                                     errMessage = "Tổng độ dài prompt gửi lên hệ thống bị giới hạn ở mức 2500 ký tự. Vui lòng rút gọn nội dung kịch bản hoặc Master Prompt.";

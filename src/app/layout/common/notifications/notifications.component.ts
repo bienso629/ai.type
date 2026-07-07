@@ -599,40 +599,59 @@ export class NotificationsComponent implements OnInit, OnDestroy {
      * Lấy notification về
      */
     fetch() {
-        this._forumService.notification({
-            _uid: this.user.id
-        })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data && result.data.notifications) {
-                        this.notifications = result.data.notifications.map((item: any) => {
-                            item = {
-                                id: item.pid,
-                                icon: (item.user.picture) ? `https://type.vn${item.user.picture.replace(/&#x2F;/g, '/')}` : 'https://type.vn/assets/uploads/favicon.png',
-                                image: (item.image) ? `https://type.vn${item.image.replace(/&#x2F;/g, '/')}` : null,
-                                title: item.subject,
-                                description: (item.type === 'follow') ? `${item.user.username} bắt đầu theo dõi bạn` : (item.bodyLong ? new DOMParser().parseFromString(item.bodyLong, 'text/html').body.textContent.trim() : ''),
-                                time: item.datetimeISO,
-                                link: `https://type.vn${item.path ? item.path.replace(/&#x2F;/g, '/') : ''}`,
-                                useRouter: false,
-                                read: item.read
-                            };
+        // Optimistic UI: Hiển thị ngay từ Cache để UI không bị trống
+        const cacheKey = `notifications_cache_${this.user?.id || 'guest'}`;
+        const cached = localStorage.getItem(cacheKey);
+        if (cached) {
+            try {
+                this.notifications = JSON.parse(cached);
+                this._calculateUnreadCount();
+                this.cd.markForCheck();
+            } catch (e) {}
+        }
 
-                            return item;
-                        });
+        // Trì hoãn 5 giây để nhường băng thông và Backend xử lý cho các màn hình chính (tránh nghẽn mạng lúc vừa vào app)
+        setTimeout(() => {
+            if (!this.user || !this.user.id) return;
+            
+            this._forumService.notification({
+                _uid: this.user.id
+            })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: async (result) => {
+                        if (result && result.success && result.data && result.data.notifications) {
+                            this.notifications = result.data.notifications.map((item: any) => {
+                                item = {
+                                    id: item.pid,
+                                    icon: (item.user.picture) ? `https://type.vn${item.user.picture.replace(/&#x2F;/g, '/')}` : 'https://type.vn/assets/uploads/favicon.png',
+                                    image: (item.image) ? `https://type.vn${item.image.replace(/&#x2F;/g, '/')}` : null,
+                                    title: item.subject,
+                                    description: (item.type === 'follow') ? `${item.user.username} bắt đầu theo dõi bạn` : (item.bodyLong ? new DOMParser().parseFromString(item.bodyLong, 'text/html').body.textContent.trim() : ''),
+                                    time: item.datetimeISO,
+                                    link: `https://type.vn${item.path ? item.path.replace(/&#x2F;/g, '/') : ''}`,
+                                    useRouter: false,
+                                    read: item.read
+                                };
+    
+                                return item;
+                            });
+                            
+                            // Lưu Cache lại
+                            localStorage.setItem(cacheKey, JSON.stringify(this.notifications));
+                        }
+                    },
+                    error: () => {
+                    },
+                    complete: () => {
+                        // Calculate the unread count
+                        this._calculateUnreadCount();
+    
+                        // lam moi lai giao dien
+                        this.cd.markForCheck();
                     }
-                },
-                error: () => {
-                },
-                complete: () => {
-                    // Calculate the unread count
-                    this._calculateUnreadCount();
-
-                    // lam moi lai giao dien
-                    this.cd.markForCheck();
-                }
-            });
+                });
+        }, 5000);
     }
 
     /**
