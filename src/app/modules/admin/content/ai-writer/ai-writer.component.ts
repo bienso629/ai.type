@@ -3916,6 +3916,19 @@ ${content}`;
             }
         } catch (e) { }
 
+        if (!id) {
+            id = 'p-' + uuid.v4();
+            if (typeof item === 'string') {
+                if (item.trim().startsWith('<')) {
+                    _data[_i] = `<div id="${id}">${item}</div>`;
+                } else {
+                    _data[_i] = `<p id="${id}">${item}</p>`;
+                }
+            } else {
+                _data[_i] = `<div id="${id}">${item}</div>`;
+            }
+        }
+
         if (id) {
             const dialogRef = this.dialog.open(CommentDialog, {
                 width: '680px',

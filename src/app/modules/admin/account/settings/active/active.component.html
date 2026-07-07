@@ -82,8 +82,6 @@
             <div class="mt-4 flex items-center">
                 <button mat-flat-button type="submit" [color]="'primary'">{{ 'app.activate_software' | transloco }}</button>
                 <a *ngIf="showPaymentButton" class="ml-4 text-sm font-medium text-primary cursor-pointer hover:underline" (click)="openMomoPayment()">{{ 'app.auto_receive_license_key' | transloco }}</a>
-                <span class="mx-4 text-sm font-medium text-gray-500">hoặc</span>
-                <a class="text-sm font-medium text-primary cursor-pointer hover:underline" (click)="restoreLicense()">Khôi phục gói đăng ký</a>
             </div>
         </div>
 
@@ -93,10 +91,6 @@
                     <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
                     <span class="ml-2">Thêm ngày sử dụng</span>
                 </button>
-                <div class="flex items-center text-sm">
-                    <span class="font-medium text-gray-500 mr-2">hoặc</span>
-                    <a class="font-medium text-primary cursor-pointer hover:underline" (click)="restoreLicense()">Khôi phục gói đăng ký</a>
-                </div>
             </div>
         </div>
     </form>
