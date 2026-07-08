@@ -1933,7 +1933,8 @@ async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pi
     const exePath = binaries.edgeTts;
     if (!exePath) throw new Error('Không tìm thấy file Edge TTS Core!');
     
-    const chunks = chunkTextForTTS(text, 50);
+    // Tăng kích thước chunk lên mức lớn (4000) để không chia nhỏ câu gây ngắt cục giọng đọc
+    const chunks = chunkTextForTTS(text, 4000);
     const tmpDir = require('path').dirname(outputPath);
     const baseName = require('path').basename(outputPath, require('path').extname(outputPath));
     
