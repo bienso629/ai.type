@@ -1314,20 +1314,30 @@ export class GenaiService {
                 // Option 0: Format chuẩn Volcengine Ark (có input và parameters)
                 candidateTaskRequests.push({
                     model: model,
-                    input: { content: contentArr },
+                    input: { 
+                        prompt: prompt,
+                        image_url: refBase64CdnUrl || refBase64Raw,
+                        content: contentArr 
+                    },
                     parameters: commonParams
                 });
 
                 // Option 1: Format có input nhưng ratio/duration ở root
                 candidateTaskRequests.push({
                     model: model,
-                    input: { content: contentArr },
+                    input: { 
+                        prompt: prompt,
+                        image_url: refBase64CdnUrl || refBase64Raw,
+                        content: contentArr 
+                    },
                     ...commonParams
                 });
 
                 // Option 2: Format phẳng hoàn toàn (Doubao API flat format)
                 candidateTaskRequests.push({
                     model: model,
+                    prompt: prompt,
+                    image_url: refBase64CdnUrl || refBase64Raw,
                     content: contentArr,
                     ...commonParams
                 });

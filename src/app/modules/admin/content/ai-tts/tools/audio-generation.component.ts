@@ -11,6 +11,7 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
@@ -28,6 +29,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
         MatIconModule,
         MatButtonModule,
         MatSelectModule,
+        MatInputModule,
         FormsModule,
     ],
     providers: [MyKeysService],
@@ -45,7 +47,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 
             <div class="overflow-y-auto max-h-[75vh] scrollbar-hide">
                 <div class="space-y-4">
-                    <div class="bg-blue-50 p-4 rounded-md border border-blue-100 flex items-start">
+                    <div *ngIf="!data?.standaloneTTSNode" class="bg-blue-50 p-4 rounded-md border border-blue-100 flex items-start">
                         <mat-icon class="text-blue-500 mr-3 mt-0.5">info</mat-icon>
                         <p class="text-sm text-blue-800 leading-relaxed m-0" *ngIf="data?.targetSceneIndex === null || data?.targetSceneIndex === undefined">
                             Hệ thống sẽ chuyển đổi tổng cộng
@@ -55,6 +57,13 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
                             Hệ thống sẽ chuyển đổi lại
                             <strong>{{ totalTasks }}</strong> câu thoại bên trong phân cảnh này thành âm thanh ở chế độ chạy ngầm.
                         </p>
+                    </div>
+
+                    <div *ngIf="data?.standaloneTTSNode" class="mb-2">
+                        <mat-form-field appearance="outline" class="w-full fuse-mat-dense" subscriptSizing="dynamic">
+                            <mat-label>Nội dung văn bản</mat-label>
+                            <textarea matInput [(ngModel)]="data.standaloneTTSNode.data.text" rows="5" placeholder="Nhập văn bản cần chuyển đổi thành giọng nói..."></textarea>
+                        </mat-form-field>
                     </div>
 
                     <mat-form-field appearance="outline" class="w-full fuse-mat-dense" subscriptSizing="dynamic">

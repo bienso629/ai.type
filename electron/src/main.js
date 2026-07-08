@@ -1863,7 +1863,7 @@ function createTargetWindow(
     return targetWindow;
 }
 
-// --- thêm forward debug từ preload v�? UI (đặt trong app.whenReady() sau createMainWindow()) ---
+// --- thêm forward debug từ preload về UI (đặt trong app.whenReady() sau createMainWindow()) ---
 ipcMain.on("dreamina:debug", (_evt, msg) => {
     sendToRenderer("tools-log", String(msg));
 });
@@ -1897,37 +1897,124 @@ ipcMain.on("stt-send-to-chrome", (_event, payload) => {
 // [MỚI] EDGE TTS ENGINE (PURE NODE.JS - NO PYTHON REQUIRED)
 // ============================================================
 
-/**
- * Hàm sinh audio từ Edge TTS bằng WebSocket thuần.
- * Không cần cài Python, không cần edge-tts cli.
- */
-async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pitch) {
-    return new Promise((resolve, reject) => {
-        const exePath = binaries.edgeTts;
-        if (!exePath) {
-            return reject(new Error("Không tìm thấy file Edge TTS Core!"));
-        }
 
-        const args = [
-            `--text=${text}`,
-            `--voice=${voice}`,
-            `--output=${outputPath}`,
-            `--rate=${rate || "+0%"}`,
-            `--pitch=${pitch || "+0Hz"}`,
-            `--write-subtitles=${subPath}`
-        ];
-
-        sendToRenderer("tools-log", `[TTS-Exe] Executing: ${exePath} ...`);
-
-        execFile(exePath, args, (error, stdout, stderr) => {
-            if (error) {
-                let errorMsg = stderr || error.message;
-                if (errorMsg.includes("No audio was received") && voice === "vi-VN-NamMinhNeural") {
-                    errorMsg = "Gi�?ng đ�?c Nam Minh của Microsoft bị giới hạn độ dài ký tự rất ngắn (dưới 80 ký tự/câu). Vui lòng ngắt đoạn text này thành nhi�?u phần ngắn hơn, hoặc đổi sang gi�?ng Hoài My để đ�?c các đoạn dài liên tục.";
+const chunkTextForTTS = (text, maxLength = 60) => {
+    const chunks = [];
+    let currentChunk = '';
+    const parts = text.match(/[^.,!?\n]+[.,!?\n]*/g) || [text];
+    
+    for (let part of parts) {
+        if (part.length > maxLength) {
+            const words = part.split(' ');
+            for (const word of words) {
+                if (currentChunk.length + word.length + 1 > maxLength && currentChunk.trim().length > 0) {
+                    chunks.push(currentChunk.trim());
+                    currentChunk = word + ' ';
+                } else {
+                    currentChunk += word + ' ';
                 }
-                sendToRenderer("tools-log", `[TTS-Exe] Error: ${errorMsg}`);
-                return reject(new Error(errorMsg));
             }
+        } else {
+            if (currentChunk.length + part.length > maxLength && currentChunk.trim().length > 0) {
+                chunks.push(currentChunk.trim());
+                currentChunk = part;
+            } else {
+                currentChunk += part;
+            }
+        }
+    }
+    if (currentChunk.trim().length > 0) {
+        chunks.push(currentChunk.trim());
+    }
+    return chunks;
+};
+
+async function generateEdgeAudioByExe(text, voice, outputPath, subPath, rate, pitch) {
+    const exePath = binaries.edgeTts;
+    if (!exePath) throw new Error('Không tìm thấy file Edge TTS Core!');
+    
+    const chunks = chunkTextForTTS(text, 50);
+    const tmpDir = require('path').dirname(outputPath);
+    const baseName = require('path').basename(outputPath, require('path').extname(outputPath));
+    
+    const chunkFiles = [];
+    
+    for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const chunkOutputPath = require('path').join(tmpDir, `${baseName}_chunk_${i}.mp3`);
+        const chunkSubPath = require('path').join(tmpDir, `${baseName}_chunk_${i}.vtt`);
+        
+        const args = [
+            `--text=${chunk}`,
+            `--voice=${voice}`,
+            `--output=${chunkOutputPath}`,
+            `--rate=${rate || '+0%'}`,
+            `--pitch=${pitch || '+0Hz'}`,
+            `--write-subtitles=${chunkSubPath}`
+        ];
+        
+        sendToRenderer('tools-log', `[TTS-Exe] Generating chunk ${i+1}/${chunks.length} ...`);
+        
+        const runWithRetry = async (retries = 3) => {
+            for (let r = 0; r < retries; r++) {
+                try {
+                    await new Promise((res, rej) => {
+                        require('child_process').execFile(exePath, args, (error, stdout, stderr) => {
+                            if (error) {
+                                let errorMsg = stderr || error.message;
+                                rej(new Error(errorMsg));
+                            } else {
+                                res();
+                            }
+                        });
+                    });
+                    return; // Success
+                } catch (e) {
+                    if (r === retries - 1) {
+                        let errorMsg = e.message;
+                        if (errorMsg.includes('No audio was received')) {
+                            errorMsg = 'Giọng đọc của Microsoft đang quá tải hoặc từ khóa bị chặn. Vui lòng thử lại sau.';
+                        }
+                        sendToRenderer('tools-log', `[TTS-Exe] Error at chunk ${i+1}: ${errorMsg}`);
+                        throw new Error(errorMsg);
+                    }
+                    sendToRenderer('tools-log', `[TTS-Exe] Chunk ${i+1} failed. Retrying (${r+1}/${retries})...`);
+                    await new Promise(res => setTimeout(res, 1000));
+                }
+            }
+        };
+        await runWithRetry();
+        chunkFiles.push(chunkOutputPath);
+    }
+    
+    if (chunkFiles.length === 1) {
+        require('fs').renameSync(chunkFiles[0], outputPath);
+        const chunkSubPath = require('path').join(tmpDir, `${baseName}_chunk_0.vtt`);
+        if (require('fs').existsSync(chunkSubPath)) {
+            require('fs').renameSync(chunkSubPath, subPath);
+        }
+        return { audio: outputPath, sub: subPath };
+    }
+    
+    return new Promise((resolve, reject) => {
+        const listFile = require('path').join(tmpDir, `${baseName}_list.txt`);
+        const listContent = chunkFiles.map(f => `file '${f.replace(/'/g, "'\\''")}'`).join('\n');
+        require('fs').writeFileSync(listFile, listContent);
+        
+        const ffmpegArgs = ['-y', '-f', 'concat', '-safe', '0', '-i', listFile, '-c', 'copy', outputPath];
+        
+        require('child_process').execFile(binaries.ffmpeg, ffmpegArgs, (error) => {
+            if (error) return reject(new Error('Lỗi ghép audio: ' + error.message));
+            
+            try {
+                require('fs').unlinkSync(listFile);
+                chunkFiles.forEach(f => {
+                    if (require('fs').existsSync(f)) require('fs').unlinkSync(f);
+                    const subF = f.replace('.mp3', '.vtt');
+                    if (require('fs').existsSync(subF)) require('fs').unlinkSync(subF);
+                });
+            } catch (e) {}
+            
             resolve({ audio: outputPath, sub: subPath });
         });
     });
