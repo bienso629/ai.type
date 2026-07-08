@@ -317,6 +317,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                             safeText = safeText.replace(/[.!?\n]+/g, ', ');
                             safeText = safeText.replace(/,\s*$/, '').trim();
                         }
+                        if (!safeText) {
+                            safeText = clip.description.trim();
+                        }
 
                         const payload = {
                             text: safeText,

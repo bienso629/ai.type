@@ -7,6 +7,7 @@ import { MatStepperModule } from '@angular/material/stepper';
 import { MatSidenavModule } from '@angular/material/sidenav';
 // --- 1. IMPORT DÒNG NÀY ---
 import { MatSelectModule } from '@angular/material/select';
+import { MatInputModule } from '@angular/material/input';
 import { DragDropModule } from '@angular/cdk/drag-drop';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { Voice2videoComponent } from 'app/modules/admin/content/ai-tts/ai-tts.component';
@@ -49,6 +50,7 @@ const Routes: Route[] = [
         MatStepperModule,
         MatSidenavModule,
         MatSelectModule,
+        MatInputModule,
         MatTooltipModule,
         // --- 2. THÊM VÀO MẢNG IMPORTS ---
         DragDropModule,

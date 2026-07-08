@@ -2401,7 +2401,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const isSpecificNode = !!targetNode;
     
     if (isSpecificNode && targetNode.type === 'tts') {
-        if (targetNode.data?.sceneData) {
+        if (targetNode.data?.sceneData && Object.keys(targetNode.data.sceneData).length > 0) {
             const sceneData = targetNode.data.sceneData;
             if (sceneData.subtitles) {
                 sceneData.subtitles.forEach((sub: any) => sub.audioUrl = null);
@@ -2419,7 +2419,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
             selectedModel: this.selectedModel, 
             scenePrompt: targetNode?.data?.text || '',
             targetSceneIndex: isSpecificNode ? targetNode.data.sceneIndex : null,
-            standaloneTTSNode: (isSpecificNode && targetNode.type === 'tts' && !targetNode.data.sceneData) ? targetNode : null
+            standaloneTTSNode: (isSpecificNode && targetNode.type === 'tts' && (!targetNode.data.sceneData || Object.keys(targetNode.data.sceneData).length === 0)) ? targetNode : null
         }
     });
 
@@ -2446,7 +2446,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       let globalCounter = 0;
 
       // Gom dữ liệu
-      if (isSpecificNode && targetNode.type === 'tts' && !targetNode.data.sceneData) {
+      if (isSpecificNode && targetNode.type === 'tts' && (!targetNode.data.sceneData || Object.keys(targetNode.data.sceneData).length === 0)) {
           targetNode.data.isGeneratingAudio = true;
           this.cdr.detectChanges();
           pendingSubs.push({

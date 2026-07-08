@@ -445,7 +445,7 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
                 
                 <!-- Right Side -->
                 <div class="flex flex-col items-center justify-center w-full sm:w-1/2">
-                    <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 145000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&memo=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
+                    <img [src]="'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=' + (selectedMonths * 145000) + '&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&des=' + orderCode" class="w-64 rounded" [alt]="'app.qr_code' | transloco" />
                 </div>
             </div>
         </div>
