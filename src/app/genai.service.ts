@@ -361,8 +361,18 @@ export class GenaiService {
                     if (imageParts && imageParts.length > 0) {
                         for (let i = 0; i < imageParts.length; i++) {
                             const p = imageParts[i];
+                            let refType = p.referenceType;
+                            
+                            if (!refType) {
+                                refType = i === 0 ? 'START_FRAME' : 'CONTROL_IMAGE';
+                            } else if (refType === 'first_frame') {
+                                refType = 'START_FRAME';
+                            } else if (refType === 'last_frame') {
+                                refType = 'END_FRAME';
+                            }
+
                             referenceImages.push({
-                                referenceType: i === 0 ? 'START_FRAME' : 'CONTROL_IMAGE',
+                                referenceType: refType,
                                 image: {
                                     imageBytes: p.inlineData.data
                                 }
@@ -1279,28 +1289,11 @@ export class GenaiService {
                     contentArr.push({ type: 'text', text: prompt });
                 }
 
-                if (referenceImages && referenceImages.length > 0) {
-                    const hasFirstOrLast = referenceImages.some(ref => ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD' || ref.referenceType === 'END_FRAME');
-                    for (const ref of referenceImages) {
-                        let imgRaw = ref.image?.imageBytes || (typeof ref === 'string' ? ref : '');
-                        let imgUri = imgRaw;
-                        if (imgRaw && !imgRaw.startsWith('data:')) {
-                            imgUri = `data:image/png;base64,${imgRaw}`;
-                        }
-                        if (ref.referenceType === 'START_FRAME' || ref.referenceType === 'STORYBOARD' || ref.referenceType === 'END_FRAME' || !hasFirstOrLast) {
-                            contentArr.push({ type: 'image_url', image_url: { url: imgUri } });
-                        } else {
-                            console.warn("[Doubao SDK] Bỏ qua ảnh tham chiếu vì model không cho phép dùng chung với khung hình bắt đầu/kết thúc.");
-                        }
-                    }
-                } else {
-                    // Fallback using single image references
-                    if (refBase64Raw) {
-                        contentArr.push({ type: 'image_url', image_url: { url: `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` } });
-                    }
-                    if (endRefBase64Raw) {
-                        contentArr.push({ type: 'image_url', image_url: { url: `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` } });
-                    }
+                if (refBase64Raw) {
+                    contentArr.push({ type: 'image_url', image_url: { url: config.useDataUri && !refBase64Raw.startsWith('http') ? `data:${refMimeType || 'image/jpeg'};base64,${refBase64Raw}` : refBase64Raw } });
+                }
+                if (endRefBase64Raw) {
+                    contentArr.push({ type: 'image_url', image_url: { url: config.useDataUri && !endRefBase64Raw.startsWith('http') ? `data:${endRefMimeType || 'image/jpeg'};base64,${endRefBase64Raw}` : endRefBase64Raw } });
                 }
 
                 let parsedSeed = undefined;

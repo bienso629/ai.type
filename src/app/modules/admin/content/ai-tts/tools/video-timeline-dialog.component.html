@@ -139,8 +139,8 @@
                                             [attr.data-v-idx]="vIdx">
 
                                             <!-- Khung chứa ảnh/video -->
-                                            <div class="w-full h-full relative overflow-hidden rounded-lg transition-all"
-                                                (click)="setActiveItem(video, $event)">
+                                            <div class="w-full h-full relative overflow-hidden rounded-lg transition-all cursor-pointer"
+                                                (click)="setActiveItem(video, $event); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
 
                                                 <!-- Lớp viền active/hover (Hiển thị đè lên trên video/ảnh) -->
                                                 <div class="absolute inset-0 pointer-events-none rounded-lg z-30 transition-all group-hover:ring-2 group-hover:ring-inset group-hover:ring-indigo-400 group-hover:shadow-[inset_0_0_20px_rgba(129,140,248,0.6)]"
@@ -180,8 +180,7 @@
                                                 </div>
                                                 }
                                                 <!-- Text hiển thị prompt video -->
-                                                <div class="px-2 py-1 flex-grow overflow-hidden relative cursor-pointer"
-                                                    (click)="openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
+                                                <div class="px-2 py-1 flex-grow overflow-hidden relative cursor-pointer">
                                                     <p class="text-[10px] text-gray-700 leading-tight line-clamp-3"
                                                         [title]="video.prompt">{{video.prompt || 'Chưa có prompt...'}}
                                                     </p>

@@ -1490,15 +1490,24 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                     try {
                         let requestParts: any[] = [{text: finalPrompts[i]}];
                         if (refImagesUrls[i] && refImagesUrls[i].length > 0) {
-                            for (const url of refImagesUrls[i]) {
+                            for (let imgIdx = 0; imgIdx < refImagesUrls[i].length; imgIdx++) {
+                                const url = refImagesUrls[i][imgIdx];
                                 try {
                                     const base64Data = await this.getBase64FromImageUrl(url);
+                                    let rType = 'CHARACTER';
+                                    if (targetModality === 'VIDEO' && imgIdx === 0) {
+                                        const sceneImg = nodesMapping[i].data?.imageUrl || nodesMapping[i].data?.sceneData?.imageUrl || nodesMapping[i].data?.thumbnailUrl;
+                                        if (sceneImg) {
+                                            rType = 'STORYBOARD';
+                                        }
+                                    }
                                     requestParts.push({
                                         inlineData: {
                                             data: base64Data,
                                             mimeType: 'image/png'
-                                        }
-                                    });
+                                        },
+                                        referenceType: rType
+                                    } as any);
                                 } catch (e) {
                                     console.error('Không thể load ảnh nhân vật reference:', e);
                                 }
@@ -1547,8 +1556,9 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                                         inlineData: {
                                             data: base64Data,
                                             mimeType: 'image/jpeg'
-                                        }
-                                    });
+                                        },
+                                        referenceType: 'START_FRAME'
+                                    } as any);
                                     
                                     // Ensure the constraint is in the text prompt
                                     if (!requestParts[0].text.includes('Seamless continuous motion from previous frame')) {
@@ -1567,10 +1577,26 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                                         inlineData: {
                                             data: attachedFile.base64,
                                             mimeType: attachedFile.mimeType
-                                        }
-                                    });
+                                        },
+                                        referenceType: attachedFile.referenceType
+                                    } as any);
                                 }
                             }
+                        }
+
+                        if (requestParts.length > 1) {
+                            const textPart = requestParts[0];
+                            const imageParts = requestParts.slice(1);
+                            imageParts.sort((a, b) => {
+                                const rank = (type: string) => {
+                                    if (type === 'START_FRAME') return 1;
+                                    if (type === 'END_FRAME') return 2;
+                                    if (type === 'STORYBOARD') return 3;
+                                    return 4; // CHARACTER and others
+                                };
+                                return rank(a.referenceType) - rank(b.referenceType);
+                            });
+                            requestParts = [textPart, ...imageParts];
                         }
 
                         nodesMapping[i].data.isGenerating = true;
@@ -2152,36 +2178,14 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   onModelSelected(model: string) {
-      const settings = this.multiAccountService.getItem('settings') || {};
       if (this.globalActiveModality === 'VIDEO') {
           this.selectedVideoModel = model;
-          settings.ai_type_selected_video_model = model;
-          settings.umodelverseVideoModel = model;
-          localStorage.setItem('ai_type_selected_video_model', model);
       } else {
           this.selectedModel = model;
-          settings.ai_type_selected_model = model;
-          settings.umodelverseImageModel = model;
-          localStorage.setItem('ai_type_selected_model', model);
       }
-      this.multiAccountService.setItem('settings', settings);
-
-      const activeInfo = this.multiAccountService.getItem('active_info');
-      const username = activeInfo?.user?.name || 'anonymous';
-      const editor = this.multiAccountService.getItem('editor');
-      const following_users = this.multiAccountService.getItem('following_users');
-
-      if (this._userClientService && username !== 'anonymous') {
-          this._userClientService.updateProfile({
-              profile: {
-                  settings: settings,
-                  active_info: activeInfo,
-                  editor: (editor && editor !== 'undefined') ? editor : {},
-                  following_users: (following_users && following_users !== 'undefined') ? following_users : [],
-              },
-              username: username
-          }).subscribe();
-      }
+      
+      // Tự động dùng luôn model vừa chọn (không lưu vào profile hay localStorage)
+      this.submitPrompt(false, this.globalActiveModality);
   }
 
   async toggleUsePreviousFrame() {
@@ -2363,15 +2367,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   getFirstFrame() {
-      return this.attachedFiles.find(f => f.referenceType === 'first_frame');
+      return this.attachedFiles.find(f => f.referenceType === 'START_FRAME');
   }
 
   getLastFrame() {
-      return this.attachedFiles.find(f => f.referenceType === 'last_frame');
+      return this.attachedFiles.find(f => f.referenceType === 'END_FRAME');
   }
 
   getRegularFiles() {
-      return this.attachedFiles.filter(f => f.referenceType !== 'first_frame' && f.referenceType !== 'last_frame');
+      return this.attachedFiles.filter(f => f.referenceType !== 'START_FRAME' && f.referenceType !== 'END_FRAME');
   }
 
   hasFrameAttached() {
@@ -2388,8 +2392,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   swapFrames() {
       const first = this.getFirstFrame();
       const last = this.getLastFrame();
-      if (first) first.referenceType = 'last_frame';
-      if (last) last.referenceType = 'first_frame';
+      if (first) first.referenceType = 'END_FRAME';
+      if (last) last.referenceType = 'START_FRAME';
   }
 
   openAudioGeneration(node?: NodeItem) {
