@@ -317,9 +317,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             height: 100,
         });
 
-        const url = encodeURI(
-            "https://dn720701.ca.archive.org/0/items/an-mang-rung-bach-duong-va-nghe-thuat-bien-thai/Án Mạng Rừng Bạch Dương Và Nghệ Thuật Biến Thái.mp3"
-        );
+        const url = "assets/la-mot-lap-trinh-vien-toi-luon-tim-cach-toi-uu-hoa-moi-quy_ctxqq.mp3";
 
         this.wavesurfer.load(url);
 
