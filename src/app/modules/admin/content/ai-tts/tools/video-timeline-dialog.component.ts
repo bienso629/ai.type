@@ -2202,6 +2202,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     openEditScenePromptDialog(scene: any, video: any, index: number, vIdx: number = -1) {
+        this.pauseTimeline(); // Dừng timeline để tập trung edit prompt
+
         let previousVideoUrl: string | null = null;
         if (vIdx > 0 && scene.videos && scene.videos[vIdx - 1]) {
             previousVideoUrl = scene.videos[vIdx - 1].videoUrl || null;
@@ -2677,7 +2679,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
         // Hiện lên preview nếu là video/image
         if (item && (item.videoUrl || item.imageUrl)) {
-            this.playPreview(item);
+            // this.playPreview(item);
         } else if (!item) {
             this.updateTimelineSync();
         }

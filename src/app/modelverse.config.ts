@@ -112,7 +112,7 @@ export const MODELVERSE_CONFIGS: Record<string, VideoModelConfig> = {
         payloadFormat: 'doubao_sdk',
         promptKey: 'prompt',
         imageKey: 'image_url',
-        useDataUri: true,
+        useDataUri: false,
         defaultDuration: 5
     },
     // ----------------------
