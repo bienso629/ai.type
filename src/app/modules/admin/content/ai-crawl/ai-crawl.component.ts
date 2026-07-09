@@ -491,10 +491,7 @@ Hãy tạo ra một chuỗi "request" tương tự, giữ nguyên cấu trúc l�
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 10000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
             });
     }
 

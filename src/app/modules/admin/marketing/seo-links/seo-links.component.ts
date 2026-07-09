@@ -710,10 +710,7 @@ export class LinksComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 3000000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
 
                 // lấy bộ sưu tập link
                 this.linkCollections();

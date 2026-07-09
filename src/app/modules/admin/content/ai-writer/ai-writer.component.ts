@@ -4283,13 +4283,7 @@ ${content}`;
                 this.forumCategory();
                 this.collection();
 
-                if (user.reputation < 0) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
 
-                    return;
-                }
             });
 
         if (window && (window as any).electron) {

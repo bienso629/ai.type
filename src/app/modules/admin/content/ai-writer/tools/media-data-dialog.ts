@@ -266,12 +266,7 @@ export class MediaDataDialog implements OnInit, OnDestroy, AfterViewInit {
                 .subscribe((user: User) => {
                     this.user = user;
 
-                    if (user.reputation < 2000) {
-                        this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                        return;
-                    } else {
-                        this.fetch();
-                    }
+                    this.fetch();
                 });
         });
     }

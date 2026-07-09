@@ -203,10 +203,7 @@ export class AMXHScriptAppComponent implements OnInit, OnDestroy, AfterViewInit,
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-                if (user.reputation < 0) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
             });
 
         this._fuseConfigService.config$

@@ -68,10 +68,7 @@ export class AIText2SpeechComponent implements OnInit, OnDestroy, AfterViewInit 
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user && user.reputation < 50000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
             });
 
         // Create the form

@@ -316,10 +316,7 @@ export class XCmsComponent implements OnInit, OnDestroy {
                 this.getGroups();
                 this.getLevels();
 
-                if (user.reputation < 5000000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
             });
 
         // Subscribe to config changes

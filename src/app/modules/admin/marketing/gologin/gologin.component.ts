@@ -528,12 +528,7 @@ export class ProfilesComponent implements OnInit, OnDestroy, AfterViewInit {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 2000000) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
-                    return;
-                }
+
             });
 
         // Subscribe to config changes

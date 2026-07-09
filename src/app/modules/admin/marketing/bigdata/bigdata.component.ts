@@ -436,10 +436,7 @@ export class BigDataComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 100000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
             });
 
         // Subscribe to config changes

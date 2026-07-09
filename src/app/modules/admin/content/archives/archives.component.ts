@@ -561,12 +561,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 this.permissionScriptCommentLike =
                     this._userService.permissionScriptCommentLike(this.user);
 
-                if (user.reputation < 0) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
-                    return;
-                }
+
 
                 // Load following users from multiAccountService
                 let following = this.multiAccountService.getItem('following_users');

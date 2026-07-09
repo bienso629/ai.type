@@ -275,10 +275,7 @@ export class DollarComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 1000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
 
                 // Cache màn hình thống kê để hiển thị tức thì
                 const cacheKey = `admin_money_stats_${this.user.name}_${this.d.getFullYear()}`;
