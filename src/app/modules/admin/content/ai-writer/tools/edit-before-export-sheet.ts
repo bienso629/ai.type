@@ -15,7 +15,7 @@ declare var TurndownService: any;
     selector: 'edit-before-export-sheet',
     styles: [`
         ::ng-deep .edit-before-export-quill .ql-container {
-            max-height: 50vh !important;
+            max-height: 45vh !important;
             min-height: 250px !important;
         }
         ::ng-deep .edit-before-export-quill .ql-editor {
@@ -23,7 +23,7 @@ declare var TurndownService: any;
         }
     `],
     template: `<div class="px-2 pb-4 pt-2">
-        <div class="flex items-center justify-between mb-4 mt-4">
+        <div class="flex items-center justify-between mb-1 mt-1">
             <div *ngIf="data.function === 'share'" class="text-2xl font-bold text-gray-800 tracking-tight">{{this.data.title}}</div>
             <div *ngIf="data.function === 'edit'" class="text-2xl font-bold text-gray-800 tracking-tight">Chỉnh sửa</div>
             <div *ngIf="data.function === 'new'" class="text-2xl font-bold text-gray-800 tracking-tight">Thêm nội dung</div>
@@ -33,7 +33,7 @@ declare var TurndownService: any;
             </button>
         </div>
 
-        <div mat-dialog-content class="mt-6 p-0 overflow-hidden" style="max-height: none;">
+        <div mat-dialog-content class="mt-2 p-0 overflow-hidden" style="max-height: none;">
             <form [formGroup]="editorForm">
                 <div class="flex flex-col p-0 bg-white rounded-md">
                     <div class="my-1 flex flex-row" *ngIf="data.function === 'share' || data.function === 'update'">

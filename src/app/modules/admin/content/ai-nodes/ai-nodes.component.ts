@@ -195,8 +195,7 @@ export class AINodesComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
 
         const payloadPage = {
-            ...this.page,
-            size: 25 // Cố định kích thước để tránh lỗi Invalid Bookmark của CouchDB
+            ...this.page
         };
 
         this._crawlService.nodes({
@@ -209,19 +208,18 @@ export class AINodesComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result: any) => {
                     const resData = result?.data;
+                    const start = this.page.pageNumber * this.page.size;
+
                     if (resData && resData.docs && resData.docs.length > 0) {
                         // Initialize rows array if it does not exist
                         if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        const start = this.apiFetchedCount;
-                        const apiPageSize = 25;
+
 
                         let newTotal = this.totalElements || 0;
-                        if (resData.docs.length < apiPageSize) {
-                            newTotal = start + resData.docs.length;
-                        } else if (start + resData.docs.length > newTotal) {
+                        if (start + resData.docs.length > newTotal) {
                             newTotal = start + resData.docs.length;
                         }
 
@@ -229,10 +227,10 @@ export class AINodesComponent implements OnInit, OnDestroy {
                             this.totalElements = newTotal;
                         }
 
-                        if (!this.rows || this.rows.length !== this.totalElements) {
-                            const oldRows = this.rows || [];
+                        if (this.rows.length !== this.totalElements) {
+                            const oldRows = this.rows;
                             this.rows = new Array<any>(this.totalElements);
-                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                            for (let i = 0; i < oldRows.length; i++) {
                                 this.rows[i] = oldRows[i];
                             }
                         }
@@ -252,7 +250,16 @@ export class AINodesComponent implements OnInit, OnDestroy {
                         delete this.cache[this.page.pageNumber];
                         this.cd.detectChanges();
                         this.setPage(pageInfo);
-                    } else if (!resData || resData.success === false || (resData.docs && resData.docs.length === 0)) {
+                        return;
+                    } else if (resData && resData.docs && resData.docs.length === 0) {
+                        if (this.totalElements !== start) {
+                            this.totalElements = start;
+                            if (this.rows && this.rows.length !== this.totalElements) {
+                                this.rows = this.rows.slice(0, this.totalElements);
+                                this.rows = [...this.rows];
+                            }
+                        }
+                    } else if (!resData || resData.success === false) {
                         delete this.cache[this.page.pageNumber];
                     }
                 },

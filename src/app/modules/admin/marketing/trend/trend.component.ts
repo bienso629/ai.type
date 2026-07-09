@@ -742,7 +742,7 @@ export class AIFacePostComponent
 
         if (post['images'] && post['images'].length > 0) {
             images = post['images'].filter((i: string) => {
-                return i != null && i.indexOf('scontent') >= 0;
+                return i != null;
             });
         }
 

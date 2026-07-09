@@ -297,8 +297,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         this.cd.markForCheck();
 
         const payloadPage = {
-            ...this.page,
-            size: 25 // Fix cứng size để CouchDB không báo lỗi Invalid Bookmark
+            ...this.page
         };
 
         this._crawlService.archive({
@@ -311,22 +310,15 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: (result: any) => {
-                    // Bóc tách theo cấu trúc middleware trả về: result.data.docs
+                    const start = this.page.pageNumber * this.page.size;
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
                         if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        // Sử dụng biến độc lập apiFetchedCount để đảm bảo data luôn nối đuôi liên tục
-                        // dù page.size của UI và API (25) khác nhau.
-                        const start = this.apiFetchedCount;
-
                         let newTotal = this.totalElements || 0;
-                        const apiPageSize = 25; // Size cố định từ backend
-                        if (resData.docs.length < apiPageSize) {
-                            newTotal = start + resData.docs.length;
-                        } else if (start + resData.docs.length > newTotal) {
+                        if (start + resData.docs.length > newTotal) {
                             newTotal = start + resData.docs.length;
                         }
 
@@ -334,10 +326,11 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                             this.totalElements = newTotal;
                         }
 
-                        if (!this.rows || this.rows.length !== this.totalElements) {
-                            const oldRows = this.rows || [];
+                        // Resize rows if totalElements increased
+                        if (this.rows.length !== this.totalElements) {
+                            const oldRows = this.rows;
                             this.rows = new Array<any>(this.totalElements);
-                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                            for (let i = 0; i < oldRows.length; i++) {
                                 this.rows[i] = oldRows[i];
                             }
                         }
@@ -351,6 +344,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
                         // Lưu bookmark từ server để dùng cho request tiếp theo
                         this.currentBookmark = resData.bookmark;
+                        this.cd.detectChanges();
                     } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
                         // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
                         this.currentBookmark = resData.bookmark;
@@ -359,7 +353,16 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                         this.cd.detectChanges();
                         this.setPage(pageInfo);
                         return;
-                    } else if (!resData || !resData.success === false) {
+                    } else if (resData && resData.docs && resData.docs.length === 0) {
+                        // Hết dữ liệu
+                        if (this.totalElements !== start) {
+                            this.totalElements = start;
+                            if (this.rows && this.rows.length !== this.totalElements) {
+                                this.rows = this.rows.slice(0, this.totalElements);
+                                this.rows = [...this.rows];
+                            }
+                        }
+                    } else if (!resData || resData.success === false) {
                         // Nếu không lấy được dữ liệu do lỗi, gỡ cache để lần cuộn sau có thể gọi tiếp
                         delete this.cache[this.page.pageNumber];
                     }
@@ -374,6 +377,10 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                     this.isLoading = false;
                     if (this.table) {
                         this.table.recalculatePages();
+                        setTimeout(() => {
+                            this.table.recalculate();
+                            window.dispatchEvent(new Event('resize'));
+                        }, 50);
                     }
                     this.cd.markForCheck();
                 }
@@ -414,6 +421,35 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 const stats = JSON.parse(temp);
                 this.totalElements = stats['archives'] || 0;
             }
+
+            // Luôn luôn gọi API để đảm bảo tổng số là chính xác
+            this._crawlService.searchTotalArchive({
+                username: this.user.name,
+                keyword: this.keyword,
+                uuids: this.uuids,
+                page: this.page,
+            })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: (res: any) => {
+                        let total = res?.data?.total;
+                        if (total === undefined) total = res?.data?.data?.total;
+                        if (total !== undefined) {
+                            this.totalElements = total;
+                            
+                            // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
+                            if (this.rows && this.rows.length !== this.totalElements) {
+                                const oldRows = this.rows;
+                                this.rows = new Array<any>(this.totalElements);
+                                for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                    this.rows[i] = oldRows[i];
+                                }
+                                this.rows = [...this.rows];
+                                this.cd.markForCheck();
+                            }
+                        }
+                    }
+                });
         } else {
             // Nếu chọn collection, tổng số chính là số lượng UUIDs đã trích xuất
             this.totalElements = this.uuids.length;
@@ -563,27 +599,37 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
             this.totalElements = 0;
         }
 
-        if (!this.totalElements) {
-            this._crawlService.searchTotalArchive({
-                username: this.user.name,
-                keyword: '',
-                uuids: this.uuids,
-                page: this.page,
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: (res: any) => {
-                        if (!this.keyword && this.uuids.length === 0) {
-                            let total = res?.data?.total;
-                            if (total === undefined) total = res?.data?.data?.total;
-                            if (total !== undefined) {
-                                this.totalElements = total;
-                                this.cd.markForCheck();
+        // Luôn luôn gọi API để cập nhật tổng số bản ghi chính xác nhất, bỏ qua check !this.totalElements
+        this._crawlService.searchTotalArchive({
+            username: this.user.name,
+            keyword: '',
+            uuids: this.uuids,
+            page: this.page,
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: (res: any) => {
+                    if (!this.keyword && this.uuids.length === 0) {
+                        let total = res?.data?.total;
+                        if (total === undefined) total = res?.data?.data?.total;
+                        if (total !== undefined) {
+                            this.totalElements = total;
+                            
+                            // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
+                            if (this.rows && this.rows.length !== this.totalElements) {
+                                const oldRows = this.rows;
+                                this.rows = new Array<any>(this.totalElements);
+                                for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                                    this.rows[i] = oldRows[i];
+                                }
+                                this.rows = [...this.rows];
                             }
+                            
+                            this.cd.markForCheck();
                         }
                     }
-                });
-        }
+                }
+            });
     }
 
     error(message?: string) {

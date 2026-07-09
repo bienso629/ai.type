@@ -171,8 +171,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
         let uuids = Array.isArray(this.selectedCollection.uuid) ? this.selectedCollection.uuid : (this.selectedCollection.uuid ? [this.selectedCollection.uuid] : []);
 
         const payloadPage = {
-            ...this.page,
-            size: 25
+            ...this.page
         };
 
         this._crawlService.archive({
@@ -186,18 +185,15 @@ export class CollectionComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (result: any) => {
                     const resData = result?.data;
+                    const start = this.page.pageNumber * this.page.size;
+                    
                     if (resData && resData.docs && resData.docs.length > 0) {
                         if (!this.rows) {
                             this.rows = new Array<any>(this.totalElements || 0);
                         }
 
-                        const start = this.apiFetchedCount;
-
                         let newTotal = this.totalElements || 0;
-                        const apiPageSize = 25;
-                        if (resData.docs.length < apiPageSize) {
-                            newTotal = start + resData.docs.length;
-                        } else if (start + resData.docs.length > newTotal) {
+                        if (start + resData.docs.length > newTotal) {
                             newTotal = start + resData.docs.length;
                         }
 
@@ -205,10 +201,10 @@ export class CollectionComponent implements OnInit, OnDestroy {
                             this.totalElements = newTotal;
                         }
 
-                        if (!this.rows || this.rows.length !== this.totalElements) {
-                            const oldRows = this.rows || [];
+                        if (this.rows.length !== this.totalElements) {
+                            const oldRows = this.rows;
                             this.rows = new Array<any>(this.totalElements);
-                            for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
+                            for (let i = 0; i < oldRows.length; i++) {
                                 this.rows[i] = oldRows[i];
                             }
                         }
@@ -218,6 +214,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         this.rows = rows;
                         this.apiFetchedCount += resData.docs.length;
                         this.currentBookmark = resData.bookmark;
+                        this.cd.detectChanges();
                     } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
                         this.currentBookmark = resData.bookmark;
                         this.isLoading = false;
@@ -225,6 +222,14 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         this.cd.detectChanges();
                         this.setPage(pageInfo);
                         return;
+                    } else if (resData && resData.docs && resData.docs.length === 0) {
+                        if (this.totalElements !== start) {
+                            this.totalElements = start;
+                            if (this.rows && this.rows.length !== this.totalElements) {
+                                this.rows = this.rows.slice(0, this.totalElements);
+                                this.rows = [...this.rows];
+                            }
+                        }
                     } else {
                         delete this.cache[this.page.pageNumber];
                     }

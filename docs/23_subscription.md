@@ -1,16 +1,13 @@
-# 23. Hướng dẫn Màn hình Gia Hạn (Subscription)
+# 23. Đăng ký Dịch vụ (Subscription / Dollar)
 
 ![Subscription](./assets/subscription.png)
 
-Khu vực **Gia hạn (Cài đặt)** là nơi bạn theo dõi tình trạng gói cước và duy trì hoạt động của tài khoản ai.type.
+**Mục đích:** Quản lý gói cước của tài khoản cá nhân, lịch sử thanh toán và gia hạn dịch vụ AI.Type.
 
-## Các thông tin hiển thị:
-1. **Hạn sử dụng:** 
-   * Hiển thị ngày và giờ hết hạn của gói cước hiện tại (Ví dụ: `Hạn sử dụng tới 29/1/2027 2:06PM GMT+7`).
-   * Thanh trạng thái màu xanh lá cây báo hiệu tài khoản đang hoạt động bình thường.
-2. **Mã cấp phép (License Key):** 
-   * Chuỗi mã xác thực (VD: `7dc7a726-...`) đi kèm với tài khoản.
+## Các trường nhập liệu (Inputs)
+- **Gói hiện tại:** Thông tin License Key bạn đang dùng và ngày hết hạn hệ thống.
+- **Chọn gói gia hạn:** (Ví dụ: Gói Cơ bản / Chuyên cần / Cao cấp). Phụ thuộc vào nhu cầu sử dụng của bạn.
 
-## Cách gia hạn:
-* Để kéo dài thời gian sử dụng, bạn bấm vào nút **Thêm ngày sử dụng**.
-* Sau đó, nhập mã kích hoạt (Voucher/License code) mà bạn nhận được sau khi thanh toán để hệ thống tự động cộng thêm thời gian vào tài khoản.
+## Các nút thao tác (Buttons)
+- **Xác nhận gia hạn:** Chuyển đến tiến trình thanh toán và tự động kích hoạt mã khóa (License Key).
+- **Thêm mới / Cập nhật License Key:** Trong trường hợp bạn mua Key thông qua đại lý, hãy điền mã bản quyền bạn vừa mua vào hệ thống bằng nút này.

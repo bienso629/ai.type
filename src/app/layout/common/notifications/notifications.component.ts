@@ -510,7 +510,7 @@ export class NotificationsComponent implements OnInit, OnDestroy {
 
         if (item.images && item.images.length > 0) {
             // làm sạch images
-            images = item['images'].filter((i: string) => { return (i != null && i.indexOf('scontent') >= 0); });
+            images = item['images'].filter((i: string) => { return i != null; });
         }
 
         if (images.length > 0) {

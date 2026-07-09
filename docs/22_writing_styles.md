@@ -1,18 +1,13 @@
-# 22. Hướng dẫn Màn hình Phong Cách Viết (Writing Styles)
+# 22. Văn phong AI & Từ Đồng Nghĩa (Writing Styles & Synonym)
 
 ![Writing Styles](./assets/writing_styles.png)
 
-Khu vực **Phong cách (Cài đặt)** cho phép bạn cá nhân hóa "giọng văn" của AI để phù hợp với từng tệp độc giả khác nhau. Thay vì giọng điệu robot, bạn có thể thiết lập AI viết theo nhiều phong cách đặc thù.
+**Mục đích:** Giúp cá nhân hoá lối hành văn của AI, làm cho văn bản trở nên giống con người hơn và vượt qua được các công cụ kiểm tra AI (AI Content Detectors).
 
-## Các phong cách có sẵn / tùy chỉnh:
-Màn hình cung cấp các thẻ (card) phong cách khác nhau:
-* **Lập trình viên:** Giọng điệu thực tế, dùng nhiều ẩn dụ kỹ thuật, khô khan nhưng thẳng thắn.
-* **Đệ tử Kim Dung:** Phong cách kiếm hiệp, dùng từ ngữ cổ trang, kết hợp lịch sử và hư cấu.
-* **Reviewer chuyên nghiệp:** Ngắn gọn, súc tích, đi thẳng vào ưu/nhược điểm.
-* **Kể chuyện đêm khuya:** Văn phong tự sự (narrative), góc nhìn ngôi thứ nhất, lôi cuốn.
-* **Giáo viên tiểu học:** Chuẩn mực, nhẹ nhàng, tận tâm, giải thích cặn kẽ.
-* **Bán hàng sôi nổi:** Tràn đầy năng lượng, thúc đẩy hành động (call-to-action) mạnh mẽ.
+## Các trường nhập liệu (Inputs)
+- **Cấu hình thay thế từ:** (Ví dụ: đổi `rất tốt` -> `cực kỳ tuyệt vời`). Hệ thống sẽ tự động tìm các cụm từ này và hoán đổi sau khi AI đã viết xong bài.
+- **Độ linh hoạt (Temperature):** Kéo thanh trượt để chỉnh độ sáng tạo/ngẫu hứng của AI. Thông số càng cao, AI viết càng ngẫu nhiên và mới mẻ.
 
-## Cách sử dụng:
-* **Chỉnh sửa / Xóa:** Nhấn vào biểu tượng "cây bút" để sửa prompt cốt lõi của phong cách đó, hoặc biểu tượng "thùng rác" để xóa.
-* **Tạo mới:** Bạn có thể tự định nghĩa một phong cách hoàn toàn mới bằng cách miêu tả cách hành văn, cách xưng hô và các từ ngữ nên dùng. AI sẽ học theo "prompt" này cho các bài viết sau.
+## Các nút thao tác (Buttons)
+- **Áp dụng (Apply):** Ghi nhớ cấu hình văn phong cho tất cả bài viết của chiến dịch hiện tại.
+- **Xóa / Sửa:** Quản lý và tùy chỉnh thư viện từ đồng nghĩa cá nhân của bạn.
