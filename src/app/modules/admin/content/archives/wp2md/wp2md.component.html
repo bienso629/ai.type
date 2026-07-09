@@ -40,8 +40,8 @@
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
             <input type="file" #fileInput accept=".xml" (change)="readFile($event)" style="display: none;">
             <button mat-flat-button class="ml-2" color="primary" (click)="fileInput.click()">
-                <mat-icon [svgIcon]="'feather:upload'" class="icon-size-5"></mat-icon>
-                <mat-label class="ml-2">Read file</mat-label>
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:upload'"></mat-icon>
+                <mat-label class="ml-2">Nhập file XML</mat-label>
             </button>
 
             <mat-form-field class="ml-2 w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix"

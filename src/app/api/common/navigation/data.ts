@@ -82,9 +82,9 @@ export const defaultNavigation: FuseNavigationItem[] = [
                 title: 'nav.sitemap.title',
                 subtitle: 'nav.sitemap.subtitle',
                 type: 'basic',
-                icon: 'feather:git-merge',
+                icon: 'feather:map',
                 classes: {
-                    icon: 'icon-size-6'
+                    icon: 'icon-size-5'
                 },
                 link: '/wp2md'
             }, {

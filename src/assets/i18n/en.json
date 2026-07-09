@@ -117,7 +117,7 @@
             "subtitle": "Your drafts."
         },
         "sitemap": {
-            "title": "Sitemap",
+            "title": "XML Sitemaps",
             "subtitle": "Website sitemaps."
         },
         "crawl": {
@@ -535,7 +535,7 @@
         "scan_trending": "Scan & Search trends from Facebook and other social media",
         "voice": "Voice",
         "data": "Data",
-        "sitemap": "Sitemap",
+        "sitemap": "WP Post",
         "sitemap_desc": "Sync posts from website and auto-generate content.",
         "speech2text": "Speech2Text",
         "speech2text_desc": "Convert video to text quickly for your workflow",

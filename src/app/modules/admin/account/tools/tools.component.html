@@ -40,7 +40,7 @@
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 0 && user.groups?.includes('nhóm-quét-sitemap')"
+                                    *ngIf="user.groups?.includes('nhóm-quét-sitemap')"
                                     class="rounded-lg border-b hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/import']">
                                     <div class="flex flex-col items-center">
@@ -72,7 +72,7 @@
             </swiper-slide>
 
             <!-- Trang 2 -->
-            <swiper-slide data-hash="social" class="h-full w-full" *ngIf="user.reputation >= 2000 && cn['cn2'] > 0">
+            <swiper-slide data-hash="social" class="h-full w-full" *ngIf="cn['cn2'] > 0">
                 <fm-stream-item>
                     <div class="flex items-center justify-center h-full w-full">
                         <div class="flex flex-col">
@@ -95,7 +95,7 @@
                                 </mat-grid-tile> -->
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-tạo-hình-ảnh')"
+                                    *ngIf="user.groups?.includes('nhóm-tạo-hình-ảnh')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-image']">
                                     <div class="flex flex-col items-center">
@@ -104,8 +104,7 @@
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.create_high_quality_image' | transloco }}
                                         </p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 2000, 'text-red-600': user.reputation < 2000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
@@ -119,13 +118,12 @@
                                             {{ 'app.ai_video_desc' | transloco }}
                                         </p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 2000, 'text-red-600': user.reputation < 2000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile> -->
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 2000 && user.groups?.includes('nhóm-download-video')"
+                                    *ngIf="user.groups?.includes('nhóm-download-video')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/all-tube']">
                                     <div class="flex flex-col items-center">
@@ -134,13 +132,12 @@
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.download_all_videos_from' | transloco }}
                                         </p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 2000, 'text-red-600': user.reputation < 2000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
+                                    *ngIf="user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/face2node']">
                                     <div class="flex flex-col items-center">
@@ -148,13 +145,12 @@
                                         <mat-label class="mt-3 text-md">{{ 'app.trending' | transloco }}</mat-label>
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.auto_scan_search_trends_from_facebo' | transloco }}</p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 10000, 'text-red-600': user.reputation < 10000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 10000 && user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
+                                    *ngIf="user.groups?.includes('nhóm-thu-thập-dữ-liệu')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-crawl']">
                                     <div class="flex flex-col items-center">
@@ -162,13 +158,12 @@
                                         <mat-label class="mt-3 text-md">{{ 'app.collect' | transloco }}</mat-label>
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.collect_phone_number_email' | transloco }}</p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 10000, 'text-red-600': user.reputation < 10000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 50000 && user.groups?.includes('nhóm-txt2voice')"
+                                    *ngIf="user.groups?.includes('nhóm-txt2voice')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/ai-text2speech']">
                                     <div class="flex flex-col items-center">
@@ -177,13 +172,12 @@
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.convert_text_to_emotional' | transloco }}
                                         </p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 50000, 'text-red-600': user.reputation < 50000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 100000 && user.groups?.includes('nhóm-big-data')"
+                                    *ngIf="user.groups?.includes('nhóm-big-data')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/data']">
                                     <div class="flex flex-col items-center">
@@ -191,8 +185,7 @@
                                         <mat-label class="mt-3 text-md">{{ 'app.data' | transloco }}</mat-label>
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.manage_analyze_data_automatically' | transloco }}</p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 100000, 'text-red-600': user.reputation < 100000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
                             </mat-grid-list>
@@ -202,7 +195,7 @@
             </swiper-slide>
 
             <!-- Trang 3 -->
-            <swiper-slide data-hash="manager" class="h-full w-full" *ngIf="user.reputation >= 1000000 && cn['cn3'] > 0">
+            <swiper-slide data-hash="manager" class="h-full w-full" *ngIf="cn['cn3'] > 0">
                 <fm-stream-item>
                     <div class="flex items-center justify-center h-full w-full">
                         <div class="flex flex-col">
@@ -211,7 +204,7 @@
                             <mat-grid-list class="min-w-160 sm:min-w-160 md:min-w-200 lg:min-w-200" [cols]="cols"
                                 gutterSize="20px" rowHeight="1:1">
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 1000000 && user.groups?.includes('nhóm-đã-mua-chatbot')"
+                                    *ngIf="user.groups?.includes('nhóm-đã-mua-chatbot')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/chatbot']">
                                     <div class="flex flex-col items-center">
@@ -219,13 +212,12 @@
                                         <mat-label class="mt-3 text-md">{{ 'app.chatbot' | transloco }}</mat-label>
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.create_chatbot_for_business' | transloco }}</p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 1000000, 'text-red-600': user.reputation < 1000000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 2000000 && user.groups?.includes('nhóm-chạy-traffic')"
+                                    *ngIf="user.groups?.includes('nhóm-chạy-traffic')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/profiles']">
                                     <div class="flex flex-col items-center">
@@ -233,13 +225,12 @@
                                         <mat-label class="mt-3 text-md">{{ 'app.increase_traffic' | transloco }}</mat-label>
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.improve_keyword_quality_and' | transloco }}</p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 2000000, 'text-red-600': user.reputation < 2000000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-seo-và-phân-tích')"
+                                    *ngIf="user.groups?.includes('nhóm-seo-và-phân-tích')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/links']">
                                     <div class="flex flex-col items-center">
@@ -248,13 +239,12 @@
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.your_great_link_collection' | transloco }}
                                         </p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 3000000, 'text-red-600': user.reputation < 3000000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 3000000 && user.groups?.includes('nhóm-seo-và-phân-tích')"
+                                    *ngIf="user.groups?.includes('nhóm-seo-và-phân-tích')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/gscr']">
                                     <div class="flex flex-col items-center">
@@ -263,13 +253,12 @@
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.report_analytics_desc' | transloco }}
                                         </p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 3000000, 'text-red-600': user.reputation < 3000000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 
                                 <mat-grid-tile
-                                    *ngIf="user.reputation >= 4000000 && user.groups?.includes('nhóm-tự-động-hóa')"
+                                    *ngIf="user.groups?.includes('nhóm-tự-động-hóa')"
                                     class="rounded-lg hover:bg-gray-50 border border-opacity-100 hover:border hover:border-opacity-90 cursor-pointer bg-card"
                                     [routerLink]="['/amxh']">
                                     <div class="flex flex-col items-center">
@@ -277,8 +266,7 @@
                                         <mat-label class="mt-3 text-md">{{ 'app.increase_interaction' | transloco }}</mat-label>
                                         <p class="mt-3 text-md px-4 line-clamp-3">{{ 'app.auto_interact_desc' | transloco }}</p>
                                     </div>
-                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0"
-                                        [ngClass]="{'text-green-600': user.reputation >= 4000000, 'text-red-600': user.reputation < 4000000}">
+                                    <div class="border-t border-l text-md rounded-tl-lg p-1 absolute bottom-0 right-0 text-green-600">
                                         {{ 'app.activate' | transloco }}</div>
                                 </mat-grid-tile>
 

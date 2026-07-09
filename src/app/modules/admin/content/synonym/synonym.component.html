@@ -33,7 +33,7 @@
 
         <!-- Actions -->
         <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
-            <button mat-flat-button [color]="'primary'" (click)="synonymscan()" *ngIf="user.reputation >= 100000">
+            <button mat-flat-button [color]="'primary'" (click)="synonymscan()">
                 <mat-icon class="icon-size-5" [svgIcon]="'mat_outline:wrap_text'"></mat-icon>
                 <mat-label class="ml-2">{{ 'app.scan_synonyms' | transloco }}</mat-label>
             </button>

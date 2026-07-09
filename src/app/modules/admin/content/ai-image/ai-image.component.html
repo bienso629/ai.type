@@ -138,19 +138,19 @@
                                                         </video>
 
                                                         <div class="thumb-actions">
-                                                            <button mat-icon-button
-                                                                class="hover:bg-white hover:bg-opacity-10"
-                                                                (click)="uploadImage(img)">
-                                                                <mat-icon class="icon-size-4 text-blue-500"
-                                                                    svgIcon="feather:cloud"></mat-icon>
+                                                            <button mat-icon-button class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm" [matMenuTriggerFor]="videoMenu">
+                                                                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:dots-vertical"></mat-icon>
                                                             </button>
-
-                                                            <button mat-icon-button
-                                                                class="hover:bg-white hover:bg-opacity-10"
-                                                                (click)="deleteImage(img, rowIndex * gridSize + i)">
-                                                                <mat-icon class="icon-size-4 text-red-500"
-                                                                    svgIcon="feather:trash"></mat-icon>
-                                                            </button>
+                                                            <mat-menu #videoMenu="matMenu">
+                                                                <button mat-menu-item (click)="uploadImage(img)">
+                                                                    <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>
+                                                                    <span>Tải lên</span>
+                                                                </button>
+                                                                <button mat-menu-item (click)="deleteImage(img, rowIndex * gridSize + i)">
+                                                                    <mat-icon class="icon-size-4 text-red-500" svgIcon="feather:trash"></mat-icon>
+                                                                    <span>Xóa</span>
+                                                                </button>
+                                                            </mat-menu>
                                                         </div>
                                                     </ng-container>
 
@@ -159,26 +159,23 @@
                                                             class="thumb w-full h-auto object-cover rounded-2xl" />
 
                                                         <div class="thumb-actions">
-                                                            <button mat-icon-button
-                                                                class="hover:bg-white hover:bg-opacity-10"
-                                                                (click)="editImage(img)">
-                                                                <mat-icon class="icon-size-4 text-green-500"
-                                                                    svgIcon="heroicons_outline:sparkles"></mat-icon>
+                                                            <button mat-icon-button class="bg-white bg-opacity-75 hover:bg-opacity-100 text-gray-800 rounded-full shadow-sm" [matMenuTriggerFor]="imageMenu">
+                                                                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:dots-vertical"></mat-icon>
                                                             </button>
-
-                                                            <button mat-icon-button
-                                                                class="hover:bg-white hover:bg-opacity-10"
-                                                                (click)="uploadImage(img)">
-                                                                <mat-icon class="icon-size-4 text-blue-500"
-                                                                    svgIcon="feather:cloud"></mat-icon>
-                                                            </button>
-
-                                                            <button mat-icon-button
-                                                                class="hover:bg-white hover:bg-opacity-10"
-                                                                (click)="deleteImage(img, rowIndex * gridSize + i)">
-                                                                <mat-icon class="icon-size-4 text-red-500"
-                                                                    svgIcon="feather:trash"></mat-icon>
-                                                            </button>
+                                                            <mat-menu #imageMenu="matMenu">
+                                                                <button mat-menu-item (click)="editImage(img)">
+                                                                    <mat-icon class="icon-size-4 text-green-500" svgIcon="heroicons_outline:sparkles"></mat-icon>
+                                                                    <span>Sửa ảnh</span>
+                                                                </button>
+                                                                <button mat-menu-item (click)="uploadImage(img)">
+                                                                    <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>
+                                                                    <span>Tải lên</span>
+                                                                </button>
+                                                                <button mat-menu-item (click)="deleteImage(img, rowIndex * gridSize + i)">
+                                                                    <mat-icon class="icon-size-4 text-red-500" svgIcon="feather:trash"></mat-icon>
+                                                                    <span>Xóa</span>
+                                                                </button>
+                                                            </mat-menu>
                                                         </div>
                                                     </ng-template>
                                                 </div>
