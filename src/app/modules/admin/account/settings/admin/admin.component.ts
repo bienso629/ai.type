@@ -112,10 +112,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
                 this.user = user;
                 this.getUsers();
 
-                if (user.reputation < 100000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
             });
 
         if (this._fuseConfigService && this._fuseConfigService.config$) {

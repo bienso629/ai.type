@@ -134,10 +134,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 0) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                } else if (user.reputation >= 100000000) {
+                if (user.reputation >= 100000000) {
                     this.panels.push({
                         id: 'admin',
                         icon: 'feather:unlock',

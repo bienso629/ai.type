@@ -934,12 +934,7 @@ export class AIFacePostComponent
                 // lấy bộ sưu tập
                 this.linkCollections();
 
-                if (user.reputation < 10000) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
-                    return;
-                }
+
             });
 
         // sau khi đã vào đây rồi thì ko còn thông báo nữa

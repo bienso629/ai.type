@@ -170,10 +170,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 0) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
 
                 // đồng bộ account về máy
                 this.account();

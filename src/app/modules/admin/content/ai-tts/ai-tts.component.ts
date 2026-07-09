@@ -2551,12 +2551,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-                if (user.reputation < 50000) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
-                    return;
-                }
+
             });
     }
 

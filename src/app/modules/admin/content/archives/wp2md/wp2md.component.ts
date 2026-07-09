@@ -499,10 +499,7 @@ export class WP2MDComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 0) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
 
                 // totalWp2mdArchive moved to ngOnInit to prioritize localStorage
             });

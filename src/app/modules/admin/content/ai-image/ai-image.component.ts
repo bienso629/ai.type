@@ -603,15 +603,8 @@ export class AIImageComponent
 
                 this.getMyKeys();
 
-                if (user.reputation < 2000) {
-                    this.error(
-                        'Tài khoản của bạn không đủ điều kiện để truy cập!',
-                    );
-                    return;
-                } else {
-                    this.fetch();
-                    this.alldomains();
-                }
+                this.fetch();
+                this.alldomains();
             });
 
         this.unsubscribeRes = (window as any).electron.onToolsResponse(

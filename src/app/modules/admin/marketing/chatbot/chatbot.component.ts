@@ -1191,10 +1191,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation < 1000000) {
-                    this.error('Tài khoản của bạn không đủ điều kiện để truy cập!');
-                    return;
-                }
+
 
                 this.initDB();
                 this.alldomains();
