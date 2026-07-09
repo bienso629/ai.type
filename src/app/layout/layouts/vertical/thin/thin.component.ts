@@ -225,41 +225,6 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
         window.dispatchEvent(new Event('start-recording'));
     }
 
-    async catureScreen() {
-        // Tạo tên file theo timestamp
-        const fileName = `screenshot_${new Date().getTime()}.png`;
-
-        try {
-            // Gọi xuống main process thông qua (window as any).electron
-            // Đảm bảo preload.js của bạn đã expose hàm 'captureApp' trỏ tới ipcRenderer.invoke('capture-app', ...)
-            const result = await (window as any).electron.captureApp({
-                fileName: fileName,
-                folder: 'screenshots' // Lưu vào thư mục screenshots
-            });
-
-            if (result && result.success) {
-                console.log('Đã lưu ảnh tại:', result.path);
-
-                // Mở popup nhập nội dung mail báo lỗi
-                this.dialog.open(BugReportDialogComponent, {
-                    width: '500px',
-                    backdropClass: 'custom-dialog-backdrop',
-                    data: { 
-                        screenshotPath: result.path, 
-                        user: this.user,
-                        settings: this.multiAccountService.getItem('settings') || {}
-                    },
-                    panelClass: 'custom-dialog'
-                });
-
-            } else {
-                console.error('Lỗi chụp màn hình:', result.error);
-                this.error('Không thể chụp màn hình: ' + result.error);
-            }
-        } catch (err) {
-            console.error('Lỗi gọi electron:', err);
-        }
-    }
 
     /**
      * Toggle navigation
@@ -281,8 +246,9 @@ export class ThinLayoutComponent implements OnInit, OnDestroy, AfterViewInit, Af
      */
     help() {
         this.dialog.open(HelpComponent, {
-            width: '600px',
-            height: '80%'
+            width: '1000px',
+            maxWidth: '95vw',
+            height: '90vh'
         });
     }
 

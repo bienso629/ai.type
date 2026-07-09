@@ -15,36 +15,15 @@
 	</div>
 
 	<!-- Main -->
-	<div class="flex-auto px-6 pb-2 pt-2 overflow-y-auto" cdkScrollable>
+	<div class="flex-auto p-6 overflow-y-auto" cdkScrollable>
 		<mat-accordion>
-			<mat-expansion-panel class="mb-2" hideToggle [expanded]="routerUrl.indexOf('/register') >= 0"
-				(opened)="code = 'gAxcp3WfEzE'">
+			<mat-expansion-panel class="mb-2" *ngFor="let guide of guides">
 				<mat-expansion-panel-header>
-					<mat-panel-title class="font-base">
-						{{ 'app.auto_1_register_to_use_the_ai_type' | transloco }}
+					<mat-panel-title class="font-base font-semibold">
+						{{ guide.title }}
 					</mat-panel-title>
 				</mat-expansion-panel-header>
-				<p *ngIf="code === 'gAxcp3WfEzE'" class="p-3" [innerHTML]="code | youtube"></p>
-			</mat-expansion-panel>
-
-			<mat-expansion-panel class="mb-2" hideToggle [expanded]="routerUrl.indexOf('/dashboard') >= 0"
-				(opened)="code = 'PqmwHobKyAg'">
-				<mat-expansion-panel-header>
-					<mat-panel-title class="font-base">
-						{{ 'app.auto_2_guide_to_creating_the_first' | transloco }}
-					</mat-panel-title>
-				</mat-expansion-panel-header>
-				<p *ngIf="code === 'PqmwHobKyAg'" class="p-3" [innerHTML]="code | youtube"></p>
-			</mat-expansion-panel>
-
-			<mat-expansion-panel class="mb-2" hideToggle [expanded]="routerUrl.indexOf('/ai-writer') >= 0"
-				(opened)="code = 'gAxcp3WfEzE'">
-				<mat-expansion-panel-header>
-					<mat-panel-title class="font-base">
-						{{ 'app.auto_3_guide_to_creating_a_complete' | transloco }}
-					</mat-panel-title>
-				</mat-expansion-panel-header>
-				<p *ngIf="code === 'gAxcp3WfEzE'" class="p-3" [innerHTML]="code | youtube"></p>
+				<div class="p-4 prose prose-sm max-w-none" [innerHTML]="guide.html"></div>
 			</mat-expansion-panel>
 		</mat-accordion>
 	</div>

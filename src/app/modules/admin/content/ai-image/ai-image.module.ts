@@ -11,6 +11,7 @@ import { MatListModule } from '@angular/material/list';
 import { MatExpansionModule } from '@angular/material/expansion';
 import { MatInputModule } from '@angular/material/input';
 import { MatSidenavModule } from '@angular/material/sidenav';
+import { MatMenuModule } from '@angular/material/menu';
 import { TimeagoModule } from 'ngx-timeago';
 import { SharedModule } from 'app/shared.module';
 import { AIImageComponent } from 'app/modules/admin/content/ai-image/ai-image.component';
@@ -49,6 +50,7 @@ const Routes: Route[] = [
         MatListModule,
         MatSidenavModule,
         MatSelectModule,
+        MatMenuModule,
 
         FormsModule,           // <--- QUAN TRỌNG: Phải có cái này để dùng [(ngModel)]
         ReactiveFormsModule,

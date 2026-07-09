@@ -117,7 +117,7 @@
             "subtitle": "Nội dung đang soạn của bạn."
         },
         "sitemap": {
-            "title": "Sitemap",
+            "title": "XML Sitemaps",
             "subtitle": "Sitemap của các Website."
         },
         "crawl": {
@@ -535,7 +535,7 @@
         "scan_trending": "Quét & Tìm kiếm xu hướng từ Facebook và MXH khác",
         "voice": "Giọng đọc",
         "data": "Dữ liệu",
-        "sitemap": "Sitemap",
+        "sitemap": "WP Post",
         "sitemap_desc": "Đồng bộ bài viết từ website và phát triển nội dung tự động.",
         "speech2text": "Speech2Text",
         "speech2text_desc": "Chuyển video thành văn bản nhanh chóng phục vụ công việc của bạn",
