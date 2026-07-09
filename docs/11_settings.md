@@ -1,19 +1,19 @@
-# 11. Hướng dẫn Màn hình "Cài đặt" Tổng quan
+# 11. Cài đặt Hệ thống (Settings)
 
 ![Settings](./assets/settings.png)
 
-Khu vực **Cài đặt (Settings)** là nơi bạn thiết lập thông tin tài khoản cá nhân và các API kết nối.
+**Mục đích:** Nơi cấu hình các thông số quan trọng nhất của hệ thống (API Keys, Tài khoản, Mật khẩu).
 
-## Chi tiết các thiết lập (Tab Cá nhân)
+## Các trường nhập liệu (Inputs)
+- **Cấu hình Email (SMTP):** Nhập `SMTP Host`, `Port`, `Email`, và `App Password` để phần mềm gửi thư thông báo tự động.
+- **Cấu hình API Key (AI):** 
+  - API Key OpenAI (ChatGPT).
+  - API Key Google Gemini (Aistudio).
+  - API Key UModelverse.
+- **Model Văn bản & Hình ảnh:** Chọn mô hình AI mặc định (VD: `gpt-4o`, `dall-e-3`).
+- **Mật khẩu & Bảo mật:** Khung đổi mật khẩu (`New password`, `Current password`).
 
-### 1. Cấu hình Cá nhân (Thanh toán & Ví)
-* **Link QR nhận tiền:** Tiện ích nhỏ giúp bạn quản lý thanh toán. Chỉ cần dán link cá nhân của các ví điện tử như Momo (`https://me.momo.vn/TênCủaBạn`) hoặc Paypal. Hệ thống tự động chuyển đổi thành mã QR.
-
-### 2. Cấu hình Trình soạn thảo & Hệ thống
-* **Tự động lưu bài viết:** Khi bật công tắc, mọi ký tự bạn gõ trong AI Writer sẽ được lưu về database mỗi vài giây. Khuyến cáo: Luôn BẬT tính năng này.
-* **Ngôn ngữ:** Chuyển đổi giao diện hệ thống (UI) sang Tiếng Việt, Tiếng Anh.
-
-### 3. Cấu hình Gửi Email (Type.VN & SMTP)
-* **Type.VN Admin Token:** Token xác thực API nội bộ để gửi mail qua gateway của Type.VN (nếu có).
-* **SMTP Host & Port:** Địa chỉ máy chủ (VD: `smtp.gmail.com`) và cổng bảo mật (`587` hoặc `465`).
-* **Email SMTP & App Password:** Địa chỉ email người gửi và Mật khẩu ứng dụng (App Password) sinh ra từ cài đặt bảo mật 2 lớp của tài khoản email. Tuyệt đối không dùng mật khẩu đăng nhập gốc của Gmail tại đây.
+## Các nút thao tác (Buttons)
+- **Lưu (Save):** Lưu lại thông tin cài đặt.
+- **Thêm Key (Add Key):** Hỗ trợ thêm nhiều API Key để xoay vòng, chống sập giới hạn (Rate-limit).
+- **Bật/Tắt Mì Tôm AI:** Tính năng dùng AI nâng cao nội bộ.

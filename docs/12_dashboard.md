@@ -1,17 +1,13 @@
-# 12. Hướng dẫn Màn hình Dashboard (Bảng điều khiển)
+# 12. Bảng điều khiển (Dashboard)
 
 ![Dashboard](./assets/dashboard.png)
 
-Màn hình **Dashboard** là nơi bạn nhìn thấy bức tranh toàn cảnh về toàn bộ dữ liệu, thư mục và tiến độ công việc đang thực hiện trên ai.type.
+**Mục đích:** Hiển thị tổng quan các số liệu và tiến độ hoạt động của phần mềm.
 
-## Các khu vực chính:
+## Ý nghĩa màn hình
+- **Thống kê:** Liệt kê số lượng người dùng (Users), lượt xem trang (Pageviews), tỷ lệ tương tác (Engagement rate).
+- **Tiến độ công việc (Jobs):** Cho biết phần mềm đang chạy ẩn bao nhiêu tác vụ (như quét sitemap, render video, đăng bài tự động).
 
-### 1. Khu vực Tập tin/Thư mục (10 tập của bạn)
-* Đây là không gian làm việc chia theo các dự án lớn như: Mô hình AI, Coder đại chiến, Dựng video bằng AI, Viết kịch bản, Thiết kế Website...
-* Mỗi khối (card) sẽ hiển thị thông tin thời gian cập nhật gần nhất và số lượng bản ghi (bài viết/nội dung) đang chứa bên trong.
-* **Lợi ích:** Giúp bạn truy cập nhanh vào dự án đang làm dang dở thay vì phải lục lọi qua nhiều menu.
-
-### 2. Khu vực Công việc đang xây dựng
-* Hiển thị trực quan các kịch bản, bài viết cụ thể đang được biên soạn.
-* **Ví dụ:** Sự khác biệt giữa zero-shot và Supervised Fine-Tuning...
-* Hệ thống hiển thị cả trạng thái nháp (BẢN NHÁP) và số lượng cảnh quay (scene) nếu đó là kịch bản video. Điều này đặc biệt hữu ích cho các Content Creator làm việc với đa phương tiện.
+## Các nút chức năng (Buttons)
+- **Xem báo cáo chi tiết:** Mở rộng biểu đồ phân tích.
+- **Làm mới (Refresh):** Tải lại dữ liệu thống kê theo thời gian thực.

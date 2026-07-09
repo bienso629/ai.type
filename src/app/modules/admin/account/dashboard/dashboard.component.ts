@@ -179,6 +179,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.account();
 
                 this.collection();
+                this.statistic();
                 
                 // Get video projects being built
                 setTimeout(() => {

@@ -1,14 +1,19 @@
-# 18. Hướng dẫn Màn hình Tạo Hình Bằng AI (AI Image Generator)
+# 18. Trình Tạo Ảnh AI (Image Generation)
 
-![AI Image Generator](./assets/ai_image_generator.png)
+![Image Generation](./assets/image_generation.png)
 
-Công cụ mạnh mẽ tích hợp sẵn giúp bạn biến ý tưởng văn bản thành hình ảnh trực quan (Text-to-Image), phục vụ cho việc minh họa bài viết hoặc thiết kế nội dung mạng xã hội.
+**Mục đích:** Tự động tạo ảnh minh hoạ cho bài viết dựa trên câu lệnh (Prompt).
 
-## Tính năng và cách dùng:
-1. **Khung Prompt (Mô tả):** 
-   * Tại ô "Mô tả hình ảnh bạn muốn tạo...", hãy nhập thật chi tiết bức tranh bạn muốn AI vẽ (VD: `Một chú mèo thần tài mặc áo đỏ đang ngồi code trên laptop, phong cách cyberpunk, ánh sáng neon`).
-2. **Tuỳ chỉnh Thông số (Cột bên phải):**
-   * **Phong cách (Style):** Chọn "Đa năng", "Photorealistic" (Ảnh thật), "Anime", "3D Render"...
-   * **Tỉ lệ khung hình (Aspect Ratio):** Chọn `1:1` (Vuông cho Instagram/Facebook), `16:9` (Ngang cho YouTube/Website) hoặc `9:16` (Dọc cho TikTok/Shorts).
-   * **Kích thước (Resolution):** `512px`, `1024px`... Kích thước càng lớn, hình càng nét nhưng thời gian tạo càng lâu.
-3. **Lưu trữ hình ảnh:** Toàn bộ lịch sử hình ảnh bạn đã tạo sẽ được lưu lại trong bộ sưu tập (Gallery) bên dưới để dễ dàng quản lý và tải xuống ("Tải lên" website).
+## Các trường nhập liệu (Inputs)
+- **Nội dung (Prompt):** Miêu tả bức ảnh bạn muốn AI vẽ (Hỗ trợ tiếng Việt/Anh).
+- **Kích thước (Aspect Ratio):**
+  - `16:9` (Dành cho YouTube / Ảnh bìa bài viết).
+  - `9:16` (Dành cho TikTok / Reels / Shorts).
+  - `1:1` (Dành cho Instagram / Vuông).
+  - `4:5` (Facebook dọc).
+  - `FB Link (1200x628)` (Ảnh preview chuẩn khi chia sẻ link web).
+
+## Các nút thao tác (Buttons)
+- **Tạo ảnh (Generate):** Gọi AI thực thi tạo ảnh (Ví dụ: dùng module `dall-e-3`).
+- **Phép màu (Magic / Auto_Awesome):** AI tự động gợi ý / làm hay hơn câu lệnh Prompt của bạn.
+- **Tải xuống (Download) & Đính kèm (Paper-clip):** Lưu về máy tính hoặc đính kèm ảnh ngay vào bài viết đang được soạn ở phân hệ khác.

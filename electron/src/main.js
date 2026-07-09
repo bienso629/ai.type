@@ -890,6 +890,31 @@ function extractFacebookPostsFromHTML(html, facegroup, storySelector, postContai
 
     return results;
 }
+async function downloadFacebookImage(url, destDir) {
+    if (!fs.existsSync(destDir)) {
+        fs.mkdirSync(destDir, { recursive: true });
+    }
+    const filename = "fb_" + Date.now() + "_" + Math.random().toString(36).substr(2, 5) + ".jpg";
+    const destPath = path.join(destDir, filename);
+
+    return new Promise((resolve) => {
+        const client = url.startsWith('https') ? https : http;
+        client.get(url, (res) => {
+            if (res.statusCode !== 200) {
+                return resolve(url);
+            }
+            const file = fs.createWriteStream(destPath);
+            res.pipe(file);
+            file.on('finish', () => {
+                file.close(() => resolve(`http://localhost:${fallbackPort}/data/facebook/${filename}`));
+            });
+            file.on('error', () => {
+                fs.unlink(destPath, () => {});
+                resolve(url);
+            });
+        }).on('error', () => resolve(url));
+    });
+}
 
 async function facebookCrawl(args) {
     const {
@@ -949,7 +974,7 @@ async function facebookCrawl(args) {
             // If using targetWindow and it's closed, stop. But for webview, targetWindow might be null, so check !useWebview.
             if (!args.useWebview && (!targetWindow || targetWindow.isDestroyed())) break;
 
-            await facebookPage.mouse.wheel({ deltaY: 2000 });
+            await facebookPage.evaluate(() => window.scrollBy(0, 2000));
             await new Promise(r => setTimeout(r, 3000));
 
             // Click Xem thêm
@@ -982,6 +1007,19 @@ async function facebookCrawl(args) {
 
                 if (key && !seenIds.has(key)) {
                     seenIds.add(key);
+
+                    const dataPath = path.join(os.homedir(), "Documents", "ai.type", "data", "facebook");
+                    const newImages = [];
+                    for (const img of post.images) {
+                        try {
+                            const newImg = await downloadFacebookImage(img, dataPath);
+                            newImages.push(newImg);
+                        } catch(e) {
+                            newImages.push(img);
+                        }
+                    }
+                    post.images = newImages;
+
                     allPosts.push(post);
                     sendToRenderer("tools-log", `[FB-Crawl] ✅ �?ã lấy: ${post.author.name} (${post.images.length} ảnh)`);
 
@@ -1030,8 +1068,14 @@ async function facebookCrawl(args) {
 // ==== FALLBACK SERVER ====
 function startFallbackServer() {
     const fallbackApp = express();
+    fallbackApp.use((req, res, next) => {
+        res.header("Access-Control-Allow-Origin", "*");
+        next();
+    });
     const fallbackPath = path.resolve(__dirname, "..", "fallback");
     fallbackApp.use(express.static(fallbackPath));
+    const dataPath = path.join(os.homedir(), "Documents", "ai.type", "data");
+    fallbackApp.use('/data', express.static(dataPath));
     const server = fallbackApp.listen(fallbackPort, () => {
         sendToRenderer(
             "tools-log",
@@ -2998,6 +3042,7 @@ function startSttServer() {
 
 app.whenReady().then(async () => {
     startCrmServices();
+    startFallbackServer();
     const resolveMediaPath = (originalUrl) => {
         let targetPath = '';
         let url = decodeURIComponent(originalUrl);

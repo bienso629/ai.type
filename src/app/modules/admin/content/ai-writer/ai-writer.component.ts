@@ -4105,12 +4105,25 @@ ${content}`;
                 const randomTop = getRandomNumber(0, winHeight);
                 const randomLeft = getRandomNumber(0, winWidth);
 
+                const formattedDate = new Date(comment.comment.createdAt).toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+
                 comments[i] = $(`<div></div>`);
                 comments[i]
                     .html(
-                        `<p>${comment.comment.username} viết lúc ${comment.comment.createdAt}</p>${comment.comment.content}`,
+                        `<div style="display: flex; justify-content: space-between; align-items: center; background: #f1f5f9; font-size: 12px; padding: 8px 12px; cursor: move; border-top-left-radius: 4px; border-top-right-radius: 4px; color: #475569; font-weight: 500;">
+                            <span>${comment.comment.username} lúc ${formattedDate}</span>
+                            <span class="copy-comment" style="cursor: pointer; color: #2563eb; display: flex; align-items: center; gap: 4px;" title="Copy">
+                                Copy
+                            </span>
+                        </div>
+                        <div style="padding: 12px;">${comment.comment.content}</div>`
                     )
                     .attr('id', comment._id);
+
+                comments[i].find('.copy-comment').on('click', () => {
+                    this.clipboard.copy(comment.comment.content);
+                    this.toastr.success('Đã copy nội dung nhận xét!');
+                });
 
                 comments[i].fadeIn(1500).addClass('overlay-styles-comment');
                 comments[i].css({ left: randomLeft, top: randomTop });

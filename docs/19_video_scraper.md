@@ -1,19 +1,14 @@
-# 19. Hướng dẫn Màn hình Quét Video Đa Nền Tảng (Video Scraper)
+# 19. Tải Video MXH (Video Crawler / All-Tube)
 
-![Video Scraper](./assets/video_scraper.png)
+![Video Scraper](./assets/video_crawler.png)
 
-Đây là "vũ khí bí mật" dành cho các Content Creator làm dạng Reup hoặc nghiên cứu đối thủ. Công cụ này cho phép tải hàng loạt video từ YouTube, TikTok và các mạng xã hội khác về máy.
+**Mục đích:** Công cụ hàng loạt hỗ trợ tải (download) video không dính logo từ các MXH (TikTok, Youtube, Facebook, Reels).
 
-## Cách sử dụng:
+## Các trường nhập liệu (Inputs)
+- **Khung dán Link:** Hỗ trợ dán nhiều URL video cùng lúc, mỗi dòng 1 link. Hỗ trợ hàng trăm link cùng lúc.
 
-### Bước 1: Khai báo nguồn cần quét
-* **Cách 1 (Quét Kênh YouTube):** Dán link kênh YouTube đích vào ô `Địa chỉ kênh` (VD: `https://www.youtube.com/@vothuatcanchien`).
-* **Cách 2 (Quét TikToker):** Nhập `username` của một TikToker bất kỳ vào ô tương ứng (VD: `@tiktoker_name`).
-
-### Bước 2: Tùy chỉnh chất lượng và phương thức tải
-* **Chất lượng:** Chọn `Bình thường` (720p), `Cao` (1080p), hoặc `Tối đa` tùy thuộc vào nền tảng hỗ trợ.
-* **Phương thức tải:** Chọn `Tuần tự` (Tải từng video một, an toàn, ít lỗi mạng) hoặc `Song song` (Nhanh hơn nhưng ngốn tài nguyên).
-
-### Bước 3: Thực thi
-* Nhấn nút **Bắt đầu quét**. 
-* Hệ thống sẽ liệt kê các kết quả vào khu vực **Video tìm thấy** bên dưới. Bạn có thể chọn tải toàn bộ (Tải nhanh video) hoặc chọn lọc từng video.
+## Các nút thao tác (Buttons)
+- **Quét Video (Scan):** Đọc thông tin các link để lấy định dạng file, độ phân giải và tiêu đề gốc của video.
+- **Tải Audio / Video:**
+  - Tải định dạng hình ảnh và âm thanh gốc (.mp4).
+  - Tải riêng file âm thanh (.mp3) bằng cách bấm nút `Nghe audio`.

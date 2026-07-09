@@ -112,7 +112,16 @@ export class RemoveHTMLPipe implements PipeTransform {
     static transform: any;
     transform(value: string): string {
         if (value && value.length > 0) {
-            return value.replace(/(<([^>]+)>)/gi, "");
+            if (typeof DOMParser !== 'undefined') {
+                const parser = new DOMParser();
+                let v = value.replace(/(\r\n|\n|\r)/gm, ' ').replace(/ {2,}/g, ' ');
+                v = v.replace(/<br\s*[\/]?>/gi, "\n").replace(/<\/p>/gi, "\n\n");
+                const doc = parser.parseFromString(v, 'text/html');
+                return (doc.body.textContent || '').trim();
+            } else {
+                let v = value.replace(/(\r\n|\n|\r)/gm, ' ').replace(/ {2,}/g, ' ');
+                return v.replace(/<br\s*[\/]?>/gi, "\n").replace(/<\/p>/gi, "\n\n").replace(/(<([^>]+)>)/gi, "").replace(/&nbsp;/g, ' ').trim();
+            }
         } else {
             return '';
         }

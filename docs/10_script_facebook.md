@@ -1,15 +1,16 @@
-# 10. Hướng dẫn Màn hình Kịch bản Facebook (Chia sẻ đa kênh)
+# 10. Kịch bản Tương tác Facebook
 
-![Scripts Facebook](./assets/script_facebook.png)
+![Script Facebook](./assets/script_facebook.png)
 
-Giải pháp xuất bản nội dung (Content Publishing) tự động cho người quản lý nhiều Fanpage.
+**Mục đích:** Tạo kịch bản tương tác ngầm dành riêng cho mạng xã hội Facebook (nuôi nick Facebook, cày tương tác nhóm).
 
-## Chi tiết các thiết lập:
-* **Chọn Fanpage đích:** Menu chọn danh sách các Fanpage hoặc Group nơi bạn có quyền đăng bài.
-* **Tên bài viết:** Đặt tiêu đề (dành cho quản lý nội bộ hệ thống).
-* **Nội dung bài viết:** Vùng nhập văn bản, hỗ trợ các icon cảm xúc và hashtag.
-* **Tệp đa phương tiện (Ảnh/Video):** Bạn có thể upload hàng loạt hình ảnh hoặc video ngắn từ máy tính. Hệ thống sẽ tự động ghép tệp đính kèm vào bài đăng Facebook.
-* **Hẹn giờ đăng bài:** 
-  * Đây là tính năng lập lịch (Schedule). Chọn ngày và giờ chuẩn xác (`mm/dd/yyyy, --:-- --`).
-  * Nếu để trống, bạn có thể nhấn **Đăng bài ngay** để bài viết lên tường lập tức. 
-  * Bằng cách kết hợp tính năng này với AI Writer, bạn có thể ngồi 1 ngày sinh ra 30 bài viết bằng AI và lập lịch đăng tự động cho cả tháng trên Fanpage mà không cần đụng tay vào nữa.
+## Các trường nhập liệu (Inputs)
+- **Đường dẫn Bài viết / Group:** Link Facebook muốn nhắm mục tiêu.
+- **Chuỗi thao tác:**
+  - Xem Newsfeed ngẫu nhiên.
+  - Bình luận bài viết.
+  - Tự động nhắn tin qua Messenger.
+
+## Các nút thao tác (Buttons)
+- **Chạy Tự Động (Run Script):** Kích hoạt hệ thống tương tác Facebook.
+- **Gửi sang N8N (Webhook):** Bắn tín hiệu sang luồng tự động hoá N8N để xử lý nâng cao.
