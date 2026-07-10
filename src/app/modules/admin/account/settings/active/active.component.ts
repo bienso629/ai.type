@@ -111,7 +111,9 @@ export class SettingsActiveComponent implements OnInit, OnDestroy {
 
                             this.toastr.success(this._translocoService.translate('app.activate_success'));
 
+                            // Cần delay một chút để ghi PouchDB hoàn tất trước khi restart
                             if (relaunchApp && (window as any).electron) {
+                                await this.multiAccountService.forceSave();
                                 (window as any).electron.relaunchApp();
                             }
                         } else {

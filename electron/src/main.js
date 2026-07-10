@@ -1229,7 +1229,7 @@ function getAuthHtml(title, message, isSuccess) {
             <div class="icon-wrapper">${icon}</div>
             <h1>${title}</h1>
             <p>${message}</p>
-            <button class="btn" onclick="window.close()">�?óng cửa sổ này</button>
+            <button class="btn" onclick="window.close()">Đóng cửa sổ này</button>
         </div>
         ${isSuccess ? '<script>setTimeout(() => window.close(), 3000);</script>' : ''}
     </body>
@@ -1260,7 +1260,7 @@ async function gscDoLogin() {
 
                     if (!code) {
                         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-                        res.end(getAuthHtml('Lỗi hệ thống', `Không tìm thấy mã xác thực từ Google trả v�?.`, false));
+                        res.end(getAuthHtml('Lỗi hệ thống', `Không tìm thấy mã xác thực từ Google trả về.`, false));
                         server.close();
                         reject(new Error("No code in redirect URL"));
                         return;
@@ -1275,7 +1275,7 @@ async function gscDoLogin() {
                     gscOauth2Client.setCredentials(tokens);
                     gscSaveToken(tokens);
 
-                    sendToRenderer("tools-log", "[GSC] �?ăng nhập thành công, đã lưu token.");
+                    sendToRenderer("tools-log", "[GSC] Đăng nhập thành công, đã lưu token.");
                     resolve();
                 } else {
                     res.writeHead(404);

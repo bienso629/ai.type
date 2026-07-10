@@ -2,9 +2,134 @@
     <!-- Main -->
     <div class="flex-auto overflow-y-auto" cdkScrollable>
         <!-- CONTENT GOES HERE -->
+        <!-- Statistics Chart Section -->
+        <div class="p-6 md:p-8 pb-0">
+            <div class="mb-6">
+                <div class="text-2xl font-semibold tracking-tight leading-8">Số lượng bài viết tạo ra trong {{selectedYear}}</div>
+            </div>
+            <div class="bg-card shadow-none border border-gray-200 rounded-xl flex flex-col relative">
+                <div class="flex justify-end px-6 pt-6 pb-0">
+                    <div class="flex items-center z-10">
+                        <mat-form-field appearance="outline" [subscriptSizing]="'dynamic'" class="fuse-mat-dense small-select-box w-28 text-sm">
+                            <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange()">
+                                <mat-option *ngFor="let year of yearsList" [value]="year">{{year}}</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+                </div>
+                <div class="w-full overflow-hidden" *ngIf="chartOptions">
+                    <apx-chart 
+                        [series]="chartOptions.series" 
+                        [chart]="chartOptions.chart" 
+                        [dataLabels]="chartOptions.dataLabels" 
+                        [plotOptions]="chartOptions.plotOptions" 
+                        [yaxis]="chartOptions.yaxis" 
+                        [xaxis]="chartOptions.xaxis" 
+                        [fill]="chartOptions.fill" 
+                        [tooltip]="chartOptions.tooltip" 
+                        [stroke]="chartOptions.stroke"
+                        [grid]="chartOptions.grid"
+                        [legend]="chartOptions.legend">
+                    </apx-chart>
+                </div>
+            </div>
+
+            <!-- Mini Stat Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-6" *ngIf="sparkline1">
+                <!-- Card 1 -->
+                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+                    <div class="p-6 pb-4">
+                        <div class="text-lg font-medium text-secondary">Tổng số bài viết</div>
+                        <div class="text-4xl font-bold mt-2">{{totalArticles}}</div>
+                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="totalArticlesStatus.color">
+                            <mat-icon class="icon-size-4 mr-1 text-current">{{totalArticlesStatus.icon}}</mat-icon> {{totalArticlesStatus.text}}
+                        </div>
+                    </div>
+                    <div class="h-16 mt-auto">
+                        <apx-chart 
+                            [series]="sparkline1.series" [chart]="sparkline1.chart" [stroke]="sparkline1.stroke" 
+                            [fill]="sparkline1.fill" [colors]="sparkline1.colors" [tooltip]="sparkline1.tooltip"
+                            [grid]="sparkline1.grid" [xaxis]="sparkline1.xaxis" [yaxis]="sparkline1.yaxis"
+                            [dataLabels]="sparkline1.dataLabels" [markers]="sparkline1.markers">
+                        </apx-chart>
+                    </div>
+                </div>
+
+                <!-- Card 2 -->
+                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+                    <div class="p-6 pb-4">
+                        <div class="text-lg font-medium text-secondary">Domain hoạt động</div>
+                        <div class="text-4xl font-bold mt-2">{{activeDomains}}</div>
+                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="activeDomainsStatus.color">
+                            <mat-icon class="icon-size-4 mr-1 text-current">{{activeDomainsStatus.icon}}</mat-icon> {{activeDomainsStatus.text}}
+                        </div>
+                    </div>
+                    <div class="h-16 mt-auto">
+                        <apx-chart 
+                            [series]="sparkline2.series" [chart]="sparkline2.chart" [stroke]="sparkline2.stroke" 
+                            [fill]="sparkline2.fill" [colors]="sparkline2.colors" [tooltip]="sparkline2.tooltip"
+                            [grid]="sparkline2.grid" [xaxis]="sparkline2.xaxis" [yaxis]="sparkline2.yaxis"
+                            [dataLabels]="sparkline2.dataLabels" [markers]="sparkline2.markers">
+                        </apx-chart>
+                    </div>
+                </div>
+
+                <!-- Card 3 -->
+                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+                    <div class="p-6 pb-4">
+                        <div class="flex justify-between items-center text-lg font-medium text-secondary">
+                            <span>Trung bình bài / Domain</span>
+                            <button mat-icon-button class="w-8 h-8 min-h-8" (click)="toggleEditTarget()" matTooltip="Cài đặt mục tiêu">
+                                <mat-icon class="icon-size-4">settings</mat-icon>
+                            </button>
+                        </div>
+                        <div class="text-4xl font-bold mt-2">{{avgArticles}}</div>
+                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="avgArticlesStatus.color">
+                            <mat-icon class="icon-size-4 mr-1 text-current">{{avgArticlesStatus.icon}}</mat-icon> {{avgArticlesStatus.text}}
+                        </div>
+                    </div>
+                    <div class="h-16 mt-auto">
+                        <apx-chart 
+                            [series]="sparkline3.series" [chart]="sparkline3.chart" [stroke]="sparkline3.stroke" 
+                            [fill]="sparkline3.fill" [colors]="sparkline3.colors" [tooltip]="sparkline3.tooltip"
+                            [grid]="sparkline3.grid" [xaxis]="sparkline3.xaxis" [yaxis]="sparkline3.yaxis"
+                            [dataLabels]="sparkline3.dataLabels" [markers]="sparkline3.markers">
+                        </apx-chart>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
         <div class="p-6 md:p-8">
             <div class="text-2xl font-semibold tracking-tight leading-8 mb-6">{{collections?.length || 0}} {{ 'app.your_collections' | transloco }}
             </div>
+
+            <!-- Target Settings Modal -->
+            <ng-template #targetDialogTemplate>
+                <div class="flex items-center justify-between mb-4">
+                    <div class="text-2xl font-bold text-gray-800 tracking-tight">Cài đặt chỉ tiêu trung bình hàng tháng</div>
+                    <button mat-icon-button mat-dialog-close type="button">
+                        <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
+                    </button>
+                </div>
+                
+                <div mat-dialog-content class="mt-2 p-0 max-h-[70vh] overflow-y-auto">
+                    <div class="flex flex-col mb-2" *ngFor="let col of allDomains">
+                        <div class="mb-1 text-sm font-medium text-hint">{{col.domain}}</div>
+                        <mat-form-field class="flex w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <input type="number" matInput 
+                                   [value]="domainTargets[col.domain] !== undefined ? domainTargets[col.domain] : 50" 
+                                   (input)="domainTargets[col.domain] = $any($event.target).value ? +$any($event.target).value : null" 
+                                   placeholder="50" />
+                            <span matSuffix>bài / tháng</span>
+                        </mat-form-field>
+                    </div>
+                </div>
+                
+                <div mat-dialog-actions class="mt-4 flex justify-end p-0">
+                    <button mat-flat-button color="primary" type="button" (click)="saveTargets()">Lưu thay đổi</button>
+                </div>
+            </ng-template>
             <div *ngIf="collections && collections.length > 0"
                 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div *ngFor="let item of collections" [routerLink]="['/collection']"

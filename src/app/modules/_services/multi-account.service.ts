@@ -155,6 +155,16 @@ export class MultiAccountService {
     // ==========================================
 
     /**
+     * Lưu ngay lập tức xuống DB (dành cho các thao tác quan trọng như Active)
+     */
+    public async forceSave(): Promise<void> {
+        if (this.saveTimeout) {
+            clearTimeout(this.saveTimeout);
+        }
+        await this.saveToBackground();
+    }
+
+    /**
      * Lưu ngầm dữ liệu từ Cache xuống IndexedDB
      */
     private async saveToBackground(): Promise<void> {
