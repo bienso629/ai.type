@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
+import { Component, OnDestroy, OnInit, ViewEncapsulation, ViewChild, TemplateRef, ChangeDetectorRef } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config/config.service';
@@ -11,21 +11,93 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 import { CrawlService } from 'app/modules/_services/crawl';
 import { Subject, takeUntil } from 'rxjs';
 import { TranslocoService } from '@ngneat/transloco';
+import { FuseSplashScreenService } from '@fuse/services/splash-screen/splash-screen.service';
+import { MatDialog } from '@angular/material/dialog';
+import { DomainService } from 'app/modules/_services/domain';
 
 @Component({
     selector: 'dashboard',
     templateUrl: './dashboard.component.html',
     styleUrls: ['./dashboard.component.scss'],
-    providers: [UserClientService, CrawlService],
+    providers: [UserClientService, CrawlService, DomainService],
     encapsulation: ViewEncapsulation.None
 })
 export class DashboardComponent implements OnInit, OnDestroy {
     user: User;
     config: AppConfig;
 
+    initialLoadCount: number = 0;
+    isFirstAppLoad: boolean = false;
+    
+    checkInitialLoad() {
+        this.initialLoadCount--;
+        if (this.initialLoadCount <= 0 && this.isFirstAppLoad) {
+            this._fuseSplashScreenService.hide();
+            this.isFirstAppLoad = false;
+        }
+    }
+
     collections: any[] = [];
     videoProjects: any[] = [];
     totalVideoProjects: number = 0;
+    statistics: any = null;
+    
+    totalArticles: number = 0;
+    activeDomains: number = 0;
+    avgArticles: number = 0;
+    chartOptions: any = null;
+    sparkline1: any = null;
+    sparkline2: any = null;
+    sparkline3: any = null;
+
+    totalArticlesStatus: { text: string, color: string, icon: string } = { text: 'Tăng trưởng tốt', color: 'text-blue-600', icon: 'trending_up' };
+    activeDomainsStatus: { text: string, color: string, icon: string } = { text: 'Cần tối ưu thêm', color: 'text-red-600', icon: 'trending_down' };
+    avgArticlesStatus: { text: string, color: string, icon: string } = { text: 'Đạt mục tiêu', color: 'text-green-600', icon: 'trending_up' };
+    
+    domainTargets: { [key: string]: number } = JSON.parse(localStorage.getItem('domainTargets') || '{}');
+    
+    @ViewChild('targetDialogTemplate') targetDialogTemplate: TemplateRef<any>;
+
+    getTargetFor(domain: string): number {
+        return this.domainTargets[domain] !== undefined && this.domainTargets[domain] !== null ? this.domainTargets[domain] : 50;
+    }
+
+    toggleEditTarget() {
+        this._matDialog.open(this.targetDialogTemplate, {
+            width: '450px',
+            disableClose: false
+        });
+    }
+
+    saveTargets() {
+        localStorage.setItem('domainTargets', JSON.stringify(this.domainTargets));
+        this.updateChart();
+        this._changeDetectorRef.markForCheck();
+        this._matDialog.closeAll();
+    }
+    
+    selectedDomain: string = 'all';
+    selectedMonth: string = 'all';
+    selectedYear: number = new Date().getFullYear();
+    availableDomains: string[] = [];
+    allDomains: any[] = [];
+    yearsList: number[] = [this.selectedYear - 3, this.selectedYear - 2, this.selectedYear - 1, this.selectedYear];
+    monthsList: any[] = [
+        { value: 'all', label: 'Tất cả các tháng' },
+        { value: '1', label: 'Tháng 1' },
+        { value: '2', label: 'Tháng 2' },
+        { value: '3', label: 'Tháng 3' },
+        { value: '4', label: 'Tháng 4' },
+        { value: '5', label: 'Tháng 5' },
+        { value: '6', label: 'Tháng 6' },
+        { value: '7', label: 'Tháng 7' },
+        { value: '8', label: 'Tháng 8' },
+        { value: '9', label: 'Tháng 9' },
+        { value: '10', label: 'Tháng 10' },
+        { value: '11', label: 'Tháng 11' },
+        { value: '12', label: 'Tháng 12' }
+    ];
+    
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     /**
@@ -69,34 +141,50 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         localStorage.setItem(cacheKey, JSON.stringify(lightweightCache));
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => { this.checkInitialLoad(); },
+                complete: () => { this.checkInitialLoad(); },
             });
     }
 
-    // lấy account về để đồng bộ (chạy ngầm sau 5s để không làm nghẽn API lúc đầu)
+    // lấy account về để đồng bộ ngay cùng lúc với các API khác
     account() {
-        if ((window as any)['profile_synced']) return;
+        if ((window as any)['profile_synced']) {
+            this.checkInitialLoad();
+            return;
+        }
         (window as any)['profile_synced'] = true;
 
-        setTimeout(() => {
-            this._userClientService.profile({
-                name: this.user.name
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (result) => {
-                        if (result && result.success && result.data) {
-                            if (result.data.styles && result.data.styles.length > 0) this.multiAccountService.setItem('styles', result.data.styles);
-                            if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
-                            if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
-                            if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
-                        }
-                    },
-                    error: () => { },
-                    complete: () => { }
-                });
-        }, 5000);
+        this._userClientService.profile({
+            name: this.user.name
+        })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data) {
+                        if (result.data.styles && result.data.styles.length > 0) this.multiAccountService.setItem('styles', result.data.styles);
+                        if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
+                        if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
+                        if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
+                    }
+                },
+                error: () => { this.checkInitialLoad(); },
+                complete: () => { this.checkInitialLoad(); }
+            });
+    }
+
+    fetchDomains() {
+        this._domainService.fetch({
+            username: this.user.name
+        })
+        .pipe(takeUntil(this._unsubscribeAll))
+        .subscribe({
+            next: (result) => {
+                if (result && result.success) {
+                    this.allDomains = result.data || [];
+                    this._changeDetectorRef.markForCheck();
+                }
+            }
+        });
     }
 
     /**
@@ -105,7 +193,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     statistic() {
         this._crawlService
             .statistics({
-                username: this.user.name
+                username: this.user.name,
+                reportYear: this.selectedYear
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
@@ -116,6 +205,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
                         const writingData = nodes[1] || { total: 0 };
                         const archivesData = nodes[2] || { total: 0 };
+                        const domainStatsData = nodes[3] || {};
+
+                        this.statistics = this.statistics || {};
+                        this.statistics.domainStats = domainStatsData;
+                        this.availableDomains = Object.keys(domainStatsData);
+                        this.updateChart();
 
                         // Lấy dữ liệu cũ để không ghi đè các trường khác
                         let oldStats: any = {};
@@ -129,14 +224,20 @@ export class DashboardComponent implements OnInit, OnDestroy {
                             done: doneCount,
                             money: moneyCount,
                             archives: archivesData.total || archivesData || 0,
-                            writing: writingData.total || writingData || 0
+                            writing: writingData.total || writingData || 0,
+                            domainStats: domainStatsData
                         };
+                        this.statistics = newStats;
 
                         localStorage.setItem('statistics', JSON.stringify(newStats));
                     }
                 },
-                error: () => { },
-                complete: () => { },
+                error: () => {
+            if (this.initialLoadCount > 0) this.checkInitialLoad();
+        },
+        complete: () => { 
+            if (this.initialLoadCount > 0) this.checkInitialLoad();
+        },
             });
     }
 
@@ -152,7 +253,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private multiAccountService: MultiAccountService,
         private _crawlService: CrawlService,
-        private translocoService: TranslocoService
+        private translocoService: TranslocoService,
+        private _fuseSplashScreenService: FuseSplashScreenService,
+        private _matDialog: MatDialog,
+        private _changeDetectorRef: ChangeDetectorRef,
+        private _domainService: DomainService
     ) {
         this.titleService.setTitle(this.translocoService.translate('nav.dashboard.title'));
 
@@ -172,11 +277,25 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
 
 
-                // đồng bộ account về máy
-                this.account();
+                // Chỉ bật Splash Screen khi tải trang lần đầu tiên (F5)
+                this.isFirstAppLoad = !(window as any)['profile_synced'];
+                if (this.isFirstAppLoad) {
+                    this.initialLoadCount = 3; // Chờ cả 3 API: profile, collection, statistic
+                    this._fuseSplashScreenService.show();
+                } else {
+                    this.initialLoadCount = 0;
+                }
 
-                this.collection();
-                this.statistic();
+                // Wait for profile setup
+                let profileSyncInterval = setInterval(() => {
+                    if (this.user.name) {
+                        clearInterval(profileSyncInterval);
+                        this.account();
+                        this.fetchDomains();
+                        this.collection();
+                        this.statistic();
+                    }
+                }, 100);
                 
                 // Get video projects being built
                 setTimeout(() => {
@@ -298,5 +417,236 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 }
             }
         });
+    }
+
+    updateChart() {
+        if (!this.statistics || !this.statistics.domainStats) return;
+        
+        let domainStatsData = this.statistics.domainStats;
+        let series = [];
+        let categories = [];
+        
+        let displayDomains = this.selectedDomain === 'all' ? this.availableDomains : [this.selectedDomain];
+        
+        displayDomains.sort((a, b) => {
+            let totalA = 0;
+            if (domainStatsData[a]) { Object.values(domainStatsData[a]).forEach((v: any) => totalA += (v || 0)); }
+            let totalB = 0;
+            if (domainStatsData[b]) { Object.values(domainStatsData[b]).forEach((v: any) => totalB += (v || 0)); }
+            return totalB - totalA;
+        });
+        
+        let displayMonths = this.selectedMonth === 'all' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [parseInt(this.selectedMonth, 10)];
+        categories = displayMonths.map(m => 'Tháng ' + m);
+        
+        for (let domain of displayDomains) {
+            let data = [];
+            for (let m of displayMonths) {
+                data.push((domainStatsData[domain] && domainStatsData[domain][m]) ? domainStatsData[domain][m] : 0);
+            }
+            series.push({
+                name: domain,
+                data: data
+            });
+        }
+        
+        if (series.length === 0) {
+            series.push({
+                name: 'Chưa có bài viết',
+                data: displayMonths.map(() => 0)
+            });
+        }
+        
+        const chartColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4', '#f43f5e', '#14b8a6'];
+
+        this.chartOptions = {
+            series: series,
+            colors: chartColors,
+            chart: { type: 'area', height: 400, fontFamily: 'inherit', toolbar: { show: false }, animations: { enabled: false } },
+            grid: { show: false },
+            stroke: { width: 3, curve: 'smooth' },
+            fill: {
+                type: 'gradient',
+                gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 90, 100] }
+            },
+            markers: { size: 0, hover: { size: 6 } },
+            dataLabels: { 
+                enabled: true, 
+                offsetY: -5,
+                background: { enabled: false, dropShadow: { enabled: false } },
+                style: { fontSize: '13px', fontWeight: 600, colors: chartColors },
+                formatter: function(val) { return val > 0 ? val : ''; }
+            },
+            xaxis: { 
+                categories: categories, 
+                labels: { show: false },
+                axisTicks: { show: false },
+                tooltip: { enabled: false } 
+            },
+            yaxis: { 
+                labels: { show: false },
+                min: 0,
+                max: (max) => Math.max(5, Math.ceil(max * 1.3)) 
+            },
+            tooltip: { 
+                shared: true, 
+                intersect: false,
+                y: { formatter: function (val: number) { return val + " bài" } } 
+            },
+            legend: { position: 'bottom', horizontalAlign: 'center', itemMargin: { horizontal: 10, vertical: 5 } }
+        };
+
+        if (displayDomains.length > 0) {
+
+            // Calculate Stats for mini charts
+            let total = 0;
+            let activeDoms = new Set();
+            let monthlyTotals = new Array(12).fill(0);
+            
+            let targetMonths = this.selectedMonth === 'all' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [parseInt(this.selectedMonth, 10)];
+            
+            for (let d in domainStatsData) {
+                let hasArticlesInPeriod = false;
+                for (let m = 1; m <= 12; m++) {
+                    if (domainStatsData[d][m]) {
+                        monthlyTotals[m-1] += domainStatsData[d][m];
+                        if (targetMonths.includes(m)) {
+                            total += domainStatsData[d][m];
+                            hasArticlesInPeriod = true;
+                        }
+                    }
+                }
+                if (hasArticlesInPeriod) activeDoms.add(d);
+            }
+            
+            let activeMonthsCount = 0;
+            for (let m of targetMonths) {
+                 if (monthlyTotals[m-1] > 0) activeMonthsCount++;
+            }
+            if (activeMonthsCount === 0) activeMonthsCount = 1;
+            
+            this.totalArticles = total;
+            this.activeDomains = activeDoms.size;
+            let totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
+            // Tính trung bình mỗi tháng trên 1 domain (để so sánh với mục tiêu hàng tháng)
+            // Phải chia cho TỔNG SỐ DOMAIN user có, không phải chỉ domain đang hoạt động
+            this.avgArticles = Math.round(total / activeMonthsCount / totalDomainsCount);
+            
+            // Evaluation logic
+            let currentPeriodTotal = 0;
+            let previousPeriodTotal = 0;
+            
+            if (this.selectedMonth !== 'all') {
+                 let m = parseInt(this.selectedMonth, 10);
+                 currentPeriodTotal = monthlyTotals[m-1];
+                 previousPeriodTotal = m > 1 ? monthlyTotals[m-2] : 0;
+            } else {
+                 let lastActiveMonth = 11;
+                 while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
+                 if (lastActiveMonth > 0) {
+                     currentPeriodTotal = monthlyTotals[lastActiveMonth];
+                     previousPeriodTotal = monthlyTotals[lastActiveMonth - 1];
+                 } else {
+                     currentPeriodTotal = monthlyTotals[0];
+                     previousPeriodTotal = 0;
+                 }
+            }
+
+            if (currentPeriodTotal >= previousPeriodTotal) {
+                 this.totalArticlesStatus = { text: 'Tăng trưởng tốt', color: 'text-blue-600', icon: 'trending_up' };
+            } else {
+                 this.totalArticlesStatus = { text: 'Tăng trưởng yếu', color: 'text-red-600', icon: 'trending_down' };
+            }
+
+            let totalDomainsCountForStatus = this.collections ? this.collections.length : 0;
+            if (this.activeDomains > totalDomainsCountForStatus / 2) {
+                 this.activeDomainsStatus = { text: 'Hoạt động tốt', color: 'text-green-600', icon: 'trending_up' };
+            } else {
+                 this.activeDomainsStatus = { text: 'Hoạt động yếu', color: 'text-red-600', icon: 'trending_down' };
+            }
+            
+            let totalTargetForAllDomains = 0;
+            if (this.allDomains && this.allDomains.length > 0) {
+                this.allDomains.forEach(d => {
+                     totalTargetForAllDomains += this.getTargetFor(d.domain);
+                });
+            } else {
+                activeDoms.forEach(d => {
+                     totalTargetForAllDomains += this.getTargetFor(d as string);
+                });
+            }
+            
+            totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
+            let avgTargetPerMonth = totalTargetForAllDomains / totalDomainsCount;
+            
+            let target = avgTargetPerMonth;
+
+            if (Number(this.avgArticles) >= target) {
+                 this.avgArticlesStatus = { text: 'Đạt mục tiêu', color: 'text-green-600', icon: 'trending_up' };
+            } else {
+                 this.avgArticlesStatus = { text: 'Chưa đạt mục tiêu', color: 'text-red-600', icon: 'trending_down' };
+            }
+            
+            // Tính toán data thật cho các biểu đồ mini theo từng tháng
+            let monthlyActiveDomains = new Array(12).fill(0);
+            let monthlyAvg = new Array(12).fill(0);
+            totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
+            for (let m = 1; m <= 12; m++) {
+                let activeCount = 0;
+                for (let d in domainStatsData) {
+                    if (domainStatsData[d][m] > 0) activeCount++;
+                }
+                monthlyActiveDomains[m-1] = activeCount;
+                // Trung bình bài viết của TẤT CẢ domain trong tháng m
+                monthlyAvg[m-1] = Math.round(monthlyTotals[m-1] / totalDomainsCount);
+            }
+            
+            const commonSparklineConfig = {
+                chart: { type: 'area', height: 60, sparkline: { enabled: true }, animations: { enabled: false } },
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
+                stroke: { curve: 'smooth', width: 2 },
+                yaxis: { 
+                    min: 0,
+                    max: (max) => Math.max(2, Math.ceil(max * 1.5)) 
+                },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.0, stops: [0, 100] } },
+                tooltip: { fixed: { enabled: false }, x: { show: false }, y: { title: { formatter: function () { return '' } } }, marker: { show: false } }
+            };
+
+            this.sparkline1 = {
+                ...commonSparklineConfig,
+                series: [{ data: monthlyTotals }],
+                colors: ['#3b82f6'] // Blue
+            };
+
+            this.sparkline2 = {
+                ...commonSparklineConfig,
+                series: [{ data: monthlyActiveDomains }], // Data thật: Domain hoạt động theo tháng
+                colors: ['#ef4444'] // Red
+            };
+
+            this.sparkline3 = {
+                ...commonSparklineConfig,
+                series: [{ data: monthlyAvg }], // Data thật: Trung bình bài/domain theo tháng
+                colors: ['#10b981'] // Green
+            };
+
+        } else {
+            this.totalArticles = 0;
+            this.activeDomains = 0;
+            this.avgArticles = 0;
+            this.sparkline1 = null;
+            this.sparkline2 = null;
+            this.sparkline3 = null;
+        }
+    }
+
+    onFilterChange() {
+        this.updateChart();
+    }
+
+    onYearChange() {
+        // Fetch new data for the selected year
+        this.statistic();
     }
 }

@@ -50,7 +50,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -76,7 +76,7 @@ export class CrawlService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.appToken = activeInfo['user']['appToken'];
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
 
         const url = `${this.config.settings.api[this.user.server]}/crawl/facebook/post/2025`;
@@ -105,7 +105,7 @@ export class CrawlService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.appToken = activeInfo['user']['appToken'];
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
 
         const url = `${this.config.settings.puppeteer}/facepost/crawler`;
@@ -129,7 +129,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -154,7 +154,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -179,7 +179,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -204,7 +204,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -229,7 +229,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -254,7 +254,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -279,7 +279,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -304,7 +304,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -329,7 +329,8 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
+        dataForm.reportYear = dataForm.reportYear || new Date().getFullYear();
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -355,7 +356,7 @@ export class CrawlService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.appToken = activeInfo['user']['appToken'];
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
 
         const url = `${this.config.settings.puppeteer}/google/search/content`;
@@ -379,7 +380,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -404,7 +405,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -429,7 +430,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -454,7 +455,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -479,7 +480,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -504,7 +505,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -529,7 +530,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -554,7 +555,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -579,7 +580,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -604,7 +605,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -629,7 +630,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -654,7 +655,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -679,7 +680,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -704,7 +705,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -729,7 +730,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -754,7 +755,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -779,7 +780,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -804,7 +805,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -829,7 +830,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -854,7 +855,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -879,7 +880,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -904,7 +905,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -929,7 +930,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -954,7 +955,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -979,7 +980,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1004,7 +1005,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1029,7 +1030,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1054,7 +1055,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1079,7 +1080,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1103,7 +1104,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1128,7 +1129,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1153,7 +1154,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1178,7 +1179,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1203,7 +1204,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1228,7 +1229,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1253,7 +1254,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1278,7 +1279,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1303,7 +1304,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -1328,7 +1329,7 @@ export class CrawlService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = dataForm.year || this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         

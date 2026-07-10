@@ -1,6 +1,7 @@
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TranslocoModule } from '@ngneat/transloco';
 import { NgModule } from '@angular/core';
+import { NgApexchartsModule } from 'ng-apexcharts';
 import { Route, RouterModule } from '@angular/router';
 import { MatIconModule } from '@angular/material/icon';
 import { MatGridListModule } from '@angular/material/grid-list';
@@ -8,6 +9,8 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatDialogModule } from '@angular/material/dialog';
 import { FuseAlertModule } from '@fuse/components/alert';
 import { SharedModule } from 'app/shared.module';
 import { TimeagoModule } from 'ngx-timeago';
@@ -41,11 +44,14 @@ const Routes: Route[] = [
         MatButtonModule,
         MatCheckboxModule,
         MatFormFieldModule,
+        MatSelectModule,
         MatIconModule,
         MatInputModule,
         MatGridListModule,
         FuseAlertModule,
         SharedModule,
+        NgApexchartsModule,
+        MatDialogModule,
         TimeagoModule.forRoot()
     ]
 })
