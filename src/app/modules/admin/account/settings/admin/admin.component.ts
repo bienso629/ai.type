@@ -70,6 +70,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     transactionsLoading: boolean = false;
     transactionEmailSearch: string = '';
     config: any;
+    // --- BIẾN CHO AI AGENT ---
+    enableAiAgent: boolean = false;
     // -------------------------------
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
@@ -102,6 +104,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         const settings = this.multiAccountService.getItem('settings') || {};
+        this.enableAiAgent = settings.enableAiAgent || false;
         this.chatgptForm = this._formBuilder.group({
             'gradio_gologin': [settings.gradio_gologin || '', Validators.required],
         });
@@ -210,6 +213,25 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
 
     displayCheck(row: any) {
         return row.username !== 'Ethel Price';
+    }
+
+    async toggleAiAgent(event: any) {
+        this.enableAiAgent = event.checked;
+        const settings = this.multiAccountService.getItem('settings') || {};
+        settings.enableAiAgent = this.enableAiAgent;
+        this.multiAccountService.setItem('settings', settings);
+
+        // Tell Electron to start/stop agent if possible
+        if ((window as any).electronAPI && (window as any).electronAPI.toggleAiAgent) {
+            try {
+                await (window as any).electronAPI.toggleAiAgent(this.enableAiAgent);
+                this.toastr.success(this.enableAiAgent ? 'Đã bật AI Agent.' : 'Đã tắt AI Agent.');
+            } catch (err) {
+                this.toastr.error('Lỗi khi cấu hình AI Agent với hệ thống.');
+            }
+        } else {
+            this.toastr.success(this.enableAiAgent ? 'Đã bật AI Agent (Cần khởi động lại ứng dụng để áp dụng).' : 'Đã tắt AI Agent (Cần khởi động lại ứng dụng để áp dụng).');
+        }
     }
 
     save() {

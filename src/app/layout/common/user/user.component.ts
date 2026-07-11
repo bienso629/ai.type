@@ -21,6 +21,8 @@ export class UserComponent implements OnInit, OnDestroy {
     @Input() showAvatar: boolean = true;
     user: User;
 
+    isAiAgentEnabled: boolean = false;
+
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     goto(page?: string) {
@@ -68,8 +70,16 @@ export class UserComponent implements OnInit, OnDestroy {
                 }
             });
 
-        // this.multiAccountService.activeAccount$.subscribe(sessionData => {
-        // });
+        this.multiAccountService.activeAccount$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe(sessionData => {
+                if (sessionData && sessionData.settings) {
+                    this.isAiAgentEnabled = sessionData.settings.enableAiAgent === true;
+                } else {
+                    this.isAiAgentEnabled = false;
+                }
+                this._changeDetectorRef.markForCheck();
+            });
     }
 
     /**

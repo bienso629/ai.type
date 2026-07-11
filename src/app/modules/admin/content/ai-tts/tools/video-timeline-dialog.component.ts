@@ -3104,7 +3104,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             icon: { show: true, name: 'feather:check', color: 'primary' },
             actions: {
                 confirm: { show: true, label: alert ? alert.confirm : 'Khởi động lại', color: 'primary' },
-                cancel: { show: true, label: alert ? alert.cancel : 'Đóng cửa sổ' },
+                cancel: { show: false, label: alert ? alert.cancel : 'Đóng cửa sổ' },
             },
             dismissible: true,
         });

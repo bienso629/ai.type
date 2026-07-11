@@ -75,3 +75,6 @@ electron/type-lite-win.exe
 electron/edge-tts-macos
 electron/ffmpeg-macos
 electron/yt-dlp-macos
+electron/ai_agent_linux
+electron/ai_agent_macos
+electron/ai_agent_win.exe
