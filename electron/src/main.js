@@ -3059,8 +3059,22 @@ function startAiAgent() {
     try {
         const agentPath = path.join(__dirname, '..', 'ai_agent_linux');
         if (fs.existsSync(agentPath)) {
-            aiAgentProcess = spawn(agentPath, [], { stdio: 'ignore' });
-            aiAgentProcess.on('error', (err) => console.error('[AI Agent] Lỗi khởi chạy:', err));
+            // Using inherit or pipe to see errors in Electron console
+            aiAgentProcess = spawn(agentPath, [], { stdio: 'pipe' });
+            
+            aiAgentProcess.stdout.on('data', (data) => console.log(`[AI Agent] ${data}`));
+            aiAgentProcess.stderr.on('data', (data) => console.error(`[AI Agent] ${data}`));
+            
+            aiAgentProcess.on('error', (err) => {
+                console.error('[AI Agent] Lỗi khởi chạy:', err);
+                aiAgentProcess = null;
+            });
+            
+            aiAgentProcess.on('exit', (code) => {
+                console.log(`[AI Agent] Đã thoát với mã ${code}`);
+                aiAgentProcess = null;
+            });
+            
             console.log('[AI Agent] Đã khởi chạy tại port 54321');
         } else {
             console.warn('[AI Agent] Không tìm thấy file thực thi:', agentPath);

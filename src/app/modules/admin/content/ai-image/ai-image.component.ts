@@ -385,8 +385,8 @@ export class AIImageComponent
                 });
             }
 
-            // 2. Gọi API Mì Tôm AI thông qua GenaiService
-            const response = await this._genaiService.generateWithUModelverse(generateOptions);
+            // 2. Gọi API thông qua GenaiService (Routing tự động)
+            const response = await this._genaiService.generateContent(generateOptions);
 
             // 3. Rà soát Logic phản hồi
             const candidates = response.candidates;
