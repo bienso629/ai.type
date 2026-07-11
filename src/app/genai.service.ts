@@ -258,9 +258,10 @@ export class GenaiService {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
             const settingsRaw = this.multiAccountService.getItem('settings');
             const isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
+            const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
 
-            if (isAiAgentEnabled && !bypassUModelverse) {
-                // Ưu tiên AI Agent cục bộ (Local Standalone Agent) cao nhất
+            if (isAiAgentEnabled && !isVideoRequest && !bypassUModelverse) {
+                // Ưu tiên AI Agent cục bộ (Local Standalone Agent) cao nhất cho ảnh/text
                 return await this.generateWithAiAgent(params);
             } else if (this.isUModelverseEnabled() && !bypassUModelverse) {
                 // Ưu tiên số 2: Mì Tôm AI (Proxy)
@@ -376,6 +377,13 @@ export class GenaiService {
         }
 
         let finalPrompt = promptText.trim() || 'Xin chào';
+        if (params.config && params.config.responseModalities) {
+            if (params.config.responseModalities.includes('IMAGE')) {
+                finalPrompt = 'Bắt buộc tạo hình ảnh: ' + finalPrompt;
+            } else if (params.config.responseModalities.includes('VIDEO')) {
+                finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
+            }
+        }
         if (params.config && (params.config as any).imageConfig) {
             const imgConfig = (params.config as any).imageConfig;
             if (imgConfig.aspectRatio) {
@@ -419,15 +427,48 @@ export class GenaiService {
                 throw new Error(data.error || 'AI Agent xử lý thất bại');
             }
 
-            const replyText = data.result || '';
+            let replyText = data.result || '';
+            let imageBase64 = data.image_base64;
+            let videoBase64 = data.video_base64;
+
+            // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về tag [LOCAL_IMAGE: /path/to/file]
+            const match = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
+            if (match && match[1]) {
+                const filePath = match[1];
+                replyText = replyText.replace(match[0], '').trim(); // Xoá tag ra khỏi text
+                try {
+                    const fileResp = await fetch('file://' + filePath);
+                    const blob = await fileResp.blob();
+                    imageBase64 = await new Promise((resolve) => {
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                            const result = reader.result as string;
+                            resolve(result.split(',')[1]); // Lấy phần base64
+                        };
+                        reader.readAsDataURL(blob);
+                    });
+                } catch (e) {
+                    console.error('[AI Agent] Lỗi đọc file local:', filePath, e);
+                }
+            }
+
             const parts: any[] = [{ text: replyText }];
             
-            if (data.image_base64) {
+            if (imageBase64) {
                 parts.push({
                     inlineData: {
                         mimeType: 'image/png',
-                        data: data.image_base64
+                        data: imageBase64
                     }
+                });
+            }
+            if (videoBase64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'video/mp4',
+                        data: videoBase64
+                    },
+                    videoUrl: 'data:video/mp4;base64,' + videoBase64
                 });
             }
 
@@ -521,7 +562,10 @@ export class GenaiService {
 
     private async generateChatUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
         const overrideModel = params.model === 'gemini-3.5-flash' ? null : params.model;
-        const targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
+        let targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
+        if (targetModel === 'agent') {
+            targetModel = this._umodelverseChatModel || 'gpt-4o';
+        }
         const config = getTextModelConfig(targetModel);
 
         const messages: any[] = [];
@@ -721,6 +765,10 @@ export class GenaiService {
 
     private async generateImageUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
         let promptText = '';
+        let model = params.model || this._umodelverseImageModel || 'dall-e-3';
+        if (model === 'agent') {
+            model = this._umodelverseImageModel || 'dall-e-3';
+        }
         let referenceBase64: string | null = null;
         if (params.contents && (params.contents as any).length > 0) {
             const firstContent = params.contents[0];
@@ -1092,7 +1140,10 @@ export class GenaiService {
 
         const url = this._umodelverseUrl;
         const key = this._umodelverseKey;
-        const model = overrideModel || this._umodelverseVideoModel || 'cogvideox-5b';
+        let model = overrideModel || this._umodelverseVideoModel || 'cogvideox-5b';
+        if (model === 'agent') {
+            model = this._umodelverseVideoModel || 'cogvideox-5b';
+        }
 
         // DEBUG: Hiển thị thông tin xác thực (che bớt key) để xác minh cấu hình
         const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : '(EMPTY)';

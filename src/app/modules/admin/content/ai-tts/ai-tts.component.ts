@@ -1255,7 +1255,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             let delay = 2000;
             let response = null;
 
-            let finalContents: any = promptText;
+            let finalContents: any = [
+                {
+                    role: 'user',
+                    parts: [{ text: promptText }]
+                }
+            ];
 
             if (this.attachedVideoFiles.length > 0) {
                 finalContents = [

@@ -2,27 +2,22 @@
 <ng-container *ngIf="user">
     <button mat-icon-button [matMenuTriggerFor]="userActions" class="!w-10 !h-10 !p-1 flex items-center justify-center relative overflow-visible">
         <div class="relative w-8 h-8 mx-auto my-auto rounded-full">
-            <!-- Hiệu ứng viền lấp lánh nhẹ nhàng mượt mà -->
-            <div *ngIf="isAiAgentEnabled" 
-                 class="absolute -inset-1 rounded-full animate-pulse z-0 pointer-events-none"
-                 style="border: 2px solid var(--fuse-primary); box-shadow: 0 0 12px 1px var(--fuse-primary); opacity: 0.85;">
-            </div>
+            <ng-container *ngIf="user.avatar && user.avatar != 'https://type.vnnull'">
+                <img class="absolute inset-0 z-10 w-full h-full rounded-full object-cover transition-all" 
+                     [ngClass]="{'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]': isAiAgentEnabled}"
+                     src="{{user.avatar}}" alt="{{user.name}}" crossorigin="anonymous" />
+            </ng-container>
 
-                <ng-container *ngIf="user.avatar && user.avatar != 'https://type.vnnull'">
-                    <img class="absolute inset-0 z-10 w-full h-full rounded-full object-cover" 
-                         src="{{user.avatar}}" alt="{{user.name}}" crossorigin="anonymous" />
-                </ng-container>
+            <ng-container *ngIf="!user.avatar || user.avatar == 'https://type.vnnull'">
+                <div class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200 transition-all"
+                     [ngClass]="{'border-2 border-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]': isAiAgentEnabled}">
+                    {{user.name.charAt(0)}}
+                </div>
+            </ng-container>
+        </div>
 
-                <ng-container *ngIf="!user.avatar || user.avatar == 'https://type.vnnull'">
-                    <div
-                        class="absolute inset-0 z-10 flex items-center justify-center w-full h-full rounded-full text-lg uppercase bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-200">
-                        {{user.name.charAt(0)}}
-                    </div>
-                </ng-container>
-            </div>
-
-            <mat-icon *ngIf="!showAvatar || !user.avatar" [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
-            <div class="absolute right-0 bottom-0 w-2 h-2 rounded-full" [ngClass]="{'mr-px mb-px': !showAvatar || !user.avatar,
+        <mat-icon *ngIf="!showAvatar || !user.avatar" [svgIcon]="'heroicons_outline:user-circle'"></mat-icon>
+        <div class="absolute right-0 bottom-0 w-2 h-2 rounded-full" [ngClass]="{'mr-px mb-px': !showAvatar || !user.avatar,
                               'bg-green-500': user.status === 'online',
                               'bg-amber-500': user.status === 'away',
                               'bg-red-500': user.status === 'busy',
