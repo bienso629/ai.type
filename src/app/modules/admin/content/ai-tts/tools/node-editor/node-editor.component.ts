@@ -1302,8 +1302,20 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
        
        let charsDesc = '';
        if (this.projectData?.characters && this.projectData.characters.length > 0) {
-           const fullSceneText = `${text} ${node.data.sceneData.script || ''} ${node.data.sceneData.setting || ''}`.toLowerCase();
-           const sceneChars = this.projectData.characters.filter((c: any) => c.name && fullSceneText.includes(c.name.toLowerCase()));
+           const fullSceneText = `${text} ${node.data.sceneData.script || ''} ${node.data.sceneData.setting || ''}`;
+           const sceneChars = [];
+           let sceneTextCopy = fullSceneText;
+           const sortedChars = [...this.projectData.characters].sort((a, b) => (b.name || '').length - (a.name || '').length);
+           const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+           for (const char of sortedChars) {
+               if (char.name) {
+                   const nameRegex = new RegExp(`(?<=^|[^\\p{L}\\p{N}_])${escapeRegExp(char.name)}(?=[^\\p{L}\\p{N}_]|$)`, 'giu');
+                   if (nameRegex.test(sceneTextCopy)) {
+                       sceneChars.push(char);
+                       sceneTextCopy = sceneTextCopy.replace(nameRegex, ' '.repeat(char.name.length));
+                   }
+               }
+           }
            if (sceneChars.length > 0) {
                charsDesc = sceneChars.map((c: any) => {
                    let cParts = [];
@@ -1328,10 +1340,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     
     this.activeCharacters = [];
     if (this.projectData?.characters?.length && text) {
-        const lowerPrompt = text.toLowerCase();
-        for (const char of this.projectData.characters) {
-            if (char.name && lowerPrompt.includes(char.name.toLowerCase())) {
-                this.activeCharacters.push(char);
+        let textCopy = text.replace(/Characters:\n[\s\S]*?(?=\n\nDialogue:|\n\nAction\/Visuals:|$)/is, '')
+                           .replace(/Master Prompt:\s*[\s\S]*?(?=\n\nCharacters:|\n\nDialogue:|\n\nAction\/Visuals:|$)/is, '');
+        const sortedChars = [...this.projectData.characters].sort((a, b) => (b.name || '').length - (a.name || '').length);
+        const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        for (const char of sortedChars) {
+            if (char.name) {
+                const nameRegex = new RegExp(`(?<=^|[^\\p{L}\\p{N}_])${escapeRegExp(char.name)}(?=[^\\p{L}\\p{N}_]|$)`, 'giu');
+                if (nameRegex.test(textCopy)) {
+                    this.activeCharacters.push(char);
+                    textCopy = textCopy.replace(nameRegex, ' '.repeat(char.name.length));
+                }
             }
         }
     }
@@ -1951,10 +1970,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     
     this.activeCharacters = [];
     if (this.projectData?.characters?.length && text) {
-        const lowerPrompt = text.toLowerCase();
-        for (const char of this.projectData.characters) {
-            if (char.name && lowerPrompt.includes(char.name.toLowerCase())) {
-                this.activeCharacters.push(char);
+        let textCopy = text.replace(/Characters:\n[\s\S]*?(?=\n\nDialogue:|\n\nAction\/Visuals:|$)/is, '')
+                           .replace(/Master Prompt:\s*[\s\S]*?(?=\n\nCharacters:|\n\nDialogue:|\n\nAction\/Visuals:|$)/is, '');
+        const sortedChars = [...this.projectData.characters].sort((a, b) => (b.name || '').length - (a.name || '').length);
+        const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        for (const char of sortedChars) {
+            if (char.name) {
+                const nameRegex = new RegExp(`(?<=^|[^\\p{L}\\p{N}_])${escapeRegExp(char.name)}(?=[^\\p{L}\\p{N}_]|$)`, 'giu');
+                if (nameRegex.test(textCopy)) {
+                    this.activeCharacters.push(char);
+                    textCopy = textCopy.replace(nameRegex, ' '.repeat(char.name.length));
+                }
             }
         }
     }
@@ -3325,10 +3351,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   addCharacterToPrompt(char: any) {
     if (char && char.name) {
-        if (this.globalPromptText && !this.globalPromptText.endsWith(' ') && !this.globalPromptText.endsWith('\n')) {
-            this.globalPromptText += ', ';
+        const actionMatch = this.globalPromptText?.match(/Action\/Visuals:\s*/i);
+        if (actionMatch) {
+            const insertIndex = actionMatch.index! + actionMatch[0].length;
+            this.globalPromptText = this.globalPromptText.slice(0, insertIndex) + char.name + ' ' + this.globalPromptText.slice(insertIndex);
+        } else {
+            if (this.globalPromptText && !this.globalPromptText.endsWith(' ') && !this.globalPromptText.endsWith('\n')) {
+                this.globalPromptText += ', ';
+            }
+            this.globalPromptText += char.name;
         }
-        this.globalPromptText += char.name;
         this.updatePrompt(this.globalPromptText);
         
         // Refresh the node to rebuild the Characters section with the new character's details
@@ -3346,7 +3378,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const charNameEscaped = escapeRegExp(char.name);
     
     // Loại bỏ tên nhân vật và các dấu câu thừa xung quanh (như phẩy, khoảng trắng)
-    const nameRegex = new RegExp(`[,\\s]*\\b${charNameEscaped}\\b[,\\s]*`, 'gi');
+    const nameRegex = new RegExp(`[,\\s]*(?<=^|[^\\p{L}\\p{N}_])${charNameEscaped}(?=[^\\p{L}\\p{N}_]|$)[,\\s]*`, 'giu');
 
     const sd = this.selectedNode.data?.sceneData;
 

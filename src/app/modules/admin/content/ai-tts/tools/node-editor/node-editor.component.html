@@ -374,7 +374,7 @@
         </div>
 
         <!-- Regular Attached Files Preview -->
-        <div *ngIf="getRegularFiles().length > 0" class="flex flex-wrap gap-2 px-3 pb-2">
+        <div *ngIf="getRegularFiles().length > 0" class="flex flex-wrap gap-2 px-2 pb-2">
             <div *ngFor="let f of getRegularFiles()" class="relative group w-16 h-16 rounded-lg overflow-hidden bg-gray-50">
                 <img *ngIf="f.mimeType.startsWith('image/')" [src]="f.url" class="w-full h-full object-cover">
                 <video *ngIf="f.mimeType.startsWith('video/')" [src]="f.url" class="w-full h-full object-cover"></video>
@@ -389,7 +389,7 @@
         </div>
 
         <!-- Large Character Avatar Preview -->
-        <div *ngIf="editingType === 'character' && editingCharacter" class="px-3 pb-2 w-full flex justify-start">
+        <div *ngIf="editingType === 'character' && editingCharacter" class="px-2 pb-2 w-full flex justify-start">
             <div class="relative group w-full max-w-[200px] sm:max-w-[300px] rounded-xl overflow-hidden bg-transparent transition-all">
                 <img *ngIf="editingCharacter.avatarUrl" [src]="getSafeUrl(editingCharacter.avatarUrl)" class="w-full h-auto object-cover max-h-[250px]">
                 <div *ngIf="!editingCharacter.avatarUrl" class="w-full h-[150px] flex items-center justify-center bg-gray-100">
@@ -403,7 +403,7 @@
         </div>
 
         <!-- Main Input Area -->
-        <div class="px-2 py-1">
+        <div class="px-2 py-2">
             <textarea
                 cdkTextareaAutosize
                 cdkAutosizeMinRows="1"
