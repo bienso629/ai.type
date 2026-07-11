@@ -1525,7 +1525,6 @@
                                             </div>
                                         </div>
                                     </mat-expansion-panel>
-
                                     <mat-expansion-panel [expanded]="true" *ngIf="arr_keyword.length > 0">
                                         <mat-expansion-panel-header #keywords>
                                             <mat-panel-title (click)="keywords._toggle()" class="flex items-center">
@@ -2605,6 +2604,11 @@
                                         <mat-icon class="icon-size-4" svgIcon="feather:pocket"></mat-icon>
                                         <mat-label>Tạo thành {{ styles.length * selectedItems.size }}
                                             bài</mat-label>
+                                    </button>
+
+                                    <button mat-menu-item (click)="findKeyword()">
+                                        <mat-icon class="icon-size-4" svgIcon="feather:tag"></mat-icon>
+                                        <mat-label>Tìm từ khoá</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="clear()">

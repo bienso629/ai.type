@@ -2389,60 +2389,74 @@ ${content}`;
         this.arr_keyword = [];
         let okia = '';
 
-        for (var k in this.source) {
-            if (this.source.hasOwnProperty(k)) {
-                this.stepper.selectedIndex = 0;
-                if (this.source[k] && this.source[k].length > 0) {
-                    this.source[k].map((content: string, _index: number) => {
-                        // remove tất cả html trong đoạn này
-                        okia += this.removeHTML.transform(content) + ' ';
-                    });
+        if (this.done && this.done.length > 0) {
+            this.done.map((content: any) => {
+                if (typeof content === 'string') {
+                    // remove tất cả html trong đoạn này
+                    okia += this.removeHTML.transform(content) + ' ';
                 }
-            } else {
-                this.alert('Không thể phân tích từ khoá');
-            }
+            });
         }
 
         if (okia && okia.length > 0) {
+            // Giới hạn độ dài xuống 3000 để tránh lỗi Internal Server Error (500) từ backend NLP với văn bản quá dài
+            let safeContent = okia.substring(0, 3000);
+            
+            this.stepper.selectedIndex = 0;
+            this.selectedIndex = 0;
+            this.cd.markForCheck();
+            
             this._blogService
                 .keywords({
-                    content: okia,
+                    content: safeContent,
                 })
                 .pipe(takeUntil(this._unsubscribeAll))
                 .subscribe({
                     next: async (result) => {
+                        this.stepper.selectedIndex = 0;
+                        this.selectedIndex = 0;
+                        
                         if (result && result.success && result.data) {
                             let str = result.data[1];
-                            let arr = str.split(' ');
+                            let arr = (str || '').split(' ');
 
                             arr.map((item: string) => {
                                 if (item.indexOf('_') >= 0) {
-                                    str = item
+                                    let kw = item
                                         .replace(
                                             /[@!^&\/\\#,+()$~%.'":*?<>{}\[\]]/g,
                                             '',
                                         )
                                         .replace(/[_]/g, ' ');
 
-                                    if (!this.arr_keyword.includes(str)) {
-                                        this.arr_keyword.push(str);
+                                    if (!this.arr_keyword.includes(kw)) {
+                                        this.arr_keyword.push(kw);
                                     }
-
-                                    // this.source[k][index] = this.source[k][index].replace(new RegExp(str, "gi"), _ => {
-                                    //     return `<span class="text-keyword text-keyword-${str.replace(/\s+/g, '-')}">${str}</span>`;
-                                    // });
                                 }
                             });
+                            
+                            if (this.arr_keyword.length === 0) {
+                                this.toastr.warning(`Máy chủ xử lý thành công nhưng không tìm thấy từ khoá ghép nào trong đoạn văn.`, '0 từ khoá');
+                            } else {
+                                this.toastr.success(`Tìm thấy ${this.arr_keyword.length} từ khoá trong Dàn ý.`);
+                            }
+                        } else {
+                            this.toastr.warning('Máy chủ không trả về dữ liệu từ khoá.', 'Lỗi dữ liệu');
                         }
+                        this.cd.markForCheck();
                     },
-                    error: () => { },
+                    error: (err) => { 
+                        this.stepper.selectedIndex = 0;
+                        this.selectedIndex = 0;
+                        this.toastr.error('Máy chủ NLP báo lỗi hoặc không thể xử lý đoạn văn này (Lỗi 500).', 'Lỗi máy chủ');
+                        this.cd.markForCheck();
+                    },
                     complete: () => {
-                        this.toastr.success(`Phân tích từ khoá xong.`);
-
-                        // lam moi lai giao dien
                         this.cd.markForCheck();
                     },
                 });
+        } else {
+            this.toastr.warning('Dàn ý chưa có nội dung chữ nào để tìm từ khoá!', 'Trống');
         }
     }
 

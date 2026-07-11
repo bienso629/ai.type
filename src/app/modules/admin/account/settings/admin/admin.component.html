@@ -172,7 +172,7 @@
 
                         <ngx-datatable-column name="Gói (tháng)" prop="months" [width]="120" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
-                                {{ value }}
+                                <span class="text-green-600 font-semibold">{{ value }}</span>
                             </ng-template>
                         </ngx-datatable-column>
 
@@ -184,7 +184,7 @@
 
                         <ngx-datatable-column name="Số tiền" prop="amount" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
-                                {{ value | number }} đ
+                                <span class="text-green-600 font-semibold">{{ value | number }} đ</span>
                             </ng-template>
                         </ngx-datatable-column>
 

@@ -65,7 +65,7 @@
             "entitlements": "build/entitlements.mac.plist",
             "entitlementsInherit": "build/entitlements.mac.plist",
             "target": [
-                "dmg"
+                "zip"
             ],
             "identity": "7Q9KE7THG2",
             "extendInfo": {
