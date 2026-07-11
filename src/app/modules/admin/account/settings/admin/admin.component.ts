@@ -221,6 +221,19 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         settings.enableAiAgent = this.enableAiAgent;
         this.multiAccountService.setItem('settings', settings);
 
+        // Save to cloud so it doesn't reset on reload
+        const editor = this.multiAccountService.getItem('editor');
+        const following_users = this.multiAccountService.getItem('following_users');
+        this._userClientService.updateProfile({
+            profile: {
+                settings: settings,
+                active_info: this.multiAccountService.getItem('active_info'),
+                editor: (editor && editor !== 'undefined') ? editor : {},
+                following_users: (following_users && following_users !== 'undefined') ? following_users : [],
+            },
+            username: this.user.name
+        }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+
         // Tell Electron to start/stop agent if possible
         if ((window as any).electronAPI && (window as any).electronAPI.toggleAiAgent) {
             try {

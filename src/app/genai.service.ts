@@ -375,7 +375,21 @@ export class GenaiService {
             }
         }
 
-        formData.append('prompt', promptText.trim() || 'Xin chào');
+        let finalPrompt = promptText.trim() || 'Xin chào';
+        if (params.config && (params.config as any).imageConfig) {
+            const imgConfig = (params.config as any).imageConfig;
+            if (imgConfig.aspectRatio) {
+                finalPrompt += `\n[Yêu cầu kỹ thuật: Tỉ lệ khung hình (Aspect Ratio) là ${imgConfig.aspectRatio}]`;
+            }
+            if (imgConfig.imageSize) {
+                finalPrompt += `\n[Yêu cầu kỹ thuật: Kích thước là ${imgConfig.imageSize}]`;
+            }
+        }
+        formData.append('prompt', finalPrompt);
+        
+        if (params.model && !params.model.includes('imagen')) {
+            formData.append('model', params.model);
+        }
         
         let sysContent = 'Bạn là trợ lý AI thông minh đa phương tiện.';
         if (params.config && params.config.systemInstruction) {
@@ -390,6 +404,9 @@ export class GenaiService {
         try {
             const response = await fetch('http://127.0.0.1:54321/api/chat', {
                 method: 'POST',
+                headers: {
+                    'x-api-key': 'type-vn-local-agent-2026'
+                },
                 body: formData
             });
 
@@ -403,6 +420,16 @@ export class GenaiService {
             }
 
             const replyText = data.result || '';
+            const parts: any[] = [{ text: replyText }];
+            
+            if (data.image_base64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'image/png',
+                        data: data.image_base64
+                    }
+                });
+            }
 
             return {
                 get text() {
@@ -411,7 +438,7 @@ export class GenaiService {
                 candidates: [
                     {
                         content: {
-                            parts: [{ text: replyText }],
+                            parts: parts,
                             role: 'model'
                         }
                     }

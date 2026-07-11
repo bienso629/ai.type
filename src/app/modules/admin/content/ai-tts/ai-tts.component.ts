@@ -1034,20 +1034,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
     async createVideo() {
         this.isAnalyzing = true;
 
-        // 1. Lấy thông tin cấu hình AI từ Settings
-        this.settings = this.multiAccountService.getItem('settings');
-
-        this.secretKey = this.settings.secretKey
-            ? this.settings.secretKey.split(';')
-            : undefined;
-
-        if (!this.secretKey) {
-            this.toastr.error(
-                'Thiếu API Key cho AI. Vui lòng kiểm tra cài đặt.',
-            );
-            this.isAnalyzing = false;
-            return;
-        }
+        // Đã bỏ check API key vì bây giờ hệ thống gọi qua AI Agent (agy) cục bộ
 
         // let geminiKey = this.secretKey[6] || this.secretKey[0];
         // this.ai = new GoogleGenAI({ apiKey: geminiKey });
