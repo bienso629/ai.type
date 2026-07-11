@@ -54,28 +54,30 @@ export class DashboardComponent implements OnInit, OnDestroy {
     activeDomainsStatus: { text: string, color: string, icon: string } = { text: 'Cần tối ưu thêm', color: 'text-red-600', icon: 'trending_down' };
     avgArticlesStatus: { text: string, color: string, icon: string } = { text: 'Đạt mục tiêu', color: 'text-green-600', icon: 'trending_up' };
     
-    domainTargets: { [key: string]: number } = JSON.parse(localStorage.getItem('domainTargets') || '{}');
+    domainTargets: { [key: string]: any } = JSON.parse(localStorage.getItem('domainTargets') || '{}');
     
     @ViewChild('targetDialogTemplate') targetDialogTemplate: TemplateRef<any>;
 
-    getTargetFor(domain: string): number {
-        return this.domainTargets[domain] !== undefined && this.domainTargets[domain] !== null ? this.domainTargets[domain] : 50;
+    getTargetFor(domain: string, month: number): number {
+        if (!this.domainTargets) return 0;
+        let target = this.domainTargets[domain];
+        if (target === undefined) return 0;
+        if (typeof target === 'number') return target;
+        
+        if (target[month] !== undefined && target[month] !== null) return target[month];
+        
+        // Fallback to the nearest previous month
+        for (let m = month - 1; m >= 1; m--) {
+            if (target[m] !== undefined && target[m] !== null) return target[m];
+        }
+        // Fallback to future month if no previous is set
+        for (let m = month + 1; m <= 12; m++) {
+            if (target[m] !== undefined && target[m] !== null) return target[m];
+        }
+        return 0;
     }
 
-    toggleEditTarget() {
-        this._matDialog.open(this.targetDialogTemplate, {
-            width: '450px',
-            disableClose: false
-        });
-    }
 
-    saveTargets() {
-        localStorage.setItem('domainTargets', JSON.stringify(this.domainTargets));
-        this.updateChart();
-        this._changeDetectorRef.markForCheck();
-        this._matDialog.closeAll();
-    }
-    
     selectedDomain: string = 'all';
     selectedMonth: string = 'all';
     selectedYear: number = new Date().getFullYear();
@@ -164,7 +166,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         if (result.data.styles && result.data.styles.length > 0) this.multiAccountService.setItem('styles', result.data.styles);
                         if (result.data.editor) this.multiAccountService.setItem('editor', result.data.editor);
                         if (result.data.following_users) this.multiAccountService.setItem('following_users', result.data.following_users);
-                        if (result.data.settings) this.multiAccountService.setItem('settings', result.data.settings);
+                        if (result.data.settings) {
+                             this.multiAccountService.setItem('settings', result.data.settings);
+                             if (result.data.settings.domainTargets) {
+                                 this.domainTargets = result.data.settings.domainTargets;
+                                 localStorage.setItem('domainTargets', JSON.stringify(this.domainTargets));
+                                 this.updateChart();
+                             }
+                        }
                     }
                 },
                 error: () => { this.checkInitialLoad(); },
@@ -525,14 +534,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             }
             if (activeMonthsCount === 0) activeMonthsCount = 1;
             
-            this.totalArticles = total;
-            this.activeDomains = activeDoms.size;
-            let totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
-            // Tính trung bình mỗi tháng trên 1 domain (để so sánh với mục tiêu hàng tháng)
-            // Phải chia cho TỔNG SỐ DOMAIN user có, không phải chỉ domain đang hoạt động
-            this.avgArticles = Math.round(total / activeMonthsCount / totalDomainsCount);
-            
-            // Evaluation logic
+            // Evaluation logic for total articles comparison
             let currentPeriodTotal = 0;
             let previousPeriodTotal = 0;
             
@@ -552,6 +554,14 @@ export class DashboardComponent implements OnInit, OnDestroy {
                  }
             }
 
+            this.totalArticles = total;
+            this.activeDomains = activeDoms.size;
+            let totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
+            
+            // Tính trung bình bài viết TRONG THÁNG (hoặc tháng gần nhất có data) để so sánh trực tiếp với mục tiêu hàng tháng
+            let periodTotalForAvg = this.selectedMonth === 'all' ? currentPeriodTotal : total;
+            this.avgArticles = Math.round(periodTotalForAvg / totalDomainsCount);
+
             if (currentPeriodTotal >= previousPeriodTotal) {
                  this.totalArticlesStatus = { text: 'Tăng trưởng tốt', color: 'text-blue-600', icon: 'trending_up' };
             } else {
@@ -565,14 +575,23 @@ export class DashboardComponent implements OnInit, OnDestroy {
                  this.activeDomainsStatus = { text: 'Hoạt động yếu', color: 'text-red-600', icon: 'trending_down' };
             }
             
+            let evalMonth = 1;
+            if (this.selectedMonth !== 'all') {
+                 evalMonth = parseInt(this.selectedMonth, 10);
+            } else {
+                 let lastActiveMonth = 11;
+                 while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
+                 evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 1;
+            }
+
             let totalTargetForAllDomains = 0;
             if (this.allDomains && this.allDomains.length > 0) {
                 this.allDomains.forEach(d => {
-                     totalTargetForAllDomains += this.getTargetFor(d.domain);
+                     totalTargetForAllDomains += this.getTargetFor(d.domain, evalMonth);
                 });
             } else {
                 activeDoms.forEach(d => {
-                     totalTargetForAllDomains += this.getTargetFor(d as string);
+                     totalTargetForAllDomains += this.getTargetFor(d as string, evalMonth);
                 });
             }
             
@@ -587,6 +606,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
                  this.avgArticlesStatus = { text: 'Chưa đạt mục tiêu', color: 'text-red-600', icon: 'trending_down' };
             }
             
+            // Calculate the first active month for each domain to estimate historical domain counts
+            let currentMonthNum = new Date().getMonth() + 1;
+            let domainCreatedMonth: { [key: string]: number } = {};
+            this.allDomains.forEach(dom => {
+                 let d = dom.domain;
+                 let firstActive = 12; // default to end of year
+                 let found = false;
+                 if (domainStatsData[d]) {
+                     for (let m = 1; m <= 12; m++) {
+                         if (domainStatsData[d][m] > 0) {
+                             firstActive = m;
+                             found = true;
+                             break;
+                         }
+                     }
+                 }
+                 // If a domain never published, assume it was created in the current month
+                 domainCreatedMonth[d] = found ? firstActive : currentMonthNum;
+            });
+
             // Tính toán data thật cho các biểu đồ mini theo từng tháng
             let monthlyActiveDomains = new Array(12).fill(0);
             let monthlyAvg = new Array(12).fill(0);
@@ -597,8 +636,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
                     if (domainStatsData[d][m] > 0) activeCount++;
                 }
                 monthlyActiveDomains[m-1] = activeCount;
-                // Trung bình bài viết của TẤT CẢ domain trong tháng m
-                monthlyAvg[m-1] = Math.round(monthlyTotals[m-1] / totalDomainsCount);
+                
+                // Đếm số domain đã tồn tại tính đến tháng m
+                let domainsExistedInMonth = 0;
+                this.allDomains.forEach(dom => {
+                     if (domainCreatedMonth[dom.domain] <= m) domainsExistedInMonth++;
+                });
+                if (domainsExistedInMonth === 0) domainsExistedInMonth = 1;
+                
+                // Trung bình bài viết của TẤT CẢ domain đã tồn tại trong tháng m
+                monthlyAvg[m-1] = Math.round(monthlyTotals[m-1] / domainsExistedInMonth);
             }
             
             const commonSparklineConfig = {
