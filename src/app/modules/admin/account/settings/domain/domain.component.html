@@ -15,10 +15,15 @@
     <div class="mt-8">
         <div class="flex justify-between items-center mb-4 px-2">
             <div class="text-xl font-bold text-secondary">Chỉ tiêu & Kết quả</div>
-            <div class="w-48">
-                <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-full">
+            <div class="w-72 flex gap-4">
+                <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-1/2">
                     <mat-select [(value)]="selectedMonthNum" (selectionChange)="onMonthChange()">
                         <mat-option *ngFor="let m of months" [value]="m">Tháng {{m}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-1/2">
+                    <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange()">
+                        <mat-option *ngFor="let y of years" [value]="y">Năm {{y}}</mat-option>
                     </mat-select>
                 </mat-form-field>
             </div>

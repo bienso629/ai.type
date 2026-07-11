@@ -75,11 +75,9 @@
                 </div>
 
                 <!-- Card 3 -->
-                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
+                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col" *ngIf="domainChartOptions">
                     <div class="p-6 pb-4">
-                        <div class="flex justify-between items-center text-lg font-medium text-secondary">
-                            <span>Trung bình bài / Domain</span>
-                        </div>
+                        <div class="text-lg font-medium text-secondary">Trung bình bài tháng {{evalMonthToDisplay < 10 ? '0' + evalMonthToDisplay : evalMonthToDisplay}} / Domain</div>
                         <div class="text-4xl font-bold mt-2">{{avgArticles}}</div>
                         <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="avgArticlesStatus.color">
                             <mat-icon class="icon-size-4 mr-1 text-current">{{avgArticlesStatus.icon}}</mat-icon> {{avgArticlesStatus.text}}
@@ -87,13 +85,19 @@
                     </div>
                     <div class="h-16 mt-auto">
                         <apx-chart 
-                            [series]="sparkline3.series" [chart]="sparkline3.chart" [stroke]="sparkline3.stroke" 
-                            [fill]="sparkline3.fill" [colors]="sparkline3.colors" [tooltip]="sparkline3.tooltip"
-                            [grid]="sparkline3.grid" [xaxis]="sparkline3.xaxis" [yaxis]="sparkline3.yaxis"
-                            [dataLabels]="sparkline3.dataLabels" [markers]="sparkline3.markers">
+                            [series]="domainChartOptions.series" 
+                            [chart]="domainChartOptions.chart" 
+                            [colors]="domainChartOptions.colors"
+                            [dataLabels]="domainChartOptions.dataLabels" 
+                            [stroke]="domainChartOptions.stroke"
+                            [xaxis]="domainChartOptions.xaxis" 
+                            [yaxis]="domainChartOptions.yaxis"
+                            [legend]="domainChartOptions.legend"
+                            [grid]="domainChartOptions.grid">
                         </apx-chart>
                     </div>
                 </div>
+
             </div>
             
         </div>

@@ -28,7 +28,9 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     domainStatsData: any = {};
     currentMonthNum: number = new Date().getMonth() + 1;
     selectedMonthNum: number = new Date().getMonth() + 1;
+    selectedYear: number = new Date().getFullYear();
     months = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12];
+    years = [2024, 2025, 2026, 2027, 2028];
 
     showPassword: boolean = false;
     ColumnMode = ColumnMode;
@@ -62,16 +64,26 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         if (!this.domainTargets) return 0;
         let target = this.domainTargets[domain];
         if (target === undefined) return 0;
-        if (typeof target === 'number') return target;
+        if (typeof target === 'number') return target; // Legacy compatibility
         
-        if (target[month] !== undefined && target[month] !== null) return target[month];
+        let yearTarget = target[this.selectedYear];
+        let legacyTarget = target[month]; // From old structure
         
+        if (yearTarget && yearTarget[month] !== undefined && yearTarget[month] !== null) return yearTarget[month];
+        if (legacyTarget !== undefined && legacyTarget !== null && typeof legacyTarget === 'number') return legacyTarget;
+        
+        // Fallback backward...
+        if (yearTarget) {
+            for (let m = month - 1; m >= 1; m--) {
+                if (yearTarget[m] !== undefined && yearTarget[m] !== null) return yearTarget[m];
+            }
+        }
+        
+        // legacy fallback
         for (let m = month - 1; m >= 1; m--) {
-            if (target[m] !== undefined && target[m] !== null) return target[m];
+            if (typeof target[m] === 'number') return target[m];
         }
-        for (let m = month + 1; m <= 12; m++) {
-            if (target[m] !== undefined && target[m] !== null) return target[m];
-        }
+        
         return 0;
     }
 
@@ -138,6 +150,10 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         });
         this.rows = [...this.rows];
     }
+    
+    onYearChange() {
+        this.onMonthChange();
+    }
 
     updateValue(event, cell, rowIndex) {
         this.editing[rowIndex + '-' + cell] = false;
@@ -155,7 +171,13 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         if (!settings.domainTargets[domain] || typeof settings.domainTargets[domain] === 'number') {
              settings.domainTargets[domain] = {};
         }
-        settings.domainTargets[domain][this.selectedMonthNum] = target;
+        
+        let y = this.selectedYear;
+        if (!settings.domainTargets[domain][y]) {
+            settings.domainTargets[domain][y] = {};
+        }
+        
+        settings.domainTargets[domain][y][this.selectedMonthNum] = target;
         this.domainTargets[domain] = settings.domainTargets[domain];
         
         this.multiAccountService.setItem('settings', settings);

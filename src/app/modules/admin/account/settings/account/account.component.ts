@@ -65,7 +65,8 @@ export class SettingsAccountComponent implements OnInit {
         if (this.accountForm.invalid) {
             this.toastr.error('Lưu cấu hình thất bại.');
         } else {
-            let settings: any = this.accountForm.value;
+            let currentSettings = this.multiAccountService.getItem('settings') || {};
+            let settings: any = { ...currentSettings, ...this.accountForm.value };
             const editor = this.multiAccountService.getItem('editor');
             const following_users = this.multiAccountService.getItem('following_users');
 
