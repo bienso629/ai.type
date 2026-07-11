@@ -61,7 +61,14 @@ export class HelperService {
             }
 
             if (start !== -1) {
-                jsonText = jsonText.substring(start);
+                const isArray = jsonText[start] === '[';
+                const endChar = isArray ? ']' : '}';
+                const end = jsonText.lastIndexOf(endChar);
+                if (end !== -1 && end >= start) {
+                    jsonText = jsonText.substring(start, end + 1);
+                } else {
+                    jsonText = jsonText.substring(start);
+                }
             }
 
             // 3. Remove invalid escape characters like \_

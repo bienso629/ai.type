@@ -59,6 +59,7 @@ interface NodeConnection {
   }
 })
 export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy {
+    isAiAgentEnabled: boolean = false;
   @ViewChild('workspace', { static: true }) workspace!: ElementRef;
   @ViewChild('contextMenuTrigger') contextMenuTrigger!: MatMenuTrigger;
   @ViewChild('avatarFileInput') avatarFileInput!: ElementRef<HTMLInputElement>;
@@ -175,6 +176,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   ngOnInit(): void {
+    this.multiAccountService.activeAccount$.subscribe(sessionData => {
+        if (sessionData && sessionData.settings) {
+            this.isAiAgentEnabled = sessionData.settings.enableAiAgent === true;
+        } else {
+            this.isAiAgentEnabled = false;
+        }
+        this.cdr.detectChanges();
+    });
+
     this.mouseMoveListener = this.onMouseMoveOutside.bind(this);
     this.mouseUpListener = this.onMouseUpOutside.bind(this);
     this.ngZone.runOutsideAngular(() => {
@@ -318,11 +328,28 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                        node.inputs = []; // Ensure TTS nodes don't have input ports
                    } else if (node.type === 'storyboard') {
                         node.data.sceneData = scene;
-                   }
+                    }
+                 }
+              }
+           });
+        }
+        
+        // Auto-fix overlapping TTS nodes for backward compatibility
+        this.nodes.forEach(node => {
+            if (node.type === 'tts') {
+                const conn = this.connections.find(c => c.fromNode === node.id && c.toPort === 'tts_in');
+                if (conn) {
+                    const vidNode = this.nodes.find(n => n.id === conn.toNode);
+                    if (vidNode) {
+                        const vidHeight = (vidNode.type === 'video' && vidNode.data?.aspectRatio === '9:16') ? 550 : 320;
+                        if (node.y < vidNode.y + vidHeight - 50) {
+                            node.y = vidNode.y + vidHeight;
+                            node.baseY = node.y;
+                        }
+                    }
                 }
-             }
-          });
-       }
+            }
+        });
        
        const compNode = this.nodes.find(n => n.id === 'comp_final');
        if (compNode) {
@@ -354,6 +381,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       baseX: data.scenes.length * 450 + 150, baseY: 300
     };
 
+    let maxNodeY = 600;
     data.scenes.forEach((scene: any, index: number) => {
       const sceneX = startX + index * 450;
       const yOffset = Math.floor(Math.random() * 300) - 150; 
@@ -377,17 +405,24 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       let ttsDuration = 0;
       let usedClipIds = new Set<string>();
 
+      let ttsY = 450;
+      if (aspectRatio === '9:16') ttsY = 700;
+      else if (aspectRatio === '1:1' || aspectRatio === '3:4' || aspectRatio === '4:3') ttsY = 550;
+
       if (scene.subtitles && scene.subtitles.length > 0) {
         scene.subtitles.forEach((s: any) => usedClipIds.add(s.id));
         const sub = scene.subtitles[0];
         ttsDuration = sub.duration ? Math.round(sub.duration) : 5;
         this.nodes.push({
           id: ttsNodeId, type: 'tts', title: sub.text || 'Text to Speech', subtitle: `${ttsDuration}s`,
-          x: sceneX, y: 450 + yOffset, inputs: [], outputs: ['out'],
+          x: sceneX, y: ttsY + yOffset, inputs: [], outputs: ['out'],
           data: { text: sub.text, duration: `00:${ttsDuration.toString().padStart(2, '0')}`, audioUrl: sub.audioUrl, sceneData: scene, sceneIndex: index, showOnCanvas: true },
-          baseX: sceneX, baseY: 450 + yOffset
+          baseX: sceneX, baseY: ttsY + yOffset
         });
         hasTts = true;
+        maxNodeY = Math.max(maxNodeY, ttsY + yOffset + 150);
+      } else {
+        maxNodeY = Math.max(maxNodeY, 150 + yOffset + (aspectRatio === '9:16' ? 530 : 380));
       }
 
       const visualUrl = videoUrl || imageUrl || null;
@@ -425,7 +460,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
     if (data.originalClips && data.originalClips.length > 0) {
       let floatingX = 150;
-      let floatingY = 600;
+      let floatingY = maxNodeY + 50;
       data.originalClips.forEach((clip: any) => {
           // Xử lý id (vì trong AI trả về có thể là số, nhưng clip.id có thể là string/số)
           if (!this.nodes.find(n => n.type === 'tts' && n.data?.text === clip.description)) {
@@ -508,11 +543,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.saveEditorState();
   }
 
+  getNodeWidth(n: any): number {
+    return n.type === 'composition' ? 540 : ((n.type === 'video' || n.type === 'storyboard') ? (n.data?.aspectRatio === '9:16' ? 240 : 360) : 280);
+  }
+
   calculateCanvasSize() {
     let maxRight = 0;
     let maxBottom = 0;
     this.nodes.forEach(n => {
-      const nodeWidth = n.type === 'composition' ? 540 : (n.type === 'video' || n.type === 'storyboard' ? 360 : 280);
+      const nodeWidth = this.getNodeWidth(n);
       if (n.x + nodeWidth > maxRight) maxRight = n.x + nodeWidth;
       if (n.y + 300 > maxBottom) maxBottom = n.y + 300;
     });
@@ -546,7 +585,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     if (!from || !to) return '';
 
     let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : (from.type === 'storyboard' ? 140 : 250));
-    let fromWidth = from.type === 'video' || from.type === 'composition' || from.type === 'storyboard' ? 360 : 280;
+    let fromWidth = this.getNodeWidth(from);
     let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 130 : (to.type === 'storyboard' ? 140 : 250));
 
     const fromX = from.x + fromWidth; 
@@ -574,7 +613,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     if (!from) return '';
     
     let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : (from.type === 'storyboard' ? 140 : 250));
-    let fromWidth = from.type === 'video' || from.type === 'composition' || from.type === 'storyboard' ? 360 : 280;
+    let fromWidth = this.getNodeWidth(from);
     
     const fromX = from.x + fromWidth; 
     const fromY = from.y + (fromHeight / 2); 
@@ -1391,13 +1430,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       let targetModality = forceModality || 'IMAGE';
       if (!forceModality) {
           const lowerModel = (this.selectedModel || '').toLowerCase();
-          if (lowerModel.includes('audio') || lowerModel.includes('tts') || lowerModel.includes('speech')) {
+          if (this.selectedNode?.type === 'tts') {
+              targetModality = 'AUDIO';
+          } else if (lowerModel.includes('audio') || lowerModel.includes('tts') || lowerModel.includes('speech')) {
               targetModality = 'AUDIO';
           } else if (lowerModel.includes('video') || lowerModel.includes('kling') || lowerModel.includes('luma') || lowerModel.includes('runway') || lowerModel.includes('sora') || lowerModel.includes('haiper') || lowerModel.includes('wan') || lowerModel.includes('minimax') || lowerModel.includes('veo') || lowerModel.includes('hunyuan') || lowerModel.includes('doubao') || lowerModel.includes('seedance')) {
               targetModality = 'VIDEO';
-          }
-          if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
+          } else if (lowerModel.includes('image') || lowerModel.includes('dall-e')) {
               targetModality = 'IMAGE';
+          } else {
+              targetModality = (this.editingType === 'scene' || this.editingType === 'master') ? 'VIDEO' : 'IMAGE';
           }
       }
 
