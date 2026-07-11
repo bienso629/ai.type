@@ -98,7 +98,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
         const listener = (_event, data) => callback(data);
         ipcRenderer.on('send-email-progress', listener);
         return () => ipcRenderer.removeListener('send-email-progress', listener);
-    }
+    },
+    toggleAiAgent: (enable) => ipcRenderer.invoke('toggle-ai-agent', enable)
 });
 
 // Tìm đoạn IIFE Dreamina trong preload.js và thay thế bằng logic này:

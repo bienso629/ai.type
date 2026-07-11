@@ -3040,7 +3040,69 @@ function startSttServer() {
     });
 }
 
+// --- MULTIMODAL AI AGENT ---
+let aiAgentProcess = null;
+const aiAgentConfigPath = path.join(app.getPath('userData'), 'ai_agent_config.json');
+
+function isAiAgentEnabled() {
+    try {
+        if (fs.existsSync(aiAgentConfigPath)) {
+            const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
+            return data.enable === true;
+        }
+    } catch (err) { }
+    return false;
+}
+
+function startAiAgent() {
+    if (aiAgentProcess) return;
+    try {
+        const agentPath = path.join(__dirname, '..', 'ai_agent_linux');
+        if (fs.existsSync(agentPath)) {
+            aiAgentProcess = spawn(agentPath, [], { stdio: 'ignore' });
+            aiAgentProcess.on('error', (err) => console.error('[AI Agent] Lỗi khởi chạy:', err));
+            console.log('[AI Agent] Đã khởi chạy tại port 54321');
+        } else {
+            console.warn('[AI Agent] Không tìm thấy file thực thi:', agentPath);
+        }
+    } catch (e) {
+        console.error('[AI Agent] Lỗi start:', e);
+    }
+}
+
+function stopAiAgent() {
+    if (aiAgentProcess) {
+        try {
+            aiAgentProcess.kill();
+            aiAgentProcess = null;
+            console.log('[AI Agent] Đã tắt');
+        } catch (e) { }
+    }
+}
+
+ipcMain.handle('toggle-ai-agent', (event, enable) => {
+    try {
+        fs.writeFileSync(aiAgentConfigPath, JSON.stringify({ enable }), 'utf8');
+        if (enable) {
+            startAiAgent();
+        } else {
+            stopAiAgent();
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+app.on('will-quit', () => {
+    stopAiAgent();
+});
+
 app.whenReady().then(async () => {
+    if (isAiAgentEnabled()) {
+        startAiAgent();
+    }
+
     startCrmServices();
     startFallbackServer();
     const resolveMediaPath = (originalUrl) => {

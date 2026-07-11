@@ -256,10 +256,17 @@ export class GenaiService {
         this._start(scope);
         try {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
-            if (this.isUModelverseEnabled() && !bypassUModelverse) {
+            const settingsRaw = this.multiAccountService.getItem('settings');
+            const isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
+
+            if (isAiAgentEnabled && !bypassUModelverse) {
+                // Ưu tiên AI Agent cục bộ (Local Standalone Agent) cao nhất
+                return await this.generateWithAiAgent(params);
+            } else if (this.isUModelverseEnabled() && !bypassUModelverse) {
+                // Ưu tiên số 2: Mì Tôm AI (Proxy)
                 return await this.generateWithUModelverse(params);
             } else {
-                const settingsRaw = this.multiAccountService.getItem('settings');
+                // Ưu tiên cuối: API Key miễn phí (Google AI)
                 const keys = settingsRaw?.secretKey ? settingsRaw.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
 
                 if (keys.length === 0) {
@@ -325,6 +332,94 @@ export class GenaiService {
             throw error;
         } finally {
             this._stop(scope);
+        }
+    }
+
+    public async generateWithAiAgent(params: GenerateContentParameters): Promise<any> {
+        let promptText = '';
+        const formData = new FormData();
+
+        if (params.contents) {
+            const contentsArr = Array.isArray(params.contents) ? params.contents : [params.contents];
+            for (const content of contentsArr) {
+                const parts = (content as any).parts;
+                if (parts) {
+                    for (let i = 0; i < parts.length; i++) {
+                        const p = parts[i];
+                        if (p.text) {
+                            promptText += p.text + '\n';
+                        }
+                        if (p.inlineData) {
+                            const mimeType = p.inlineData.mimeType || 'image/jpeg';
+                            const b64Data = p.inlineData.data;
+                            
+                            // Chuyển base64 -> Blob -> File
+                            const byteChars = atob(b64Data);
+                            const byteArray = new Uint8Array(byteChars.length);
+                            for (let j = 0; j < byteChars.length; j++) {
+                                byteArray[j] = byteChars.charCodeAt(j);
+                            }
+                            const blob = new Blob([byteArray], { type: mimeType });
+                            
+                            let ext = 'jpg';
+                            if (mimeType.includes('png')) ext = 'png';
+                            else if (mimeType.includes('mp4')) ext = 'mp4';
+                            else if (mimeType.includes('wav')) ext = 'wav';
+                            else if (mimeType.includes('mp3')) ext = 'mp3';
+
+                            const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
+                            formData.append('files', file);
+                        }
+                    }
+                }
+            }
+        }
+
+        formData.append('prompt', promptText.trim() || 'Xin chào');
+        
+        let sysContent = 'Bạn là trợ lý AI thông minh đa phương tiện.';
+        if (params.config && params.config.systemInstruction) {
+            if (typeof params.config.systemInstruction === 'string') {
+                sysContent = params.config.systemInstruction;
+            } else if ((params.config.systemInstruction as any).parts) {
+                sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
+            }
+        }
+        formData.append('system_instructions', sysContent);
+
+        try {
+            const response = await fetch('http://127.0.0.1:54321/api/chat', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (!response.ok) {
+                throw new Error(`AI Agent phản hồi lỗi HTTP ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (!data.success) {
+                throw new Error(data.error || 'AI Agent xử lý thất bại');
+            }
+
+            const replyText = data.result || '';
+
+            return {
+                get text() {
+                    return replyText;
+                },
+                candidates: [
+                    {
+                        content: {
+                            parts: [{ text: replyText }],
+                            role: 'model'
+                        }
+                    }
+                ]
+            };
+        } catch (e: any) {
+            console.error('[AI Agent Error]', e);
+            throw new Error(`Không thể kết nối đến AI Agent (Port 54321): ${e.message}`);
         }
     }
 

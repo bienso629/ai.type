@@ -375,7 +375,7 @@ export class GeminiMatrixDialog {
                     color: 'primary'
                 },
                 cancel: {
-                    show: true,
+                    show: false,
                     label: 'Đóng cửa sổ'
                 }
             },

@@ -670,7 +670,7 @@ export class AIImageComponent
                     label: alert ? alert.confirm : 'Khởi động lại',
                     color: 'primary',
                 },
-                cancel: { show: true, label: 'Đóng cửa sổ' },
+                cancel: { show: false, label: 'Đóng cửa sổ' },
             },
             dismissible: true,
         });
