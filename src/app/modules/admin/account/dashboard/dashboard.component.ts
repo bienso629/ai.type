@@ -55,6 +55,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
     avgArticlesStatus: { text: string, color: string, icon: string } = { text: 'Đạt mục tiêu', color: 'text-green-600', icon: 'trending_up' };
     
     domainTargets: { [key: string]: any } = JSON.parse(localStorage.getItem('domainTargets') || '{}');
+    domainChartOptions: any;
+    evalMonthToDisplay: number;
     
     @ViewChild('targetDialogTemplate') targetDialogTemplate: TemplateRef<any>;
 
@@ -62,18 +64,26 @@ export class DashboardComponent implements OnInit, OnDestroy {
         if (!this.domainTargets) return 0;
         let target = this.domainTargets[domain];
         if (target === undefined) return 0;
-        if (typeof target === 'number') return target;
+        if (typeof target === 'number') return target; // Legacy compatibility
         
-        if (target[month] !== undefined && target[month] !== null) return target[month];
+        let yearTarget = target[this.selectedYear];
+        let legacyTarget = target[month]; // From old structure
         
-        // Fallback to the nearest previous month
+        if (yearTarget && yearTarget[month] !== undefined && yearTarget[month] !== null) return yearTarget[month];
+        if (legacyTarget !== undefined && legacyTarget !== null && typeof legacyTarget === 'number') return legacyTarget;
+        
+        // Fallback backward...
+        if (yearTarget) {
+            for (let m = month - 1; m >= 1; m--) {
+                if (yearTarget[m] !== undefined && yearTarget[m] !== null) return yearTarget[m];
+            }
+        }
+        
+        // legacy fallback
         for (let m = month - 1; m >= 1; m--) {
-            if (target[m] !== undefined && target[m] !== null) return target[m];
+            if (typeof target[m] === 'number') return target[m];
         }
-        // Fallback to future month if no previous is set
-        for (let m = month + 1; m <= 12; m++) {
-            if (target[m] !== undefined && target[m] !== null) return target[m];
-        }
+        
         return 0;
     }
 
@@ -678,6 +688,62 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 colors: ['#10b981'] // Green
             };
 
+            // Build Domain Detailed Chart for evalMonth
+            this.evalMonthToDisplay = evalMonth;
+            let domainNames = [];
+            let targetSeries = [];
+            let actualSeries = [];
+            
+            let domainsToChart = this.allDomains.length > 0 ? this.allDomains : Array.from(activeDoms).map(d => ({ domain: d }));
+            
+            domainsToChart.forEach(d => {
+                let domName = d.domain || d;
+                domainNames.push(domName);
+                
+                let target = this.getTargetFor(domName, evalMonth);
+                let actual = 0;
+                
+                if (domainStatsData[domName] && domainStatsData[domName][evalMonth]) {
+                    actual = domainStatsData[domName][evalMonth];
+                }
+                
+                targetSeries.push(target);
+                actualSeries.push(actual);
+            });
+            
+            this.domainChartOptions = {
+                series: [
+                    { name: 'Chỉ tiêu', type: 'line', data: targetSeries },
+                    { name: 'Thực tế', type: 'line', data: actualSeries }
+                ],
+                chart: {
+                    type: 'line',
+                    height: 60,
+                    sparkline: { enabled: true },
+                    animations: { enabled: true }
+                },
+                colors: ['#94a3b8', '#10b981'],
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth', width: [2, 2], dashArray: [4, 0] },
+                xaxis: {
+                    categories: domainNames,
+                    labels: { show: false },
+                    tooltip: { enabled: false }
+                },
+                yaxis: {
+                    min: 0,
+                    max: (max) => Math.max(5, Math.ceil(max * 1.3)),
+                    labels: { show: false }
+                },
+                tooltip: { 
+                    fixed: { enabled: true, position: 'topRight', offsetY: -20, offsetX: 0 }, 
+                    x: { show: true }, 
+                    marker: { show: false } 
+                },
+                legend: { show: false },
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } }
+            };
+
         } else {
             this.totalArticles = 0;
             this.activeDomains = 0;
@@ -685,6 +751,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.sparkline1 = null;
             this.sparkline2 = null;
             this.sparkline3 = null;
+            this.domainChartOptions = null;
         }
     }
 
