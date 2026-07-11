@@ -13,6 +13,16 @@
     </div>
 
     <div class="mt-8">
+        <div class="flex justify-between items-center mb-4 px-2">
+            <div class="text-xl font-bold text-secondary">Chỉ tiêu & Kết quả</div>
+            <div class="w-48">
+                <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-full">
+                    <mat-select [(value)]="selectedMonthNum" (selectionChange)="onMonthChange()">
+                        <mat-option *ngFor="let m of months" [value]="m">Tháng {{m}}</mat-option>
+                    </mat-select>
+                </mat-form-field>
+            </div>
+        </div>
         <ngx-datatable [virtualization]="true" #mydatatable class="material shadow-none border rounded-lg"
             [headerHeight]="50" [columnMode]="ColumnMode.force" [footerHeight]="70" [rowHeight]="getRowHeight"
             rowHeight="auto" [rows]="rows">
@@ -29,7 +39,7 @@
                     </span>
 
                     <input [placeholder]="'app.your_domain_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded p-2"
+                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
                         type="text" [value]="row.domain" />
                 </ng-template>
             </ngx-datatable-column>
@@ -44,11 +54,11 @@
                     </span>
 
                     <input [placeholder]="'app.username_placeholder' | transloco" *ngIf="editing[rowIndex + '-username'] && !rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded p-2"
+                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
                         type="password" [value]="row.username" />
 
                     <input [placeholder]="'app.username_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded p-2"
+                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
                         type="password" [value]="row.username" />
                 </ng-template>
             </ngx-datatable-column>
@@ -64,12 +74,29 @@
 
                     <input [placeholder]="'app.secondary_password_placeholder' | transloco"
                         *ngIf="editing[rowIndex + '-password'] && !rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded p-2"
+                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
                         type="password" [value]="row.password" />
 
                     <input [placeholder]="'app.secondary_password_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded p-2"
+                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
                         type="password" [value]="row.password" />
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Chỉ tiêu (bài/tháng)" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <input placeholder="Số bài" (blur)="updateValue($event, 'monthlyTarget', rowIndex)" class="text-blue-700 border rounded py-1 px-2 w-16 text-center text-sm" type="number" min="0" [value]="row.monthlyTarget || 0" />
+                </ng-template>
+            </ngx-datatable-column>
+
+            <ngx-datatable-column name="Kết quả" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <div class="flex items-center h-full">
+                        <span class="font-medium text-sm" [ngClass]="{'text-green-600': (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum] >= (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0, 'text-red-600': (!domainStatsData[row.domain] || domainStatsData[row.domain][selectedMonthNum] < (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0}">
+                            {{ (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum]) ? domainStatsData[row.domain][selectedMonthNum] : 0 }}
+                        </span>
+                        <span class="text-gray-500 ml-1 text-sm">bài</span>
+                    </div>
                 </ng-template>
             </ngx-datatable-column>
 

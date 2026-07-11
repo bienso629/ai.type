@@ -10,7 +10,7 @@
             <div class="bg-card shadow-none border border-gray-200 rounded-xl flex flex-col relative">
                 <div class="flex justify-end px-6 pt-6 pb-0">
                     <div class="flex items-center z-10">
-                        <mat-form-field appearance="outline" [subscriptSizing]="'dynamic'" class="fuse-mat-dense small-select-box w-28 text-sm">
+                        <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-28">
                             <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange()">
                                 <mat-option *ngFor="let year of yearsList" [value]="year">{{year}}</mat-option>
                             </mat-select>
@@ -79,9 +79,6 @@
                     <div class="p-6 pb-4">
                         <div class="flex justify-between items-center text-lg font-medium text-secondary">
                             <span>Trung bình bài / Domain</span>
-                            <button mat-icon-button class="w-8 h-8 min-h-8" (click)="toggleEditTarget()" matTooltip="Cài đặt mục tiêu">
-                                <mat-icon class="icon-size-4">settings</mat-icon>
-                            </button>
                         </div>
                         <div class="text-4xl font-bold mt-2">{{avgArticles}}</div>
                         <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="avgArticlesStatus.color">
@@ -104,32 +101,6 @@
             <div class="text-2xl font-semibold tracking-tight leading-8 mb-6">{{collections?.length || 0}} {{ 'app.your_collections' | transloco }}
             </div>
 
-            <!-- Target Settings Modal -->
-            <ng-template #targetDialogTemplate>
-                <div class="flex items-center justify-between mb-4">
-                    <div class="text-2xl font-bold text-gray-800 tracking-tight">Cài đặt chỉ tiêu trung bình hàng tháng</div>
-                    <button mat-icon-button mat-dialog-close type="button">
-                        <mat-icon [svgIcon]="'heroicons_outline:x'"></mat-icon>
-                    </button>
-                </div>
-                
-                <div mat-dialog-content class="mt-2 p-0 max-h-[70vh] overflow-y-auto">
-                    <div class="flex flex-col mb-2" *ngFor="let col of allDomains">
-                        <div class="mb-1 text-sm font-medium text-hint">{{col.domain}}</div>
-                        <mat-form-field class="flex w-full fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <input type="number" matInput 
-                                   [value]="domainTargets[col.domain] !== undefined ? domainTargets[col.domain] : 50" 
-                                   (input)="domainTargets[col.domain] = $any($event.target).value ? +$any($event.target).value : null" 
-                                   placeholder="50" />
-                            <span matSuffix>bài / tháng</span>
-                        </mat-form-field>
-                    </div>
-                </div>
-                
-                <div mat-dialog-actions class="mt-4 flex justify-end p-0">
-                    <button mat-flat-button color="primary" type="button" (click)="saveTargets()">Lưu thay đổi</button>
-                </div>
-            </ng-template>
             <div *ngIf="collections && collections.length > 0"
                 class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                 <div *ngFor="let item of collections" [routerLink]="['/collection']"
