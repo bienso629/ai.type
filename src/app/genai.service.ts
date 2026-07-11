@@ -238,9 +238,12 @@ export class GenaiService {
 
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
+        const settingsRaw = this.multiAccountService.getItem('settings');
+        const isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
+
         if (!bypassModelOverride) {
             if (params.model === 'gemini-3.5-flash') {
-                params.model = 'gemini-3.5-flash';
+                params.model = this._umodelverseChatModel || 'gemini-3.5-flash';
             } else if (
                 params.model === 'gemini-3.1-flash-image-preview' ||
                 params.model === 'imagen-3.0-generate-001' ||
@@ -248,16 +251,14 @@ export class GenaiService {
                 params.model?.includes('image') ||
                 params.model?.includes('imagen')
             ) {
-                // Nếu dùng UModelverse thì chuyển đổi sang Image Model tuỳ chọn của họ (mặc định dall-e-3), nếu dùng trực tiếp thì dùng model chuẩn của Google
-                params.model = this.isUModelverseEnabled() ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+                // Nếu dùng UModelverse hoặc AI Agent thì chuyển đổi sang Image Model tuỳ chọn của họ
+                params.model = (this.isUModelverseEnabled() || isAiAgentEnabled) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
             }
         }
 
         this._start(scope);
         try {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
-            const settingsRaw = this.multiAccountService.getItem('settings');
-            const isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
             const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
 
             if (isAiAgentEnabled && !isVideoRequest && !bypassUModelverse) {
@@ -395,7 +396,7 @@ export class GenaiService {
         }
         formData.append('prompt', finalPrompt);
         
-        if (params.model && !params.model.includes('imagen')) {
+        if (params.model) {
             formData.append('model', params.model);
         }
         
