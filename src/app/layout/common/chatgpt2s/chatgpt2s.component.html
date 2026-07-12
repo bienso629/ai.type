@@ -65,7 +65,7 @@
 <!-- Notifications panel -->
 <ng-template #chatgptPanel>
     <div
-        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-120 sm:w-120 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-120 sm:w-120 sm:h-180 h-180 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
         <!-- Header -->
         <div *ngIf="!activeChatRow" class="flex flex-col shrink-0 px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
             <!-- File attachment preview -->
@@ -111,7 +111,7 @@
 
         <!-- Content -->
         <div
-            class="relative flex flex-col flex-auto sm:max-h-160 h-160 divide-y overflow-y-auto overflow-x-hidden bg-card">
+            class="relative flex flex-col flex-auto divide-y overflow-y-auto overflow-x-hidden bg-card">
             <ngx-datatable [appScrollLock]="isLoading" [virtualization]="false" #myTable class="material expandable fullscreen"
                 [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
                 [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
