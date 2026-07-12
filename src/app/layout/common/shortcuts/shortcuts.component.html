@@ -135,18 +135,35 @@
                     </mat-form-field>
                     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
                         <mat-label>Icon</mat-label>
-                        <input matInput [formControlName]="'icon'" required>
+                        <input matInput [formControlName]="'icon'" [matAutocomplete]="autoIcon" required>
+                        <mat-autocomplete #autoIcon="matAutocomplete">
+                            <mat-option *ngFor="let item of availableIcons" [value]="item.icon">
+                                <div class="flex items-center">
+                                    <mat-icon class="icon-size-4.5 mr-2 text-current" [svgIcon]="item.icon"></mat-icon>
+                                    <span>{{ item.label }}</span>
+                                </div>
+                            </mat-option>
+                        </mat-autocomplete>
                     </mat-form-field>
                     <mat-form-field class="w-full fuse-mat-dense fuse-mat-emphasized-affix">
                         <mat-label>Link</mat-label>
-                        <input matInput [formControlName]="'link'" required>
+                        <input matInput [formControlName]="'link'" [matAutocomplete]="autoLink" required>
+                        <mat-autocomplete #autoLink="matAutocomplete">
+                            <mat-option *ngFor="let item of availableLinks" [value]="item.path">
+                                <span class="font-medium">{{ item.label }}</span>
+                                <span class="text-xs text-secondary ml-1">({{ item.path }})</span>
+                            </mat-option>
+                        </mat-autocomplete>
                     </mat-form-field>
                     <mat-slide-toggle [color]="'primary'" [formControlName]="'useRouter'">
                         Use router for the link
                     </mat-slide-toggle>
                     <!-- Actions -->
                     <div class="flex items-center justify-end mt-4">
-                        <button class="mr-2" *ngIf="mode === 'edit'" mat-flat-button type="button" (click)="delete()">
+                        <button class="mr-2" mat-stroked-button type="button" (click)="changeMode('view')">
+                            Cancel
+                        </button>
+                        <button class="mr-2" *ngIf="mode === 'edit'" mat-flat-button color="warn" type="button" (click)="delete()">
                             Delete
                         </button>
                         <button mat-flat-button [color]="'primary'" [disabled]="!shortcutForm.valid" type="button"

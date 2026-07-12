@@ -7,12 +7,25 @@ import { shortcuts as shortcutsData } from 'app/api/common/shortcuts/data';
     providedIn: 'root'
 })
 export class ShortcutsMockApi {
-    private _shortcuts: any = shortcutsData;
+    private _shortcuts: any;
 
     /**
      * Constructor
      */
     constructor(private _fuseMockApiService: FuseMockApiService) {
+        // Load from localStorage or fallback to default shortcutsData
+        const saved = localStorage.getItem('custom_shortcuts');
+        if (saved) {
+            try {
+                this._shortcuts = JSON.parse(saved);
+            } catch (e) {
+                this._shortcuts = cloneDeep(shortcutsData);
+            }
+        } else {
+            this._shortcuts = cloneDeep(shortcutsData);
+            localStorage.setItem('custom_shortcuts', JSON.stringify(this._shortcuts));
+        }
+
         // Register Mock API handlers
         this.registerHandlers();
     }
@@ -47,6 +60,7 @@ export class ShortcutsMockApi {
 
                 // Unshift the new shortcut
                 this._shortcuts.unshift(newShortcut);
+                localStorage.setItem('custom_shortcuts', JSON.stringify(this._shortcuts));
 
                 // Return the response
                 return [200, newShortcut];
@@ -78,6 +92,8 @@ export class ShortcutsMockApi {
                     }
                 });
 
+                localStorage.setItem('custom_shortcuts', JSON.stringify(this._shortcuts));
+
                 // Return the response
                 return [200, updatedShortcut];
             });
@@ -103,6 +119,7 @@ export class ShortcutsMockApi {
 
                 // Delete the shortcut
                 this._shortcuts.splice(index, 1);
+                localStorage.setItem('custom_shortcuts', JSON.stringify(this._shortcuts));
 
                 // Return the response
                 return [200, deletedShortcut];
