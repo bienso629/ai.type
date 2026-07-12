@@ -44,7 +44,19 @@ export class MarkdownPipe implements PipeTransform {
         }
 
         const html = marked.parse(src) as string;
-        const clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+        let clean = DOMPurify.sanitize(html, { USE_PROFILES: { html: true } });
+
+        // Tự động chuyển đổi các đường dẫn tệp local tuyệt đối thành protocol media:// để Electron có thể hiển thị ảnh
+        clean = clean.replace(/(src|href)=["']([^"']+)["']/g, (match, attr, path) => {
+            if (path.startsWith('file:///')) {
+                const cleanPath = path.substring('file:///'.length);
+                return `${attr}="media:///${cleanPath}"`;
+            }
+            if (path.startsWith('/home/') || path.startsWith('/Users/') || path.startsWith('/tmp/') || /^[a-zA-Z]:[/\\]/.test(path)) {
+                return `${attr}="media://${path}"`;
+            }
+            return match;
+        });
 
         return this.sanitizer.bypassSecurityTrustHtml(clean);
     }

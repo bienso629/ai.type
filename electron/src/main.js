@@ -3087,7 +3087,7 @@ function startAiAgent() {
 function stopAiAgent() {
     if (aiAgentProcess) {
         try {
-            aiAgentProcess.kill();
+            aiAgentProcess.kill('SIGKILL');
             aiAgentProcess = null;
             console.log('[AI Agent] Đã tắt');
         } catch (e) { }

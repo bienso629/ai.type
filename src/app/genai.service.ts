@@ -37,7 +37,10 @@ export class GenaiService {
         // Gửi lệnh qua IPC để khởi chạy lại process AI Agent ở Electron (port 54321) để hủy mọi tiến trình Python/C++ đang chạy ngầm
         if ((window as any).electron && (window as any).electron.invoke) {
             (window as any).electron.invoke('toggle-ai-agent', false).then(() => {
-                (window as any).electron.invoke('toggle-ai-agent', true);
+                // Đợi 1.2 giây để hệ điều hành giải phóng hoàn toàn cổng 54321 rồi mới khởi chạy lại
+                setTimeout(() => {
+                    (window as any).electron.invoke('toggle-ai-agent', true);
+                }, 1200);
             });
         }
     }
