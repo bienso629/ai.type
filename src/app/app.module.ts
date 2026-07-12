@@ -22,6 +22,9 @@ import { appRoutes } from 'app/app.routing';
 import { register } from 'swiper/element/bundle';
 import { MatIconRegistry } from '@angular/material/icon';
 import { MultiAccountService } from './modules/_services/multi-account.service';
+import { UserClientService } from 'app/modules/_services/user';
+import { CrawlService } from 'app/modules/_services/crawl';
+import { DomainService } from 'app/modules/_services/domain';
 
 // register Swiper custom elements
 register();
@@ -82,7 +85,10 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
             deps: [MultiAccountService],
             multi: true
         },
-        importProvidersFrom(TranslocoCoreModule)
+        importProvidersFrom(TranslocoCoreModule),
+        UserClientService,
+        CrawlService,
+        DomainService
     ]
 })
 

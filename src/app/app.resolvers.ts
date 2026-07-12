@@ -1,11 +1,18 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
-import { forkJoin, Observable } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs';
+import { catchError, switchMap, take, tap } from 'rxjs/operators';
 import { MessagesService } from 'app/layout/common/messages/messages.service';
 import { NavigationService } from 'app/core/navigation/navigation.service';
 import { NotificationsService } from 'app/layout/common/notifications/notifications.service';
 import { QuickChatService } from 'app/layout/common/quick-chat/quick-chat.service';
 import { ShortcutsService } from 'app/layout/common/shortcuts/shortcuts.service';
+
+import { UserService } from 'app/core/user/user.service';
+import { UserClientService } from 'app/modules/_services/user';
+import { CrawlService } from 'app/modules/_services/crawl';
+import { DomainService } from 'app/modules/_services/domain';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Injectable({
     providedIn: 'root'
@@ -20,7 +27,12 @@ export class InitialDataResolver
         private _navigationService: NavigationService,
         private _notificationsService: NotificationsService,
         private _quickChatService: QuickChatService,
-        private _shortcutsService: ShortcutsService
+        private _shortcutsService: ShortcutsService,
+        private _userService: UserService,
+        private _userClientService: UserClientService,
+        private _crawlService: CrawlService,
+        private _domainService: DomainService,
+        private _multiAccountService: MultiAccountService
     ) { }
 
     // -----------------------------------------------------------------------------------------------------
@@ -36,12 +48,114 @@ export class InitialDataResolver
     resolve(route: ActivatedRouteSnapshot, state: RouterStateSnapshot): Observable<any>
     {
         // Fork join multiple API endpoint calls to wait all of them to finish
-        return forkJoin([
+        const baseResolvers = forkJoin([
             this._navigationService.get(),
             this._messagesService.getAll(),
             this._notificationsService.getAll(),
             this._quickChatService.getChats(),
             this._shortcutsService.getAll()
         ]);
+
+        return this._userService.user$.pipe(
+            take(1),
+            switchMap(user => {
+                if (!user || !user.name) return baseResolvers;
+                
+                const selectedYear = (new Date()).getFullYear().toString();
+
+                const profile$ = this._userClientService.profile({ name: user.name }).pipe(
+                    tap(result => {
+                        (window as any)['profile_synced'] = true;
+                        if (result && result.success && result.data) {
+                            if (result.data.styles && result.data.styles.length > 0) this._multiAccountService.setItem('styles', result.data.styles);
+                            if (result.data.editor) this._multiAccountService.setItem('editor', result.data.editor);
+                            if (result.data.following_users) this._multiAccountService.setItem('following_users', result.data.following_users);
+                            if (result.data.settings) {
+                                this._multiAccountService.setItem('settings', result.data.settings);
+                                if (result.data.settings.domainTargets) {
+                                    localStorage.setItem('domainTargets', JSON.stringify(result.data.settings.domainTargets));
+                                }
+                            }
+                        }
+                    }),
+                    catchError(() => of(null))
+                );
+
+                const domains$ = this._domainService.fetch({ username: user.name }).pipe(
+                    tap(result => {
+                        if (result && result.success) {
+                            localStorage.setItem(`dashboard_domains_${user.name}`, JSON.stringify(result.data || []));
+                            (window as any)['dashboard_domains_preloaded'] = true;
+                        }
+                    }),
+                    catchError(() => of(null))
+                );
+
+                const collections$ = this._crawlService.collections({
+                    username: user.name,
+                    page: { size: 100 },
+                    includeUuid: false
+                }).pipe(
+                    tap(result => {
+                        if (result && result.success && result.data) {
+                            const lightweightCache = result.data.map((col: any) => ({
+                                _id: col._id,
+                                title: col.title,
+                                count: col.count || (col.uuid && Array.isArray(col.uuid) ? col.uuid.length : 0),
+                                lastItemUpdatedAt: col.lastItemUpdatedAt,
+                                lastUpdatedAt: col.lastUpdatedAt,
+                                lastUpdated: col.lastUpdated,
+                                updatedAt: col.updatedAt
+                            }));
+                            localStorage.setItem(`dashboard_collections_${user.name}`, JSON.stringify(lightweightCache));
+                            (window as any)['dashboard_collections_preloaded'] = true;
+                        }
+                    }),
+                    catchError(() => of(null))
+                );
+
+                const statistics$ = this._crawlService.statistics({
+                    username: user.name,
+                    reportYear: selectedYear
+                }).pipe(
+                    tap(result => {
+                        if (result && result.success) {
+                            const nodes = result.data || [];
+                            const doneCount = nodes[0] ? nodes[0].length : 0;
+                            const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
+                            const writingData = nodes[1] || { total: 0 };
+                            const archivesData = nodes[2] || { total: 0 };
+                            const domainStatsData = nodes[3] || {};
+
+                            let oldStats: any = {};
+                            try {
+                                const cached = localStorage.getItem('statistics');
+                                if (cached) oldStats = JSON.parse(cached);
+                            } catch (e) {}
+
+                            const newStats = {
+                                ...oldStats,
+                                done: doneCount,
+                                money: moneyCount,
+                                archives: archivesData.total || archivesData || 0,
+                                writing: writingData.total || writingData || 0,
+                                domainStats: domainStatsData
+                            };
+                            localStorage.setItem('statistics', JSON.stringify(newStats));
+                            (window as any)['dashboard_statistics_preloaded'] = true;
+                        }
+                    }),
+                    catchError(() => of(null))
+                );
+
+                return forkJoin([
+                    baseResolvers,
+                    profile$,
+                    domains$,
+                    collections$,
+                    statistics$
+                ]);
+            })
+        );
     }
 }
