@@ -21,6 +21,7 @@ import moment from 'moment';
 import { GenaiService } from 'app/genai.service';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { FuseConfirmationService } from '@fuse/services/confirmation';
 
 @Component({
     selector: 'chatgpt2s',
@@ -155,6 +156,61 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             this.stop();
         }
         this.cdref.detectChanges();
+    }
+
+    deleteChat(row: any, event?: Event) {
+        if (event) {
+            event.stopPropagation();
+        }
+
+        if (!row || !row._id) return;
+
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa cuộc hội thoại',
+            message: 'Sếp có chắc chắn muốn xóa cuộc hội thoại này không?',
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
+            }
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this._chatGPTService.destroy(row._id, this.user.name).subscribe({
+                    next: (res) => {
+                        if (res && res.success) {
+                            this.chatgpt2s = this.chatgpt2s.filter(r => r._id !== row._id);
+                            this.chatgpt2s = [...this.chatgpt2s];
+                            
+                            this.totalElements = Math.max(0, this.totalElements - 1);
+                            
+                            let statistics = localStorage.getItem('statistics');
+                            if (statistics) {
+                                let statObj = JSON.parse(statistics);
+                                statObj['chatgpt'] = this.totalElements;
+                                localStorage.setItem('statistics', JSON.stringify(statObj));
+                            }
+                            
+                            if (this.activeChatRow === row) {
+                                this.activeChatRow = null;
+                            }
+                            
+                            this.cdref.detectChanges();
+                        }
+                    },
+                    error: (err) => {
+                        console.error('Lỗi khi xóa cuộc hội thoại:', err);
+                    }
+                });
+            }
+        });
     }
 
     upload(e: any, isFollowUp: boolean = false, inputElement?: HTMLInputElement) {
@@ -538,7 +594,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         private cdref: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
         private _viewContainerRef: ViewContainerRef,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private _fuseConfirmationService: FuseConfirmationService
     ) {
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');
@@ -776,7 +833,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         this._overlayRef.attach(new TemplatePortal(this._chatgptPanel, this._viewContainerRef));
 
         // Reset phân trang và tải trang đầu tiên mỗi khi mở Panel
-        this.chatgpt2s = null;
+        this.chatgpt2s = [];
         this.cache = {};
         this.apiFetchedCount = 0;
         this.currentBookmark = null;
