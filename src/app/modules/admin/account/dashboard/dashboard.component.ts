@@ -124,6 +124,12 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.collections = JSON.parse(cachedData);
             } catch (e) {}
         }
+        
+        if ((window as any)['dashboard_collections_preloaded']) {
+            (window as any)['dashboard_collections_preloaded'] = false;
+            this.checkInitialLoad();
+            return;
+        }
 
         this._crawlService
             .collections({
@@ -192,6 +198,18 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     fetchDomains() {
+        if ((window as any)['dashboard_domains_preloaded']) {
+            (window as any)['dashboard_domains_preloaded'] = false;
+            try {
+                const cached = localStorage.getItem(`dashboard_domains_${this.user.name}`);
+                if (cached) {
+                    this.allDomains = JSON.parse(cached);
+                    this._changeDetectorRef.markForCheck();
+                }
+            } catch (e) {}
+            return;
+        }
+
         this._domainService.fetch({
             username: this.user.name
         })
@@ -210,6 +228,19 @@ export class DashboardComponent implements OnInit, OnDestroy {
      * Lấy statistic
      */
     statistic() {
+        if ((window as any)['dashboard_statistics_preloaded']) {
+            (window as any)['dashboard_statistics_preloaded'] = false;
+            try {
+                const cached = localStorage.getItem('statistics');
+                if (cached) {
+                    this.statistics = JSON.parse(cached);
+                    this.availableDomains = Object.keys(this.statistics?.domainStats || {});
+                    this.updateChart();
+                }
+            } catch (e) {}
+            return;
+        }
+
         this._crawlService
             .statistics({
                 username: this.user.name,
@@ -300,7 +331,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 this.isFirstAppLoad = !(window as any)['profile_synced'];
                 if (this.isFirstAppLoad) {
                     this.initialLoadCount = 3; // Chờ cả 3 API: profile, collection, statistic
-                    this._fuseSplashScreenService.show();
+                    // Bỏ hiển thị lại splash screen vì gây khó chịu khi điều hướng từ trang khác sang
                 } else {
                     this.initialLoadCount = 0;
                 }
