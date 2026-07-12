@@ -35,7 +35,7 @@ import { Subject } from "rxjs";
             min-height: 100px !important;
         }
         ::ng-deep .comment-editor .ql-editor {
-            padding: 4px !important;
+            padding: 16px !important;
             min-height: 100px !important;
         }
     `]
