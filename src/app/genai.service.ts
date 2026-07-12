@@ -26,6 +26,22 @@ export class GenaiService {
     public _umodelverseVideoModel: string = '';
     private _enableUmodelverse: boolean = false;
 
+    private localAgentAbortController?: AbortController;
+
+    public cancelLocalAgent() {
+        if (this.localAgentAbortController) {
+            this.localAgentAbortController.abort();
+            this.localAgentAbortController = undefined;
+        }
+        
+        // Gửi lệnh qua IPC để khởi chạy lại process AI Agent ở Electron (port 54321) để hủy mọi tiến trình Python/C++ đang chạy ngầm
+        if ((window as any).electron && (window as any).electron.invoke) {
+            (window as any).electron.invoke('toggle-ai-agent', false).then(() => {
+                (window as any).electron.invoke('toggle-ai-agent', true);
+            });
+        }
+    }
+
     constructor(
         private multiAccountService: MultiAccountService
     ) { }
@@ -429,13 +445,15 @@ export class GenaiService {
         }
         formData.append('system_instructions', sysContent);
 
+        this.localAgentAbortController = new AbortController();
         try {
             const response = await fetch('http://127.0.0.1:54321/api/chat', {
                 method: 'POST',
                 headers: {
                     'x-api-key': 'type-vn-local-agent-2026'
                 },
-                body: formData
+                body: formData,
+                signal: this.localAgentAbortController.signal
             });
 
             if (!response.ok) {
@@ -508,6 +526,8 @@ export class GenaiService {
         } catch (e: any) {
             console.error('[AI Agent Error]', e);
             throw new Error(`Không thể kết nối đến AI Agent (Port 54321): ${e.message}`);
+        } finally {
+            this.localAgentAbortController = undefined;
         }
     }
 

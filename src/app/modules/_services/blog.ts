@@ -446,7 +446,7 @@ export class BlogService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.puppeteer}/cdn/upload-file/${dataForm.username}`;
+        const url = `https://cdn1.type.vn/cdn/upload-file/${dataForm.username}`;
 
         const formData = new FormData();
         formData.append("file", dataForm.file);
@@ -472,7 +472,7 @@ export class BlogService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.puppeteer}/cdn/img2text/${dataForm.username}`;
+        const url = `https://cdn1.type.vn/cdn/img2text/${dataForm.username}`;
 
         const formData = new FormData();
         formData.append("file", dataForm.file);
