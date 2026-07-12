@@ -9,6 +9,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TimeagoModule } from 'ngx-timeago';
 import { ChatGPTLayoutComponent } from 'app/layout/common/chatgpt2s/chatgpt2s.component';
 import { SharedModule } from 'app/shared.module';
+import { MarkdownPipe } from 'app/markdown.pipe';
 
 @NgModule({
     declarations: [
@@ -24,7 +25,8 @@ import { SharedModule } from 'app/shared.module';
         MatIconModule,
         TimeagoModule,
         MatTooltipModule,
-        SharedModule
+        SharedModule,
+        MarkdownPipe
     ],
     exports: [
         ChatGPTLayoutComponent

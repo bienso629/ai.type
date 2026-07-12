@@ -974,8 +974,8 @@ input[type=checkbox]:checked:after {
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {
-    width: 4px !important;
-    height: 4px !important;
+    width: 5px !important;
+    height: 5px !important;
 }
 
 ::-webkit-scrollbar-button {
@@ -990,13 +990,15 @@ input[type=checkbox]:checked:after {
 
 ::-webkit-scrollbar-thumb {
     background: #5c5c5c !important;
-    border-radius: 2px !important;
-    border: none !important;
+    background-clip: padding-box !important;
+    border: 0.5px solid transparent !important;
+    border-radius: 9999px !important;
     box-shadow: none !important;
 }
 
 ::-webkit-scrollbar-thumb:hover {
     background: #94a3b8 !important;
+    background-clip: padding-box !important;
 }
 
 /* Hover-only Scrollbar Utility */
