@@ -35,6 +35,52 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
 
     _baseShortcuts: Shortcut[] = [];
 
+    availableIcons = [
+        { icon: 'feather:book', label: 'Book / Viết bài' },
+        { icon: 'feather:type', label: 'Type / Từ điển' },
+        { icon: 'feather:star', label: 'Star / Yêu thích' },
+        { icon: 'feather:home', label: 'Home / Trang chủ' },
+        { icon: 'feather:settings', label: 'Settings / Cài đặt' },
+        { icon: 'feather:globe', label: 'Globe / Website' },
+        { icon: 'feather:user', label: 'User / Tài khoản' },
+        { icon: 'feather:search', label: 'Search / Tra cứu' },
+        { icon: 'feather:image', label: 'Image / Hình ảnh' },
+        { icon: 'feather:message-square', label: 'Chat / Trò chuyện' },
+        { icon: 'feather:database', label: 'Database / Dữ liệu' },
+        { icon: 'feather:file-text', label: 'Document / Tài liệu' },
+        { icon: 'feather:link', label: 'Link / Đường dẫn' },
+        { icon: 'feather:dollar-sign', label: 'Dollar / Doanh thu' },
+        { icon: 'feather:activity', label: 'Activity / Hoạt động' },
+        { icon: 'feather:video', label: 'Video / Livestream' },
+        { icon: 'feather:users', label: 'Group / Khách hàng' }
+    ];
+
+    availableLinks = [
+        { label: 'Viết bài (Archives)', path: '/archives' },
+        { label: 'Từ điển (Synonym)', path: '/synonym' },
+        { label: 'AI Writer', path: '/ai-writer' },
+        { label: 'Voice to Video', path: '/voice2video' },
+        { label: 'AI Crawl', path: '/ai-crawl' },
+        { label: 'Nodes', path: '/nodes' },
+        { label: 'WP to MD', path: '/wp2md' },
+        { label: 'AI Text to Speech', path: '/ai-text2speech' },
+        { label: 'AI Image', path: '/ai-image' },
+        { label: 'Dashboard', path: '/dashboard' },
+        { label: 'Công cụ (Tools)', path: '/tools' },
+        { label: 'Cài đặt (Settings)', path: '/settings' },
+        { label: 'Profiles', path: '/profiles' },
+        { label: 'Chatbot', path: '/chatbot' },
+        { label: 'Dollar', path: '/dollar' },
+        { label: 'Bộ sưu tập (Collection)', path: '/collection' },
+        { label: 'Face to Node', path: '/face2node' },
+        { label: 'Links', path: '/links' },
+        { label: 'Woocommerce Export', path: '/woocommerce' },
+        { label: 'GSC Report', path: '/gscr' },
+        { label: 'AMXH (n8n)', path: '/amxh' },
+        { label: 'Customers (X-CMS)', path: '/customers' },
+        { label: 'Big Data', path: '/data' }
+    ];
+
     getShortcuts() {
         // Lắng nghe danh sách shortcut gốc CHỈ MỘT LẦN
         this._shortcutsService.shortcuts$
@@ -82,7 +128,7 @@ export class ShortcutsComponent implements OnInit, OnDestroy {
             description: [''],
             icon: ['', Validators.required],
             link: ['', Validators.required],
-            useRouter: ['', Validators.required]
+            useRouter: [true]
         });
 
         this._userService.user$

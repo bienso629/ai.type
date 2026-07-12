@@ -37,13 +37,6 @@
 
                                 <!-- Search Mode -->
                                 <div class="flex items-center w-full h-full shrink-0 px-2">
-                                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank"
-                                        class="flex items-center justify-center p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-100 rounded transition-colors shrink-0 mr-1"
-                                        [matTooltip]="'app.auto_open_facebook_graph_explorer' | transloco"
-                                        (click)="$event.stopPropagation()">
-                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
-                                    </a>
-
                                     <mat-icon class="icon-size-4 text-gray-400 mr-2 shrink-0"
                                         [svgIcon]="'feather:search'"></mat-icon>
                                     <input type="text"
@@ -57,6 +50,13 @@
                                         <mat-icon class="icon-size-4 text-gray-400 hover:text-gray-600"
                                             [svgIcon]="'feather:x-circle'"></mat-icon>
                                     </button>
+
+                                    <a href="https://developers.facebook.com/tools/explorer/" target="_blank"
+                                        class="flex items-center justify-center p-1 text-gray-400 hover:text-blue-500 hover:bg-gray-100 rounded transition-colors shrink-0 ml-1"
+                                        [matTooltip]="'app.auto_open_facebook_graph_explorer' | transloco"
+                                        (click)="$event.stopPropagation()">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon>
+                                    </a>
                                 </div>
 
                                 <!-- Token Mode -->
