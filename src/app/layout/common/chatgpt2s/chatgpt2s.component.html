@@ -65,26 +65,47 @@
 <!-- Notifications panel -->
 <ng-template #chatgptPanel>
     <div
-        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-140 sm:w-140 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
+        class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-120 sm:w-120 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
         <!-- Header -->
-        <div *ngIf="!activeChatRow" class="flex shrink-0 items-center px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
-            <div class="sm:hidden mr-2">
-                <button mat-icon-button (click)="closePanel()">
-                    <mat-icon class="icon-size-4 text-gray-500" [svgIcon]="'heroicons_solid:x'"></mat-icon>
+        <div *ngIf="!activeChatRow" class="flex flex-col shrink-0 px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+            <!-- File attachment preview -->
+            <div *ngIf="attachedFileMain" class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg text-xs w-fit">
+                <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
+                <span class="truncate max-w-40 font-medium">{{ attachedFileMain.name }}</span>
+                <button (click)="attachedFileMain = null" class="text-blue-400 hover:text-blue-600 focus:outline-none flex items-center">
+                    <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:x'"></mat-icon>
                 </button>
             </div>
 
-            <!-- Styled Input Container -->
-            <div class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
-                <input class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
-                    [placeholder]="('app.we_use_gemini' | transloco)"
-                    (keyup.enter)="!isLoading && chatgpt(goiy)" [(ngModel)]="goiy" required [disabled]="isLoading" />
-                
-                <button mat-mini-fab color="primary" [disabled]="isLoading || !goiy?.trim()" (click)="!isLoading && chatgpt(goiy)"
-                    class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
-                    [matTooltip]="('app.send_question_to_gemini' | transloco)">
-                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
-                </button>
+            <div class="flex items-center w-full">
+                <div class="sm:hidden mr-2 shrink-0">
+                    <button mat-icon-button (click)="closePanel()">
+                        <mat-icon class="icon-size-4 text-gray-500" [svgIcon]="'heroicons_solid:x'"></mat-icon>
+                    </button>
+                </div>
+
+                <!-- Styled Input Container -->
+                <div class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
+                    <!-- Hidden file input for main chat -->
+                    <input type="file" (change)="upload($event, false)" #fileInputMain class="hidden">
+
+                    <!-- Attachment Button -->
+                    <button mat-icon-button (click)="fileInputMain.click()" [disabled]="isLoading"
+                        class="mr-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-650 dark:hover:text-gray-300 focus:outline-none shrink-0"
+                        title="Đính kèm file">
+                        <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
+                    </button>
+
+                    <input class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
+                        [placeholder]="('app.we_use_gemini' | transloco)"
+                        (keyup.enter)="(!isLoading && (goiy?.trim() || attachedFileMain)) && chatgpt(goiy)" [(ngModel)]="goiy" required [disabled]="isLoading" />
+                    
+                    <button mat-mini-fab color="primary" [disabled]="isLoading || (!goiy?.trim() && !attachedFileMain)" (click)="!isLoading && chatgpt(goiy)"
+                        class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
+                        [matTooltip]="('app.send_question_to_gemini' | transloco)">
+                        <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                    </button>
+                </div>
             </div>
         </div>
 
@@ -157,13 +178,21 @@
                     <ng-container *ngFor="let msg of getMessages(activeChatRow)">
                         <!-- User message -->
                         <div class="flex justify-end" *ngIf="msg.role === 'user'">
-                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none px-4 py-2.5 text-base whitespace-pre-wrap break-words">
-                                {{ msg.text }}
+                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none px-4 py-2.5 text-base whitespace-pre-wrap break-words flex flex-col">
+                                <div>{{ msg.text }}</div>
+                                <!-- File attachment rendering inside bubble -->
+                                <div *ngIf="msg.inlineData" class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30">
+                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="max-w-xs max-h-40 rounded-lg object-contain self-start" />
+                                    <div *ngIf="!msg.inlineData.mimeType?.startsWith('image/')" class="flex items-center space-x-1 text-xs opacity-75">
+                                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
+                                        <span class="truncate max-w-40 font-medium">{{ msg.path ? (msg.path.split('/').pop()) : 'Tệp đính kèm' }}</span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                         <!-- Model message -->
                         <div class="flex justify-start" *ngIf="msg.role === 'model'">
-                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-850 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result"
+                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result"
                                 [innerHTML]="msg.text | markdown">
                             </div>
                         </div>
@@ -172,20 +201,44 @@
                         <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl rounded-tl-none px-4 py-2.5 text-base flex items-center space-x-2">
                             <mat-progress-spinner [diameter]="16" [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
                             <span class="text-xs">AI đang trả lời...</span>
+                            <button (click)="stopChatLoading(activeChatRow)" 
+                                class="ml-2 p-0.5 text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center justify-center transition-colors duration-150 focus:outline-none shrink-0" 
+                                title="Dừng AI">
+                                <mat-icon class="icon-size-4 text-current" [svgIcon]="'heroicons_solid:stop'"></mat-icon>
+                            </button>
                         </div>
                     </div>
                 </div>
                 
                  <!-- Input section -->
-                <div class="p-3 bg-white dark:bg-slate-900 shrink-0 border-t border-gray-200 dark:border-gray-700">
+                <div class="p-3 bg-white dark:bg-slate-900 shrink-0 border-t border-gray-200 dark:border-gray-700 flex flex-col">
+                    <!-- File attachment preview -->
+                    <div *ngIf="attachedFileFollow" class="flex items-center space-x-2 px-2.5 py-1 mb-2 bg-blue-50 dark:bg-blue-950 text-blue-800 dark:text-blue-200 rounded-lg text-xs w-fit">
+                        <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
+                        <span class="truncate max-w-40 font-medium">{{ attachedFileFollow.name }}</span>
+                        <button (click)="attachedFileFollow = null; chatInput.value = chatInput.value" class="text-blue-400 hover:text-blue-600 focus:outline-none flex items-center">
+                            <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:x'"></mat-icon>
+                        </button>
+                    </div>
+
                     <!-- Styled Input Container -->
                     <div class="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
+                        <!-- Hidden file input for follow-up chat -->
+                        <input type="file" (change)="upload($event, true, chatInput)" #fileInputFollow class="hidden">
+
+                        <!-- Attachment Button -->
+                        <button mat-icon-button (click)="fileInputFollow.click()" [disabled]="activeChatRow['chatLoading']"
+                            class="mr-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center text-gray-400 dark:text-gray-500 hover:text-gray-655 dark:hover:text-gray-300 focus:outline-none shrink-0"
+                            title="Đính kèm file">
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
+                        </button>
+
                         <input #chatInput (input)="0" class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0" 
                             placeholder="Hỏi tiếp từ prompt này..."
                             [disabled]="activeChatRow['chatLoading']"
-                            (keyup.enter)="chatInput.value?.trim() && sendFollowUp(activeChatRow, chatInput.value); chatInput.value = ''">
+                            (keyup.enter)="triggerFollowUp(activeChatRow, chatInput)">
                         
-                        <button mat-mini-fab color="primary" [disabled]="activeChatRow['chatLoading'] || !chatInput.value?.trim()" (click)="sendFollowUp(activeChatRow, chatInput.value); chatInput.value = ''"
+                        <button mat-mini-fab color="primary" [disabled]="activeChatRow['chatLoading'] || (!chatInput.value?.trim() && !attachedFileFollow)" (click)="triggerFollowUp(activeChatRow, chatInput)"
                             class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
                             [matTooltip]="('app.send_question_to_gemini' | transloco)">
                             <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>

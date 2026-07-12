@@ -1,10 +1,14 @@
 import { Injectable } from '@angular/core';
+import { Subject } from 'rxjs';
 import * as CryptoTS from 'crypto-ts';
 
 @Injectable({
     providedIn: 'root',
+    
 })
 export class HelperService {
+    public openChatGPTWithSEO$ = new Subject<{ question: string, answer: string, loading?: boolean }>();
+
     constructor() {}
 
     public textToNumber(text: string): number {

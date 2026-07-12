@@ -362,23 +362,30 @@ export class LinksComponent implements OnInit, OnDestroy {
     }
 
     checkseo(item: any) {
-        // turn on disable button
+        // Bắt đầu kiểm tra SEO - mở panel và hiển thị loading ngay lập tức
         item['loadding'] = true;
+        this._h.openChatGPTWithSEO$.next({
+            question: `Kiểm tra SEO: ${item.link}`,
+            answer: '',
+            loading: true
+        });
 
         this._logService.checkseo(item.link)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
-                    // turn on disable button
                     item['loadding'] = false;
 
                     if (result) {
                         this.seo(result, item);
                     } else {
                         this.toastr.error(`Không thể kiểm tra.`);
+                        this._h.openChatGPTWithSEO$.next({
+                            question: `Kiểm tra SEO: ${item.link}`,
+                            answer: 'Không thể kết nối để lấy kết quả SEO từ máy chủ.',
+                            loading: false
+                        });
                     }
-
-                    // this.statistic();
 
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -386,6 +393,11 @@ export class LinksComponent implements OnInit, OnDestroy {
                 error: (e: any) => {
                     item['loadding'] = false;
                     this.toastr.error(`Không thể kiểm tra.`);
+                    this._h.openChatGPTWithSEO$.next({
+                        question: `Kiểm tra SEO: ${item.link}`,
+                        answer: 'Có lỗi xảy ra khi gọi dịch vụ kiểm tra SEO.',
+                        loading: false
+                    });
                 },
                 complete: () => { }
             });
@@ -402,20 +414,19 @@ export class LinksComponent implements OnInit, OnDestroy {
             }, item._id);
 
             jsonText = response.text;
-            const html = marked.parse(jsonText) as string;
 
-            this.dialogs.open(DialogContentComponent, {
-                autoLayout: true,    // mặc định true, có thể bỏ
-                minWidthPx: 500,     // tuỳ chọn
-                minHeightPx: 360,    // tuỳ chọn
-                lockSize: false,
-                data: {
-                    html: html,
-                    link: item.link
-                }
+            this._h.openChatGPTWithSEO$.next({
+                question: `Kiểm tra SEO: ${item.link}`,
+                answer: jsonText,
+                loading: false
             });
         } catch (error) {
             this.toastr.error(`Gemini hiện chưa thể phản hồi.`);
+            this._h.openChatGPTWithSEO$.next({
+                question: `Kiểm tra SEO: ${item.link}`,
+                answer: 'Gemini hiện chưa thể phản hồi hoặc kết nối tới AI Agent bị gián đoạn.',
+                loading: false
+            });
         }
     }
 

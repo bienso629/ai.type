@@ -68,6 +68,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     goiy: string = '';
 
     totalElements: number;
+    attachedFileMain: { name: string, type: string, path?: string, base64: string } | null = null;
+    attachedFileFollow: { name: string, type: string, path?: string, base64: string } | null = null;
     apiFetchedCount: number = 0;
     pageNumber: number;
     cache: Record<string, boolean> = {};
@@ -129,27 +131,65 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             });
     }
 
-    upload = (e: any) => {
+    stopChatLoading(row: any) {
+        if (row) {
+            row['chatLoading'] = false;
+        }
+        this.isLoading = false;
+        
+        const isAiAgentEnabled = this.settings?.enableAiAgent === true;
+        if (isAiAgentEnabled) {
+            // Dừng tiến trình AI Agent cục bộ (port 54321)
+            this._genaiService.cancelLocalAgent();
+        } else {
+            // Chỉ gọi dừng API từ xa nếu không sử dụng AI Agent cục bộ
+            this.stop();
+        }
+        this.cdref.detectChanges();
+    }
+
+    upload(e: any, isFollowUp: boolean = false, inputElement?: HTMLInputElement) {
         const file: File = e.target.files[0];
 
         if (file) {
-            this._blogService.upload({
-                file: file,
-                username: this.user.name
-            })
-                .pipe(takeUntil(this._unsubscribeAll))
-                .subscribe({
-                    next: async (result: any) => {
-                        if (result && result.body) {
-                            this.goiy = `Phân tích https://cdn.type.vn/${this.user.name}/uploads/${result.body.filename}`;
-                            this.toastr.success(`${result.body.filename} đã được tải lên!`);
-                        }
-                    },
-                    error: () => {
-                        this.toastr.error('Không tải file lên được.');
-                    },
-                    complete: () => { }
-                });
+            const settings = this.multiAccountService.getItem('settings');
+            const isAiAgentEnabled = settings?.enableAiAgent === true;
+
+            let filePath = (file as any).path;
+            if ((window as any).electron && (window as any).electron.getPathForFile) {
+                try {
+                    filePath = (window as any).electron.getPathForFile(file);
+                } catch (err) {
+                    console.error('[Upload File] Lỗi getPathForFile:', err);
+                }
+            }
+
+            // Đọc file thành Base64 ở Client để hiển thị preview hoặc gửi lên Cloud Gemini
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = (reader.result as string).split(',')[1];
+                const attachedFile = {
+                    name: file.name,
+                    type: file.type,
+                    path: filePath,
+                    base64: base64
+                };
+
+                if (isFollowUp) {
+                    this.attachedFileFollow = attachedFile;
+                } else {
+                    this.attachedFileMain = attachedFile;
+                }
+                
+                // Kích hoạt thay đổi giao diện để sáng nút gửi
+                if (isFollowUp && inputElement) {
+                    inputElement.dispatchEvent(new Event('input'));
+                }
+                
+                this.toastr.success(`Đã đính kèm tệp: ${file.name}`);
+                this.cdref.detectChanges();
+            };
+            reader.readAsDataURL(file);
         }
     }
 
@@ -346,21 +386,59 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
         if (question) {
             if (this.secretKey) {
-                this.isLoading = true;
+                // Đọc cài đặt
+                const settings = this.multiAccountService.getItem('settings');
+                const isAiAgentEnabled = settings?.enableAiAgent === true;
+
+                // Chuẩn bị tin nhắn của user
+                const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
+                const parts: any[] = [{ text: prompt }];
+                const userMsg: any = { role: 'user', text: question };
+
+                if (this.attachedFileMain) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: this.attachedFileMain.type,
+                            data: this.attachedFileMain.base64
+                        }
+                    });
+                    userMsg.inlineData = {
+                        mimeType: this.attachedFileMain.type,
+                        data: this.attachedFileMain.base64
+                    };
+                    userMsg.path = this.attachedFileMain.path;
+
+                    if (isAiAgentEnabled && this.attachedFileMain.path) {
+                        parts.push({ text: `\n[Tệp đính kèm local]: ${this.attachedFileMain.path}` });
+                    }
+                }
+
+                // 1. Khởi tạo dòng chat mới và chuyển sang giao diện chat ngay lập tức
+                const newRow: any = {
+                    question: question,
+                    answer: '',
+                    updatedAt: new Date(),
+                    chatLoading: true,
+                    messages: [userMsg]
+                };
+
+                this.chatgpt2s.unshift(newRow);
+                this.chatgpt2s = [...this.chatgpt2s];
+                this.totalElements++;
+                this.apiFetchedCount++;
+                this.cache = {};
+                this.goiy = '';
+                this.attachedFileMain = null; // Xóa preview tệp đính kèm
+                
+                this.activeChatRow = newRow;
+                this.isLoading = true; // Block main header inputs
                 this.cdref.detectChanges();
+                this.scrollToBottom();
 
                 try {
-                    let geminiKey = this.secretKey[0];
-
-                    if (this.secretKey[2]) {
-                        geminiKey = this.secretKey[2];
-                    }
-
-                    const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
-
                     const result = await this._genaiService.generateContent({
                         model: 'gemini-3.5-flash',
-                        contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        contents: [{ role: 'user', parts: parts }],
                     });
 
                     if (result && result.text) {
@@ -368,43 +446,37 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                         if ((result as any).imgs && (result as any).imgs.length > 0) {
                             let divImgs = '';
-
                             (result as any).imgs.map((img: string) => {
                                 divImgs = `${divImgs}<p><img src="${img}" class="chatgpt-img" /></p>`;
                             });
-
                             (result as any).html = `${(result as any).html}<div class="chatgpt-imgs">${divImgs}</div>`;
                         }
 
-                        const newRow = {
-                            question: question,
-                            answer: result.text,
-                            updatedAt: new Date()
-                        };
+                        // Cập nhật câu trả lời từ AI
+                        newRow.answer = result.text;
+                        newRow.messages.push({ role: 'model', text: result.text });
+                        newRow.updatedAt = new Date();
 
-                        this.chatgpt2s.unshift(newRow);
-
-                        // Cập nhật tham chiếu mảng để ngx-datatable nhận diện sự thay đổi
-                        this.chatgpt2s = [...this.chatgpt2s];
-                        this.totalElements++;
-                        this.apiFetchedCount++;
-                        this.cache = {}; // Clear cache so pagination resets properly after shifting
-                        this.goiy = '';
-
-                        // Tự động nhảy vào màn hình chi tiết cuộc hội thoại mới
-                        this.activeChatRow = newRow;
-
-                        this.cdref.detectChanges();
-                        this.scrollToBottom();
                         this.chatgptStore(result.text, question);
                     } else {
                         this.toastr.warning('Gemini của bạn chưa hoạt động.');
+                        newRow.messages.push({ role: 'model', text: 'Gemini chưa hoạt động.' });
                     }
                 } catch (error) {
-                    this.toastr.error('Có lỗi xảy ra khi gọi AI.');
+                    console.error('Lỗi hỏi chatgpt:', error);
+                    // Nếu là do hủy yêu cầu (abort)
+                    if (error && error.name === 'AbortError') {
+                        this.toastr.warning('Đã dừng phản hồi AI.');
+                        newRow.messages.push({ role: 'model', text: 'Yêu cầu đã bị dừng.' });
+                    } else {
+                        this.toastr.error('Có lỗi xảy ra khi gọi AI.');
+                        newRow.messages.push({ role: 'model', text: 'Lỗi kết nối AI.' });
+                    }
                 } finally {
+                    newRow.chatLoading = false;
                     this.isLoading = false;
                     this.cdref.detectChanges();
+                    this.scrollToBottom();
                 }
             } else {
                 this.toastr.warning('Bạn chưa kết nối Gemini.');
@@ -465,6 +537,75 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             this.secretKey = (this.settings.secretKey) ? this.settings.secretKey.split(';') : undefined;
             this.searchAPIKey = (this.settings.searchAPIKey) ? this.settings.searchAPIKey.split(';') : undefined;
         }
+
+        // Lắng nghe sự kiện chuyển SEO check sang Chat từ các màn hình khác
+        this._h.openChatGPTWithSEO$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((data) => {
+                this.openPanel();
+
+                // Tìm xem đã có dòng hội thoại nào trùng tiêu đề/question đang ở trạng thái loading chưa
+                let existingRow = this.chatgpt2s?.find(r => r.question === data.question && r['chatLoading']);
+
+                if (existingRow) {
+                    if (data.loading) {
+                        // Nếu vẫn báo loading, không làm gì cả
+                        return;
+                    }
+                    // Cập nhật kết quả khi đã quét xong
+                    existingRow.answer = data.answer;
+                    existingRow.updatedAt = new Date();
+                    existingRow['chatLoading'] = false;
+                    existingRow.messages = [
+                        { role: 'user', text: existingRow.question || '' },
+                        { role: 'model', text: data.answer || '' }
+                    ];
+
+                    this.chatgpt2s = [...this.chatgpt2s];
+                    this.cdref.detectChanges();
+
+                    if (this.activeChatRow && this.activeChatRow.question === existingRow.question) {
+                        this.activeChatRow = existingRow;
+                        this.cdref.detectChanges();
+                        this.scrollToBottom();
+                    }
+
+                    // Lưu vĩnh viễn vào cơ sở dữ liệu chat
+                    this.chatgptStore(data.answer, data.question);
+                } else {
+                    // Tạo cuộc hội thoại mới
+                    const newRow: any = {
+                        question: data.question,
+                        answer: data.answer,
+                        updatedAt: new Date(),
+                        messages: [
+                            { role: 'user', text: data.question || '' }
+                        ]
+                    };
+
+                    if (data.loading) {
+                        newRow['chatLoading'] = true;
+                    } else {
+                        newRow.messages.push({ role: 'model', text: data.answer || '' });
+                    }
+
+                    if (!this.chatgpt2s) {
+                        this.chatgpt2s = [];
+                    }
+                    this.chatgpt2s.unshift(newRow);
+                    this.chatgpt2s = [...this.chatgpt2s];
+                    this.totalElements++;
+                    this.cdref.detectChanges();
+
+                    this.activeChatRow = newRow;
+                    this.cdref.detectChanges();
+                    this.scrollToBottom();
+
+                    if (!data.loading) {
+                        this.chatgptStore(data.answer, data.question);
+                    }
+                }
+            });
     }
 
     getMessages(row: any): any[] {
@@ -478,22 +619,55 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         return row.messages;
     }
 
+    triggerFollowUp(row: any, inputElement: HTMLInputElement) {
+        const val = inputElement.value ? inputElement.value.trim() : '';
+        if (val || this.attachedFileFollow) {
+            this.sendFollowUp(row, val);
+            inputElement.value = '';
+        }
+    }
+
     async sendFollowUp(row: any, newQuestion: string) {
         if (!newQuestion || !newQuestion.trim()) return;
         newQuestion = newQuestion.trim();
         
         this.getMessages(row);
         
-        row.messages.push({ role: 'user', text: newQuestion });
+        const settings = this.multiAccountService.getItem('settings');
+        const isAiAgentEnabled = settings?.enableAiAgent === true;
+
+        const userMsg: any = { role: 'user', text: newQuestion };
+        if (this.attachedFileFollow) {
+            userMsg.inlineData = {
+                mimeType: this.attachedFileFollow.type,
+                data: this.attachedFileFollow.base64
+            };
+            userMsg.path = this.attachedFileFollow.path;
+        }
+
+        row.messages.push(userMsg);
         row['chatLoading'] = true;
+        this.attachedFileFollow = null; // Clear attachment preview
+        
         this.cdref.detectChanges();
         this.scrollToBottom();
         
         try {
-            const contents = row.messages.map((m: any) => ({
-                role: m.role,
-                parts: [{ text: m.text }]
-            }));
+            const contents = row.messages.map((m: any) => {
+                const parts: any[] = [{ text: m.text }];
+                if (m.inlineData) {
+                    parts.push({
+                        inlineData: {
+                            mimeType: m.inlineData.mimeType,
+                            data: m.inlineData.data
+                        }
+                    });
+                    if (isAiAgentEnabled && m.path) {
+                        parts.push({ text: `\n[Tệp đính kèm local]: ${m.path}` });
+                    }
+                }
+                return { role: m.role, parts: parts };
+            });
             
             const result = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
