@@ -1,3 +1,62 @@
+
+
+<style>
+  .chatgpt-result p {
+    margin-bottom: 0.5rem;
+  }
+  .chatgpt-result p:last-child {
+    margin-bottom: 0;
+  }
+  .chatgpt-result ul {
+    list-style-type: disc !important;
+    padding-left: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .chatgpt-result ol {
+    list-style-type: decimal !important;
+    padding-left: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  .chatgpt-result li {
+    margin-bottom: 0.25rem;
+  }
+  .chatgpt-result code {
+    background-color: #e2e8f0 !important;
+    color: #b91c1c !important;
+    padding: 0.125rem 0.25rem;
+    border-radius: 0.25rem;
+    font-family: monospace;
+    font-size: 0.8125rem !important;
+  }
+  .dark .chatgpt-result code {
+    background-color: #1e293b !important;
+    color: #f87171 !important;
+  }
+  .chatgpt-result pre {
+    background-color: #f8fafc !important;
+    border: 1px solid #cbd5e1 !important;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    overflow-x: auto;
+    margin-bottom: 0.5rem;
+  }
+  .dark .chatgpt-result pre {
+    background-color: #0f172a !important;
+    border: 1px solid #334155 !important;
+  }
+  .chatgpt-result pre code {
+    background-color: transparent !important;
+    padding: 0 !important;
+    color: inherit !important;
+    font-size: 0.8125rem !important;
+  }
+  .chatgpt-result h1, .chatgpt-result h2, .chatgpt-result h3, .chatgpt-result h4 {
+    font-weight: 600;
+    margin-top: 0.75rem;
+    margin-bottom: 0.25rem;
+  }
+</style>
+
 <!-- Notifications toggle -->
 <button mat-icon-button (click)="openPanel()" #chatgptOrigin>
     <mat-icon class="icon-size-5" [svgIcon]="'feather:message-square'"></mat-icon>
@@ -8,55 +67,43 @@
     <div
         class="fixed inset-0 sm:static sm:inset-auto flex flex-col sm:min-w-140 sm:w-140 overflow-hidden shadow-xl border-4 border-primary rounded-2xl">
         <!-- Header -->
-        <div class="flex shrink-0 items-center px-6 py-2 bg-white text-black resize-none border-b">
-            <div class="sm:hidden -ml-1 mr-3">
+        <div *ngIf="!activeChatRow" class="flex shrink-0 items-center px-4 py-3 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+            <div class="sm:hidden mr-2">
                 <button mat-icon-button (click)="closePanel()">
-                    <mat-icon class="icon-size-4 text-current" [svgIcon]="'heroicons_solid:x'"></mat-icon>
+                    <mat-icon class="icon-size-4 text-gray-500" [svgIcon]="'heroicons_solid:x'"></mat-icon>
                 </button>
             </div>
 
-            <div class="leading-10 w-full">
-                <input class="w-full text-base font-medium placeholder-white"
+            <!-- Styled Input Container -->
+            <div class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
+                <input class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
                     [placeholder]="('app.we_use_gemini' | transloco)"
-                    (keyup.enter)="!isLoading && chatgpt(goiy)" [(ngModel)]="goiy" required matInput [disabled]="isLoading" />
-            </div>
-
-            <div class="flex flex-row ml-auto">
-                <a mat-icon-button [matTooltip]="('app.send_question_to_gemini' | transloco)" (click)="!isLoading && chatgpt(goiy)">
-                    <mat-icon *ngIf="!isLoading" class="icon-size-4 text-current" [svgIcon]="'feather:send'"></mat-icon>
-                    <mat-progress-spinner *ngIf="isLoading" [diameter]="20" [mode]="'indeterminate'"></mat-progress-spinner>
-                </a>
-
-                <!-- <input hidden type="file" class="file-input" (change)="upload($event)" #fileUpload>
-                <a mat-icon-button class="ml-0" [matTooltip]="('app.upload_file_to_cdn' | transloco)" (click)="fileUpload.click()">
-                    <mat-icon class="icon-size-5 text-current" [svgIcon]="'feather:file'"></mat-icon>
-                </a> -->
+                    (keyup.enter)="!isLoading && chatgpt(goiy)" [(ngModel)]="goiy" required [disabled]="isLoading" />
+                
+                <button mat-mini-fab color="primary" [disabled]="isLoading || !goiy?.trim()" (click)="!isLoading && chatgpt(goiy)"
+                    class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
+                    [matTooltip]="('app.send_question_to_gemini' | transloco)">
+                    <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                </button>
             </div>
         </div>
 
         <!-- Content -->
         <div
             class="relative flex flex-col flex-auto sm:max-h-160 h-160 divide-y overflow-y-auto overflow-x-hidden bg-card">
-            <ngx-datatable [appScrollLock]="isLoading" [virtualization]="true" #myTable class="material expandable fullscreen"
+            <ngx-datatable [appScrollLock]="isLoading" [virtualization]="false" #myTable class="material expandable fullscreen"
                 [columnMode]="ColumnMode.force" [externalPaging]="true" [externalSorting]="true" [count]="totalElements"
                 [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50"
                 [scrollbarV]="true" [rows]="chatgpt2s">
 
-                <!-- Row Detail Template -->
-                <ngx-datatable-row-detail (toggle)="onDetailToggle($event)" [rowHeight]="202">
-                    <ng-template let-row="row" let-rowIndex="rowIndex" let-expanded="expanded"
-                        ngx-datatable-row-detail-template>
-                        <div class="p-4 chatgpt-result text-base hover:overflow-y-auto hover:h-50" id="{{row?._id}}"
-                            [innerHTML]="row?.answer | renderTrustHTML"></div>
-                    </ng-template>
-                </ngx-datatable-row-detail>
+
 
                 <!-- Column Templates -->
                 <ngx-datatable-column name="#" [width]="50" [resizeable]="false" [sortable]="false" [draggable]="false"
                     [canAutoResize]="false">
-                    <ng-template let-row="row" let-expanded="expanded" ngx-datatable-cell-template>
-                        <a href="javascript:void(0)" [class.datatable-icon-right]="!expanded"
-                            [class.datatable-icon-down]="expanded" class="rounded" title="Expand/Collapse Row"
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <a href="javascript:void(0)" [class.datatable-icon-right]="activeChatRow !== row"
+                            [class.datatable-icon-down]="activeChatRow === row" class="rounded" title="Expand/Collapse Row"
                             (click)="toggleExpandRow(row)">
                         </a>
                     </ng-template>
@@ -68,6 +115,8 @@
                         {{ row?.question }}
                     </ng-template>
                 </ngx-datatable-column>
+
+
 
                 <ngx-datatable-column [name]="('app.time' | transloco)" [width]="150" [sortable]="false" [canAutoResize]="false"
                     [draggable]="false" [resizeable]="false">
@@ -86,6 +135,64 @@
                     </ng-template>
                 </ngx-datatable-footer>
             </ngx-datatable>
+
+            <!-- Chat Overlay Panel (Sibling of table, covers everything with absolute inset-0) -->
+            <div *ngIf="activeChatRow" class="absolute inset-0 z-50 flex flex-col border-none bg-card dark:bg-slate-900 w-full h-full overflow-hidden">
+                <!-- Chat Header / Back button -->
+                <div class="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
+                    <button (click)="toggleExpandRow(activeChatRow)" 
+                        class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center mr-2 transition-colors duration-150 focus:outline-none shrink-0" 
+                        title="Quay lại">
+                        <mat-icon class="icon-size-5 text-gray-600 dark:text-gray-300" [svgIcon]="'heroicons_solid:arrow-left'"></mat-icon>
+                    </button>
+                    <div class="flex-auto min-w-0">
+                        <h4 class="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
+                            {{ activeChatRow.question || 'Chi tiết cuộc hội thoại' }}
+                        </h4>
+                    </div>
+                </div>
+
+                <!-- Message List -->
+                <div id="chatMessageList" class="flex-auto overflow-y-auto overflow-x-hidden space-y-3 p-4 scrollbar-thin">
+                    <ng-container *ngFor="let msg of getMessages(activeChatRow)">
+                        <!-- User message -->
+                        <div class="flex justify-end" *ngIf="msg.role === 'user'">
+                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none px-4 py-2.5 text-base whitespace-pre-wrap break-words">
+                                {{ msg.text }}
+                            </div>
+                        </div>
+                        <!-- Model message -->
+                        <div class="flex justify-start" *ngIf="msg.role === 'model'">
+                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-850 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result"
+                                [innerHTML]="msg.text | markdown">
+                            </div>
+                        </div>
+                    </ng-container>
+                    <div class="flex justify-start" *ngIf="activeChatRow['chatLoading']">
+                        <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl rounded-tl-none px-4 py-2.5 text-base flex items-center space-x-2">
+                            <mat-progress-spinner [diameter]="16" [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
+                            <span class="text-xs">AI đang trả lời...</span>
+                        </div>
+                    </div>
+                </div>
+                
+                 <!-- Input section -->
+                <div class="p-3 bg-white dark:bg-slate-900 shrink-0 border-t border-gray-200 dark:border-gray-700">
+                    <!-- Styled Input Container -->
+                    <div class="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
+                        <input #chatInput (input)="0" class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0" 
+                            placeholder="Hỏi tiếp từ prompt này..."
+                            [disabled]="activeChatRow['chatLoading']"
+                            (keyup.enter)="chatInput.value?.trim() && sendFollowUp(activeChatRow, chatInput.value); chatInput.value = ''">
+                        
+                        <button mat-mini-fab color="primary" [disabled]="activeChatRow['chatLoading'] || !chatInput.value?.trim()" (click)="sendFollowUp(activeChatRow, chatInput.value); chatInput.value = ''"
+                            class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
+                            [matTooltip]="('app.send_question_to_gemini' | transloco)">
+                            <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 </ng-template>

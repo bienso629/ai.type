@@ -37,9 +37,28 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     secretKey: any;
     searchAPIKey: any;
     isLoading: boolean = false;
+    activeChatRow: any = null;
 
     @ViewChild('chatgptOrigin') private _chatgptOrigin: MatButton;
     @ViewChild('chatgptPanel') private _chatgptPanel: TemplateRef<any>;
+
+    scrollToBottom() {
+        this._doScroll();
+        setTimeout(() => this._doScroll(), 100);
+        setTimeout(() => this._doScroll(), 300);
+        setTimeout(() => this._doScroll(), 600);
+    }
+
+    private _doScroll() {
+        try {
+            const el = document.getElementById('chatMessageList');
+            if (el) {
+                el.scrollTop = el.scrollHeight;
+            }
+        } catch (err) {
+            console.error('Error scrolling to bottom:', err);
+        }
+    }
 
     @ViewChild('myTable') table: any;
     html2Paragraph: HTML2Paragraph = new HTML2Paragraph();
@@ -67,10 +86,14 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     toggleExpandRow(row: any) {
-        this.table.rowDetail.toggleExpandRow(row);
+        this.activeChatRow = this.activeChatRow === row ? null : row;
+        this.cdref.detectChanges();
+        if (this.activeChatRow) {
+            this.scrollToBottom();
+        }
     }
 
-    onDetailToggle(event: any) { }
+    onDetailToggle(event: any) {}
 
     detail(row: any) {
         // console.log('row', row);
@@ -217,6 +240,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
      */
     setPage(pageInfo: PageInfo) {
         if (this.isLoading) return;
+        if (!this.user || !this.user.name) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size || 10;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
@@ -352,11 +376,13 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             (result as any).html = `${(result as any).html}<div class="chatgpt-imgs">${divImgs}</div>`;
                         }
 
-                        this.chatgpt2s.unshift({
+                        const newRow = {
                             question: question,
                             answer: result.text,
                             updatedAt: new Date()
-                        });
+                        };
+
+                        this.chatgpt2s.unshift(newRow);
 
                         // Cập nhật tham chiếu mảng để ngx-datatable nhận diện sự thay đổi
                         this.chatgpt2s = [...this.chatgpt2s];
@@ -365,7 +391,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         this.cache = {}; // Clear cache so pagination resets properly after shifting
                         this.goiy = '';
 
+                        // Tự động nhảy vào màn hình chi tiết cuộc hội thoại mới
+                        this.activeChatRow = newRow;
+
                         this.cdref.detectChanges();
+                        this.scrollToBottom();
                         this.chatgptStore(result.text, question);
                     } else {
                         this.toastr.warning('Gemini của bạn chưa hoạt động.');
@@ -437,6 +467,73 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         }
     }
 
+    getMessages(row: any): any[] {
+        if (!row) return [];
+        if (!row.messages) {
+            row.messages = [
+                { role: 'user', text: row.question || '' },
+                { role: 'model', text: row.answer || '' }
+            ];
+        }
+        return row.messages;
+    }
+
+    async sendFollowUp(row: any, newQuestion: string) {
+        if (!newQuestion || !newQuestion.trim()) return;
+        newQuestion = newQuestion.trim();
+        
+        this.getMessages(row);
+        
+        row.messages.push({ role: 'user', text: newQuestion });
+        row['chatLoading'] = true;
+        this.cdref.detectChanges();
+        this.scrollToBottom();
+        
+        try {
+            const contents = row.messages.map((m: any) => ({
+                role: m.role,
+                parts: [{ text: m.text }]
+            }));
+            
+            const result = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: contents
+            }, row._id);
+            
+            if (result && result.text) {
+                row.messages.push({ role: 'model', text: result.text });
+                row.answer = result.text;
+                row.updatedAt = new Date();
+                
+                this._chatGPTService.store({
+                    _id: row._id,
+                    content: row.question,
+                    answer: result.text,
+                    messages: row.messages,
+                    username: this.user.name
+                }).subscribe({
+                    next: (res) => {
+                        this.toastr.success('Đã cập nhật cuộc hội thoại!');
+                    },
+                    error: () => {
+                        this.toastr.warning('Không thể đồng bộ cuộc hội thoại lên máy chủ.');
+                    }
+                });
+            } else {
+                this.toastr.error('AI không phản hồi.');
+                row.messages.pop();
+            }
+        } catch (error) {
+            console.error('Lỗi hỏi tiếp:', error);
+            this.toastr.error('Có lỗi xảy ra khi gọi AI.');
+            row.messages.pop();
+        } finally {
+            row['chatLoading'] = false;
+            this.cdref.detectChanges();
+            this.scrollToBottom();
+        }
+    }
+
     // -----------------------------------------------------------------------------------------------------
     // @ Lifecycle hooks
     // -----------------------------------------------------------------------------------------------------
@@ -494,6 +591,16 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
         // Attach the portal to the overlay
         this._overlayRef.attach(new TemplatePortal(this._chatgptPanel, this._viewContainerRef));
+
+        // Reset phân trang và tải trang đầu tiên mỗi khi mở Panel
+        this.chatgpt2s = null;
+        this.cache = {};
+        this.apiFetchedCount = 0;
+        this.currentBookmark = null;
+        this.lastId = null;
+        this.pageNumber = 0;
+        this.isLoading = false; // reset loading flag
+        this.setPage({ offset: 0, pageSize: 10 } as any);
 
         // Tính tổng lại mỗi lần mở popup
         this.statistic();

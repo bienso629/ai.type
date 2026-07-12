@@ -611,6 +611,7 @@
     "app.view_details": "View details",
     "app.convert_to_text": "Convert to text",
     "app.re_scan": "Rescan",
+    "app.rerun": "Rerun",
     "app.original_link": "Original link",
     "app.node_id": "Node ID",
     "app.date_created": "Date created",

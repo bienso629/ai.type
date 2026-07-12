@@ -611,6 +611,7 @@
     "app.view_details": "Xem chi tiết",
     "app.convert_to_text": "Chuyển sang văn bản",
     "app.re_scan": "Quét lại",
+    "app.rerun": "Chạy lại",
     "app.original_link": "Link gốc",
     "app.node_id": "Mã node",
     "app.date_created": "Ngày tạo",
