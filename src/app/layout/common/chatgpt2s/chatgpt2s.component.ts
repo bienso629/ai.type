@@ -25,6 +25,15 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 @Component({
     selector: 'chatgpt2s',
     templateUrl: './chatgpt2s.component.html',
+    styles: [
+        `
+        .chatgpt-result br {
+            display: block;
+            content: "";
+            margin-top: 8px;
+        }
+        `
+    ],
     encapsulation: ViewEncapsulation.None,
     providers: [ChatGPTService, CrawlService, UserClientService, WP2MDService, LogService, BlogService],
     changeDetection: ChangeDetectionStrategy.OnPush,
