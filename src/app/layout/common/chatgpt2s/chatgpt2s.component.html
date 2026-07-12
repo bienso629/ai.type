@@ -146,6 +146,17 @@
                     </ng-template>
                 </ngx-datatable-column>
 
+                <ngx-datatable-column [width]="60" [sortable]="false" [canAutoResize]="false" [draggable]="false"
+                    [resizeable]="false">
+                    <ng-template let-row="row" ngx-datatable-cell-template>
+                        <button mat-icon-button (click)="deleteChat(row, $event)"
+                            class="text-red-500 hover:text-red-700 dark:hover:text-red-400"
+                            title="Xóa cuộc hội thoại">
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+                        </button>
+                    </ng-template>
+                </ngx-datatable-column>
+
                 <ngx-datatable-footer>
                     <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
                         let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset"
