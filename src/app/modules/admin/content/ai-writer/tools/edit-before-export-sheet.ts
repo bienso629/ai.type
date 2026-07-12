@@ -19,7 +19,7 @@ declare var TurndownService: any;
             min-height: 250px !important;
         }
         ::ng-deep .edit-before-export-quill .ql-editor {
-            padding: 4px !important;
+            padding: 16px !important;
         }
     `],
     template: `<div class="px-2 pb-4 pt-2">

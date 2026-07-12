@@ -431,3 +431,47 @@ mat-list-option {
     background-color: #f1f5f9;
     font-weight: 600;
 }
+::ng-deep .custom-scrollable-tabs {
+    display: flex;
+    flex-direction: column;
+
+    .mat-tab-body-wrapper,
+    .mat-mdc-tab-body-wrapper {
+        flex: 1 1 auto;
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+}
+
+::ng-deep .custom-scrollable-tabs .mat-tab-header,
+::ng-deep .custom-scrollable-tabs .mat-mdc-tab-header {
+    border-bottom: none !important;
+}
+
+::ng-deep .custom-scrollable-tabs .mat-mdc-tab-header,
+::ng-deep .custom-scrollable-tabs .mat-tab-header {
+    border: none !important;
+    border-bottom: none !important;
+    box-shadow: none !important;
+}
+
+::ng-deep .custom-scrollable-tabs .mat-mdc-tab-header-divider {
+    display: none !important;
+}
+
+::ng-deep .custom-scrollable-tabs .mat-mdc-tab-list {
+    border: none !important;
+}
+
+::ng-deep .custom-scrollable-tabs .mdc-tab-indicator,
+::ng-deep .custom-scrollable-tabs .mat-ink-bar,
+::ng-deep .custom-scrollable-tabs .mat-mdc-tab-header-pagination {
+    display: none !important;
+}
+
+::ng-deep .custom-scrollable-tabs .mat-mdc-tab:not(.mat-mdc-tab-disabled),
+::ng-deep .custom-scrollable-tabs .mat-tab-label {
+    border: none !important;
+    box-shadow: none !important;
+    outline: none !important;
+}
