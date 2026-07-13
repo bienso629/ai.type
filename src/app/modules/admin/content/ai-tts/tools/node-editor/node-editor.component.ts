@@ -1366,6 +1366,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   async submitPrompt(generateAll: boolean = false, forceModality?: 'IMAGE' | 'VIDEO' | 'AUDIO') {
     if (this.editingType === 'character' && this.editingCharacter) {
+      const targetCharacter = this.editingCharacter;
       if (!this.globalPromptText) {
           this.toastr.warning('Vui lòng nhập prompt cho nhân vật!');
           return;
@@ -1423,7 +1424,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               });
 
               if (result && result.success) {
-                  this.editingCharacter.avatarUrl = `file://${result.path.replace(/\\/g, '/')}`;
+                  targetCharacter.avatarUrl = `file://${result.path.replace(/\\/g, '/')}`;
                   this.toastr.success('Đã tạo hình nhân vật thành công!');
                   this.saveProject();
               } else {
