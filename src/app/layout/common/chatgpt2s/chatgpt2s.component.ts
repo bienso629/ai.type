@@ -522,7 +522,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         newRow.messages.push({ role: 'model', text: result.text });
                         newRow.updatedAt = new Date();
 
-                        this.chatgptStore(result.text, question);
+                        this.chatgptStore(result.text, question, newRow);
                     } else {
                         this.toastr.warning('Gemini của bạn chưa hoạt động.');
                         newRow.messages.push({ role: 'model', text: 'Gemini chưa hoạt động.' });
@@ -551,7 +551,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         }
     }
 
-    chatgptStore(answer: string, question: string) {
+    chatgptStore(answer: string, question: string, row: any) {
         this._chatGPTService.store({
             content: question,
             answer: answer,
@@ -561,6 +561,15 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
+                        if (row) {
+                            const newId = result.data?._id || result.data?.id || result._id || result.id;
+                            if (newId) {
+                                row._id = newId;
+                            }
+                            if (result.data?._rev || result._rev) {
+                                row._rev = result.data?._rev || result._rev;
+                            }
+                        }
                         let statistics = localStorage.getItem('statistics');
                         if (statistics) {
                             let statObj = JSON.parse(statistics);
@@ -637,7 +646,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     }
 
                     // Lưu vĩnh viễn vào cơ sở dữ liệu chat
-                    this.chatgptStore(data.answer, data.question);
+                    this.chatgptStore(data.answer, data.question, existingRow);
                 } else {
                     // Tạo cuộc hội thoại mới
                     const newRow: any = {
@@ -668,7 +677,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     this.scrollToBottom();
 
                     if (!data.loading) {
-                        this.chatgptStore(data.answer, data.question);
+                        this.chatgptStore(data.answer, data.question, newRow);
                     }
                 }
             });

@@ -2776,6 +2776,21 @@ ipcMain.handle("save-base64", async (event, args) => {
     }
 });
 
+ipcMain.handle("read-file-base64", async (event, args) => {
+    const { filePath } = args;
+    try {
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: "File not found: " + filePath };
+        }
+        const fileBuffer = fs.readFileSync(filePath);
+        const base64 = fileBuffer.toString("base64");
+        return { success: true, base64: base64 };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: e.message };
+    }
+});
+
 /**
  * 2. Hàm chụp màn hình App (Full window screenshot)
  */

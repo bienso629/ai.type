@@ -106,6 +106,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     wordPopup: any;
     loading: boolean = false;
     isGeneratingScript: boolean = false;
+    isGeneratingImage: boolean = false;
 
     // ai: any;
 
@@ -448,22 +449,91 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             // );
         }
 
-        const img = $(this.done[event.currentIndex])
+        const img = $(`<div>${this.done[event.currentIndex]}</div>`)
             .find('img:first')
             .attr('src');
-        // 1. Làm mờ ảnh hiện tại
-        $(this.done[event.currentIndex]).find('img:first').css('opacity', 0.5);
 
         if (img) {
-            this.uploadImage(img.replace('file:///', '')).subscribe(
-                (result) => {
-                    if (result && result?.data?.source_url) {
-                        this.done[event.currentIndex] = this.done[
-                            event.currentIndex
-                        ].replace(img, result.data.source_url);
+            // 1. Làm mờ ảnh hiện tại để báo hiệu đang tải lên
+            $(event.item.element.nativeElement).find('img:first').css('opacity', 0.5);
+
+            (async () => {
+                let base64DataUrl = '';
+                if (img.startsWith('data:image/')) {
+                    base64DataUrl = img;
+                } else {
+                    let localPath = img;
+                    if (localPath.startsWith('file:///')) {
+                        localPath = localPath.substring('file:///'.length);
+                        if (!localPath.startsWith('/') && !/^[a-zA-Z]:/.test(localPath)) {
+                            localPath = '/' + localPath;
+                        }
+                    } else if (localPath.startsWith('file://')) {
+                        localPath = localPath.substring('file://'.length);
                     }
-                },
-            );
+
+                    try {
+                        const res = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                        if (res && res.success && res.base64) {
+                            const fileName = localPath.split(/[\\/]/).pop() || 'image.png';
+                            const ext = fileName.split('.').pop()?.toLowerCase() || 'png';
+                            const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : `image/${ext}`;
+                            base64DataUrl = `data:${mimeType};name=${encodeURIComponent(fileName)};base64,${res.base64}`;
+                        }
+                    } catch (err) {
+                        console.error('Lỗi đọc ảnh cục bộ khi kéo thả:', err);
+                    }
+                }
+
+                if (base64DataUrl && this.domain && this.domain.domain) {
+                    // Lấy thông tin đăng nhập WordPress cho domain được chọn
+                    let uname = this.domain.username || '';
+                    let pass = this.domain.password || '';
+                    const domainAccKey = `${this.domain.domain}.account`;
+                    const domainAccEncrypted = localStorage.getItem(domainAccKey);
+                    if (domainAccEncrypted) {
+                        try {
+                            const decrypted: any = this._h.decrypt(domainAccEncrypted, `${this.domain.domain}.account.key`);
+                            if (decrypted && decrypted.username && decrypted.apppass) {
+                                uname = decrypted.username;
+                                pass = decrypted.apppass;
+                            }
+                        } catch (e) {
+                            console.error('Lỗi giải mã credentials khi kéo thả:', e);
+                        }
+                    }
+
+                    // Tải ảnh trực tiếp lên WordPress domain được chọn
+                    this._wordpressService.upload_media(this.domain.domain, base64DataUrl, uname, pass)
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe({
+                            next: (result) => {
+                                if (result && result.source_url) {
+                                    // Thay thế URL local bằng URL trên domain WordPress
+                                    this.done[event.currentIndex] = this.done[event.currentIndex].replace(img, result.source_url);
+                                    
+                                    // Hiện ảnh rõ nét trở lại
+                                    $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
+
+                                    this.update(false); // Lưu bài viết ngay lập tức
+                                    this.toastr.success('Hình ảnh đã được tải lên domain chọn và nhúng vào Dàn ý!');
+                                    this.cd.markForCheck();
+                                } else {
+                                    $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
+                                    this.toastr.error('Tải ảnh lên domain chọn không thành công (thiếu source_url)!');
+                                }
+                            },
+                            error: (err) => {
+                                console.error('Lỗi tải ảnh kéo thả lên WordPress:', err);
+                                $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
+                                this.toastr.error('Lỗi khi tải ảnh lên domain chọn.');
+                            }
+                        });
+                } else {
+                    $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
+                    this.toastr.warning(`Không tải được ảnh do thiếu thông tin. Domain: ${this.domain?.domain}, File: ${img}`);
+                }
+            })();
         }
 
         // tinh toan lai seo
@@ -2544,6 +2614,175 @@ Hãy viết kịch bản bằng tiếng Việt, chi tiết, cuốn hút, giàu h
             console.error('Lỗi dựng kịch bản:', error);
             this.toastr.error('Không thể kết nối đến máy chủ AI để dựng kịch bản.', 'Lỗi kết nối');
             this.isGeneratingScript = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    async generateImageFromOutline() {
+        if (this.isGeneratingImage) return;
+
+        let outlineText = '';
+        if (this.done && this.done.length > 0) {
+            this.done.map((content: any) => {
+                if (typeof content === 'string') {
+                    outlineText += this.removeHTML.transform(content) + '\n\n';
+                }
+            });
+        }
+
+        if (!outlineText.trim()) {
+            this.toastr.warning('Dàn ý chưa có nội dung để tạo hình ảnh!', 'Trống');
+            return;
+        }
+
+        this.isGeneratingImage = true;
+        this.toastr.info('Đang phân tích dàn ý để viết prompt tạo ảnh...', 'Đang xử lý');
+        this.cd.markForCheck();
+
+        try {
+            // 1. Dùng Gemini dịch dàn ý thành visual prompt tiếng Anh
+            const promptForPrompt = `Dưới đây là dàn ý của một bài viết:
+"${outlineText}"
+Hãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
+Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại (illustrative, clean vector art, hoặc 3D render style).
+Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
+
+            const promptResponse = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
+            });
+
+            const imagePrompt = promptResponse.text ? promptResponse.text.trim() : outlineText.substring(0, 100);
+            this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
+
+            // 2. Tạo hình ảnh bằng Gemini
+            const imageResponse = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-image-preview',
+                contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
+                config: { responseModalities: ['IMAGE'] }
+            } as any);
+
+            let base64Str = '';
+            const parts = imageResponse.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    base64Str = part.inlineData.data;
+                    break;
+                }
+            }
+
+            if (base64Str) {
+                // 3. Lưu ảnh base64 thành file local qua IPC
+                const fileName = `outline_image_${Date.now()}.png`;
+                const res = await (window as any).electron.invoke('save-base64', {
+                    base64: base64Str,
+                    fileName: fileName,
+                    folder: 'thumbnails',
+                    username: this.user.name
+                });
+
+                if (res && res.success) {
+                    // 4. Thêm đường dẫn file vào danh sách thumbnail của form
+                    const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
+                    const newValue = existingValue.trim() ? existingValue.trim() + '\n' + res.path : res.path;
+                    this.detectForm.get('step1').get('thumbnail').setValue(newValue);
+                    
+                    (this as any).isThumbnailChanged = true;
+                    this.update(false); // Lưu lại ngay lập tức
+
+                    // Thêm luôn vào editor content của bài viết để người dùng sử dụng được luôn!
+                    this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="file://${res.path}" /></p>`);
+
+                    this.toastr.success('Ảnh minh họa đã được tạo từ dàn ý và thêm vào bài viết thành công!');
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Lỗi không xác định'));
+                }
+            } else {
+                this.toastr.error('Không nhận được dữ liệu ảnh từ máy chủ AI!');
+            }
+        } catch (error) {
+            console.error('Lỗi tạo ảnh từ dàn ý:', error);
+            this.toastr.error('Có lỗi xảy ra khi tạo ảnh từ dàn ý!');
+        } finally {
+            this.isGeneratingImage = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    async generateImageFromParagraph(item: any) {
+        if (this.isGeneratingImage) return;
+
+        const paragraphText = this.removeHTML.transform(item);
+        if (!paragraphText || !paragraphText.trim()) {
+            this.toastr.warning('Đoạn văn chưa có nội dung để tạo hình ảnh!', 'Trống');
+            return;
+        }
+
+        this.isGeneratingImage = true;
+        this.toastr.info('Đang phân tích đoạn văn để viết prompt tạo ảnh...', 'Đang xử lý');
+        this.cd.markForCheck();
+
+        try {
+            // 1. Tạo visual prompt tiếng Anh bằng Gemini
+            const promptForPrompt = `Dưới đây là một đoạn văn:
+"${paragraphText}"
+Hãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
+Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại (illustrative, clean vector art, hoặc 3D render style).
+Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
+
+            const promptResponse = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
+            });
+
+            const imagePrompt = promptResponse.text ? promptResponse.text.trim() : paragraphText.substring(0, 100);
+            this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
+
+            // 2. Tạo hình ảnh bằng Gemini
+            const imageResponse = await this._genaiService.generateContent({
+                model: 'gemini-3.1-flash-image-preview',
+                contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
+                config: { responseModalities: ['IMAGE'] }
+            } as any);
+
+            let base64Str = '';
+            const parts = imageResponse.candidates?.[0]?.content?.parts || [];
+            for (const part of parts) {
+                if (part.inlineData && part.inlineData.data) {
+                    base64Str = part.inlineData.data;
+                    break;
+                }
+            }
+
+            if (base64Str) {
+                // 3. Lưu ảnh base64 thành file local qua IPC
+                const fileName = `paragraph_image_${Date.now()}.png`;
+                const res = await (window as any).electron.invoke('save-base64', {
+                    base64: base64Str,
+                    fileName: fileName,
+                    folder: 'thumbnails',
+                    username: this.user.name
+                });
+
+                if (res && res.success) {
+                    // 4. Thêm đường dẫn file vào Phân tích Hình ảnh (source.img)
+                    this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="file://${res.path}" /></p>`);
+                    this.update(false); // Lưu lại ngay lập tức
+
+                    this.toastr.success('Ảnh minh họa đã được tạo từ đoạn văn và thêm vào mục Phân tích Hình ảnh!');
+                    this.cd.markForCheck();
+                } else {
+                    this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Lỗi không xác định'));
+                }
+            } else {
+                this.toastr.error('Không nhận được dữ liệu ảnh từ máy chủ AI!');
+            }
+        } catch (error) {
+            console.error('Lỗi tạo ảnh từ đoạn văn:', error);
+            this.toastr.error('Có lỗi xảy ra khi tạo ảnh từ đoạn văn!');
+        } finally {
+            this.isGeneratingImage = false;
             this.cd.markForCheck();
         }
     }
@@ -4740,10 +4979,21 @@ Hãy viết kịch bản bằng tiếng Việt, chi tiết, cuốn hút, giàu h
                 }
 
                 if (oldB64Key && oldB64Key !== b64Key) {
+                    let cleanOld = oldB64Key.trim();
+                    let cleanOld2 = cleanOld.startsWith('file://') ? cleanOld.substring('file://'.length) : cleanOld;
+                    let cleanNew = b64Key.trim();
+
                     if (this.source && this.source.img) {
                         for (let i = 0; i < this.source.img.length; i++) {
                             if (typeof this.source.img[i] === 'string') {
-                                this.source.img[i] = this.source.img[i].split(oldB64Key).join(b64Key);
+                                const match = this.source.img[i].match(/src=["']([^"']+)["']/);
+                                if (match && match[1]) {
+                                    const imgSrc = match[1].trim();
+                                    let cleanImgSrc = imgSrc.startsWith('file://') ? imgSrc.substring('file://'.length) : imgSrc;
+                                    if (cleanImgSrc === cleanOld || cleanImgSrc === cleanOld2 || imgSrc === cleanOld || imgSrc === cleanOld2) {
+                                        this.source.img[i] = this.source.img[i].replace(/src="[^"]+"/, `src="${cleanNew}"`).replace(/src='[^']+'/, `src='${cleanNew}'`);
+                                    }
+                                }
                             }
                         }
                     }
@@ -4751,23 +5001,9 @@ Hãy viết kịch bản bằng tiếng Việt, chi tiết, cuốn hút, giàu h
                         for (let i = 0; i < this.done.length; i++) {
                             if (typeof this.done[i] === 'string') {
                                 this.done[i] = this.done[i].split(oldB64Key).join(b64Key);
-                            }
-                        }
-                    }
-                }
-
-                // Force update matching index in source.img
-                if (this.replaceThumbnailIndex >= 0 && this.source && this.source.img && this.source.img.length > this.replaceThumbnailIndex) {
-                    if (typeof this.source.img[this.replaceThumbnailIndex] === 'string') {
-                        const match = this.source.img[this.replaceThumbnailIndex].match(/src=["']([^"']+)["']/);
-                        const oldSrc = match ? match[1] : null;
-                        
-                        this.source.img[this.replaceThumbnailIndex] = this.source.img[this.replaceThumbnailIndex].replace(/src="[^"]+"/, `src="${b64Key}"`).replace(/src='[^']+'/, `src='${b64Key}'`);
-
-                        if (oldSrc && oldSrc !== b64Key && this.done) {
-                            for (let i = 0; i < this.done.length; i++) {
-                                if (typeof this.done[i] === 'string') {
-                                    this.done[i] = this.done[i].split(oldSrc).join(b64Key);
+                                this.done[i] = this.done[i].split('file://' + oldB64Key).join(b64Key);
+                                if (oldB64Key.startsWith('file://')) {
+                                    this.done[i] = this.done[i].split(oldB64Key.substring('file://'.length)).join(b64Key);
                                 }
                             }
                         }

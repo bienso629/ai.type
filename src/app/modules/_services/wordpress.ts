@@ -164,6 +164,8 @@ export class WordpressService {
             switchMap(mediaRes => {
                 if (mediaRes && mediaRes.id) {
                     payload.featured_media = mediaRes.id;
+                } else if (dataForm.featured_media) {
+                    payload.featured_media = dataForm.featured_media;
                 }
                 return this.http.post<any>(url, payload, options).pipe(
                     map(res => res),
