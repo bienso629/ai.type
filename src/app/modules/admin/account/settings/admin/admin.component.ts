@@ -70,8 +70,6 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     transactionsLoading: boolean = false;
     transactionEmailSearch: string = '';
     config: any;
-    // --- BIẾN CHO AI AGENT ---
-    enableAiAgent: boolean = false;
     // --- BIẾN CHO PLUGINS ---
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
@@ -107,7 +105,6 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         const settings = this.multiAccountService.getItem('settings') || {};
-        this.enableAiAgent = settings.enableAiAgent || false;
         this.chatgptForm = this._formBuilder.group({
             'gradio_gologin': [settings.gradio_gologin || '', Validators.required],
         });
@@ -236,37 +233,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         return row.username !== 'Ethel Price';
     }
 
-    async toggleAiAgent(event: any) {
-        this.enableAiAgent = event.checked;
-        const settings = this.multiAccountService.getItem('settings') || {};
-        settings.enableAiAgent = this.enableAiAgent;
-        this.multiAccountService.setItem('settings', settings);
 
-        // Save to cloud so it doesn't reset on reload
-        const editor = this.multiAccountService.getItem('editor');
-        const following_users = this.multiAccountService.getItem('following_users');
-        this._userClientService.updateProfile({
-            profile: {
-                settings: settings,
-                active_info: this.multiAccountService.getItem('active_info'),
-                editor: (editor && editor !== 'undefined') ? editor : {},
-                following_users: (following_users && following_users !== 'undefined') ? following_users : [],
-            },
-            username: this.user.name
-        }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-
-        // Tell Electron to start/stop agent if possible
-        if ((window as any).electronAPI && (window as any).electronAPI.toggleAiAgent) {
-            try {
-                await (window as any).electronAPI.toggleAiAgent(this.enableAiAgent);
-                this.toastr.success(this.enableAiAgent ? 'Đã bật AI Agent.' : 'Đã tắt AI Agent.');
-            } catch (err) {
-                this.toastr.error('Lỗi khi cấu hình AI Agent với hệ thống.');
-            }
-        } else {
-            this.toastr.success(this.enableAiAgent ? 'Đã bật AI Agent (Cần khởi động lại ứng dụng để áp dụng).' : 'Đã tắt AI Agent (Cần khởi động lại ứng dụng để áp dụng).');
-        }
-    }
 
     // ==========================================
     // --- PLUGINS MANAGEMENT METHODS ---
@@ -375,6 +342,33 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
                     this.multiAccountService.setItem('settings', settings);
                     
                     this.toastr.success(event.checked ? 'Đã kích hoạt Quản lý Zalo.' : 'Đã hủy kích hoạt Quản lý Zalo.');
+                } else {
+                    this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
+                }
+            } else if (plugin.id === 'ai_agent') {
+                const res = await (window as any).electronAPI.toggleAiAgent(event.checked);
+                if (res && res.success) {
+                    plugin.enabled = event.checked;
+                    
+                    // Lưu cấu hình vào LocalStorage để đồng bộ giao diện
+                    const settings = this.multiAccountService.getItem('settings') || {};
+                    settings.enableAiAgent = event.checked;
+                    this.multiAccountService.setItem('settings', settings);
+
+                    // Đồng bộ cấu hình lên cloud
+                    const editor = this.multiAccountService.getItem('editor');
+                    const following_users = this.multiAccountService.getItem('following_users');
+                    this._userClientService.updateProfile({
+                        profile: {
+                            settings: settings,
+                            active_info: this.multiAccountService.getItem('active_info'),
+                            editor: (editor && editor !== 'undefined') ? editor : {},
+                            following_users: (following_users && following_users !== 'undefined') ? following_users : [],
+                        },
+                        username: this.user.name
+                    }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                    
+                    this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
                 }
