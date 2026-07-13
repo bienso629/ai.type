@@ -1,4 +1,4 @@
-import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, Inject, NgZone, OnDestroy, OnInit, Renderer2, ViewEncapsulation, ViewChild } from '@angular/core';
+import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, Inject, NgZone, OnDestroy, OnInit, Renderer2, ViewEncapsulation, ViewChild, ChangeDetectorRef } from '@angular/core';
 import { DOCUMENT } from '@angular/common';
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
@@ -32,6 +32,10 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     newToolName: string = '';
     newToolUrl: string = '';
 
+    isZaloRunningBackground: boolean = false;
+    private _intervalId: any;
+    private _openWebToolListener: (e: any) => void;
+
     private _mutationObserver: MutationObserver;
     private _scrollStrategy: ScrollStrategy = this._scrollStrategyOptions.block();
     private _overlay: HTMLElement;
@@ -44,7 +48,8 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         private _ngZone: NgZone,
         private _scrollStrategyOptions: ScrollStrategyOptions,
         private multiAccountService: MultiAccountService,
-        private _matDialog: MatDialog
+        private _matDialog: MatDialog,
+        private cd: ChangeDetectorRef
     ) { }
 
     @HostBinding('class') get classList(): any {
@@ -55,6 +60,41 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     ngOnInit(): void {
         this.loadTools();
+        this.checkZaloStatus();
+        
+        // Định kỳ kiểm tra trạng thái Zalo để cập nhật hiệu ứng nhấp nháy
+        this._intervalId = setInterval(() => {
+            this.checkZaloStatus();
+        }, 5000);
+
+        this._openWebToolListener = (e: any) => {
+            const toolId = e.detail?.id || 'zalo';
+            const foundTool = this.tools.find(t => t.id === toolId || t.url.includes(toolId));
+            if (foundTool) {
+                this.openTool(foundTool);
+            }
+        };
+        (window as any).addEventListener('open-web-tool', this._openWebToolListener);
+    }
+
+    async checkZaloStatus() {
+        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const zalo = list.find((p: any) => p.id === 'zalo_reply');
+                this.isZaloRunningBackground = zalo ? (zalo.installed && zalo.enabled) : false;
+            } catch (e) {
+                this.isZaloRunningBackground = false;
+            }
+        } else {
+            // Chạy trên browser dev mode thì hiển thị mặc định
+            this.isZaloRunningBackground = true;
+        }
+        this.cd.detectChanges();
+    }
+
+    isZaloTool(tool: ToolItem): boolean {
+        return tool && tool.url && tool.url.includes('zalo.me');
     }
 
     loadTools(): void {
@@ -299,6 +339,12 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        if (this._intervalId) {
+            clearInterval(this._intervalId);
+        }
+        if (this._openWebToolListener) {
+            (window as any).removeEventListener('open-web-tool', this._openWebToolListener);
+        }
         this._mutationObserver.disconnect();
         this._unsubscribeAll.next(null);
         this._unsubscribeAll.complete();

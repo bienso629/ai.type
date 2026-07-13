@@ -58,3 +58,36 @@ quick-chat {
         overflow: hidden;
     }
 }
+
+@keyframes zalo-border-blink {
+    0%, 100% {
+        border-color: rgba(0, 104, 255, 0.15);
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+    }
+    50% {
+        border-color: rgba(0, 104, 255, 0.9);
+        top: -4px;
+        left: -4px;
+        right: -4px;
+        bottom: -4px;
+    }
+}
+.zalo-running-blink .relative {
+    position: relative;
+    
+    &::after {
+        content: '';
+        position: absolute;
+        top: -2px;
+        left: -2px;
+        right: -2px;
+        bottom: -2px;
+        border: 1.2px solid rgba(0, 104, 255, 0.15);
+        border-radius: 8px;
+        pointer-events: none;
+        animation: zalo-border-blink 2.2s infinite ease-in-out;
+    }
+}

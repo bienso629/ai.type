@@ -1807,8 +1807,16 @@ function createTargetWindow(
     uniqueID,
     winWidth = 1000,
     winHeight = 800,
+    show = true,
 ) {
     if (targetWindow && !targetWindow.isDestroyed()) {
+        const currentUrl = targetWindow.webContents.getURL();
+        if (url.includes("zalo.me") && currentUrl.includes("zalo.me")) {
+            targetWindow.show();
+            targetWindow.focus();
+            if (typeof callback === "function") callback(url, uniqueID);
+            return targetWindow;
+        }
         targetWindow.close();
     }
 
@@ -1843,7 +1851,7 @@ function createTargetWindow(
         y: finalY,
         icon: path.join(__dirname, '../icons/icon.png'),
         title: "Công cụ AI",
-        show: true, // show sau khi ready-to-show
+        show: show,
         frame: false,
         resizable: false,
         movable: false,
@@ -1855,6 +1863,7 @@ function createTargetWindow(
         alwaysOnTop: false,
         backgroundColor: "#FFFFFF",
         webPreferences: {
+            partition: url.includes("zalo.me") ? 'persist:gemini-webview' : undefined,
             contextIsolation: true,
             nodeIntegration: false,
             backgroundThrottling: false,
@@ -1898,6 +1907,15 @@ function createTargetWindow(
     );
 
     const currentWin = targetWindow;
+    
+    currentWin.on("close", (event) => {
+        if (url.includes("zalo.me") && isZaloPluginEnabled() && getZaloPluginMode() === 'tool') {
+            event.preventDefault();
+            currentWin.hide();
+            sendToRenderer("tools-log", "[Zalo-Tool] Target window hidden instead of closed to keep running in background.");
+        }
+    });
+
     currentWin.on("closed", () => {
         if (targetWindow === currentWin) {
             targetWindow = null;
@@ -1906,6 +1924,83 @@ function createTargetWindow(
 
     return targetWindow;
 }
+ipcMain.on("zalo-plugin:incoming-message", (_evt, data) => {
+    sendToRenderer("zalo-plugin:notify", data);
+});
+
+// Zalo Plugin Main-Process HTTP Bridge
+
+function postToPlugin(path, data) {
+    return new Promise((resolve, reject) => {
+        const payload = JSON.stringify(data || {});
+        const req = http.request({
+            hostname: '127.0.0.1',
+            port: 54322,
+            path: path,
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Content-Length': Buffer.byteLength(payload)
+            }
+        }, (res) => {
+            let body = '';
+            res.on('data', chunk => body += chunk);
+            res.on('end', () => {
+                try {
+                    resolve(JSON.parse(body));
+                } catch {
+                    resolve({ success: false });
+                }
+            });
+        });
+        
+        req.on('error', (err) => {
+            reject(err);
+        });
+        
+        req.write(payload);
+        req.end();
+    });
+}
+
+ipcMain.on('zalo-plugin:log', (_evt, msg) => {
+    postToPlugin('/api/zalo/log', { message: msg }).catch(() => {});
+});
+
+ipcMain.on('zalo-plugin:sync-contacts', (_evt, contacts) => {
+    postToPlugin('/api/zalo/sync-contacts', { contacts }).catch(() => {});
+});
+
+ipcMain.on('zalo-plugin:sync-messages', (_evt, payload) => {
+    postToPlugin('/api/zalo/sync-messages', payload).catch(() => {});
+});
+
+ipcMain.handle('zalo-plugin:get-reply', async (_evt, prompt) => {
+    try {
+        const res = await postToPlugin('/api/zalo/reply', { prompt });
+        return res;
+    } catch {
+        return { success: false, error: 'Connection to plugin failed' };
+    }
+});
+
+ipcMain.handle('zalo-plugin:get-pending-sends', async () => {
+    try {
+        return new Promise((resolve) => {
+            http.get('http://127.0.0.1:54322/api/zalo/pending-sends', (res) => {
+                let body = '';
+                res.on('data', chunk => body += chunk);
+                res.on('end', () => {
+                    try { resolve(JSON.parse(body)); } catch { resolve({ success: false }); }
+                });
+            }).on('error', () => {
+                resolve({ success: false });
+            });
+        });
+    } catch {
+        return { success: false };
+    }
+});
 
 // --- thêm forward debug từ preload về UI (đặt trong app.whenReady() sau createMainWindow()) ---
 ipcMain.on("dreamina:debug", (_evt, msg) => {
@@ -3108,13 +3203,231 @@ ipcMain.handle('toggle-ai-agent', (event, enable) => {
     }
 });
 
+// --- ZALO AUTO REPLY PLUGIN ---
+let zaloPluginProcess = null;
+const zaloPluginConfigPath = path.join(app.getPath('userData'), 'zalo_plugin_config.json');
+
+function isZaloPluginEnabled() {
+    if (fs.existsSync(zaloPluginConfigPath)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(zaloPluginConfigPath, 'utf8'));
+            return !!data.enable;
+        } catch (e) {
+            return false;
+        }
+    }
+    return false;
+}
+
+function getZaloPluginMode() {
+    if (fs.existsSync(zaloPluginConfigPath)) {
+        try {
+            const data = JSON.parse(fs.readFileSync(zaloPluginConfigPath, 'utf8'));
+            return data.mode || 'tool';
+        } catch (e) {
+            return 'tool';
+        }
+    }
+    return 'tool';
+}
+
+let zaloPluginRestartCount = 0;
+let zaloPluginRestartTimeout = null;
+
+function startZaloPlugin() {
+    if (zaloPluginProcess) return;
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
+        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
+        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
+
+        let binaryPath = '';
+        let cmd = '';
+        let args = [];
+
+        if (fs.existsSync(userBinaryPath)) {
+            binaryPath = userBinaryPath;
+            cmd = binaryPath;
+        } else if (fs.existsSync(devBinaryPath)) {
+            binaryPath = devBinaryPath;
+            cmd = binaryPath;
+        } else if (fs.existsSync(devScriptPath)) {
+            cmd = 'python3';
+            args = [devScriptPath];
+        }
+
+        if (cmd) {
+            zaloPluginProcess = spawn(cmd, args, { stdio: 'pipe' });
+            console.log(`[Zalo Plugin] Khởi chạy: ${cmd} ${args.join(' ')}`);
+
+            zaloPluginProcess.stdout.on('data', (data) => console.log(`[Zalo Plugin] ${data}`));
+            zaloPluginProcess.stderr.on('data', (data) => console.error(`[Zalo Plugin] ${data}`));
+
+            zaloPluginProcess.on('error', (err) => {
+                console.error('[Zalo Plugin] Lỗi khởi chạy:', err);
+                zaloPluginProcess = null;
+            });
+
+            zaloPluginProcess.on('exit', (code) => {
+                console.log(`[Zalo Plugin] Đã thoát với mã ${code}`);
+                zaloPluginProcess = null;
+
+                if (isZaloPluginEnabled() && zaloPluginRestartCount < 5) {
+                    zaloPluginRestartCount++;
+                    console.log(`[Zalo Plugin] Đang thử khởi động lại lần thứ ${zaloPluginRestartCount}/5 sau 3 giây...`);
+                    if (zaloPluginRestartTimeout) clearTimeout(zaloPluginRestartTimeout);
+                    zaloPluginRestartTimeout = setTimeout(() => {
+                        startZaloPlugin();
+                    }, 3000);
+                } else if (zaloPluginRestartCount >= 5) {
+                    console.error('[Zalo Plugin] Khởi động lại thất bại quá 5 lần. Dừng lại.');
+                }
+            });
+
+            // Reset restart count if runs successfully for 10 seconds
+            setTimeout(() => {
+                if (zaloPluginProcess && !zaloPluginProcess.killed) {
+                    zaloPluginRestartCount = 0;
+                }
+            }, 10000);
+        } else {
+            console.warn('[Zalo Plugin] Không tìm thấy file nguồn cài đặt plugin.');
+        }
+    } catch (e) {
+        console.error('[Zalo Plugin] Lỗi start:', e);
+    }
+}
+
+function stopZaloPlugin() {
+    if (zaloPluginProcess) {
+        try {
+            zaloPluginProcess.kill('SIGKILL');
+            zaloPluginProcess = null;
+            console.log('[Zalo Plugin] Đã tắt');
+        } catch (e) {}
+    }
+}
+
+
+
+ipcMain.handle('toggle-zalo-plugin', (event, enable, mode) => {
+    try {
+        const targetMode = mode || 'tool';
+        fs.writeFileSync(zaloPluginConfigPath, JSON.stringify({ enable, mode: targetMode }), 'utf8');
+        if (enable) {
+            startZaloPlugin();
+        } else {
+            stopZaloPlugin();
+        }
+        return { success: true };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('get-plugins-status', async (event) => {
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
+        
+        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
+        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
+        
+        const installed = fs.existsSync(userBinaryPath);
+        const canInstall = fs.existsSync(devBinaryPath) || fs.existsSync(devScriptPath);
+        const enabled = isZaloPluginEnabled();
+        
+        return [
+            {
+                id: 'zalo_reply',
+                name: 'Quản lý Zalo',
+                description: 'Tự động đọc và trả lời tin nhắn Zalo thông minh.',
+                installed,
+                canInstall,
+                enabled,
+                mode: getZaloPluginMode(),
+                version: '1.0'
+            }
+        ];
+    } catch (e) {
+        return [];
+    }
+});
+
+ipcMain.handle('install-zalo-plugin', async (event) => {
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        fs.mkdirSync(userPluginsDir, { recursive: true });
+        
+        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
+        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
+        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
+        
+        if (fs.existsSync(devBinaryPath)) {
+            fs.copyFileSync(devBinaryPath, userBinaryPath);
+            return { success: true, message: 'Đã cài đặt plugin thành công!' };
+        } else if (fs.existsSync(devScriptPath)) {
+            const destScriptPath = path.join(userPluginsDir, 'zalo_auto_reply.py');
+            fs.copyFileSync(devScriptPath, destScriptPath);
+            return { success: true, message: 'Đã sao chép tệp mã nguồn vào Documents/ai.type/plugins!' };
+        }
+        
+        return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('uninstall-zalo-plugin', async (event) => {
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
+        const userScriptPath = path.join(userPluginsDir, 'zalo_auto_reply.py');
+        
+        stopZaloPlugin();
+        stopZaloBackgroundWindow();
+        if (targetWindow && !targetWindow.isDestroyed() && targetWindow.webContents.getURL().includes("zalo.me")) {
+            targetWindow.destroy();
+        }
+        
+        if (fs.existsSync(userBinaryPath)) {
+            fs.unlinkSync(userBinaryPath);
+        }
+        if (fs.existsSync(userScriptPath)) {
+            fs.unlinkSync(userScriptPath);
+        }
+        
+        fs.writeFileSync(zaloPluginConfigPath, JSON.stringify({ enable: false, mode: 'tool' }), 'utf8');
+        return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.on('zalo-plugin:require-login', () => {
+    // Không làm gì cả vì người dùng chỉ dùng trong Web Tools sidebar
+});
+
+ipcMain.on('zalo-plugin:login-success', () => {
+    // Không làm gì cả vì người dùng chỉ dùng trong Web Tools sidebar
+});
+
+ipcMain.on('zalo-plugin:is-enabled', (event) => {
+    event.returnValue = isZaloPluginEnabled();
+});
+
 app.on('will-quit', () => {
     stopAiAgent();
+    stopZaloPlugin();
 });
 
 app.whenReady().then(async () => {
     if (isAiAgentEnabled()) {
         startAiAgent();
+    }
+    if (isZaloPluginEnabled()) {
+        startZaloPlugin();
     }
 
     startCrmServices();
@@ -3451,6 +3764,14 @@ app.whenReady().then(async () => {
 
     // Lắng nghe Webview sinh ra từ giao diện Angular (nếu có) để Auto-map nó làm đối tượng lấy hình ảnh
     app.on('web-contents-created', (event, contents) => {
+        if (contents.getType() === 'window') {
+            contents.on('will-attach-webview', (embedEvent, webPreferences, params) => {
+                const preloadPath = resolvePreload();
+                webPreferences.preload = preloadPath;
+                webPreferences.contextIsolation = true;
+                console.log(`[Zalo Webview] Đã tiêm preload script vào webview: ${preloadPath}`);
+            });
+        }
         if (contents.getType() === 'webview') {
             // Duck-type tương thích chức năng (bao gồm EventEmitter methods)
             const EventEmitter = require('events');
