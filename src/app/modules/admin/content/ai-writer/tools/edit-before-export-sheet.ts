@@ -389,8 +389,78 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         return true;
     }
 
+    async processThumbnailBeforeSave(): Promise<void> {
+        let thumbnailVal = this.editorForm.get('thumbnail').value;
+        if (!thumbnailVal) return;
+
+        // Lấy đường dẫn đầu tiên
+        let thumb = thumbnailVal.split('\n').map((t: string) => t.trim()).find((t: string) => t);
+        if (!thumb) return;
+
+        // Nếu thumbnail đã là một link URL (http:// hoặc https://) thì không cần upload lại
+        if (thumb.startsWith('http://') || thumb.startsWith('https://')) {
+            return;
+        }
+
+        let base64DataUrl = '';
+
+        if (thumb.startsWith('data:image/')) {
+            base64DataUrl = thumb;
+        } else {
+            // Đây là file local hoặc file://
+            let localPath = thumb;
+            if (localPath.startsWith('file://')) {
+                localPath = localPath.substring('file://'.length);
+            }
+            // Đọc từ local qua IPC
+            try {
+                const res = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                if (res && res.success && res.base64) {
+                    const fileName = localPath.split(/[\\/]/).pop() || 'thumbnail.png';
+                    const ext = fileName.split('.').pop()?.toLowerCase() || 'png';
+                    const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : `image/${ext}`;
+                    base64DataUrl = `data:${mimeType};name=${encodeURIComponent(fileName)};base64,${res.base64}`;
+                } else {
+                    console.error('Không thể đọc file local làm thumbnail:', res?.error);
+                }
+            } catch (e) {
+                console.error('Lỗi IPC đọc file base64:', e);
+            }
+        }
+
+        if (base64DataUrl) {
+            const uname = this.editorForm.get('username').value;
+            const pass = this.editorForm.get('apppass').value;
+            const domain = this.editorForm.get('domain').value;
+
+            this.loading = true;
+            this.cdr.markForCheck();
+            this.toastr.info('Đang tải lên hình ảnh đại diện (thumbnail)...');
+
+            try {
+                const result = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass));
+                if (result && result.id) {
+                    // Set featured_media ID cho bài viết mới
+                    this.editorForm.addControl('featured_media', this._formBuilder.control(result.id));
+                    // Cập nhật lại giá trị cho cả trường thumbnail
+                    if (result.source_url) {
+                        this.editorForm.get('thumbnail').setValue(result.source_url);
+                    }
+                    this.toastr.success('Đã tải lên và đính kèm thumbnail thành công!');
+                }
+            } catch (e) {
+                console.error('Lỗi tải thumbnail lên WordPress:', e);
+                this.toastr.warning('Không thể tải hình ảnh đại diện (thumbnail) lên trang web.');
+            } finally {
+                this.loading = false;
+                this.cdr.markForCheck();
+            }
+        }
+    }
+
     async share(event: MouseEvent): Promise<void> {
         event.preventDefault();
+        await this.processThumbnailBeforeSave();
         await this.processBase64ImagesBeforeSave();
 
         this._wordpressService.create_post(this.editorForm.value)
@@ -425,6 +495,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
 
     async update(event: MouseEvent): Promise<void> {
         event.preventDefault();
+        await this.processThumbnailBeforeSave();
         await this.processBase64ImagesBeforeSave();
 
         this._wordpressService.update_post(this.editorForm.value)

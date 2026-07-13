@@ -147,17 +147,24 @@
                             <div class="flex flex-col mt-2 mb-3">
                                 <div class="flex items-center justify-between mb-2">
                                     <mat-label class="text-base font-semibold">{{ 'app.image_video' | transloco }}</mat-label>
-                                    <button mat-icon-button (click)="fileInput.click()" type="button"
-                                        [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
-                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
-                                    </button>
+                                    <div class="flex items-center gap-1">
+                                        <button mat-icon-button (click)="generateImageFromOutline()" type="button"
+                                            [color]="'primary'" matTooltip="Tự động tạo hình ảnh từ dàn ý"
+                                            [disabled]="isGeneratingImage">
+                                            <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage" [svgIcon]="isGeneratingImage ? 'feather:loader' : 'feather:image'"></mat-icon>
+                                        </button>
+                                        <button mat-icon-button (click)="fileInput.click()" type="button"
+                                            [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
+                                            <mat-icon class="icon-size-4" [svgIcon]="'feather:folder-plus'"></mat-icon>
+                                        </button>
+                                    </div>
                                     <input #fileInput type="file" class="hidden" (change)="onThumbnailSelected($event)"
                                         accept="image/*,video/*" multiple>
                                     <input #replaceFileInput type="file" class="hidden"
                                         (change)="onThumbnailReplaced($event)" accept="image/*,video/*">
                                 </div>
 
-                                <div class="flex flex-col p-2 rounded border border-dashed border-gray-10"
+                                <div class="flex flex-col gap-2 p-2 rounded border border-dashed border-gray-10"
                                     [class.items-center]="thumbnailsList.length === 0"
                                     [class.justify-center]="thumbnailsList.length === 0">
 
@@ -2611,6 +2618,12 @@
                                                                 <mat-icon class="icon-size-4"
                                                                     [svgIcon]="'feather:message-square'"></mat-icon>
                                                                 <span>{{ 'app.comment' | transloco }}</span>
+                                                            </button>
+                                                            <button mat-menu-item (click)="generateImageFromParagraph(item)"
+                                                                [color]="'primary'" [disabled]="isGeneratingImage">
+                                                                <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage"
+                                                                    [svgIcon]="isGeneratingImage ? 'feather:loader' : 'feather:image'"></mat-icon>
+                                                                <span>Tạo hình ảnh</span>
                                                             </button>
                                                             <button mat-menu-item (click)="keyword(done, i)"
                                                                 [color]="'primary'">
