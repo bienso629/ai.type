@@ -110,6 +110,7 @@ export const appRoutes: Route[] = [
             { path: 'amxh', loadChildren: () => import('app/modules/admin/marketing/n8n/n8n.module').then(m => m.AMXHModule) },
             { path: 'customers', loadChildren: () => import('app/modules/admin/marketing/x-cms/x-cms.module').then(m => m.XCmsModule) },
             { path: 'data', loadChildren: () => import('app/modules/admin/marketing/bigdata/bigdata.module').then(m => m.BigDataModule) },
+            { path: 'zalo', loadChildren: () => import('app/modules/admin/marketing/zalo/zalo.module').then(m => m.ZaloModule) },
         ]
     },
 ];

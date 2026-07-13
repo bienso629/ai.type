@@ -31,7 +31,8 @@
                 <div class="flex-auto">
                     <ng-container *ngFor="let tool of tools; trackBy: trackByFn">
                         <div class="flex items-center justify-center py-3 px-3 border-b cursor-pointer hover:bg-gray-50 dark:hover:bg-hover"
-                            (click)="openTool(tool)" [title]="tool.name">
+                            (click)="openTool(tool)" [title]="tool.name"
+                            [class.zalo-running-blink]="isZaloTool(tool) && isZaloRunningBackground">
                             <div class="relative flex flex-0 w-6 h-6">
                                 <img class="w-full h-full rounded-md object-cover"
                                     [src]="getFavicon(tool.url)" [alt]="tool.name"

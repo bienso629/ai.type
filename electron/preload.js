@@ -99,7 +99,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('send-email-progress', listener);
         return () => ipcRenderer.removeListener('send-email-progress', listener);
     },
-    toggleAiAgent: (enable) => ipcRenderer.invoke('toggle-ai-agent', enable)
+    toggleAiAgent: (enable) => ipcRenderer.invoke('toggle-ai-agent', enable),
+    toggleZaloPlugin: (enable, mode) => ipcRenderer.invoke('toggle-zalo-plugin', enable, mode),
+    getPluginsStatus: () => ipcRenderer.invoke('get-plugins-status'),
+    installPlugin: (pluginId) => ipcRenderer.invoke('install-plugin', pluginId),
+    uninstallPlugin: (pluginId) => ipcRenderer.invoke('uninstall-plugin', pluginId)
 });
 
 // Tìm đoạn IIFE Dreamina trong preload.js và thay thế bằng logic này:
@@ -226,5 +230,251 @@ contextBridge.exposeInMainWorld('electronAPI', {
 
     if (location.href.includes('tiktok.com')) {
         setTimeout(startTikTokObserver, 2000);
+    }
+})();
+
+// ====== ZALO AUTO-REPLY PLUGIN HOOK ======
+(() => {
+    if (!location.href.includes('zalo.me')) {
+        return;
+    }
+    
+    let isPluginEnabled = false;
+    try {
+        isPluginEnabled = ipcRenderer.sendSync('zalo-plugin:is-enabled');
+    } catch (e) {}
+
+    if (!isPluginEnabled) {
+        return;
+    }
+    
+    const dbg = (msg) => { 
+        try { ipcRenderer.send('dreamina:debug', `[Zalo-Plugin-Preload] ${msg}`); } catch {} 
+        try {
+            ipcRenderer.send('zalo-plugin:log', msg);
+        } catch (e) {}
+    };
+
+    let isReplying = false;
+
+    const startZaloObserver = () => {
+        dbg('Zalo auto-reply observer started.');
+        
+        setInterval(async () => {
+            if (isReplying) return;
+
+            try {
+                // Tìm badge tin nhắn chưa đọc
+                const unreadBadge = document.querySelector('div[id^="card-"] .db, div[id^="card-"] .unread-badge');
+                if (!unreadBadge) return;
+
+                isReplying = true;
+                
+                // Tìm thẻ cha chat item (id bắt đầu bằng card-)
+                const chatItem = unreadBadge.closest('div[id^="card-"]');
+                if (!chatItem) {
+                    isReplying = false;
+                    return;
+                }
+
+                // Click để mở chat
+                chatItem.click();
+                await new Promise(r => setTimeout(r, 1500)); // Đợi tin nhắn tải
+
+                // Lấy danh sách tin nhắn hiện tại
+                const msgItems = document.querySelectorAll('.msg-item');
+                if (msgItems.length === 0) {
+                    isReplying = false;
+                    return;
+                }
+
+                const lastMsgEl = msgItems[msgItems.length - 1];
+                
+                // Kiểm tra xem tin nhắn cuối có phải do mình gửi không
+                const isMine = await lastMsgEl.classList.contains('card--owner') || lastMsgEl.querySelector('.card--owner');
+                if (isMine) {
+                    isReplying = false;
+                    return;
+                }
+
+                const textEl = lastMsgEl.querySelector('.text');
+                if (!textEl) {
+                    isReplying = false;
+                    return;
+                }
+
+                const incomingText = textEl.innerText.trim();
+                
+                // Lấy tên người gửi
+                const nameEl = chatItem.querySelector('.title-name, .name, .conv-name');
+                const senderName = nameEl ? nameEl.innerText.trim() : 'Ẩn danh';
+                
+                dbg(`New message detected from ${senderName}: "${incomingText}"`);
+                
+                // Bắn IPC báo có tin nhắn tới cho Electron
+                try {
+                    ipcRenderer.send('zalo-plugin:incoming-message', { sender: senderName, text: incomingText });
+                } catch (e) {}
+
+                // Gọi API của Python Plugin thông qua IPC Main Process để sinh phản hồi
+                const data = await ipcRenderer.invoke('zalo-plugin:get-reply', incomingText);
+
+                if (data && data.success && data.reply) {
+                    const aiReply = data.reply;
+                    dbg(`Got AI reply: "${aiReply}"`);
+
+                    // Nhập và gửi tin nhắn
+                    const inputEl = document.getElementById('rich-input');
+                    if (inputEl) {
+                        inputEl.focus();
+                        inputEl.innerHTML = aiReply;
+                        inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        await new Promise(r => setTimeout(r, 500));
+                        
+                        // Kích hoạt sự kiện gõ phím Enter để gửi tin nhắn
+                        const enterEvent = new KeyboardEvent('keydown', {
+                            key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
+                        });
+                        inputEl.dispatchEvent(enterEvent);
+                        dbg('Reply sent successfully.');
+                    }
+                }
+            } catch (err) {
+                dbg(`Error in observer loop: ${err.message}`);
+            } finally {
+                isReplying = false;
+            }
+        }, 3000); // Quét mỗi 3 giây
+
+        // Vòng lặp đồng bộ danh bạ & lịch sử tin nhắn về database
+        setInterval(async () => {
+            try {
+                // Scrape danh sách cuộc hội thoại
+                const chatCards = document.querySelectorAll('div[id^="card-"]');
+                const contacts = [];
+                chatCards.forEach(card => {
+                    const nameEl = card.querySelector('.title-name, .name, .conv-name');
+                    const previewEl = card.querySelector('.preview, .msg-message, .desc');
+                    const timeEl = card.querySelector('.time, .msg-time');
+                    const avatarEl = card.querySelector('img');
+                    const unreadEl = card.querySelector('.db, .unread-badge');
+                    
+                    if (nameEl) {
+                        contacts.push({
+                            name: nameEl.innerText.trim(),
+                            preview: previewEl ? previewEl.innerText.trim() : '',
+                            time: timeEl ? timeEl.innerText.trim() : '',
+                            avatar: avatarEl ? avatarEl.src : '',
+                            unread: unreadEl ? parseInt(unreadEl.innerText) || 0 : 0
+                        });
+                    }
+                });
+
+                if (contacts.length > 0) {
+                    ipcRenderer.send('zalo-plugin:sync-contacts', contacts);
+                }
+
+                // Scrape tin nhắn trong phòng chat đang hoạt động
+                const activeChatHeader = document.querySelector('.header-title, .chat-header-name, .title-name');
+                if (activeChatHeader) {
+                    const contactName = activeChatHeader.innerText.trim();
+                    const msgItems = document.querySelectorAll('.msg-item');
+                    const messages = [];
+                    
+                    msgItems.forEach(msg => {
+                        const textEl = msg.querySelector('.text');
+                        if (textEl) {
+                            const isMine = msg.classList.contains('card--owner') || msg.querySelector('.card--owner') !== null;
+                            messages.push({
+                                sender: isMine ? 'Me' : contactName,
+                                text: textEl.innerText.trim(),
+                                is_mine: isMine,
+                                time: new Date().toISOString()
+                            });
+                        }
+                    });
+
+                    if (messages.length > 0) {
+                        ipcRenderer.send('zalo-plugin:sync-messages', { contact_name: contactName, messages });
+                    }
+                }
+
+                // Xử lý gửi tin nhắn đi từ CRM (pending-sends)
+                const pendingData = await ipcRenderer.invoke('zalo-plugin:get-pending-sends');
+                if (pendingData && pendingData.success && pendingData.sends && pendingData.sends.length > 0) {
+                    for (const send of pendingData.sends) {
+                        dbg(`Sending CRM message to ${send.contact_name}: "${send.text}"`);
+                        
+                        const chatCards = document.querySelectorAll('div[id^="card-"]');
+                        let targetCard = null;
+                        for (const card of chatCards) {
+                            const nameEl = card.querySelector('.title-name, .name, .conv-name');
+                            if (nameEl && nameEl.innerText.trim() === send.contact_name) {
+                                targetCard = card;
+                                break;
+                            }
+                        }
+                        
+                        if (targetCard) {
+                            targetCard.click();
+                            await new Promise(r => setTimeout(r, 1500));
+                            
+                            const inputEl = document.getElementById('rich-input');
+                            if (inputEl) {
+                                inputEl.focus();
+                                inputEl.innerHTML = send.text;
+                                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                                await new Promise(r => setTimeout(r, 500));
+                                
+                                const enterEvent = new KeyboardEvent('keydown', {
+                                    key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true
+                                });
+                                inputEl.dispatchEvent(enterEvent);
+                                dbg('CRM Message sent successfully.');
+                            }
+                        } else {
+                            dbg(`Cannot find chat card for: ${send.contact_name}`);
+                        }
+                    }
+                }
+            } catch (err) {
+                // Bỏ qua lỗi
+            }
+        }, 5000); // Quét đồng bộ mỗi 5 giây
+    };
+
+    const checkLoginState = () => {
+        // Chờ 5 giây xem Zalo có tự đăng nhập bằng session lưu sẵn không
+        setTimeout(() => {
+            const inputEl = document.getElementById('rich-input');
+            if (!inputEl) {
+                dbg('Login required. Requesting window visibility.');
+                try {
+                    ipcRenderer.send('zalo-plugin:require-login');
+                } catch (e) {}
+                
+                // Theo dõi đến khi đăng nhập thành công
+                const checkInterval = setInterval(() => {
+                    const loggedInInput = document.getElementById('rich-input');
+                    if (loggedInInput) {
+                        dbg('Login successful! Requesting to hide window.');
+                        try {
+                            ipcRenderer.send('zalo-plugin:login-success');
+                        } catch (e) {}
+                        clearInterval(checkInterval);
+                        startZaloObserver();
+                    }
+                }, 2000);
+            } else {
+                dbg('Already logged in. Running observer.');
+                startZaloObserver();
+            }
+        }, 5000);
+    };
+
+    if (document.readyState === 'loading') {
+        window.addEventListener('DOMContentLoaded', checkLoginState, { once: true });
+    } else {
+        checkLoginState();
     }
 })();

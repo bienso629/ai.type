@@ -12,12 +12,32 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 @Component({
     selector: 'ai-tools',
     templateUrl: './tools.component.html',
-    encapsulation: ViewEncapsulation.None
+    encapsulation: ViewEncapsulation.None,
+    styles: [`
+        @keyframes zalo-simple-blink {
+            0%, 100% {
+                opacity: 0.75;
+                filter: drop-shadow(0 0 1px rgba(0, 104, 255, 0.25));
+            }
+            50% {
+                opacity: 1;
+                filter: drop-shadow(0 0 5px rgba(0, 104, 255, 0.65));
+            }
+        }
+        .zalo-background-running {
+            color: #0068FF !important;
+            display: inline-block !important;
+            animation: zalo-simple-blink 2.2s infinite ease-in-out;
+        }
+    `]
 })
 export class AIToolsComponent implements OnInit, OnDestroy {
     year: number = 2023;
     config: AppConfig;
     user: User;
+
+    isZaloInstalled: boolean = false;
+    isZaloRunningBackground: boolean = false;
 
     cols: number;
 
@@ -69,6 +89,7 @@ export class AIToolsComponent implements OnInit, OnDestroy {
         private _fuseConfigService: FuseConfigService,
         private _fuseConfirmationService: FuseConfirmationService,
         private breakpointObserver: BreakpointObserver,
+        private cd: ChangeDetectorRef,
     ) {
         this.titleService.setTitle(`bộ công cụ | ai.type - công cụ tạo content`);
 
@@ -116,6 +137,26 @@ export class AIToolsComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        this.checkZaloPlugin();
+    }
+
+    async checkZaloPlugin() {
+        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const zalo = list.find((p: any) => p.id === 'zalo_reply');
+                this.isZaloInstalled = zalo ? (zalo.installed && zalo.enabled) : false;
+                this.isZaloRunningBackground = zalo ? (zalo.installed && zalo.enabled) : false;
+            } catch (e) {
+                this.isZaloInstalled = false;
+                this.isZaloRunningBackground = false;
+            }
+        } else {
+            // Chạy trên browser dev mode thì hiển thị mặc định
+            this.isZaloInstalled = true;
+            this.isZaloRunningBackground = true;
+        }
+        this.cd.detectChanges();
     }
 
     ngOnDestroy(): void {

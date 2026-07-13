@@ -110,6 +110,77 @@ export class BlogService {
         );
     }
 
+    public storeScript(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.api[this.user.server]}/blog/scripts/store`;
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(data => {
+                return data;
+            }),
+            tap(_ => {
+            }),
+            catchError(this.handleError('server', []))
+        );
+    }
+
+    public getScript(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+
+        const url = `${this.config.settings.api[this.user.server]}/blog/scripts/get`;
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(data => {
+                return data;
+            }),
+            tap(_ => {
+            }),
+            catchError(this.handleError('server', []))
+        );
+    }
+
+    public getDraft(uuid: string): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        const url = `${this.config.settings.api[this.user.server]}/blog/${this.user.name}/chatgpt`;
+
+        let data = {
+            params: this._h.encrypt({
+                year: this.year,
+                appId: 'ai.typing',
+                appToken: activeInfo['user']['appToken'],
+                uuid: uuid
+            }, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(data => {
+                return data;
+            }),
+            catchError(this.handleError('server', []))
+        );
+    }
+
     public keywordGoogle(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);

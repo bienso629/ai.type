@@ -52,6 +52,7 @@ import { MediaDataDialog } from 'app/modules/admin/content/ai-writer/tools/media
 import { KeywordGoogleDataDialog } from 'app/modules/admin/content/ai-writer/tools/keyword-google-data-dialog';
 import { ChatGPTQuestionSheet } from 'app/modules/admin/content/ai-writer/tools/chatgpt-questions-sheet';
 import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools/edit-before-export-sheet';
+import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-dialog';
 
 import { forkJoin } from 'rxjs'; // RxJS 6 syntax
 import { DomainService } from 'app/modules/_services/domain';
@@ -104,6 +105,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     temp: any;
     wordPopup: any;
     loading: boolean = false;
+    isGeneratingScript: boolean = false;
 
     // ai: any;
 
@@ -2457,6 +2459,92 @@ ${content}`;
                 });
         } else {
             this.toastr.warning('Dàn ý chưa có nội dung chữ nào để tìm từ khoá!', 'Trống');
+        }
+    }
+
+    /**
+     * Biến dàn ý thành kịch bản tập phim chuyên nghiệp
+     */
+    async generateScript() {
+        let outlineText = '';
+        if (this.done && this.done.length > 0) {
+            this.done.map((content: any) => {
+                if (typeof content === 'string') {
+                    outlineText += this.removeHTML.transform(content) + '\n\n';
+                }
+            });
+        }
+
+        if (!outlineText.trim()) {
+            this.toastr.warning('Dàn ý chưa có nội dung để tạo kịch bản!', 'Trống');
+            return;
+        }
+
+        this.isGeneratingScript = true;
+        this.toastr.info('Đang gửi dàn ý lên AI để dựng kịch bản phim...', 'Đang xử lý');
+        this.cd.markForCheck();
+        
+        const prompt = `Bạn là một nhà biên kịch phim điện ảnh và truyền hình chuyên nghiệp.
+Hãy chuyển đổi dàn ý phân đoạn dưới đây thành một kịch bản phân cảnh phim hoàn chỉnh và chi tiết.
+
+Dàn ý:
+${outlineText}
+
+Yêu cầu định dạng kịch bản chuẩn (giống như ảnh mẫu):
+1. **Slugline (Dòng cảnh):** Viết chữ in hoa, in đậm, bắt đầu bằng nơi chốn và thời gian (ví dụ: EXT. PRIVET DRIVE - NIGHT hoặc INT. OFFICE - DAY).
+2. **Action (Hành động):** Đoạn miêu tả chi tiết bối cảnh, âm thanh, hành động nhân vật, viết căn lề trái bình thường. Khi một nhân vật mới xuất hiện lần đầu tiên, tên của họ phải được viết IN HOA.
+3. **Character Name (Tên nhân vật):** Viết IN HOA ở dòng riêng, căn giữa (hoặc thụt lề nhiều vào giữa).
+4. **Dialogue (Lời thoại):** Đặt ngay bên dưới tên nhân vật, viết căn giữa (hoặc thụt lề vào giữa hai bên).
+5. **Parenthetical (Chú thích tâm trạng/hành động ngắn):** Đặt trong dấu ngoặc đơn ngay dưới tên nhân vật và trước lời thoại (ví dụ: (smile fading)).
+
+Hãy viết kịch bản bằng tiếng Việt, chi tiết, cuốn hút, giàu hình ảnh và kịch tính. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
+
+        try {
+            this.stepper.selectedIndex = 0;
+            this.selectedIndex = 0;
+            this.cd.markForCheck();
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            });
+
+            const scriptText = response.text;
+            if (scriptText) {
+                const title = this.detectForm.get('step1')?.get('title')?.value || 'Kịch bản chưa đặt tên';
+                
+                this._blogService.storeScript({
+                    username: this.user.name,
+                    uuid: this.uuid,
+                    title: title,
+                    outline: outlineText,
+                    script: scriptText
+                }).subscribe({
+                    next: (res) => {
+                        this.toastr.success('Dựng kịch bản phim thành công và đã lưu vào database!');
+                        this.isGeneratingScript = false;
+                        this.cd.markForCheck();
+                        
+                        // Chuyển hướng sang route mới
+                        this.router.navigate(['/ai-writer', this.name, this.uuid, 'script']);
+                    },
+                    error: (err) => {
+                        console.error('Lỗi khi lưu kịch bản vào database:', err);
+                        this.toastr.error('Dựng kịch bản thành công nhưng không thể lưu vào database.', 'Lỗi lưu trữ');
+                        this.isGeneratingScript = false;
+                        this.cd.markForCheck();
+                    }
+                });
+            } else {
+                this.toastr.error('AI không phản hồi nội dung kịch bản.', 'Lỗi AI');
+                this.isGeneratingScript = false;
+                this.cd.markForCheck();
+            }
+        } catch (error) {
+            console.error('Lỗi dựng kịch bản:', error);
+            this.toastr.error('Không thể kết nối đến máy chủ AI để dựng kịch bản.', 'Lỗi kết nối');
+            this.isGeneratingScript = false;
+            this.cd.markForCheck();
         }
     }
 
