@@ -838,6 +838,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             this._createOverlay();
         }
 
+        // Return if already attached
+        if (this._overlayRef.hasAttached()) {
+            return;
+        }
+
         // Attach the portal to the overlay
         this._overlayRef.attach(new TemplatePortal(this._chatgptPanel, this._viewContainerRef));
 

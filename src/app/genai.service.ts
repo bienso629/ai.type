@@ -423,11 +423,12 @@ export class GenaiService {
                 finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
             }
         }
+        let configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
+        if (configRatio) {
+            finalPrompt += `\n[Yêu cầu kỹ thuật: Tỉ lệ khung hình (Aspect Ratio) là ${configRatio}]`;
+        }
         if (params.config && (params.config as any).imageConfig) {
             const imgConfig = (params.config as any).imageConfig;
-            if (imgConfig.aspectRatio) {
-                finalPrompt += `\n[Yêu cầu kỹ thuật: Tỉ lệ khung hình (Aspect Ratio) là ${imgConfig.aspectRatio}]`;
-            }
             if (imgConfig.imageSize) {
                 finalPrompt += `\n[Yêu cầu kỹ thuật: Kích thước là ${imgConfig.imageSize}]`;
             }
