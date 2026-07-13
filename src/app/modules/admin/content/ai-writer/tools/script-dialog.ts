@@ -76,23 +76,23 @@ interface ScreenplayLine {
             text-transform: uppercase;
             margin-top: 1.2rem;
             margin-bottom: 0.4rem;
-            text-align: left;
+            text-align: left !important;
         }
         .screenplay-action {
-            text-align: left;
+            text-align: left !important;
             margin-top: 0.4rem;
             margin-bottom: 0.4rem;
         }
         .screenplay-character {
             font-weight: bold;
             text-transform: uppercase;
-            text-align: left;
+            text-align: left !important;
             margin-left: 35%;
             margin-top: 0.8rem;
             margin-bottom: 0.1rem;
         }
         .screenplay-parenthetical {
-            text-align: left;
+            text-align: left !important;
             margin-left: 28%;
             margin-right: 20%;
             margin-top: 0.1rem;
@@ -100,7 +100,7 @@ interface ScreenplayLine {
             color: #555;
         }
         .screenplay-dialogue {
-            text-align: left;
+            text-align: left !important;
             margin-left: 20%;
             margin-right: 20%;
             margin-top: 0.1rem;
@@ -131,7 +131,29 @@ export class ScriptDialog implements OnInit {
             return;
         }
 
-        const rawLines = this.data.scriptText.split('\n');
+        // Normalize HTML tags to newlines and plain text
+        let processedText = this.data.scriptText || '';
+        
+        // 1. Replace br tags with newlines
+        processedText = processedText.replace(/<br\s*\/?>/gi, '\n');
+        
+        // 2. Replace closing block tags with newlines
+        processedText = processedText.replace(/<\/p>|<\/div>|<\/h[1-6]>/gi, '\n');
+        
+        // 3. Strip all other remaining HTML tags
+        processedText = processedText.replace(/<\/?[^>]+(>|$)/g, '');
+        
+        // 4. Decode HTML entities (e.g. &nbsp; &amp; &lt; &gt; &quot;)
+        const doc = new DOMParser().parseFromString(processedText, 'text/html');
+        processedText = doc.documentElement.textContent || processedText;
+
+        // 5. Replace all non-breaking spaces and special unicode spaces with normal space
+        processedText = processedText.replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
+
+        // 6. Normalize multiple consecutive spaces and tabs to a single space (while keeping newlines)
+        processedText = processedText.replace(/[ \t]+/g, ' ');
+
+        const rawLines = processedText.split('\n');
         this.parsedLines = [];
         let lastType = '';
 
@@ -139,11 +161,12 @@ export class ScriptDialog implements OnInit {
             const trimmed = line.trim();
             if (!trimmed) {
                 this.parsedLines.push({ type: 'empty', text: '' });
+                lastType = ''; // Reset state on blank lines to separate paragraphs correctly
                 continue;
             }
 
-            // Remove markdown bold tags
-            let clean = trimmed.replace(/^\*\*|\*\*$/g, '').trim();
+            // Remove markdown bold tags and normalize multiple spaces to a single space
+            let clean = trimmed.replace(/^\*\*|\*\*$/g, '').replace(/\s+/g, ' ').trim();
 
             // Identify Sluglines
             const isSlugline = /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.|CẢNH\s+\d+|PHÂN\s+CẢNH\s+\d+)/i.test(clean) ||
@@ -177,7 +200,12 @@ export class ScriptDialog implements OnInit {
 
             // Identify Dialogue continuation
             if (lastType === 'dialogue' && !isCharacter) {
-                this.parsedLines.push({ type: 'dialogue', text: clean });
+                const lastItem = this.parsedLines[this.parsedLines.length - 1];
+                if (lastItem && lastItem.type === 'dialogue') {
+                    lastItem.text += ' ' + clean;
+                } else {
+                    this.parsedLines.push({ type: 'dialogue', text: clean });
+                }
                 lastType = 'dialogue';
                 continue;
             }
@@ -190,7 +218,12 @@ export class ScriptDialog implements OnInit {
             }
 
             // Default: Action
-            this.parsedLines.push({ type: 'action', text: clean });
+            const lastItem = this.parsedLines[this.parsedLines.length - 1];
+            if (lastItem && lastItem.type === 'action') {
+                lastItem.text += ' ' + clean;
+            } else {
+                this.parsedLines.push({ type: 'action', text: clean });
+            }
             lastType = 'action';
         }
     }
