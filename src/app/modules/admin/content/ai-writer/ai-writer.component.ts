@@ -2551,23 +2551,51 @@ ${content}`;
         }
 
         this.isGeneratingScript = true;
-        this.toastr.info('Đang gửi dàn ý lên AI để dựng kịch bản phim...', 'Đang xử lý');
         this.cd.markForCheck();
         
+        this._blogService.getScript({
+            username: this.user.name,
+            uuid: this.uuid
+        }).subscribe({
+            next: (checkRes: any) => {
+                const existingScript = (checkRes && checkRes.success && checkRes.data && checkRes.data.script) || (checkRes && checkRes.script);
+                if (existingScript) {
+                    this.toastr.success('Kịch bản đã tồn tại! Đang chuyển hướng...');
+                    this.isGeneratingScript = false;
+                    this.cd.markForCheck();
+                    this.router.navigate(['/ai-writer', this.name, this.uuid, 'script']);
+                } else {
+                    this.proceedGenerateScript(outlineText);
+                }
+            },
+            error: (err) => {
+                console.warn('Lỗi kiểm tra kịch bản, tiến hành tạo mới:', err);
+                this.proceedGenerateScript(outlineText);
+            }
+        });
+    }
+
+    async proceedGenerateScript(outlineText: string) {
+        this.toastr.info('Đang gửi dàn ý lên AI để dựng kịch bản phim...', 'Đang xử lý');
+        
         const prompt = `Bạn là một nhà biên kịch phim điện ảnh và truyền hình chuyên nghiệp.
-Hãy chuyển đổi dàn ý phân đoạn dưới đây thành một kịch bản phân cảnh phim hoàn chỉnh và chi tiết.
+Hãy chuyển đổi dàn ý dưới đây thành một kịch bản phân cảnh phim hoàn chỉnh, cực kỳ chi tiết và đầy đủ.
 
 Dàn ý:
 ${outlineText}
 
-Yêu cầu định dạng kịch bản chuẩn (giống như ảnh mẫu):
+Yêu cầu định dạng kịch bản chuẩn:
 1. **Slugline (Dòng cảnh):** Viết chữ in hoa, in đậm, bắt đầu bằng nơi chốn và thời gian (ví dụ: EXT. PRIVET DRIVE - NIGHT hoặc INT. OFFICE - DAY).
 2. **Action (Hành động):** Đoạn miêu tả chi tiết bối cảnh, âm thanh, hành động nhân vật, viết căn lề trái bình thường. Khi một nhân vật mới xuất hiện lần đầu tiên, tên của họ phải được viết IN HOA.
 3. **Character Name (Tên nhân vật):** Viết IN HOA ở dòng riêng, căn giữa (hoặc thụt lề nhiều vào giữa).
 4. **Dialogue (Lời thoại):** Đặt ngay bên dưới tên nhân vật, viết căn giữa (hoặc thụt lề vào giữa hai bên).
 5. **Parenthetical (Chú thích tâm trạng/hành động ngắn):** Đặt trong dấu ngoặc đơn ngay dưới tên nhân vật và trước lời thoại (ví dụ: (smile fading)).
 
-Hãy viết kịch bản bằng tiếng Việt, chi tiết, cuốn hút, giàu hình ảnh và kịch tính. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
+LƯU Ý QUAN TRỌNG VỀ ĐỘ DÀI VÀ CHI TIẾT:
+- Bạn phải viết kịch bản đầy đủ diễn biến, phân tích tâm lý, hành động cụ thể và các câu thoại đầy đủ của các nhân vật.
+- KHÔNG ĐƯỢC tóm tắt hoặc viết tắt các phân cảnh. Hãy khai triển tất cả các ý trong dàn ý thành các cảnh phim hoàn chỉnh, sinh động, kéo dài diễn biến để kịch bản có độ dài tương xứng.
+- Tránh việc cắt cụt kịch bản giữa chừng. Kịch bản phải có mở đầu, diễn tiến và kết thúc rõ ràng cho phân đoạn này.
+- Hãy viết bằng tiếng Việt, cuốn hút, giàu hình ảnh và kịch tính. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
 
         try {
             this.stepper.selectedIndex = 0;
