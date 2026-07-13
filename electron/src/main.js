@@ -3167,7 +3167,8 @@ function isAiAgentEnabled() {
 function startAiAgent() {
     if (aiAgentProcess) return;
     try {
-        const agentPath = path.join(__dirname, '..', 'ai_agent_linux');
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
         if (fs.existsSync(agentPath)) {
             // Using inherit or pipe to see errors in Electron console
             aiAgentProcess = spawn(agentPath, [], { stdio: 'pipe' });
@@ -3215,6 +3216,18 @@ ipcMain.handle('toggle-ai-agent', (event, enable) => {
         return { success: true };
     } catch (e) {
         return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle('is-ai-agent-active', async () => {
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
+        const exists = fs.existsSync(agentPath);
+        const enabled = isAiAgentEnabled();
+        return { exists, enabled, active: exists && enabled };
+    } catch (e) {
+        return { exists: false, enabled: false, active: false };
     }
 });
 
@@ -3344,14 +3357,19 @@ ipcMain.handle('toggle-zalo-plugin', (event, enable, mode) => {
 ipcMain.handle('get-plugins-status', async (event) => {
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
         
+        // Zalo Reply Plugin
+        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
         const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
         const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
-        
         const installed = fs.existsSync(userBinaryPath);
         const canInstall = fs.existsSync(devBinaryPath) || fs.existsSync(devScriptPath);
         const enabled = isZaloPluginEnabled();
+        
+        // AI Agent Plugin
+        const userAgentPath = path.join(userPluginsDir, 'ai_agent_linux');
+        const agentInstalled = fs.existsSync(userAgentPath);
+        const agentEnabled = isAiAgentEnabled();
         
         return [
             {
@@ -3363,6 +3381,15 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 enabled,
                 mode: getZaloPluginMode(),
                 version: '1.0'
+            },
+            {
+                id: 'ai_agent',
+                name: 'AI Agent',
+                description: 'Hỗ trợ viết kịch bản phim, sinh nội dung và tự động hóa tác vụ AI.',
+                installed: agentInstalled,
+                canInstall: false, // User installs manually by copying file
+                enabled: agentEnabled,
+                version: '1.0'
             }
         ];
     } catch (e) {
@@ -3370,51 +3397,65 @@ ipcMain.handle('get-plugins-status', async (event) => {
     }
 });
 
-ipcMain.handle('install-zalo-plugin', async (event) => {
+ipcMain.handle('install-plugin', async (event, pluginId) => {
     try {
-        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        fs.mkdirSync(userPluginsDir, { recursive: true });
-        
-        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
-        const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
-        const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
-        
-        if (fs.existsSync(devBinaryPath)) {
-            fs.copyFileSync(devBinaryPath, userBinaryPath);
-            return { success: true, message: 'Đã cài đặt plugin thành công!' };
-        } else if (fs.existsSync(devScriptPath)) {
-            const destScriptPath = path.join(userPluginsDir, 'zalo_auto_reply.py');
-            fs.copyFileSync(devScriptPath, destScriptPath);
-            return { success: true, message: 'Đã sao chép tệp mã nguồn vào Documents/ai.type/plugins!' };
+        if (pluginId === 'zalo_reply') {
+            const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+            fs.mkdirSync(userPluginsDir, { recursive: true });
+            
+            const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
+            const devBinaryPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'dist', 'zalo_auto_reply_linux');
+            const devScriptPath = path.join(__dirname, '..', '..', '..', 'apps', 'plugins', 'zalop', 'zalo_auto_reply.py');
+            
+            if (fs.existsSync(devBinaryPath)) {
+                fs.copyFileSync(devBinaryPath, userBinaryPath);
+                return { success: true, message: 'Đã cài đặt plugin thành công!' };
+            } else if (fs.existsSync(devScriptPath)) {
+                const destScriptPath = path.join(userPluginsDir, 'zalo_auto_reply.py');
+                fs.copyFileSync(devScriptPath, destScriptPath);
+                return { success: true, message: 'Đã sao chép tệp mã nguồn vào Documents/ai.type/plugins!' };
+            }
+            return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
+        } else if (pluginId === 'ai_agent') {
+            return { success: true, message: 'Plugin AI Agent đã sẵn sàng. Hãy copy file ai_agent_linux vào thư mục plugins.' };
         }
-        
-        return { success: false, error: 'Không tìm thấy file nguồn cài đặt plugin.' };
+        return { success: false, error: 'Plugin không xác định.' };
     } catch (e) {
         return { success: false, error: e.message };
     }
 });
 
-ipcMain.handle('uninstall-zalo-plugin', async (event) => {
+ipcMain.handle('uninstall-plugin', async (event, pluginId) => {
     try {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
-        const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
-        const userScriptPath = path.join(userPluginsDir, 'zalo_auto_reply.py');
-        
-        stopZaloPlugin();
-        stopZaloBackgroundWindow();
-        if (targetWindow && !targetWindow.isDestroyed() && targetWindow.webContents.getURL().includes("zalo.me")) {
-            targetWindow.destroy();
+        if (pluginId === 'zalo_reply') {
+            const userBinaryPath = path.join(userPluginsDir, 'zalo_auto_reply_linux');
+            const userScriptPath = path.join(userPluginsDir, 'zalo_auto_reply.py');
+            
+            stopZaloPlugin();
+            stopZaloBackgroundWindow();
+            if (targetWindow && !targetWindow.isDestroyed() && targetWindow.webContents.getURL().includes("zalo.me")) {
+                targetWindow.destroy();
+            }
+            
+            if (fs.existsSync(userBinaryPath)) {
+                fs.unlinkSync(userBinaryPath);
+            }
+            if (fs.existsSync(userScriptPath)) {
+                fs.unlinkSync(userScriptPath);
+            }
+            fs.writeFileSync(zaloPluginConfigPath, JSON.stringify({ enable: false, mode: 'tool' }), 'utf8');
+            return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
+        } else if (pluginId === 'ai_agent') {
+            const userAgentPath = path.join(userPluginsDir, 'ai_agent_linux');
+            stopAiAgent();
+            if (fs.existsSync(userAgentPath)) {
+                fs.unlinkSync(userAgentPath);
+            }
+            fs.writeFileSync(aiAgentConfigPath, JSON.stringify({ enable: false }), 'utf8');
+            return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
         }
-        
-        if (fs.existsSync(userBinaryPath)) {
-            fs.unlinkSync(userBinaryPath);
-        }
-        if (fs.existsSync(userScriptPath)) {
-            fs.unlinkSync(userScriptPath);
-        }
-        
-        fs.writeFileSync(zaloPluginConfigPath, JSON.stringify({ enable: false, mode: 'tool' }), 'utf8');
-        return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
+        return { success: false, error: 'Plugin không xác định.' };
     } catch (e) {
         return { success: false, error: e.message };
     }
