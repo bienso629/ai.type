@@ -74,7 +74,7 @@ interface ScreenplayLine {
                     </div>
                     
                     <!-- First page title -->
-                    <div *ngIf="pageIndex === 0" class="text-center font-bold text-2xl uppercase mb-10 tracking-wider text-gray-900" style="font-family: 'Courier New', Courier, monospace;">
+                    <div *ngIf="pageIndex === 0" class="text-center font-bold text-2xl uppercase mb-10 tracking-wider text-gray-900" style="font-family: 'Courier Prime', 'Courier New', Courier, monospace;">
                         {{ scriptDoc?.title || draftTitleFallback || 'Kịch bản chưa đặt tên' }}
                     </div>
 
@@ -104,19 +104,21 @@ interface ScreenplayLine {
     </div>
     `,
     styles: [`
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:ital,wght@0,400;0,700;1,400;1,700&display=swap');
+
         .screenplay-outer {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Courier Prime', 'Courier New', Courier, monospace;
             background-color: #ffffff;
             width: 21cm;
             min-height: 29.7cm;
             padding: 2.5cm 3cm 2.5cm 3.5cm;
             margin: 0 auto;
             box-sizing: border-box;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            border: 1px solid #e5e7eb;
+            box-shadow: 5px 5px 0px rgba(0, 0, 0, 0.08);
+            border: none;
         }
         .screenplay-content {
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Courier Prime', 'Courier New', Courier, monospace;
             color: #111;
             font-size: 15px;
             line-height: 1.5;
