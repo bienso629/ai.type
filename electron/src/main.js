@@ -34,15 +34,16 @@ app.on('web-contents-created', (e, webContents) => {
                 webContents.toggleDevTools();
                 event.preventDefault();
             }
-            // Reload
-            if ((input.control || input.meta) && input.key.toLowerCase() === 'r') {
-                webContents.reload();
-                event.preventDefault();
-            }
-            if (input.key === 'F5') {
-                webContents.reload();
-                event.preventDefault();
-            }
+        }
+        
+        // Reload - Cho phép chạy trên cả môi trường Dev và Production
+        if ((input.control || input.meta) && input.key.toLowerCase() === 'r') {
+            webContents.reload();
+            event.preventDefault();
+        }
+        if (input.key === 'F5') {
+            webContents.reload();
+            event.preventDefault();
         }
     });
 });
