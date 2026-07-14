@@ -14,24 +14,43 @@ interface ScreenplayLine {
 @Component({
     selector: 'ai-script-view',
     template: `
-    <div class="absolute inset-0 flex flex-col bg-white min-w-0 overflow-hidden">
+    <div class="absolute inset-0 flex flex-col bg-[#f0f2f5] min-w-0 overflow-hidden">
         <!-- Header -->
-        <div class="flex flex-row items-center justify-between p-6 border-b bg-card">
-            <!-- Back Link -->
-            <a class="inline-flex items-center text-secondary font-medium hover:text-primary transition-colors cursor-pointer text-sm" (click)="goBack()">
-                <mat-icon class="icon-size-4 mr-1" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
-                Quay lại soạn thảo
-            </a>
+        <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-white border-b dark:bg-transparent">
+            <div class="flex-1 min-w-0">
+                <!-- Breadcrumbs -->
+                <div class="hidden sm:flex flex-wrap items-center font-medium">
+                    <div class="flex items-center whitespace-nowrap">
+                        <a class="text-base text-primary-500" [routerLink]="['/dashboard']">ai.type</a>
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <a class="ml-1 text-base text-primary-500 cursor-pointer" (click)="goBack()">công việc đang làm của bạn</a>
+                    </div>
+                    <div class="flex items-center ml-1 whitespace-nowrap relative">
+                        <mat-icon class="icon-size-4 text-secondary" style="margin-top: 2px;" [svgIcon]="'heroicons_solid:chevron-right'"></mat-icon>
+                        <span class="ml-1 text-base text-secondary">xem kịch bản</span>
+                    </div>
+                </div>
+                <div class="flex sm:hidden">
+                    <a class="inline-flex items-center -ml-1.5 text-secondary font-medium cursor-pointer" (click)="goBack()">
+                        <mat-icon class="icon-size-4 text-secondary" [svgIcon]="'heroicons_solid:chevron-left'"></mat-icon>
+                        <span class="ml-1 text-base">quay lại</span>
+                    </a>
+                </div>
+            </div>
 
-            <!-- Re-generate Button -->
-            <button mat-flat-button color="primary" class="ml-auto flex items-center justify-center gap-2 select-none" (click)="regenerateScript()" [disabled]="isRegenerating || isLoading">
-                <mat-icon class="icon-size-4" [class.animate-spin]="isRegenerating" svgIcon="heroicons_outline:refresh"></mat-icon>
-                <span>{{ isRegenerating ? 'Đang tạo lại kịch bản...' : 'Tạo lại kịch bản' }}</span>
-            </button>
+            <!-- Actions -->
+            <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+                <button mat-flat-button color="primary" class="flex items-center justify-center gap-2 select-none" (click)="regenerateScript()" [disabled]="isRegenerating || isLoading">
+                    <mat-icon class="icon-size-4" [class.animate-spin]="isRegenerating" svgIcon="heroicons_outline:refresh"></mat-icon>
+                    <span>{{ isRegenerating ? 'Đang tạo lại kịch bản...' : 'Tạo lại kịch bản' }}</span>
+                </button>
+            </div>
         </div>
 
         <!-- Main Content -->
-        <div class="flex-auto p-6 sm:p-10 bg-gray-100 overflow-auto flex flex-col gap-8">
+        <div class="flex-auto p-6 sm:p-10 bg-[#f0f2f5] overflow-auto flex flex-col gap-8">
             <!-- Loading State -->
             <div class="flex flex-col items-center justify-center py-20 animate-pulse" *ngIf="isLoading">
                 <mat-progress-spinner mode="indeterminate" diameter="48" color="primary"></mat-progress-spinner>
@@ -399,24 +418,42 @@ export class AIScriptComponent implements OnInit, OnDestroy {
 
         this.toastr.info('Đang gửi dàn ý lên AI để dựng lại kịch bản phim...', 'Đang xử lý');
         
-        const prompt = `Bạn là một nhà biên kịch phim điện ảnh và truyền hình chuyên nghiệp.
-Hãy chuyển đổi dàn ý dưới đây thành một kịch bản phân cảnh phim hoàn chỉnh, cực kỳ chi tiết và đầy đủ.
+        const prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.
 
 Dàn ý:
 ${outlineText}
 
-Yêu cầu định dạng kịch bản chuẩn:
-1. **Slugline (Dòng cảnh):** Viết chữ in hoa, in đậm, bắt đầu bằng nơi chốn và thời gian (ví dụ: EXT. PRIVET DRIVE - NIGHT hoặc INT. OFFICE - DAY).
-2. **Action (Hành động):** Đoạn miêu tả chi tiết bối cảnh, âm thanh, hành động nhân vật, viết căn lề trái bình thường. Khi một nhân vật mới xuất hiện lần đầu tiên, tên của họ phải được viết IN HOA.
-3. **Character Name (Tên nhân vật):** Viết IN HOA ở dòng riêng, căn giữa (hoặc thụt lề nhiều vào giữa).
-4. **Dialogue (Lời thoại):** Đặt ngay bên dưới tên nhân vật, viết căn giữa (hoặc thụt lề vào giữa hai bên).
-5. **Parenthetical (Chú thích tâm trạng/hành động ngắn):** Đặt trong dấu ngoặc đơn ngay dưới tên nhân vật và trước lời thoại (ví dụ: (smile fading)).
+Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
 
-LƯU Ý QUAN TRỌNG VỀ ĐỘ DÀI VÀ CHI TIẾT:
+1. SCENE HEADING (Tiêu đề cảnh):
+- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. TÒA NHÀ CHỌC TRỜI - TẦNG 45 - NIGHT".
+- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian (VD: "BÊN NGOÀI CỬA SỔ", "HÀNH LANG") giúp mạch phim liên tục.
+
+2. ACTION LINES (Dòng hành động - Rất quan trọng):
+- QUY TẮC VÀNG: Chỉ miêu tả những gì khán giả có thể NHÌN THẤY và NGHE THẤY. Tuyệt đối không miêu tả suy nghĩ nội tâm. Hãy dùng hành động để thể hiện cảm xúc.
+- Viết ở ngôi thứ ba, thì hiện tại. Lược bỏ các đại từ, liên từ thừa thãi. Viết câu ngắn để tạo nhịp điệu dồn dập, câu dài để tạo sự tĩnh lặng.
+- IN HOA (ALL CAPS) các âm thanh lớn (VD: BÙM, RĂNG RẮC) và các sự vật, hiện tượng quan trọng tác động mạnh đến cốt truyện (VD: QUẢ CẦU LỬA, SÓNG THẦN).
+
+3. CHARACTER INTRODUCTIONS (Giới thiệu nhân vật):
+- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất. VD: "CHÀNG TRAI (20s, phờ phạc, đôi mắt dán chặt vào màn hình)".
+
+4. DIALOGUE & PARENTHETICALS (Thoại & Ngoặc đơn):
+- Tên nhân vật in hoa đặt ở giữa lề.
+- Dùng phần mở rộng (O.S.) cho tiếng ngoài khung hình, và (V.O.) cho giọng tự sự/độc thoại nội tâm.
+- Ngoặc đơn Parentheticals: Dùng CỰC KỲ HẠN CHẾ chỉ để hướng dẫn hành động siêu nhỏ hoặc sắc thái thoại (VD: "(thì thầm)", "(bàng hoàng)"). Không dùng để thay thế dòng hành động.
+
+5. CAMERA SHOTS & TRANSITIONS (Góc máy & Chuyển cảnh):
+- KHÔNG trực tiếp chỉ đạo máy quay (Không dùng "Máy quay lia tới..."). Hãy miêu tả hành động để "gợi ý" góc máy một cách tinh tế.
+- Chuyển cảnh: Dùng CUT TO: hoặc FADE TO BLACK. một cách tiết chế, thường đặt ở cuối các đoạn cao trào.
+
+6. CẤU TRÚC KỂ CHUYỆN (Structure):
+- Cảm nhận nhịp điệu của nguyên tác. Xây dựng đúng cấu trúc: Bối cảnh (Exposition) -> Biến cố (Rising Action) -> Đỉnh điểm (Climax) -> Hệ quả (Falling action). 
+- Biến mọi tính từ miêu tả trong văn xuôi thành các "Beat" hành động cụ thể.
+
+HƯỚNG DẪN ĐẦU RA:
+- Hãy định dạng văn bản giống một trang kịch bản thực thụ nhất có thể (Sử dụng Markdown để in đậm, viết hoa và giãn dòng hợp lý).
 - Bạn phải viết kịch bản đầy đủ diễn biến, phân tích tâm lý, hành động cụ thể và các câu thoại đầy đủ của các nhân vật.
-- KHÔNG ĐƯỢC tóm tắt hoặc viết tắt các phân cảnh. Hãy khai triển tất cả các ý trong dàn ý thành các cảnh phim hoàn chỉnh, sinh động, kéo dài diễn biến để kịch bản có độ dài tương xứng.
-- Tránh việc cắt cụt kịch bản giữa chừng. Kịch bản phải có mở đầu, diễn tiến và kết thúc rõ ràng cho phân đoạn này.
-- Hãy viết bằng tiếng Việt, cuốn hút, giàu hình ảnh và kịch tính. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
+- Tránh việc cắt cụt kịch bản giữa chừng. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
 
         try {
             const response = await this._genaiService.generateContent({

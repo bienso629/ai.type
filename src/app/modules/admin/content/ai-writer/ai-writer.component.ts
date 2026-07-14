@@ -2578,24 +2578,42 @@ ${content}`;
     async proceedGenerateScript(outlineText: string) {
         this.toastr.info('Đang gửi dàn ý lên AI để dựng kịch bản phim...', 'Đang xử lý');
         
-        const prompt = `Bạn là một nhà biên kịch phim điện ảnh và truyền hình chuyên nghiệp.
-Hãy chuyển đổi dàn ý dưới đây thành một kịch bản phân cảnh phim hoàn chỉnh, cực kỳ chi tiết và đầy đủ.
+        const prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.
 
 Dàn ý:
 ${outlineText}
 
-Yêu cầu định dạng kịch bản chuẩn:
-1. **Slugline (Dòng cảnh):** Viết chữ in hoa, in đậm, bắt đầu bằng nơi chốn và thời gian (ví dụ: EXT. PRIVET DRIVE - NIGHT hoặc INT. OFFICE - DAY).
-2. **Action (Hành động):** Đoạn miêu tả chi tiết bối cảnh, âm thanh, hành động nhân vật, viết căn lề trái bình thường. Khi một nhân vật mới xuất hiện lần đầu tiên, tên của họ phải được viết IN HOA.
-3. **Character Name (Tên nhân vật):** Viết IN HOA ở dòng riêng, căn giữa (hoặc thụt lề nhiều vào giữa).
-4. **Dialogue (Lời thoại):** Đặt ngay bên dưới tên nhân vật, viết căn giữa (hoặc thụt lề vào giữa hai bên).
-5. **Parenthetical (Chú thích tâm trạng/hành động ngắn):** Đặt trong dấu ngoặc đơn ngay dưới tên nhân vật và trước lời thoại (ví dụ: (smile fading)).
+Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
 
-LƯU Ý QUAN TRỌNG VỀ ĐỘ DÀI VÀ CHI TIẾT:
+1. SCENE HEADING (Tiêu đề cảnh):
+- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. TÒA NHÀ CHỌC TRỜI - TẦNG 45 - NIGHT".
+- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian (VD: "BÊN NGOÀI CỬA SỔ", "HÀNH LANG") giúp mạch phim liên tục.
+
+2. ACTION LINES (Dòng hành động - Rất quan trọng):
+- QUY TẮC VÀNG: Chỉ miêu tả những gì khán giả có thể NHÌN THẤY và NGHE THẤY. Tuyệt đối không miêu tả suy nghĩ nội tâm. Hãy dùng hành động để thể hiện cảm xúc.
+- Viết ở ngôi thứ ba, thì hiện tại. Lược bỏ các đại từ, liên từ thừa thãi. Viết câu ngắn để tạo nhịp điệu dồn dập, câu dài để tạo sự tĩnh lặng.
+- IN HOA (ALL CAPS) các âm thanh lớn (VD: BÙM, RĂNG RẮC) và các sự vật, hiện tượng quan trọng tác động mạnh đến cốt truyện (VD: QUẢ CẦU LỬA, SÓNG THẦN).
+
+3. CHARACTER INTRODUCTIONS (Giới thiệu nhân vật):
+- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất. VD: "CHÀNG TRAI (20s, phờ phạc, đôi mắt dán chặt vào màn hình)".
+
+4. DIALOGUE & PARENTHETICALS (Thoại & Ngoặc đơn):
+- Tên nhân vật in hoa đặt ở giữa lề.
+- Dùng phần mở rộng (O.S.) cho tiếng ngoài khung hình, và (V.O.) cho giọng tự sự/độc thoại nội tâm.
+- Ngoặc đơn Parentheticals: Dùng CỰC KỲ HẠN CHẾ chỉ để hướng dẫn hành động siêu nhỏ hoặc sắc thái thoại (VD: "(thì thầm)", "(bàng hoàng)"). Không dùng để thay thế dòng hành động.
+
+5. CAMERA SHOTS & TRANSITIONS (Góc máy & Chuyển cảnh):
+- KHÔNG trực tiếp chỉ đạo máy quay (Không dùng "Máy quay lia tới..."). Hãy miêu tả hành động để "gợi ý" góc máy một cách tinh tế.
+- Chuyển cảnh: Dùng CUT TO: hoặc FADE TO BLACK. một cách tiết chế, thường đặt ở cuối các đoạn cao trào.
+
+6. CẤU TRÚC KỂ CHUYỆN (Structure):
+- Cảm nhận nhịp điệu của nguyên tác. Xây dựng đúng cấu trúc: Bối cảnh (Exposition) -> Biến cố (Rising Action) -> Đỉnh điểm (Climax) -> Hệ quả (Falling action). 
+- Biến mọi tính từ miêu tả trong văn xuôi thành các "Beat" hành động cụ thể.
+
+HƯỚNG DẪN ĐẦU RA:
+- Hãy định dạng văn bản giống một trang kịch bản thực thụ nhất có thể (Sử dụng Markdown để in đậm, viết hoa và giãn dòng hợp lý).
 - Bạn phải viết kịch bản đầy đủ diễn biến, phân tích tâm lý, hành động cụ thể và các câu thoại đầy đủ của các nhân vật.
-- KHÔNG ĐƯỢC tóm tắt hoặc viết tắt các phân cảnh. Hãy khai triển tất cả các ý trong dàn ý thành các cảnh phim hoàn chỉnh, sinh động, kéo dài diễn biến để kịch bản có độ dài tương xứng.
-- Tránh việc cắt cụt kịch bản giữa chừng. Kịch bản phải có mở đầu, diễn tiến và kết thúc rõ ràng cho phân đoạn này.
-- Hãy viết bằng tiếng Việt, cuốn hút, giàu hình ảnh và kịch tính. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
+- Tránh việc cắt cụt kịch bản giữa chừng. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
 
         try {
             this.stepper.selectedIndex = 0;
