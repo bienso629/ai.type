@@ -22,9 +22,11 @@ import { ToastrService } from 'ngx-toastr';
 import { HttpClient } from '@angular/common/http';
 
 import { GenaiService } from 'app/genai.service';
+import { HelperService } from 'app/helper.service';
 
 import { MatDialog } from '@angular/material/dialog';
 import { ImageEditorDialogComponent } from './tools/image-editor.component';
+import { ForumService } from 'app/modules/_services/forum';
 
 import * as uuid from 'uuid';
 import { BlogService } from 'app/modules/_services/blog';
@@ -42,7 +44,7 @@ interface ReferenceFile {
     selector: 'ai-image',
     templateUrl: './ai-image.component.html',
     styleUrls: ['./ai-image.component.scss'],
-    providers: [ChatGPTService, BlogService, DomainService, MyKeysService],
+    providers: [ChatGPTService, BlogService, DomainService, MyKeysService, ForumService],
     encapsulation: ViewEncapsulation.None,
 })
 export class AIImageComponent
@@ -246,6 +248,51 @@ export class AIImageComponent
         });
     }
 
+    async shareImage(imgPath: string) {
+        const cleanPath = imgPath.replace('file:///', '');
+        const filename = cleanPath.split('/').pop() || 'image.png';
+        const ext = filename.split('.').pop()?.toLowerCase() || 'png';
+        
+        let mimeType = 'image/png';
+        if (ext === 'jpg' || ext === 'jpeg') {
+            mimeType = 'image/jpeg';
+        } else if (ext === 'webp') {
+            mimeType = 'image/webp';
+        } else if (ext === 'gif') {
+            mimeType = 'image/gif';
+        } else if (ext === 'mp4') {
+            mimeType = 'video/mp4';
+        }
+
+        try {
+            const response = await fetch('file:///' + cleanPath);
+            const blob = await response.blob();
+            const base64Data = await new Promise<string>((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onloadend = () => {
+                    const base64 = (reader.result as string).split(',')[1];
+                    resolve(base64);
+                };
+                reader.onerror = reject;
+                reader.readAsDataURL(blob);
+            });
+
+            const shareText = 'Hãy chia sẻ hình ảnh này lên';
+
+            this._h.openChatGPTWithSEO$.next({
+                goiy: shareText,
+                attachedFile: {
+                    name: filename,
+                    type: mimeType,
+                    path: cleanPath,
+                    base64: base64Data
+                }
+            });
+        } catch (err) {
+            this.toastr.error('Không thể đọc file ảnh để chia sẻ.');
+        }
+    }
+
     async handleSaveEditedImage(base64Data: string, format: string) {
         const base64Content = base64Data.split(',')[1];
         const ext = format.split('/')[1];
@@ -351,6 +398,16 @@ export class AIImageComponent
                 reader.readAsDataURL(file);
             }
         }
+    }
+
+    getFileExtension(fileName: string): string {
+        if (!fileName) return 'FILE';
+        const parts = fileName.split('.');
+        if (parts.length > 1) {
+            const ext = parts[parts.length - 1].toLowerCase();
+            return ext.substring(0, 4);
+        }
+        return 'FILE';
     }
 
     async createImg() {
@@ -573,7 +630,9 @@ export class AIImageComponent
         private _voice: MyKeysService,
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private _forumService: ForumService,
+        private _h: HelperService
     ) {
         this.titleService.setTitle(`tạo hình | ai.type - công cụ tạo content`);
 

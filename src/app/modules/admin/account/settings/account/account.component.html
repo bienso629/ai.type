@@ -53,50 +53,52 @@
                     </mat-form-field>
                 </div>
 
-                <!-- Email/Type-Lite Admin Only -->
+                <!-- Email Admin Only -->
                 <ng-container *ngIf="user.reputation >= 100000000">
                     <!-- Section -->
                     <div class="w-full mt-10">
                         <div class="text-secondary">{{ 'account.email.title' | transloco }}</div>
                     </div>
 
-                <!-- Divider -->
-                <div class="mt-2 mb-2 border-t"></div>
+                    <!-- Divider -->
+                    <div class="mt-2 mb-2 border-t"></div>
 
-                <div class="flex flex-col mt-4">
-                    <div class="grid sm:grid-cols-2 gap-4">
-                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix hidden" [subscriptSizing]="'dynamic'">
-                            <mat-label>Type.VN URL</mat-label>
-                            <input matInput [formControlName]="'emailConfig_nodebbUrl'" placeholder="https://type.vn">
-                        </mat-form-field>
+                    <div class="flex flex-col mt-4">
+                        <div class="grid sm:grid-cols-2 gap-4">
+                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix hidden" [subscriptSizing]="'dynamic'">
+                                <mat-label>Type.VN URL</mat-label>
+                                <input matInput [formControlName]="'emailConfig_nodebbUrl'" placeholder="https://type.vn">
+                            </mat-form-field>
 
-                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.email.admin_token' | transloco }}</mat-label>
-                            <input matInput type="password" [formControlName]="'emailConfig_nodebbToken'" [placeholder]="'account.email.enter_token' | transloco">
-                        </mat-form-field>
-                        
-                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.email.smtp_host' | transloco }}</mat-label>
-                            <input matInput [formControlName]="'emailConfig_smtpHost'">
-                        </mat-form-field>
-                        
-                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.email.smtp_port' | transloco }}</mat-label>
-                            <input matInput type="number" [formControlName]="'emailConfig_smtpPort'">
-                        </mat-form-field>
+                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                                <mat-label>{{ 'account.email.admin_token' | transloco }}</mat-label>
+                                <input matInput type="password" [formControlName]="'emailConfig_nodebbToken'" [placeholder]="'account.email.enter_token' | transloco">
+                            </mat-form-field>
+                            
+                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                                <mat-label>{{ 'account.email.smtp_host' | transloco }}</mat-label>
+                                <input matInput [formControlName]="'emailConfig_smtpHost'">
+                            </mat-form-field>
+                            
+                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                                <mat-label>{{ 'account.email.smtp_port' | transloco }}</mat-label>
+                                <input matInput type="number" [formControlName]="'emailConfig_smtpPort'">
+                            </mat-form-field>
 
-                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.email.smtp_email' | transloco }}</mat-label>
-                            <input matInput [formControlName]="'emailConfig_smtpUser'">
-                        </mat-form-field>
+                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                                <mat-label>{{ 'account.email.smtp_email' | transloco }}</mat-label>
+                                <input matInput [formControlName]="'emailConfig_smtpUser'">
+                            </mat-form-field>
 
-                        <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.email.smtp_password' | transloco }}</mat-label>
-                            <input matInput type="password" [formControlName]="'emailConfig_smtpPass'">
-                        </mat-form-field>
+                            <mat-form-field class="fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                                <mat-label>{{ 'account.email.smtp_password' | transloco }}</mat-label>
+                                <input matInput type="password" [formControlName]="'emailConfig_smtpPass'">
+                            </mat-form-field>
+                        </div>
                     </div>
-                </div>
+                </ng-container>
 
+                <!-- Type-Lite Config (For All Users) -->
                 <!-- Section -->
                 <div class="w-full mt-10">
                     <div class="text-secondary">{{ 'account.lite.title' | transloco }}</div>
@@ -106,7 +108,6 @@
                 <div class="mt-2 mb-2 border-t"></div>
 
                 <div class="flex flex-col mt-4">
-
                     <mat-form-field
                         class="flex-auto w-1/2 custom-textarea fuse-mat-dense fuse-mat-emphasized-affix"
                         [subscriptSizing]="'dynamic'">
@@ -116,11 +117,7 @@
                             cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
                         <mat-hint>{{ 'account.lite.cookie_hint' | transloco }}</mat-hint>
                     </mat-form-field>
-
-                    </div>
-
-
-                </ng-container>
+                </div>
             </mat-tab>
 
             <mat-tab label="{{ 'account.tabs.jobs' | transloco }}">
@@ -289,7 +286,9 @@
                         </div>
                     </div>
 
-                    <div class="w-full transition-opacity duration-300">
+                    <div class="w-full transition-opacity duration-300"
+                        [class.opacity-50]="!accountForm.get('enableUmodelverse').value"
+                        [class.pointer-events-none]="!accountForm.get('enableUmodelverse').value">
                         <div class="w-full mt-2">
                             <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">

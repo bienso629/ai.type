@@ -43,7 +43,7 @@
                                 <mat-form-field class="w-full fuse-mat-no-subscript" appearance="outline">
                                     <div matPrefix class="flex items-center ml-2">
                                         <input type="file" #fileInput (change)="onFileSelected($event)" hidden
-                                            accept="image/*" multiple>
+                                            multiple>
                                         <button type="button" mat-icon-button (click)="fileInput.click()"
                                             [matTooltip]="'app.add_reference_image' | transloco">
                                             <mat-icon [class.text-primary]="referenceFiles.length > 0"
@@ -101,15 +101,32 @@
                                     <mat-hint>{{ 'app.we_create_images_using' | transloco }}</mat-hint>
                                 </mat-form-field>
 
-                                <div class="flex gap-2 mt-2 px-4" *ngIf="referenceFiles.length > 0">
-                                    <div *ngFor="let file of referenceFiles; let i = index" class="relative">
-                                        <img [src]="'data:' + file.mimeType + ';base64,' + file.base64Data"
-                                            class="w-8 h-8 object-cover rounded">
+                                <div class="flex gap-3 mt-2 px-4 flex-wrap" *ngIf="referenceFiles.length > 0">
+                                    <div *ngFor="let file of referenceFiles; let i = index" class="relative group flex items-center">
+                                        <!-- Image Preview -->
+                                        <ng-container *ngIf="file.mimeType.startsWith('image/'); else nonImageTemplate">
+                                            <img [src]="'data:' + file.mimeType + ';base64,' + file.base64Data"
+                                                class="w-10 h-10 object-cover rounded"
+                                                [matTooltip]="file.fileName">
+                                        </ng-container>
+                                        
+                                        <!-- Non-Image Preview -->
+                                        <ng-template #nonImageTemplate>
+                                            <div class="w-10 h-10 flex flex-col items-center pt-1.5 bg-gray-100 hover:bg-gray-200 rounded text-gray-500 cursor-pointer"
+                                                [matTooltip]="file.fileName">
+                                                <mat-icon class="icon-size-4" svgIcon="heroicons_outline:document-text"></mat-icon>
+                                                <span class="text-[8px] font-bold uppercase text-gray-600 truncate max-w-full px-0.5 mt-0.5 leading-none">
+                                                    {{ getFileExtension(file.fileName) }}
+                                                </span>
+                                            </div>
+                                        </ng-template>
+
+                                        <!-- Delete Button -->
                                         <mat-icon (click)="referenceFiles.splice(i, 1)"
-                                            class="absolute -top-1 -right-1 icon-size-3 bg-red-500 text-white rounded-full cursor-pointer"
+                                            class="absolute -top-1.5 -right-1.5 icon-size-3 bg-red-500 text-white rounded-full cursor-pointer hover:bg-red-600"
                                             svgIcon="heroicons_solid:x-mark"></mat-icon>
                                     </div>
-                                    <span class="text-xs text-secondary self-center cursor-pointer hover:underline"
+                                    <span class="text-xs text-secondary self-center cursor-pointer hover:underline ml-2"
                                         (click)="referenceFiles = []">{{ 'app.auto_delete_all' | transloco }}</span>
                                 </div>
                             </form>
@@ -166,6 +183,10 @@
                                                                 <button mat-menu-item (click)="editImage(img)">
                                                                     <mat-icon class="icon-size-4 text-green-500" svgIcon="heroicons_outline:sparkles"></mat-icon>
                                                                     <span>Sửa ảnh</span>
+                                                                </button>
+                                                                <button mat-menu-item (click)="shareImage(img)">
+                                                                    <mat-icon class="icon-size-4 text-blue-600" svgIcon="heroicons_outline:share"></mat-icon>
+                                                                    <span>Chia sẻ</span>
                                                                 </button>
                                                                 <button mat-menu-item (click)="uploadImage(img)">
                                                                     <mat-icon class="icon-size-4 text-blue-500" svgIcon="feather:cloud"></mat-icon>

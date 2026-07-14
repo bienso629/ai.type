@@ -7,7 +7,7 @@ import * as CryptoTS from 'crypto-ts';
     
 })
 export class HelperService {
-    public openChatGPTWithSEO$ = new Subject<{ question: string, answer: string, loading?: boolean }>();
+    public openChatGPTWithSEO$ = new Subject<{ question?: string, answer?: string, loading?: boolean, goiy?: string, attachedFile?: any }>();
 
     constructor() {}
 

@@ -222,8 +222,8 @@
                             <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none px-4 py-2.5 text-base whitespace-pre-wrap break-words flex flex-col">
                                 <div>{{ msg.text }}</div>
                                 <!-- File attachment rendering inside bubble -->
-                                <div *ngIf="msg.inlineData" class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30">
-                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="max-w-xs max-h-40 rounded-lg object-contain self-start" />
+                                <div *ngIf="msg.inlineData" class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30 flex flex-col items-start w-full">
+                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain self-start" />
                                     <div *ngIf="!msg.inlineData.mimeType?.startsWith('image/')" class="flex items-center space-x-1 text-xs opacity-75">
                                         <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
                                         <span class="truncate max-w-40 font-medium">{{ msg.path ? (msg.path.split('/').pop()) : 'Tệp đính kèm' }}</span>
@@ -232,9 +232,16 @@
                             </div>
                         </div>
                         <!-- Model message -->
-                        <div class="flex justify-start" *ngIf="msg.role === 'model'">
+                        <div class="flex justify-start flex-col items-start gap-1" *ngIf="msg.role === 'model'">
                             <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result"
                                 [innerHTML]="msg.text | markdown">
+                            </div>
+                            <!-- Action button for sharing -->
+                            <div *ngIf="activeChatRow?.question?.startsWith('Chia sẻ ảnh')" class="ml-4 mt-1 flex items-center">
+                                <button mat-flat-button color="primary" class="text-xs py-1 px-3 h-8 min-h-8 rounded-full" (click)="postChatToForum(msg.text, activeChatRow)" [disabled]="isLoading">
+                                    <mat-icon class="icon-size-4 mr-1.5" svgIcon="heroicons_outline:share"></mat-icon>
+                                    Đăng lên Diễn đàn
+                                </button>
                             </div>
                         </div>
                     </ng-container>

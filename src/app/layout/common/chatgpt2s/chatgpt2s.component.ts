@@ -16,6 +16,7 @@ import { WP2MDService } from 'app/modules/_services/wp2md';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { LogService } from 'app/modules/_services/link';
 import { BlogService } from 'app/modules/_services/blog';
+import { ForumService } from 'app/modules/_services/forum';
 
 import moment from 'moment';
 import { GenaiService } from 'app/genai.service';
@@ -36,7 +37,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
         `
     ],
     encapsulation: ViewEncapsulation.None,
-    providers: [ChatGPTService, CrawlService, UserClientService, WP2MDService, LogService, BlogService],
+    providers: [ChatGPTService, CrawlService, UserClientService, WP2MDService, LogService, BlogService, ForumService],
     changeDetection: ChangeDetectionStrategy.OnPush,
     exportAs: 'chatgpt2s'
 })
@@ -604,7 +605,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         private multiAccountService: MultiAccountService,
         private _viewContainerRef: ViewContainerRef,
         private _genaiService: GenaiService,
-        private _fuseConfirmationService: FuseConfirmationService
+        private _fuseConfirmationService: FuseConfirmationService,
+        private _forumService: ForumService
     ) {
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');
@@ -618,6 +620,18 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((data) => {
                 this.openPanel();
+
+                if (data.goiy !== undefined) {
+                    this.goiy = data.goiy;
+                }
+                if (data.attachedFile !== undefined) {
+                    this.attachedFileMain = data.attachedFile;
+                }
+
+                if (!data.question) {
+                    this.cdref.detectChanges();
+                    return;
+                }
 
                 // Tìm xem đã có dòng hội thoại nào trùng tiêu đề/question đang ở trạng thái loading chưa
                 let existingRow = this.chatgpt2s?.find(r => r.question === data.question && r['chatLoading']);
@@ -865,6 +879,42 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
      */
     closePanel(): void {
         this._overlayRef.detach();
+    }
+
+    postChatToForum(content: string, row: any) {
+        let title = 'Chia sẻ ảnh nghệ thuật';
+        if (row.question) {
+            const match = row.question.match(/"([^"]+)"/);
+            if (match && match[1]) {
+                title = `Ảnh AI: ${match[1]}`;
+            }
+        }
+        
+        this.isLoading = true;
+        this.cdref.detectChanges();
+        
+        this._forumService.createTopic({
+            _uid: this.user.id,
+            cid: 1,
+            title: title,
+            content: content,
+            tags: ['ai-image', 'prompt']
+        }).subscribe({
+            next: (res) => {
+                this.isLoading = false;
+                if (res && res.success) {
+                    this.toastr.success('Đã đăng lên diễn đàn Typing thành công!');
+                } else {
+                    this.toastr.error('Đăng bài thất bại.');
+                }
+                this.cdref.detectChanges();
+            },
+            error: () => {
+                this.isLoading = false;
+                this.toastr.error('Có lỗi xảy ra khi kết nối diễn đàn.');
+                this.cdref.detectChanges();
+            }
+        });
     }
 
     /**
