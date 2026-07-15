@@ -1720,6 +1720,7 @@ function createMainWindow() {
             nodeIntegration: false,
             nodeIntegrationInSubFrames: false,
             preload: resolvePreload(),
+            autoplayPolicy: 'no-user-gesture-required'
         },
     });
 

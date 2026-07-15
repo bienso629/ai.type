@@ -782,13 +782,12 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 }
             }
 
-            return {
-                ...item,
-                file: null,
-                url: restoredUrl,
-                rawUrl: restoredRawUrl,
-                isProcessing: false,
-            };
+            newItem.file = null;
+            newItem.url = restoredUrl;
+            newItem.rawUrl = restoredRawUrl;
+            newItem.isProcessing = false;
+
+            return newItem;
         });
 
         this.calculateTotalDuration();
@@ -873,6 +872,7 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                     this.cd.markForCheck();
                     this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local để không bị lặp lại lỗi khi F5
                     this.toastr.warning(`File audio của đoạn "${clip.name}" không tồn tại trên máy. Vui lòng tạo lại!`, 'Lỗi File');
+                    return false;
                 }
             }
         } catch (e) {
@@ -895,9 +895,9 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 this.cd.markForCheck();
                 this.saveToLocal(); // [QUAN TRỌNG] Lưu lại trạng thái vào local
                 this.toastr.warning(`File audio của đoạn "${clip.name}" bị lỗi hoặc không tồn tại.`, 'Lỗi File');
+                return false;
             }
         }
-        return false;
     }
 
     async scanAndAttachLocalFiles() {
@@ -1759,9 +1759,13 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
         // 2. Nếu đã có Blob (do loadLocalAudioContent tạo ra) -> Play luôn
         if (clip.rawUrl && clip.rawUrl.startsWith('blob:')) {
-            this.wavesurfer.load(clip.rawUrl);
-            this.wavesurfer.once('ready', () => {
-                this.wavesurfer.play();
+            this.wavesurfer.load(clip.rawUrl).then(() => {
+                this.wavesurfer.play().catch((err: any) => {
+                    console.error("WaveSurfer Blob play error:", err);
+                    this.toastr.error('Lỗi phát âm thanh. Vui lòng thao tác lại.');
+                });
+            }).catch((err: any) => {
+                console.error("WaveSurfer Blob load error:", err);
             });
             return;
         }
@@ -1775,9 +1779,14 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 // Thêm timestamp để tránh cache trình duyệt (đảm bảo đọc fresh file từ đĩa, đặc biệt khi file bị xóa/tạo lại)
                 let playUrl = clip.rawUrl.startsWith('file://') ? `${clip.rawUrl}?t=${Date.now()}` : clip.rawUrl;
                 playUrl = playUrl.replace('media://', 'mediacors://');
-                this.wavesurfer.load(playUrl);
-                this.wavesurfer.once('ready', () => {
-                    this.wavesurfer.play();
+                this.wavesurfer.load(playUrl).then(() => {
+                    this.wavesurfer.play().catch((err: any) => {
+                        console.error("WaveSurfer Local play error:", err);
+                        this.toastr.error('Trình duyệt chặn Autoplay hoặc lỗi phát audio. Bạn cần tương tác (click) trên trang trước.', 'Bị chặn phát audio');
+                    });
+                }).catch((err: any) => {
+                    console.error("WaveSurfer Local load error:", err);
+                    this.toastr.error('Không thể tải file audio này vào trình phát.');
                 });
             } else {
                 if (this.wavesurfer) {
