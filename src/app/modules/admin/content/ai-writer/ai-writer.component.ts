@@ -4236,7 +4236,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                             .append(`<label>${newdata[k].length}</label>`)
                             .find('label')
                             .addClass(
-                                'absolute -left-2 -top-2 bg-yellow-100 opacity-100 border border-yellow-200 cursor-pointer w-6 h-6 text-sm justify-center items-center text-center rounded-full',
+                                'absolute -left-2 -top-2 bg-yellow-100 opacity-100 border border-yellow-200 cursor-pointer flex w-6 h-6 text-sm justify-center items-center text-center rounded-full',
                             )
                             .attr('data-id', k);
                     }
@@ -4508,7 +4508,10 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                     .attr('id', comment._id);
 
                 comments[i].find('.copy-comment').on('click', () => {
-                    this.clipboard.copy(comment.comment.content);
+                    const tempDiv = document.createElement('div');
+                    tempDiv.innerHTML = comment.comment.content || '';
+                    const plainText = tempDiv.textContent || tempDiv.innerText || '';
+                    this.clipboard.copy(plainText.trim());
                     this.toastr.success('Đã copy nội dung nhận xét!');
                 });
 

@@ -10,9 +10,19 @@ import { CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, Remo
 import { MarkdownPipe } from "app/markdown.pipe";
 import { TranslocoModule } from '@ngneat/transloco';
 
+import { VideoEditorSettingsDialogComponent } from './shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
+
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatSelectModule } from '@angular/material/select';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatIconModule } from '@angular/material/icon';
+import { MatButtonModule } from '@angular/material/button';
+import { MatInputModule } from '@angular/material/input';
+
 @NgModule({
     declarations: [
-        CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe, StopPropagationDirective, DatatableScrollLockDirective
+        CheckExpirationDate, IsObjectPipe, IsIframe, IsMp3, isFirefoxPipe, RemoveHTMLPipe, SEOScorePipe, SlugifyPipe, renderTrustHTML, YoutubePlay, HTML2Paragraph, ShortDomainPipe, StopPropagationDirective, DatatableScrollLockDirective,
+        VideoEditorSettingsDialogComponent
     ],
     imports: [
         TranslocoModule,
@@ -23,7 +33,13 @@ import { TranslocoModule } from '@ngneat/transloco';
         MatProgressSpinnerModule,
         ReactiveFormsModule,
         MarkdownPipe,
-        TranslocoModule
+        TranslocoModule,
+        MatDialogModule,
+        MatSelectModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatButtonModule,
+        MatInputModule
     ],
     exports: [
         CommonModule,
@@ -35,7 +51,14 @@ import { TranslocoModule } from '@ngneat/transloco';
         MarkdownPipe,
         StopPropagationDirective,
         DatatableScrollLockDirective,
-        TranslocoModule
+        TranslocoModule,
+        VideoEditorSettingsDialogComponent,
+        MatDialogModule,
+        MatSelectModule,
+        MatFormFieldModule,
+        MatIconModule,
+        MatButtonModule,
+        MatInputModule
     ],
 })
 export class SharedModule {

@@ -106,14 +106,14 @@
                             <div *ngIf="!node.data.imageUrl && !node.data.videoUrl && !node.data.isGenerating" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
                             
                             <!-- Generating/Loading Spinner Overlay -->
-                            <div *ngIf="node.data.isGenerating && node.type !== 'composition'" class="absolute inset-0 flex flex-col items-center justify-center bg-teal-500/10 backdrop-blur-[1px] text-teal-600 z-10">
+                            <div *ngIf="node.data.isGenerating && node.type !== 'composition'" class="absolute inset-0 flex flex-col items-center justify-center bg-teal-500/20 text-teal-600 z-10">
                                 <mat-icon class="icon-size-8 text-teal-600 animate-spin">refresh</mat-icon>
                                 <span class="text-[10px] font-bold uppercase tracking-wider mt-2 text-teal-600">Generating...</span>
                             </div>
                             
                             <!-- Render Button / Loading Spinner for Composition -->
                             <div *ngIf="node.type === 'composition' && selectedNode === node" 
-                                 class="absolute inset-0 flex items-center justify-center bg-black/40 backdrop-blur-[1px] transition-opacity z-20">
+                                 class="absolute inset-0 flex items-center justify-center bg-black/40 transition-opacity z-20">
                                 <div *ngIf="node.data.isGenerating" class="flex flex-col items-center justify-center text-teal-400">
                                     <mat-icon class="icon-size-8 text-teal-400 animate-spin">refresh</mat-icon>
                                     <span class="text-[10px] font-medium tracking-wide mt-2 text-teal-400">{{ 'app.auto_exporting_video' | transloco }}</span>
