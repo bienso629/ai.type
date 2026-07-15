@@ -253,6 +253,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     selectedCollections: any;
     collections: any[] = [];
+    articlesInCollection: any[] = [];
+    selectedArticleInCollection: string | null = null;
 
     // tạo kết quả chỉnh sửa của đồng tác giả
     comments = [];
@@ -3783,13 +3785,14 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             .collections({
                 username: this.name,
                 page: { size: 100 },
-                includeUuid: false
+                includeUuid: true
             })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
                     if (result && result.success) {
                         this.collections = result.data;
+                        this.loadArticlesInCollection();
                     }
                 },
                 error: () => { },
@@ -3811,6 +3814,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 next: async (result) => {
                     if (result && result.success) {
                         this.selectedCollections = result.data;
+                        this.loadArticlesInCollection();
                     } else {
                         this.alert('Tập của nội dung không chính xác.');
                     }
@@ -3820,6 +3824,52 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 },
                 complete: () => { },
             });
+    }
+
+    loadArticlesInCollection() {
+        if (!this.selectedCollections || this.selectedCollections.length === 0) return;
+        if (!this.collections || this.collections.length === 0) return;
+        
+        let uuids: string[] = [];
+        this.selectedCollections.forEach((col: any) => {
+            const fullCol = this.collections.find((c: any) => c._id === col._id || c.id === col.id);
+            const targetCol = fullCol || col;
+            
+            if (Array.isArray(targetCol.uuid)) {
+                uuids = uuids.concat(targetCol.uuid);
+            } else if (targetCol.uuid) {
+                uuids.push(targetCol.uuid);
+            }
+        });
+        
+        // Loại bỏ trùng lặp nếu có
+        uuids = Array.from(new Set(uuids));
+
+        if (uuids.length === 0) return;
+        
+        this._crawlService.archive({
+            username: this.user?.name || this.name,
+            keyword: '',
+            uuids: uuids,
+            page: { pageNumber: 0, size: 200 }
+        }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
+            if (res && res.data && res.data.docs) {
+                this.articlesInCollection = res.data.docs;
+                this.selectedArticleInCollection = this.uuid;
+                this.cd.detectChanges();
+            }
+        });
+    }
+
+    goToArticle(event: any) {
+        let articleUuid = event?.uuid || event;
+        if (!articleUuid || articleUuid === this.uuid) return;
+        const article = this.articlesInCollection.find(a => a.uuid === articleUuid);
+        if (article) {
+            this.router.navigate(['/ai-writer', article.username || this.name, articleUuid]).then(() => {
+                window.location.reload();
+            });
+        }
     }
 
     /**
