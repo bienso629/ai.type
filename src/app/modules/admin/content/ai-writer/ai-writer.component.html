@@ -119,6 +119,17 @@
                             #step1>
                             <ng-template matStepLabel>{{ 'app.task_information' | transloco }}</ng-template>
 
+                            <div class="flex flex-col gt-sm:flex-row mb-3" *ngIf="articlesInCollection && articlesInCollection.length > 0">
+                                <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                    <mat-label>Các bài viết cùng bộ (Collection)</mat-label>
+                                    <mat-select [(ngModel)]="selectedArticleInCollection" [ngModelOptions]="{standalone: true}" (selectionChange)="goToArticle($event.value)">
+                                        <mat-option *ngFor="let article of articlesInCollection" [value]="article.uuid">
+                                            {{ article.title }}
+                                        </mat-option>
+                                    </mat-select>
+                                </mat-form-field>
+                            </div>
+
                             <div class="flex flex-col gt-sm:flex-row">
                                 <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix"
                                     [subscriptSizing]="'dynamic'">
