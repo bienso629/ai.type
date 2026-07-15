@@ -122,9 +122,12 @@
                             <div class="flex flex-col gt-sm:flex-row mb-3" *ngIf="articlesInCollection && articlesInCollection.length > 0">
                                 <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
                                     <mat-label>Các bài viết cùng bộ (Collection)</mat-label>
-                                    <mat-select [(ngModel)]="selectedArticleInCollection" [ngModelOptions]="{standalone: true}" (selectionChange)="goToArticle($event.value)">
+                                    <mat-select hideSingleSelectionIndicator="true" [(ngModel)]="selectedArticleInCollection" [ngModelOptions]="{standalone: true}" (selectionChange)="goToArticle($event.value)">
                                         <mat-option *ngFor="let article of articlesInCollection" [value]="article.uuid">
-                                            {{ article.title }}
+                                            <div class="flex items-center w-full">
+                                                <mat-icon class="icon-size-3 mr-2 text-blue-500" [svgIcon]="'feather:file-text'"></mat-icon>
+                                                <span class="line-clamp-1 text-blue-500" [title]="article.title">{{ article.title }}</span>
+                                            </div>
                                         </mat-option>
                                     </mat-select>
                                 </mat-form-field>

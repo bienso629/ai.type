@@ -78,7 +78,10 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     searchAPIKey: any;
 
     // ai: any;
-    private chatHistory: any[] = [];
+    public chatHistory: any[] = [];
+    public chatPrompt: string = '';
+    public isChatting: boolean = false;
+    @ViewChild('chatScroll') chatScroll!: ElementRef;
 
     private hls?: Hls;
     private videoEl?: HTMLVideoElement;
@@ -935,4 +938,67 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         });
         dialogRef.afterClosed().subscribe((_) => { this.router.navigate(['/tools']); });
     }
+
+    clearChat() {
+        this.chatHistory = [];
+        this.cd.detectChanges();
+    }
+
+    stopChat() {
+        this.isChatting = false;
+        if (this._genaiService && typeof this._genaiService.cancelLocalAgent === 'function') {
+            this._genaiService.cancelLocalAgent();
+        }
+        this.cd.detectChanges();
+    }
+
+    scrollToBottom() {
+        setTimeout(() => {
+            if (this.chatScroll && this.chatScroll.nativeElement) {
+                this.chatScroll.nativeElement.scrollTop = this.chatScroll.nativeElement.scrollHeight;
+            }
+        }, 100);
+    }
+
+    async sendChat(event?: Event) {
+        if (event) {
+            event.preventDefault();
+        }
+        if (!this.chatPrompt || !this.chatPrompt.trim() || this.isChatting) return;
+
+        const userMessage = this.chatPrompt.trim();
+        this.chatPrompt = '';
+
+        this.chatHistory.push({ role: 'user', content: userMessage });
+        this.scrollToBottom();
+
+        this.isChatting = true;
+        this.cd.detectChanges();
+
+        try {
+            const contents = this.chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.content }]
+            }));
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: contents,
+            });
+
+            if (!this.isChatting) return;
+
+            const aiMessage = response.text || (response as any).response?.text() || 'Không có phản hồi.';
+            this.chatHistory.push({ role: 'model', content: aiMessage });
+        } catch (err: any) {
+            if (!this.isChatting) return;
+            console.error('Lỗi gọi AI:', err);
+            this.chatHistory.push({ role: 'model', content: 'Đã có lỗi xảy ra: ' + (err.message || err) });
+        } finally {
+            this.isChatting = false;
+            this.cd.detectChanges();
+            this.scrollToBottom();
+        }
+    }
 }
+

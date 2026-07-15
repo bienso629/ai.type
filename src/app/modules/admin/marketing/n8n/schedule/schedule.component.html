@@ -36,11 +36,75 @@
         </div>
     </div>
 
-    <div class="flex flex-col shrink-0 border-l min-w-100 h-full bg-gray-50">
-        <div class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-500">
-            <mat-icon class="icon-size-12 mb-4 text-gray-400" [svgIcon]="'feather:message-circle'"></mat-icon>
-            <h3 class="text-lg font-medium text-gray-700">Trợ lý AI</h3>
-            <p class="mt-2 text-sm">Công cụ chat với AI để hỗ trợ công việc sẽ được tích hợp tại đây.</p>
+    <div class="flex flex-col shrink-0 border-l w-80 h-full bg-white relative">
+        <div class="flex flex-col flex-auto h-full">
+            <div class="flex-auto overflow-y-auto hover-scroll" #chatScroll>
+                <div class="flex flex-col p-4 space-y-4 min-h-full justify-end">
+                    <!-- Welcome Message -->
+                    <div *ngIf="chatHistory.length === 0" class="flex flex-col items-center justify-center h-full text-center text-gray-500 flex-auto mt-auto mb-auto">
+                        <mat-icon class="icon-size-12 mb-4 text-gray-300" [svgIcon]="'feather:message-circle'"></mat-icon>
+                        <p class="text-sm">Hãy nhập yêu cầu của bạn để AI hỗ trợ lên kịch bản nhé!</p>
+                    </div>
+                    
+                    <!-- Chat Messages -->
+                    <ng-container *ngFor="let msg of chatHistory">
+                        <div class="flex flex-col" [ngClass]="msg.role === 'user' ? 'items-end' : 'items-start'">
+                            <div class="max-w-[75%] rounded-2xl px-4 py-2 text-sm"
+                                 [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
+                                <span class="whitespace-pre-wrap" [innerHTML]="msg.content | markdown"></span>
+                            </div>
+                        </div>
+                    </ng-container>
+                    
+                    <!-- Loading indicator -->
+                    <div *ngIf="isChatting" class="flex flex-col items-start">
+                        <div class="bg-gray-100 rounded-2xl rounded-bl-none px-4 py-3">
+                            <div class="flex space-x-1">
+                                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
+                                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.1s"></div>
+                                <div class="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Chat Input -->
+            <div class="p-4 bg-white shrink-0">
+                <div class="flex items-end bg-white rounded-xl border border-gray-300 focus-within:border-primary overflow-hidden p-1.5 transition-all">
+                    <!-- Attach button -->
+                    <button mat-icon-button class="shrink-0 mb-0.5 text-gray-500 hover:text-gray-700">
+                        <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
+                    </button>
+                    
+                    <!-- Textarea -->
+                    <textarea 
+                        class="flex-auto max-h-32 min-h-[44px] bg-transparent border-0 focus:ring-0 resize-none py-3 px-2 text-sm text-gray-800 placeholder-gray-400 overflow-hidden"
+                        rows="1"
+                        placeholder="Hỏi tiếp từ prompt này..." 
+                        [(ngModel)]="chatPrompt"
+                        [ngModelOptions]="{ standalone: true }"
+                        (keydown.enter)="sendChat($event)"
+                        cdkTextareaAutosize
+                        #chatInput></textarea>
+                        
+                    <!-- Send/Stop button -->
+                    <ng-container *ngIf="!isChatting">
+                        <button mat-icon-button color="primary" class="shrink-0 mb-0.5 mr-0.5"
+                                (click)="sendChat()" 
+                                [disabled]="!chatPrompt || !chatPrompt.trim()">
+                            <mat-icon [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
+                        </button>
+                    </ng-container>
+
+                    <ng-container *ngIf="isChatting">
+                        <button mat-icon-button color="warn" class="shrink-0 mb-0.5 mr-0.5"
+                                (click)="stopChat()">
+                            <mat-icon [svgIcon]="'feather:square'"></mat-icon>
+                        </button>
+                    </ng-container>
+                </div>
+            </div>
         </div>
     </div>
 </div>

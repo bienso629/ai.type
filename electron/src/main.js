@@ -38,11 +38,25 @@ app.on('web-contents-created', (e, webContents) => {
         
         // Reload - Cho phép chạy trên cả môi trường Dev và Production
         if ((input.control || input.meta) && input.key.toLowerCase() === 'r') {
-            webContents.reload();
+            const url = webContents.getURL();
+            if (url.startsWith('file://')) {
+                const hashMatch = url.match(/#.*$/);
+                const hash = hashMatch ? hashMatch[0].substring(1) : '';
+                mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"), { hash });
+            } else {
+                webContents.reload();
+            }
             event.preventDefault();
         }
         if (input.key === 'F5') {
-            webContents.reload();
+            const url = webContents.getURL();
+            if (url.startsWith('file://')) {
+                const hashMatch = url.match(/#.*$/);
+                const hash = hashMatch ? hashMatch[0].substring(1) : '';
+                mainWindow.loadFile(path.join(__dirname, "..", "fallback", "index.html"), { hash });
+            } else {
+                webContents.reload();
+            }
             event.preventDefault();
         }
     });
