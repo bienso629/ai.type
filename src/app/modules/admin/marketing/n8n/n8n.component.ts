@@ -44,6 +44,12 @@ export class AMXHComponent implements OnInit, OnDestroy {
             description: 'Xem livstream, bấm like, viết comment tự động',
         },
         {
+            id: 'schedule',
+            icon: 'feather:calendar',
+            title: 'Lịch làm việc',
+            description: 'Lên kịch bản tự động hóa theo thời gian',
+        },
+        {
             id: 'share',
             icon: 'feather:share-2',
             title: 'Facebook',

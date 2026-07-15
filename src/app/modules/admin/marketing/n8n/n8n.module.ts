@@ -32,12 +32,15 @@ import { AddAccountDialog } from 'app/modules/admin/marketing/n8n/profile/dialog
 import { EditAccountDialog } from 'app/modules/admin/marketing/n8n/profile/dialogs/edit-dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
+import { AMXHScheduleComponent } from 'app/modules/admin/marketing/n8n/schedule/schedule.component';
+
 @NgModule({
     declarations: [
         AMXHComponent,
         AMXHProfileAppComponent,
         AMXHScriptAppComponent,
         AMXHShareAppComponent,
+        AMXHScheduleComponent,
         AddAccountDialog,
         EditAccountDialog
     ],

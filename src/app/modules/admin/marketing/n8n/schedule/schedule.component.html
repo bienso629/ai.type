@@ -1,0 +1,324 @@
+<div class="flex flex-col sm:flex-row flex-0 h-full bg-transparent">
+    <div class="flex-1 min-w-0 relative h-full">
+        <div class="flex-auto h-full overflow-y-auto hover-scroll" cdkScrollable>
+            <div class="timeline-container fullscreen">
+                <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false"
+                    [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
+                    [panelLabel]="'Thao tác'" (itemTimeChanged)="onItemTimeChanged($event)"
+                    [itemContentTemplate]="customItemTemplate"></timeline-calendar>
+
+                <ng-template #customItemTemplate let-item let-locale="locale">
+                    <div (click)="changeEvent(item)" class="flex flex-row cursor-pointer">
+                        <div class="flex-1 text-base">{{ item.name }}</div>
+                        <div class="flex-0 ml-1">
+                            <span>({{ item.meta.length }})</span>
+                        </div>
+                    </div>
+                </ng-template>
+
+                <ng-template #customPanelItemTemplate let-item="item" let-index="index" let-depth="depth">
+                    <div [style.height.px]="
+                            rowHeight *
+                            (item.streamItems
+                                ? item?._streamLevels?.length || 1
+                                : 1)
+                        " [style.width.px]="width" [class.can-collapse]="
+                            item.childrenItems && item.childrenItems.length
+                        " class="panel-item">
+                        <div class="item-content">
+                            <span class="item-name" title="{{ item.name }}">{{
+                                item.name
+                                }}</span>
+                        </div>
+                    </div>
+                </ng-template>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex flex-col shrink-0 border-l min-w-100 h-full bg-gray-50">
+        <div class="flex flex-col items-center justify-center h-full text-center p-6 text-gray-500">
+            <mat-icon class="icon-size-12 mb-4 text-gray-400" [svgIcon]="'feather:message-circle'"></mat-icon>
+            <h3 class="text-lg font-medium text-gray-700">Trợ lý AI</h3>
+            <p class="mt-2 text-sm">Công cụ chat với AI để hỗ trợ công việc sẽ được tích hợp tại đây.</p>
+        </div>
+    </div>
+</div>
+
+<ng-template #promptDialog>
+    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 600px">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+            <h2 class="text-xl font-semibold m-0 text-gray-800">
+                {{ 'app.use_ai_to_create' | transloco }}
+            </h2>
+            <button mat-icon-button (click)="_matDialog.closeAll()">
+                <mat-icon [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+        <div class="p-6">
+            <p class="text-gray-600 text-sm">
+                {{ 'app.auto_enter_specific_instructions_fo' | transloco }}
+            </p>
+
+            <mat-form-field class="w-full mt-3" appearance="outline">
+                <mat-label>{{ 'app.auto_enter_additional_prompt' | transloco }}</mat-label>
+                <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5"
+                    [placeholder]="'app.auto_for_example_video_link_https' | transloco"></textarea>
+            </mat-form-field>
+
+            <p class="text-blue-700 text-xs">
+                <strong>Ví dụ: </strong> {{ 'app.auto_create_a_comment_script_and_as' | transloco }}
+            </p>
+        </div>
+
+        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
+            <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+                {{ 'app.auto_cancel' | transloco }}
+            </button>
+            <button mat-flat-button color="primary" (click)="confirmGenerateComment()" class="ml-2">
+                <mat-icon class="icon-size-5" [svgIcon]="'feather:check'"></mat-icon>
+                <span class="ml-2">{{ 'app.auto_confirm_script_creation' | transloco }}</span>
+            </button>
+        </div>
+    </div>
+</ng-template>
+
+<ng-template #commentDialog>
+    <div class="flex flex-col h-full bg-card p-0 rounded-lg w-full overflow-hidden">
+        <div class="flex items-center justify-between px-6 py-4 bg-gray-50 border-b shrink-0 z-10">
+            <div>
+                <h2 class="text-2xl font-semibold m-0 text-gray-800">
+                    {{ 'app.auto_approve_script_total_selected' | transloco }} <strong>{{ totalSelected }}</strong> comment)
+                </h2>
+            </div>
+            <button mat-icon-button (click)="_matDialog.closeAll()">
+                <mat-icon [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+
+        <div class="flex items-center px-6 py-3 bg-white border-b shrink-0">
+            <mat-checkbox color="primary" [checked]="isAllSelected" [ngModelOptions]="{ standalone: true }"
+                (change)="toggleAllSelection($event.checked)">
+                Chọn tất cả ({{ commentGroups.length }} nhóm)
+            </mat-checkbox>
+        </div>
+
+        <div class="flex-1 relative overflow-y-auto min-h-0 bg-white">
+            <ng-container *ngFor="let group of commentGroups">
+                <div class="flex items-center px-6 py-3 bg-gray-100 border-t first:border-t-0 border-b border-gray-200 cursor-pointer hover:bg-gray-50 transition-colors"
+                    (click)="toggleGroup(group)">
+                    <mat-icon class="icon-size-5 text-gray-500 mr-2 transition-transform duration-200"
+                        [class.rotate-90]="group.expanded" [svgIcon]="'feather:chevron-right'"></mat-icon>
+                    <span class="font-semibold text-gray-800 text-sm">{{
+                        group.key
+                        }}</span>
+                    <span class="ml-2 px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-semibold">{{
+                        group.items.length }} comments</span>
+                </div>
+
+                <div *ngIf="group.expanded">
+                    <div class="overflow-x-auto overflow-y-auto hover-scroll max-h-[400px]">
+                        <table class="w-full text-left border-collapse">
+                            <thead
+                                class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium">
+                                <tr>
+                                    <th class="w-12 px-4 py-2 text-center">#</th>
+                                    <th class="w-28 px-4 py-2">{{ 'app.time' | transloco }}</th>
+                                    <th class="w-28 px-4 py-2">Link Video</th>
+                                    <th class="w-1/4 px-4 py-2">
+                                        {{ 'app.auto_comment_content' | transloco }}
+                                    </th>
+                                    <th class="px-4 py-2">{{ 'app.auto_feedback_suggestion' | transloco }}</th>
+                                    <th class="w-24 px-4 py-2 text-center">
+                                        {{ 'app.action' | transloco }}
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="text-sm divide-y divide-gray-100">
+                                <tr *ngFor="let item of group.items" class="hover:bg-gray-50 transition-colors">
+                                    <td class="px-6 py-3 text-center">
+                                        <mat-checkbox color="primary" [(ngModel)]="item.selected"
+                                            [ngModelOptions]="{ standalone: true }"
+                                            (change)="updateSelectionCount()"></mat-checkbox>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-600 whitespace-nowrap align-top">
+                                        <div class="font-medium text-blue-600">
+                                            {{ item.start | date: "HH:mm:ss" }}
+                                        </div>
+                                        <div class="text-xs text-gray-400">
+                                            {{ item.start | date: "dd/MM/yyyy" }}
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 align-top">
+                                        <ng-container *ngIf="!item.isEditing">
+                                            <a *ngIf="item.videoUrl" [href]="item.videoUrl" target="_blank"
+                                                class="text-blue-500 hover:underline flex items-center"
+                                                matTooltip="{{ item.videoUrl }}">
+                                                <mat-icon class="icon-size-4 mr-1" [svgIcon]="
+                                                    'feather:external-link'
+                                                "></mat-icon>
+                                                Link
+                                            </a>
+                                            <span *ngIf="!item.videoUrl" class="text-gray-400 text-xs">-</span>
+                                        </ng-container>
+                                        <ng-container *ngIf="item.isEditing">
+                                            <input type="text" class="w-full p-2 border border-gray-200 rounded text-xs"
+                                                placeholder="URL video..." [(ngModel)]="item.videoUrlDraft"
+                                                [ngModelOptions]="{
+                                                standalone: true,
+                                            }" />
+                                        </ng-container>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-900 font-medium align-top">
+                                        <div class="flex flex-col gap-1">
+                                            <div class="flex gap-2">
+                                                <span [class]="
+                                                    item.type === 'LIKE'
+                                                        ? 'bg-pink-100 text-pink-700'
+                                                        : 'bg-blue-100 text-blue-700'
+                                                " class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase">
+                                                    {{
+                                                    item.type === "LIKE"
+                                                    ? "Thả tim"
+                                                    : "Comment"
+                                                    }}
+                                                </span>
+                                            </div>
+
+                                            <ng-container *ngIf="!item.isEditing">
+                                                <span [class.text-pink-600]="
+                                                    item.type === 'LIKE'
+                                                ">{{ item.comment }}</span>
+                                            </ng-container>
+
+                                            <ng-container *ngIf="item.isEditing">
+                                                <textarea *ngIf="item.type === 'COMMENT'"
+                                                    class="w-full p-2 border border-gray-200 rounded focus:outline-none"
+                                                    rows="3" [(ngModel)]="item.commentDraft"></textarea>
+                                                <span *ngIf="item.type === 'LIKE'" class="text-gray-400 italic">{{ 'app.auto_content_like_cannot_be_edited' | transloco }}</span>
+                                            </ng-container>
+
+                                            <div class="text-[10px] text-gray-400 truncate mt-1"
+                                                [matTooltip]="item.videoUrl">
+                                                URL: {{ item.videoUrl }}
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-3 text-gray-500 align-top">
+                                        <ng-container *ngIf="!item.isEditing">{{
+                                            item.result || "---"
+                                            }}</ng-container>
+                                        <ng-container *ngIf="item.isEditing">
+                                            <textarea
+                                                class="w-full p-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-green-500 bg-gray-50"
+                                                rows="3" [(ngModel)]="item.resultDraft" [ngModelOptions]="{
+                                                standalone: true,
+                                            }"></textarea>
+                                        </ng-container>
+                                    </td>
+                                    <td class="px-4 py-3 text-center align-top">
+                                        <div *ngIf="!item.isEditing" class="flex justify-center items-center gap-2">
+                                            <button mat-icon-button (click)="enableEdit(item)" [matTooltip]="'app.edit' | transloco"
+                                                class="text-blue-500 hover:bg-blue-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-2'"></mat-icon>
+                                            </button>
+                                            <button mat-icon-button (click)="deleteComment(group, item)"
+                                                [matTooltip]="'app.auto_delete' | transloco" class="text-red-500 hover:bg-red-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                            </button>
+                                        </div>
+                                        <div *ngIf="item.isEditing" class="flex justify-center items-center gap-2">
+                                            <button mat-icon-button (click)="saveEdit(item)" [matTooltip]="'app.auto_save' | transloco"
+                                                class="text-green-600 hover:bg-green-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
+                                            </button>
+                                            <button mat-icon-button (click)="cancelEdit(item)" [matTooltip]="'app.auto_cancel' | transloco"
+                                                class="text-gray-500 hover:bg-gray-50">
+                                                <mat-icon class="icon-size-4" [svgIcon]="'feather:x'"></mat-icon>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </ng-container>
+            <div *ngIf="commentGroups.length === 0"
+                class="flex flex-col items-center justify-center h-64 text-gray-500">
+                <mat-icon class="icon-size-12 mb-2" [svgIcon]="'heroicons_outline:inbox'"></mat-icon>
+                <span>{{ 'app.no_comment_data_yet' | transloco }}</span>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-between p-6 border-t bg-gray-50 shrink-0 z-10">
+            <div class="text-sm text-gray-600 ml-2">
+                <span class="text-gray-500 mr-4">{{ 'app.statistics' | transloco }}</span>
+                <span class="text-blue-600 mr-4">Comment: {{ countTypeInGroups("COMMENT") }}</span>
+                <span class="text-pink-600">Thả tim: {{ countTypeInGroups("LIKE") }}</span>
+            </div>
+            <div class="flex gap-2 mr-2">
+                <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+                    Đóng
+                </button>
+                <button mat-flat-button color="primary" (click)="submitToN8n()" [disabled]="totalSelected === 0">
+                    <mat-icon class="icon-size-5" [svgIcon]="'feather:send'"></mat-icon>
+                    <span class="ml-2">Gửi sang N8N ({{ totalSelected }})</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</ng-template>
+
+<ng-template #likeDialog>
+    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="min-width: 500px">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b shrink-0">
+            <h2 class="text-xl font-semibold m-0 text-gray-800">
+                {{ 'app.mass_hearting_script_settings' | transloco }}
+            </h2>
+            <button mat-icon-button (click)="_matDialog.closeAll()">
+                <mat-icon [svgIcon]="'feather:x'"></mat-icon>
+            </button>
+        </div>
+
+        <div class="p-6">
+            <mat-form-field class="w-full mt-3" appearance="outline">
+                <mat-label>Link video TikTok</mat-label>
+                <input matInput [(ngModel)]="likeVideoUrl" placeholder="https://www.tiktok.com/@..." />
+                <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:link'"></mat-icon>
+            </mat-form-field>
+
+            <div class="flex flex-col gap-2">
+                <div class="flex gap-6">
+                    <mat-form-field class="flex-1" appearance="outline">
+                        <mat-label>{{ 'app.auto_from_the_moment' | transloco }}</mat-label>
+                        <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()"
+                            [(ngModel)]="likeStartTime" />
+                        <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:calendar'"></mat-icon>
+                    </mat-form-field>
+
+                    <mat-form-field class="flex-1" appearance="outline">
+                        <mat-label>{{ 'app.auto_by_the_time' | transloco }}</mat-label>
+                        <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()"
+                            [(ngModel)]="likeEndTime" />
+                        <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>
+                    </mat-form-field>
+                </div>
+            </div>
+
+            <p class="text-blue-700 text-xs m-0">
+                <strong>{{ 'app.auto_note_1' | transloco }}</strong> {{ 'app.auto_the_system_will_randomly_sprea' | transloco }} <b>{{ items.length }} Profiles</b>
+                {{ 'app.auto_during_the_time_period_you_sel' | transloco }}
+            </p>
+        </div>
+
+        <div class="flex items-center justify-end p-6 border-t bg-gray-50 shrink-0">
+            <button mat-flat-button color="accent" (click)="_matDialog.closeAll()">
+                {{ 'app.auto_cancel' | transloco }}
+            </button>
+            <button mat-flat-button color="primary" (click)="confirmGenerateLike()" class="ml-2 px-6">
+                {{ 'app.auto_confirm_creation' | transloco }}
+            </button>
+        </div>
+    </div>
+</ng-template>

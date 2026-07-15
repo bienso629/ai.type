@@ -55,6 +55,11 @@
                     <amxh-script class="h-full" [data]="captions"></amxh-script>
                 </ng-container>
 
+                <!-- Schedule -->
+                <ng-container *ngSwitchCase="'schedule'">
+                    <amxh-schedule class="h-full"></amxh-schedule>
+                </ng-container>
+
                 <!-- Share -->
                 <ng-container *ngSwitchCase="'share'">
                     <amxh-share class="h-full" [data]="articleData"></amxh-share>
