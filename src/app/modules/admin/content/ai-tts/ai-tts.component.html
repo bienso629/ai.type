@@ -31,92 +31,23 @@
             </div>
         </div>
 
-        <div class="flex items-center gap-2 mt-4 sm:mt-0">
+        <div class="flex items-center mt-4 sm:mt-0">
+            <button mat-icon-button class="ml-0" (click)="openVideoSettings()" matTooltip="Prompt tạo video">
+                <mat-icon class="icon-size-4 text-indigo-500 hover:text-indigo-600" [svgIcon]="'heroicons_outline:film'"></mat-icon>
+            </button>
+            <button mat-icon-button class="ml-0" (click)="clear()" *ngIf="audioList.length > 0"
+                [matTooltip]="'app.auto_refresh_content' | transloco">
+                <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
+            </button>
             <button mat-icon-button (click)="exportProject()" [matTooltip]="'app.auto_export_project_ait' | transloco">
-                <mat-icon class="icon-size-5 text-gray-500 hover:text-primary-500"
-                    [svgIcon]="'heroicons_outline:save'"></mat-icon>
-            </button>
-
-
-            <div
-                class="relative flex items-center w-48 sm:w-64 focus-within:w-80 md:focus-within:w-[400px] lg:focus-within:w-[600px] xl:focus-within:w-[800px] transition-all duration-300 ease-in-out">
-                <input type="text" [(ngModel)]="extraPrompt" (ngModelChange)="onInputChanged()"
-                    [ngClass]="attachedVideoFiles.length > 0 ? 'pr-20' : 'pr-10'"
-                    class="w-full px-3 py-2 text-sm border border-gray-300 dark:border-gray-600 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500 dark:bg-gray-800 bg-white placeholder-gray-400 transition-all duration-300"
-                    [placeholder]="'app.auto_for_example_follow_the_cyberpu' | transloco">
-
-                <div class="absolute right-1 flex items-center">
-                    <button mat-icon-button
-                        class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 w-8 h-8 min-h-8 flex items-center justify-center relative"
-                        [matTooltip]="'app.auto_attach_images_reference_docume' | transloco" (click)="videoAttachment.click()"
-                        [disabled]="isAnalyzing">
-                        <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
-                        <span *ngIf="attachedVideoFiles.length > 0"
-                            class="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-semibold z-10">
-                            {{ attachedVideoFiles.length }}
-                        </span>
-
-                        <input #videoAttachment type="file" multiple accept="image/*,.pdf,.txt,.md"
-                            (change)="onVideoAttachmentSelected($event)" class="hidden" [title]="'app.auto_attached_document' | transloco">
-                    </button>
-
-                    <button *ngIf="attachedVideoFiles.length > 0" mat-icon-button
-                        class="text-red-500 hover:bg-red-50 hover:text-red-600 w-8 h-8 min-h-8 flex items-center justify-center ml-1"
-                        (click)="attachedVideoFiles = []" [matTooltip]="'app.auto_delete_attachment' | transloco">
-                        <mat-icon class="icon-size-4">close</mat-icon>
-                    </button>
-                </div>
-            </div>
-
-            <mat-form-field class="w-32 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="videoFormat" (ngModelChange)="onInputChanged()" [placeholder]="'app.auto_format' | transloco">
-                    <mat-option value="video">Video</mat-option>
-                    <mat-option value="comic">{{ t('app.comic') }}</mat-option>
-                    <mat-option value="slide">{{ t('app.slide_static') }}</mat-option>
-                    <mat-option value="podcast">Podcast</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <mat-form-field class="w-20 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="aspectRatio" (ngModelChange)="onInputChanged()" [placeholder]="'app.auto_rate' | transloco">
-                    <mat-option value="16:9">16:9</mat-option>
-                    <mat-option value="9:16">9:16</mat-option>
-                    <mat-option value="4:3">4:3</mat-option>
-                    <mat-option value="3:4">3:4</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <mat-form-field class="w-28 field-hidden-subscript fuse-mat-dense" appearance="fill">
-                <mat-select [(ngModel)]="maxDuration" (ngModelChange)="onInputChanged()" [placeholder]="t('app.duration')">
-                    <mat-option [value]="0">{{ 'app.auto_freedom' | transloco }}</mat-option>
-                    <mat-option [value]="4">4s</mat-option>
-                    <mat-option [value]="6">6s</mat-option>
-                    <mat-option [value]="8">8s</mat-option>
-                    <mat-option [value]="10">10s</mat-option>
-                </mat-select>
-            </mat-form-field>
-
-            <div class="w-px h-6 bg-gray-300 dark:bg-gray-600 mx-1"></div>
-
-            <button class="bg-green-500 text-white" (click)="createVideo()" mat-flat-button [disabled]="isAnalyzing">
-                <mat-icon *ngIf="isAnalyzing" class="animate-spin icon-size-5 text-white"
-                    [svgIcon]="'feather:loader'"></mat-icon>
-                <mat-icon *ngIf="!isAnalyzing" class="icon-size-5 text-white">voice_chat</mat-icon>
-                <mat-label class="ml-2 text-white">
-                    {{ isAnalyzing ? 'Đang phân tích...' : 'Dựng video' }}
-                </mat-label>
-            </button>
-
-            <button *ngIf="videoProject" class="bg-blue-600 hover:bg-blue-700 text-white"
-                (click)="openTimelineDialog(videoProject)" mat-flat-button>
-                <mat-icon class="icon-size-5 text-white" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
-                <mat-label class="ml-2 text-white">{{ 'app.auto_script_1' | transloco }}</mat-label>
+                <mat-icon class="icon-size-4 text-gray-500 hover:text-primary-500"
+                    [svgIcon]="'heroicons_outline:download'"></mat-icon>
             </button>
         </div>
     </div>
 
-    <div class="flex-auto overflow-y-auto" cdkScrollable>
-        <div class="flex flex-col min-w-0 border-t overflow-hidden h-full">
+    <div class="flex-auto overflow-y-auto bg-white border-t" cdkScrollable>
+        <div class="flex flex-col min-w-0 h-full">
             <div class="h-full bg-white overflow-y-auto" cdkScrollable>
                 <div class="sticky top-0 z-20 bg-white p-6">
                     <div class="w-full bg-gray-50 dark:bg-gray-800 rounded-lg p-4 mb-6">
@@ -137,10 +68,7 @@
                         <!-- <span class="text-sm text-gray-400 mr-1">{{ 'app.auto_drag_and_drop_to_arrange' | transloco }}</span> -->
                         <div class="flex items-center">
                             <!-- Removed bulk setting dropdowns and "Cài đặt" button as requested -->
-                            <button mat-icon-button class="ml-0" (click)="clear()" *ngIf="audioList.length > 0"
-                                [matTooltip]="'app.auto_refresh_content' | transloco">
-                                <mat-icon class="icon-size-4 text-red-600" [svgIcon]="'feather:repeat'"></mat-icon>
-                            </button>
+
 
                             <button mat-icon-button class="ml-0" [matTooltip]="t('app.add_audio_from_computer')">
                                 <mat-icon class="icon-size-4 text-blue-700" [svgIcon]="'feather:mic'"></mat-icon>
@@ -164,7 +92,7 @@
 
                             <button mat-flat-button color="primary" (click)="generateAll()"
                                 [disabled]="isGlobalProcessing" *ngIf="audioList.length > 0" class="ml-2">
-                                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-5 text-white"
+                                <mat-icon *ngIf="isGlobalProcessing" class="animate-spin icon-size-4 text-white"
                                     [svgIcon]="'feather:loader'"></mat-icon>
                                 <mat-icon *ngIf="!isGlobalProcessing" [svgIcon]="'feather:mic'"></mat-icon>
                                 <span class="ml-2">{{ t('app.create_voice') }}</span>
@@ -282,7 +210,7 @@
                                         (click)="$event.stopPropagation(); syncSettingsFromFirst()"
                                         [matTooltip]="'app.auto_synchronize_settings_down_to_t' | transloco">
                                         <mat-icon
-                                            class="icon-size-5 text-indigo-500 hover:text-indigo-600 focus:text-indigo-600"
+                                            class="icon-size-4 text-indigo-500 hover:text-indigo-600 focus:text-indigo-600"
                                             [svgIcon]="'heroicons_outline:arrow-down'"></mat-icon>
                                     </button>
 
@@ -290,9 +218,9 @@
                                         (click)="$event.stopPropagation(); generateAudio(clip)"
                                         class="transition-colors"
                                         [matTooltip]="clip.localFilePath ? 'Tạo lại Audio' : 'Tạo Audio'">
-                                        <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-5"
+                                        <mat-icon *ngIf="clip.isProcessing" class="animate-spin icon-size-4"
                                             [svgIcon]="'feather:loader'"></mat-icon>
-                                        <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
+                                        <mat-icon *ngIf="!clip.isProcessing" class="icon-size-4"
                                             [ngClass]="clip.localFilePath ? 'text-green-500' : 'text-blue-500'"
                                             [svgIcon]="clip.localFilePath ? 'heroicons_outline:refresh' : 'heroicons_outline:microphone'">
                                         </mat-icon>
@@ -301,14 +229,14 @@
                                     <!-- <button *ngIf="!clip.localFilePath" mat-icon-button [disabled]="clip.isProcessing"
                                             (click)="applyRvcToClip(clip)" class="ml-1 transition-colors text-purple-500 hover:text-purple-600"
                                             [matTooltip]="'app.auto_voice_transformation_using_ai' | transloco">
-                                            <mat-icon *ngIf="!clip.isProcessing" class="icon-size-5"
+                                            <mat-icon *ngIf="!clip.isProcessing" class="icon-size-4"
                                                 [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                         </button> -->
 
                                     <button *ngIf="clip.prompt" mat-icon-button class="ml-2 transition-colors"
                                         (click)="$event.stopPropagation(); createImgWithDreamina('https://dreamina.capcut.com', clip.prompt)"
                                         [matTooltip]="t('app.create_image_from_prompt')">
-                                        <mat-icon class="icon-size-5 text-purple-500"
+                                        <mat-icon class="icon-size-4 text-purple-500"
                                             [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                                     </button>
                                 </div>
@@ -323,11 +251,11 @@
                             </span>
                             <button *ngIf="clip.url" (click)="$event.stopPropagation(); downloadClip(clip)"
                                 mat-icon-button class="text-gray-300 hover:text-blue-500 transition-colors">
-                                <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:download'"></mat-icon>
+                                <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:download'"></mat-icon>
                             </button>
                             <button (click)="$event.stopPropagation(); removeClip(i)" mat-icon-button
                                 class="transition-colors">
-                                <mat-icon class="icon-size-5 text-red-500 hover:text-red-600"
+                                <mat-icon class="icon-size-4 text-red-500 hover:text-red-600"
                                     [svgIcon]="'heroicons_outline:trash'"></mat-icon>
                             </button>
                         </div>
@@ -343,10 +271,9 @@
                             [svgIcon]="'heroicons_outline:music-note'"></mat-icon>
                         <span class="text-lg font-medium">{{ 'app.auto_empty_list' | transloco }}</span>
                     </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
-</div>
-
 </ng-container>
