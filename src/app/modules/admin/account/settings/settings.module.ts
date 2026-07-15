@@ -43,6 +43,8 @@ import { settingsRoutes } from 'app/modules/admin/account/settings/settings.rout
 import { QRCodeModule } from 'angularx-qrcode';
 import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.component';
 
+import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plugins/plugins.component';
+
 @NgModule({
     declarations: [
         SettingsComponent,
@@ -54,6 +56,7 @@ import { MomoQrDialog } from 'app/modules/admin/account/settings/active/active.c
         SettingsLicenseKeysComponent,
         SettingsCreateLicenseKeyComponent,
         SettingsAdminComponent,
+        SettingsPluginsComponent,
         SettingsDomainComponent,
         AddStyleDialog,
         EmailDialogComponent,

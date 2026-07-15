@@ -447,6 +447,19 @@ export class GenaiService {
                 sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
             }
         }
+
+        // Tự động đọc và tiêm Context tĩnh (File ai-agent-context.md) 
+        if ((window as any).electron && (window as any).electron.invoke) {
+            try {
+                const res = await (window as any).electron.invoke('get-ai-agent-context');
+                if (res && res.success && res.content) {
+                    sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT) ---\n${res.content}\n--- HẾT HƯỚNG DẪN ---`;
+                }
+            } catch (e) {
+                console.warn("Không thể tải ai-agent-context.md", e);
+            }
+        }
+        
         formData.append('system_instructions', sysContent);
 
         this.localAgentAbortController = new AbortController();
