@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'core/theme.dart';
-import 'screens/main_navigation.dart';
+import 'screens/login_screen.dart';
 
 void main() {
   runApp(const AtelierApp());
@@ -14,7 +14,7 @@ class AtelierApp extends StatelessWidget {
     return MaterialApp(
       title: 'Atelier',
       theme: AppTheme.lightTheme,
-      home: const MainNavigation(),
+      home: const LoginScreen(),
       debugShowCheckedModeBanner: false,
     );
   }
