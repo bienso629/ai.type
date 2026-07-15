@@ -2792,6 +2792,34 @@ ipcMain.handle("read-file-base64", async (event, args) => {
     }
 });
 
+ipcMain.handle("read-text-file", async (event, args) => {
+    const { filePath } = args;
+    try {
+        if (!fs.existsSync(filePath)) {
+            return { success: false, error: "File not found: " + filePath };
+        }
+        const content = fs.readFileSync(filePath, 'utf-8');
+        return { success: true, content: content };
+    } catch (e) {
+        console.error(e);
+        return { success: false, error: e.message };
+    }
+});
+
+ipcMain.handle("get-ai-agent-context", async () => {
+    try {
+        const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
+        const contextPath = path.join(userPluginsDir, "ai-agent-context.md");
+        if (fs.existsSync(contextPath)) {
+            const content = fs.readFileSync(contextPath, 'utf-8');
+            return { success: true, content: content };
+        }
+        return { success: false, error: "Context file not found" };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 /**
  * 2. Hàm chụp màn hình App (Full window screenshot)
  */

@@ -43,6 +43,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
             description: 'app.create_writing_style'
         },
         {
+            id: 'plugins',
+            icon: 'feather:grid',
+            title: 'Plugins',
+            description: 'Tiện ích mở rộng'
+        },
+        {
             id: 'active',
             icon: 'feather:calendar',
             title: 'app.renewal',

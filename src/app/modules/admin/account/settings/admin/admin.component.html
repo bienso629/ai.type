@@ -365,48 +365,7 @@
                 </p>
             </div>
         </mat-tab>
-        <mat-tab label="Plugins">
-            <div class="w-full mt-4">
-                <div class="text-secondary leading-8 mb-6">
-                    <p class="font-semibold text-xl">Quản lý Plugins</p>
-                    <p class="text-base text-gray-500">Danh sách các tiện ích mở rộng tích hợp với hệ thống AI Agent.</p>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div *ngFor="let plugin of plugins" class="border border-gray-200 rounded-xl p-6 bg-white shadow-sm flex flex-col justify-between">
-                        <div>
-                            <div class="flex items-center justify-between mb-2">
-                                <h3 class="text-lg font-semibold text-primary">{{ plugin.name }}</h3>
-                                <span class="text-xs font-semibold bg-gray-100 text-gray-600 px-2 py-1 rounded">v{{ plugin.version }}</span>
-                            </div>
-                            <p class="text-base text-secondary mb-4 leading-relaxed">{{ plugin.description }}</p>
-                            
 
-                        </div>
-                        
-                        <div class="w-full h-px bg-gray-100 my-4"></div>
-                        
-                        <div class="flex items-center justify-between">
-                            <div>
-                                <button *ngIf="!plugin.installed" mat-flat-button color="primary" [disabled]="!plugin.canInstall" (click)="installPlugin(plugin)">
-                                    <mat-icon [svgIcon]="'heroicons_outline:cloud-download'"></mat-icon>
-                                    <span class="ml-2">Cài đặt</span>
-                                </button>
-                                <button *ngIf="plugin.installed" mat-icon-button color="warn" (click)="uninstallPlugin(plugin)" matTooltip="Gỡ cài đặt">
-                                    <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
-                                </button>
-                            </div>
-                            
-                            <div *ngIf="plugin.installed">
-                                <mat-slide-toggle [checked]="plugin.enabled" (change)="togglePlugin(plugin, $event)">
-                                    {{ plugin.enabled ? 'Đang bật' : 'Đang tắt' }}
-                                </mat-slide-toggle>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </mat-tab>
         <mat-tab [label]="'app.auto_system' | transloco">
             <div class="w-full mt-4">
 
