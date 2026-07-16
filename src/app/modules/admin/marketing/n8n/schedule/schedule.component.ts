@@ -1372,10 +1372,15 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             const monthlyTarget = d.domainData?.monthlyTarget || 0;
                             const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
                             
+                            const today = new Date();
+                            const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
+                            const dailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult) / remainingDays) : 0;
+
                             return {
                                 domain: d.name,
                                 monthlyTarget: monthlyTarget,
                                 currentResult: currentResult,
+                                dailyTarget: dailyTarget,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                                 tasks: d.childrenItems?.map((t: any) => {
                                     const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
@@ -1406,9 +1411,9 @@ Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Ngườ
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. 
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG VÀ CHỈ TIÊU:
-- BẠN LÀ MỘT AI AGENT THÔNG MINH, bạn PHẢI TỰ ĐỌC VÀ HIỂU data để TỰ ĐỘNG CHIA SỐ LƯỢNG CÔNG VIỆC CẦN THIẾT CHO TỪNG DOMAIN MỖI NGÀY.
-- NẾU DOMAIN NÀO CÓ 'monthlyTarget' BẰNG 0 HOẶC ĐÃ ĐẠT CHỈ TIÊU: TỰ ĐỘNG BỎ QUA, TUYỆT ĐỐI KHÔNG TẠO THÊM TASK CHO DOMAIN ĐÓ (trừ khi user chỉ định).
-- LUẬT THÉP BẮT BUỘC: NẾU NGƯỜI DÙNG CÓ LỆNH "TẠO TIẾP", "TẠO THÊM" HOẶC YÊU CẦU TẠO CÔNG VIỆC CHO MỘT NGÀY CỤ THỂ (VD: "Tạo công việc ngày 17/07"), BẠN BẮT BUỘC PHẢI SINH RA TASK MỚI VÀ TRẢ VỀ CHÚNG. TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG VỚI LÝ DO ĐÃ ĐỦ CHỈ TIÊU TRONG NGÀY ĐÓ!
+- TRONG DATA ĐÃ CUNG CẤP SẴN 'dailyTarget' (Chỉ tiêu số bài bắt buộc mỗi ngày). BẠN BẮT BUỘC PHẢI TẠO RA ĐÚNG SỐ LƯỢNG TASK ĐÓ CHO TỪNG DOMAIN (Ví dụ dailyTarget=5 thì tạo đúng 5 task cho domain đó).
+- NẾU DOMAIN NÀO CÓ 'dailyTarget' BẰNG 0 HOẶC 'monthlyTarget' BẰNG 0: TỰ ĐỘNG BỎ QUA, TUYỆT ĐỐI KHÔNG TẠO TASK CHO DOMAIN ĐÓ (trừ khi user chỉ định đích danh).
+- LUẬT THÉP BẮT BUỘC: NẾU NGƯỜI DÙNG CÓ LỆNH "TẠO TIẾP", "TẠO THÊM" HOẶC YÊU CẦU TẠO CÔNG VIỆC CHO MỘT NGÀY CỤ THỂ (VD: "Tạo công việc ngày 17/07"), BẠN BẮT BUỘC PHẢI SINH RA SỐ LƯỢNG TASK BẰNG VỚI 'dailyTarget' CHO NGÀY ĐÓ. TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG!
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
 - Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID.
 - BẠN KHÔNG CẦN TRẢ VỀ những task cũ không thay đổi.
