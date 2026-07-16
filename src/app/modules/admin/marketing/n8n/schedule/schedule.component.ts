@@ -361,7 +361,13 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
     addEvent(event: any) { console.log('event', event); }
     trackByIndex = (_: number, c: { index: number }) => c.index;
-    changeEvent(item: any) { console.log('item', item); }
+    editingItem: any = null;
+    changeEvent(item: any) { 
+        console.log('item selected for AI edit', item); 
+        this.editingItem = item;
+        // Scroll to chat and show a notification
+        this._snackBar.open(`Đã chọn: ${item.name}. Hãy yêu cầu AI chỉnh sửa.`, 'Đóng', { duration: 3000 });
+    }
     getRowHeight(row: any & { height: number }) { if (!row) return 50; if (row.height === undefined) return 50; return row.height; }
 
     // --- MAIN TABLE (CAPTIONS) ---
@@ -465,7 +471,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             id: index, 
             name: domainData.domain,
             childrenItems: [],
-            childrenItemsExpanded: true
+            childrenItemsExpanded: true,
+            domainData: domainData // Store reference for DB updates
         };
 
         // Push to items first
@@ -1313,6 +1320,59 @@ Không dùng markdown \`\`\`json.`;
             this.isChatting = false;
             this.cd.detectChanges();
             this.scrollToBottom();
+        }
+    }
+    
+    saveAiTask(content: string) {
+        if (!this.editingItem) {
+            this._snackBar.open('Vui lòng click chọn 1 công việc trên timeline trước khi lưu!', 'Đóng', { duration: 3000 });
+            return;
+        }
+
+        try {
+            let parentDomain = this.items.find((d: any) => d.childrenItems && d.childrenItems.includes(this.editingItem));
+            if (!parentDomain || !(parentDomain as any).domainData) {
+                this._snackBar.open('Không tìm thấy dữ liệu gốc để lưu CSDL.', 'Đóng', { duration: 3000 });
+                return;
+            }
+
+            let parsed: any = null;
+            let cleanContent = content;
+            if (cleanContent.includes('```json')) cleanContent = cleanContent.split('```json')[1].split('```')[0].trim();
+            else if (cleanContent.includes('```')) cleanContent = cleanContent.split('```')[1].split('```')[0].trim();
+            
+            try {
+                parsed = JSON.parse(cleanContent);
+            } catch (e) {
+                parsed = { content: content };
+            }
+
+            if (parsed.title) this.editingItem.name = parsed.title;
+            if (parsed.content) this.editingItem.meta = parsed.content;
+
+            this.items = [...this.items];
+            this.cd.markForCheck();
+            this.saveScriptState();
+
+            let domainData = (parentDomain as any).domainData;
+            domainData.plan = parentDomain.childrenItems;
+            
+            this._domainService.edit({
+                username: this.user.name,
+                domain: domainData
+            }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                next: () => {
+                    this._snackBar.open('Đã lưu task thành công vào CSDL!', 'Đóng', { duration: 3000 });
+                },
+                error: (err) => {
+                    console.error('Lỗi khi lưu DB:', err);
+                    this._snackBar.open('Lỗi lưu CSDL!', 'Đóng', { duration: 3000 });
+                }
+            });
+
+        } catch (e) {
+            console.error('Lỗi khi saveAiTask:', e);
+            this._snackBar.open('Đã xảy ra lỗi khi lưu!', 'Đóng', { duration: 3000 });
         }
     }
 }
