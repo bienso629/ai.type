@@ -1372,13 +1372,16 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 monthlyTarget: monthlyTarget,
                                 currentResult: currentResult,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
-                                tasks: d.childrenItems?.map((t: any) => ({
-                                    id: t.id,
-                                    name: t.name,
-                                    meta: t.meta || '',
-                                    startDate: t.startDate.toISOString(),
-                                    endDate: t.endDate.toISOString()
-                                })) || []
+                                tasks: d.childrenItems?.map((t: any) => {
+                                    const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
+                                    return {
+                                        id: t.id,
+                                        name: t.name,
+                                        meta: t.meta || '',
+                                        startDate: tzOffsetStr(t.startDate),
+                                        endDate: tzOffsetStr(t.endDate)
+                                    };
+                                }) || []
                             };
                         });
 
@@ -1399,7 +1402,9 @@ LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU: Hệ thống sẽ tự động g
 - BẠN KHÔNG CẦN TRẢ VỀ những task cũ không có thay đổi gì.
 - Để SỬA hoặc THÊM task, chỉ cần trả về task đó (nếu thêm mới, hãy để trống hoặc bịa ra một ID mới).
 - Để XÓA một task cũ, hãy trả về task đó nhưng thêm trường "_deleted": true.
-QUAN TRỌNG VỀ THỜI GIAN: Tất cả các task BẮT BUỘC phải được đặt MẶC ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 (theo giờ địa phương) của ngày hôm đó, trừ khi người dùng có yêu cầu giờ giấc cụ thể khác. KHÔNG CHIA NHỎ GIỜ. ĐẢM BẢO THEO CHUẨN ISO 8601.`;
+QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ (GMT+7):
+- KHÔNG BAO GIỜ thêm chữ 'Z' hoặc múi giờ vào cuối chuỗi thời gian. BẮT BUỘC dùng định dạng local: "YYYY-MM-DDTHH:mm:ss" (Ví dụ: "2026-07-16T20:00:00"). Nếu có chữ 'Z', hệ thống sẽ bị sai lệch múi giờ sang ngày hôm sau!
+- Tất cả các task mới BẮT BUỘC phải được đặt MẶC ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 của ngày hôm đó, trừ khi người dùng CÓ YÊU CẦU GIỜ GIẤC CỤ THỂ KHÁC (như từ 20h đến 24h). KHÔNG CHIA NHỎ GIỜ NẾU KHÔNG ĐƯỢC YÊU CẦU.`;
                     }
                 }
             }
