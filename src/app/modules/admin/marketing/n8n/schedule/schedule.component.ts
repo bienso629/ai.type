@@ -1403,6 +1403,7 @@ Mảng JSON phải có cấu trúc gồm danh sách các domain và các task b�
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG VÀ CHỈ TIÊU:
 - BẠN LÀ MỘT AI AGENT THÔNG MINH, bạn PHẢI TỰ ĐỌC VÀ HIỂU data để TỰ ĐỘNG CHIA SỐ LƯỢNG CÔNG VIỆC CẦN THIẾT CHO TỪNG DOMAIN MỖI NGÀY.
 - NẾU DOMAIN NÀO CÓ 'monthlyTarget' BẰNG 0 HOẶC ĐÃ ĐẠT CHỈ TIÊU: TỰ ĐỘNG BỎ QUA, TUYỆT ĐỐI KHÔNG TẠO THÊM TASK CHO DOMAIN ĐÓ (trừ khi user chỉ định).
+- LUẬT THÉP BẮT BUỘC: NẾU NGƯỜI DÙNG CÓ LỆNH "TẠO TIẾP", "TẠO THÊM" HOẶC YÊU CẦU TẠO CÔNG VIỆC CHO MỘT NGÀY CỤ THỂ (VD: "Tạo công việc ngày 17/07"), BẠN BẮT BUỘC PHẢI SINH RA TASK MỚI VÀ TRẢ VỀ CHÚNG. TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG VỚI LÝ DO ĐÃ ĐỦ CHỈ TIÊU TRONG NGÀY ĐÓ!
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
 - Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID.
 - BẠN KHÔNG CẦN TRẢ VỀ những task cũ không thay đổi.
