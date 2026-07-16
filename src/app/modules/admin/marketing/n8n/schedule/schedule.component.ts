@@ -523,7 +523,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                 const streamItems = domainData.plan.map((task: any) => ({
                     ...task,
                     startDate: new Date(task.startDate),
-                    endDate: new Date(task.endDate)
+                    endDate: new Date(new Date(task.endDate).setHours(17, 0, 0, 0))
                 }));
                 
                 const itemIndex = this.items.findIndex(it => it.id === index);
@@ -684,7 +684,7 @@ Không dùng markdown \`\`\`json.`;
                     this.items[itemIndex].childrenItems = domainData.plan.map((task: any) => ({
                         ...task,
                         startDate: new Date(task.startDate),
-                        endDate: new Date(task.endDate)
+                        endDate: new Date(new Date(task.endDate).setHours(17, 0, 0, 0))
                     }));
                 } else {
                     this.items[itemIndex].childrenItems = [];
@@ -1413,6 +1413,7 @@ Mảng JSON phải có cấu trúc gồm danh sách các domain và các task b�
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG VÀ CHỈ TIÊU:
 - TRONG DATA ĐÃ CUNG CẤP SẴN 'dailyTarget' (Chỉ tiêu số bài bắt buộc mỗi ngày). BẠN BẮT BUỘC PHẢI TẠO RA ĐÚNG SỐ LƯỢNG TASK ĐÓ CHO TỪNG DOMAIN (Ví dụ dailyTarget=5 thì tạo đúng 5 task cho domain đó).
 - NẾU DOMAIN NÀO CÓ 'dailyTarget' BẰNG 0 HOẶC 'monthlyTarget' BẰNG 0: TỰ ĐỘNG BỎ QUA, TUYỆT ĐỐI KHÔNG TẠO TASK CHO DOMAIN ĐÓ (trừ khi user chỉ định đích danh).
+- ĐỂ DEBUG: BẠN BẮT BUỘC PHẢI THÊM CHUỖI "[DT: <số dailyTarget>]" VÀO CUỐI TÊN CỦA MỌI TASK BẠN TẠO RA. Ví dụ: "Bài viết về AI [DT: 5]".
 - LUẬT THÉP BẮT BUỘC: NẾU NGƯỜI DÙNG CÓ LỆNH "TẠO TIẾP", "TẠO THÊM" HOẶC YÊU CẦU TẠO CÔNG VIỆC CHO MỘT NGÀY CỤ THỂ (VD: "Tạo công việc ngày 17/07"), BẠN BẮT BUỘC PHẢI SINH RA SỐ LƯỢNG TASK BẰNG VỚI 'dailyTarget' CHO NGÀY ĐÓ. TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG!
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
 - Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID.
