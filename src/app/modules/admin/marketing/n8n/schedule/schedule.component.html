@@ -40,18 +40,21 @@
                 <ng-template #customPanelItemTemplate let-item='item' let-index='index' let-depth='depth'>
                     <div [style.height.px]='50 * (item.streamItems ? item?._streamLevels?.length || 1 : 1)'
                          [class.can-collapse]='item.childrenItems && item.childrenItems.length'
-                         class='panel-item' style="width: 100%">
+                         class='panel-item group transition-colors hover:bg-gray-50' style="width: 100%; display: flex; align-items: center; border-bottom: 1px solid #e9eef4;">
 
-                        <div [style.marginLeft.px]='depth * 20' (click)='toggleExpand(item)' class='item-content'>
+                        <div [style.marginLeft.px]='depth * 24' (click)='toggleExpand(item)' class='item-content flex items-center w-full cursor-pointer'>
                             <div class='collapse-icon'
                                  [class.collapsed]='!item.childrenItemsExpanded'>
                             </div>
 
                             <ng-container *ngIf="depth === 0">
-                                <span class='item-name' title="{{item.name}}">{{item.name}}</span>
+                                <span class='item-name font-medium text-gray-800' title="{{item.name}}">{{item.name}}</span>
                             </ng-container>
+                            
                             <ng-container *ngIf="depth !== 0">
-                                <mat-icon class="icon-size-4 text-gray-500" [svgIcon]="'heroicons_outline:document-text'" matTooltip="{{item.name}}"></mat-icon>
+                                <div class="w-7 h-7 rounded-full bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0 group-hover:bg-blue-100 transition-colors shadow-sm" matTooltip="{{item.name}}">
+                                    <mat-icon class="icon-size-4 text-blue-600" [svgIcon]="'heroicons_outline:document-text'"></mat-icon>
+                                </div>
                             </ng-container>
                         </div>
                     </div>
