@@ -514,28 +514,24 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         this.items = [...this.items, timelineItem];
         this.cd.markForCheck();
 
-        // Kiểm tra xem đã có kế hoạch cho ngày hôm nay chưa (bỏ qua nếu forceGenerate)
+        // Kiểm tra xem đã có kế hoạch chưa (bỏ qua nếu forceGenerate)
         if (!forceGenerate && domainData.plan && domainData.plan.length > 0) {
-            const firstTask = domainData.plan[0];
-            const taskDate = new Date(firstTask.startDate);
-            if (taskDate.toDateString() === now.toDateString()) {
-                // Đã có kế hoạch hôm nay, hiển thị luôn và không tạo lại
-                const streamItems = domainData.plan.map((task: any) => ({
-                    ...task,
-                    startDate: new Date(task.startDate),
-                    endDate: new Date(new Date(task.endDate).setHours(17, 0, 0, 0))
-                }));
-                
-                const itemIndex = this.items.findIndex(it => it.id === index);
-                if (itemIndex > -1) {
-                    this.items[itemIndex].childrenItems = this.packTasks(streamItems, index);
-                    this.items[itemIndex].childrenItemsExpanded = true;
-                    this.items[itemIndex].streamItems = undefined;
-                    this.items = [...this.items];
-                    this.cd.markForCheck();
-                }
-                return;
+            // Đã có kế hoạch, hiển thị luôn và không tạo lại
+            const streamItems = domainData.plan.map((task: any) => ({
+                ...task,
+                startDate: new Date(task.startDate),
+                endDate: new Date(new Date(task.endDate).setHours(17, 0, 0, 0))
+            }));
+            
+            const itemIndex = this.items.findIndex(it => it.id === index);
+            if (itemIndex > -1) {
+                this.items[itemIndex].childrenItems = this.packTasks(streamItems, index);
+                this.items[itemIndex].childrenItemsExpanded = true;
+                this.items[itemIndex].streamItems = undefined;
+                this.items = [...this.items];
+                this.cd.markForCheck();
             }
+            return;
         }
 
         // Tính toán chỉ tiêu trong ngày
@@ -1226,15 +1222,25 @@ Không dùng markdown \`\`\`json.`;
             
             // Convert date strings back to Date objects
             savedState.forEach((item: any) => {
-                if (item.childrenItems) {
-                    item.childrenItems.forEach((child: any) => {
-                        if (child.streamItems) {
-                            child.streamItems.forEach((stream: any) => {
-                                if (stream.startDate) stream.startDate = new Date(stream.startDate);
-                                if (stream.endDate) stream.endDate = new Date(stream.endDate);
-                            });
-                        }
-                    });
+                if (item.childrenItems && item.childrenItems.length > 0) {
+                    if (!item.childrenItems[0].streamItems) {
+                        // Migrate legacy state
+                        const streamItems = item.childrenItems.map((child: any) => {
+                            if (child.startDate) child.startDate = new Date(child.startDate);
+                            if (child.endDate) child.endDate = new Date(child.endDate);
+                            return child;
+                        });
+                        item.childrenItems = this.packTasks(streamItems, item.id);
+                    } else {
+                        item.childrenItems.forEach((child: any) => {
+                            if (child.streamItems) {
+                                child.streamItems.forEach((stream: any) => {
+                                    if (stream.startDate) stream.startDate = new Date(stream.startDate);
+                                    if (stream.endDate) stream.endDate = new Date(stream.endDate);
+                                });
+                            }
+                        });
+                    }
                 }
                 if (item.streamItems) {
                     item.streamItems.forEach((stream: any) => {
@@ -1419,17 +1425,18 @@ HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. 
-LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG VÀ CHỈ TIÊU:
-- TRONG DATA ĐÃ CUNG CẤP SẴN 'dailyTarget' (Chỉ tiêu số bài bắt buộc mỗi ngày). BẠN BẮT BUỘC PHẢI TẠO RA ĐÚNG SỐ LƯỢNG TASK ĐÓ CHO TỪNG DOMAIN (Ví dụ dailyTarget=5 thì tạo đúng 5 task cho domain đó).
-- NẾU DOMAIN NÀO CÓ 'dailyTarget' BẰNG 0 HOẶC 'monthlyTarget' BẰNG 0: TỰ ĐỘNG BỎ QUA, TUYỆT ĐỐI KHÔNG TẠO TASK CHO DOMAIN ĐÓ (trừ khi user chỉ định đích danh).
+- TRONG DATA ĐÃ CUNG CẤP SẴN 'dailyTarget' (Chỉ tiêu số bài bắt buộc MỖI NGÀY). Ví dụ dailyTarget=5 thì MỖI NGÀY đều phải tạo đủ 5 task.
+- NẾU NGƯỜI DÙNG YÊU CẦU TẠO VIỆC CHO MỘT NGÀY CỤ THỂ (Ví dụ: "Tạo việc ngày 17"): BẠN BẮT BUỘC PHẢI TẠO ĐỦ SỐ LƯỢNG TASK BẰNG VỚI 'dailyTarget' CHO NGÀY 17 ĐÓ. Các task của ngày 16 không được tính vào chỉ tiêu của ngày 17.
+- NẾU DOMAIN NÀO CÓ 'dailyTarget' > 0: Bạn PHẢI tạo task cho domain đó khi người dùng yêu cầu tạo việc.
+- CHỈ BỎ QUA khi 'dailyTarget' = 0 HOẶC 'monthlyTarget' = 0 (trừ khi user chỉ định đích danh).
 - ĐỂ DEBUG: BẠN BẮT BUỘC PHẢI THÊM CHUỖI "[DT: <số dailyTarget>]" VÀO CUỐI TÊN CỦA MỌI TASK BẠN TẠO RA. Ví dụ: "Bài viết về AI [DT: 5]".
-- LUẬT THÉP BẮT BUỘC: NẾU NGƯỜI DÙNG CÓ LỆNH "TẠO TIẾP", "TẠO THÊM" HOẶC YÊU CẦU TẠO CÔNG VIỆC CHO MỘT NGÀY CỤ THỂ (VD: "Tạo công việc ngày 17/07"), BẠN BẮT BUỘC PHẢI SINH RA SỐ LƯỢNG TASK BẰNG VỚI 'dailyTarget' CHO NGÀY ĐÓ. TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG!
+- LUẬT THÉP BẮT BUỘC: TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI TẠO TASK BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG NẾU NGƯỜI DÙNG ĐÃ YÊU CẦU TẠO!
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
-- Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID.
-- BẠN KHÔNG CẦN TRẢ VỀ những task cũ không thay đổi.
-- CẢNH BÁO BẢO TOÀN DỮ LIỆU: Nếu người dùng yêu cầu sửa công việc của NGÀY A, bạn TUYỆT ĐỐI KHÔNG ĐƯỢC lấy ID của các task thuộc NGÀY B để sửa thành NGÀY A.
+- Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại.
+- Bạn KHÔNG CẦN trả về những task cũ của ngày khác nếu không thay đổi. Hệ thống sẽ tự giữ lại chúng.
+- CẢNH BÁO BẢO TOÀN DỮ LIỆU: Nếu người dùng yêu cầu sửa công việc của NGÀY A, bạn TUYỆT ĐỐI KHÔNG ĐƯỢC lấy ID của các task thuộc NGÀY B để sửa thành NGÀY A. TUYỆT ĐỐI KHÔNG tự ý xóa công việc của ngày khác.
 - ĐỂ TẠO TASK MỚI: BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TRẢ VỀ TRƯỜNG "id" (XÓA HẲN KEY "id" KHỎI JSON). Hệ thống sẽ tự động cấp phát ID mới. Nếu bạn tự bịa ID và bị trùng lặp, các task sẽ bị ghi đè lên nhau và biến mất!
-- Để XÓA một task cũ, trả về task đó với trường "_deleted": true.
+- Để XÓA một task cũ, trả về task đó với trường "_deleted": true (CHỈ ÁP DỤNG cho các task mà người dùng thực sự muốn xóa hoặc thuộc ngày mà người dùng muốn làm lại hoàn toàn).
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
 - MẶC ĐỊNH TẤT CẢ CÁC TASK PHẢI CÓ startDate LÀ 08:00:00 VÀ endDate LÀ 17:00:00 của ngày hôm đó (trừ khi người dùng có yêu cầu giờ khác). KHÔNG ĐƯỢC CHIA NHỎ GIỜ (không được tự ý chia 8h-10h, 10h-12h).
@@ -1462,7 +1469,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     parsed.forEach(parsedDomain => {
                         let existingDomain = this.items.find(d => d.name === parsedDomain.domain);
                         if (existingDomain) {
-                            let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : [];
+                            let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : (existingDomain.childrenItems?.length ? [...existingDomain.childrenItems] : []);
                             
                             if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks) && parsedDomain.tasks.length > 0) {
                                 hasAnyTasks = true;
@@ -1490,12 +1497,12 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                         }
                                     }
                                 });
-                            }
-                            
-                            existingDomain.childrenItems = this.packTasks(newTasks, existingDomain.id);
-                            if ((existingDomain as any).domainData) {
-                                (existingDomain as any).domainData.plan = newTasks;
-                                this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                                
+                                existingDomain.childrenItems = this.packTasks(newTasks, existingDomain.id);
+                                if ((existingDomain as any).domainData) {
+                                    (existingDomain as any).domainData.plan = newTasks;
+                                    this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                                }
                             }
                         }
                     });
