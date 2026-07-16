@@ -203,3 +203,19 @@
         }
     }
 }
+
+::ng-deep .panel-item:not(.can-collapse) .item-name {
+    visibility: hidden !important;
+    position: relative;
+}
+
+::ng-deep .panel-item:not(.can-collapse) .item-name::before {
+    content: '•';
+    visibility: visible;
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 18px;
+    color: #9ca3af;
+}
