@@ -1442,7 +1442,7 @@ LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - Bạn phải tuân thủ tuyệt đối các quy tắc sau:
 1. Đối với domain có 'monthlyTarget' = 0: TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO TASK CHO DOMAIN NÀY! KHÔNG TRẢ VỀ BẤT KỲ TASK NÀO!
 2. Đối với domain có 'dailyTarget' > 0: Tạo đúng số lượng task bằng với 'dailyTarget'. Tuy nhiên, NẾU người dùng yêu cầu con số cụ thể (ví dụ "tạo 3 bài cho X"), hãy ưu tiên con số của người dùng.
-3. Đối với domain có 'dailyTarget' = 0 (nghĩa là đã đủ chỉ tiêu): TUYỆT ĐỐI KHÔNG TẠO TASK, TRỪ KHI người dùng nhắc ĐÍCH DANH tên domain đó và bảo tạo thêm. NẾU NGƯỜI DÙNG CHỈ NÓI CHUNG CHUNG (ví dụ: "Tạo thêm việc cho ngày 17"), BẠN PHẢI BỎ QUA TẤT CẢ CÁC DOMAIN CÓ dailyTarget = 0, TUYỆT ĐỐI KHÔNG TẠO MỘT TASK NÀO CHO CHÚNG! Lệnh chung chung KHÔNG ĐƯỢC PHÉP ép sinh task cho các domain đã đủ chỉ tiêu.
+3. Đối với domain có 'dailyTarget' = 0 (đã đủ chỉ tiêu): Mặc định không tạo task. TUY NHIÊN, NẾU người dùng yêu cầu LÊN LỊCH / THÊM CÔNG VIỆC cho một ngày cụ thể (ví dụ: "Thêm công việc cho ngày 17"), bạn BẮT BUỘC phải tạo cho mỗi domain (có monthlyTarget > 0) ít nhất 1 task. TUYỆT ĐỐI KHÔNG ĐƯỢC TRẢ VỀ MẢNG RỖNG KHI NGƯỜI DÙNG ĐÃ YÊU CẦU THÊM VIỆC!
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
 - Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại.
 - Bạn KHÔNG CẦN trả về những task cũ của ngày khác nếu không thay đổi. Hệ thống sẽ tự giữ lại chúng.
@@ -1478,26 +1478,16 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         if (taskObj.startDate) this.editingItem.startDate = new Date(taskObj.startDate);
                         if (taskObj.endDate) this.editingItem.endDate = new Date(taskObj.endDate);
                         
-                        let parentDomain = this.items.find((d: any) => d.childrenItems?.[0]?.streamItems?.includes(this.editingItem));
-                        if (parentDomain && (parentDomain as any).domainData) {
-                            (parentDomain as any).domainData.plan = parentDomain.childrenItems[0].streamItems;
-                            this._domainService.edit({ username: this.user.name, domain: (parentDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-                        }
+                        this.editingItem = null;
                         this.items = [...this.items];
                         this.cd.markForCheck();
                         this.saveScriptState();
-                        this.toastr.success('Đã cập nhật công việc!');
-                        this.chatHistory.push({ role: 'model', content: '✅ Đã áp dụng thay đổi vào lưới thời gian thành công!' });
+                        this.toastr.success('Cập nhật công việc thành công!');
+                        this.chatHistory.push({ role: 'model', content: '✅ Đã cập nhật công việc hiện tại!' });
                     } else {
                         this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu công việc hợp lệ.' });
                     }
                 } else if (Array.isArray(parsed)) {
-                    if (parsed.length === 0) {
-                        this.chatHistory.push({ role: 'model', content: '❌ AI đã phản hồi một danh sách trống (không tạo thêm hoặc sửa task nào). Hãy kiểm tra lại yêu cầu của bạn!' });
-                        this.cd.markForCheck();
-                        return;
-                    }
-                    
                     let hasAnyTasks = false;
                     // Update all tasks by merging
                     parsed.forEach(parsedDomain => {
