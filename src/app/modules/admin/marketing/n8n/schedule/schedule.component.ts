@@ -48,6 +48,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 registerLocaleData(localeVi);
 
 export interface ICustomTimelineItem extends ITimelineItem {
+    domainData?: any;
     persona?: {
         role: string;
         style: string;
@@ -366,7 +367,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         console.log('item selected for AI edit', item); 
         this.editingItem = item;
         // Scroll to chat and show a notification
-        this._snackBar.open(`Đã chọn: ${item.name}. Hãy yêu cầu AI chỉnh sửa.`, 'Đóng', { duration: 3000 });
+        this.toastr.info(`Đã chọn: ${item.name}. Hãy yêu cầu AI chỉnh sửa.`);
     }
     getRowHeight(row: any & { height: number }) { if (!row) return 50; if (row.height === undefined) return 50; return row.height; }
 
@@ -1325,14 +1326,14 @@ Không dùng markdown \`\`\`json.`;
     
     saveAiTask(content: string) {
         if (!this.editingItem) {
-            this._snackBar.open('Vui lòng click chọn 1 công việc trên timeline trước khi lưu!', 'Đóng', { duration: 3000 });
+            this.toastr.warning('Vui lòng click chọn 1 công việc trên timeline trước khi lưu!');
             return;
         }
 
         try {
             let parentDomain = this.items.find((d: any) => d.childrenItems && d.childrenItems.includes(this.editingItem));
             if (!parentDomain || !(parentDomain as any).domainData) {
-                this._snackBar.open('Không tìm thấy dữ liệu gốc để lưu CSDL.', 'Đóng', { duration: 3000 });
+                this.toastr.warning('Không tìm thấy dữ liệu gốc để lưu CSDL.');
                 return;
             }
 
@@ -1362,17 +1363,17 @@ Không dùng markdown \`\`\`json.`;
                 domain: domainData
             }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                 next: () => {
-                    this._snackBar.open('Đã lưu task thành công vào CSDL!', 'Đóng', { duration: 3000 });
+                    this.toastr.success('Đã lưu task thành công vào CSDL!');
                 },
                 error: (err) => {
                     console.error('Lỗi khi lưu DB:', err);
-                    this._snackBar.open('Lỗi lưu CSDL!', 'Đóng', { duration: 3000 });
+                    this.toastr.error('Lỗi lưu CSDL!');
                 }
             });
 
         } catch (e) {
             console.error('Lỗi khi saveAiTask:', e);
-            this._snackBar.open('Đã xảy ra lỗi khi lưu!', 'Đóng', { duration: 3000 });
+            this.toastr.error('Đã xảy ra lỗi khi lưu!');
         }
     }
 }
