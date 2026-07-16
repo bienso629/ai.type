@@ -1394,9 +1394,12 @@ HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. 
-LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG: Nếu 'monthlyTarget' bằng 0, hoặc 'currentResult' đã lớn hơn hoặc bằng 'monthlyTarget', BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO THÊM CÔNG VIỆC cho domain đó. Bạn toàn quyền quyết định số lượng task cho các domain còn thiếu chỉ tiêu dựa vào tính toán của bạn (ví dụ lấy số bài còn thiếu chia cho số ngày còn lại trong tháng).
-QUAN TRỌNG VỀ THỜI GIAN VÀ HIỂN THỊ LỊCH: Để các công việc hiển thị đẹp mắt trên 1 dòng ngang duy nhất (không bị rớt xuống dòng dưới hay xếp chồng lên nhau), bạn PHẢI CHIA NHỎ GIỜ VÀ NỐI TIẾP NHAU. Ví dụ: task 1 từ 08:00-10:00, task 2 từ 10:00-12:00, task 3 từ 13:00-15:00... Tuyệt đối không để các task trong cùng 1 domain bị trùng lặp thời gian (overlap). ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601.
-LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
+LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG: Nếu 'monthlyTarget' bằng 0, hoặc 'currentResult' đã lớn hơn hoặc bằng 'monthlyTarget', BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO THÊM CÔNG VIỆC cho domain đó. Bạn toàn quyền quyết định số lượng task cho các domain còn thiếu chỉ tiêu dựa vào tính toán của bạn.
+LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU: Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID. DO ĐÓ:
+- BẠN KHÔNG CẦN TRẢ VỀ những task cũ không có thay đổi gì.
+- Để SỬA hoặc THÊM task, chỉ cần trả về task đó (nếu thêm mới, hãy để trống hoặc bịa ra một ID mới).
+- Để XÓA một task cũ, hãy trả về task đó nhưng thêm trường "_deleted": true.
+QUAN TRỌNG VỀ THỜI GIAN: Tất cả các task BẮT BUỘC phải được đặt MẶC ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 (theo giờ địa phương) của ngày hôm đó, trừ khi người dùng có yêu cầu giờ giấc cụ thể khác. KHÔNG CHIA NHỎ GIỜ. ĐẢM BẢO THEO CHUẨN ISO 8601.`;
                     }
                 }
             }
@@ -1413,21 +1416,40 @@ LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY T
             
             if (parsed) {
                 if (Array.isArray(parsed)) {
-                    // Update all tasks
+                    // Update all tasks by merging
                     parsed.forEach(parsedDomain => {
                         let existingDomain = this.items.find(d => d.name === parsedDomain.domain);
                         if (existingDomain) {
-                            existingDomain.childrenItems = parsedDomain.tasks.map((t: any) => ({
-                                id: t.id || Math.random().toString(36).substring(7),
-                                name: t.name,
-                                meta: t.meta,
-                                startDate: new Date(t.startDate),
-                                endDate: new Date(t.endDate),
-                                canResizeLeft: true,
-                                canResizeRight: true,
-                                canDragX: true,
-                                canDragY: true
-                            }));
+                            let newTasks = existingDomain.childrenItems ? [...existingDomain.childrenItems] : [];
+                            
+                            if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks)) {
+                                parsedDomain.tasks.forEach((t: any) => {
+                                    if (t._deleted) {
+                                        newTasks = newTasks.filter(existing => existing.id !== t.id);
+                                    } else {
+                                        const existingIndex = newTasks.findIndex(existing => existing.id === t.id);
+                                        const mappedTask = {
+                                            id: t.id || Math.random().toString(36).substring(7),
+                                            name: t.name || t.title, // Support both formats
+                                            meta: t.meta || '',
+                                            startDate: new Date(t.startDate),
+                                            endDate: new Date(t.endDate),
+                                            canResizeLeft: true,
+                                            canResizeRight: true,
+                                            canDragX: true,
+                                            canDragY: true
+                                        };
+                                        
+                                        if (existingIndex > -1) {
+                                            newTasks[existingIndex] = { ...newTasks[existingIndex], ...mappedTask };
+                                        } else {
+                                            newTasks.push(mappedTask);
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            existingDomain.childrenItems = newTasks;
                             if ((existingDomain as any).domainData) {
                                 (existingDomain as any).domainData.plan = existingDomain.childrenItems;
                                 this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
