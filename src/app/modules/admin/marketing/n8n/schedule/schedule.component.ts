@@ -1,6 +1,7 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ElementRef, NgZone, ChangeDetectionStrategy, TemplateRef, Input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
+import { DomainService } from 'app/modules/_services/domain';
 import { User } from 'app/core/user/user.types';
 import {
     catchError,
@@ -95,6 +96,19 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     currentZoomIndex: number;
 
     items: ICustomTimelineItem[] = [];
+    
+    customZooms = [
+        { columnWidth: 50, viewMode: TimelineViewMode.Month },
+        { columnWidth: 100, viewMode: TimelineViewMode.Month },
+        { columnWidth: 50, viewMode: TimelineViewMode.Week },
+        { columnWidth: 100, viewMode: TimelineViewMode.Week },
+        { columnWidth: 100, viewMode: TimelineViewMode.Day }, // 4px per hour
+        { columnWidth: 240, viewMode: TimelineViewMode.Day }, // 10px per hour
+        { columnWidth: 720, viewMode: TimelineViewMode.Day }, // 30px per hour
+        { columnWidth: 1440, viewMode: TimelineViewMode.Day }, // 60px per hour
+        { columnWidth: 2880, viewMode: TimelineViewMode.Day }, // 120px per hour
+        { columnWidth: 4320, viewMode: TimelineViewMode.Day }, // 180px per hour
+    ];
 
     @ViewChild("timeline") timelineComponent: TimelineComponent;
 
@@ -175,7 +189,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         private _matDialog: MatDialog,
         private _n8nService: N8nService, // Inject N8nService
         private multiAccountService: MultiAccountService,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private _domainService: DomainService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -215,7 +230,20 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                 this.config = config;
             });
 
-        this.getProfiles();
+        const state = history.state;
+        if (state && state.domains && state.domains.length > 0) {
+            this.processDomains(state.domains, state.statsData, state.month, state.forceGenerate);
+            
+            // Xóa cờ forceGenerate khỏi history state để khi F5 không tự động tạo lại đè lên
+            if (state.forceGenerate) {
+                const newState = { ...state };
+                delete newState.forceGenerate;
+                history.replaceState(newState, '');
+            }
+        } else {
+            this.getProfiles();
+        }
+        
         this.loadScriptState();
 
         try {
@@ -238,15 +266,58 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     }
 
     ngAfterViewInit() {
-        this.minZoomIndex = this.timelineComponent.zoomsHandler.getFirstZoom().index;
-        this.maxZoomIndex = this.timelineComponent.zoomsHandler.getLastZoom().index;
-        this.currentZoomIndex = this.maxZoomIndex;
+        if (this.timelineComponent) {
+            // Khắc phục lỗi thư viện angular-calendar-timeline: viewMode=Day bị làm tròn (snap) theo ngày
+            // khiến task không thể hiển thị đúng giờ/phút. Cần tự tính exact position dựa vào local time.
+            const timelineAny = this.timelineComponent as any;
+            const originalCalculateLeft = timelineAny._calculateItemLeftPosition.bind(this.timelineComponent);
+            const originalCalculateWidth = timelineAny._calculateItemWidth.bind(this.timelineComponent);
 
-        this.timelineComponent.zoomsHandler.activeZoom$.subscribe(
-            (zoom) => (this.currentZoomIndex = zoom.index)
-        );
+            timelineAny._calculateItemLeftPosition = (item: any) => {
+                if (this.timelineComponent.zoom) {
+                    if (!item.startDate || !item.endDate) return 0;
+                    const start = new Date(item.startDate);
+                    const scaleStart = this.timelineComponent.scale.startDate;
+                    
+                    let diffInColumns = this.timelineComponent.viewModeAdaptor.getDurationInColumns(scaleStart, start);
+                    if (start.getTime() < scaleStart.getTime()) {
+                        diffInColumns = -diffInColumns;
+                    }
+                    
+                    return diffInColumns * this.timelineComponent.zoom.columnWidth;
+                }
+                return originalCalculateLeft(item);
+            };
 
-        this.zoomAndFitToContent();
+            timelineAny._calculateItemWidth = (item: any) => {
+                if (this.timelineComponent.zoom) {
+                    if (!item.startDate || !item.endDate) return 0;
+                    const start = new Date(item.startDate);
+                    const end = new Date(item.endDate);
+                    
+                    const diffInColumns = this.timelineComponent.viewModeAdaptor.getDurationInColumns(start, end);
+                    
+                    return diffInColumns * this.timelineComponent.zoom.columnWidth;
+                }
+                return originalCalculateWidth(item);
+            };
+
+            this.minZoomIndex = this.timelineComponent.zoomsHandler.getFirstZoom().index;
+            this.maxZoomIndex = this.timelineComponent.zoomsHandler.getLastZoom().index;
+            this.currentZoomIndex = this.maxZoomIndex;
+
+            this.timelineComponent.zoomsHandler.activeZoom$.subscribe(
+                (zoom) => (this.currentZoomIndex = zoom.index)
+            );
+
+            this.scrollToToday();
+            
+            // Ép timeline tính toán lại toàn bộ vị trí các khối task
+            if (typeof this.timelineComponent['_recalculateItemPositions'] === 'function') {
+                this.timelineComponent['_recalculateItemPositions']();
+                this.cd.detectChanges();
+            }
+        }
 
         // nếu truyền data captions từ bên ngoài
         if (this.data) {
@@ -268,7 +339,11 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     // --- TIMELINE & ZOOM ---
     zoomIn(): void { this.timelineComponent.zoomIn(); }
     zoomOut(): void { this.timelineComponent.zoomOut(); }
-    scrollToToday(): void { this.timelineComponent.zoomFullIn(); this.timelineComponent.attachCameraToDate(new Date()); }
+    scrollToToday(): void { 
+        // Đặt mặc định zoom tới index 6 (tương đương 30px mỗi giờ) để vừa vặn
+        this.timelineComponent.changeZoomByIndex(6); 
+        this.timelineComponent.attachCameraToDate(new Date()); 
+    }
     zoomAndFitToContent(): void { this.timelineComponent.fitToContent(50); }
     changeZoom(event: Event): void { this.timelineComponent.changeZoomByIndex(+(event.target as HTMLInputElement).value); }
 
@@ -364,6 +439,240 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             },
             error: () => { }, complete: () => { }
         });
+    }
+
+    async processDomains(domains: any[], statsData: any, month: number, forceGenerate: boolean = false) {
+        this.toastr.info('Đang nạp dữ liệu tên miền...', 'Xử lý');
+        this.items = [];
+        const requests = domains.map((domainData: any, index: number) => {
+            return this.generateDomainData(domainData, index, statsData, month, forceGenerate);
+        });
+        
+        await Promise.all(requests);
+        this.cd.markForCheck();
+        this.toastr.success('Hoàn thành lên kế hoạch cho tên miền!');
+        
+        // Cuộn timeline tới khung giờ hiện tại và zoom to nhất để nhìn rõ chữ
+        setTimeout(() => {
+            this.scrollToToday();
+            this.cd.markForCheck();
+        }, 100);
+    }
+
+    async generateDomainData(domainData: any, index: number, statsData: any, month: number, forceGenerate: boolean = false) {
+        const now = new Date();
+        const endOfDay = new Date(now);
+        endOfDay.setHours(23, 59, 59, 999);
+
+        let timelineItem: ICustomTimelineItem = {
+            id: index, 
+            name: domainData.domain,
+            childrenItems: [],
+            childrenItemsExpanded: true
+        };
+
+        // Push to items first
+        this.items = [...this.items, timelineItem];
+        this.cd.markForCheck();
+
+        // Kiểm tra xem đã có kế hoạch cho ngày hôm nay chưa (bỏ qua nếu forceGenerate)
+        if (!forceGenerate && domainData.plan && domainData.plan.length > 0) {
+            const firstTask = domainData.plan[0];
+            const taskDate = new Date(firstTask.startDate);
+            if (taskDate.toDateString() === now.toDateString()) {
+                // Đã có kế hoạch hôm nay, hiển thị luôn và không tạo lại
+                const streamItems = domainData.plan.map((task: any) => ({
+                    ...task,
+                    startDate: new Date(task.startDate),
+                    endDate: new Date(task.endDate)
+                }));
+                
+                const itemIndex = this.items.findIndex(it => it.id === index);
+                if (itemIndex > -1) {
+                    this.items[itemIndex].childrenItems = streamItems;
+                    this.items[itemIndex].childrenItemsExpanded = true;
+                    this.items[itemIndex].streamItems = undefined;
+                    this.items = [...this.items];
+                    this.cd.markForCheck();
+                }
+                return;
+            }
+        }
+
+        // Tính toán chỉ tiêu trong ngày
+        let dailyTarget = 0;
+        if (domainData.monthlyTarget && domainData.monthlyTarget > 0) {
+            const currentResult = (statsData[domainData.domain] && statsData[domainData.domain][month]) ? statsData[domainData.domain][month] : 0;
+            const missing = Math.max(0, domainData.monthlyTarget - currentResult);
+            
+            const d = new Date();
+            const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+            const daysLeft = daysInMonth - d.getDate() + 1;
+            
+            if (daysLeft > 0) {
+                dailyTarget = Math.ceil(missing / daysLeft);
+            } else {
+                dailyTarget = missing;
+            }
+        }
+        
+        if (dailyTarget <= 0) {
+            return; // Không cần lên kế hoạch nếu không có chỉ tiêu
+        }
+
+        // Bắt đầu tính thời gian từ lúc hiện tại hoặc 8h sáng (tùy cái nào lớn hơn)
+        let dummyCurrentTime = new Date(now);
+        let startHour = new Date(now);
+        startHour.setHours(8, 0, 0, 0);
+        if (dummyCurrentTime.getTime() < startHour.getTime()) {
+            dummyCurrentTime = startHour;
+        }
+        
+        let endWorkTime = new Date(now);
+        endWorkTime.setHours(22, 0, 0, 0);
+        
+        // Tránh lỗi nếu bấm lên kế hoạch sau 22h, đẩy sang ngày mai
+        if (dummyCurrentTime.getTime() >= endWorkTime.getTime()) {
+            dummyCurrentTime.setDate(dummyCurrentTime.getDate() + 1);
+            dummyCurrentTime.setHours(8, 0, 0, 0);
+            endWorkTime.setDate(endWorkTime.getDate() + 1);
+        }
+
+        const totalWorkMinutes = Math.floor((endWorkTime.getTime() - dummyCurrentTime.getTime()) / 60000);
+        const minutesPerTask = Math.max(1, Math.floor(totalWorkMinutes / dailyTarget));
+
+        let dummyStreamItems = [];
+        for (let i = 0; i < dailyTarget; i++) {
+            let taskStart = new Date(dummyCurrentTime);
+            let taskEnd = new Date(dummyCurrentTime);
+            taskEnd.setMinutes(taskEnd.getMinutes() + minutesPerTask); // Trả lại đúng thời gian, không trừ 1 phút nữa
+            
+            dummyStreamItems.push({
+                id: `dummy-${index}-${i}`,
+                name: 'Đang phân tích...',
+                startDate: taskStart,
+                endDate: taskEnd,
+                canResizeLeft: false,
+                canResizeRight: false,
+                canDragX: false,
+                canDragY: false,
+                meta: '',
+                isLoading: true // Cờ nhấp nháy
+            });
+            
+            dummyCurrentTime = new Date(taskStart);
+            dummyCurrentTime.setMinutes(dummyCurrentTime.getMinutes() + minutesPerTask);
+        }
+
+        const itemIndexForDummy = this.items.findIndex(it => it.id === index);
+        if (itemIndexForDummy > -1) {
+            this.items[itemIndexForDummy].childrenItems = dummyStreamItems;
+            this.items[itemIndexForDummy].childrenItemsExpanded = true;
+            this.items[itemIndexForDummy].streamItems = undefined;
+            this.items = [...this.items];
+            this.cd.markForCheck();
+        }
+
+        const prompt = `Bạn là chuyên gia SEO. Tên miền: ${domainData.domain}. Phân tích AI: ${domainData.note || 'Chưa có'}. 
+Yêu cầu: Lên đúng ${dailyTarget} tiêu đề bài viết cần viết ngay HÔM NAY để đạt chỉ tiêu. 
+Trả về ĐÚNG ĐỊNH DẠNG JSON MẢNG: [{"title": "Tiêu đề", "content": "Tóm tắt"}]
+Không dùng markdown \`\`\`json.`;
+
+        try {
+            const response: any = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+            
+            let resultText = response.text || '';
+            if (resultText.includes('```json')) resultText = resultText.split('```json')[1].split('```')[0].trim();
+            else if (resultText.includes('```')) resultText = resultText.split('```')[1].split('```')[0].trim();
+            
+            // Tìm mảng JSON bằng cách cắt chuỗi từ '[' đến ']'
+            const startIndex = resultText.indexOf('[');
+            const endIndex = resultText.lastIndexOf(']');
+            if (startIndex !== -1 && endIndex !== -1 && endIndex > startIndex) {
+                resultText = resultText.substring(startIndex, endIndex + 1);
+            }
+            
+            const aiResults = JSON.parse(resultText);
+            
+            let streamItems = [];
+            
+            // Tính toán lại thời gian cho các task thật tương tự như dummy tasks
+            let currentTime = new Date(now);
+            if (currentTime.getTime() < startHour.getTime()) {
+                currentTime = startHour;
+            }
+            if (currentTime.getTime() >= endWorkTime.getTime()) {
+                currentTime.setDate(currentTime.getDate() + 1);
+                currentTime.setHours(8, 0, 0, 0);
+            }
+            
+            const totalWorkMinutesAct = Math.floor((endWorkTime.getTime() - currentTime.getTime()) / 60000);
+            const minutesPerTaskAct = Math.max(1, Math.floor(totalWorkMinutesAct / aiResults.length));
+            
+            for (let i = 0; i < aiResults.length; i++) {
+                const aiTask = aiResults[i];
+                let taskStart = new Date(currentTime);
+                let taskEnd = new Date(currentTime);
+                // Trả lại đúng thời gian, không trừ 1 phút nữa
+                taskEnd.setMinutes(taskEnd.getMinutes() + minutesPerTaskAct);
+                
+                streamItems.push({
+                    id: `${index}-${i}`,
+                    name: aiTask.title,
+                    startDate: taskStart,
+                    endDate: taskEnd,
+                    canResizeLeft: true,
+                    canResizeRight: true,
+                    canDragX: true,
+                    canDragY: false,
+                    meta: aiTask.content
+                });
+                
+                // Advance currentTime by exactly minutesPerTask to avoid time drift
+                currentTime = new Date(taskStart);
+                currentTime.setMinutes(currentTime.getMinutes() + minutesPerTaskAct);
+            }
+            
+            const itemIndex = this.items.findIndex(it => it.id === index);
+            if (itemIndex > -1) {
+                this.items[itemIndex].childrenItems = streamItems;
+                this.items[itemIndex].childrenItemsExpanded = true;
+                this.items[itemIndex].streamItems = undefined;
+                this.items = [...this.items];
+                this.cd.markForCheck();
+                
+                // Lưu vào CSDL
+                domainData.plan = streamItems;
+                this._domainService.edit({
+                    username: this.user.name,
+                    domain: domainData
+                }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+            }
+        } catch (error) {
+            console.error('Lỗi khi phân tích domain:', domainData.domain, error);
+            this.toastr.error(`Lỗi tạo kế hoạch cho ${domainData.domain}. Vui lòng thử lại.`);
+            
+            // Phục hồi lại dữ liệu cũ hoặc xóa skeleton nếu lỗi
+            const itemIndex = this.items.findIndex(it => it.id === index);
+            if (itemIndex > -1) {
+                if (domainData.plan && domainData.plan.length > 0) {
+                    this.items[itemIndex].childrenItems = domainData.plan.map((task: any) => ({
+                        ...task,
+                        startDate: new Date(task.startDate),
+                        endDate: new Date(task.endDate)
+                    }));
+                } else {
+                    this.items[itemIndex].childrenItems = [];
+                }
+                this.items[itemIndex].childrenItemsExpanded = true;
+                this.items[itemIndex].streamItems = undefined;
+                this.items = [...this.items];
+                this.cd.markForCheck();
+            }
+        }
     }
 
     generateData(data: any, index: number) {
