@@ -40,9 +40,9 @@
                 <ng-template #customPanelItemTemplate let-item='item' let-index='index' let-depth='depth'>
                     <div [style.height.px]='40 * (item.streamItems ? item?._streamLevels?.length || 1 : 1)'
                          [class.can-collapse]='item.childrenItems && item.childrenItems.length'
-                         class='panel-item group transition-colors hover:bg-gray-50' style="width: 100%; display: flex; align-items: center; border-bottom: 1px solid #e9eef4;">
+                         class='panel-item group transition-colors hover:bg-gray-50' style="width: 100%; display: flex; align-items: center; border-bottom: 1px solid #e9eef4; padding: 0 16px;">
 
-                        <div [style.marginLeft.px]='depth * 24' (click)='toggleExpand(item)' class='item-content flex items-center w-full cursor-pointer'>
+                        <div [style.marginLeft.px]='depth * 16' (click)='toggleExpand(item)' class='item-content flex items-center w-full cursor-pointer'>
                             <div class='collapse-icon'
                                  [class.collapsed]='!item.childrenItemsExpanded'>
                             </div>
