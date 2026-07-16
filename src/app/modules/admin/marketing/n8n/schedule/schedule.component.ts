@@ -1335,10 +1335,11 @@ Không dùng markdown \`\`\`json.`;
             }));
             
             // Nếu có task đang chọn, tiêm dữ liệu vào prompt cuối cùng
-            if (this.editingItem && contents.length > 0) {
+            if (contents.length > 0) {
                 const lastMsg = contents[contents.length - 1];
                 if (lastMsg.role === 'user') {
-                    lastMsg.parts[0].text = `THÔNG TIN CÔNG VIỆC HIỆN TẠI:
+                    if (this.editingItem) {
+                        lastMsg.parts[0].text = `THÔNG TIN CÔNG VIỆC HIỆN TẠI ĐANG CHỌN:
 - Tiêu đề: ${this.editingItem.name}
 - Nội dung: ${this.editingItem.meta || 'Trống'}
 
@@ -1355,6 +1356,28 @@ Khối JSON phải có định dạng:
   "content": "Nội dung mới"
 }
 \`\`\``;
+                    } else {
+                        // Gather all tasks to provide global context
+                        let allTasksContext = '';
+                        this.items.forEach(domain => {
+                            if (domain.childrenItems && domain.childrenItems.length > 0) {
+                                allTasksContext += `\nThuộc tên miền [${domain.name}]:\n`;
+                                domain.childrenItems.forEach((task: any) => {
+                                    allTasksContext += `- Tiêu đề: ${task.name}\n  Nội dung: ${task.meta || 'Trống'}\n`;
+                                });
+                            }
+                        });
+
+                        lastMsg.parts[0].text = `DANH SÁCH TOÀN BỘ CÔNG VIỆC TRONG NGÀY HÔM NAY:
+${allTasksContext || 'Hiện chưa có công việc nào.'}
+
+YÊU CẦU CỦA NGƯỜI DÙNG:
+${userMessage}
+
+HƯỚNG DẪN TRẢ LỜI:
+1. Bạn là trợ lý AI quản lý công việc. Hãy đọc danh sách công việc ở trên để trả lời người dùng.
+2. Hãy trả lời tự nhiên, thân thiện và chính xác dựa trên danh sách dữ liệu được cung cấp.`;
+                    }
                 }
             }
 
