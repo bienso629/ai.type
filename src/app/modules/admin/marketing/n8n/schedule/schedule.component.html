@@ -23,7 +23,7 @@
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div (click)="!item.isLoading && changeEvent(item)" 
-                         class="flex flex-row cursor-pointer items-center w-full h-full px-2 overflow-hidden border-r-2 border-white" 
+                         class="flex flex-row cursor-pointer items-center w-full h-full px-2 overflow-hidden" 
                          [ngClass]="{'animate-pulse opacity-75 cursor-wait': item.isLoading}"
                          [matTooltip]="item.isLoading ? 'Đang chờ AI phân tích...' : item.name + (item.meta && item.meta.length ? '\n' + item.meta : '')">
                         <div class="flex-1 text-sm font-medium text-white flex items-center min-w-0">
