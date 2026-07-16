@@ -1393,9 +1393,9 @@ ${userMessage}
 HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
-Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. Bạn toàn quyền quyết định số lượng task.
-BẠN CÓ THỂ ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). 
-QUAN TRỌNG VỀ THỜI GIAN: startDate VÀ endDate PHẢI THEO CHUẨN ISO 8601. Tất cả các task trong cùng một ngày PHẢI ĐƯỢC ĐẶT CỐ ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 (theo giờ địa phương) để chúng xếp chồng gọn gàng trên lịch. KHÔNG CHIA NHỎ GIỜ. 
+Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. 
+LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG: Nếu 'monthlyTarget' bằng 0, hoặc 'currentResult' đã lớn hơn hoặc bằng 'monthlyTarget', BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO THÊM CÔNG VIỆC cho domain đó. Bạn toàn quyền quyết định số lượng task cho các domain còn thiếu chỉ tiêu dựa vào tính toán của bạn (ví dụ lấy số bài còn thiếu chia cho số ngày còn lại trong tháng).
+QUAN TRỌNG VỀ THỜI GIAN VÀ HIỂN THỊ LỊCH: Để các công việc hiển thị đẹp mắt trên 1 dòng ngang duy nhất (không bị rớt xuống dòng dưới hay xếp chồng lên nhau), bạn PHẢI CHIA NHỎ GIỜ VÀ NỐI TIẾP NHAU. Ví dụ: task 1 từ 08:00-10:00, task 2 từ 10:00-12:00, task 3 từ 13:00-15:00... Tuyệt đối không để các task trong cùng 1 domain bị trùng lặp thời gian (overlap). ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601.
 LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
                     }
                 }
