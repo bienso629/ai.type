@@ -19,8 +19,7 @@
                     [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
                     [zooms]="customZooms"
                     [panelLabel]="'Công việc'" (itemTimeChanged)="onItemTimeChanged($event)"
-                    [itemContentTemplate]="customItemTemplate"
-                    [panelItemTemplate]="customPanelItemTemplate"></timeline-calendar>
+                    [itemContentTemplate]="customItemTemplate"></timeline-calendar>
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div (click)="!item.isLoading && changeEvent(item)" 
@@ -33,39 +32,6 @@
                         </div>
                         <div class="flex-0 ml-1 text-xs text-blue-100 whitespace-nowrap shrink-0" *ngIf="item.meta && item.meta.length && !item.meta.substring">
                             <span>({{ item.meta.length }})</span>
-                        </div>
-                    </div>
-                </ng-template>
-
-                <ng-template #customPanelItemTemplate let-item="item" let-index="index" let-depth="depth">
-                    <div [style.height.px]="
-                            50 *
-                            (item.streamItems
-                                ? item?._streamLevels?.length || 1
-                                : 1)
-                        " [style.width.px]="150" [class.can-collapse]="
-                            item.childrenItems && item.childrenItems.length
-                        " class="panel-item border-b border-gray-200 flex items-center transition-colors hover:bg-gray-50 group">
-
-                        <div [style.marginLeft.px]="depth * 20" 
-                             (click)="toggleExpand(item)" 
-                             class="item-content flex items-center w-full cursor-pointer px-2 text-sm overflow-hidden">
-                             
-                            <!-- Expand/collapse icon -->
-                            <mat-icon *ngIf="item.childrenItems && item.childrenItems.length" 
-                                      class="icon-size-4 mr-1 text-gray-500 transition-transform duration-200 shrink-0"
-                                      [class.rotate-90]="item.childrenItemsExpanded"
-                                      [svgIcon]="'heroicons_solid:chevron-right'">
-                            </mat-icon>
-
-                            <!-- Leaf indicator -->
-                            <div *ngIf="!item.childrenItems" class="w-1.5 h-1.5 rounded-full bg-gray-400 mr-2 shrink-0"></div>
-
-                            <!-- Name -->
-                            <span class="item-name truncate font-medium text-gray-800" 
-                                  title="{{ item.name }}">{{
-                                depth === 0 ? item.name : ''
-                            }}</span>
                         </div>
                     </div>
                 </ng-template>
