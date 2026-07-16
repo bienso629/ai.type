@@ -241,10 +241,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                 history.replaceState(newState, '');
             }
         } else {
-            this.getProfiles();
+            this.loadScriptState();
         }
-        
-        this.loadScriptState();
 
         try {
             const anyWindow = window as any;
@@ -449,6 +447,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         });
         
         await Promise.all(requests);
+        this.saveScriptState();
         this.cd.markForCheck();
         this.toastr.success('Hoàn thành lên kế hoạch cho tên miền!');
         
@@ -1170,11 +1169,9 @@ Không dùng markdown \`\`\`json.`;
 
     saveScriptState() {
         try {
-            const stateToSave = this.items.map(item => ({
-                id: item.id, name: item.name, comments: item.streamItems.find(s => s.name === 'Viết comment trong Live')?.meta || []
-            }));
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(stateToSave));
-        } catch (e) { console.error(e); }
+            // Save the entire timeline items for domains
+            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.items));
+        } catch (e) { console.error('Lỗi khi lưu lịch làm việc:', e); }
     }
 
     loadScriptState() {
@@ -1182,19 +1179,30 @@ Không dùng markdown \`\`\`json.`;
             const savedJson = localStorage.getItem(this.STORAGE_KEY);
             if (!savedJson) return;
             const savedState = JSON.parse(savedJson);
-            let hasData = false;
-            savedState.forEach((savedItem: any) => {
-                const currentItem = this.items.find(i => i.id === savedItem.id);
-                if (currentItem && savedItem.comments.length > 0) {
-                    const stream = currentItem.streamItems.find(s => s.name === 'Viết comment trong Live');
-                    if (stream) {
-                        stream.meta = savedItem.comments.map((c: any) => ({ ...c, start: new Date(c.start) }));
-                        hasData = true;
-                    }
+            
+            // Convert date strings back to Date objects
+            savedState.forEach((item: any) => {
+                if (item.childrenItems) {
+                    item.childrenItems.forEach((child: any) => {
+                        if (child.startDate) child.startDate = new Date(child.startDate);
+                        if (child.endDate) child.endDate = new Date(child.endDate);
+                    });
+                }
+                if (item.streamItems) {
+                    item.streamItems.forEach((stream: any) => {
+                        if (stream.startDate) stream.startDate = new Date(stream.startDate);
+                        if (stream.endDate) stream.endDate = new Date(stream.endDate);
+                    });
                 }
             });
-            if (hasData) this.items = [...this.items];
-        } catch (e) { console.error(e); }
+            this.items = savedState;
+            this.cd.markForCheck();
+            
+            // Zoom lại cho đẹp khi load xong
+            setTimeout(() => {
+                this.scrollToToday();
+            }, 100);
+        } catch (e) { console.error('Lỗi khi tải lịch làm việc:', e); }
     }
 
     resetScriptContext() {
