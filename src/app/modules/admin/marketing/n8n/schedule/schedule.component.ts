@@ -1370,7 +1370,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             })) || []
                         }));
 
-                        lastMsg.parts[0].text = `DANH SÁCH TOÀN BỘ CÔNG VIỆC TRONG NGÀY HÔM NAY ĐANG CÓ TRÊN LỊCH:
+                        lastMsg.parts[0].text = `DỮ LIỆU JSON CÔNG VIỆC HIỆN TẠI ĐANG CÓ TRÊN LỊCH:
 \`\`\`json
 ${JSON.stringify(contextData, null, 2)}
 \`\`\`
@@ -1379,9 +1379,9 @@ YÊU CẦU CỦA NGƯỜI DÙNG:
 ${userMessage}
 
 HƯỚNG DẪN TRẢ LỜI:
-Bạn là trợ lý AI quản lý lịch công việc. Người dùng muốn sửa dữ liệu JSON lịch.
+Bạn là trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
-Mảng JSON phải có cấu trúc giống hệt mảng trên, gồm danh sách các domain và các task bên trong. BẠN CÓ THỂ ĐỔI GIỜ, ĐỔI TÊN, XÓA HOẶC THÊM TASK. ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601 VÀ HỢP LÝ TRONG NGÀY.`;
+Mảng JSON phải có cấu trúc giống hệt mảng trên, gồm danh sách các domain và các task bên trong. BẠN CÓ THỂ ĐỔI GIỜ, ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601. LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
                     }
                 }
             }
