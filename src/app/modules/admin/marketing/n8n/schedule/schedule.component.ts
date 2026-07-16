@@ -1409,6 +1409,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}.
 - Nếu người dùng yêu cầu giờ ở múi giờ khác, bạn PHẢI tự động quy đổi nó sang múi giờ GMT${tzString}.
 - KHÔNG BAO GIỜ thêm chữ 'Z' hoặc múi giờ vào cuối chuỗi thời gian. BẮT BUỘC dùng định dạng local: "YYYY-MM-DDTHH:mm:ss" (Ví dụ: "2026-07-16T20:00:00"). Nếu có chữ 'Z', hệ thống sẽ bị sai lệch múi giờ sang ngày hôm sau!
+- TUYỆT ĐỐI KHÔNG dùng "24:00:00" vì sẽ gây lỗi Invalid Date, hãy dùng "23:59:59" thay thế.
 - Tất cả các task mới BẮT BUỘC phải được đặt MẶC ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 của ngày hôm đó, trừ khi người dùng CÓ YÊU CẦU GIỜ GIẤC CỤ THỂ KHÁC (như từ 20h đến 24h). KHÔNG CHIA NHỎ GIỜ NẾU KHÔNG ĐƯỢC YÊU CẦU.`;
                     }
                 }
