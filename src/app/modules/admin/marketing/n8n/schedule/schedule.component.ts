@@ -234,14 +234,12 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         if (state && state.domains && state.domains.length > 0) {
             this.processDomains(state.domains, state.statsData, state.month, state.forceGenerate);
             
-            // Xóa cờ forceGenerate khỏi history state để khi F5 không tự động tạo lại đè lên
-            if (state.forceGenerate) {
-                const newState = { ...state };
-                delete newState.forceGenerate;
-                history.replaceState(newState, '');
-            }
+            const newState = { ...state };
+            delete newState.forceGenerate;
+            delete newState.domains; // Xóa luôn domains để F5 không chạy lại
+            history.replaceState(newState, '');
         } else {
-            this.loadScriptState();
+            this.loadScheduleFromDB();
         }
 
         try {
@@ -1144,6 +1142,27 @@ Không dùng markdown \`\`\`json.`;
         const result = new Date(date);
         result.setSeconds(result.getSeconds() + seconds);
         return result;
+    }
+
+    loadScheduleFromDB() {
+        this._domainService.fetch({ username: this.user.name }).subscribe({
+            next: (res: any) => {
+                if (res && res.result && res.result.length > 0) {
+                    const domainsWithPlan = res.result.filter((d: any) => d.plan && d.plan.length > 0);
+                    if (domainsWithPlan.length > 0) {
+                        this.processDomains(domainsWithPlan, undefined, undefined, false);
+                    } else {
+                        // Nếu chưa có plan nào trong DB, thử fallback về localStorage
+                        this.loadScriptState();
+                    }
+                } else {
+                    this.loadScriptState();
+                }
+            },
+            error: () => {
+                this.loadScriptState();
+            }
+        });
     }
 
     saveScriptState() {
