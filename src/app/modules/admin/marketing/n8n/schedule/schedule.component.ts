@@ -112,6 +112,22 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     ];
 
     @ViewChild("timeline") timelineComponent: TimelineComponent;
+    
+    private _timelineElement!: ElementRef;
+    @ViewChild("timeline", { read: ElementRef }) set timelineElement(el: ElementRef) {
+        if (el && !this._timelineElement) {
+            this._timelineElement = el;
+            setTimeout(() => this.setupDragToScroll(), 0);
+        } else {
+            this._timelineElement = el;
+        }
+    }
+    
+    private isDraggingTimeline = false;
+    private timelineStartX = 0;
+    private timelineStartY = 0;
+    private timelineScrollLeft = 0;
+    private timelineScrollTop = 0;
 
     readonly REFRESH_MS = 30_000;
     countdown$!: Observable<number>;
@@ -1451,6 +1467,49 @@ Khối JSON phải có định dạng:
             console.error('Lỗi khi saveAiTask:', e);
             this.toastr.error('Đã xảy ra lỗi khi lưu!');
         }
+    }
+
+    setupDragToScroll() {
+        if (!this._timelineElement) return;
+        const ele = this._timelineElement.nativeElement as HTMLElement;
+        
+        ele.style.cursor = 'grab';
+
+        ele.addEventListener('mousedown', (e: MouseEvent) => {
+            // Prevent panning if clicking on a timeline item, panel item, button, or resize handle
+            const target = e.target as HTMLElement;
+            if (target.closest('.timeline-item') || target.closest('.panel-item') || target.closest('button') || target.closest('.item-content') || target.closest('[mwlResizeHandle]')) {
+                return;
+            }
+            
+            this.isDraggingTimeline = true;
+            ele.style.cursor = 'grabbing';
+            this.timelineStartX = e.pageX - ele.offsetLeft;
+            this.timelineStartY = e.pageY - ele.offsetTop;
+            this.timelineScrollLeft = ele.scrollLeft;
+            this.timelineScrollTop = ele.scrollTop;
+        });
+
+        ele.addEventListener('mouseleave', () => {
+            this.isDraggingTimeline = false;
+            ele.style.cursor = 'grab';
+        });
+
+        ele.addEventListener('mouseup', () => {
+            this.isDraggingTimeline = false;
+            ele.style.cursor = 'grab';
+        });
+
+        ele.addEventListener('mousemove', (e: MouseEvent) => {
+            if (!this.isDraggingTimeline) return;
+            e.preventDefault();
+            const x = e.pageX - ele.offsetLeft;
+            const y = e.pageY - ele.offsetTop;
+            const walkX = (x - this.timelineStartX) * 1.5; // Scroll speed multiplier
+            const walkY = (y - this.timelineStartY) * 1.5;
+            ele.scrollLeft = this.timelineScrollLeft - walkX;
+            ele.scrollTop = this.timelineScrollTop - walkY;
+        });
     }
 }
 
