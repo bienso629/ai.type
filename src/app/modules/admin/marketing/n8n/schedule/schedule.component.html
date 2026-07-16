@@ -13,7 +13,7 @@
             </button>
         </div>
 
-        <div class="flex-auto h-full overflow-y-auto hover-scroll" cdkScrollable>
+        <div class="flex-auto h-full overflow-y-auto" cdkScrollable>
             <div class="timeline-container fullscreen">
                 <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false"
                     [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
@@ -58,7 +58,7 @@
 
     <div class="flex flex-col shrink-0 border-l w-80 h-full bg-white relative">
         <div class="flex flex-col flex-auto h-full">
-            <div class="flex-auto overflow-y-auto hover-scroll" #chatScroll>
+            <div class="flex-auto overflow-y-auto" #chatScroll>
                 <div class="flex flex-col p-4 space-y-4 min-h-full justify-end">
                     <!-- Welcome Message -->
                     <div *ngIf="chatHistory.length === 0" class="flex flex-col items-center justify-center h-full text-center text-gray-500 flex-auto mt-auto mb-auto">
@@ -201,7 +201,7 @@
                 </div>
 
                 <div *ngIf="group.expanded">
-                    <div class="overflow-x-auto overflow-y-auto hover-scroll max-h-[400px]">
+                    <div class="overflow-x-auto overflow-y-auto max-h-[400px]">
                         <table class="w-full text-left border-collapse">
                             <thead
                                 class="bg-gray-50 border-b border-gray-200 text-gray-500 text-xs uppercase font-medium">

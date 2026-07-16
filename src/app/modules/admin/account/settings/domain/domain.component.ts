@@ -1,14 +1,17 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Title } from '@angular/platform-browser';
-import { ColumnMode } from '@swimlane/ngx-datatable';
+import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { DomainService } from 'app/modules/_services/domain';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { UserClientService } from 'app/modules/_services/user';
+import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
+import { MatDialog } from '@angular/material/dialog';
+import { Router } from '@angular/router';
 
 @Component({
     selector: 'settings-domain',
@@ -23,6 +26,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
 
     editing = {};
     rows = [];
+    selected = [];
     domains: any[] = [];
     domainTargets: any = {};
     domainStatsData: any = {};
@@ -33,9 +37,16 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     years = [2024, 2025, 2026, 2027, 2028];
 
     showPassword: boolean = false;
+    isAnalyzing: boolean = false;
     ColumnMode = ColumnMode;
+    SelectionType = SelectionType;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
+
+    onSelect({ selected }) {
+        this.selected.splice(0, this.selected.length);
+        this.selected.push(...selected);
+    }
 
     // Trộn ký tự mật khẩu
     maskPassword(password: string): string {
@@ -249,8 +260,87 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         private _userClientService: UserClientService,
         private multiAccountService: MultiAccountService,
         private toastr: ToastrService,
+        private _genaiService: GenaiService,
+        private _dialog: MatDialog,
+        private _router: Router,
         private cd: ChangeDetectorRef) {
         this.titleService.setTitle(`quản lý tên miền | ai.type - công cụ tạo content`);
+    }
+
+    async analyzeDomains() {
+        if (this.selected.length === 0) {
+            this.toastr.warning('Vui lòng chọn ít nhất một tên miền để phân tích.');
+            return;
+        }
+        
+        const domains = this.selected.map(r => r.domain).join(', ');
+        this.toastr.info(`Đang phân tích nội dung & chức năng cho: ${domains}...`, 'Đang xử lý');
+        
+        this.isAnalyzing = true;
+        this.cd.markForCheck();
+        
+        try {
+            const prompt = `Phân tích ngắn gọn (tối đa 2 câu) về chủ đề, nội dung và chức năng của các tên miền sau dựa vào tên miền (không cần lướt web nếu không thể). Trả về ĐÚNG định dạng JSON mảng các object: [{"domain": "tên miền", "analysis": "nội dung phân tích"}]. Danh sách tên miền: ${domains}`;
+            
+            const response: any = await this._genaiService.generateContent({
+                model: 'gemini-3.5-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+            });
+            
+            let resultText = response.text || '';
+            
+            // Lọc chuỗi JSON nếu bị bọc trong markdown
+            if (resultText.includes('```json')) {
+                resultText = resultText.split('```json')[1].split('```')[0].trim();
+            } else if (resultText.includes('```')) {
+                resultText = resultText.split('```')[1].split('```')[0].trim();
+            }
+            
+            const aiResults = JSON.parse(resultText);
+            
+            let updatedCount = 0;
+            for (let aiData of aiResults) {
+                const rowIndex = this.rows.findIndex(r => r.domain === aiData.domain);
+                if (rowIndex !== -1) {
+                    this.rows[rowIndex].note = aiData.analysis; // Ghi vào trường note
+                    
+                    // Gọi API lưu vào Database
+                    this._domainService.edit({
+                        username: this.user.name,
+                        domain: this.rows[rowIndex]
+                    }).subscribe();
+                    
+                    updatedCount++;
+                }
+            }
+            
+            this.rows = [...this.rows];
+            this.toastr.success(`Đã phân tích và lưu thành công ${updatedCount} tên miền!`);
+        } catch (error) {
+            console.error('Lỗi khi phân tích:', error);
+            this.toastr.error('Có lỗi xảy ra trong quá trình phân tích bằng AI.');
+        } finally {
+            this.isAnalyzing = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    planDomains() {
+        if (this.selected.length === 0) {
+            this.toastr.warning('Vui lòng chọn ít nhất một tên miền để lên kế hoạch.');
+            return;
+        }
+        
+        // Navigate to amxh screen and pass domains via state
+        this._router.navigate(['/amxh'], {
+            state: {
+                panel: 'schedule',
+                domains: this.selected,
+                statsData: this.domainStatsData,
+                month: this.selectedMonthNum,
+                forceGenerate: true
+            }
+        });
     }
 
     // -----------------------------------------------------------------------------------------------------

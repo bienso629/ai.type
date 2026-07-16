@@ -139,6 +139,12 @@ export class AMXHComponent implements OnInit, OnDestroy {
             }
         });
 
+        // Set selected panel from history state if available
+        const state = this.router.getCurrentNavigation()?.extras.state || history.state;
+        if (state && state.panel) {
+            this.selectedPanel = state.panel;
+        }
+
         // Subscribe to config changes
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))

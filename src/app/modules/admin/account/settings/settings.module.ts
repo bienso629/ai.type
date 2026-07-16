@@ -15,6 +15,7 @@ import { MatSidenavModule } from '@angular/material/sidenav';
 import { MatTabsModule } from '@angular/material/tabs';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
 import { DragDropModule } from '@angular/cdk/drag-drop';
+import { TimelineModule } from "angular-calendar-timeline";
 
 import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatDatepickerModule } from '@angular/material/datepicker';
@@ -89,6 +90,7 @@ import { SettingsPluginsComponent } from 'app/modules/admin/account/settings/plu
         NgxCurrencyDirective,
         FuseAlertModule,
         FuseCardModule,
+        TimelineModule.forChild(),
         SharedModule,
         QRCodeModule
     ],
