@@ -473,7 +473,12 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         });
     }
 
+    statsData: any;
+    month: number;
+
     async processDomains(domains: any[], statsData: any, month: number, forceGenerate: boolean = false) {
+        this.statsData = statsData;
+        this.month = month;
         this.toastr.info('Đang nạp dữ liệu tên miền...', 'Xử lý');
         this.items = [];
         const requests = domains.map((domainData: any, index: number) => {
@@ -1365,7 +1370,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         // Gather all tasks to provide global context
                         const contextData = this.items.map((d: any) => {
                             const monthlyTarget = d.domainData?.monthlyTarget || 0;
-                            const currentResult = d.domainData?.currentResult || 0;
+                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
                             
                             return {
                                 domain: d.name,
