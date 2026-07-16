@@ -1359,8 +1359,10 @@ BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT OBJECT JSON, KHÔNG KÈM THEO BẤT K�
 Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. Bạn có thể sửa thời gian startDate, endDate nếu cần.`;
                     } else {
                         // Gather all tasks to provide global context
-                        const contextData = this.items.map(d => ({
+                        const contextData = this.items.map((d: any) => ({
                             domain: d.name,
+                            monthlyTarget: d.domainData?.monthlyTarget || 0,
+                            aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                             tasks: d.childrenItems?.map((t: any) => ({
                                 id: t.id,
                                 name: t.name,
@@ -1370,7 +1372,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             })) || []
                         }));
 
-                        lastMsg.parts[0].text = `DỮ LIỆU JSON CÔNG VIỆC HIỆN TẠI ĐANG CÓ TRÊN LỊCH:
+                        lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (gồm mục tiêu, phân tích chiến lược và danh sách công việc):
 \`\`\`json
 ${JSON.stringify(contextData, null, 2)}
 \`\`\`
@@ -1379,9 +1381,10 @@ YÊU CẦU CỦA NGƯỜI DÙNG:
 ${userMessage}
 
 HƯỚNG DẪN TRẢ LỜI:
-Bạn là trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
+Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
-Mảng JSON phải có cấu trúc giống hệt mảng trên, gồm danh sách các domain và các task bên trong. BẠN CÓ THỂ ĐỔI GIỜ, ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601. LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
+Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO) VÀ 'monthlyTarget' (Chỉ tiêu) CỦA TỪNG DOMAIN ĐỂ LÊN CÁC CÔNG VIỆC CHO PHÙ HỢP.
+BẠN CÓ THỂ ĐỔI GIỜ, ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601. LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
                     }
                 }
             }
