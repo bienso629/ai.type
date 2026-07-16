@@ -80,7 +80,7 @@
                                  [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
                                 
                                 <ng-container *ngIf="msg.role === 'model' && getParsedAiTask(msg.content) as parsedTask; else rawContent">
-                                    <span class="whitespace-pre-wrap break-words" [innerHTML]="getAiMessageText(msg.content) | markdown"></span>
+                                    <div class="whitespace-pre-wrap break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" [innerHTML]="getAiMessageText(msg.content) | markdown"></div>
                                     <div class="mt-3 bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
                                         <div class="flex items-start mb-2" matTooltip="Tiêu đề công việc">
                                             <mat-icon class="icon-size-4 text-blue-500 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:pencil-alt'"></mat-icon>
@@ -94,7 +94,8 @@
                                 </ng-container>
                                 
                                 <ng-template #rawContent>
-                                    <span class="whitespace-pre-wrap break-words" [innerHTML]="msg.content | markdown"></span>
+                                    <div *ngIf="msg.role === 'model'" class="whitespace-pre-wrap break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" [innerHTML]="msg.content | markdown"></div>
+                                    <div *ngIf="msg.role === 'user'" class="whitespace-pre-wrap break-words">{{msg.content}}</div>
                                 </ng-template>
                             </div>
                             
