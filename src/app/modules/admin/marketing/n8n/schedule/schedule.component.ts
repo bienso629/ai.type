@@ -528,7 +528,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                 
                 const itemIndex = this.items.findIndex(it => it.id === index);
                 if (itemIndex > -1) {
-                    this.items[itemIndex].childrenItems = streamItems;
+                    this.items[itemIndex].childrenItems = this.packTasks(streamItems, index);
                     this.items[itemIndex].childrenItemsExpanded = true;
                     this.items[itemIndex].streamItems = undefined;
                     this.items = [...this.items];
@@ -599,7 +599,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
         const itemIndexForDummy = this.items.findIndex(it => it.id === index);
         if (itemIndexForDummy > -1) {
-            this.items[itemIndexForDummy].childrenItems = dummyStreamItems;
+            this.items[itemIndexForDummy].childrenItems = this.packTasks(dummyStreamItems, index);
             this.items[itemIndexForDummy].childrenItemsExpanded = true;
             this.items[itemIndexForDummy].streamItems = undefined;
             this.items = [...this.items];
@@ -660,7 +660,7 @@ Không dùng markdown \`\`\`json.`;
             
             const itemIndex = this.items.findIndex(it => it.id === index);
             if (itemIndex > -1) {
-                this.items[itemIndex].childrenItems = streamItems;
+                this.items[itemIndex].childrenItems = this.packTasks(streamItems, index);
                 this.items[itemIndex].childrenItemsExpanded = true;
                 this.items[itemIndex].streamItems = undefined;
                 this.items = [...this.items];
@@ -681,11 +681,11 @@ Không dùng markdown \`\`\`json.`;
             const itemIndex = this.items.findIndex(it => it.id === index);
             if (itemIndex > -1) {
                 if (domainData.plan && domainData.plan.length > 0) {
-                    this.items[itemIndex].childrenItems = domainData.plan.map((task: any) => ({
+                    this.items[itemIndex].childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
                         ...task,
                         startDate: new Date(task.startDate),
-                        endDate: new Date(new Date(task.endDate).setHours(17, 0, 0, 0))
-                    }));
+                        endDate: new Date(new Date(task.startDate).setHours(17, 0, 0, 0))
+                    })), index);
                 } else {
                     this.items[itemIndex].childrenItems = [];
                 }
@@ -1228,8 +1228,12 @@ Không dùng markdown \`\`\`json.`;
             savedState.forEach((item: any) => {
                 if (item.childrenItems) {
                     item.childrenItems.forEach((child: any) => {
-                        if (child.startDate) child.startDate = new Date(child.startDate);
-                        if (child.endDate) child.endDate = new Date(child.endDate);
+                        if (child.streamItems) {
+                            child.streamItems.forEach((stream: any) => {
+                                if (stream.startDate) stream.startDate = new Date(stream.startDate);
+                                if (stream.endDate) stream.endDate = new Date(stream.endDate);
+                            });
+                        }
                     });
                 }
                 if (item.streamItems) {
@@ -1321,6 +1325,11 @@ Không dùng markdown \`\`\`json.`;
         }, 100);
     }
 
+    packTasks(tasks: any[], parentId: string | number) {
+        if (!tasks || !tasks.length) return [];
+        return [{ id: parentId + "-child", name: 'Công việc', streamItems: tasks }];
+    }
+
     async sendChat(event?: Event) {
         if (event) {
             event.preventDefault();
@@ -1382,7 +1391,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 currentResult: currentResult,
                                 dailyTarget: dailyTarget,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
-                                tasks: d.childrenItems?.map((t: any) => {
+                                tasks: d.childrenItems?.[0]?.streamItems?.map((t: any) => {
                                     const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
                                     return {
                                         id: t.id,
@@ -1453,7 +1462,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     parsed.forEach(parsedDomain => {
                         let existingDomain = this.items.find(d => d.name === parsedDomain.domain);
                         if (existingDomain) {
-                            let newTasks = existingDomain.childrenItems ? [...existingDomain.childrenItems] : [];
+                            let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : [];
                             
                             if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks) && parsedDomain.tasks.length > 0) {
                                 hasAnyTasks = true;
@@ -1483,9 +1492,9 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 });
                             }
                             
-                            existingDomain.childrenItems = newTasks;
+                            existingDomain.childrenItems = this.packTasks(newTasks, existingDomain.id);
                             if ((existingDomain as any).domainData) {
-                                (existingDomain as any).domainData.plan = existingDomain.childrenItems;
+                                (existingDomain as any).domainData.plan = newTasks;
                                 this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
                             }
                         }
@@ -1508,9 +1517,9 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     if (parsed.startDate) this.editingItem.startDate = new Date(parsed.startDate);
                     if (parsed.endDate) this.editingItem.endDate = new Date(parsed.endDate);
                     
-                    let parentDomain = this.items.find((d: any) => d.childrenItems && d.childrenItems.includes(this.editingItem));
+                    let parentDomain = this.items.find((d: any) => d.childrenItems?.[0]?.streamItems?.includes(this.editingItem));
                     if (parentDomain && (parentDomain as any).domainData) {
-                        (parentDomain as any).domainData.plan = parentDomain.childrenItems;
+                        (parentDomain as any).domainData.plan = parentDomain.childrenItems[0].streamItems;
                         this._domainService.edit({ username: this.user.name, domain: (parentDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
                     }
                     this.items = [...this.items];
