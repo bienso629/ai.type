@@ -19,7 +19,8 @@
                     [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
                     [zooms]="customZooms"
                     [panelLabel]="'Công việc'" (itemTimeChanged)="onItemTimeChanged($event)"
-                    [itemContentTemplate]="customItemTemplate"></timeline-calendar>
+                    [itemContentTemplate]="customItemTemplate"
+                    [panelItemTemplate]="customPanelItemTemplate"></timeline-calendar>
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div (click)="!item.isLoading && changeEvent(item)" 
