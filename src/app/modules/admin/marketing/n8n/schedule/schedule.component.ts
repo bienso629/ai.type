@@ -528,9 +528,9 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         }
         
         let endWorkTime = new Date(now);
-        endWorkTime.setHours(22, 0, 0, 0);
+        endWorkTime.setHours(17, 0, 0, 0);
         
-        // Tránh lỗi nếu bấm lên kế hoạch sau 22h, đẩy sang ngày mai
+        // Tránh lỗi nếu bấm lên kế hoạch sau 17h, đẩy sang ngày mai
         if (dummyCurrentTime.getTime() >= endWorkTime.getTime()) {
             dummyCurrentTime.setDate(dummyCurrentTime.getDate() + 1);
             dummyCurrentTime.setHours(8, 0, 0, 0);
