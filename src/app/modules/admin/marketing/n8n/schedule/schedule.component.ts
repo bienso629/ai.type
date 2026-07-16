@@ -1429,14 +1429,9 @@ Khối JSON phải có định dạng:
                 return;
             }
 
-            let parsed: any = null;
-            let cleanContent = content;
-            if (cleanContent.includes('```json')) cleanContent = cleanContent.split('```json')[1].split('```')[0].trim();
-            else if (cleanContent.includes('```')) cleanContent = cleanContent.split('```')[1].split('```')[0].trim();
+            let parsed = this.getParsedAiTask(content);
             
-            try {
-                parsed = JSON.parse(cleanContent);
-            } catch (e) {
+            if (!parsed) {
                 parsed = { content: content };
             }
 
