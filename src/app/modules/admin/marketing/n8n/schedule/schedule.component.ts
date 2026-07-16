@@ -535,8 +535,9 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
         // Tính toán chỉ tiêu trong ngày
         let dailyTarget = 0;
+        let currentResult = 0;
         if (domainData.monthlyTarget && domainData.monthlyTarget > 0) {
-            const currentResult = (statsData[domainData.domain] && statsData[domainData.domain][month]) ? statsData[domainData.domain][month] : 0;
+            currentResult = (statsData[domainData.domain] && statsData[domainData.domain][month]) ? statsData[domainData.domain][month] : 0;
             const missing = Math.max(0, domainData.monthlyTarget - currentResult);
             
             const d = new Date();
@@ -551,6 +552,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         }
         
         domainData.computedDailyTarget = dailyTarget;
+        domainData.currentResult = currentResult;
         
         if (dailyTarget <= 0) {
             return; // Không cần lên kế hoạch nếu không có chỉ tiêu
@@ -1361,10 +1363,9 @@ BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT OBJECT JSON, KHÔNG KÈM THEO BẤT K�
 Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. Bạn có thể sửa thời gian startDate, endDate nếu cần.`;
                     } else {
                         // Gather all tasks to provide global context
-                        const currentMonth = new Date().getMonth() + 1;
                         const contextData = this.items.map((d: any) => {
                             const monthlyTarget = d.domainData?.monthlyTarget || 0;
-                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
+                            const currentResult = d.domainData?.currentResult || 0;
                             
                             return {
                                 domain: d.name,
