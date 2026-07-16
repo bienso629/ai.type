@@ -550,6 +550,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             }
         }
         
+        domainData.computedDailyTarget = dailyTarget;
+        
         if (dailyTarget <= 0) {
             return; // Không cần lên kế hoạch nếu không có chỉ tiêu
         }
@@ -1362,6 +1364,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         const contextData = this.items.map((d: any) => ({
                             domain: d.name,
                             monthlyTarget: d.domainData?.monthlyTarget || 0,
+                            dailyTarget: d.domainData?.computedDailyTarget || 0,
                             aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                             tasks: d.childrenItems?.map((t: any) => ({
                                 id: t.id,
@@ -1383,8 +1386,10 @@ ${userMessage}
 HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
-Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO) VÀ 'monthlyTarget' (Chỉ tiêu) CỦA TỪNG DOMAIN ĐỂ LÊN CÁC CÔNG VIỆC CHO PHÙ HỢP.
-BẠN CÓ THỂ ĐỔI GIỜ, ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601. LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
+Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO) VÀ ĐẶC BIỆT LÀ 'dailyTarget' (Chỉ tiêu BẮT BUỘC MỖI NGÀY) CỦA TỪNG DOMAIN ĐỂ LÊN SỐ LƯỢNG CÔNG VIỆC CHO ĐÚNG. Nếu 'dailyTarget' là 7 thì bạn PHẢI tạo ra đúng 7 task cho domain đó trong một ngày.
+BẠN CÓ THỂ ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). 
+QUAN TRỌNG VỀ THỜI GIAN: startDate VÀ endDate PHẢI THEO CHUẨN ISO 8601. Tất cả các task trong cùng một ngày PHẢI ĐƯỢC ĐẶT CỐ ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 (theo giờ địa phương) để chúng xếp chồng gọn gàng trên lịch. KHÔNG CHIA NHỎ GIỜ. 
+LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
                     }
                 }
             }
