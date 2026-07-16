@@ -1400,10 +1400,10 @@ HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. 
-LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG: Nếu 'monthlyTarget' bằng 0, hoặc 'currentResult' đã lớn hơn hoặc bằng 'monthlyTarget', BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO THÊM CÔNG VIỆC cho domain đó. Bạn toàn quyền quyết định số lượng task cho các domain còn thiếu chỉ tiêu dựa vào tính toán của bạn.
+LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG: Nếu 'monthlyTarget' bằng 0, hoặc 'currentResult' đã lớn hơn hoặc bằng 'monthlyTarget', BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO THÊM CÔNG VIỆC cho domain đó TRỪ KHI người dùng có yêu cầu đích danh/cụ thể "tạo thêm công việc" hoặc chỉ định ngày giờ cụ thể. Bạn toàn quyền quyết định số lượng task.
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU: Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID. DO ĐÓ:
 - BẠN KHÔNG CẦN TRẢ VỀ những task cũ không có thay đổi gì.
-- Để SỬA hoặc THÊM task, chỉ cần trả về task đó (nếu thêm mới, hãy để trống hoặc bịa ra một ID mới).
+- Để SỬA hoặc THÊM task, chỉ cần trả về task đó (nếu thêm mới, hãy để trống hoặc bịa ra một ID mới khác biệt với các task cũ).
 - Để XÓA một task cũ, hãy trả về task đó nhưng thêm trường "_deleted": true.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}.
@@ -1427,13 +1427,21 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             
             if (parsed) {
                 if (Array.isArray(parsed)) {
+                    if (parsed.length === 0) {
+                        this.chatHistory.push({ role: 'model', content: '❌ AI đã phản hồi một danh sách trống (không tạo thêm hoặc sửa task nào). Hãy kiểm tra lại yêu cầu của bạn!' });
+                        this.cd.markForCheck();
+                        return;
+                    }
+                    
+                    let hasAnyTasks = false;
                     // Update all tasks by merging
                     parsed.forEach(parsedDomain => {
                         let existingDomain = this.items.find(d => d.name === parsedDomain.domain);
                         if (existingDomain) {
                             let newTasks = existingDomain.childrenItems ? [...existingDomain.childrenItems] : [];
                             
-                            if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks)) {
+                            if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks) && parsedDomain.tasks.length > 0) {
+                                hasAnyTasks = true;
                                 parsedDomain.tasks.forEach((t: any) => {
                                     if (t._deleted) {
                                         newTasks = newTasks.filter(existing => existing.id !== t.id);
@@ -1467,6 +1475,13 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             }
                         }
                     });
+                    
+                    if (!hasAnyTasks) {
+                        this.chatHistory.push({ role: 'model', content: '❌ AI đã phản hồi cấu trúc domain nhưng danh sách công việc (tasks) trống rỗng. Có thể AI cho rằng đã đủ chỉ tiêu hoặc không cần tạo thêm việc. Bạn hãy yêu cầu đích danh "tạo thêm việc" nhé!' });
+                        this.cd.markForCheck();
+                        return;
+                    }
+
                     this.items = [...this.items];
                     this.cd.markForCheck();
                     this.saveScriptState();
