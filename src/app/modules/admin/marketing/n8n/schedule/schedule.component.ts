@@ -1362,6 +1362,34 @@ Khối JSON phải có định dạng:
         }
     }
     
+    getParsedAiTask(content: string): any {
+        if (!content) return null;
+        let cleanContent = content;
+        if (cleanContent.includes('```json')) {
+            cleanContent = cleanContent.split('```json')[1].split('```')[0].trim();
+        } else if (cleanContent.includes('```')) {
+            cleanContent = cleanContent.split('```')[1].split('```')[0].trim();
+        } else {
+            return null; // Not a code block
+        }
+        
+        try {
+            return JSON.parse(cleanContent);
+        } catch (e) {
+            return null;
+        }
+    }
+
+    getAiMessageText(content: string): string {
+        if (!content) return '';
+        if (content.includes('```json')) {
+            return content.split('```json')[0].trim();
+        } else if (content.includes('```')) {
+            return content.split('```')[0].trim();
+        }
+        return content;
+    }
+
     saveAiTask(content: string) {
         if (!this.editingItem) {
             this.toastr.warning('Vui lòng click chọn 1 công việc trên timeline trước khi lưu!');
