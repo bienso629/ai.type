@@ -1417,7 +1417,8 @@ LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG VÀ CHỈ TIÊU:
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
 - Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại dựa trên ID.
 - BẠN KHÔNG CẦN TRẢ VỀ những task cũ không thay đổi.
-- CẢNH BÁO BẢO TOÀN DỮ LIỆU: Nếu người dùng yêu cầu sửa công việc của NGÀY A, bạn TUYỆT ĐỐI KHÔNG ĐƯỢC lấy ID của các task thuộc NGÀY B để sửa thành NGÀY A (như vậy sẽ làm mất task của ngày B). Để tạo task cho ngày A, chỉ sửa các task ĐANG LÀ NGÀY A, hoặc TẠO TASK MỚI (bằng cách bỏ trống ID hoặc tạo ID mới).
+- CẢNH BÁO BẢO TOÀN DỮ LIỆU: Nếu người dùng yêu cầu sửa công việc của NGÀY A, bạn TUYỆT ĐỐI KHÔNG ĐƯỢC lấy ID của các task thuộc NGÀY B để sửa thành NGÀY A.
+- ĐỂ TẠO TASK MỚI: BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TRẢ VỀ TRƯỜNG "id" (XÓA HẲN KEY "id" KHỎI JSON). Hệ thống sẽ tự động cấp phát ID mới. Nếu bạn tự bịa ID và bị trùng lặp, các task sẽ bị ghi đè lên nhau và biến mất!
 - Để XÓA một task cũ, trả về task đó với trường "_deleted": true.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
