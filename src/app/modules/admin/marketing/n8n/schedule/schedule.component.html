@@ -45,9 +45,9 @@
                         " [style.width.px]="width" [class.can-collapse]="
                             item.childrenItems && item.childrenItems.length
                         " class="panel-item">
-                        <div class="item-content">
+                        <div class="item-content text-sm">
                             <span class="item-name" title="{{ item.name }}">{{
-                                item.name
+                                depth === 0 ? item.name : '•'
                                 }}</span>
                         </div>
                     </div>
