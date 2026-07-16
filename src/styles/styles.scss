@@ -36,32 +36,6 @@ hr {
     scroll-behavior: auto;
 }
 
-.timeline-container ::-webkit-scrollbar {
-    width: 8px;
-    height: 8px;
-}
-
-.timeline-container ::-webkit-scrollbar-button {
-    display: none;
-}
-
-.timeline-container ::-webkit-scrollbar-track {
-    background: transparent !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-.timeline-container ::-webkit-scrollbar-thumb {
-    background-color: #cbd5e1 !important;
-    border-radius: 4px !important;
-    border: none !important;
-    box-shadow: none !important;
-}
-
-.timeline-container ::-webkit-scrollbar-thumb:hover {
-    background-color: #94a3b8 !important;
-}
-
 /* Ẩn thanh cuộn nhưng vẫn giữ khả năng scroll */
 .scrollbar-hide {
     /* Cho Firefox */
