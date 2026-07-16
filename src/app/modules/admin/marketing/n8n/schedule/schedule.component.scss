@@ -126,10 +126,12 @@
         }
     }
 
-    timeline-data-maker {
+    timeline-date-marker {
         .date-marker {
             width: 1px !important;
             z-index: 9999;
+            background-color: #facc15 !important;
+            opacity: 1 !important;
         }
     }
 }
