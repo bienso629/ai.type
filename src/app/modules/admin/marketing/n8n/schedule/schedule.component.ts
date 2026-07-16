@@ -1361,19 +1361,25 @@ BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT OBJECT JSON, KHÔNG KÈM THEO BẤT K�
 Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. Bạn có thể sửa thời gian startDate, endDate nếu cần.`;
                     } else {
                         // Gather all tasks to provide global context
-                        const contextData = this.items.map((d: any) => ({
-                            domain: d.name,
-                            monthlyTarget: d.domainData?.monthlyTarget || 0,
-                            dailyTarget: d.domainData?.computedDailyTarget || 0,
-                            aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
-                            tasks: d.childrenItems?.map((t: any) => ({
-                                id: t.id,
-                                name: t.name,
-                                meta: t.meta || '',
-                                startDate: t.startDate.toISOString(),
-                                endDate: t.endDate.toISOString()
-                            })) || []
-                        }));
+                        const currentMonth = new Date().getMonth() + 1;
+                        const contextData = this.items.map((d: any) => {
+                            const monthlyTarget = d.domainData?.monthlyTarget || 0;
+                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
+                            
+                            return {
+                                domain: d.name,
+                                monthlyTarget: monthlyTarget,
+                                currentResult: currentResult,
+                                aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
+                                tasks: d.childrenItems?.map((t: any) => ({
+                                    id: t.id,
+                                    name: t.name,
+                                    meta: t.meta || '',
+                                    startDate: t.startDate.toISOString(),
+                                    endDate: t.endDate.toISOString()
+                                })) || []
+                            };
+                        });
 
                         lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (gồm mục tiêu, phân tích chiến lược và danh sách công việc):
 \`\`\`json
@@ -1386,7 +1392,7 @@ ${userMessage}
 HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
-Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO) VÀ ĐẶC BIỆT LÀ 'dailyTarget' (Chỉ tiêu BẮT BUỘC MỖI NGÀY) CỦA TỪNG DOMAIN ĐỂ LÊN SỐ LƯỢNG CÔNG VIỆC CHO ĐÚNG. Nếu 'dailyTarget' là 7 thì bạn PHẢI tạo ra đúng 7 task cho domain đó trong một ngày.
+Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. Bạn toàn quyền quyết định số lượng task.
 BẠN CÓ THỂ ĐỔI TÊN, XÓA HOẶC THÊM TASK CHO BẤT KỲ NGÀY NÀO (bao gồm cả các ngày khác trong tương lai/quá khứ). 
 QUAN TRỌNG VỀ THỜI GIAN: startDate VÀ endDate PHẢI THEO CHUẨN ISO 8601. Tất cả các task trong cùng một ngày PHẢI ĐƯỢC ĐẶT CỐ ĐỊNH startDate là 08:00:00 và endDate là 17:00:00 (theo giờ địa phương) để chúng xếp chồng gọn gàng trên lịch. KHÔNG CHIA NHỎ GIỜ. 
 LƯU Ý: MỌI TASK BẠN TRẢ VỀ SẼ GHI ĐÈ LÊN LỊCH, VÌ VẬY HÃY TRẢ VỀ CẢ NHỮNG TASK CŨ CẦN GIỮ LẠI VÀ NHỮNG TASK MỚI/ĐÃ SỬA.`;
