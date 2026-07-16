@@ -54,7 +54,24 @@
                         <div class="flex flex-row items-center gap-2 group w-full" [ngClass]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
                             <div class="max-w-[75%] rounded-2xl px-4 py-2 text-sm overflow-x-auto"
                                  [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
-                                <span class="whitespace-pre-wrap break-words" [innerHTML]="msg.content | markdown"></span>
+                                
+                                <ng-container *ngIf="msg.role === 'model' && getParsedAiTask(msg.content) as parsedTask; else rawContent">
+                                    <span class="whitespace-pre-wrap break-words" [innerHTML]="getAiMessageText(msg.content) | markdown"></span>
+                                    <div class="mt-3 bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
+                                        <div class="flex items-start mb-2" matTooltip="Tiêu đề công việc">
+                                            <mat-icon class="icon-size-4 text-blue-500 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:pencil-alt'"></mat-icon>
+                                            <div class="font-medium text-gray-800">{{ parsedTask.title }}</div>
+                                        </div>
+                                        <div class="flex items-start" matTooltip="Nội dung công việc">
+                                            <mat-icon class="icon-size-4 text-gray-400 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:document-text'"></mat-icon>
+                                            <div class="text-gray-600 whitespace-pre-wrap">{{ parsedTask.content }}</div>
+                                        </div>
+                                    </div>
+                                </ng-container>
+                                
+                                <ng-template #rawContent>
+                                    <span class="whitespace-pre-wrap break-words" [innerHTML]="msg.content | markdown"></span>
+                                </ng-template>
                             </div>
                             
                             <button *ngIf="msg.role === 'model'" mat-icon-button color="primary" 
