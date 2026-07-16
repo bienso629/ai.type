@@ -539,7 +539,13 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         let currentResult = 0;
         if (domainData.monthlyTarget && domainData.monthlyTarget > 0) {
             currentResult = (statsData[domainData.domain] && statsData[domainData.domain][month]) ? statsData[domainData.domain][month] : 0;
-            const missing = Math.max(0, domainData.monthlyTarget - currentResult);
+            
+            let scheduledCount = 0;
+            if (domainData.plan && domainData.plan.length > 0) {
+                scheduledCount = domainData.plan.length;
+            }
+            
+            const missing = Math.max(0, domainData.monthlyTarget - currentResult - scheduledCount);
             
             const d = new Date();
             const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -1387,9 +1393,15 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             const monthlyTarget = d.domainData?.monthlyTarget || 0;
                             const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
                             
+                            let scheduledCount = 0;
+                            const streamItems = d.childrenItems?.[0]?.streamItems || [];
+                            if (streamItems.length > 0) {
+                                scheduledCount = streamItems.length;
+                            }
+                            
                             const today = new Date();
                             const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
-                            const dailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult) / remainingDays) : 0;
+                            const dailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
 
                             return {
                                 domain: d.name,
@@ -1397,7 +1409,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 currentResult: currentResult,
                                 dailyTarget: dailyTarget,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
-                                tasks: d.childrenItems?.[0]?.streamItems?.map((t: any) => {
+                                tasks: streamItems.map((t: any) => {
                                     const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
                                     return {
                                         id: t.id,
@@ -1412,8 +1424,9 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
 
                         const tzOffset = -(new Date().getTimezoneOffset() / 60);
                         const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
+                        const todayStr = new Date().toLocaleDateString('vi-VN');
 
-                        lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (gồm mục tiêu, phân tích chiến lược và danh sách công việc):
+                        lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (Hôm nay là: ${todayStr}):
 \`\`\`json
 ${JSON.stringify(contextData, null, 2)}
 \`\`\`
@@ -1424,19 +1437,19 @@ ${userMessage}
 HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
-Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. BẠN HÃY DỰA VÀO 'aiAnalysis' (Phân tích chiến lược SEO), 'monthlyTarget' (Chỉ tiêu bài viết của tháng), VÀ 'currentResult' (Số lượng bài đã thực sự viết được tính đến hiện tại) CỦA TỪNG DOMAIN ĐỂ TỰ TÍNH TOÁN VÀ LÊN KẾ HOẠCH CÔNG VIỆC CHO NGÀY MAI HOẶC NGÀY ĐƯỢC YÊU CẦU. 
-- TRONG DATA ĐÃ CUNG CẤP SẴN 'dailyTarget' (Chỉ tiêu số bài bắt buộc MỖI NGÀY). Ví dụ dailyTarget=5 thì MỖI NGÀY đều phải tạo đủ 5 task.
-- NẾU NGƯỜI DÙNG YÊU CẦU TẠO VIỆC CHO MỘT NGÀY CỤ THỂ (Ví dụ: "Tạo việc ngày 17"): BẠN BẮT BUỘC PHẢI TẠO ĐỦ SỐ LƯỢNG TASK BẰNG VỚI 'dailyTarget' CHO NGÀY 17 ĐÓ. Các task của ngày 16 không được tính vào chỉ tiêu của ngày 17.
-- NẾU DOMAIN NÀO CÓ 'dailyTarget' > 0: Bạn PHẢI tạo task cho domain đó khi người dùng yêu cầu tạo việc.
-- CHỈ BỎ QUA khi 'dailyTarget' = 0 HOẶC 'monthlyTarget' = 0 (trừ khi user chỉ định đích danh).
-- ĐỂ DEBUG: BẠN BẮT BUỘC PHẢI THÊM CHUỖI "[DT: <số dailyTarget>]" VÀO CUỐI TÊN CỦA MỌI TASK BẠN TẠO RA. Ví dụ: "Bài viết về AI [DT: 5]".
-- LUẬT THÉP BẮT BUỘC: TUYỆT ĐỐI KHÔNG ĐƯỢC TỪ CHỐI TẠO TASK BẰNG CÁCH TRẢ VỀ DANH SÁCH TRỐNG NẾU NGƯỜI DÙNG ĐÃ YÊU CẦU TẠO!
+Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. 
+LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
+- Bạn phải tuân thủ tuyệt đối các quy tắc sau:
+1. Đối với domain có 'monthlyTarget' = 0: TUYỆT ĐỐI KHÔNG ĐƯỢC TẠO TASK CHO DOMAIN NÀY! KHÔNG TRẢ VỀ BẤT KỲ TASK NÀO!
+2. Đối với domain có 'dailyTarget' > 0: Tạo đúng số lượng task bằng với 'dailyTarget'. Tuy nhiên, NẾU người dùng yêu cầu con số cụ thể (ví dụ "tạo 3 bài cho X"), hãy ưu tiên con số của người dùng.
+3. Đối với domain có 'dailyTarget' = 0 (nghĩa là đã đủ chỉ tiêu): TUYỆT ĐỐI KHÔNG TẠO TASK, TRỪ KHI người dùng nhắc ĐÍCH DANH tên domain đó và bảo tạo thêm. NẾU NGƯỜI DÙNG CHỈ NÓI CHUNG CHUNG (ví dụ: "Tạo thêm việc cho ngày 17"), BẠN PHẢI BỎ QUA TẤT CẢ CÁC DOMAIN CÓ dailyTarget = 0, TUYỆT ĐỐI KHÔNG TẠO MỘT TASK NÀO CHO CHÚNG! Lệnh chung chung KHÔNG ĐƯỢC PHÉP ép sinh task cho các domain đã đủ chỉ tiêu.
 LƯU Ý QUAN TRỌNG VỀ GHI ĐÈ DỮ LIỆU VÀ ID:
 - Hệ thống sẽ tự động ghép (merge) dữ liệu bạn trả về với dữ liệu hiện tại.
 - Bạn KHÔNG CẦN trả về những task cũ của ngày khác nếu không thay đổi. Hệ thống sẽ tự giữ lại chúng.
-- CẢNH BÁO BẢO TOÀN DỮ LIỆU: Nếu người dùng yêu cầu sửa công việc của NGÀY A, bạn TUYỆT ĐỐI KHÔNG ĐƯỢC lấy ID của các task thuộc NGÀY B để sửa thành NGÀY A. TUYỆT ĐỐI KHÔNG tự ý xóa công việc của ngày khác.
-- ĐỂ TẠO TASK MỚI: BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TRẢ VỀ TRƯỜNG "id" (XÓA HẲN KEY "id" KHỎI JSON). Hệ thống sẽ tự động cấp phát ID mới. Nếu bạn tự bịa ID và bị trùng lặp, các task sẽ bị ghi đè lên nhau và biến mất!
-- Để XÓA một task cũ, trả về task đó với trường "_deleted": true (CHỈ ÁP DỤNG cho các task mà người dùng thực sự muốn xóa hoặc thuộc ngày mà người dùng muốn làm lại hoàn toàn).
+- NẾU người dùng yêu cầu LÀM LẠI / SỬA / CẬP NHẬT công việc của một ngày cụ thể: Bạn BẮT BUỘC phải xóa sạch các task cũ của ngày đó (bằng cờ "_deleted": true) ĐỂ ĐẮP TASK MỚI VÀO. NHƯNG ĐIỀU KIỆN KIÊN QUYẾT: CHỈ ĐƯỢC XÓA KHI BẠN CÓ TASK MỚI ĐỂ ĐẮP VÀO! Nếu một domain bị cấm tạo task (do dailyTarget=0), BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC XÓA các task cũ của nó (không trả về cờ _deleted), CỨ ĐỂ YÊN CHO NÓ SỐNG!
+- CẢNH BÁO BẢO TOÀN DỮ LIỆU: TUYỆT ĐỐI KHÔNG ĐƯỢC lấy ID của các task thuộc NGÀY A để sửa thành NGÀY B.
+- ĐỂ TẠO TASK MỚI: BẠN TUYỆT ĐỐI KHÔNG ĐƯỢC TRẢ VỀ TRƯỜNG "id" (XÓA HẲN KEY "id" KHỎI JSON). Hệ thống sẽ tự động cấp phát ID mới.
+- Để XÓA một task cũ, trả về task đó với trường "_deleted": true.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
 - MẶC ĐỊNH TẤT CẢ CÁC TASK PHẢI CÓ startDate LÀ 08:00:00 VÀ endDate LÀ 17:00:00 của ngày hôm đó (trừ khi người dùng có yêu cầu giờ khác). KHÔNG ĐƯỢC CHIA NHỎ GIỜ (không được tự ý chia 8h-10h, 10h-12h).
@@ -1457,7 +1470,28 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             let parsed = this.getParsedAiTask(aiMessage);
             
             if (parsed) {
-                if (Array.isArray(parsed)) {
+                if (this.editingItem) {
+                    const taskObj = Array.isArray(parsed) ? parsed[0] : parsed;
+                    if (taskObj && taskObj.name) {
+                        this.editingItem.name = taskObj.name;
+                        this.editingItem.meta = taskObj.meta;
+                        if (taskObj.startDate) this.editingItem.startDate = new Date(taskObj.startDate);
+                        if (taskObj.endDate) this.editingItem.endDate = new Date(taskObj.endDate);
+                        
+                        let parentDomain = this.items.find((d: any) => d.childrenItems?.[0]?.streamItems?.includes(this.editingItem));
+                        if (parentDomain && (parentDomain as any).domainData) {
+                            (parentDomain as any).domainData.plan = parentDomain.childrenItems[0].streamItems;
+                            this._domainService.edit({ username: this.user.name, domain: (parentDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                        }
+                        this.items = [...this.items];
+                        this.cd.markForCheck();
+                        this.saveScriptState();
+                        this.toastr.success('Đã cập nhật công việc!');
+                        this.chatHistory.push({ role: 'model', content: '✅ Đã áp dụng thay đổi vào lưới thời gian thành công!' });
+                    } else {
+                        this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu công việc hợp lệ.' });
+                    }
+                } else if (Array.isArray(parsed)) {
                     if (parsed.length === 0) {
                         this.chatHistory.push({ role: 'model', content: '❌ AI đã phản hồi một danh sách trống (không tạo thêm hoặc sửa task nào). Hãy kiểm tra lại yêu cầu của bạn!' });
                         this.cd.markForCheck();
@@ -1472,18 +1506,52 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : (existingDomain.childrenItems?.length ? [...existingDomain.childrenItems] : []);
                             
                             if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks) && parsedDomain.tasks.length > 0) {
+                                const hasRealData = parsedDomain.tasks.some((t: any) => !t._deleted);
+                                if (!hasRealData) {
+                                    return; // Bỏ qua domain này vì AI chỉ toàn gửi cờ xóa mà không có data mới đắp vào
+                                }
+                                
                                 hasAnyTasks = true;
                                 parsedDomain.tasks.forEach((t: any) => {
                                     if (t._deleted) {
                                         newTasks = newTasks.filter(existing => existing.id !== t.id);
                                     } else {
                                         const existingIndex = newTasks.findIndex(existing => existing.id === t.id);
+                                        const parseDateStr = (dStr: string) => {
+                                            if (!dStr) return new Date();
+                                            let d = new Date(dStr);
+                                            if (!isNaN(d.getTime())) return d;
+                                            
+                                            // Handle both / and - as separators
+                                            if (dStr.includes('/') || dStr.includes('-')) {
+                                                const parts = dStr.split(/[ T]/);
+                                                const datePart = parts[0];
+                                                const timePart = parts.length > 1 ? parts[1] : '08:00:00';
+                                                const dParts = datePart.split(/[\/-]/);
+                                                if (dParts.length === 3) {
+                                                    const year = dParts.find(p => p.length === 4) || new Date().getFullYear().toString();
+                                                    const otherParts = dParts.filter(p => p.length !== 4);
+                                                    if (otherParts.length === 2) {
+                                                        const p1 = parseInt(otherParts[0]);
+                                                        const p2 = parseInt(otherParts[1]);
+                                                        const month = p1 > 12 ? p2 : p1;
+                                                        const day = p1 > 12 ? p1 : p2;
+                                                        const formattedMonth = month.toString().padStart(2, '0');
+                                                        const formattedDay = day.toString().padStart(2, '0');
+                                                        d = new Date(`${year}-${formattedMonth}-${formattedDay}T${timePart}`);
+                                                        if (!isNaN(d.getTime())) return d;
+                                                    }
+                                                }
+                                            }
+                                            return new Date(); // absolute fallback
+                                        };
+
                                         const mappedTask = {
                                             id: t.id || Math.random().toString(36).substring(7),
                                             name: t.name || t.title, // Support both formats
                                             meta: t.meta || '',
-                                            startDate: new Date(t.startDate),
-                                            endDate: new Date(t.endDate),
+                                            startDate: parseDateStr(t.startDate),
+                                            endDate: parseDateStr(t.endDate),
                                             canResizeLeft: true,
                                             canResizeRight: true,
                                             canDragX: true,
@@ -1517,25 +1585,10 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     this.cd.markForCheck();
                     this.saveScriptState();
                     this.toastr.success('Đã cập nhật toàn bộ lịch!');
-                } else if (parsed.name && this.editingItem) {
-                    // Update single item
-                    this.editingItem.name = parsed.name;
-                    this.editingItem.meta = parsed.meta;
-                    if (parsed.startDate) this.editingItem.startDate = new Date(parsed.startDate);
-                    if (parsed.endDate) this.editingItem.endDate = new Date(parsed.endDate);
-                    
-                    let parentDomain = this.items.find((d: any) => d.childrenItems?.[0]?.streamItems?.includes(this.editingItem));
-                    if (parentDomain && (parentDomain as any).domainData) {
-                        (parentDomain as any).domainData.plan = parentDomain.childrenItems[0].streamItems;
-                        this._domainService.edit({ username: this.user.name, domain: (parentDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
-                    }
-                    this.items = [...this.items];
-                    this.cd.markForCheck();
-                    this.saveScriptState();
-                    this.toastr.success('Đã cập nhật công việc!');
+                    this.chatHistory.push({ role: 'model', content: '✅ Đã áp dụng thay đổi vào lưới thời gian thành công!' });
+                } else {
+                    this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu hợp lệ cho thao tác này.' });
                 }
-                
-                this.chatHistory.push({ role: 'model', content: '✅ Đã áp dụng thay đổi vào lưới thời gian thành công!' });
             } else {
                 this.chatHistory.push({ role: 'model', content: aiMessage || 'Lỗi: AI không trả về dữ liệu chuẩn JSON.' });
             }
