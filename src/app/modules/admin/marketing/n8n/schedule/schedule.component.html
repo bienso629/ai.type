@@ -37,7 +37,7 @@
                     </div>
                 </ng-template>
 
-                <ng-template #customPanelItemTemplate let-item="item" let-index="index" let-depth="depth">
+                <ng-template #customPanelItemTemplate let-item="item" let-index="index" let-depth="depth" let-rowHeight="rowHeight" let-width="width">
                     <div [style.height.px]="
                             rowHeight *
                             (item.streamItems
