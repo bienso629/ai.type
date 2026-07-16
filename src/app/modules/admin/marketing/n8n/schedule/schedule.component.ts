@@ -1340,43 +1340,48 @@ Không dùng markdown \`\`\`json.`;
                 if (lastMsg.role === 'user') {
                     if (this.editingItem) {
                         lastMsg.parts[0].text = `THÔNG TIN CÔNG VIỆC HIỆN TẠI ĐANG CHỌN:
-- Tiêu đề: ${this.editingItem.name}
-- Nội dung: ${this.editingItem.meta || 'Trống'}
-
-YÊU CẦU CỦA NGƯỜI DÙNG:
-${userMessage}
-
-HƯỚNG DẪN TRẢ LỜI:
-1. Hãy trả lời một cách tự nhiên và thân thiện (ví dụ: "Dạ, em đã sửa lại nội dung công việc như anh yêu cầu rồi ạ. Anh xem thử nhé!").
-2. SAU ĐÓ, CUNG CẤP KẾT QUẢ ĐÃ CHỈNH SỬA DƯỚI DẠNG JSON ĐẶT TRONG KHỐI \`\`\`json ... \`\`\`.
-Khối JSON phải có định dạng:
 \`\`\`json
 {
-  "title": "Tiêu đề mới",
-  "content": "Nội dung mới"
+  "id": "${this.editingItem.id}",
+  "name": "${this.editingItem.name}",
+  "meta": "${this.editingItem.meta || ''}",
+  "startDate": "${this.editingItem.startDate.toISOString()}",
+  "endDate": "${this.editingItem.endDate.toISOString()}"
 }
-\`\`\``;
-                    } else {
-                        // Gather all tasks to provide global context
-                        let allTasksContext = '';
-                        this.items.forEach(domain => {
-                            if (domain.childrenItems && domain.childrenItems.length > 0) {
-                                allTasksContext += `\nThuộc tên miền [${domain.name}]:\n`;
-                                domain.childrenItems.forEach((task: any) => {
-                                    allTasksContext += `- Tiêu đề: ${task.name}\n  Nội dung: ${task.meta || 'Trống'}\n`;
-                                });
-                            }
-                        });
-
-                        lastMsg.parts[0].text = `DANH SÁCH TOÀN BỘ CÔNG VIỆC TRONG NGÀY HÔM NAY:
-${allTasksContext || 'Hiện chưa có công việc nào.'}
+\`\`\`
 
 YÊU CẦU CỦA NGƯỜI DÙNG:
 ${userMessage}
 
 HƯỚNG DẪN TRẢ LỜI:
-1. Bạn là trợ lý AI quản lý công việc. Hãy đọc danh sách công việc ở trên để trả lời người dùng.
-2. Hãy trả lời tự nhiên, thân thiện và chính xác dựa trên danh sách dữ liệu được cung cấp.`;
+Bạn là trợ lý AI quản lý lịch công việc. Người dùng muốn chỉnh sửa công việc này.
+BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT OBJECT JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
+Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. Bạn có thể sửa thời gian startDate, endDate nếu cần.`;
+                    } else {
+                        // Gather all tasks to provide global context
+                        const contextData = this.items.map(d => ({
+                            domain: d.name,
+                            tasks: d.childrenItems?.map((t: any) => ({
+                                id: t.id,
+                                name: t.name,
+                                meta: t.meta || '',
+                                startDate: t.startDate.toISOString(),
+                                endDate: t.endDate.toISOString()
+                            })) || []
+                        }));
+
+                        lastMsg.parts[0].text = `DANH SÁCH TOÀN BỘ CÔNG VIỆC TRONG NGÀY HÔM NAY ĐANG CÓ TRÊN LỊCH:
+\`\`\`json
+${JSON.stringify(contextData, null, 2)}
+\`\`\`
+
+YÊU CẦU CỦA NGƯỜI DÙNG:
+${userMessage}
+
+HƯỚNG DẪN TRẢ LỜI:
+Bạn là trợ lý AI quản lý lịch công việc. Người dùng muốn sửa dữ liệu JSON lịch.
+BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
+Mảng JSON phải có cấu trúc giống hệt mảng trên, gồm danh sách các domain và các task bên trong. BẠN CÓ THỂ ĐỔI GIỜ, ĐỔI TÊN, XÓA HOẶC THÊM TASK. ĐẢM BẢO startDate VÀ endDate THEO CHUẨN ISO 8601 VÀ HỢP LÝ TRONG NGÀY.`;
                     }
                 }
             }
@@ -1388,8 +1393,58 @@ HƯỚNG DẪN TRẢ LỜI:
 
             if (!this.isChatting) return;
 
-            const aiMessage = response.text || (response as any).response?.text() || 'Không có phản hồi.';
-            this.chatHistory.push({ role: 'model', content: aiMessage });
+            const aiMessage = response.text || (response as any).response?.text() || '';
+            let parsed = this.getParsedAiTask(aiMessage);
+            
+            if (parsed) {
+                if (Array.isArray(parsed)) {
+                    // Update all tasks
+                    parsed.forEach(parsedDomain => {
+                        let existingDomain = this.items.find(d => d.name === parsedDomain.domain);
+                        if (existingDomain) {
+                            existingDomain.childrenItems = parsedDomain.tasks.map((t: any) => ({
+                                id: t.id || Math.random().toString(36).substring(7),
+                                name: t.name,
+                                meta: t.meta,
+                                startDate: new Date(t.startDate),
+                                endDate: new Date(t.endDate),
+                                canResizeLeft: true,
+                                canResizeRight: true,
+                                canDragX: true,
+                                canDragY: true
+                            }));
+                            if ((existingDomain as any).domainData) {
+                                (existingDomain as any).domainData.plan = existingDomain.childrenItems;
+                                this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                            }
+                        }
+                    });
+                    this.items = [...this.items];
+                    this.cd.markForCheck();
+                    this.saveScriptState();
+                    this.toastr.success('Đã cập nhật toàn bộ lịch!');
+                } else if (parsed.name && this.editingItem) {
+                    // Update single item
+                    this.editingItem.name = parsed.name;
+                    this.editingItem.meta = parsed.meta;
+                    if (parsed.startDate) this.editingItem.startDate = new Date(parsed.startDate);
+                    if (parsed.endDate) this.editingItem.endDate = new Date(parsed.endDate);
+                    
+                    let parentDomain = this.items.find((d: any) => d.childrenItems && d.childrenItems.includes(this.editingItem));
+                    if (parentDomain && (parentDomain as any).domainData) {
+                        (parentDomain as any).domainData.plan = parentDomain.childrenItems;
+                        this._domainService.edit({ username: this.user.name, domain: (parentDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                    }
+                    this.items = [...this.items];
+                    this.cd.markForCheck();
+                    this.saveScriptState();
+                    this.toastr.success('Đã cập nhật công việc!');
+                }
+                
+                this.chatHistory.push({ role: 'model', content: '✅ Đã áp dụng thay đổi vào lưới thời gian thành công!' });
+            } else {
+                this.chatHistory.push({ role: 'model', content: aiMessage || 'Lỗi: AI không trả về dữ liệu chuẩn JSON.' });
+            }
         } catch (err: any) {
             if (!this.isChatting) return;
             console.error('Lỗi gọi AI:', err);
@@ -1408,9 +1463,14 @@ HƯỚNG DẪN TRẢ LỜI:
         const match = content.match(/```(?:json)?\s*([\s\S]*?)```/i);
         let jsonStr = match && match[1] ? match[1].trim() : content;
         
-        // Find the first { and last }
-        const start = jsonStr.indexOf('{');
-        const end = jsonStr.lastIndexOf('}');
+        // Find the first { or [ and last } or ]
+        const startObj = jsonStr.indexOf('{');
+        const startArr = jsonStr.indexOf('[');
+        const endObj = jsonStr.lastIndexOf('}');
+        const endArr = jsonStr.lastIndexOf(']');
+        
+        const start = startArr !== -1 && (startObj === -1 || startArr < startObj) ? startArr : startObj;
+        const end = endArr !== -1 && (endObj === -1 || endArr > endObj) ? endArr : endObj;
         
         if (start !== -1 && end !== -1 && end >= start) {
             try {
@@ -1439,53 +1499,7 @@ HƯỚNG DẪN TRẢ LỜI:
         return content;
     }
 
-    saveAiTask(content: string) {
-        if (!this.editingItem) {
-            this.toastr.warning('Vui lòng click chọn 1 công việc trên timeline trước khi lưu!');
-            return;
-        }
 
-        try {
-            let parentDomain = this.items.find((d: any) => d.childrenItems && d.childrenItems.includes(this.editingItem));
-            if (!parentDomain || !(parentDomain as any).domainData) {
-                this.toastr.warning('Không tìm thấy dữ liệu gốc để lưu CSDL.');
-                return;
-            }
-
-            let parsed = this.getParsedAiTask(content);
-            
-            if (!parsed) {
-                parsed = { content: content };
-            }
-
-            if (parsed.title) this.editingItem.name = parsed.title;
-            if (parsed.content) this.editingItem.meta = parsed.content;
-
-            this.items = [...this.items];
-            this.cd.markForCheck();
-            this.saveScriptState();
-
-            let domainData = (parentDomain as any).domainData;
-            domainData.plan = parentDomain.childrenItems;
-            
-            this._domainService.edit({
-                username: this.user.name,
-                domain: domainData
-            }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
-                next: () => {
-                    this.toastr.success('Đã lưu task thành công vào CSDL!');
-                },
-                error: (err) => {
-                    console.error('Lỗi khi lưu DB:', err);
-                    this.toastr.error('Lỗi lưu CSDL!');
-                }
-            });
-
-        } catch (e) {
-            console.error('Lỗi khi saveAiTask:', e);
-            this.toastr.error('Đã xảy ra lỗi khi lưu!');
-        }
-    }
 
     setupDragToScroll() {
         if (!this._timelineElement) return;
