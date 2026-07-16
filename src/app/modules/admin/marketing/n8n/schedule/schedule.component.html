@@ -18,7 +18,7 @@
                 <timeline-calendar #timeline locale="vi" [showDateMarket]="true" [isPanelResizable]="false"
                     [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
                     [zooms]="customZooms"
-                    [panelLabel]="'Thao tác'" (itemTimeChanged)="onItemTimeChanged($event)"
+                    [panelLabel]="'Công việc'" (itemTimeChanged)="onItemTimeChanged($event)"
                     [itemContentTemplate]="customItemTemplate"></timeline-calendar>
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
