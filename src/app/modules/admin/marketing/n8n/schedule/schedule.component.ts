@@ -1497,9 +1497,11 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 } else if (Array.isArray(parsed)) {
                     let hasAnyTasks = false;
                     // Update all tasks by merging
-                    parsed.forEach(parsedDomain => {
-                        let existingDomain = this.items.find(d => d.name === parsedDomain.domain);
-                        if (existingDomain) {
+                    parsed.forEach((parsedDomain: any) => {
+                        const domainName = (parsedDomain.domain || '').toLowerCase().trim();
+                        let existingDomainIndex = this.items.findIndex(d => d.name.toLowerCase().trim() === domainName);
+                        if (existingDomainIndex > -1) {
+                            let existingDomain = { ...this.items[existingDomainIndex] };
                             let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : (existingDomain.childrenItems?.length ? [...existingDomain.childrenItems] : []);
                             
                             if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks) && parsedDomain.tasks.length > 0) {
@@ -1589,13 +1591,33 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                     (existingDomain as any).domainData.plan = newTasks;
                                     this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
                                 }
+                                this.items[existingDomainIndex] = existingDomain;
                             }
                         }
                     });
                     
                     if (!hasAnyTasks) {
+                        let sampleDailyTarget = 0;
+                        if (this.items.length > 0) {
+                            const d = this.items[0];
+                            const monthlyTarget = (d as any).domainData?.monthlyTarget || 0;
+                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
+                            let scheduledCount = 0;
+                            const streamItems = d.childrenItems?.[0]?.streamItems || [];
+                            if (streamItems.length > 0) {
+                                const todayStrForCount = new Date().toISOString().split('T')[0];
+                                scheduledCount = streamItems.filter((t: any) => {
+                                    if (!t.startDate) return false;
+                                    const tDate = new Date(t.startDate).toISOString().split('T')[0];
+                                    return tDate >= todayStrForCount;
+                                }).length;
+                            }
+                            const today = new Date();
+                            const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
+                            sampleDailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
+                        }
                         this.toastr.info('Hoàn tất kiểm tra: Các tên miền đã đủ chỉ tiêu, không có việc mới.');
-                        this.chatHistory.push({ role: 'model', content: '✅ Đã kiểm tra theo đúng công thức: (Chỉ tiêu - Đã hoàn thành - Đã lên lịch). Tất cả các domain hiện tại đều đã đạt chỉ tiêu nên không có công việc nào cần tạo thêm!' });
+                        this.chatHistory.push({ role: 'model', content: `✅ Đã kiểm tra theo công thức. Các domain hiện tại đều đã đạt chỉ tiêu nên không có công việc nào cần tạo thêm! (Ghi chú gỡ lỗi: Domain đầu tiên có dailyTarget = ${sampleDailyTarget}, AI trả về: ${JSON.stringify(parsed)})` });
                         this.cd.markForCheck();
                         return;
                     }
@@ -1604,7 +1626,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     this.cd.markForCheck();
                     this.saveScriptState();
                     this.toastr.success('Đã cập nhật toàn bộ lịch!');
-                    this.chatHistory.push({ role: 'model', content: '✅ Đã áp dụng thay đổi vào lưới thời gian thành công!' });
+                    this.chatHistory.push({ role: 'model', content: `✅ Đã áp dụng thay đổi vào lưới thời gian thành công! (AI đã trả về: ${parsed.length} domains có data)` });
                 } else {
                     this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu hợp lệ cho thao tác này.' });
                 }
