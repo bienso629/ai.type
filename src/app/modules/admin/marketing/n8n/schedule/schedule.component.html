@@ -19,7 +19,8 @@
                     [panelWidth]="150" [maxPanelWidth]="200" [headerHeight]="70" [items]="items"
                     [zooms]="customZooms"
                     [panelLabel]="'Công việc'" (itemTimeChanged)="onItemTimeChanged($event)"
-                    [itemContentTemplate]="customItemTemplate"></timeline-calendar>
+                    [itemContentTemplate]="customItemTemplate"
+                    [panelItemTemplate]="customPanelItemTemplate"></timeline-calendar>
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div (click)="!item.isLoading && changeEvent(item)" 
@@ -32,6 +33,26 @@
                         </div>
                         <div class="flex-0 ml-1 text-xs text-blue-100 whitespace-nowrap shrink-0" *ngIf="item.meta && item.meta.length && !item.meta.substring">
                             <span>({{ item.meta.length }})</span>
+                        </div>
+                    </div>
+                </ng-template>
+
+                <ng-template #customPanelItemTemplate let-item='item' let-index='index' let-depth='depth'>
+                    <div [style.height.px]='50 * (item.streamItems ? item?._streamLevels?.length || 1 : 1)'
+                         [class.can-collapse]='item.childrenItems && item.childrenItems.length'
+                         class='panel-item' style="width: 100%">
+
+                        <div [style.marginLeft.px]='depth * 20' (click)='toggleExpand(item)' class='item-content'>
+                            <div class='collapse-icon'
+                                 [class.collapsed]='!item.childrenItemsExpanded'>
+                            </div>
+
+                            <ng-container *ngIf="depth === 0">
+                                <span class='item-name' title="{{item.name}}">{{item.name}}</span>
+                            </ng-container>
+                            <ng-container *ngIf="depth !== 0">
+                                <mat-icon class="icon-size-4 text-gray-500" [svgIcon]="'heroicons_outline:document-text'" matTooltip="{{item.name}}"></mat-icon>
+                            </ng-container>
                         </div>
                     </div>
                 </ng-template>
