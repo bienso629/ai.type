@@ -75,20 +75,34 @@
                     
                     <!-- Chat Messages -->
                     <ng-container *ngFor="let msg of chatHistory">
-                        <div class="flex flex-row items-center gap-2 group w-full" [ngClass]="msg.role === 'user' ? 'justify-end' : 'justify-start'">
-                            <div class="max-w-[75%] rounded-2xl px-4 py-2 text-sm overflow-x-auto"
-                                 [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
+                        <div class="flex flex-col w-full mb-2" [ngClass]="msg.role === 'user' ? 'items-end' : 'items-start'">
+                            <div class="max-w-[90%] rounded-2xl px-4 py-3 text-sm overflow-x-auto shadow-sm"
+                                 [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none border border-gray-200'">
                                 
                                 <ng-container *ngIf="msg.role === 'model' && getParsedAiTask(msg.content) as parsedTask; else rawContent">
-                                    <div class="whitespace-pre-wrap break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" [innerHTML]="getAiMessageText(msg.content) | markdown"></div>
-                                    <div class="mt-3 bg-white border border-blue-200 rounded-lg p-3 shadow-sm">
-                                        <div class="flex items-start mb-2" matTooltip="Tiêu đề công việc">
-                                            <mat-icon class="icon-size-4 text-blue-500 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:pencil-alt'"></mat-icon>
-                                            <div class="font-medium text-gray-800">{{ parsedTask.title }}</div>
+                                    <div class="whitespace-pre-wrap break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 text-gray-700" [innerHTML]="getAiMessageText(msg.content) | markdown"></div>
+                                    <div class="mt-3 bg-white border border-blue-200 rounded-xl overflow-hidden shadow-sm">
+                                        <div class="p-2.5 bg-blue-50/50 border-b border-blue-100 flex items-center justify-between">
+                                            <div class="flex items-center text-blue-700 font-medium">
+                                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'heroicons_solid:sparkles'"></mat-icon>
+                                                Kết quả chỉnh sửa
+                                            </div>
                                         </div>
-                                        <div class="flex items-start" matTooltip="Nội dung công việc">
-                                            <mat-icon class="icon-size-4 text-gray-400 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:document-text'"></mat-icon>
-                                            <div class="text-gray-600 whitespace-pre-wrap">{{ parsedTask.content }}</div>
+                                        <div class="p-3">
+                                            <div class="flex items-start mb-3" matTooltip="Tiêu đề công việc">
+                                                <mat-icon class="icon-size-4 text-blue-500 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:pencil-alt'"></mat-icon>
+                                                <div class="font-semibold text-gray-800">{{ parsedTask.title }}</div>
+                                            </div>
+                                            <div class="flex items-start" matTooltip="Nội dung công việc">
+                                                <mat-icon class="icon-size-4 text-gray-400 mr-2 shrink-0 mt-0.5" [svgIcon]="'heroicons_solid:document-text'"></mat-icon>
+                                                <div class="text-gray-600 whitespace-pre-wrap">{{ parsedTask.content }}</div>
+                                            </div>
+                                        </div>
+                                        <div class="p-2 bg-gray-50 border-t border-gray-100 flex justify-end">
+                                            <button mat-flat-button color="primary" class="w-full sm:w-auto" (click)="saveAiTask(msg.content)">
+                                                <mat-icon class="icon-size-4 mr-2" [svgIcon]="'feather:save'"></mat-icon>
+                                                Áp dụng & Lưu
+                                            </button>
                                         </div>
                                     </div>
                                 </ng-container>
@@ -96,15 +110,15 @@
                                 <ng-template #rawContent>
                                     <div *ngIf="msg.role === 'model'" class="whitespace-pre-wrap break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0" [innerHTML]="msg.content | markdown"></div>
                                     <div *ngIf="msg.role === 'user'" class="whitespace-pre-wrap break-words">{{msg.content}}</div>
+                                    
+                                    <div *ngIf="msg.role === 'model'" class="mt-3 pt-2 border-t border-gray-200 flex justify-end">
+                                        <button mat-button color="primary" class="px-3" (click)="saveAiTask(msg.content)">
+                                            <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:save'"></mat-icon>
+                                            Lưu nội dung này
+                                        </button>
+                                    </div>
                                 </ng-template>
                             </div>
-                            
-                            <button *ngIf="msg.role === 'model'" mat-icon-button color="primary" 
-                                    class="opacity-0 group-hover:opacity-100 transition-opacity shrink-0" 
-                                    matTooltip="Lưu CSDL"
-                                    (click)="saveAiTask(msg.content)">
-                                <mat-icon class="icon-size-5" [svgIcon]="'feather:save'"></mat-icon>
-                            </button>
                         </div>
                     </ng-container>
                     
