@@ -376,6 +376,14 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     }
     getRowHeight(row: any & { height: number }) { if (!row) return 50; if (row.height === undefined) return 50; return row.height; }
 
+    toggleExpand(item: any) {
+        if (item.childrenItems && item.childrenItems.length) {
+            item.childrenItemsExpanded = !item.childrenItemsExpanded;
+            this.items = [...this.items];
+            this.cd.markForCheck();
+        }
+    }
+
     // --- MAIN TABLE (CAPTIONS) ---
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
