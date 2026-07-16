@@ -364,10 +364,15 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     trackByIndex = (_: number, c: { index: number }) => c.index;
     editingItem: any = null;
     changeEvent(item: any) { 
-        console.log('item selected for AI edit', item); 
-        this.editingItem = item;
-        // Scroll to chat and show a notification
-        this.toastr.info(`Đã chọn: ${item.name}. Hãy yêu cầu AI chỉnh sửa.`);
+        if (this.editingItem !== item) {
+            console.log('item selected for AI edit', item); 
+            this.editingItem = item;
+            // Xoá lịch sử chat cũ khi chọn task mới
+            this.chatHistory = [];
+            this.cd.markForCheck();
+            // Scroll to chat and show a notification
+            this.toastr.info(`Đã chọn: ${item.name}. Hãy yêu cầu AI chỉnh sửa.`);
+        }
     }
     getRowHeight(row: any & { height: number }) { if (!row) return 50; if (row.height === undefined) return 50; return row.height; }
 
@@ -1299,10 +1304,35 @@ Không dùng markdown \`\`\`json.`;
         this.cd.detectChanges();
 
         try {
-            const contents = this.chatHistory.map(msg => ({
+            // Chuẩn bị nội dung gửi đi
+            let contents = this.chatHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
                 parts: [{ text: msg.content }]
             }));
+            
+            // Nếu có task đang chọn, tiêm dữ liệu vào prompt cuối cùng
+            if (this.editingItem && contents.length > 0) {
+                const lastMsg = contents[contents.length - 1];
+                if (lastMsg.role === 'user') {
+                    lastMsg.parts[0].text = `THÔNG TIN CÔNG VIỆC HIỆN TẠI:
+- Tiêu đề: ${this.editingItem.name}
+- Nội dung: ${this.editingItem.meta || 'Trống'}
+
+YÊU CẦU CỦA NGƯỜI DÙNG:
+${userMessage}
+
+HƯỚNG DẪN TRẢ LỜI:
+1. Hãy trả lời một cách tự nhiên và thân thiện (ví dụ: "Dạ, em đã sửa lại nội dung công việc như anh yêu cầu rồi ạ. Anh xem thử nhé!").
+2. SAU ĐÓ, CUNG CẤP KẾT QUẢ ĐÃ CHỈNH SỬA DƯỚI DẠNG JSON ĐẶT TRONG KHỐI \`\`\`json ... \`\`\`.
+Khối JSON phải có định dạng:
+\`\`\`json
+{
+  "title": "Tiêu đề mới",
+  "content": "Nội dung mới"
+}
+\`\`\``;
+                }
+            }
 
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
