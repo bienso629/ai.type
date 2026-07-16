@@ -537,20 +537,13 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             endWorkTime.setDate(endWorkTime.getDate() + 1);
         }
 
-        const totalWorkMinutes = Math.floor((endWorkTime.getTime() - dummyCurrentTime.getTime()) / 60000);
-        const minutesPerTask = Math.max(1, Math.floor(totalWorkMinutes / dailyTarget));
-
         let dummyStreamItems = [];
         for (let i = 0; i < dailyTarget; i++) {
-            let taskStart = new Date(dummyCurrentTime);
-            let taskEnd = new Date(dummyCurrentTime);
-            taskEnd.setMinutes(taskEnd.getMinutes() + minutesPerTask); // Trả lại đúng thời gian, không trừ 1 phút nữa
-            
             dummyStreamItems.push({
                 id: `dummy-${index}-${i}`,
                 name: 'Đang phân tích...',
-                startDate: taskStart,
-                endDate: taskEnd,
+                startDate: new Date(dummyCurrentTime),
+                endDate: new Date(endWorkTime),
                 canResizeLeft: false,
                 canResizeRight: false,
                 canDragX: false,
@@ -558,9 +551,6 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                 meta: '',
                 isLoading: true // Cờ nhấp nháy
             });
-            
-            dummyCurrentTime = new Date(taskStart);
-            dummyCurrentTime.setMinutes(dummyCurrentTime.getMinutes() + minutesPerTask);
         }
 
         const itemIndexForDummy = this.items.findIndex(it => it.id === index);
@@ -608,31 +598,20 @@ Không dùng markdown \`\`\`json.`;
                 currentTime.setHours(8, 0, 0, 0);
             }
             
-            const totalWorkMinutesAct = Math.floor((endWorkTime.getTime() - currentTime.getTime()) / 60000);
-            const minutesPerTaskAct = Math.max(1, Math.floor(totalWorkMinutesAct / aiResults.length));
-            
             for (let i = 0; i < aiResults.length; i++) {
                 const aiTask = aiResults[i];
-                let taskStart = new Date(currentTime);
-                let taskEnd = new Date(currentTime);
-                // Trả lại đúng thời gian, không trừ 1 phút nữa
-                taskEnd.setMinutes(taskEnd.getMinutes() + minutesPerTaskAct);
                 
                 streamItems.push({
                     id: `${index}-${i}`,
                     name: aiTask.title,
-                    startDate: taskStart,
-                    endDate: taskEnd,
+                    startDate: new Date(currentTime),
+                    endDate: new Date(endWorkTime),
                     canResizeLeft: true,
                     canResizeRight: true,
                     canDragX: true,
                     canDragY: false,
                     meta: aiTask.content
                 });
-                
-                // Advance currentTime by exactly minutesPerTask to avoid time drift
-                currentTime = new Date(taskStart);
-                currentTime.setMinutes(currentTime.getMinutes() + minutesPerTaskAct);
             }
             
             const itemIndex = this.items.findIndex(it => it.id === index);
