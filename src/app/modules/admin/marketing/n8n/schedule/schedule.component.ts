@@ -353,8 +353,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     zoomIn(): void { this.timelineComponent.zoomIn(); }
     zoomOut(): void { this.timelineComponent.zoomOut(); }
     scrollToToday(): void { 
-        // Đặt mặc định zoom tới index 6 (tương đương 30px mỗi giờ) để vừa vặn
-        this.timelineComponent.changeZoomByIndex(6); 
+        // Đặt mặc định zoom tới index 5 (tương đương 10px mỗi giờ) để lịch nhỏ gọn hơn
+        this.timelineComponent.changeZoomByIndex(5); 
         this.timelineComponent.attachCameraToDate(new Date()); 
     }
     zoomAndFitToContent(): void { this.timelineComponent.fitToContent(50); }
@@ -1477,15 +1477,16 @@ BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT K�
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. 
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - Bạn phải tự tính toán số lượng tác vụ cần tạo mỗi ngày (dailyTarget) cho mỗi domain theo đúng công thức:
-  dailyTarget = Làm tròn lên của (monthlyTarget - currentResult - scheduledCount) / remainingDays
+  dailyTarget = Làm tròn lên của (monthlyTarget - currentResult - scheduledCount) / số ngày còn lại của tháng (tính từ ngày tạo task)
+  (Lưu ý: "remainingDays" trong JSON là tính từ hôm nay. Nếu bạn tạo task cho ngày khác, phải tự tính lại số ngày còn lại!)
 - Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
 - Nếu dailyTarget > 0: Bắt buộc tạo ĐÚNG số lượng task bằng với dailyTarget. (Lưu ý: Nếu người dùng yêu cầu con số cụ thể trong prompt của họ, hãy ưu tiên con số của người dùng thay vì công thức).
 - Dựa vào 'aiAnalysis' để đưa ra tên (name) và nội dung (meta) của task sao cho hợp lý và tối ưu nhất.
 
 LƯU Ý VỀ CẬP NHẬT DỮ LIỆU:
-- Khi bạn tạo task cho một ngày bất kỳ, hệ thống sẽ tự động XÓA HẾT các task cũ của ngày đó để đắp task mới của bạn vào. Bạn KHÔNG CẦN lo việc xóa.
-- Để tạo task mới: TUYỆT ĐỐI KHÔNG trả về trường "id" (hệ thống sẽ tự cấp).
+- Để tạo task mới (chèn thêm vào lịch hiện tại): TUYỆT ĐỐI KHÔNG trả về trường "id" (hệ thống sẽ tự cấp).
 - Nếu sửa task cụ thể: giữ nguyên trường "id" của task đó.
+- Nếu muốn xóa task cụ thể: trả về thuộc tính "_deleted": true kèm theo "id" của task đó.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
 - MẶC ĐỊNH TẤT CẢ CÁC TASK PHẢI CÓ startDate LÀ 08:00:00 VÀ endDate LÀ 17:00:00 CỦA ĐÚNG NGÀY MÀ NGƯỜI DÙNG YÊU CẦU (NẾU YÊU CẦU NGÀY 17, PHẢI TẠO NGÀY 17). KHÔNG ĐƯỢC CHIA NHỎ GIỜ.
@@ -1541,26 +1542,9 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 
                                 hasAnyTasks = true;
                                 
-                                // Nếu có data rồi thì reset cái data cũ của ngày đó
-                                const targetDates = new Set<string>();
-                                parsedDomain.tasks.forEach((t: any) => {
-                                    if (!t.id && t.startDate && !t._deleted) {
-                                        const d = new Date(t.startDate);
-                                        if (!isNaN(d.getTime())) {
-                                            targetDates.add(d.toLocaleDateString('vi-VN'));
-                                        }
-                                    }
-                                });
-
-                                if (targetDates.size > 0) {
-                                    newTasks = newTasks.filter(existing => {
-                                        const d = new Date(existing.startDate);
-                                        if (!isNaN(d.getTime())) {
-                                            return !targetDates.has(d.toLocaleDateString('vi-VN'));
-                                        }
-                                        return true;
-                                    });
-                                }
+                                // Chế độ update: Không tự động xoá task cũ theo ngày nữa.
+                                // Các task mới (!t.id) sẽ được append.
+                                // Các task cũ có id sẽ được update hoặc xoá (nếu có _deleted).
 
                                 parsedDomain.tasks.forEach((t: any) => {
                                     if (t._deleted) {
@@ -1625,21 +1609,70 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         }
                     });
                     
-                    if (!hasAnyTasks) {
-                        let sampleDailyTarget = 0;
-                        if (this.items.length > 0) {
-                            const d = this.items[0];
-                            const monthlyTarget = (d as any).domainData?.monthlyTarget || 0;
-                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
-                            let scheduledCount = 0;
-                            const streamItems = d.childrenItems?.[0]?.streamItems || [];
-                            scheduledCount = streamItems.length;
-                            const today = new Date();
-                            const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
-                            sampleDailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
+                    let diagnosticMsg = 'Báo cáo chi tiết số liệu từng tên miền:\n\n';
+                    this.items.forEach(d => {
+                        const currentMonth = this.month || (new Date().getMonth() + 1);
+                        const currentYear = new Date().getFullYear();
+                        const monthlyTarget = this.getResolvedTarget(d.name, currentMonth, currentYear) || (d as any).domainData?.monthlyTarget || 0;
+                        const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
+                        const streamItems = d.childrenItems?.[0]?.streamItems || [];
+                        const scheduledCount = streamItems.length;
+                        let taskDate = new Date();
+                        const parsedDomain = parsed.find((p: any) => p.domain?.toLowerCase().trim() === d.name.toLowerCase().trim());
+                        if (parsedDomain && parsedDomain.tasks && parsedDomain.tasks.length > 0) {
+                            // Ưu tiên task tạo mới
+                            let targetTask = parsedDomain.tasks.find((t: any) => !t.id && t.startDate && !t._deleted);
+                            
+                            if (!targetTask) {
+                                // Tìm task bị sửa đổi so với gốc
+                                // cloneItems là mảng this.items trước khi update (không có sẵn ở đây, nhưng d có thể chứa dữ liệu cũ nếu chưa bị ghi đè hoàn toàn? Không, d là phần tử đã bị update)
+                                // Cách tốt nhất: Tìm task có startDate lớn nhất mà nằm trong mảng parsedDomain.tasks 
+                                // (Vì AI thường chỉ trả về task cần sửa nếu nó thông minh, hoặc nếu trả full thì thôi lấy tạm max date hoặc first date của mảng)
+                                // Nhưng chờ đã, nếu AI trả full mảng, ta sẽ lấy ngày mà user đề cập trong chatHistory!
+                                // Lấy từ lastUserMessage!
+                                const lastUserMsg = this.chatHistory.slice().reverse().find(m => m.role === 'user');
+                                if (lastUserMsg && lastUserMsg.content) {
+                                    const match = lastUserMsg.content.match(/(\d{1,2})\/(\d{1,2})/);
+                                    if (match) {
+                                        const day = parseInt(match[1]);
+                                        const month = parseInt(match[2]);
+                                        const year = new Date().getFullYear();
+                                        taskDate = new Date(year, month - 1, day);
+                                        targetTask = { startDate: taskDate.toISOString() }; // Giả lập để skip check
+                                    }
+                                }
+                            }
+                            
+                            if (!targetTask) {
+                                // Fallback: Lấy ngày lớn nhất trong số các task để đại diện
+                                let maxTime = 0;
+                                parsedDomain.tasks.forEach((t: any) => {
+                                    if (t.startDate && !t._deleted) {
+                                        const tTime = new Date(t.startDate).getTime();
+                                        if (tTime > maxTime) {
+                                            maxTime = tTime;
+                                            targetTask = t;
+                                        }
+                                    }
+                                });
+                            }
+
+                            if (targetTask && targetTask.startDate) {
+                                const dTask = new Date(targetTask.startDate);
+                                if (!isNaN(dTask.getTime())) {
+                                    taskDate = dTask;
+                                }
+                            }
                         }
+                        const remainingDays = new Date(taskDate.getFullYear(), taskDate.getMonth() + 1, 0).getDate() - taskDate.getDate() + 1;
+                        let dailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
+                        diagnosticMsg += `- **${d.name}**: Mục tiêu: ${monthlyTarget}, Đã xong: ${currentResult}, Đã lên lịch: ${scheduledCount}, Số ngày còn lại: ${remainingDays} => Cần tạo: **${dailyTarget} task/ngày**.\n`;
+                    });
+                    
+                    if (!hasAnyTasks) {
+                        diagnosticMsg += '\nToàn bộ tên miền đã đạt chỉ tiêu nên không có tác vụ nào được tạo thêm.';
                         this.toastr.info('Hoàn tất kiểm tra: Các tên miền đã đủ chỉ tiêu, không có việc mới.');
-                        this.chatHistory.push({ role: 'model', content: `✅ Đã kiểm tra theo công thức. Các domain hiện tại đều đã đạt chỉ tiêu nên không có công việc nào cần tạo thêm! (Ghi chú gỡ lỗi: Domain đầu tiên có dailyTarget = ${sampleDailyTarget}, AI trả về: ${JSON.stringify(parsed)})` });
+                        this.chatHistory.push({ role: 'model', content: diagnosticMsg });
                         this.cd.markForCheck();
                         return;
                     }
@@ -1648,7 +1681,8 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     this.cd.markForCheck();
                     this.saveScriptState();
                     this.toastr.success('Đã cập nhật toàn bộ lịch!');
-                    this.chatHistory.push({ role: 'model', content: `✅ Đã áp dụng thay đổi vào lưới thời gian thành công! (AI đã trả về: ${parsed.length} domains có data)` });
+                    diagnosticMsg += `\nĐã tự động tạo các tác vụ thành công trên lịch! (AI đã xử lý ${parsed.length} domains)`;
+                    this.chatHistory.push({ role: 'model', content: diagnosticMsg });
                 } else {
                     this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu hợp lệ cho thao tác này.' });
                 }
