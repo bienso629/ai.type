@@ -1646,7 +1646,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         const contextData = this.items.map((d: any) => {
                             const currentMonth = this.month || (new Date().getMonth() + 1);
                             const currentYear = new Date().getFullYear();
-                            const monthlyTarget = this.getResolvedTarget(d.name, currentMonth, currentYear) || d.domainData?.monthlyTarget || 0;
+                            const monthlyTarget = d.domainData?.monthlyTarget || this.getResolvedTarget(d.name, currentMonth, currentYear) || 0;
                             const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
                             const streamItems = d.childrenItems?.[0]?.streamItems || [];
                             
@@ -1727,7 +1727,7 @@ LƯU Ý VỀ CẬP NHẬT DỮ LIỆU:
 - Nếu muốn xóa task cụ thể: trả về thuộc tính "_deleted": true kèm theo "id" của task đó.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
-- MẶC ĐỊNH TẤT CẢ CÁC TASK PHẢI CÓ startDate LÀ 08:00:00 VÀ endDate LÀ 17:00:00 CỦA ĐÚNG NGÀY MÀ NGƯỜI DÙNG YÊU CẦU (NẾU YÊU CẦU NGÀY 17, PHẢI TẠO NGÀY 17). KHÔNG ĐƯỢC CHIA NHỎ GIỜ.
+- TẤT CẢ các task trong cùng một ngày BẮT BUỘC phải TRÙNG GIỜ VỚI NHAU (đều có startDate là 08:00:00 và endDate là 17:00:00). TUYỆT ĐỐI KHÔNG ĐƯỢC rải rác giờ (ví dụ task 1 lúc 8h, task 2 lúc 9h là SAI). NẾU TẠO 10 TASK CHO 1 NGÀY THÌ CẢ 10 TASK ĐỀU PHẢI GHI ĐÚNG 08:00:00 ĐẾN 17:00:00.
 - TUYỆT ĐỐI KHÔNG dùng "24:00:00" vì sẽ gây lỗi Invalid Date, hãy dùng "23:59:59".
 - BẮT BUỘC dùng định dạng local: "YYYY-MM-DDTHH:mm:ss" (Ví dụ: "2026-07-16T08:00:00"). TUYỆT ĐỐI KHÔNG CÓ CHỮ 'Z' Ở CUỐI.`;
                     }
@@ -1829,12 +1829,17 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                             return new Date();
                                         };
 
+                                        const sDate = this.getNextValidDate(parseDateStr(t.startDate));
+                                        sDate.setHours(8, 0, 0, 0);
+                                        const eDate = this.getNextValidDate(parseDateStr(t.endDate));
+                                        eDate.setHours(17, 0, 0, 0);
+
                                         const mappedTask = {
                                             id: t.id || Math.random().toString(36).substring(7),
                                             name: t.name || t.title,
                                             meta: t.meta || '',
-                                            startDate: this.getNextValidDate(parseDateStr(t.startDate)),
-                                            endDate: this.getNextValidDate(parseDateStr(t.endDate)),
+                                            startDate: sDate,
+                                            endDate: eDate,
                                             canResizeLeft: true,
                                             canResizeRight: true,
                                             canDragX: true,
@@ -1897,7 +1902,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     this.items.forEach(d => {
                         const currentMonth = reportMonth;
                         const currentYear = reportYear;
-                        const monthlyTarget = this.getResolvedTarget(d.name, currentMonth, currentYear) || (d as any).domainData?.monthlyTarget || 0;
+                        const monthlyTarget = (d as any).domainData?.monthlyTarget || this.getResolvedTarget(d.name, currentMonth, currentYear) || 0;
                         const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
                         const streamItems = d.childrenItems?.[0]?.streamItems || [];
                         const nowStr = new Date().toISOString().split('T')[0];
