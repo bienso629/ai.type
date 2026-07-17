@@ -708,6 +708,9 @@ export class GenaiService {
             // if (params.config?.responseMimeType === 'application/json') {
             //     body.generationConfig.responseMimeType = 'application/json';
             // }
+            if ((params as any).tools) {
+                body.tools = (params as any).tools;
+            }
             if (config.extraParams) {
                 Object.assign(body, config.extraParams);
             }

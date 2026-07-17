@@ -61,11 +61,19 @@
 
         .column {
             font-size: 12px;
+            container-type: inline-size;
+            container-name: timeline-column;
 
             &:after {
                 background: transparent !important;
                 border-right: 1px solid #e9eef4;
             }
+        }
+    }
+
+    @container timeline-column (max-width: 150px) {
+        .day-disable-checkbox span {
+            display: none !important;
         }
     }
 
