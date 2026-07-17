@@ -41,7 +41,6 @@ import { MatDialog } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 import Hls from 'hls.js';
 
-// --- IMPORT SERVICE N8N ---
 import { N8nService } from 'app/modules/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
@@ -110,6 +109,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         { columnWidth: 2880, viewMode: TimelineViewMode.Day }, // 120px per hour
         { columnWidth: 4320, viewMode: TimelineViewMode.Day }, // 180px per hour
     ];
+    disabledDates: Set<string> = new Set();
 
     @ViewChild("timeline") timelineComponent: TimelineComponent;
     
@@ -238,7 +238,6 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe((user: User) => {
                 this.user = user;
-
             });
 
         this._fuseConfigService.config$
@@ -338,7 +337,134 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         }
     }
 
-    ngAfterViewChecked(): void { }
+    ngAfterViewChecked(): void { 
+        this.renderCheckboxesInHeader();
+    }
+
+    private renderCheckboxesInHeader() {
+        if (!this.timelineComponent || !this.timelineComponent.zoom) return;
+        
+        // Chỉ thêm checkbox ở chế độ xem Ngày (chứa từng ngày trên 1 cột)
+        if (this.timelineComponent.zoom.viewMode !== TimelineViewMode.Day) return;
+
+        const headerEl = this._timelineElement?.nativeElement?.querySelector('timeline-scale-header');
+        if (!headerEl) return;
+        
+        const columns = headerEl.querySelectorAll('.columns .column');
+        if (!columns || columns.length === 0) return;
+
+        columns.forEach((col: HTMLElement, index: number) => {
+            const scaleColumn = this.timelineComponent.scale.columns[index];
+            if (!scaleColumn || !scaleColumn.date) return;
+            
+            const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+            const dateStr = tzOffsetStr(scaleColumn.date);
+
+            let checkboxDiv = col.querySelector('.day-disable-checkbox') as HTMLElement;
+            if (!checkboxDiv) {
+                col.style.display = 'flex';
+                col.style.flexDirection = 'row';
+                col.style.alignItems = 'center';
+                col.style.justifyContent = 'center';
+
+                checkboxDiv = document.createElement('div');
+                checkboxDiv.className = 'day-disable-checkbox';
+                checkboxDiv.style.marginLeft = '8px';
+                checkboxDiv.style.display = 'flex';
+                checkboxDiv.style.alignItems = 'center';
+                checkboxDiv.style.pointerEvents = 'auto';
+                checkboxDiv.style.zIndex = '9999';
+                checkboxDiv.style.cursor = 'pointer';
+                
+                const input = document.createElement('input');
+                input.type = 'checkbox';
+                input.title = 'Bỏ qua ngày này khi AI lên lịch';
+                input.checked = this.disabledDates.has(dateStr);
+                input.style.pointerEvents = 'auto';
+                input.style.cursor = 'pointer';
+                
+                const label = document.createElement('span');
+                label.innerText = 'Bỏ qua';
+                label.style.fontSize = '10px';
+                label.style.marginLeft = '4px';
+                label.style.color = '#dc2626';
+                label.style.fontWeight = '500';
+                label.style.pointerEvents = 'auto';
+                label.style.cursor = 'pointer';
+                
+                // Xử lý sự kiện ngay khi chuột ấn xuống (mousedown/touchstart) để đạt tốc độ phản hồi nhanh nhất và né bị thư viện chặn
+                const handleToggle = (e: any) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    this.zone.run(() => {
+                        const isNowChecked = !this.disabledDates.has(dateStr);
+                        input.checked = isNowChecked;
+                        
+                        if (isNowChecked) {
+                            this.disabledDates.add(dateStr);
+                            
+                            // Xóa các task trong ngày đó
+                            if (this.items && this.items.length) {
+                                this.items.forEach(domain => {
+                                    if (domain.domainData && domain.domainData.plan) {
+                                        domain.domainData.plan = domain.domainData.plan.filter((t: any) => {
+                                            if (!t.startDate) return true;
+                                            const tDateStr = new Date(new Date(t.startDate).getTime() - new Date(t.startDate).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                                            return tDateStr !== dateStr;
+                                        });
+                                        domain.childrenItems = this.packTasks(domain.domainData.plan, domain.id);
+                                    }
+                                });
+                                this.items = [...this.items];
+                            }
+                        } else {
+                            this.disabledDates.delete(dateStr);
+                        }
+                        
+                        this.saveScriptState();
+                        this.cd.detectChanges();
+                        
+                        // Cập nhật CSDL Tên miền
+                        if (this.items && this.items.length) {
+                            this.items.forEach(domain => {
+                                if (!domain.domainData) {
+                                    domain.domainData = { domain: domain.name, plan: [] };
+                                }
+                                
+                                domain.domainData.disabledDates = Array.from(this.disabledDates);
+                                // KHÔNG DÙNG reduce ở đây nữa vì nó làm mất dữ liệu các ngày khác nếu childrenItems chưa render xong!
+                                // plan đã được filter chính xác ở bước trên rồi, nên giữ nguyên!
+                                
+                                if (this.user && this.user.name) {
+                                    this._domainService.edit({
+                                        username: this.user.name,
+                                        domain: domain.domainData
+                                    }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                                }
+                            });
+                        }
+                    });
+                };
+
+                checkboxDiv.addEventListener('mousedown', handleToggle);
+                checkboxDiv.addEventListener('touchstart', handleToggle);
+                checkboxDiv.addEventListener('click', (e: any) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                });
+                
+                checkboxDiv.appendChild(input);
+                checkboxDiv.appendChild(label);
+                col.appendChild(checkboxDiv);
+            } else {
+                const input = checkboxDiv.querySelector('input');
+                if (input && input.checked !== this.disabledDates.has(dateStr)) {
+                    input.checked = this.disabledDates.has(dateStr);
+                }
+            }
+        });
+    }
 
     ngOnDestroy(): void {
         this.sttCaptionUnsubscribe?.();
@@ -481,6 +607,15 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         this.month = month;
         this.toastr.info('Đang nạp dữ liệu tên miền...', 'Xử lý');
         this.items = [];
+        this.disabledDates.clear();
+
+        if (domains && domains.length > 0) {
+            domains.forEach(d => {
+                if (d.disabledDates && Array.isArray(d.disabledDates)) {
+                    d.disabledDates.forEach((date: string) => this.disabledDates.add(date));
+                }
+            });
+        }
         const requests = domains.map((domainData: any, index: number) => {
             return this.generateDomainData(domainData, index, statsData, month, forceGenerate);
         });
@@ -554,7 +689,13 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             
             const d = new Date();
             const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
-            const daysLeft = daysInMonth - d.getDate() + 1;
+            let daysLeft = 0;
+            for (let i = d.getDate(); i <= daysInMonth; i++) {
+                const checkDate = `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
+                if (!this.disabledDates.has(checkDate)) {
+                    daysLeft++;
+                }
+            }
             
             if (daysLeft > 0) {
                 dailyTarget = Math.ceil(missing / daysLeft);
@@ -1256,18 +1397,59 @@ Không dùng markdown \`\`\`json.`;
     saveScriptState() {
         try {
             // Save the entire timeline items for domains
-            localStorage.setItem(this.STORAGE_KEY, JSON.stringify(this.items));
+            this.multiAccountService.setItem(this.STORAGE_KEY, this.items);
+            this.multiAccountService.setItem(this.STORAGE_KEY + '_CHAT', this.chatHistory);
+            this.multiAccountService.setItem(this.STORAGE_KEY + '_DISABLED_DATES', Array.from(this.disabledDates));
+            
         } catch (e) { console.error('Lỗi khi lưu lịch làm việc:', e); }
     }
 
     loadScriptState() {
         try {
-            const savedJson = localStorage.getItem(this.STORAGE_KEY);
-            if (!savedJson) return;
-            const savedState = JSON.parse(savedJson);
+            const savedDisabledDates = this.multiAccountService.getItem(this.STORAGE_KEY + '_DISABLED_DATES');
+            if (savedDisabledDates && Array.isArray(savedDisabledDates)) {
+                savedDisabledDates.forEach(d => this.disabledDates.add(d));
+            } else {
+                const oldSaved = localStorage.getItem(this.STORAGE_KEY + '_DISABLED_DATES');
+                if (oldSaved) {
+                    try {
+                        const parsedDates = JSON.parse(oldSaved);
+                        if (Array.isArray(parsedDates)) {
+                            parsedDates.forEach(d => this.disabledDates.add(d));
+                        }
+                    } catch(e) {}
+                }
+            }
+            
+            const savedChat = this.multiAccountService.getItem(this.STORAGE_KEY + '_CHAT');
+            if (savedChat && Array.isArray(savedChat)) {
+                this.chatHistory = savedChat;
+            } else {
+                const oldChat = localStorage.getItem(this.STORAGE_KEY + '_CHAT');
+                if (oldChat) {
+                    try {
+                        this.chatHistory = JSON.parse(oldChat) || [];
+                    } catch(e) {}
+                }
+            }
+
+            let savedState = this.multiAccountService.getItem(this.STORAGE_KEY);
+            if (!savedState) {
+                const savedJson = localStorage.getItem(this.STORAGE_KEY);
+                if (savedJson) {
+                    try { savedState = JSON.parse(savedJson); } catch (e) {}
+                }
+            }
+            
+            if (!savedState) return;
             
             // Convert date strings back to Date objects
             savedState.forEach((item: any) => {
+                // Sửa lỗi thiếu domainData (do cache cũ)
+                if (!item.domainData) {
+                    item.domainData = { domain: item.name, plan: [] };
+                }
+                
                 if (item.childrenItems && item.childrenItems.length > 0) {
                     if (!item.childrenItems[0].streamItems) {
                         // Migrate legacy state
@@ -1429,22 +1611,50 @@ BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT OBJECT JSON, KHÔNG KÈM THEO BẤT K�
 Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. Bạn có thể sửa thời gian startDate, endDate nếu cần.`;
                     } else {
                         // Gather all tasks to provide global context
+                        // Lấy ngày mục tiêu từ câu chat của user để tính chính xác
+                        let targetDate = new Date();
+                        const match = userMessage.match(/(\d{1,2})\/(\d{1,2})/);
+                        if (match) {
+                            const day = parseInt(match[1]);
+                            const month = parseInt(match[2]);
+                            targetDate = new Date(targetDate.getFullYear(), month - 1, day);
+                        }
+
                         const contextData = this.items.map((d: any) => {
                             const currentMonth = this.month || (new Date().getMonth() + 1);
                             const currentYear = new Date().getFullYear();
                             const monthlyTarget = this.getResolvedTarget(d.name, currentMonth, currentYear) || d.domainData?.monthlyTarget || 0;
                             const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
                             const streamItems = d.childrenItems?.[0]?.streamItems || [];
-                            let scheduledCount = streamItems.length;
-                            const today = new Date();
-                            const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
+                            
+                            // Đếm số lượng task đã lên lịch TỪ NGÀY MỤC TIÊU trở đi
+                            const targetDateStr = targetDate.toISOString().split('T')[0];
+                            const scheduledCount = streamItems.filter((t: any) => {
+                                if (!t.startDate) return false;
+                                const tDate = new Date(t.startDate).toISOString().split('T')[0];
+                                return tDate >= targetDateStr;
+                            }).length;
+                            
+                            // Tính remainingDays chính xác (bỏ qua ngày bị vô hiệu hóa)
+                            const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
+                            let remainingDays = 0;
+                            for (let i = targetDate.getDate(); i <= daysInMonth; i++) {
+                                const checkDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
+                                if (!this.disabledDates.has(checkDate)) {
+                                    remainingDays++;
+                                }
+                            }
+                            
+                            const missing = Math.max(0, monthlyTarget - currentResult - scheduledCount);
+                            const dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(missing / remainingDays) : missing) : 0;
 
                             return {
                                 domain: d.name,
                                 monthlyTarget: monthlyTarget,
                                 currentResult: currentResult,
-                                scheduledCount: scheduledCount, // Tất cả công việc trên lịch
+                                scheduledCount: scheduledCount,
                                 remainingDays: remainingDays,
+                                dailyTarget: dailyTarget,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                                 tasks: streamItems.map((t: any) => {
                                     const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
@@ -1462,6 +1672,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         const tzOffset = -(new Date().getTimezoneOffset() / 60);
                         const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
                         const todayStr = new Date().toLocaleDateString('vi-VN');
+                        const disabledStr = Array.from(this.disabledDates).join(', ');
 
                         lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (Hôm nay là: ${todayStr}):
 \`\`\`json
@@ -1476,12 +1687,15 @@ Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Ngườ
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. 
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
-- Bạn phải tự tính toán số lượng tác vụ cần tạo mỗi ngày (dailyTarget) cho mỗi domain theo đúng công thức:
-  dailyTarget = Làm tròn lên của (monthlyTarget - currentResult - scheduledCount) / số ngày còn lại của tháng (tính từ ngày tạo task)
-  (Lưu ý: "remainingDays" trong JSON là tính từ hôm nay. Nếu bạn tạo task cho ngày khác, phải tự tính lại số ngày còn lại!)
+- Hệ thống ĐÃ TỰ ĐỘNG TÍNH TOÁN số lượng tác vụ cần tạo mỗi ngày và truyền vào trường "dailyTarget" cho từng tên miền.
 - Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
-- Nếu dailyTarget > 0: Bắt buộc tạo ĐÚNG số lượng task bằng với dailyTarget. (Lưu ý: Nếu người dùng yêu cầu con số cụ thể trong prompt của họ, hãy ưu tiên con số của người dùng thay vì công thức).
-- Dựa vào 'aiAnalysis' để đưa ra tên (name) và nội dung (meta) của task sao cho hợp lý và tối ưu nhất.
+- Nếu dailyTarget > 0: BẮT BUỘC tạo ĐÚNG số lượng task bằng với "dailyTarget".
+- (Ngoại lệ: Nếu người dùng yêu cầu một con số cụ thể trong chat, hãy ưu tiên làm theo yêu cầu của người dùng).
+- Dựa vào 'aiAnalysis' để đưa ra tên (name) và nội dung (meta) của task sao cho đa dạng, hợp lý.
+
+LƯU Ý VỀ CÁC NGÀY BỊ VÔ HIỆU HÓA (DISABLED DATES):
+- Người dùng đã đánh dấu BỎ QUA các ngày sau: ${disabledStr ? disabledStr : 'Không có'}. 
+- TUYỆT ĐỐI KHÔNG lên lịch hoặc tạo bất kỳ task nào vào các ngày này. Nếu công thức rơi vào ngày bị bỏ qua, hãy dời sang ngày làm việc tiếp theo gần nhất.
 
 LƯU Ý VỀ CẬP NHẬT DỮ LIỆU:
 - Để tạo task mới (chèn thêm vào lịch hiện tại): TUYỆT ĐỐI KHÔNG trả về trường "id" (hệ thống sẽ tự cấp).
@@ -1664,8 +1878,18 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 }
                             }
                         }
-                        const remainingDays = new Date(taskDate.getFullYear(), taskDate.getMonth() + 1, 0).getDate() - taskDate.getDate() + 1;
-                        let dailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
+                        const year = taskDate.getFullYear();
+                        const taskMonth = taskDate.getMonth() + 1;
+                        const daysInMonth = new Date(year, taskMonth, 0).getDate();
+                        let remainingDays = 0;
+                        for (let i = taskDate.getDate(); i <= daysInMonth; i++) {
+                            const checkDate = `${year}-${taskMonth.toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
+                            if (!this.disabledDates.has(checkDate)) {
+                                remainingDays++;
+                            }
+                        }
+                        
+                        let dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : Math.max(0, monthlyTarget - currentResult - scheduledCount)) : 0;
                         diagnosticMsg += `- **${d.name}**: Mục tiêu: ${monthlyTarget}, Đã xong: ${currentResult}, Đã lên lịch: ${scheduledCount}, Số ngày còn lại: ${remainingDays} => Cần tạo: **${dailyTarget} task/ngày**.\n`;
                     });
                     
@@ -1679,7 +1903,6 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 
                     this.items = [...this.items];
                     this.cd.markForCheck();
-                    this.saveScriptState();
                     this.toastr.success('Đã cập nhật toàn bộ lịch!');
                     diagnosticMsg += `\nĐã tự động tạo các tác vụ thành công trên lịch! (AI đã xử lý ${parsed.length} domains)`;
                     this.chatHistory.push({ role: 'model', content: diagnosticMsg });
@@ -1695,6 +1918,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             this.chatHistory.push({ role: 'model', content: 'Đã có lỗi xảy ra: ' + (err.message || err) });
         } finally {
             this.isChatting = false;
+            this.saveScriptState(); // Lưu lại lịch sử chat kể cả khi thành công hay lỗi
             this.cd.detectChanges();
             this.scrollToBottom();
         }
