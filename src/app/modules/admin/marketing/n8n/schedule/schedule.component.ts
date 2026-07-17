@@ -98,16 +98,9 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     items: ICustomTimelineItem[] = [];
     
     customZooms = [
-        { columnWidth: 50, viewMode: TimelineViewMode.Month },
-        { columnWidth: 100, viewMode: TimelineViewMode.Month },
-        { columnWidth: 50, viewMode: TimelineViewMode.Week },
-        { columnWidth: 100, viewMode: TimelineViewMode.Week },
-        { columnWidth: 100, viewMode: TimelineViewMode.Day }, // 4px per hour
-        { columnWidth: 240, viewMode: TimelineViewMode.Day }, // 10px per hour
-        { columnWidth: 720, viewMode: TimelineViewMode.Day }, // 30px per hour
-        { columnWidth: 1440, viewMode: TimelineViewMode.Day }, // 60px per hour
-        { columnWidth: 2880, viewMode: TimelineViewMode.Day }, // 120px per hour
-        { columnWidth: 4320, viewMode: TimelineViewMode.Day }, // 180px per hour
+        { columnWidth: 120, viewMode: TimelineViewMode.Day }, // Mức 0: Nhỏ nhất (5px mỗi giờ)
+        { columnWidth: 240, viewMode: TimelineViewMode.Day }, // Mức 1: Vừa (10px mỗi giờ)
+        { columnWidth: 720, viewMode: TimelineViewMode.Day }, // Mức 2: To nhất (30px mỗi giờ)
     ];
     disabledDates: Set<string> = new Set();
 
@@ -359,6 +352,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             
             const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
             const dateStr = tzOffsetStr(scaleColumn.date);
+            const colWidth = col.offsetWidth || col.getBoundingClientRect().width;
 
             let checkboxDiv = col.querySelector('.day-disable-checkbox') as HTMLElement;
             if (!checkboxDiv) {
@@ -479,8 +473,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     zoomIn(): void { this.timelineComponent.zoomIn(); }
     zoomOut(): void { this.timelineComponent.zoomOut(); }
     scrollToToday(): void { 
-        // Đặt mặc định zoom tới index 5 (tương đương 10px mỗi giờ) để lịch nhỏ gọn hơn
-        this.timelineComponent.changeZoomByIndex(5); 
+        // Đặt mặc định zoom tới index 1 (tương đương 10px mỗi giờ) để lịch nhỏ gọn hơn
+        this.timelineComponent.changeZoomByIndex(1); 
         this.timelineComponent.attachCameraToDate(new Date()); 
     }
     zoomAndFitToContent(): void { this.timelineComponent.fitToContent(50); }
@@ -632,6 +626,23 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         }, 100);
     }
 
+    private getNextValidDate(date: Date): Date {
+        let nextDate = new Date(date);
+        let currentMonth = nextDate.getMonth() + 1;
+        let currentYear = nextDate.getFullYear();
+        let checkStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${nextDate.getDate().toString().padStart(2, '0')}`;
+        
+        let attempts = 0;
+        while (this.disabledDates.has(checkStr) && attempts < 30) {
+            nextDate.setDate(nextDate.getDate() + 1);
+            currentMonth = nextDate.getMonth() + 1;
+            currentYear = nextDate.getFullYear();
+            checkStr = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${nextDate.getDate().toString().padStart(2, '0')}`;
+            attempts++;
+        }
+        return nextDate;
+    }
+
     async generateDomainData(domainData: any, index: number, statsData: any, month: number, forceGenerate: boolean = false) {
         const now = new Date();
         const endOfDay = new Date(now);
@@ -729,6 +740,10 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             endWorkTime.setDate(endWorkTime.getDate() + 1);
         }
 
+        const validDate = this.getNextValidDate(dummyCurrentTime);
+        dummyCurrentTime.setFullYear(validDate.getFullYear(), validDate.getMonth(), validDate.getDate());
+        endWorkTime.setFullYear(validDate.getFullYear(), validDate.getMonth(), validDate.getDate());
+
         let dummyStreamItems = [];
         for (let i = 0; i < dailyTarget; i++) {
             dummyStreamItems.push({
@@ -756,14 +771,16 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
         const prompt = `Bạn là chuyên gia SEO. Tên miền: ${domainData.domain}. Phân tích AI: ${domainData.note || 'Chưa có'}. 
 Yêu cầu: Lên đúng ${dailyTarget} tiêu đề bài viết cần viết ngay HÔM NAY để đạt chỉ tiêu. 
-Trả về ĐÚNG ĐỊNH DẠNG JSON MẢNG: [{"title": "Tiêu đề", "content": "Tóm tắt"}]
+BẮT BUỘC sử dụng công cụ Tìm kiếm Web (Web Search / Google Search) để Deep Research (tìm kiếm xu hướng mới nhất hiện nay) liên quan đến "Phân tích AI" để nghĩ ra tiêu đề và nội dung phù hợp với ngách của tên miền. TUYỆT ĐỐI KHÔNG viết chung chung kiểu "Bài viết SEO 1".
+Trả về ĐÚNG ĐỊNH DẠNG JSON MẢNG: [{"title": "Tiêu đề cụ thể", "content": "Tóm tắt"}]
 Không dùng markdown \`\`\`json.`;
 
         try {
             const response: any = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
-            });
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                tools: [{ googleSearch: {} }]
+            } as any);
             
             let resultText = response.text || '';
             if (resultText.includes('```json')) resultText = resultText.split('```json')[1].split('```')[0].trim();
@@ -789,7 +806,13 @@ Không dùng markdown \`\`\`json.`;
                 currentTime.setDate(currentTime.getDate() + 1);
                 currentTime.setHours(8, 0, 0, 0);
             }
+
+            const validRealDate = this.getNextValidDate(currentTime);
+            currentTime.setFullYear(validRealDate.getFullYear(), validRealDate.getMonth(), validRealDate.getDate());
             
+            let finalEndWorkTime = new Date(endWorkTime);
+            finalEndWorkTime.setFullYear(validRealDate.getFullYear(), validRealDate.getMonth(), validRealDate.getDate());
+
             for (let i = 0; i < aiResults.length; i++) {
                 const aiTask = aiResults[i];
                 
@@ -797,7 +820,7 @@ Không dùng markdown \`\`\`json.`;
                     id: `${index}-${i}`,
                     name: aiTask.title,
                     startDate: new Date(currentTime),
-                    endDate: new Date(endWorkTime),
+                    endDate: new Date(finalEndWorkTime),
                     canResizeLeft: true,
                     canResizeRight: true,
                     canDragX: true,
@@ -1684,14 +1707,15 @@ ${userMessage}
 
 HƯỚNG DẪN TRẢ LỜI:
 Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Người dùng muốn sửa hoặc thêm dữ liệu JSON lịch.
-BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
+BẠN HÃY TRÒ CHUYỆN VỚI NGƯỜI DÙNG Ở ĐẦU HOẶC CUỐI CÂU TRẢ LỜI BẰNG GIỌNG ĐIỆU VUI VẺ, THÂN THIỆN, CÓ SỬ DỤNG EMOJI (ĐÓNG VAI LÀ TRỢ LÝ ĐÁNG YÊU, GỌI NGƯỜI DÙNG LÀ SẾP). TUY NHIÊN, DỮ LIỆU CÔNG VIỆC BẮT BUỘC PHẢI ĐƯỢC ĐẶT BÊN TRONG BLOCK CODE MẶC ĐỊNH LÀ \`\`\`json [ ... ] \`\`\`.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. 
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - Hệ thống ĐÃ TỰ ĐỘNG TÍNH TOÁN số lượng tác vụ cần tạo mỗi ngày và truyền vào trường "dailyTarget" cho từng tên miền.
 - Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
 - Nếu dailyTarget > 0: BẮT BUỘC tạo ĐÚNG số lượng task bằng với "dailyTarget".
 - (Ngoại lệ: Nếu người dùng yêu cầu một con số cụ thể trong chat, hãy ưu tiên làm theo yêu cầu của người dùng).
-- Dựa vào 'aiAnalysis' để đưa ra tên (name) và nội dung (meta) của task sao cho đa dạng, hợp lý.
+- BẮT BUỘC ĐỌC kỹ trường "aiAnalysis" (nếu có) của từng tên miền và kết hợp với tính năng DEEP RESEARCH (Sử dụng Tìm kiếm Web / Google Search để tìm kiếm các sự kiện, xu hướng mới nhất trong ngày) để nghĩ ra tiêu đề (name) và mô tả (meta) thật CỤ THỂ, ĐA DẠNG và ĐÚNG CHUYÊN MÔN / NGÁCH của tên miền đó.
+- TUYỆT ĐỐI KHÔNG dùng các tên chung chung như "Công việc 1", "Tạo bài viết SEO", "Viết bài mới". (Ví dụ: Nếu aiAnalysis là "Web review phim", hãy dùng Google Search xem phim nào đang hot hiện nay để lên tên task như "Viết bài review phim Móng Vuốt 2026", "Kịch bản tóm tắt phim Đào Phở...", v.v.)
 
 LƯU Ý VỀ CÁC NGÀY BỊ VÔ HIỆU HÓA (DISABLED DATES):
 - Người dùng đã đánh dấu BỎ QUA các ngày sau: ${disabledStr ? disabledStr : 'Không có'}. 
@@ -1713,7 +1737,8 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
                 contents: contents,
-            });
+                tools: [{ googleSearch: {} }]
+            } as any);
 
             if (!this.isChatting) return;
 
@@ -1749,11 +1774,6 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : (existingDomain.childrenItems?.length ? [...existingDomain.childrenItems] : []);
                             
                             if (parsedDomain.tasks && Array.isArray(parsedDomain.tasks) && parsedDomain.tasks.length > 0) {
-                                const hasRealData = parsedDomain.tasks.some((t: any) => !t._deleted);
-                                if (!hasRealData) {
-                                    return; // Bỏ qua domain này vì AI chỉ toàn gửi cờ xóa mà không có data mới đắp vào
-                                }
-                                
                                 hasAnyTasks = true;
                                 
                                 // Chế độ update: Không tự động xoá task cũ theo ngày nữa.
@@ -1762,7 +1782,23 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 
                                 parsedDomain.tasks.forEach((t: any) => {
                                     if (t._deleted) {
-                                        newTasks = newTasks.filter(existing => existing.id !== t.id);
+                                        if (t.id) {
+                                            newTasks = newTasks.filter(existing => existing.id !== t.id);
+                                        } else if (t.startDate) {
+                                            // Fallback: Nếu AI quên ID, thử xóa dựa theo Ngày
+                                            const parseDateStr = (dStr: string | Date) => {
+                                                const d = new Date(dStr);
+                                                return isNaN(d.getTime()) ? null : new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                                            };
+                                            const targetDateStr = parseDateStr(t.startDate);
+                                            if (targetDateStr) {
+                                                newTasks = newTasks.filter(existing => {
+                                                    if (!existing.startDate) return true;
+                                                    const existingDateStr = parseDateStr(existing.startDate);
+                                                    return existingDateStr !== targetDateStr;
+                                                });
+                                            }
+                                        }
                                     } else {
                                         const existingIndex = newTasks.findIndex(existing => existing.id === t.id);
                                         const parseDateStr = (dStr: string) => {
@@ -1797,8 +1833,8 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                             id: t.id || Math.random().toString(36).substring(7),
                                             name: t.name || t.title,
                                             meta: t.meta || '',
-                                            startDate: parseDateStr(t.startDate),
-                                            endDate: parseDateStr(t.endDate),
+                                            startDate: this.getNextValidDate(parseDateStr(t.startDate)),
+                                            endDate: this.getNextValidDate(parseDateStr(t.endDate)),
                                             canResizeLeft: true,
                                             canResizeRight: true,
                                             canDragX: true,
@@ -1823,7 +1859,12 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         }
                     });
                     
-                    let diagnosticMsg = 'Báo cáo chi tiết số liệu từng tên miền:\n\n';
+                    let aiTextOnly = aiMessage.replace(/```json[\s\S]*?```/g, '').replace(/```[\s\S]*?```/g, '').trim();
+                    if (aiTextOnly === '') {
+                        aiTextOnly = '✅ Dạ sếp ơi, em đã phân tích và lên lịch xong theo yêu cầu của sếp rồi nhé! Dưới đây là báo cáo tiến độ:';
+                    }
+
+                    let diagnosticMsg = `${aiTextOnly}\n\n---\n*Báo cáo hệ thống:\n`;
                     this.items.forEach(d => {
                         const currentMonth = this.month || (new Date().getMonth() + 1);
                         const currentYear = new Date().getFullYear();
@@ -1894,17 +1935,16 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     });
                     
                     if (!hasAnyTasks) {
-                        diagnosticMsg += '\nToàn bộ tên miền đã đạt chỉ tiêu nên không có tác vụ nào được tạo thêm.';
+                        diagnosticMsg += '\n*(Hôm nay không có task nào được lên lịch)*\n\nToàn bộ tên miền đã đạt chỉ tiêu nên không có tác vụ nào được tạo thêm.*';
                         this.toastr.info('Hoàn tất kiểm tra: Các tên miền đã đủ chỉ tiêu, không có việc mới.');
-                        this.chatHistory.push({ role: 'model', content: diagnosticMsg });
-                        this.cd.markForCheck();
-                        return;
+                    } else {
+                        diagnosticMsg += `\nĐã tự động tạo các tác vụ thành công trên lịch! (AI đã xử lý ${parsed.length} domains)*`;
+                        this.toastr.success('Đã cập nhật toàn bộ lịch!');
                     }
 
                     this.items = [...this.items];
+                    this.saveScriptState();
                     this.cd.markForCheck();
-                    this.toastr.success('Đã cập nhật toàn bộ lịch!');
-                    diagnosticMsg += `\nĐã tự động tạo các tác vụ thành công trên lịch! (AI đã xử lý ${parsed.length} domains)`;
                     this.chatHistory.push({ role: 'model', content: diagnosticMsg });
                 } else {
                     this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu hợp lệ cho thao tác này.' });
