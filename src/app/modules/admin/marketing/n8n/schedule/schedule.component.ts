@@ -696,7 +696,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                 }).length;
             }
             
-            const missing = Math.max(0, domainData.monthlyTarget - currentResult - scheduledCount);
+            const missing = domainData.monthlyTarget;
             
             const d = new Date();
             const daysInMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
@@ -1668,7 +1668,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 }
                             }
                             
-                            const missing = Math.max(0, monthlyTarget - currentResult - scheduledCount);
+                            const missing = monthlyTarget;
                             const dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(missing / remainingDays) : missing) : 0;
 
                             return {
@@ -1713,7 +1713,7 @@ LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - Hệ thống ĐÃ TỰ ĐỘNG TÍNH TOÁN số lượng tác vụ cần tạo mỗi ngày và truyền vào trường "dailyTarget" cho từng tên miền.
 - Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
 - Nếu dailyTarget > 0: BẮT BUỘC tạo ĐÚNG số lượng task bằng với "dailyTarget".
-- (Ngoại lệ: Nếu người dùng yêu cầu một con số cụ thể trong chat, hãy ưu tiên làm theo yêu cầu của người dùng).
+- (Ngoại lệ DUY NHẤT: Bỏ qua dailyTarget NẾU VÀ CHỈ NẾU người dùng đưa ra "câu lệnh" hoặc "yêu cầu" tạo số lượng bài viết cụ thể, ví dụ "tạo 2 bài", "lên lịch 3 bài". KHÔNG ÁP DỤNG ngoại lệ này nếu người dùng chỉ đang phàn nàn hoặc nhắc lại con số cũ như "vẫn chỉ có 5 tasks").
 - BẮT BUỘC ĐỌC kỹ trường "aiAnalysis" (nếu có) của từng tên miền và kết hợp với tính năng DEEP RESEARCH (Sử dụng Tìm kiếm Web / Google Search để tìm kiếm các sự kiện, xu hướng mới nhất trong ngày) để nghĩ ra tiêu đề (name) và mô tả (meta) thật CỤ THỂ, ĐA DẠNG và ĐÚNG CHUYÊN MÔN / NGÁCH của tên miền đó.
 - TUYỆT ĐỐI KHÔNG dùng các tên chung chung như "Công việc 1", "Tạo bài viết SEO", "Viết bài mới". (Ví dụ: Nếu aiAnalysis là "Web review phim", hãy dùng Google Search xem phim nào đang hot hiện nay để lên tên task như "Viết bài review phim Móng Vuốt 2026", "Kịch bản tóm tắt phim Đào Phở...", v.v.)
 
@@ -1861,45 +1861,63 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     
                     let aiTextOnly = aiMessage.replace(/```json[\s\S]*?```/g, '').replace(/```[\s\S]*?```/g, '').trim();
                     if (aiTextOnly === '') {
-                        aiTextOnly = '✅ Dạ sếp ơi, em đã phân tích và lên lịch xong theo yêu cầu của sếp rồi nhé! Dưới đây là báo cáo tiến độ:';
+                        aiTextOnly = '✅ Dạ sếp ơi, em đã phân tích và lên lịch xong theo yêu cầu của sếp rồi nhé!';
                     }
 
+                    // Xây dựng báo cáo để debug (không show ra chat nữa)
                     let diagnosticMsg = `${aiTextOnly}\n\n---\n*Báo cáo hệ thống:\n`;
+                    const lastUserMsg = this.chatHistory.slice().reverse().find(m => m.role === 'user')?.content || '';
+                    let reportMonth = this.month || (new Date().getMonth() + 1);
+                    let reportYear = new Date().getFullYear();
+                    let reportTaskDate = new Date();
+                    
+                    const exactDateMatchReport = lastUserMsg.match(/\b(0?[1-9]|[12]\d|3[01])\/(0?[1-9]|1[0-2])(?:\/(\d{4}))?\b/);
+                    const monthMatchReport = lastUserMsg.match(/tháng\s*(0?[1-9]|1[0-2])(?:\/(\d{4}))?/i);
+                    
+                    if (exactDateMatchReport) {
+                        const day = parseInt(exactDateMatchReport[1]);
+                        reportMonth = parseInt(exactDateMatchReport[2]);
+                        if (exactDateMatchReport[3]) {
+                            reportYear = parseInt(exactDateMatchReport[3]);
+                        }
+                        reportTaskDate = new Date(reportYear, reportMonth - 1, day);
+                    } else if (monthMatchReport) {
+                        reportMonth = parseInt(monthMatchReport[1]);
+                        if (monthMatchReport[2]) {
+                            reportYear = parseInt(monthMatchReport[2]);
+                        }
+                        const now = new Date();
+                        if (reportYear === now.getFullYear() && reportMonth === now.getMonth() + 1) {
+                            reportTaskDate = new Date(); // Today
+                        } else {
+                            reportTaskDate = new Date(reportYear, reportMonth - 1, 1);
+                        }
+                    }
+
                     this.items.forEach(d => {
-                        const currentMonth = this.month || (new Date().getMonth() + 1);
-                        const currentYear = new Date().getFullYear();
+                        const currentMonth = reportMonth;
+                        const currentYear = reportYear;
                         const monthlyTarget = this.getResolvedTarget(d.name, currentMonth, currentYear) || (d as any).domainData?.monthlyTarget || 0;
                         const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
                         const streamItems = d.childrenItems?.[0]?.streamItems || [];
-                        const scheduledCount = streamItems.length;
-                        let taskDate = new Date();
+                        const nowStr = new Date().toISOString().split('T')[0];
+                        const scheduledCount = streamItems.filter((t: any) => {
+                            if (!t.startDate) return false;
+                            const tDate = new Date(t.startDate);
+                            if (tDate.getMonth() + 1 !== currentMonth || tDate.getFullYear() !== currentYear) return false;
+                            
+                            const tDateStr = tDate.toISOString().split('T')[0];
+                            return tDateStr >= nowStr;
+                        }).length;
+                        
+                        let taskDate = new Date(reportTaskDate);
                         const parsedDomain = parsed.find((p: any) => p.domain?.toLowerCase().trim() === d.name.toLowerCase().trim());
                         if (parsedDomain && parsedDomain.tasks && parsedDomain.tasks.length > 0) {
                             // Ưu tiên task tạo mới
                             let targetTask = parsedDomain.tasks.find((t: any) => !t.id && t.startDate && !t._deleted);
                             
                             if (!targetTask) {
-                                // Tìm task bị sửa đổi so với gốc
-                                // cloneItems là mảng this.items trước khi update (không có sẵn ở đây, nhưng d có thể chứa dữ liệu cũ nếu chưa bị ghi đè hoàn toàn? Không, d là phần tử đã bị update)
-                                // Cách tốt nhất: Tìm task có startDate lớn nhất mà nằm trong mảng parsedDomain.tasks 
-                                // (Vì AI thường chỉ trả về task cần sửa nếu nó thông minh, hoặc nếu trả full thì thôi lấy tạm max date hoặc first date của mảng)
-                                // Nhưng chờ đã, nếu AI trả full mảng, ta sẽ lấy ngày mà user đề cập trong chatHistory!
-                                // Lấy từ lastUserMessage!
-                                const lastUserMsg = this.chatHistory.slice().reverse().find(m => m.role === 'user');
-                                if (lastUserMsg && lastUserMsg.content) {
-                                    const match = lastUserMsg.content.match(/(\d{1,2})\/(\d{1,2})/);
-                                    if (match) {
-                                        const day = parseInt(match[1]);
-                                        const month = parseInt(match[2]);
-                                        const year = new Date().getFullYear();
-                                        taskDate = new Date(year, month - 1, day);
-                                        targetTask = { startDate: taskDate.toISOString() }; // Giả lập để skip check
-                                    }
-                                }
-                            }
-                            
-                            if (!targetTask) {
-                                // Fallback: Lấy ngày lớn nhất trong số các task để đại diện
+                                // Tìm task có startDate lớn nhất
                                 let maxTime = 0;
                                 parsedDomain.tasks.forEach((t: any) => {
                                     if (t.startDate && !t._deleted) {
@@ -1930,9 +1948,11 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             }
                         }
                         
-                        let dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : Math.max(0, monthlyTarget - currentResult - scheduledCount)) : 0;
+                        let dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(monthlyTarget / remainingDays) : monthlyTarget) : 0;
                         diagnosticMsg += `- **${d.name}**: Mục tiêu: ${monthlyTarget}, Đã xong: ${currentResult}, Đã lên lịch: ${scheduledCount}, Số ngày còn lại: ${remainingDays} => Cần tạo: **${dailyTarget} task/ngày**.\n`;
                     });
+                    
+                    console.log(diagnosticMsg); // In ra log để check
                     
                     if (!hasAnyTasks) {
                         diagnosticMsg += '\n*(Hôm nay không có task nào được lên lịch)*\n\nToàn bộ tên miền đã đạt chỉ tiêu nên không có tác vụ nào được tạo thêm.*';
@@ -1945,7 +1965,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     this.items = [...this.items];
                     this.saveScriptState();
                     this.cd.markForCheck();
-                    this.chatHistory.push({ role: 'model', content: diagnosticMsg });
+                    this.chatHistory.push({ role: 'model', content: aiTextOnly });
                 } else {
                     this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu hợp lệ cho thao tác này.' });
                 }
@@ -2053,3 +2073,4 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
     }
 }
 
+// force recompile
