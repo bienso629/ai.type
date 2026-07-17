@@ -164,6 +164,20 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     
     onYearChange() {
         this.onMonthChange();
+        this.fetchStats();
+    }
+    
+    fetchStats() {
+        if (!this.user) return;
+        this._crawlService.statistics({ username: this.user.name, reportYear: this.selectedYear })
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((res: any) => {
+                if (res && res.success) {
+                    const nodes = res.data || [];
+                    this.domainStatsData = nodes[3] || {};
+                    this.cd.markForCheck();
+                }
+            });
     }
 
     updateValue(event, cell, rowIndex) {
@@ -362,15 +376,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                 this.fetch();
                 
                 // lấy số lượng bài viết để hiển thị thực tế
-                this._crawlService.statistics({ username: this.user.name, reportYear: new Date().getFullYear() })
-                    .pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe((res: any) => {
-                        if (res && res.success) {
-                            const nodes = res.data || [];
-                            this.domainStatsData = nodes[3] || {};
-                            this.cd.markForCheck();
-                        }
-                    });
+                this.fetchStats();
             });
     }
 

@@ -1191,6 +1191,34 @@ Không dùng markdown \`\`\`json.`;
         return shuffled.slice(min);
     }
 
+    getResolvedTarget(domain: string, month: number, selectedYear: number): number {
+        this.settings = this.multiAccountService.getItem('settings');
+        if (!this.settings || !this.settings.domainTargets) return 0;
+        let target = this.settings.domainTargets[domain];
+        if (target === undefined) return 0;
+        if (typeof target === 'number') return target; // Legacy compatibility
+        
+        let yearTarget = target[selectedYear];
+        let legacyTarget = target[month]; // From old structure
+        
+        if (yearTarget && yearTarget[month] !== undefined && yearTarget[month] !== null) return yearTarget[month];
+        if (legacyTarget !== undefined && legacyTarget !== null && typeof legacyTarget === 'number') return legacyTarget;
+        
+        // Fallback backward...
+        if (yearTarget) {
+            for (let m = month - 1; m >= 1; m--) {
+                if (yearTarget[m] !== undefined && yearTarget[m] !== null) return yearTarget[m];
+            }
+        }
+        
+        // legacy fallback
+        for (let m = month - 1; m >= 1; m--) {
+            if (typeof target[m] === 'number') return target[m];
+        }
+        
+        return 0;
+    }
+
     addSeconds(date: Date, seconds: number): Date {
         const result = new Date(date);
         result.setSeconds(result.getSeconds() + seconds);
@@ -1203,7 +1231,14 @@ Không dùng markdown \`\`\`json.`;
                 if (res && res.result && res.result.length > 0) {
                     const domainsWithPlan = res.result.filter((d: any) => d.plan && d.plan.length > 0);
                     if (domainsWithPlan.length > 0) {
-                        this.processDomains(domainsWithPlan, undefined, undefined, false);
+                        const currentMonth = new Date().getMonth() + 1;
+                        const currentYear = new Date().getFullYear();
+                        domainsWithPlan.forEach((d: any) => {
+                            if (!d.monthlyTarget) {
+                                d.monthlyTarget = this.getResolvedTarget(d.domain, currentMonth, currentYear);
+                            }
+                        });
+                        this.processDomains(domainsWithPlan, undefined, currentMonth, false);
                     } else {
                         // Nếu chưa có plan nào trong DB, thử fallback về localStorage
                         this.loadScriptState();
@@ -1395,29 +1430,21 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                     } else {
                         // Gather all tasks to provide global context
                         const contextData = this.items.map((d: any) => {
-                            const monthlyTarget = d.domainData?.monthlyTarget || 0;
-                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
-                            
-                            let scheduledCount = 0;
+                            const currentMonth = this.month || (new Date().getMonth() + 1);
+                            const currentYear = new Date().getFullYear();
+                            const monthlyTarget = this.getResolvedTarget(d.name, currentMonth, currentYear) || d.domainData?.monthlyTarget || 0;
+                            const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
                             const streamItems = d.childrenItems?.[0]?.streamItems || [];
-                            if (streamItems.length > 0) {
-                                const todayStrForCount = new Date().toISOString().split('T')[0];
-                                scheduledCount = streamItems.filter((t: any) => {
-                                    if (!t.startDate) return false;
-                                    const tDate = new Date(t.startDate).toISOString().split('T')[0];
-                                    return tDate >= todayStrForCount;
-                                }).length;
-                            }
-                            
+                            let scheduledCount = streamItems.length;
                             const today = new Date();
                             const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
-                            let dailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
 
                             return {
                                 domain: d.name,
                                 monthlyTarget: monthlyTarget,
                                 currentResult: currentResult,
-                                dailyTarget: dailyTarget,
+                                scheduledCount: scheduledCount, // Tất cả công việc trên lịch
+                                remainingDays: remainingDays,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                                 tasks: streamItems.map((t: any) => {
                                     const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
@@ -1449,9 +1476,11 @@ Bạn là chuyên gia SEO & trợ lý AI quản lý lịch công việc. Ngườ
 BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT MẢNG JSON, KHÔNG KÈM THEO BẤT KỲ VĂN BẢN GIẢI THÍCH NÀO KHÁC.
 Mảng JSON phải có cấu trúc gồm danh sách các domain và các task bên trong. 
 LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
-- BẠN BẮT BUỘC PHẢI TẠO SỐ LƯỢNG TASK CHO MỖI DOMAIN DỰA TRÊN 'dailyTarget':
-1. Nếu 'dailyTarget' = 0: Không tạo task cho domain đó.
-2. Nếu 'dailyTarget' > 0: Tạo đúng số lượng task bằng với 'dailyTarget'. (Lưu ý: Nếu người dùng yêu cầu con số cụ thể, hãy ưu tiên con số của người dùng).
+- Bạn phải tự tính toán số lượng tác vụ cần tạo mỗi ngày (dailyTarget) cho mỗi domain theo đúng công thức:
+  dailyTarget = Làm tròn lên của (monthlyTarget - currentResult - scheduledCount) / remainingDays
+- Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
+- Nếu dailyTarget > 0: Bắt buộc tạo ĐÚNG số lượng task bằng với dailyTarget. (Lưu ý: Nếu người dùng yêu cầu con số cụ thể trong prompt của họ, hãy ưu tiên con số của người dùng thay vì công thức).
+- Dựa vào 'aiAnalysis' để đưa ra tên (name) và nội dung (meta) của task sao cho hợp lý và tối ưu nhất.
 
 LƯU Ý VỀ CẬP NHẬT DỮ LIỆU:
 - Khi bạn tạo task cho một ngày bất kỳ, hệ thống sẽ tự động XÓA HẾT các task cũ của ngày đó để đắp task mới của bạn vào. Bạn KHÔNG CẦN lo việc xóa.
@@ -1459,7 +1488,7 @@ LƯU Ý VỀ CẬP NHẬT DỮ LIỆU:
 - Nếu sửa task cụ thể: giữ nguyên trường "id" của task đó.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
-- MẶC ĐỊNH TẤT CẢ CÁC TASK PHẢI CÓ startDate LÀ 08:00:00 VÀ endDate LÀ 17:00:00 của ngày hôm đó (trừ khi người dùng có yêu cầu giờ khác). KHÔNG ĐƯỢC CHIA NHỎ GIỜ (không được tự ý chia 8h-10h, 10h-12h).
+- MẶC ĐỊNH TẤT CẢ CÁC TASK PHẢI CÓ startDate LÀ 08:00:00 VÀ endDate LÀ 17:00:00 CỦA ĐÚNG NGÀY MÀ NGƯỜI DÙNG YÊU CẦU (NẾU YÊU CẦU NGÀY 17, PHẢI TẠO NGÀY 17). KHÔNG ĐƯỢC CHIA NHỎ GIỜ.
 - TUYỆT ĐỐI KHÔNG dùng "24:00:00" vì sẽ gây lỗi Invalid Date, hãy dùng "23:59:59".
 - BẮT BUỘC dùng định dạng local: "YYYY-MM-DDTHH:mm:ss" (Ví dụ: "2026-07-16T08:00:00"). TUYỆT ĐỐI KHÔNG CÓ CHỮ 'Z' Ở CUỐI.`;
                     }
@@ -1604,14 +1633,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][this.month]) ? this.statsData[d.name][this.month] : 0;
                             let scheduledCount = 0;
                             const streamItems = d.childrenItems?.[0]?.streamItems || [];
-                            if (streamItems.length > 0) {
-                                const todayStrForCount = new Date().toISOString().split('T')[0];
-                                scheduledCount = streamItems.filter((t: any) => {
-                                    if (!t.startDate) return false;
-                                    const tDate = new Date(t.startDate).toISOString().split('T')[0];
-                                    return tDate >= todayStrForCount;
-                                }).length;
-                            }
+                            scheduledCount = streamItems.length;
                             const today = new Date();
                             const remainingDays = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate() - today.getDate() + 1;
                             sampleDailyTarget = monthlyTarget > 0 ? Math.ceil(Math.max(0, monthlyTarget - currentResult - scheduledCount) / remainingDays) : 0;
