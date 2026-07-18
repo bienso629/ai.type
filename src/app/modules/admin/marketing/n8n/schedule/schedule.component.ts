@@ -1883,26 +1883,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 
                 let allParsedTasks: any[] = [];
                 
-                // Delete future tasks first
-                let deletionTasks: any[] = [];
-                contextData.forEach((d: any) => {
-                    let domainDelTasks: any[] = [];
-                    if (d.tasks) {
-                        d.tasks.forEach((t: any) => {
-                            const tDateStr = t.startDate.split('T')[0];
-                            const targetDateStr = tDate.toISOString().split('T')[0]; // tDate is the start date
-                            if (tDateStr >= targetDateStr) {
-                                domainDelTasks.push({ id: t.id, _deleted: true });
-                            }
-                        });
-                    }
-                    if (domainDelTasks.length > 0) {
-                        deletionTasks.push({ domain: d.domain, tasks: domainDelTasks });
-                    }
-                });
-                if (deletionTasks.length > 0) {
-                    this.applyParsedTasks(deletionTasks);
-                }
+
                 
                 // Prepare distribution for each domain
                 const domainDistributions: any = {};
@@ -1932,6 +1913,29 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     const vDate = validDates[i];
                     const vDateStrLocal = vDate.toLocaleDateString('vi-VN');
                     const vDateStrIso = vDate.toISOString().split('T')[0];
+                    
+                    // Xóa task của riêng ngày hôm nay trước khi gọi AI
+                    let dayDeletionTasks: any[] = [];
+                    contextData.forEach((d: any) => {
+                        let domainDelTasks: any[] = [];
+                        if (d.tasks) {
+                            d.tasks.forEach((t: any) => {
+                                if (t.startDate) {
+                                    const tDateStr = t.startDate.split('T')[0];
+                                    if (tDateStr === vDateStrIso) {
+                                        domainDelTasks.push({ id: t.id, _deleted: true });
+                                    }
+                                }
+                            });
+                        }
+                        if (domainDelTasks.length > 0) {
+                            dayDeletionTasks.push({ domain: d.domain, tasks: domainDelTasks });
+                        }
+                    });
+                    if (dayDeletionTasks.length > 0) {
+                        this.applyParsedTasks(dayDeletionTasks);
+                    }
+
                     // Update contextData with the EXACT target for this day
                     let hasAnyTargetForDay = false;
                     let dayContextData = JSON.parse(JSON.stringify(contextData));
@@ -1987,6 +1991,16 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 }];
                             }
                             
+                            // Ép buộc gán lại ngày nếu AI quên (tránh fallback về hôm nay)
+                            dayParsed.forEach((d: any) => {
+                                if (d.tasks && Array.isArray(d.tasks)) {
+                                    d.tasks.forEach((t: any) => {
+                                        if (!t.startDate) t.startDate = `${vDateStrIso}T08:00:00`;
+                                        if (!t.endDate) t.endDate = `${vDateStrIso}T17:00:00`;
+                                    });
+                                }
+                            });
+                            
                             this.applyParsedTasks(dayParsed);
                             
                             dayParsed.forEach((domainData: any) => {
@@ -1998,8 +2012,12 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 existingDomain.tasks = existingDomain.tasks.concat(domainData.tasks || []);
                             });
                         }
-                    } catch (e) {
+                    } catch (e: any) {
                         console.error('Error generating tasks for day', vDateStrLocal, e);
+                        this.chatHistory.push({ role: 'model', content: `❌ Bị lỗi khi gọi AI (có thể do quá tải, Rate Limit) tại ngày ${vDateStrLocal}: ${e.message || e}. Dừng tiến trình!` });
+                        this.cd.detectChanges();
+                        this.scrollToBottom();
+                        break;
                     }
                 }
                 
