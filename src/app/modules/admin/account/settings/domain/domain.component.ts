@@ -253,6 +253,9 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                 next: async (result) => {
                     if (result && result.success) {
                         this.toastr.success(`Chỉnh sửa domain xong.`);
+                        if (result.data && result.data._rev) {
+                            this.rows[index]._rev = result.data._rev;
+                        }
                     }
                 },
                 error: () => {
@@ -322,7 +325,11 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                     this._domainService.edit({
                         username: this.user.name,
                         domain: this.rows[rowIndex]
-                    }).subscribe();
+                    }).subscribe((res: any) => {
+                        if (res && res.success && res.data && res.data._rev) {
+                            this.rows[rowIndex]._rev = res.data._rev;
+                        }
+                    });
                     
                     updatedCount++;
                 }
