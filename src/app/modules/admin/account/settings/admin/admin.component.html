@@ -142,10 +142,21 @@
 
                 <!-- Main -->
                 <div class="mt-4">
-                    <ngx-datatable [virtualization]="false" class="material shadow-none border rounded-lg" [headerHeight]="50"
+                    <ngx-datatable #txTable [virtualization]="false" class="material shadow-none border rounded-lg" [headerHeight]="50"
                         [columnMode]="ColumnMode.force" [footerHeight]="50" rowHeight="50" [scrollbarV]="false"
-                        [scrollbarH]="false" [rows]="transactions" [loadingIndicator]="transactionsLoading" [limit]="10">
+                        [scrollbarH]="false" [rows]="transactions" [loadingIndicator]="transactionsLoading" [limit]="10"
+                        [groupRowsBy]="'createdAtDate'" [groupExpansionDefault]="true">
                         
+                        <ngx-datatable-group-header [rowHeight]="50">
+                            <ng-template let-group="group" let-expanded="expanded" ngx-datatable-group-header-template>
+                                <div class="flex flex-row items-center w-full h-full px-4 cursor-pointer hover:bg-gray-100" style="background-color: #f8fafc;" (click)="txTable.groupHeader.toggleExpandGroup(group)">
+                                    <mat-icon class="icon-size-4 mr-2 text-gray-500" [svgIcon]="expanded ? 'heroicons_outline:chevron-down' : 'heroicons_outline:chevron-right'"></mat-icon>
+                                    <span class="font-semibold text-gray-700">Ngày giao dịch: {{ group.value[0].createdAtDate }}</span>
+                                    <span class="ml-2 text-sm text-gray-500 font-normal">({{ group.value.length }} giao dịch)</span>
+                                </div>
+                            </ng-template>
+                        </ngx-datatable-group-header>
+
                         <ngx-datatable-column name="Mã GD" prop="transactionId" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                             <ng-template let-value="value" ngx-datatable-cell-template>
                                 {{ value }}

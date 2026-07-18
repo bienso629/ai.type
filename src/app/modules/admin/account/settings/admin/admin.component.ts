@@ -203,7 +203,15 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
             const res = await response.json();
             
             if (res && res.success) {
-                this.transactions = res.data || [];
+                this.transactions = (res.data || []).map(t => {
+                    if (t.createdAt) {
+                        const d = new Date(t.createdAt);
+                        t.createdAtDate = ('0' + d.getDate()).slice(-2) + '/' + ('0' + (d.getMonth() + 1)).slice(-2) + '/' + d.getFullYear();
+                    } else {
+                        t.createdAtDate = 'Không rõ ngày';
+                    }
+                    return t;
+                });
             } else {
                 this.toastr.error('Không thể lấy lịch sử giao dịch.');
             }
