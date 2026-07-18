@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/app_colors.dart';
 import 'tools_screen.dart';
 import 'home_tab.dart';
@@ -20,6 +22,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
+    FlutterNativeSplash.remove();
     _loadUserData();
   }
 
@@ -37,8 +40,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<Widget> _tabs = [
     const HomeTab(),
     const ToolsScreen(),
-    const Center(child: Text('Tài liệu', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
-    const Center(child: Text('Cá nhân', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const Center(child: Text('Công việc', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const Center(child: Text('Cấu hình', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
   ];
 
   @override
@@ -49,14 +52,15 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: SvgPicture.asset(
-          'assets/images/typing-logo.svg',
+        title: Image.asset(
+          'assets/images/logo.png',
           height: 36,
           fit: BoxFit.contain,
+          filterQuality: FilterQuality.high,
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
+            icon: const FaIcon(FontAwesomeIcons.bell, color: AppColors.textPrimary, size: 20),
             onPressed: () {},
           ),
           Padding(
@@ -65,7 +69,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               radius: 16,
               backgroundColor: AppColors.accent,
               backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-              child: _avatarUrl == null ? const Icon(Icons.person, size: 16, color: AppColors.textSecondary) : null,
+              child: _avatarUrl == null ? const FaIcon(FontAwesomeIcons.user, size: 14, color: AppColors.textSecondary) : null,
             ),
           ),
         ],
@@ -79,7 +83,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         onPressed: () {},
         elevation: 4,
         shape: const CircleBorder(),
-        child: const Icon(Icons.add, color: Colors.white),
+        child: const FaIcon(FontAwesomeIcons.plus, color: Colors.white, size: 20),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: Container(
@@ -102,11 +106,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _buildNavItem(0, Icons.dashboard_outlined, Icons.dashboard, 'Tổng quan'),
-                _buildNavItem(1, Icons.build_outlined, Icons.build, 'Công cụ'),
+                _buildNavItem(0, FontAwesomeIcons.chartPie, FontAwesomeIcons.chartPie, 'Tổng quan'),
+                _buildNavItem(1, FontAwesomeIcons.wrench, FontAwesomeIcons.wrench, 'Công cụ'),
                 const SizedBox(width: 48), // Space for FAB
-                _buildNavItem(2, Icons.folder_outlined, Icons.folder, 'Quản lý'),
-                _buildNavItem(3, Icons.person_outline, Icons.person, 'Cá nhân'),
+                _buildNavItem(2, FontAwesomeIcons.folder, FontAwesomeIcons.folderOpen, 'Công việc'),
+                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cấu hình'),
               ],
             ),
           ),
@@ -115,7 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  Widget _buildNavItem(int index, IconData icon, IconData activeIcon, String label) {
+  Widget _buildNavItem(int index, dynamic icon, dynamic activeIcon, String label) {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
@@ -128,10 +132,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
         mainAxisSize: MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
+          FaIcon(
             isSelected ? activeIcon : icon,
             color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            size: 24,
+            size: 20,
           ),
           const SizedBox(height: 4),
           Text(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/app_colors.dart';
 
 class ToolsScreen extends StatelessWidget {
@@ -29,25 +30,25 @@ class ToolsScreen extends StatelessWidget {
             childAspectRatio: 0.85,
             children: [
               _buildToolCard(
-                icon: Icons.edit_note,
+                icon: FontAwesomeIcons.penToSquare,
                 title: 'Công việc',
                 description: 'Lên kịch bản, viết bài nhanh, tóm tắt nội dung...',
                 color: Colors.blueAccent,
               ),
               _buildToolCard(
-                icon: Icons.language,
-                title: 'Tên miền',
-                description: 'Quản lý tên miền hoạt động của bạn',
+                icon: FontAwesomeIcons.globe,
+                title: 'Viết bài tự động',
+                description: 'Tạo nội dung chuẩn SEO với 1 click',
                 color: Colors.orangeAccent,
               ),
               _buildToolCard(
-                icon: Icons.account_tree_outlined,
-                title: 'Sitemap',
-                description: 'Đồng bộ bài viết từ website',
+                icon: FontAwesomeIcons.sitemap,
+                title: 'Lập dàn ý',
+                description: 'Cấu trúc bài viết mạch lạc',
                 color: Colors.purpleAccent,
               ),
               _buildToolCard(
-                icon: Icons.translate,
+                icon: FontAwesomeIcons.language,
                 title: 'Từ điển',
                 description: 'Tra cứu & giải nghĩa các từ tiếng Việt',
                 color: Colors.green,
@@ -73,15 +74,15 @@ class ToolsScreen extends StatelessWidget {
             childAspectRatio: 0.85,
             children: [
               _buildToolCard(
-                icon: Icons.image_outlined,
+                icon: FontAwesomeIcons.image,
                 title: 'Tạo hình ảnh',
                 description: 'Sử dụng AI để tạo hình ảnh chất lượng cao',
                 color: Colors.pinkAccent,
               ),
               _buildToolCard(
-                icon: Icons.record_voice_over_outlined,
-                title: 'Text to Speech',
-                description: 'Chuyển đổi văn bản thành giọng nói',
+                icon: FontAwesomeIcons.microphone,
+                title: 'Tạo giọng đọc',
+                description: 'Chuyển văn bản thành giọng nói',
                 color: Colors.teal,
               ),
             ],
@@ -93,7 +94,7 @@ class ToolsScreen extends StatelessWidget {
   }
 
   Widget _buildToolCard({
-    required IconData icon,
+    required dynamic icon,
     required String title,
     required String description,
     required Color color,
@@ -127,7 +128,11 @@ class ToolsScreen extends StatelessWidget {
                     color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: Icon(icon, color: color, size: 24),
+                  child: FaIcon(
+                    icon,
+                    size: 24,
+                    color: color,
+                  ),
                 ),
                 const Spacer(),
                 Text(
@@ -153,16 +158,9 @@ class ToolsScreen extends StatelessWidget {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
-                    Text(
-                      'Kích hoạt',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.primary,
-                      ),
-                    ),
+                    const Text('Khám phá', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w600)),
                     const SizedBox(width: 4),
-                    const Icon(Icons.arrow_forward_ios, size: 10, color: AppColors.primary),
+                    const FaIcon(FontAwesomeIcons.chevronRight, size: 10, color: AppColors.primary),
                   ],
                 ),
               ],

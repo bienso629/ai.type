@@ -19,6 +19,7 @@ import { SharedModule } from 'app/shared.module';
 import { GSCReportComponent } from 'app/modules/admin/marketing/seo-report/seo-report.component';
 import { MatSelectModule } from '@angular/material/select';
 import { MatAutocompleteModule } from '@angular/material/autocomplete';
+import { MatTabsModule } from '@angular/material/tabs';
 
 const Routes: Route[] = [
     {
@@ -49,6 +50,7 @@ const Routes: Route[] = [
         MatSidenavModule,
         MatSelectModule,
         MatAutocompleteModule,
+        MatTabsModule,
         MatButtonToggleModule,
         NgApexchartsModule,
         TimeagoModule.forRoot(),

@@ -1,20 +1,53 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme/app_colors.dart';
 import 'screens/login_screen.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'screens/dashboard_screen.dart';
+import 'screens/active_screen.dart';
 
-void main() {
+void main() async {
   WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  final prefs = await SharedPreferences.getInstance();
+  
   FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
-  runApp(const AITypingApp());
+  
+  bool isLoggedIn = prefs.getString('active_info') != null;
+  bool requiresActivation = false;
+  
+  if (isLoggedIn) {
+    final activeInfo = jsonDecode(prefs.getString('active_info')!);
+    if (activeInfo['user']['appToken'] == 'default_app_token' || activeInfo['user']['appToken'] == null) {
+      requiresActivation = true;
+    }
+  }
+
+  runApp(AITypingApp(isLoggedIn: isLoggedIn, requiresActivation: requiresActivation));
 }
 
 class AITypingApp extends StatelessWidget {
-  const AITypingApp({super.key});
+  final bool isLoggedIn;
+  final bool requiresActivation;
+  
+  const AITypingApp({super.key, required this.isLoggedIn, this.requiresActivation = false});
 
   @override
   Widget build(BuildContext context) {
+    FlutterNativeSplash.remove();
+    
+    Widget initialScreen;
+    if (isLoggedIn) {
+      if (requiresActivation) {
+        initialScreen = const ActiveScreen();
+      } else {
+        initialScreen = const DashboardScreen();
+      }
+    } else {
+      initialScreen = const LoginScreen();
+    }
+
     return MaterialApp(
       title: 'AI.TYPING',
       debugShowCheckedModeBanner: false,
@@ -93,7 +126,7 @@ class AITypingApp extends StatelessWidget {
         ),
       useMaterial3: true,
       ),
-      home: const LoginScreen(),
+      home: hasSession ? const DashboardScreen() : const LoginScreen(),
     );
   }
 }
