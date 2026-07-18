@@ -40,15 +40,11 @@ class _LoginScreenState extends State<LoginScreen> {
   Widget _buildIllustration() {
     return Container(
       width: double.infinity,
-      color: const Color(0xFFE2F1F8), // Maintain the light blue background if desired, or change as needed
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(48.0),
-          child: SvgPicture.asset(
-            'assets/images/process.svg',
-            fit: BoxFit.contain,
-          ),
-        ),
+      height: double.infinity,
+      color: const Color(0xFFE2F1F8),
+      child: SvgPicture.asset(
+        'assets/images/process.svg',
+        fit: BoxFit.cover,
       ),
     );
   }
@@ -193,7 +189,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         child: Stack(
                           children: [
-                            CustomPaint(painter: _CaptchaLinesPainter(), size: const Size.infinite),
+                            CustomPaint(painter: _CaptchaLinesPainter(), size: Size.infinite),
                             const Center(
                               child: Text(
                                 'PzZpJh',
