@@ -25,6 +25,7 @@ import { MultiAccountService } from './modules/_services/multi-account.service';
 import { UserClientService } from 'app/modules/_services/user';
 import { CrawlService } from 'app/modules/_services/crawl';
 import { DomainService } from 'app/modules/_services/domain';
+import { TasksService } from 'app/modules/_services/tasks';
 
 // register Swiper custom elements
 register();
@@ -88,7 +89,8 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
         importProvidersFrom(TranslocoCoreModule),
         UserClientService,
         CrawlService,
-        DomainService
+        DomainService,
+        TasksService
     ]
 })
 
