@@ -33,8 +33,7 @@ class AITypingApp extends StatelessWidget {
           fillColor: Colors.white,
           isDense: true,
           hintStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
-          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-          constraints: const BoxConstraints(minHeight: 48, maxHeight: 48),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(4),
             borderSide: const BorderSide(color: AppColors.accent),
@@ -53,7 +52,7 @@ class AITypingApp extends StatelessWidget {
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
             elevation: 0,
-            minimumSize: const Size(88, 48),
+            minimumSize: const Size(88, 52),
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 0),
             textStyle: const TextStyle(
               fontSize: 16,

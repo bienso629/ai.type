@@ -1912,7 +1912,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     if (!this.isChatting) break;
                     const vDate = validDates[i];
                     const vDateStrLocal = vDate.toLocaleDateString('vi-VN');
-                    const vDateStrIso = vDate.toISOString().split('T')[0];
+                    const vDateStrIso = `${vDate.getFullYear()}-${(vDate.getMonth() + 1).toString().padStart(2, '0')}-${vDate.getDate().toString().padStart(2, '0')}`;
                     
                     // Xóa task của riêng ngày hôm nay trước khi gọi AI
                     let dayDeletionTasks: any[] = [];
@@ -1943,6 +1943,11 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         const targetForDay = domainDistributions[d.domain] ? domainDistributions[d.domain][i] : 0;
                         d.dailyTarget = targetForDay;
                         if (targetForDay > 0) hasAnyTargetForDay = true;
+                        
+                        // Rút gọn task cũ thành mảng string (chỉ lấy tên) để tránh AI copy lại y hệt cấu trúc JSON và trả về
+                        if (d.tasks) {
+                            d.tasks = d.tasks.map((t: any) => t.name || t.title || 'Task');
+                        }
                     });
                     
                     if (!hasAnyTargetForDay) {
@@ -1991,12 +1996,12 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 }];
                             }
                             
-                            // Ép buộc gán lại ngày nếu AI quên (tránh fallback về hôm nay)
+                            // Ép buộc gán lại ngày cho TẤT CẢ task mới (bất chấp AI có trả về ngày gì)
                             dayParsed.forEach((d: any) => {
                                 if (d.tasks && Array.isArray(d.tasks)) {
                                     d.tasks.forEach((t: any) => {
-                                        if (!t.startDate) t.startDate = `${vDateStrIso}T08:00:00`;
-                                        if (!t.endDate) t.endDate = `${vDateStrIso}T17:00:00`;
+                                        t.startDate = `${vDateStrIso}T08:00:00`;
+                                        t.endDate = `${vDateStrIso}T17:00:00`;
                                     });
                                 }
                             });
