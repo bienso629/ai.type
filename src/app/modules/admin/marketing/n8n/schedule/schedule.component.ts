@@ -2,6 +2,7 @@ import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsu
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
 import { DomainService } from 'app/modules/_services/domain';
+import { TasksService } from 'app/modules/_services/tasks';
 import { User } from 'app/core/user/user.types';
 import {
     catchError,
@@ -200,7 +201,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         private _n8nService: N8nService, // Inject N8nService
         private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
-        private _domainService: DomainService
+        private _domainService: DomainService,
+        private _tasksService: TasksService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -2287,9 +2289,24 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     existingDomain.childrenItems = this.packTasks(newTasks, existingDomain.id);
                     if ((existingDomain as any).domainData) {
                         (existingDomain as any).domainData.plan = newTasks;
-                        this._domainService.edit({ username: this.user.name, domain: (existingDomain as any).domainData }).pipe(takeUntil(this._unsubscribeAll)).subscribe((res: any) => {
-                            if (res && res.success && res.data && res.data._rev) {
-                                (existingDomain as any).domainData._rev = res.data._rev;
+                        
+                        // Cập nhật hoặc thêm mới task, KHÔNG XÓA task cũ
+                        this._tasksService.fetch({ username: this.user.name, year: new Date().getFullYear() }).pipe(takeUntil(this._unsubscribeAll)).subscribe((resFetch: any) => {
+                            if (resFetch && resFetch.data) {
+                                const oldTasks = resFetch.data.filter((t: any) => t.domain_id === existingDomain.id);
+                                
+                                newTasks.forEach((task: any) => {
+                                    task.domain_id = existingDomain.id;
+                                    const oldTask = oldTasks.find((ot: any) => ot.id === task.id || ot._id === task.id);
+                                    
+                                    if (oldTask) {
+                                        task._id = oldTask._id;
+                                        task._rev = oldTask._rev;
+                                        this._tasksService.edit({ username: this.user.name, task: task }).subscribe();
+                                    } else {
+                                        this._tasksService.add({ username: this.user.name, task: task }).subscribe();
+                                    }
+                                });
                             }
                         });
                     }
