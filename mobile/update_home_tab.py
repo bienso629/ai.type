@@ -1,6 +1,9 @@
-import 'package:flutter/material.dart';
+import re
+
+content = """import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:fl_chart/fl_chart.dart';
+import 'package:timeago/timeago.dart' as timeago;
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 
@@ -41,12 +44,7 @@ class _HomeTabState extends State<HomeTab> {
     setState(() => _isLoading = true);
     try {
       final statsResult = await ApiService.getStatistics(_selectedYear);
-      print('API Statistics: ');
-      print(statsResult);
-      
       final collectionsResult = await ApiService.getCollections();
-      print('API Collections: ');
-      print(collectionsResult);
 
       if (collectionsResult != null && collectionsResult['success'] == true) {
         collections = collectionsResult['data']?.map((col) {
@@ -208,8 +206,8 @@ class _HomeTabState extends State<HomeTab> {
                 getTitlesWidget: (value, meta) {
                   if (value % 1 == 0 && value >= 0 && value <= 11) {
                     return SideTitleWidget(
-                      meta: meta,
-                      child: Text('T\${value.toInt() + 1}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+                      axisSide: meta.axisSide,
+                      child: Text('T\${value.toInt() + 1}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                     );
                   }
                   return const SizedBox();
@@ -222,10 +220,9 @@ class _HomeTabState extends State<HomeTab> {
                 interval: maxY / 5 > 0 ? maxY / 5 : 1,
                 getTitlesWidget: (value, meta) {
                   if (value == 0) return const SizedBox();
-                  String text = value >= 1000 ? '\${(value / 1000).toStringAsFixed(1)}k' : value.toInt().toString();
-                  return Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10), textAlign: TextAlign.right);
+                  return Text(value.toInt().toString(), style: const TextStyle(color: AppColors.textSecondary, fontSize: 12));
                 },
-                reservedSize: 36,
+                reservedSize: 42,
               ),
             ),
           ),
@@ -263,7 +260,7 @@ class _HomeTabState extends State<HomeTab> {
   Widget _buildStatCard(String title, int value, Map<String, dynamic> status, List<double> chartData, Color chartColor) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
       ),
@@ -271,21 +268,19 @@ class _HomeTabState extends State<HomeTab> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
                 const SizedBox(height: 8),
-                Text(value.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                Text(value.toString(), style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    FaIcon(status['icon'], size: 12, color: status['color']),
+                    FaIcon(status['icon'], size: 14, color: status['color']),
                     const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(status['text'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: status['color']), overflow: TextOverflow.ellipsis),
-                    ),
+                    Text(status['text'], style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: status['color'])),
                   ],
                 ),
               ],
@@ -303,9 +298,9 @@ class _HomeTabState extends State<HomeTab> {
 
   Widget _buildCollectionCard(dynamic icon, String title, int count, String date, Color color) {
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.surface,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
       ),
@@ -326,22 +321,16 @@ class _HomeTabState extends State<HomeTab> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Flexible(
-                child: Row(
-                  children: [
-                    FaIcon(FontAwesomeIcons.clock, size: 12, color: AppColors.textSecondary),
-                    const SizedBox(width: 4),
-                    const Flexible(
-                      child: Text(
-                        'Vài ngày trước',
-                        style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
-                ),
+              Row(
+                children: [
+                  FaIcon(FontAwesomeIcons.clock, size: 14, color: AppColors.textSecondary),
+                  const SizedBox(width: 4),
+                  Text(
+                    'Vài ngày trước', // timeago should be used if real date is parsable
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  ),
+                ],
               ),
-              const SizedBox(width: 8),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
@@ -380,10 +369,7 @@ class _HomeTabState extends State<HomeTab> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Expanded(
-                      child: Text('Số lượng bài viết tạo ra trong \$_selectedYear', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(width: 8),
+                    Text('Số lượng bài viết tạo ra trong \$_selectedYear', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                       decoration: BoxDecoration(
@@ -420,7 +406,7 @@ class _HomeTabState extends State<HomeTab> {
                 const SizedBox(height: 24),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppColors.surface,
+                    color: AppColors.card,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey.withOpacity(0.2)),
                   ),
@@ -433,13 +419,13 @@ class _HomeTabState extends State<HomeTab> {
           // Stat Cards
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Column(
+            child: Row(
               children: [
-                _buildStatCard('Tổng số bài viết', totalArticles, totalArticlesStatus, _monthlyTotals, Colors.blue),
-                const SizedBox(height: 16),
-                _buildStatCard('Domain hoạt động', activeDomains, activeDomainsStatus, _monthlyActiveDomains, Colors.red),
-                const SizedBox(height: 16),
-                _buildStatCard('Trung bình bài / Domain', avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green),
+                Expanded(child: _buildStatCard('Tổng số bài viết', totalArticles, totalArticlesStatus, _monthlyTotals, Colors.blue)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildStatCard('Domain hoạt động', activeDomains, activeDomainsStatus, _monthlyActiveDomains, Colors.red)),
+                const SizedBox(width: 16),
+                Expanded(child: _buildStatCard('Trung bình bài / Domain', avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green)),
               ],
             ),
           ),
@@ -468,96 +454,32 @@ class _HomeTabState extends State<HomeTab> {
                     ),
                   )
                 else
-                    GridView.builder(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 1,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 3.5,
-                      ),
-                      itemCount: collections.length,
-                      itemBuilder: (context, index) {
-                        final col = collections[index];
-                        return _buildCollectionCard(col['icon'], col['title'], col['count'], col['updatedAt'], AppColors.primary);
-                      },
+                  GridView.builder(
+                    padding: EdgeInsets.zero,
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 2,
+                      crossAxisSpacing: 16,
+                      mainAxisSpacing: 16,
+                      childAspectRatio: 2.2,
                     ),
-                ],
-              ),
+                    itemCount: collections.length,
+                    itemBuilder: (context, index) {
+                      final col = collections[index];
+                      return _buildCollectionCard(col['icon'], col['title'], col['count'], col['updatedAt'], AppColors.primary);
+                    },
+                  ),
+              ],
             ),
-            
-            const SizedBox(height: 32),
-            
-            // Video Projects Section
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('\${videoProjects.length} Dự án Video đang xây dựng', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                  const SizedBox(height: 16),
-                  if (videoProjects.isEmpty)
-                    const Text('Bạn chưa có dự án video nào.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14))
-                  else
-                    ListView.separated(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      itemCount: videoProjects.length,
-                      separatorBuilder: (context, index) => const SizedBox(height: 16),
-                      itemBuilder: (context, index) {
-                        final proj = videoProjects[index];
-                        return Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: AppColors.surface,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.all(10),
-                                decoration: BoxDecoration(
-                                  color: Colors.purple.withOpacity(0.1),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: const FaIcon(FontAwesomeIcons.video, size: 16, color: Colors.purple),
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(proj['title'] ?? 'Unnamed Project', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
-                                    const SizedBox(height: 4),
-                                    Text('ID: \${proj["uuid"]}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontFamily: 'monospace')),
-                                  ],
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                decoration: BoxDecoration(
-                                  color: Colors.amber.withOpacity(0.1),
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                                child: const Text('Đang xử lý', style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w600)),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                ],
-              ),
-            ),
-            
-            const SizedBox(height: 32),
-          ],
-        ),
-      );
+          ),
+          
+          const SizedBox(height: 32),
+        ],
+      ),
+    );
   }
 }
+"""
+with open('lib/screens/home_tab.dart', 'w') as f:
+    f.write(content)

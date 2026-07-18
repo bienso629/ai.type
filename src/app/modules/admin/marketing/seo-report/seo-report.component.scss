@@ -1,6 +1,5 @@
 /* Tùy chỉnh Layout dành riêng cho Print PDF */
 @media print {
-    /* 1. Ẩn toàn bộ Menu trái cục bộ của Electron App, Header và các khung ảo khác bằng ng-deep */
     ::ng-deep {
         fuse-vertical-navigation,
         .fuse-vertical-navigation,
@@ -12,7 +11,6 @@
             display: none !important;
         }
     }
-    /* 2. Ép các vùng Overflow của Tailwind bung ra hết cỡ để màn hình PDF hiển thị đủ trang */
     .overflow-y-auto,
     .absolute,
     .inset-0,
@@ -24,34 +22,54 @@
         height: auto !important;
         max-height: none !important;
     }
-
-    /* 3. Sửa cấu trúc bảng ảo ngx-datatable để ép xuất toàn bộ row loaded và bỏ scroll */
     ngx-datatable {
-        height: auto !important; /* Xóa inline style [style.height.px] */
+        height: auto !important;
         overflow: visible !important;
     }
-
     ngx-datatable .datatable-scroll {
         width: 100% !important;
         height: auto !important;
         overflow: visible !important;
     }
-
-    /* 4. Tránh tình trạng biểu đồ bị gãy làm đôi trên 2 trang giấy A4 */
     apx-chart,
     .bg-white.rounded-2xl.shadow {
         page-break-inside: avoid;
         break-inside: avoid;
     }
-
-    /* 5. Căn chỉnh dãn cách Lề trắng trang giấy A4 (Chrome sẽ đọc rule @page) */
     @page {
         margin: 1.5cm;
     }
-
-    /* Fix font để PDF đọc ổn định hơn */
     body {
         font-family: Arial, Helvetica, sans-serif !important;
         background-color: white !important;
     }
+}
+
+/* Kéo header ra sát lề màn hình (margin âm), rồi đẩy các nút Tab vào lại 24px (padding) để thẳng hàng Domain. Nhờ vậy đường viền dưới của Tab sẽ chạy dài full màn hình. */
+.custom-tabs-no-padding .mat-mdc-tab-header {
+    margin: 0 -24px !important;
+    padding: 0 24px !important;
+}
+
+/* Xóa padding mặc định của tab body để nội dung (Tìm kiếm, Bảng) thẳng hàng với Domain (ở 24px) */
+.custom-tabs-no-padding .mat-mdc-tab-body,
+.custom-tabs-no-padding .mat-tab-body,
+.custom-tabs-no-padding .mat-mdc-tab-body-wrapper,
+.custom-tabs-no-padding .mat-mdc-tab-body-content,
+.custom-tabs-no-padding .mat-tab-body-wrapper,
+.custom-tabs-no-padding .mat-tab-body-content {
+    padding: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
+}
+
+/* Ép text trong AI tab phải tự xuống dòng, không sinh ra thanh cuộn ngang cục bộ */
+.prose {
+    word-break: break-word;
+}
+.prose pre, .prose code, .prose table {
+    white-space: pre-wrap !important;
+    word-break: break-word !important;
+    overflow-x: hidden !important;
+    max-width: 100%;
 }

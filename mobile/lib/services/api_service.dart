@@ -45,6 +45,35 @@ class ApiService {
     return base64.encode(bytes);
   }
 
+  static String generateJWTToken(Map<String, dynamic> user) {
+    final header = {'alg': 'HS256', 'typ': 'JWT'};
+    final date = DateTime.now();
+    final iat = (date.millisecondsSinceEpoch / 1000).floor();
+    final exp = (date.add(const Duration(days: 7)).millisecondsSinceEpoch / 1000).floor();
+    
+    final payload = {
+      'iat': iat,
+      'iss': 'ai.type',
+      'exp': exp,
+      'user': user
+    };
+
+    String base64UrlEncode(List<int> bytes) {
+      return base64Url.encode(bytes).replaceAll('=', '');
+    }
+
+    final encodedHeader = base64UrlEncode(utf8.encode(jsonEncode(header)));
+    final encodedPayload = base64UrlEncode(utf8.encode(jsonEncode(payload)));
+    
+    final signatureInput = '\$encodedHeader.\$encodedPayload';
+    
+    final hmac = Hmac(sha256, utf8.encode('sh-0hPYnFVwEa5ydU9zWP9ET3BlbkFJeb81DqndysS0Zun3pOmK'));
+    final digest = hmac.convert(utf8.encode(signatureInput));
+    final signature = base64UrlEncode(digest.bytes);
+    
+    return '$encodedHeader.$encodedPayload.$signature';
+  }
+
   static Future<dynamic> login(String username, String password, String server) async {
     final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
     final url = Uri.parse('$baseUrl/forum/login/v3');
@@ -53,7 +82,6 @@ class ApiService {
       'username': username,
       'password': password,
       'server': server,
-      'rememberMe': true
     };
 
     final encryptedParams = encryptAES(dataForm);
@@ -63,17 +91,22 @@ class ApiService {
       headers: {'content-type': 'application/json'},
       body: jsonEncode({'params': encryptedParams}),
     );
+    
+    print('DEBUG LOGIN HEADERS: ${response.headers}');
 
     if (response.statusCode == 200) {
       final jsonResponse = jsonDecode(response.body);
       if (jsonResponse['data'] != null && jsonResponse['data']['status'] != null && jsonResponse['data']['status']['code'] == 'ok') {
         final prefs = await SharedPreferences.getInstance();
         final resultResponse = jsonResponse['data']['response'];
-        String? rawPicture = resultResponse['picture'] as String?;
-        String avatarUrl = rawPicture != null 
-          ? 'https://type.vn${rawPicture.replaceAll('&#x2F;', '/')}' 
-          : 'https://type.vn/assets/uploads/favicon.png';
-
+        String avatarUrl = '';
+        if (resultResponse['picture'] != null) {
+          avatarUrl = resultResponse['picture'];
+          if (avatarUrl.startsWith('/')) {
+            avatarUrl = 'https://type.vn$avatarUrl';
+          }
+        }
+        
         final user = {
           'id': resultResponse['uid'],
           'name': resultResponse['username'],
@@ -83,9 +116,46 @@ class ApiService {
           'reputation': resultResponse['reputation'],
           'avatar': avatarUrl,
           'status': resultResponse['status'],
-          'appToken': resultResponse['appToken'] ?? 'default_app_token',
+          'groups': [],
         };
-        await prefs.setString('active_info', jsonEncode({'user': user}));
+
+        // Fetch groups
+        final groupsUrl = Uri.parse('$baseUrl/forum/groups');
+        final groupsDataForm = {'server': server};
+        final groupsEncryptedParams = encryptAES(groupsDataForm);
+        
+        try {
+          final groupsResponse = await http.post(
+            groupsUrl,
+            headers: {'content-type': 'application/json'},
+            body: jsonEncode({'params': groupsEncryptedParams}),
+          );
+          if (groupsResponse.statusCode == 200) {
+            final groupsJson = jsonDecode(groupsResponse.body);
+            if (groupsJson['success'] == true && groupsJson['data'] != null && groupsJson['data']['groups'] != null) {
+              final List groupsList = groupsJson['data']['groups'];
+              for (var g in groupsList) {
+                if (g['members'] != null) {
+                  for (var m in g['members']) {
+                    if (m['uid'] == user['id']) {
+                      if (!((user['groups'] as List).contains(g['slug']))) {
+                        (user['groups'] as List).add(g['slug']);
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          print('Failed to fetch groups: $e');
+        }
+
+        final activeInfo = {
+          'user': user,
+          'expirationDate': DateTime.now().add(const Duration(days: 7)).toIso8601String(),
+        };
+        await prefs.setString('active_info', jsonEncode(activeInfo));
         return user;
       } else {
         throw Exception(jsonResponse['data']?['message'] ?? 'Login failed');
@@ -108,14 +178,61 @@ class ApiService {
       'year': 2023,
       'reportYear': reportYear,
       'appId': 'ai.typing',
-      'appToken': activeInfo['user']['appToken'],
+      'username': activeInfo['user']['name'],
+    };
+    print('DEBUG dataForm: \$dataForm');
+
+    final encryptedParams = encryptAES(dataForm);
+    print('DEBUG encryptedParams: \$encryptedParams');
+
+    final jwt = generateJWTToken(activeInfo['user']);
+    print('DEBUG JWT: ' + jwt);
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + jwt,
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+    print('getStatistics Response: ' + response.statusCode.toString() + ' ' + response.body);
+    
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    } else {
+      print('getStatistics failed: \${response.statusCode} - \${response.body}');
+    }
+    return null;
+  }
+
+  static Future<dynamic> getCollections() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/crawl/node/collections');
+
+    final dataForm = {
+      'server': server,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': activeInfo['user']['name'],
+      'page': {'size': 100},
+      'includeUuid': false
     };
 
     final encryptedParams = encryptAES(dataForm);
 
     final response = await http.post(
       url,
-      headers: {'content-type': 'application/json'},
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
       body: jsonEncode({'params': encryptedParams}),
     );
 
@@ -123,5 +240,64 @@ class ApiService {
       return jsonDecode(response.body);
     }
     return null;
+  }
+
+  static Future<bool> activateLicense(String licenseKey) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return false;
+
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('\$baseUrl/licensekey/activate');
+
+      String uuid = prefs.getString('device_uuid') ?? '';
+      if (uuid.isEmpty) {
+        uuid = DateTime.now().millisecondsSinceEpoch.toString() + '_flutter_device';
+        await prefs.setString('device_uuid', uuid);
+      }
+
+      final dataForm = {
+        'year': 2023,
+        'appId': 'ai.typing',
+        'username': activeInfo['user']['name'],
+        'email': activeInfo['user']['email'],
+        'machine': {
+          'uuid': uuid,
+          'du': uuid,
+        },
+        'licensekey': licenseKey
+      };
+
+      final encryptedParams = encryptAES(dataForm);
+      final jwt = generateJWTToken(activeInfo['user']);
+
+      final response = await http.post(
+        url,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + jwt,
+        },
+        body: jsonEncode({'params': encryptedParams}),
+      );
+
+      print('DEBUG ACTIVATE: \${response.statusCode} \${response.body}');
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
+          // Kích hoạt thành công, update active_info với appToken
+          activeInfo['user']['appToken'] = jsonResponse['data']['appToken'];
+          // Cũng lưu thêm các field khác nếu cần
+          await prefs.setString('active_info', jsonEncode(activeInfo));
+          return true;
+        }
+      }
+      return false;
+    } catch (e) {
+      print('DEBUG ACTIVATE ERROR: \$e');
+      return false;
+    }
   }
 }

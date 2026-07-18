@@ -58,10 +58,12 @@
 
         <div class="w-full my-6 border-t border-gray-50"></div>
 
-        <div class="flex flex-col mt-4 gap-2">
-            <h3 class="text-xl sm:text-2xl text-primary mb-2">
-                {{ 'app.google_search_console_keyword' | transloco }}
-            </h3>
+        <mat-tab-group animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" class="w-full mt-2 custom-tabs-no-padding">
+            <mat-tab [label]="('app.google_search_console_keyword' | transloco)">
+                <div class="flex flex-col gap-2 mt-8">
+                    <h3 class="text-xl sm:text-2xl text-primary mb-2 hidden">
+                        {{ 'app.google_search_console_keyword' | transloco }}
+                    </h3>
 
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                 <mat-form-field [subscriptSizing]="'dynamic'"
@@ -283,10 +285,16 @@
 
                     <div class="w-full my-6 border-t border-gray-50"></div>
                 </div>
+            </div>
+        </div>
+    </mat-tab>
 
-                <div class="mt-2 w-full">
+    <mat-tab [label]="('app.auto_google_analytics_4_users_engag' | transloco)">
+        <div class="flex flex-col gap-2 mt-8">
+            <div class="flex flex-col items-start justify-start h-full w-full">
+                <div class="w-full">
                     <div>
-                        <h3 class="text-xl sm:text-2xl text-primary mb-2">
+                        <h3 class="text-xl sm:text-2xl text-primary mb-2 hidden">
                             {{ 'app.auto_google_analytics_4_users_engag' | transloco }}
                         </h3>
 
@@ -496,9 +504,15 @@
                         </ng-container>
                     </div>
                 </div>
+            </div>
+        </div>
+    </mat-tab>
 
+    <mat-tab [label]="('app.auto_things_to_do' | transloco) || 'AI Gợi ý'">
+        <div class="flex flex-col gap-2 mt-8">
+            <div class="flex flex-col items-start justify-start h-full w-full">
                 <!-- BẮT ĐẦU BLOCK PHÂN TÍCH AI -->
-                <div class="mt-2 w-full p-6 bg-slate-50 rounded-lg border border-slate-200 gap-2"
+                <div class="mt-4 w-full gap-2"
                     *ngIf="rows && rows.length > 0">
                     <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div class="flex items-center gap-3">
@@ -507,7 +521,7 @@
                                 <mat-icon class="icon-size-5" svgIcon="feather:command"></mat-icon>
                             </div>
                             <div>
-                                <h3 class="text-lg font-semibold text-slate-800 m-0">{{ 'app.auto_things_to_do' | transloco }}</h3>
+                                <h3 class="text-lg font-semibold text-slate-800 m-0 hidden">{{ 'app.auto_things_to_do' | transloco }}</h3>
                                 <p class="text-sm text-slate-500 m-0">{{ 'app.auto_analyze_data_to_propose_necess' | transloco }}
                                 </p>
                             </div>
@@ -523,7 +537,7 @@
                     </div>
 
                     <div *ngIf="aiSuggestions"
-                        class="mt-4 p-6 bg-white rounded-lg overflow-hidden prose max-w-none text-slate-700">
+                        class="mt-4 overflow-hidden prose max-w-none text-slate-700">
                         <div [innerHTML]="aiSuggestions" class="text-base"></div>
                     </div>
                 </div>
@@ -543,4 +557,6 @@
             </div> -->
             </div>
         </div>
+    </mat-tab>
+</mat-tab-group>
     </div>

@@ -1,11 +1,13 @@
 import 'dart:math';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
-import 'dart:convert';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import 'dashboard_screen.dart';
+import 'active_screen.dart';
 import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -25,6 +27,7 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _captchaStatus = false;
   String _selectedServer = 'vn.s3';
   bool _isLoading = false;
+  bool _rememberMe = true;
 
   @override
   void initState() {
@@ -80,10 +83,22 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       await ApiService.login(email, password, _selectedServer);
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('remember_me', _rememberMe);
       if (!mounted) return;
+      
+      bool requiresActivation = false;
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        if (activeInfo['user']['appToken'] == 'default_app_token' || activeInfo['user']['appToken'] == null) {
+          requiresActivation = true;
+        }
+      }
+
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+        MaterialPageRoute(builder: (context) => requiresActivation ? const ActiveScreen() : const DashboardScreen()),
       );
     } catch (e) {
       if (!mounted) return;
@@ -180,10 +195,11 @@ class _LoginScreenState extends State<LoginScreen> {
               children: [
                 // Logo & Title
                 Center(
-                  child: SvgPicture.asset(
-                    'assets/images/typing-logo.svg',
+                  child: Image.asset(
+                    'assets/images/logo.png',
                     height: 48,
                     fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
                   ),
                 ),
                 const SizedBox(height: 16),
@@ -227,10 +243,10 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: InputDecoration(
                     hintText: '',
                     suffixIcon: IconButton(
-                      icon: Icon(
-                        _obscurePassword ? Icons.visibility_off : Icons.visibility,
+                      icon: FaIcon(
+                        _obscurePassword ? FontAwesomeIcons.eyeSlash : FontAwesomeIcons.eye,
                         color: AppColors.textSecondary,
-                        size: 20,
+                        size: 16,
                       ),
                       onPressed: () {
                         setState(() {
@@ -249,7 +265,7 @@ class _LoginScreenState extends State<LoginScreen> {
                   decoration: const InputDecoration(
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
-                  icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
+                  icon: const FaIcon(FontAwesomeIcons.chevronDown, color: AppColors.textSecondary, size: 16),
                   value: _selectedServer,
                   items: const [
                     DropdownMenuItem(value: 'vn.s1', child: Text('Việt Nam - TP.HCM/S1 (đang sửa chữa)', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))),
@@ -276,9 +292,15 @@ class _LoginScreenState extends State<LoginScreen> {
                           height: 24,
                           width: 24,
                           child: Checkbox(
-                            value: true,
+                            value: _rememberMe,
                             materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                            onChanged: (value) {},
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() {
+                                  _rememberMe = value;
+                                });
+                              }
+                            },
                           ),
                         ),
                         const SizedBox(width: 8),
@@ -352,7 +374,7 @@ class _LoginScreenState extends State<LoginScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 const Text('Kiểm tra', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                                Icon(Icons.refresh, color: Colors.green[600], size: 20),
+                                FaIcon(FontAwesomeIcons.arrowsRotate, color: Colors.green[600], size: 16),
                               ],
                             ),
                           ),
