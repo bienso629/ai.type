@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'theme/app_colors.dart';
-import 'screens/splash_screen.dart';
+import 'screens/login_screen.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
 
 void main() {
+  WidgetsBinding widgetsBinding = WidgetsFlutterBinding.ensureInitialized();
+  FlutterNativeSplash.preserve(widgetsBinding: widgetsBinding);
   runApp(const AITypingApp());
 }
 
@@ -88,9 +91,9 @@ class AITypingApp extends StatelessWidget {
           }),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
-        useMaterial3: true,
+      useMaterial3: true,
       ),
-      home: const SplashScreen(),
+      home: const LoginScreen(),
     );
   }
 }

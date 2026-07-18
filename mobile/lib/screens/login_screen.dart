@@ -1,7 +1,12 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import 'dashboard_screen.dart';
+import '../services/api_service.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -12,6 +17,89 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   bool _obscurePassword = true;
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _captchaController = TextEditingController();
+
+  String _captchaCode = '';
+  bool _captchaStatus = false;
+  String _selectedServer = 'vn.s3';
+  bool _isLoading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _generateCaptcha();
+    FlutterNativeSplash.remove();
+  }
+
+  void _generateCaptcha() {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    final random = Random();
+    _captchaCode = String.fromCharCodes(Iterable.generate(
+        6, (_) => chars.codeUnitAt(random.nextInt(chars.length))));
+    _captchaController.clear();
+    _captchaStatus = false;
+    setState(() {});
+  }
+
+  void _validateCaptcha() {
+    setState(() {
+      _captchaStatus =
+          _captchaController.text.toLowerCase() == _captchaCode.toLowerCase();
+    });
+  }
+
+  Future<void> _handleLogin() async {
+    _validateCaptcha();
+    if (!_captchaStatus) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Vui lòng nhập đúng mã Captcha.'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+
+    final emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (email.isEmpty || !emailRegex.hasMatch(email) || password.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Thiếu thông tin đăng nhập.'),
+            backgroundColor: Colors.red),
+      );
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      await ApiService.login(email, password, _selectedServer);
+      if (!mounted) return;
+      Navigator.pushReplacement(
+        context,
+        MaterialPageRoute(builder: (context) => const DashboardScreen()),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content: Text(e.toString().replaceAll('Exception: ', '')),
+            backgroundColor: Colors.red),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,15 +179,12 @@ class _LoginScreenState extends State<LoginScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 // Logo & Title
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Image.asset(
-                      'assets/images/logo.png',
-                      height: 48,
-                      fit: BoxFit.contain,
-                    ),
-                  ],
+                Center(
+                  child: SvgPicture.asset(
+                    'assets/images/typing-logo.svg',
+                    height: 48,
+                    fit: BoxFit.contain,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 Row(
@@ -120,8 +205,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 // Email Field
                 const Text('Email *', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 8),
-                const TextField(
-                  decoration: InputDecoration(
+                TextField(
+                  controller: _emailController,
+                  decoration: const InputDecoration(
                     hintText: '',
                   ),
                 ),
@@ -136,6 +222,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text('Mật khẩu *', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 8),
                 TextField(
+                  controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
                     hintText: '',
@@ -163,11 +250,19 @@ class _LoginScreenState extends State<LoginScreen> {
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                   icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
-                  value: 'vns3',
+                  value: _selectedServer,
                   items: const [
-                    DropdownMenuItem(value: 'vns3', child: Text('Việt Nam - TP.HCM/S3 (ổn định)', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))),
+                    DropdownMenuItem(value: 'vn.s1', child: Text('Việt Nam - TP.HCM/S1 (đang sửa chữa)', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))),
+                    DropdownMenuItem(value: 'vn.s2', child: Text('Việt Nam - TP.HCM/S2 (đang sửa chữa)', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))),
+                    DropdownMenuItem(value: 'vn.s3', child: Text('Việt Nam - TP.HCM/S3 (ổn định)', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))),
                   ],
-                  onChanged: (val) {},
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() {
+                        _selectedServer = val;
+                      });
+                    }
+                  },
                 ),
                 
                 const SizedBox(height: 16),
@@ -225,18 +320,19 @@ class _LoginScreenState extends State<LoginScreen> {
                           child: Stack(
                             children: [
                               CustomPaint(painter: _CaptchaLinesPainter(), size: Size.infinite),
-                              const Center(
+                              Center(
                                 child: Text(
-                                  'PzZpJh',
-                                  style: TextStyle(fontSize: 28, letterSpacing: 4, color: Colors.black87),
+                                  _captchaCode,
+                                  style: const TextStyle(fontSize: 28, letterSpacing: 4, color: Colors.black87),
                                 ),
                               ),
                             ],
                           ),
                         ),
                         // Captcha Input
-                        const TextField(
-                          decoration: InputDecoration(
+                        TextField(
+                          controller: _captchaController,
+                          decoration: const InputDecoration(
                             hintText: 'Nhập các ký tự và bấm kiểm tra',
                             hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                             border: InputBorder.none,
@@ -248,14 +344,17 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                         const Divider(height: 1, color: AppColors.accent),
                         // Check Button
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              const Text('Kiểm tra', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                              Icon(Icons.refresh, color: Colors.green[600], size: 20),
-                            ],
+                        InkWell(
+                          onTap: _generateCaptcha,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text('Kiểm tra', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                                Icon(Icons.refresh, color: Colors.green[600], size: 20),
+                              ],
+                            ),
                           ),
                         ),
                       ],
@@ -266,13 +365,8 @@ class _LoginScreenState extends State<LoginScreen> {
                 const SizedBox(height: 24),
                 // Login Button
                 ElevatedButton(
-                  onPressed: () {
-                    Navigator.pushReplacement(
-                      context,
-                      MaterialPageRoute(builder: (context) => const DashboardScreen()),
-                    );
-                  },
-                  child: const Text('Truy cập ứng dụng'),
+                  onPressed: _isLoading ? null : _handleLogin,
+                  child: _isLoading ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)) : const Text('Truy cập ứng dụng'),
                 ),
                 
                 const SizedBox(height: 24),

@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import '../theme/app_colors.dart';
 import 'tools_screen.dart';
 import 'home_tab.dart';
@@ -12,6 +15,24 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
+  String? _avatarUrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr != null) {
+      final activeInfo = jsonDecode(activeInfoStr);
+      setState(() {
+        _avatarUrl = activeInfo['user']['avatar'];
+      });
+    }
+  }
   
   final List<Widget> _tabs = [
     const HomeTab(),
@@ -28,8 +49,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
         backgroundColor: AppColors.surface,
         elevation: 0,
         scrolledUnderElevation: 0,
-        title: Image.asset(
-          'assets/images/logo.png',
+        title: SvgPicture.asset(
+          'assets/images/typing-logo.svg',
           height: 36,
           fit: BoxFit.contain,
         ),
@@ -38,12 +59,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
             icon: const Icon(Icons.notifications_outlined, color: AppColors.textPrimary),
             onPressed: () {},
           ),
-          const Padding(
-            padding: EdgeInsets.only(right: 16.0, left: 8.0),
+          Padding(
+            padding: const EdgeInsets.only(right: 16.0, left: 8.0),
             child: CircleAvatar(
               radius: 16,
               backgroundColor: AppColors.accent,
-              backgroundImage: NetworkImage('https://i.pravatar.cc/150?img=11'), // Sample avatar
+              backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
+              child: _avatarUrl == null ? const Icon(Icons.person, size: 16, color: AppColors.textSecondary) : null,
             ),
           ),
         ],
