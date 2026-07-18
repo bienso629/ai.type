@@ -36,6 +36,12 @@ dependencies:
   cupertino_icons: ^1.0.8
   google_fonts: ^8.2.0
   flutter_svg: ^2.3.0
+  http: ^1.6.0
+  encrypt: ^5.0.3
+  crypto: ^3.0.7
+  shared_preferences: ^2.5.5
+  flutter_native_splash: ^2.4.8
+  jovial_svg: ^1.1.30
 
 dev_dependencies:
   flutter_test:
@@ -47,6 +53,7 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+  flutter_launcher_icons: ^0.14.4
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

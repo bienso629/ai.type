@@ -29,6 +29,7 @@ import {
     Subscription,
     switchMap,
     takeUntil,
+    Observable,
 } from 'rxjs';
 import { ActivatedRoute, Params } from '@angular/router';
 import { Router } from '@angular/router';
@@ -1416,13 +1417,46 @@ ${content}`;
 
     // upload ảnh lên server
     uploadImage(imagePath: string) {
-        return this._blogService
-            .uploadImage({
-                imagePath: imagePath,
-                domain: this.domain,
-                username: this.user.name,
-            })
-            .pipe(takeUntil(this._unsubscribeAll));
+        if (this.technology === 'wordpress' && this.domain) {
+            return new Observable(observer => {
+                fetch('file:///' + imagePath).then(res => res.blob()).then(blob => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64Data = (reader.result as string).split(',')[1];
+                        this._wordpressService.upload_media(
+                            this.domain.domain,
+                            base64Data,
+                            '',
+                            '',
+                            this.domain
+                        ).subscribe({
+                            next: (res) => {
+                                if (res && res.data && res.data.source_url) {
+                                    observer.next({ img: res.data.source_url });
+                                    observer.complete();
+                                } else {
+                                    observer.next({ img: null });
+                                    observer.complete();
+                                }
+                            },
+                            error: (err) => {
+                                observer.error(err);
+                            }
+                        });
+                    };
+                    reader.onerror = (err) => observer.error(err);
+                    reader.readAsDataURL(blob);
+                }).catch(err => observer.error(err));
+            }).pipe(takeUntil(this._unsubscribeAll));
+        } else {
+            return this._blogService
+                .uploadImage({
+                    imagePath: imagePath,
+                    domain: this.domain,
+                    username: this.user.name,
+                })
+                .pipe(takeUntil(this._unsubscribeAll));
+        }
     }
 
     // upload hình lên server

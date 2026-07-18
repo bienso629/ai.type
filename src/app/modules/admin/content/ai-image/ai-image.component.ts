@@ -33,6 +33,7 @@ import { BlogService } from 'app/modules/_services/blog';
 import { DomainService } from 'app/modules/_services/domain';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { MyKeysService } from 'app/modules/_services/mykey';
+import { WordpressService } from 'app/modules/_services/wordpress';
 
 interface ReferenceFile {
     base64Data: string;
@@ -44,7 +45,7 @@ interface ReferenceFile {
     selector: 'ai-image',
     templateUrl: './ai-image.component.html',
     styleUrls: ['./ai-image.component.scss'],
-    providers: [ChatGPTService, BlogService, DomainService, MyKeysService, ForumService],
+    providers: [ChatGPTService, BlogService, DomainService, MyKeysService, ForumService, WordpressService],
     encapsulation: ViewEncapsulation.None,
 })
 export class AIImageComponent
@@ -62,8 +63,8 @@ export class AIImageComponent
     drawerMode: 'over' | 'side' = 'side';
     drawerOpened: boolean = true;
 
-    domain = 'https://type.vn';
-    domains = [];
+    domain: any = 'https://type.vn';
+    domains: any[] = [];
     alldomain: any[] = [];
 
     downloadJsonHref: any;
@@ -347,22 +348,55 @@ export class AIImageComponent
         });
     }
 
-    uploadImage(imagePath: string) {
-        this._blogService
-            .uploadImage({
-                imagePath: imagePath,
-                domain: this.domain,
-                username: this.user.name,
-            })
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result) this.toastr.success('Tải hình ảnh thành công!');
-                },
-                error: () => {
-                    this.toastr.warning('Không tải được hình ảnh.');
-                },
-            });
+    async uploadImage(imagePath: string) {
+        if (this.domain && this.domain.domain) {
+            try {
+                const response = await fetch('file:///' + imagePath);
+                const blob = await response.blob();
+                const base64Data = await new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        const base64 = (reader.result as string).split(',')[1];
+                        resolve(base64);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(blob);
+                });
+
+                this._wordpressService.upload_media(
+                    this.domain.domain,
+                    base64Data,
+                    '',
+                    '',
+                    this.domain
+                ).subscribe({
+                    next: (res) => {
+                        if (res) this.toastr.success('Tải hình ảnh thành công!');
+                    },
+                    error: () => {
+                        this.toastr.warning('Không tải được hình ảnh.');
+                    }
+                });
+            } catch (err) {
+                this.toastr.warning('Không thể đọc file ảnh.');
+            }
+        } else {
+            this._blogService
+                .uploadImage({
+                    imagePath: imagePath,
+                    domain: this.domain,
+                    username: this.user.name,
+                })
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe({
+                    next: async (result) => {
+                        if (result) this.toastr.success('Tải hình ảnh thành công!');
+                    },
+                    error: () => {
+                        this.toastr.warning('Không tải được hình ảnh.');
+                    },
+                });
+        }
     }
 
     stop() {
@@ -632,7 +666,8 @@ export class AIImageComponent
         private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
         private _forumService: ForumService,
-        private _h: HelperService
+        private _h: HelperService,
+        private _wordpressService: WordpressService
     ) {
         this.titleService.setTitle(`tạo hình | ai.type - công cụ tạo content`);
 

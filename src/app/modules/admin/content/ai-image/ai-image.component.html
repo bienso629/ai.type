@@ -24,7 +24,7 @@
             <mat-form-field *ngIf="domains" stopPropagation (stop2click)="handler($event)"
                 class="min-w-80 field-hidden-subscript fuse-mat-dense fuse-mat-emphasized-affix" appearance="fill">
                 <mat-text matPrefix>{{ 'app.upload' | transloco }}</mat-text>
-                <mat-select (selectionChange)="connect($event)" [(ngModel)]="domain">
+                <mat-select (selectionChange)="onDomainChange($event)" [(ngModel)]="domain">
                     <ng-container *ngFor="let item of domains; let i = index">
                         <mat-option [value]="item">{{item.domain}}</mat-option>
                     </ng-container>

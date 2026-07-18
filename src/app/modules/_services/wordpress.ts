@@ -116,39 +116,19 @@ export class WordpressService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        const url = `${dataForm.domain}/wp-json/wp/v2/posts/${dataForm.wp_post_id}`;
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
+        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? dataForm.domainObj.id : null) || dataForm.id;
 
-        let headers = new HttpHeaders({
-            'content-type': 'application/json'
-        });
+        const url = `${this.config.settings.api[this.user.server]}/wordpress/post/update`;
 
-        const uname = dataForm.wp_username || dataForm.username;
-        const pass = dataForm.wp_password || dataForm.apppass;
-
-        if (uname && pass) {
-            const authStr = btoa(`${uname}:${pass}`);
-            headers = headers.append('Authorization', `Basic ${authStr}`);
-        } else {
-            console.warn('Missing wp_username/username or wp_password/apppass for WP update_post!');
-        }
-
-        let options = { headers };
-
-        const payload: any = {
-            title: dataForm.title,
-            content: dataForm.content
+        let options = {
+            headers: new HttpHeaders({
+                'content-type': 'application/json'
+            })
         };
-        
-        if (dataForm.excerpt !== undefined) {
-            payload.excerpt = dataForm.excerpt;
-        }
-        
-        if (dataForm.categories && dataForm.categories.length > 0) {
-            payload.categories = dataForm.categories;
-        }
-        if (dataForm.tags && dataForm.tags.length > 0) {
-            payload.tags = dataForm.tags;
-        }
 
         let uploadObs: Observable<any> = of(null);
         if (dataForm.thumbnail && dataForm.force_update_thumbnail) {
@@ -156,67 +136,55 @@ export class WordpressService {
             const dataImageThumb = thumbs.find((t: string) => t.startsWith('data:image'));
             
             if (dataImageThumb) {
-                uploadObs = this.upload_media(dataForm.domain, dataImageThumb, uname, pass);
+                // Pass uname and pass as empty strings, domainObj as dataForm
+                uploadObs = this.upload_media(dataForm.domain, dataImageThumb, '', '', dataForm);
             }
         }
 
         return uploadObs.pipe(
             switchMap(mediaRes => {
                 if (mediaRes && mediaRes.id) {
-                    payload.featured_media = mediaRes.id;
-                } else if (dataForm.featured_media) {
-                    payload.featured_media = dataForm.featured_media;
+                    dataForm.featured_media = mediaRes.id;
                 }
-                return this.http.post<any>(url, payload, options).pipe(
-                    map(res => res),
+                
+                let data = {
+                    params: this._h.encrypt(dataForm, this.config.settings.gen)
+                };
+
+                return this.http.post<any>(url, data, options).pipe(
+                    map(data => data),
                     catchError(this.handleError('server', []))
                 );
             })
         );
     }
 
-    public upload_media(domain: string, b64: string, uname: string, pass: string): Observable<any> {
-        const url = `${domain}/wp-json/wp/v2/media`;
-
-        const matches = b64.match(/^data:(.+);name=(.+);base64,(.*)$/);
-        let mimeType = 'image/jpeg';
-        let fileName = 'image.jpg';
-        let b64Data = b64;
+    public upload_media(domain: string, b64: string, uname: string, pass: string, domainObj?: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
         
-        if (matches) {
-            mimeType = matches[1];
-            fileName = decodeURIComponent(matches[2]);
-            b64Data = matches[3];
-        } else {
-            const matches2 = b64.match(/^data:([^;]+);base64,(.*)$/);
-            if (matches2) {
-                mimeType = matches2[1];
-                b64Data = matches2[2];
-            }
-        }
+        let dataForm: any = {
+             domain: domain,
+             b64: b64,
+             domain_id: domainObj ? domainObj.id : null,
+             year: this.year,
+             appId: 'ai.typing',
+             appToken: activeInfo['user']['appToken'],
+             sys_username: this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name'])
+        };
 
-        const byteCharacters = atob(b64Data);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-            byteNumbers[i] = byteCharacters.charCodeAt(i);
-        }
-        const byteArray = new Uint8Array(byteNumbers);
-        const blob = new Blob([byteArray], { type: mimeType });
+        const url = `${this.config.settings.api[this.user.server]}/wordpress/media/upload`;
+        
+        let data = dataForm;
 
-        let safeFileName = fileName.replace(/[^a-zA-Z0-9.\-_]/g, '_');
-        if (!safeFileName) safeFileName = 'image.jpg';
+        let options = {
+            headers: new HttpHeaders({
+                'content-type': 'application/json'
+            })
+        };
 
-        let headers = new HttpHeaders({
-            'Content-Disposition': `attachment; filename="${safeFileName}"`,
-            'Content-Type': mimeType
-        });
-
-        if (uname && pass) {
-            const authStr = btoa(`${uname}:${pass}`);
-            headers = headers.append('Authorization', `Basic ${authStr}`);
-        }
-
-        return this.http.post<any>(url, blob, { headers }).pipe(
+        return this.http.post<any>(url, data, options).pipe(
+            map(res => res),
             catchError(this.handleError('upload_media', null))
         );
     }
