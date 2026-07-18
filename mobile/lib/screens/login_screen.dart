@@ -42,9 +42,39 @@ class _LoginScreenState extends State<LoginScreen> {
       width: double.infinity,
       height: double.infinity,
       color: const Color(0xFFE2F1F8),
-      child: SvgPicture.asset(
-        'assets/images/process.svg',
-        fit: BoxFit.cover,
+      child: Stack(
+        fit: StackFit.expand,
+        children: [
+          SvgPicture.asset(
+            'assets/images/process.svg',
+            fit: BoxFit.cover,
+          ),
+          Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  color: const Color(0xFFFDE68A),
+                  child: const Text(
+                    'Tăng cường',
+                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  color: const Color(0xFFFDE68A),
+                  child: const Text(
+                    'sức mạnh Content',
+                    style: TextStyle(fontSize: 48, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                  ),
+                ),
+                const SizedBox(height: 100), // Push it slightly up or adjust based on image
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -129,7 +159,9 @@ class _LoginScreenState extends State<LoginScreen> {
                 const Text('Máy chủ *', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                 const SizedBox(height: 8),
                 DropdownButtonFormField<String>(
-                  decoration: const InputDecoration(),
+                  decoration: const InputDecoration(
+                    contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  ),
                   icon: const Icon(Icons.arrow_drop_down, color: AppColors.textSecondary),
                   value: 'vns3',
                   items: const [
@@ -150,6 +182,7 @@ class _LoginScreenState extends State<LoginScreen> {
                           width: 24,
                           child: Checkbox(
                             value: true,
+                            materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             onChanged: (value) {},
                           ),
                         ),
@@ -177,52 +210,56 @@ class _LoginScreenState extends State<LoginScreen> {
                     borderRadius: BorderRadius.circular(4),
                     color: Colors.white,
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      // Fake Captcha Image
-                      Container(
-                        height: 60,
-                        decoration: const BoxDecoration(
-                          color: Color(0xFFF0FDF4),
-                          border: Border(bottom: BorderSide(color: AppColors.accent)),
-                        ),
-                        child: Stack(
-                          children: [
-                            CustomPaint(painter: _CaptchaLinesPainter(), size: Size.infinite),
-                            const Center(
-                              child: Text(
-                                'PzZpJh',
-                                style: TextStyle(fontSize: 28, letterSpacing: 4, color: Colors.black87),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(3), // slightly less than outer to fit perfectly
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Fake Captcha Image
+                        Container(
+                          height: 60,
+                          decoration: const BoxDecoration(
+                            color: Color(0xFFF0FDF4),
+                            border: Border(bottom: BorderSide(color: AppColors.accent)),
+                          ),
+                          child: Stack(
+                            children: [
+                              CustomPaint(painter: _CaptchaLinesPainter(), size: Size.infinite),
+                              const Center(
+                                child: Text(
+                                  'PzZpJh',
+                                  style: TextStyle(fontSize: 28, letterSpacing: 4, color: Colors.black87),
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
-                      ),
-                      // Captcha Input
-                      TextField(
-                        decoration: const InputDecoration(
-                          hintText: 'Nhập các ký tự và bấm kiểm tra',
-                          hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 13),
-                          border: InputBorder.none,
-                          enabledBorder: InputBorder.none,
-                          focusedBorder: InputBorder.none,
-                          filled: false,
+                        // Captcha Input
+                        const TextField(
+                          decoration: InputDecoration(
+                            hintText: 'Nhập các ký tự và bấm kiểm tra',
+                            hintStyle: TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                            border: InputBorder.none,
+                            enabledBorder: InputBorder.none,
+                            focusedBorder: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                            filled: false,
+                          ),
                         ),
-                      ),
-                      const Divider(height: 1, color: AppColors.accent),
-                      // Check Button
-                      Padding(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text('Kiểm tra', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
-                            Icon(Icons.refresh, color: Colors.green[600], size: 20),
-                          ],
+                        const Divider(height: 1, color: AppColors.accent),
+                        // Check Button
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              const Text('Kiểm tra', style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+                              Icon(Icons.refresh, color: Colors.green[600], size: 20),
+                            ],
+                          ),
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
                 
