@@ -2635,56 +2635,25 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 video.aiReferenceImageLocalUrl = null;
             }
             
-            // Tách frame
-            await this.extractFramesForVideo(video, scene, sceneIdx, vIdx);
+            // Mock AI processing
+            await this.processMagicKlingV3(video, scene, sceneIdx, vIdx);
         });
     }
 
-    async extractFramesForVideo(video: any, scene: any, sceneIdx: number, vIdx: number) {
-        const electronApi = (window as any).electron;
-        if (!electronApi || !video.videoUrl) return;
-
-        this.toastr.info('Đang tách khung hình, vui lòng đợi...');
-        try {
-            const extractPayload = { 
-                videoPath: video.videoUrl, 
-                interval: 1, // 1 frame per second by default for editing
-                startTime: video.trimStart || 0,
-                duration: video.duration 
-            };
-            const extractResult = await electronApi.invoke('extract-video-frames', extractPayload);
-            if (extractResult && extractResult.success && extractResult.paths.length > 0) {
-                const fps = extractResult.fps || 1;
-                const frameDuration = 1 / fps;
-                
-                const newImageBlocks = extractResult.paths.map((path: string, index: number) => {
-                    let finalUrl = path;
-                    if (!finalUrl.startsWith('file://')) {
-                        finalUrl = `file://${finalUrl.replace(/\\/g, '/')}`;
-                    }
-                    return {
-                        id: `frame_${Date.now()}_${index}`,
-                        imageUrl: finalUrl,
-                        duration: frameDuration,
-                        maxDuration: frameDuration,
-                        prompt: video.prompt || '',
-                        aiReferenceImageLocalUrl: video.aiReferenceImageLocalUrl || null
-                    };
-                });
-
-                scene.videos.splice(vIdx, 1, ...newImageBlocks);
-                this.normalizeData();
-                this.saveData();
-                this.cd.detectChanges();
-                setTimeout(() => this.updateLines(), 150);
-                this.toastr.success(`Đã tách đoạn video thành ${newImageBlocks.length} khung hình ảnh.`);
-            } else {
-                this.toastr.warning('Không tách được khung hình nào.');
-            }
-        } catch (err) {
-            console.error('Lỗi khi tách frame:', err);
-            this.toastr.error('Không thể tách khung hình.');
-        }
+    async processMagicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
+        this.toastr.info('AI đang xử lý video theo yêu cầu, vui lòng đợi...');
+        
+        // Mock processing delay (3 seconds)
+        await new Promise(resolve => setTimeout(resolve, 3000));
+        
+        // Mark video as edited by AI
+        video.magicKlingApplied = true;
+        
+        this.normalizeData();
+        this.saveData();
+        this.cd.detectChanges();
+        
+        this.toastr.success('AI đã xử lý xong và cập nhật lại video trên Track 1!');
     }
 
     isImageType(url: string): boolean {

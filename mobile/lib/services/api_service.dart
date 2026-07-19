@@ -584,7 +584,7 @@ class ApiService {
 
     final dataForm = {
       'server': server,
-      'year': DateTime.now().year,
+      'year': 2023,
       'appId': 'ai.typing',
       'username': username,
       'appToken': activeInfo['user']['appToken'],
@@ -625,7 +625,7 @@ class ApiService {
 
     final dataForm = {
       'server': server,
-      'year': DateTime.now().year,
+      'year': 2023,
       'appId': 'ai.typing',
       'username': username,
       'appToken': activeInfo['user']['appToken'],
