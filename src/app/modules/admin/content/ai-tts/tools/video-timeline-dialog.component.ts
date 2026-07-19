@@ -2644,78 +2644,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const electronApi = (window as any).electron;
         if (!electronApi || !video.videoUrl) return;
 
-        // NEW: Try using the real Mì Tôm AI GenAI Proxy first if enabled
-        if (this._genaiService && this._genaiService.isUModelverseEnabled()) {
-            this.toastr.info('Đang gửi yêu cầu tới Mì Tôm AI (Video2Video)...', 'AI Processing', { timeOut: 5000 });
-            try {
-                let referenceImages = [];
-                // 1. Reference Video (The current segment)
-                referenceImages.push({
-                    image: {
-                        imageBytes: video.videoUrl, // URL or local path for the video
-                        mimeType: 'video/mp4'
-                    },
-                    referenceType: 'REFERENCE_VIDEO'
-                });
-
-                // 2. Control Image / Face replacement image
-                if (video.aiReferenceImageLocalUrl) {
-                    referenceImages.push({
-                        image: {
-                            imageBytes: video.aiReferenceImageLocalUrl,
-                            mimeType: 'image/png'
-                        },
-                        referenceType: 'CONTROL_IMAGE'
-                    });
-                }
-
-                // Call the API
-                const prompt = video.prompt || "Phát sinh video chuyển động tương tự video gốc";
-                const base64Vid = await this._genaiService.generateVideoUModelverse(
-                    prompt,
-                    '16:9',
-                    referenceImages,
-                    video.duration || 5, // Fallback to 5s if unknown
-                    undefined, // seed
-                    'kling-v3-motion-control' // Force Kling V3 Motion
-                );
-
-                // Save the generated AI video
-                if (base64Vid) {
-                    const fileName = `magic_kling_${Date.now()}.mp4`;
-                    const result = await electronApi.invoke('save-base64', {
-                        base64: base64Vid,
-                        fileName: fileName,
-                        folder: 'scenes_videos',
-                        username: 'ai_type',
-                        customDir: `tts/ai_magic`
-                    });
-
-                    if (result && result.success) {
-                        let finalUrl = `file://${result.path.replace(/\\/g, '/')}`;
-                        
-                        // Update track data
-                        video.videoUrl = finalUrl;
-                        video.trimStart = 0;
-                        video.trimEnd = undefined;
-                        video.maxDuration = undefined;
-                        
-                        this.saveData(true);
-                        this.cd.detectChanges();
-                        setTimeout(() => this.updateLines(), 200);
-                        this.toastr.success('Mì Tôm AI đã xử lý xong và trả về Video xịn 100%!');
-                        return; // Successfully processed using real AI
-                    }
-                }
-            } catch (err: any) {
-                console.error("Lỗi Mì Tôm AI Video2Video:", err);
-                this.toastr.warning(`Lỗi gọi API: ${err.message}. Tự động chuyển sang chạy Mock AI.`);
-                // Fall down to mock processing
-            }
-        }
-
-        // FALLBACK: Mock AI processing via FFmpeg overlay
-        this.toastr.info('Mì Tôm AI không khả dụng. Đang dùng FFmpeg (Mock AI) để xử lý...');
+        this.toastr.info('Hệ thống đang trích xuất frame để gửi cho AI...', 'Đang xử lý');
         
         try {
             const extractPayload = { 
@@ -2730,19 +2659,88 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 const firstFramePath = extractResult.paths[0].replace('file://', '');
                 const dirPath = firstFramePath.substring(0, Math.max(firstFramePath.lastIndexOf('/'), firstFramePath.lastIndexOf('\\')));
                 
-                this.toastr.info(`Đã vào thư mục chứa ${extractResult.paths.length} frame. AI đang tiến hành chỉnh sửa hàng loạt...`);
+                this.toastr.info(`Đã trích xuất ${extractResult.paths.length} frame. Đang gửi cho Hệ thống AI (3 Tầng) xử lý từng frame một...`, 'Đang xử lý', { timeOut: 5000 });
                 
-                // Thao tác chỉnh sửa ảnh (Mock bằng cách overlay ảnh tham khảo)
+                // Chuẩn bị ảnh tham khảo (Reference Image)
+                let referenceBase64 = null;
                 if (video.aiReferenceImageLocalUrl) {
-                    await electronApi.invoke('mock-ai-edit-frames', {
-                        dirPath,
-                        attachmentUrl: video.aiReferenceImageLocalUrl
-                    });
-                } else {
-                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    try {
+                        referenceBase64 = await this.getBase64FromImageUrl(video.aiReferenceImageLocalUrl);
+                    } catch (e) {
+                        console.error("Lỗi đọc ảnh reference:", e);
+                    }
                 }
                 
-                this.toastr.info('AI đã chỉnh sửa xong, đang gộp lại thành video...');
+                const prompt = video.prompt || "Thực hiện face swap hoặc thay đổi chi tiết như yêu cầu.";
+                let successCount = 0;
+
+                // Xử lý từng frame bằng AI 3 Tầng thông qua GenaiService
+                if (this._genaiService) {
+                    for (let i = 0; i < extractResult.paths.length; i++) {
+                        try {
+                            const pathStr = extractResult.paths[i];
+                            const frameBase64 = await this.getBase64FromImageUrl(pathStr.startsWith('file://') ? pathStr : 'file://' + pathStr);
+                            
+                            const parts: any[] = [{ text: prompt }];
+                            
+                            // 1. Ảnh tham khảo (Control Image / Face)
+                            if (referenceBase64) {
+                                parts.push({
+                                    inlineData: {
+                                        mimeType: 'image/png',
+                                        data: referenceBase64
+                                    }
+                                });
+                            }
+                            
+                            // 2. Ảnh frame gốc cần sửa
+                            parts.push({
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: frameBase64
+                                }
+                            });
+                            
+                            // Gọi Tầng AI cao nhất đang được cấu hình
+                            const response = await this._genaiService.generateContent({
+                                model: 'gemini-3.1-flash-image-preview', // Tự động fallback trong service
+                                contents: [{ role: 'user', parts: parts }],
+                                config: {
+                                    responseModalities: ['IMAGE']
+                                } as any
+                            });
+                            
+                            let editedBase64 = null;
+                            if (response.candidates && response.candidates.length > 0) {
+                                for (const part of response.candidates[0].content.parts) {
+                                    if (part.inlineData) {
+                                        editedBase64 = part.inlineData.data;
+                                        break;
+                                    }
+                                }
+                            }
+                            
+                            if (editedBase64) {
+                                await electronApi.invoke('overwrite-file-base64', {
+                                    filePath: pathStr,
+                                    base64: editedBase64
+                                });
+                                successCount++;
+                                if (i % 5 === 0) {
+                                    this.toastr.info(`Đã AI hóa xong frame ${i + 1}/${extractResult.paths.length}...`);
+                                }
+                            } else {
+                                console.warn(`AI không trả về ảnh cho frame ${i + 1}`);
+                            }
+                        } catch (frameErr: any) {
+                            console.error(`Lỗi xử lý frame ${i + 1}:`, frameErr);
+                        }
+                    }
+                } else {
+                    this.toastr.warning("Hệ thống AI không khả dụng. Bỏ qua chỉnh sửa.");
+                }
+                
+                this.toastr.info(`Đã AI hóa thành công ${successCount}/${extractResult.paths.length} frames. Đang gộp lại thành video...`);
                 
                 const mergePayload = { dirPath, fps };
                 const mergeResult = await electronApi.invoke('merge-frames-to-video', mergePayload);
@@ -2758,12 +2756,14 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     video.magicKlingApplied = true;
                     video.trimStart = 0;
                     video.trimEnd = undefined;
+                    video.maxDuration = undefined;
                     
                     this.normalizeData();
-                    this.saveData();
+                    this.saveData(true);
                     this.cd.detectChanges();
+                    setTimeout(() => this.updateLines(), 200);
                     
-                    this.toastr.success('Hoàn tất! Video đã được AI chỉnh sửa và gộp lại trên Track 1.');
+                    this.toastr.success('Hoàn tất! Video đã được AI (3 Tầng) tái tạo xong!');
                 }
             } else {
                 console.error("extractResult:", extractResult);
@@ -2771,7 +2771,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
         } catch (err: any) {
             console.error('Lỗi quy trình Magic Kling:', err);
-            this.toastr.error('Có lỗi xảy ra: ' + (err.message || ''));
+            this.toastr.error('Có lỗi xảy ra: ' + (err.message || String(err)));
         }
     }
 
