@@ -3379,16 +3379,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             </button>
         </div>
 
-        <div mat-dialog-content class="mt-4 p-0 overflow-x-hidden">
+        <div mat-dialog-content class="mt-4 p-0 overflow-hidden">
             <mat-form-field class="w-full custom-textarea fuse-mat-dense fuse-mat-emphasized-affix p-0" [subscriptSizing]="'dynamic'">
-                <textarea class="max-h-80 min-h-20 px-2" [(ngModel)]="prompt" [placeholder]="'Nhập prompt yêu cầu chỉnh sửa cho đoạn video này (VD: cinematic lighting, snow...)'" type="text" required matInput cdkTextareaAutosize></textarea>
+                <textarea class="px-2" [(ngModel)]="prompt" rows="4" [placeholder]="'Nhập prompt yêu cầu chỉnh sửa cho đoạn video này (VD: cinematic lighting, snow...)'" type="text" required matInput cdkTextareaAutosize></textarea>
             </mat-form-field>
 
             <div class="flex flex-col gap-3 mt-4">
                 <div class="flex items-center justify-between">
                     <span class="text-sm text-gray-600">File đính kèm (Ảnh / Video tham khảo)</span>
-                    <button mat-stroked-button color="primary" class="" (click)="fileInput.click()">
-                        Tải lên
+                    <button mat-icon-button color="primary" matTooltip="Tải lên" (click)="fileInput.click()">
+                        <mat-icon [svgIcon]="'heroicons_outline:paper-clip'"></mat-icon>
                     </button>
                     <input type="file" #fileInput class="hidden" accept="image/*,video/*" (change)="onFileSelected($event)">
                 </div>
