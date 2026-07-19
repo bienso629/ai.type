@@ -20,6 +20,7 @@ class _TasksScreenState extends State<TasksScreen> {
   List<dynamic> _tasks = [];
   String? _bookmark;
   bool _hasMore = true;
+  int _pageNumber = 0;
   
   String _username = '';
   final ScrollController _scrollController = ScrollController();
@@ -62,11 +63,18 @@ class _TasksScreenState extends State<TasksScreen> {
           if (_collections.isNotEmpty) {
             _selectedCollection = _collections[0];
             await _fetchTasks();
+          } else {
+            _hasMore = false;
           }
+        } else {
+          _hasMore = false;
         }
+      } else {
+        _hasMore = false;
       }
     } catch (e) {
       print('Error init Tasks: $e');
+      _hasMore = false;
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -76,7 +84,9 @@ class _TasksScreenState extends State<TasksScreen> {
     
     setState(() => _isLoading = true);
     try {
-      int pageNumber = loadMore ? (_tasks.length ~/ 10) : 0;
+      if (!loadMore) {
+        _pageNumber = 0;
+      }
       
       List<String> uuids = [];
       if (_selectedCollection!['uuid'] != null) {
@@ -90,7 +100,7 @@ class _TasksScreenState extends State<TasksScreen> {
       final res = await ApiService.getTasksArchive(
         username: _username,
         uuids: uuids,
-        pageNumber: pageNumber,
+        pageNumber: _pageNumber,
         size: 10,
         bookmark: loadMore ? _bookmark : null,
       );
@@ -103,18 +113,31 @@ class _TasksScreenState extends State<TasksScreen> {
         if (!loadMore) {
           _tasks = newDocs;
         } else {
-          _tasks.addAll(newDocs);
+          // Prevent adding duplicate tasks if backend returns same items
+          for (var doc in newDocs) {
+            if (!_tasks.any((t) => t['_id'] == doc['_id'])) {
+              _tasks.add(doc);
+            }
+          }
         }
 
-        if (newDocs.isEmpty || newBookmark == _bookmark) {
+        _pageNumber++;
+
+        if (newDocs.isEmpty && (newBookmark == null || newBookmark == _bookmark)) {
+          _hasMore = false;
+        } else if (newBookmark == _bookmark && newDocs.isNotEmpty) {
           _hasMore = false;
         } else {
           _hasMore = true;
           _bookmark = newBookmark;
         }
+      } else {
+        _hasMore = false;
+        print('API Error or empty response: $res');
       }
     } catch (e) {
       print('Error fetching tasks: $e');
+      _hasMore = false;
     }
     if (mounted) setState(() => _isLoading = false);
   }
@@ -125,6 +148,7 @@ class _TasksScreenState extends State<TasksScreen> {
       _selectedCollection = collection;
       _tasks.clear();
       _bookmark = null;
+      _pageNumber = 0;
       _hasMore = true;
     });
     _fetchTasks();
@@ -132,25 +156,28 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _buildCollectionDropdown() {
     if (_collections.isEmpty) return const SizedBox();
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.grey.shade300),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<Map<String, dynamic>>(
-          value: _selectedCollection,
-          isExpanded: true,
-          icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-          items: _collections.map((c) {
-            return DropdownMenuItem<Map<String, dynamic>>(
-              value: c,
-              child: Text(c['name'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 14)),
-            );
-          }).toList(),
-          onChanged: _onCollectionChanged,
+    return SizedBox(
+      height: 40,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.grey.shade300),
+        ),
+        child: DropdownButtonHideUnderline(
+          child: DropdownButton<Map<String, dynamic>>(
+            value: _selectedCollection,
+            isExpanded: true,
+            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
+            items: _collections.map((c) {
+              return DropdownMenuItem<Map<String, dynamic>>(
+                value: c,
+                child: Text(c['name'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 14)),
+              );
+            }).toList(),
+            onChanged: _onCollectionChanged,
+          ),
         ),
       ),
     );
@@ -276,7 +303,7 @@ class _TasksScreenState extends State<TasksScreen> {
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               boxShadow: [
@@ -291,18 +318,21 @@ class _TasksScreenState extends State<TasksScreen> {
               children: [
                 _buildCollectionDropdown(),
                 const SizedBox(height: 12),
-                TextField(
-                  decoration: InputDecoration(
-                    hintText: 'Tìm kiếm việc đang làm',
-                    prefixIcon: const Icon(Icons.search, color: Colors.grey),
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
-                    ),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                SizedBox(
+                  height: 40,
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Tìm kiếm việc đang làm',
+                      prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(8),
+                        borderSide: BorderSide(color: Colors.grey.shade300),
+                      ),
                     ),
                   ),
                 ),
@@ -337,6 +367,7 @@ class _TasksScreenState extends State<TasksScreen> {
         ],
       ),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'tasksFab',
         backgroundColor: Colors.teal,
         onPressed: () {},
         child: const Icon(Icons.edit, color: Colors.white),
