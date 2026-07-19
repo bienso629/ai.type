@@ -21,6 +21,7 @@ class _TasksScreenState extends State<TasksScreen> {
   String? _bookmark;
   bool _hasMore = true;
   int _pageNumber = 0;
+  String _searchKeyword = '';
   
   String _username = '';
   final ScrollController _scrollController = ScrollController();
@@ -110,6 +111,7 @@ class _TasksScreenState extends State<TasksScreen> {
         uuids: uuids,
         pageNumber: _pageNumber,
         size: 10,
+        keyword: _searchKeyword,
         bookmark: loadMore ? _bookmark : null,
       );
 
@@ -132,15 +134,23 @@ class _TasksScreenState extends State<TasksScreen> {
 
         _pageNumber++;
 
-        if (newDocs.isEmpty && (newBookmark == null || newBookmark == _bookmark)) {
+        if (newBookmark == null || newBookmark == 'nil' || newBookmark == '' || (newDocs.isEmpty && newBookmark == _bookmark)) {
           _hasMore = false;
         } else if (newBookmark == _bookmark && newDocs.isNotEmpty) {
           _hasMore = false;
-        } else if (uuids.isNotEmpty && _tasks.length >= uuids.length) {
+        } else if (newDocs.isNotEmpty && newDocs.length < 10) {
+          _hasMore = false;
+        } else if (_searchKeyword.isEmpty && uuids.isNotEmpty && _tasks.length >= uuids.length) {
           _hasMore = false;
         } else {
           _hasMore = true;
           _bookmark = newBookmark;
+        }
+
+        // Auto-fetch if CouchDB filtered out all items in this page but gave a valid bookmark
+        if (_hasMore && newDocs.isEmpty) {
+          _fetchTasks(loadMore: true);
+          return;
         }
       } else {
         _hasMore = false;
@@ -157,6 +167,18 @@ class _TasksScreenState extends State<TasksScreen> {
     if (collection == null || collection['_id'] == _selectedCollection?['_id']) return;
     setState(() {
       _selectedCollection = collection;
+      _tasks.clear();
+      _bookmark = null;
+      _pageNumber = 0;
+      _hasMore = true;
+    });
+    _fetchTasks();
+  }
+
+  void _onSearch(String keyword) {
+    if (_searchKeyword == keyword) return;
+    setState(() {
+      _searchKeyword = keyword;
       _tasks.clear();
       _bookmark = null;
       _pageNumber = 0;
@@ -184,7 +206,12 @@ class _TasksScreenState extends State<TasksScreen> {
             items: _collections.map((c) {
               return DropdownMenuItem<Map<String, dynamic>>(
                 value: c,
-                child: Text(c['title'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 14)),
+                child: Text(
+                  c['title'] ?? 'Chưa đặt tên', 
+                  style: const TextStyle(fontSize: 14),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               );
             }).toList(),
             onChanged: _onCollectionChanged,
@@ -325,24 +352,34 @@ class _TasksScreenState extends State<TasksScreen> {
                 ),
               ],
             ),
-            child: Column(
+            child: Row(
               children: [
-                _buildCollectionDropdown(),
-                const SizedBox(height: 12),
-                SizedBox(
-                  height: 40,
-                  child: TextField(
-                    decoration: InputDecoration(
-                      hintText: 'Tìm kiếm việc đang làm',
-                      prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
-                      ),
-                      enabledBorder: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide(color: Colors.grey.shade300),
+                Expanded(
+                  child: _buildCollectionDropdown(),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: SizedBox(
+                    height: 40,
+                    child: TextField(
+                      onSubmitted: _onSearch,
+                      onChanged: (val) {
+                        if (val.isEmpty && _searchKeyword.isNotEmpty) {
+                          _onSearch('');
+                        }
+                      },
+                      decoration: InputDecoration(
+                        hintText: 'Tìm kiếm',
+                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        ),
                       ),
                     ),
                   ),
