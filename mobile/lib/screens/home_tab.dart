@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'dart:convert';
 import 'package:fl_chart/fl_chart.dart';
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
@@ -42,14 +44,48 @@ class _HomeTabState extends State<HomeTab> {
     _loadData();
   }
 
-  Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+  Future<void> _loadData({bool forceRefresh = false}) async {
+    if (!forceRefresh) setState(() => _isLoading = true);
     try {
-      final statsResult = await ApiService.getStatistics(_selectedYear);
-      print('API Statistics: ');
-      print(statsResult);
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return;
       
-      final collectionsResult = await ApiService.getCollections();
+      final activeInfo = jsonDecode(activeInfoStr);
+      final uid = activeInfo['user']['id'] ?? activeInfo['user']['_id'] ?? 'default';
+      final cacheKey = 'dashboard_cache_${uid}_$_selectedYear';
+
+      dynamic statsResult;
+      dynamic collectionsResult;
+      dynamic domainsResult;
+
+      bool fetchedFromNetwork = false;
+
+      if (!forceRefresh) {
+        final cachedData = prefs.getString(cacheKey);
+        if (cachedData != null) {
+          final data = jsonDecode(cachedData);
+          statsResult = data['statsResult'];
+          collectionsResult = data['collectionsResult'];
+          domainsResult = data['domainsResult'];
+        }
+      }
+
+      if (statsResult == null) {
+        statsResult = await ApiService.getStatistics(_selectedYear);
+        collectionsResult = await ApiService.getCollections();
+        domainsResult = await ApiService.getAllDomains();
+        fetchedFromNetwork = true;
+      }
+
+      if (fetchedFromNetwork) {
+        final cacheData = {
+          'statsResult': statsResult,
+          'collectionsResult': collectionsResult,
+          'domainsResult': domainsResult,
+        };
+        await prefs.setString(cacheKey, jsonEncode(cacheData));
+      }
       if (collectionsResult != null && collectionsResult['success'] == true) {
         collections = collectionsResult['data']?.map((col) {
           int count = 0;
@@ -66,7 +102,6 @@ class _HomeTabState extends State<HomeTab> {
         }).toList() ?? [];
       }
 
-      final domainsResult = await ApiService.getAllDomains();
       if (domainsResult != null && domainsResult['success'] == true) {
         allDomainsLength = (domainsResult['data'] as List?)?.length ?? 0;
       }
@@ -512,129 +547,131 @@ class _HomeTabState extends State<HomeTab> {
       return const Center(child: CircularProgressIndicator());
     }
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Main Chart Section
-          Padding(
-            padding: const EdgeInsets.only(bottom: 24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('Số lượng bài viết tạo ra', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: AppColors.surface,
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.grey.withOpacity(0.2)),
-                  ),
-                  child: Column(
-                    children: [
-                      Align(
-                        alignment: Alignment.centerRight,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          decoration: BoxDecoration(
-                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<int>(
-                              value: _selectedYear,
-                              isDense: true,
-                              icon: const Padding(
-                                padding: EdgeInsets.only(left: 8),
-                                child: FaIcon(FontAwesomeIcons.chevronDown, size: 12, color: AppColors.textSecondary),
+    return RefreshIndicator(
+      onRefresh: () => _loadData(forceRefresh: true),
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Main Chart Section
+            Padding(
+              padding: const EdgeInsets.only(bottom: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Số lượng bài viết tạo ra', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  const SizedBox(height: 24),
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: AppColors.surface,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: Colors.grey.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            decoration: BoxDecoration(
+                              border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: DropdownButtonHideUnderline(
+                              child: DropdownButton<int>(
+                                value: _selectedYear,
+                                isDense: true,
+                                icon: const Padding(
+                                  padding: EdgeInsets.only(left: 8),
+                                  child: FaIcon(FontAwesomeIcons.chevronDown, size: 12, color: AppColors.textSecondary),
+                                ),
+                                items: _yearsList.map((int year) {
+                                  return DropdownMenuItem<int>(
+                                    value: year,
+                                    child: Text(year.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                  );
+                                }).toList(),
+                                onChanged: (int? newValue) {
+                                  if (newValue != null) {
+                                    setState(() {
+                                      _selectedYear = newValue;
+                                      _loadData();
+                                    });
+                                  }
+                                },
                               ),
-                              items: _yearsList.map((int year) {
-                                return DropdownMenuItem<int>(
-                                  value: year,
-                                  child: Text(year.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                                );
-                              }).toList(),
-                              onChanged: (int? newValue) {
-                                if (newValue != null) {
-                                  setState(() {
-                                    _selectedYear = newValue;
-                                    _loadData();
-                                  });
-                                }
-                              },
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                      _buildMainChart(),
-                    ],
+                        const SizedBox(height: 16),
+                        _buildMainChart(),
+                      ],
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-
-          // Stat Cards
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              children: [
-                _buildStatCard('Tổng số bài viết', totalArticles, totalArticlesStatus, _monthlyTotals, Colors.blue),
-                const SizedBox(height: 16),
-                _buildStatCard('Domain hoạt động', activeDomains, activeDomainsStatus, _monthlyActiveDomains, Colors.red),
-                const SizedBox(height: 16),
-                _buildStatCard("Trung bình bài tháng ${_evalMonthToDisplay < 10 ? '0$_evalMonthToDisplay' : _evalMonthToDisplay} / Domain", avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green, isDomainChart: true),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 32),
-          
-          // Collections Section
-          Padding(
-            padding: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${collections.length} Danh sách Collection', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
-                const SizedBox(height: 16),
-                if (collections.isEmpty)
-                  Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(40),
-                      child: Column(
-                        children: [
-                          const FaIcon(FontAwesomeIcons.folderOpen, size: 64, color: AppColors.textSecondary),
-                          const SizedBox(height: 16),
-                          const Text('Bạn chưa có collection nào', style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                    GridView.builder(
-                      padding: EdgeInsets.zero,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: 1,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: 3.5,
-                      ),
-                      itemCount: collections.length,
-                      itemBuilder: (context, index) {
-                        final col = collections[index];
-                        return _buildCollectionCard(col['icon'], col['title'], col['count'], col['updatedAt'], AppColors.primary);
-                      },
-                    ),
                 ],
               ),
             ),
+
+            // Stat Cards
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                children: [
+                  _buildStatCard('Tổng số bài viết', totalArticles, totalArticlesStatus, _monthlyTotals, Colors.blue),
+                  const SizedBox(height: 16),
+                  _buildStatCard('Domain hoạt động', activeDomains, activeDomainsStatus, _monthlyActiveDomains, Colors.red),
+                  const SizedBox(height: 16),
+                  _buildStatCard("Trung bình bài tháng ${_evalMonthToDisplay < 10 ? '0$_evalMonthToDisplay' : _evalMonthToDisplay} / Domain", avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green, isDomainChart: true),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 32),
+            
+            // Collections Section
+            Padding(
+              padding: const EdgeInsets.only(bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${collections.length} Danh sách Collection', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  const SizedBox(height: 16),
+                  if (collections.isEmpty)
+                    Center(
+                      child: Padding(
+                        padding: const EdgeInsets.all(40),
+                        child: Column(
+                          children: [
+                            const FaIcon(FontAwesomeIcons.folderOpen, size: 64, color: AppColors.textSecondary),
+                            const SizedBox(height: 16),
+                            const Text('Bạn chưa có collection nào', style: TextStyle(fontSize: 16, color: AppColors.textSecondary)),
+                          ],
+                        ),
+                      ),
+                    )
+                  else
+                      GridView.builder(
+                        padding: EdgeInsets.zero,
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: 1,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
+                          childAspectRatio: 3.5,
+                        ),
+                        itemCount: collections.length,
+                        itemBuilder: (context, index) {
+                          final col = collections[index];
+                          return _buildCollectionCard(col['icon'], col['title'], col['count'], col['updatedAt'], AppColors.primary);
+                        },
+                      ),
+                  ],
+                ),
+              ),
             
             const SizedBox(height: 32),
             
@@ -706,6 +743,7 @@ class _HomeTabState extends State<HomeTab> {
             const SizedBox(height: 32),
           ],
         ),
+      ),
     );
   }
 }

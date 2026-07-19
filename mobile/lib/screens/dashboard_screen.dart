@@ -162,9 +162,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       body: Stack(
         children: [
-          AnimatedSwitcher(
-            duration: const Duration(milliseconds: 300),
-            child: _tabs[_currentIndex],
+          IndexedStack(
+            index: _currentIndex,
+            children: _tabs,
           ),
           if (_isRecording)
             Positioned.fill(
