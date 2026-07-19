@@ -2511,6 +2511,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 });
 
                 scene.videos.splice(vIdx, 1, ...newImageBlocks);
+                this.normalizeData();
                 this.saveData();
                 this.cd.detectChanges();
                 setTimeout(() => this.updateLines(), 150);
