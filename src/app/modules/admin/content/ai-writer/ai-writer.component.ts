@@ -3132,31 +3132,46 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
     /**
      * Xoá một đoạn văn
      */
-    async editVideo(item: any) {
+    async editVideo(item: any, index: number = -1) {
+        let existingUuid = null;
+        if (typeof item === 'string') {
+            const uuidMatch = item.match(/data-uuid="([^"]+)"/);
+            if (uuidMatch && uuidMatch[1]) {
+                existingUuid = uuidMatch[1];
+            }
+        }
+
         let localFilePath = this.removeHTML.transform(item);
         if (!localFilePath || typeof localFilePath !== 'string') return;
         localFilePath = localFilePath.trim();
 
+        // Fallback: Khôi phục uuid từ map lưu local nếu bị mất khỏi HTML do load từ server
+        let videoMap = this.multiAccountService.getItem('ai_type_video_uuid_map_' + this.uuid) || {};
+        if (!existingUuid && videoMap[localFilePath]) {
+            existingUuid = videoMap[localFilePath];
+        }
+
         let fileUrl = localFilePath;
 
-        // Nếu là URL web, tìm file local trong thư mục Downloads/AI.TYPING
+        // Nếu là URL web, gọi Electron tải video gốc về
+        let electronApi = null;
+        if (window && (window as any).electron) {
+            electronApi = (window as any).electron;
+        }
+
         if (localFilePath.startsWith('http')) {
-            let electronApi = null;
-            if (window && (window as any).electron) {
-                electronApi = (window as any).electron;
-            }
             if (electronApi) {
-                const foundPath = await electronApi.invoke('find-latest-analyzed-video');
-                if (foundPath) {
-                    fileUrl = foundPath;
+                this.toastr.info('Đang tải video về máy để chỉnh sửa...');
+                const payload = {
+                    url: localFilePath,
+                    customCookies: this.multiAccountService.getItem('setting_cookies') || ''
+                };
+                const downloadResult = await electronApi.invoke('download-single-video-temp', payload);
+                if (downloadResult && downloadResult.success) {
+                    fileUrl = downloadResult.path;
                 } else {
-                    this.toastr.warning('Không tìm thấy video đã tải về. Vui lòng chọn thủ công.');
-                    const manualPath = await electronApi.invoke('select-video-file');
-                    if (manualPath) {
-                        fileUrl = manualPath;
-                    } else {
-                        return; // User cancelled
-                    }
+                    this.toastr.error('Lỗi khi tải video: ' + (downloadResult?.error || 'Unknown error'));
+                    return;
                 }
             } else {
                 this.toastr.error('Chỉ hỗ trợ trên ứng dụng Desktop.');
@@ -3186,25 +3201,85 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             actualDuration = 5;
         }
 
-        const randomUuid = uuid.v4();
-        const projectData = {
-            uuid: randomUuid,
-            aspectRatio: '16:9',
-            scenes: [
-                {
-                    videos: [
-                        {
-                            id: 1,
-                            videoUrl: fileUrl,
-                            duration: actualDuration,
-                            maxDuration: actualDuration
+        let sceneAssets: any[] = [
+            {
+                id: 1,
+                videoUrl: fileUrl,
+                duration: actualDuration,
+                maxDuration: actualDuration
+            }
+        ];
+
+        const randomUuid = existingUuid || uuid.v4();
+        
+        if (!existingUuid) {
+            let videoMap = this.multiAccountService.getItem('ai_type_video_uuid_map_' + this.uuid) || {};
+            videoMap[localFilePath] = randomUuid;
+            this.multiAccountService.setItem('ai_type_video_uuid_map_' + this.uuid, videoMap);
+        }
+
+        let projectData: any = null;
+
+        if (existingUuid) {
+            projectData = await this.multiAccountService.getItem('ai_type_video_ready_data_' + randomUuid);
+        }
+
+        if (!projectData) {
+            projectData = {
+                uuid: randomUuid,
+                aspectRatio: '16:9',
+                scenes: [
+                    {
+                        videos: sceneAssets
+                    }
+                ]
+            };
+
+            if (electronApi) {
+                this.toastr.info('Đang xử lý âm thanh gốc, vui lòng đợi...');
+                try {
+                    const audioResult = await electronApi.invoke('extract-audio', fileUrl);
+                    if (audioResult && audioResult.success) {
+                        let audioPath = audioResult.path;
+                        if (!audioPath.startsWith('file://')) {
+                            audioPath = `file://${audioPath.replace(/\\/g, '/')}`;
                         }
-                    ]
+                        projectData.scenes[0].extractedAudios = [
+                            {
+                                id: 1,
+                                audioUrl: audioPath,
+                                duration: actualDuration,
+                                maxDuration: actualDuration,
+                                startTime: 0,
+                                text: '[Âm thanh gốc]'
+                            }
+                        ];
+                    }
+                } catch (err) {
+                    console.error('Lỗi khi xuất âm thanh:', err);
+                    this.toastr.warning('Không thể xuất âm thanh gốc.');
                 }
-            ]
-        };
+            }
+        }
 
         this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
+
+        // Lưu lại UUID của video vào đoạn văn (item) để giữ trạng thái timeline TRƯỚC khi mở dialog
+        if (index !== -1 && typeof item === 'string') {
+            if (!item.includes('data-uuid=')) {
+                // Chèn thuộc tính data-uuid vào thẻ HTML gốc đầu tiên tìm được
+                const match = item.match(/<([a-zA-Z0-9]+)/);
+                if (match && match[1]) {
+                    const tagName = match[1];
+                    const newItem = item.replace(`<${tagName}`, `<${tagName} data-uuid="${randomUuid}"`);
+                    this.done[index] = newItem;
+                    this.storelocal(); // Force auto-save to localStorage/memory
+                    if (this.uuid) {
+                        this.update(false); // Sync to server immediately so F5 can recover it
+                    }
+                }
+            }
+        }
 
         const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
             width: '100vw',
@@ -3579,7 +3654,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                     }
                 },
                 complete: () => {
-                    // this.setDefault();
+                    this.setDefault();
                 },
             });
     }
@@ -3636,7 +3711,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                                 }
                             },
                             complete: () => {
-                                // this.setDefault();
+                                this.setDefault();
                             },
                         });
                     } else {
@@ -4019,20 +4094,9 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Tự động lưu sau 60s
      */
     autoSave() {
+        // Tính năng tự lưu bị tắt theo yêu cầu của người dùng, chuyển sang lưu thủ công bằng Ctrl + S
         if (this.name === this.user.name) {
-            // chính chủ thì mới lưu
             clearInterval(this.intervalAutoSave);
-
-            this.intervalAutoSave = setInterval(() => {
-                if (this.timeLeft > 0) {
-                    this.timeLeft--;
-                } else {
-                    this.timeLeft = 60;
-
-                    // this.storelocal();
-                    this.update(false); // tu dong luu tren server luon
-                }
-            }, 1000);
         }
     }
 
@@ -4052,7 +4116,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             ) {
                 this.setdata(editor);
             } else {
-                localStorage.removeItem('editor');
+                this.multiAccountService.removeItem('editor');
             }
         }
     }
@@ -4061,7 +4125,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Lưu bài dướii local
      */
     storelocal() {
-        localStorage.setItem(
+        this.multiAccountService.setItem(
             'editor',
             JSON.stringify({
                 uuid: this.uuid,
@@ -4084,7 +4148,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
     handler(e: { class: string; title?: string }) {
         switch (e.class) {
             case 'btn-reset':
-                localStorage.removeItem('editor');
+                this.multiAccountService.removeItem('editor');
 
                 this.detectForm.get('step1').get('title').setValue('');
                 this.detectForm.get('step1').get('thumbnail').setValue('');
@@ -5286,6 +5350,16 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         this.wordPopup.afterClosed().subscribe((result) => {
             this.wordPopup = undefined;
         });
+    }
+
+    @HostListener('document:keydown', ['$event'])
+    handleKeyboardEvent(event: KeyboardEvent) {
+        if ((event.ctrlKey || event.metaKey) && event.key === 's') {
+            event.preventDefault();
+            this.storelocal();
+            this.update(false);
+            this.toastr.success('Đã lưu tài liệu thành công!');
+        }
     }
 
     alert(message?: string) {

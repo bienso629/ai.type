@@ -104,10 +104,20 @@
                     [ngClass]="isSvgReady ? 'opacity-100' : 'opacity-0'">
                 </svg>
 
+                <!-- Timeline Ruler -->
+                <div class="h-6 w-full border-b border-gray-300 relative bg-gray-100 z-[90] cursor-text sticky top-0"
+                    (mousedown)="onTimeRulerMouseDown($event)">
+                    <div *ngFor="let tick of [].constructor(500); let i = index"
+                        class="absolute top-0 bottom-0 border-l border-gray-400"
+                        [style.left.px]="i * 10 * pixelsPerSecond + 128">
+                        <span class="absolute text-[9px] text-gray-500 top-1 left-1 font-mono pointer-events-none">{{i * 10}}s</span>
+                    </div>
+                </div>
+
                 <!-- Timeline Scrubber -->
                 <div class="absolute top-0 bottom-0 w-0.5 bg-red-500 z-[100] shadow-[0_0_8px_rgba(239,68,68,0.8)] cursor-ew-resize"
                     [style.transform]="'translateX(' + (currentTimelineTime * pixelsPerSecond + 128) + 'px)'"
-                    *ngIf="isPlayingTimeline || currentTimelineTime > 0" (mousedown)="onScrubberMouseDown($event)">
+                    (mousedown)="onScrubberMouseDown($event)">
                     <div
                         class="absolute -top-1 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full bg-red-500 flex items-center justify-center pointer-events-auto cursor-ew-resize shadow-md hover:scale-110">
                     </div>
@@ -134,7 +144,7 @@
                                             'opacity-30 grayscale': video.disabled,
                                             'opacity-100': !video.disabled
                                         }" [style.left.px]="(video.startTime || 0) * pixelsPerSecond + 128"
-                                            [style.width.px]="(video.duration || 5) * pixelsPerSecond - 4"
+                                            [style.width.px]="((video.duration || 5) * pixelsPerSecond - 4) > 1 ? ((video.duration || 5) * pixelsPerSecond - 4) : (((video.duration || 5) * pixelsPerSecond) > 1 ? ((video.duration || 5) * pixelsPerSecond) : 1)"
                                             [id]="'video_' + sceneIdx + '_' + vIdx" [attr.data-scene-idx]="sceneIdx"
                                             [attr.data-v-idx]="vIdx">
 
@@ -204,35 +214,28 @@
                                                 <button mat-icon-button
                                                     class="bg-indigo-600 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); addNewScene(sceneIdx)">
-                                                    <mat-icon class="icon-size-4 text-gray-900"
+                                                    <mat-icon class="icon-size-4 text-white"
                                                         [svgIcon]="'feather:plus'"></mat-icon>
                                                 </button>
-                                                <button mat-icon-button
-                                                    class="bg-blue-600 hover:bg-blue-500 transition-colors icon-size-6 rounded flex items-center justify-center"
-                                                    (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, vIdx)">
-                                                    <div *ngIf="video.isGeneratingVideo"
-                                                        class="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent">
-                                                    </div>
-                                                    <mat-icon *ngIf="!video.isGeneratingVideo"
-                                                        class="icon-size-4 text-gray-900">movie</mat-icon>
-                                                </button>
+                                                
                                                 <button *ngIf="video.videoUrl" mat-icon-button
                                                     class="bg-fuchsia-600 border border-fuchsia-400 hover:bg-fuchsia-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(217,70,239,0.6)]"
                                                     (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, vIdx, true)"
                                                     title="Magic Kling v3 Motion Control (Max 10s)">
-                                                    <mat-icon class="icon-size-4 text-gray-900">auto_awesome</mat-icon>
+                                                    <mat-icon class="icon-size-4 text-white">auto_awesome</mat-icon>
                                                 </button>
-                                                <button mat-icon-button
-                                                    class="bg-yellow-600 hover:bg-yellow-500 transition-colors icon-size-6 rounded flex items-center justify-center"
-                                                    (click)="$event.stopPropagation(); triggerUploadVideo(video)">
-                                                    <mat-icon class="icon-size-4 text-gray-900">upload_file</mat-icon>
+                                                <button *ngIf="video.videoUrl" mat-icon-button
+                                                    class="bg-pink-600 hover:bg-pink-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(236,72,153,0.6)]"
+                                                    (click)="$event.stopPropagation(); extractFramesForVideo(video, scene, sceneIdx, vIdx)"
+                                                    title="Chuyển đoạn video này thành các khung hình ảnh để sửa">
+                                                    <mat-icon class="icon-size-4 text-white">burst_mode</mat-icon>
                                                 </button>
-
+                                                
                                                 <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)"
                                                     mat-icon-button
                                                     class="bg-orange-600 hover:bg-orange-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); toggleMute(video)">
-                                                    <mat-icon class="icon-size-4 text-gray-900">{{ video.muted ?
+                                                    <mat-icon class="icon-size-4 text-white">{{ video.muted ?
                                                         'volume_off' :
                                                         'volume_up' }}</mat-icon>
                                                 </button>
@@ -240,31 +243,26 @@
                                                     mat-icon-button
                                                     class="bg-purple-600 hover:bg-purple-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); extractAudio(video, sceneIdx)">
-                                                    <mat-icon class="icon-size-4 text-gray-900">music_note</mat-icon>
+                                                    <mat-icon class="icon-size-4 text-white">music_note</mat-icon>
                                                 </button>
-                                                <button mat-icon-button
-                                                    class="bg-green-600 hover:bg-green-500 transition-colors icon-size-6 rounded"
-                                                    (click)="$event.stopPropagation(); openEditScenePromptDialog(scene, video, sceneIdx, vIdx)">
-                                                    <mat-icon class="icon-size-4 text-gray-900"
-                                                        [svgIcon]="'feather:edit'"></mat-icon>
-                                                </button>
+                                                
                                                 <button mat-icon-button
                                                     class="bg-gray-300 hover:bg-gray-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); video.disabled = !video.disabled">
                                                     <mat-icon class="icon-size-4"
-                                                        [ngClass]="video.disabled ? 'text-red-400' : 'text-gray-900'">{{
+                                                        [ngClass]="video.disabled ? 'text-red-400' : 'text-white'">{{
                                                         video.disabled ? 'visibility_off' : 'visibility' }}</mat-icon>
                                                 </button>
                                                 <button *ngIf="isTrimmed(video)" mat-icon-button
                                                     class="bg-cyan-600 hover:bg-cyan-500 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); trimVideo(video, $event)"
                                                     [matTooltip]="'app.auto_apply_video_trimming' | transloco">
-                                                    <mat-icon class="icon-size-4 text-gray-900">content_cut</mat-icon>
+                                                    <mat-icon class="icon-size-4 text-white">content_cut</mat-icon>
                                                 </button>
                                                 <button mat-icon-button
                                                     class="bg-red-600 hover:bg-red-800 transition-colors icon-size-6 rounded"
                                                     (click)="$event.stopPropagation(); removeVideo(sceneIdx, vIdx)">
-                                                    <mat-icon class="icon-size-4 text-gray-900">delete_forever</mat-icon>
+                                                    <mat-icon class="icon-size-4 text-white">delete_forever</mat-icon>
                                                 </button>
                                                 <input #fileInput type="file"
                                                     (change)="onFileSelected($event, scene, video)"
@@ -338,7 +336,7 @@
                                         'opacity-30 grayscale': sub.disabled,
                                         'opacity-100': !sub.disabled
                                     }" [style.left.px]="(sub.startTime || 0) * pixelsPerSecond + 128"
-                                    [style.width.px]="(sub.duration || 2) * pixelsPerSecond - 4" [title]="sub.text"
+                                    [style.width.px]="((sub.duration || 2) * pixelsPerSecond - 4) > 1 ? ((sub.duration || 2) * pixelsPerSecond - 4) : (((sub.duration || 2) * pixelsPerSecond) > 1 ? ((sub.duration || 2) * pixelsPerSecond) : 1)" [title]="sub.text"
                                     (click)="setActiveItem(sub, $event); !sub.disabled && playWaveform('sub', sceneIdx, subIdx)">
 
                                     <!-- Label -->
@@ -409,7 +407,7 @@
                                         'opacity-30 grayscale': audio.disabled,
                                         'opacity-100': !audio.disabled
                                     }" [style.left.px]="(audio.startTime || 0) * pixelsPerSecond + 128"
-                                    [style.width.px]="(audio.duration || 5) * pixelsPerSecond - 4" [title]="audio.text"
+                                    [style.width.px]="((audio.duration || 5) * pixelsPerSecond - 4) > 1 ? ((audio.duration || 5) * pixelsPerSecond - 4) : (((audio.duration || 5) * pixelsPerSecond) > 1 ? ((audio.duration || 5) * pixelsPerSecond) : 1)" [title]="audio.text"
                                     (click)="setActiveItem(audio, $event); !audio.disabled && playWaveform('extracted', sceneIdx, aIdx)">
 
                                     <!-- Label -->

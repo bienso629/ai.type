@@ -50,7 +50,7 @@ class AITypingApp extends StatelessWidget {
     }
 
     return MaterialApp(
-      title: 'AI.TYPING',
+      title: 'AI Type',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(

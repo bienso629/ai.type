@@ -1,4 +1,4 @@
-package vn.type.ai.ai_typing_mobile
+package ai.type.vn
 
 import io.flutter.embedding.android.FlutterActivity
 
