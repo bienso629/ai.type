@@ -2641,19 +2641,60 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     async processMagicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
-        this.toastr.info('AI đang xử lý video theo yêu cầu, vui lòng đợi...');
+        const electronApi = (window as any).electron;
+        if (!electronApi || !video.videoUrl) return;
+
+        this.toastr.info('AI đang trích xuất frame để xử lý...');
         
-        // Mock processing delay (3 seconds)
-        await new Promise(resolve => setTimeout(resolve, 3000));
-        
-        // Mark video as edited by AI
-        video.magicKlingApplied = true;
-        
-        this.normalizeData();
-        this.saveData();
-        this.cd.detectChanges();
-        
-        this.toastr.success('AI đã xử lý xong và cập nhật lại video trên Track 1!');
+        try {
+            const extractPayload = { 
+                videoPath: video.videoUrl, 
+                interval: 1, // 1 frame per second by default for editing
+                startTime: video.trimStart || 0,
+                duration: video.duration 
+            };
+            const extractResult = await electronApi.invoke('extract-video-frames', extractPayload);
+            
+            if (extractResult && extractResult.success && extractResult.paths.length > 0) {
+                const fps = extractResult.fps || 1;
+                const firstFramePath = extractResult.paths[0].replace('file://', '');
+                const dirPath = firstFramePath.substring(0, Math.max(firstFramePath.lastIndexOf('/'), firstFramePath.lastIndexOf('\\')));
+                
+                this.toastr.info(`Đã vào thư mục chứa ${extractResult.paths.length} frame. AI đang tiến hành chỉnh sửa hàng loạt...`);
+                
+                // Mock AI processing delay
+                await new Promise(resolve => setTimeout(resolve, 3000));
+                
+                this.toastr.info('AI đã chỉnh sửa xong, đang gộp lại thành video...');
+                
+                const mergePayload = { dirPath, fps };
+                const mergeResult = await electronApi.invoke('merge-frames-to-video', mergePayload);
+                
+                if (mergeResult && mergeResult.success) {
+                    let finalUrl = mergeResult.videoPath;
+                    if (!finalUrl.startsWith('file://')) {
+                        finalUrl = `file://${finalUrl.replace(/\\/g, '/')}`;
+                    }
+                    
+                    // Cập nhật video block
+                    video.videoUrl = finalUrl;
+                    video.magicKlingApplied = true;
+                    video.trimStart = 0;
+                    video.trimEnd = undefined;
+                    
+                    this.normalizeData();
+                    this.saveData();
+                    this.cd.detectChanges();
+                    
+                    this.toastr.success('Hoàn tất! Video đã được AI chỉnh sửa và gộp lại trên Track 1.');
+                }
+            } else {
+                this.toastr.error('Không thể trích xuất khung hình.');
+            }
+        } catch (err: any) {
+            console.error('Lỗi quy trình Magic Kling:', err);
+            this.toastr.error('Có lỗi xảy ra: ' + (err.message || ''));
+        }
     }
 
     isImageType(url: string): boolean {
