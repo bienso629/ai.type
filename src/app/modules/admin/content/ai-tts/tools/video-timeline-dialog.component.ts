@@ -41,6 +41,7 @@ import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrollin
 import { AddSceneComponent } from './add-scene.component';
 import { DirectorModeComponent } from './director-mode.component';
 import { MatInputModule } from '@angular/material/input';
+import { MatFormFieldModule } from '@angular/material/form-field';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
@@ -2617,15 +2618,21 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
-    async magicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
-        const promptText = window.prompt('Nhập prompt yêu cầu chỉnh sửa cho đoạn video này (Magic Kling v3):', video.prompt || '');
-        if (promptText === null) return; // User cancelled
+    magicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
+        const dialogRef = this.dialog.open(MagicKlingPromptDialogComponent, {
+            width: '500px',
+            data: { prompt: video.prompt || '' }
+        });
 
-        // Update the prompt
-        video.prompt = promptText.trim();
-
-        // Tách frame
-        await this.extractFramesForVideo(video, scene, sceneIdx, vIdx);
+        dialogRef.afterClosed().subscribe(async (promptText) => {
+            if (promptText === undefined || promptText === null) return; // User cancelled
+            
+            // Update the prompt
+            video.prompt = promptText.trim();
+            
+            // Tách frame
+            await this.extractFramesForVideo(video, scene, sceneIdx, vIdx);
+        });
     }
 
     async extractFramesForVideo(video: any, scene: any, sceneIdx: number, vIdx: number) {
@@ -3351,5 +3358,34 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             this.saveData();
             this.cd.detectChanges();
         }
+    }
+}
+
+@Component({
+    selector: 'app-magic-kling-prompt-dialog',
+    standalone: true,
+    imports: [MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, FormsModule],
+    template: `
+        <h2 mat-dialog-title>Magic Kling v3</h2>
+        <mat-dialog-content>
+            <p class="mb-4">Nhập prompt yêu cầu chỉnh sửa cho đoạn video này:</p>
+            <mat-form-field appearance="fill" class="w-full">
+                <mat-label>Prompt chỉnh sửa</mat-label>
+                <textarea matInput [(ngModel)]="prompt" rows="4"></textarea>
+            </mat-form-field>
+        </mat-dialog-content>
+        <mat-dialog-actions align="end">
+            <button mat-button (click)="dialogRef.close()">Hủy</button>
+            <button mat-flat-button color="primary" (click)="dialogRef.close(prompt)">Tiếp tục</button>
+        </mat-dialog-actions>
+    `
+})
+export class MagicKlingPromptDialogComponent {
+    prompt: string = '';
+    constructor(
+        public dialogRef: MatDialogRef<MagicKlingPromptDialogComponent>,
+        @Inject(MAT_DIALOG_DATA) public data: { prompt: string }
+    ) {
+        this.prompt = data.prompt || '';
     }
 }
