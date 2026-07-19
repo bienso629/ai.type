@@ -4460,6 +4460,60 @@ app.whenReady().then(async () => {
         });
     });
 
+    // ===== MERGE FRAMES TO VIDEO IPC =====
+    ipcMain.handle("merge-frames-to-video", async (_event, payload) => {
+        return new Promise((resolve, reject) => {
+            if (!binaries.ffmpeg) {
+                return reject(new Error("Không tìm thấy FFmpeg"));
+            }
+            try {
+                const { dirPath, fps } = payload;
+                if (!fs.existsSync(dirPath)) {
+                    return reject(new Error("Thư mục frames không tồn tại"));
+                }
+                
+                const outputFileName = `magic_kling_${Date.now()}.mp4`;
+                const outputPath = path.join(app.getPath('downloads'), 'AI.TYPING', outputFileName);
+                
+                const framePattern = path.join(dirPath, 'frame_%05d.jpg');
+                const ffmpegPath = binaries.ffmpeg;
+                
+                const args = [
+                    "-y",
+                    "-framerate", fps ? fps.toString() : "1",
+                    "-i", framePattern,
+                    "-c:v", "libx264",
+                    "-pix_fmt", "yuv420p",
+                    outputPath
+                ];
+
+                sendToRenderer("tools-log", `[FFmpeg] Gộp frames thành video: ${args.join(" ")}`);
+                const child = spawn(ffmpegPath, args);
+
+                let stderrOutput = "";
+                child.stderr.on("data", (data) => {
+                    stderrOutput += data.toString();
+                });
+
+                child.on("close", (code) => {
+                    if (code === 0) {
+                        return resolve({ success: true, videoPath: outputPath });
+                    } else {
+                        console.error("[FFmpeg merge error]:", stderrOutput);
+                        return reject(new Error(`Lỗi gộp video (code ${code}): ` + stderrOutput));
+                    }
+                });
+                
+                child.on("error", (err) => {
+                    reject(err);
+                });
+            } catch (err) {
+                console.error(err);
+                reject(err);
+            }
+        });
+    });
+
     // ===== EXTRACT AUDIO IPC =====
     ipcMain.handle("extract-audio", async (_event, videoPath) => {
         return new Promise((resolve, reject) => {

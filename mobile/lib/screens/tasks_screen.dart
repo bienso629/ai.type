@@ -58,6 +58,7 @@ class _TasksScreenState extends State<TasksScreen> {
 
       if (_username.isNotEmpty) {
         final res = await ApiService.getTasksCollections(_username);
+        print('DEBUG COLLECTIONS: $res');
         if (res != null && res['success'] == true && res['data'] != null) {
           _collections = res['data'];
           if (_collections.isNotEmpty) {
@@ -97,6 +98,7 @@ class _TasksScreenState extends State<TasksScreen> {
         }
       }
 
+      print('DEBUG FETCH: page=$_pageNumber, loadMore=$loadMore, bookmark=$_bookmark, uuids=$uuids');
       final res = await ApiService.getTasksArchive(
         username: _username,
         uuids: uuids,
@@ -109,6 +111,7 @@ class _TasksScreenState extends State<TasksScreen> {
         final data = res['data'];
         final List newDocs = data['docs'] ?? [];
         final newBookmark = data['bookmark'];
+        print('DEBUG RES: docs=${newDocs.length}, newBookmark=$newBookmark, oldBookmark=$_bookmark');
 
         if (!loadMore) {
           _tasks = newDocs;
@@ -173,7 +176,7 @@ class _TasksScreenState extends State<TasksScreen> {
             items: _collections.map((c) {
               return DropdownMenuItem<Map<String, dynamic>>(
                 value: c,
-                child: Text(c['name'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 14)),
+                child: Text(c['title'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 14)),
               );
             }).toList(),
             onChanged: _onCollectionChanged,
