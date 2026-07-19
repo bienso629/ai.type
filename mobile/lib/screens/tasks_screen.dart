@@ -60,7 +60,13 @@ class _TasksScreenState extends State<TasksScreen> {
         final res = await ApiService.getTasksCollections(_username);
         print('DEBUG COLLECTIONS: $res');
         if (res != null && res['success'] == true && res['data'] != null) {
-          _collections = res['data'];
+          _collections = List<dynamic>.from(res['data']);
+          _collections.insert(0, {
+            '_id': 'all',
+            'title': 'Tất cả',
+            'uuid': [],
+          });
+          
           if (_collections.isNotEmpty) {
             _selectedCollection = _collections[0];
             await _fetchTasks();
@@ -129,6 +135,8 @@ class _TasksScreenState extends State<TasksScreen> {
         if (newDocs.isEmpty && (newBookmark == null || newBookmark == _bookmark)) {
           _hasMore = false;
         } else if (newBookmark == _bookmark && newDocs.isNotEmpty) {
+          _hasMore = false;
+        } else if (uuids.isNotEmpty && _tasks.length >= uuids.length) {
           _hasMore = false;
         } else {
           _hasMore = true;

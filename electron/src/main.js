@@ -4460,6 +4460,70 @@ app.whenReady().then(async () => {
         });
     });
 
+    // ===== MOCK AI EDIT FRAMES IPC =====
+    ipcMain.handle("mock-ai-edit-frames", async (_event, payload) => {
+        return new Promise((resolve, reject) => {
+            if (!binaries.ffmpeg) return reject(new Error("Không tìm thấy FFmpeg"));
+            try {
+                const { dirPath, attachmentUrl } = payload;
+                if (!fs.existsSync(dirPath)) return reject(new Error("Thư mục frames không tồn tại"));
+                if (!attachmentUrl) return resolve({ success: true }); // No attachment = no mock edit
+                
+                let attachPath = attachmentUrl.replace('file://', '').replace(/\\/g, '/');
+                // Ensure attachPath is valid
+                if (!fs.existsSync(attachPath)) {
+                    // Try decoding URI
+                    attachPath = decodeURIComponent(attachPath);
+                    if (!fs.existsSync(attachPath)) return resolve({ success: true }); // Ignore if not found
+                }
+                
+                const framePattern = path.join(dirPath, 'frame_%05d.jpg');
+                const tempPattern = path.join(dirPath, 'temp_%05d.jpg');
+                const ffmpegPath = binaries.ffmpeg;
+                
+                // Scale attachment to 200px width and overlay in center
+                const args = [
+                    "-y",
+                    "-i", framePattern,
+                    "-i", attachPath,
+                    "-filter_complex", "[1:v]scale=250:-1[ov];[0:v][ov]overlay=x=(main_w-overlay_w)/2:y=(main_h-overlay_h)/2",
+                    "-q:v", "2",
+                    tempPattern
+                ];
+
+                sendToRenderer("tools-log", `[FFmpeg] Mock AI Edit frames: ${args.join(" ")}`);
+                const child = spawn(ffmpegPath, args);
+
+                let stderrOutput = "";
+                child.stderr.on("data", (data) => { stderrOutput += data.toString(); });
+
+                child.on("close", (code) => {
+                    if (code === 0) {
+                        // Rename temp back to frame
+                        const allFiles = fs.readdirSync(dirPath);
+                        const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
+                        frameFiles.forEach((file, index) => {
+                            const tempFile = `temp_${String(index + 1).padStart(5, '0')}.jpg`;
+                            const tempPath = path.join(dirPath, tempFile);
+                            const origPath = path.join(dirPath, file);
+                            if (fs.existsSync(tempPath)) {
+                                fs.renameSync(tempPath, origPath);
+                            }
+                        });
+                        resolve({ success: true });
+                    } else {
+                        console.error("[Mock AI Edit error]", stderrOutput);
+                        resolve({ success: false, error: stderrOutput }); // Resolve anyway so it doesn't break
+                    }
+                });
+                
+                child.on("error", (err) => { reject(err); });
+            } catch (err) {
+                reject(err);
+            }
+        });
+    });
+
     // ===== MERGE FRAMES TO VIDEO IPC =====
     ipcMain.handle("merge-frames-to-video", async (_event, payload) => {
         return new Promise((resolve, reject) => {
