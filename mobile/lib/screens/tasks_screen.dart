@@ -4,7 +4,6 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
-import 'package:timeago/timeago.dart' as timeago;
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -57,7 +56,7 @@ class _TasksScreenState extends State<TasksScreen> {
       }
 
       if (_username.isNotEmpty) {
-        final res = await ApiService.getCollections(_username);
+        final res = await ApiService.getTasksCollections(_username);
         if (res != null && res['success'] == true && res['data'] != null) {
           _collections = res['data'];
           if (_collections.isNotEmpty) {
@@ -157,12 +156,23 @@ class _TasksScreenState extends State<TasksScreen> {
     );
   }
 
+  String _formatTimeAgo(int timestamp) {
+    if (timestamp <= 0) return '';
+    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(timestamp));
+    if (diff.inDays > 365) return '${diff.inDays ~/ 365} years ago';
+    if (diff.inDays > 30) return '${diff.inDays ~/ 30} months ago';
+    if (diff.inDays > 0) return '${diff.inDays} days ago';
+    if (diff.inHours > 0) return '${diff.inHours} hours ago';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} minutes ago';
+    return 'just now';
+  }
+
   Widget _buildTaskItem(Map<String, dynamic> task) {
     final title = task['title'] ?? 'Không có tiêu đề';
     final uid = task['_id'] ?? '';
     final usage = task['usage'] ?? 0;
     final timestamp = task['time'] ?? 0;
-    final dateStr = timestamp > 0 ? timeago.format(DateTime.fromMillisecondsSinceEpoch(timestamp)) : '';
+    final dateStr = _formatTimeAgo(timestamp);
     
     // WordPress pill
     Widget? wpPill;
@@ -258,6 +268,10 @@ class _TasksScreenState extends State<TasksScreen> {
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          onPressed: () => Navigator.pop(context),
+        ),
       ),
       body: Column(
         children: [

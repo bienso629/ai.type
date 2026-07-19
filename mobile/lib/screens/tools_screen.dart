@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import 'domain_screen.dart';
+import 'tasks_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -100,6 +101,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     description: 'Lên kịch bản, viết bài nhanh, tóm tắt nội dung...',
                     color: Colors.blueAccent,
                     isActive: reputation >= 0,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen()));
+                    },
                   ),
                 if (reputation >= 0)
                   _buildToolCard(

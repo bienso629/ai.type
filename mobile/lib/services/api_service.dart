@@ -572,7 +572,7 @@ class ApiService {
     }
   }
 
-  static Future<dynamic> getCollections(String username) async {
+  static Future<dynamic> getTasksCollections(String username) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
     if (activeInfoStr == null) throw Exception('No active session');
