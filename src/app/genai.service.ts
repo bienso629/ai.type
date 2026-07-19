@@ -279,33 +279,63 @@ export class GenaiService {
         try {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
             const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
+            const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
+            let lastError: any = null;
+
+            // 1. Tầng 1: AI Agent (Local Standalone Agent)
             if (isAiAgentEnabled && !isVideoRequest && !bypassUModelverse) {
-                // Ưu tiên AI Agent cục bộ (Local Standalone Agent) cao nhất cho ảnh/text
-                return await this.generateWithAiAgent(params, scope);
-            } else if (this.isUModelverseEnabled() && !bypassUModelverse) {
-                // Ưu tiên số 2: Mì Tôm AI (Proxy)
-                return await this.generateWithUModelverse(params);
-            } else {
-                // Ưu tiên cuối: API Key miễn phí (Google AI)
-                const keys = settingsRaw?.secretKey ? settingsRaw.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
-
-                if (keys.length === 0) {
-                    console.error("API Key is missing in localStorage.");
-                    throw new Error("API Key không hợp lệ hoặc chưa được cấu hình.");
+                try {
+                    const agentRes = await this.generateWithAiAgent(params, scope);
+                    
+                    // Validate if it's an image request but AI Agent didn't return an image
+                    let hasImage = false;
+                    if (isImageRequest && agentRes.candidates && agentRes.candidates.length > 0) {
+                        for (const part of agentRes.candidates[0].content.parts) {
+                            if (part.inlineData) {
+                                hasImage = true;
+                                break;
+                            }
+                        }
+                        if (!hasImage) {
+                            throw new Error("AI Agent không hỗ trợ tạo hoặc chỉnh sửa ảnh (không trả về inlineData).");
+                        }
+                    }
+                    
+                    return agentRes; // Success!
+                } catch (agentErr) {
+                    console.warn(`[Fallback] AI Agent lỗi hoặc không hỗ trợ: ${agentErr}. Đang chuyển sang tầng Mì Tôm AI...`);
+                    lastError = agentErr;
                 }
+            }
 
-                // Xáo trộn mảng keys để random load balancing (vẫn ưu tiên key hiện tại nếu nó đang dùng tốt)
-                const shuffledKeys = [...keys].sort(() => Math.random() - 0.5);
-                // Đưa _currentKey lên đầu nếu có để ưu tiên thử lại key đang sống
-                if (this._currentKey && shuffledKeys.includes(this._currentKey)) {
-                    shuffledKeys.splice(shuffledKeys.indexOf(this._currentKey), 1);
-                    shuffledKeys.unshift(this._currentKey);
+            // 2. Tầng 2: Mì Tôm AI (Proxy)
+            if (this.isUModelverseEnabled() && !bypassUModelverse) {
+                try {
+                    return await this.generateWithUModelverse(params); // Success!
+                } catch (uErr) {
+                    console.warn(`[Fallback] Mì Tôm AI lỗi: ${uErr}. Đang chuyển sang tầng Gemini API...`);
+                    lastError = uErr;
                 }
+            }
 
-                let lastError: any;
-                for (let i = 0; i < shuffledKeys.length; i++) {
-                    const key = shuffledKeys[i];
+            // 3. Tầng 3: API Key miễn phí (Google AI)
+            const keys = settingsRaw?.secretKey ? settingsRaw.secretKey.split(';').map((k: string) => k.trim()).filter((k: string) => k) : [];
+
+            if (keys.length === 0) {
+                console.error("API Key is missing in localStorage.");
+                throw lastError || new Error("API Key không hợp lệ hoặc chưa được cấu hình.");
+            }
+
+            // Xáo trộn mảng keys để random load balancing
+            const shuffledKeys = [...keys].sort(() => Math.random() - 0.5);
+            if (this._currentKey && shuffledKeys.includes(this._currentKey)) {
+                shuffledKeys.splice(shuffledKeys.indexOf(this._currentKey), 1);
+                shuffledKeys.unshift(this._currentKey);
+            }
+
+            for (let i = 0; i < shuffledKeys.length; i++) {
+                const key = shuffledKeys[i];
                     try {
                         let aiInstance = this._aiInstance;
                         if (key !== this._currentKey || !aiInstance) {
@@ -347,7 +377,6 @@ export class GenaiService {
                     }
                 }
                 throw lastError;
-            }
         } catch (error) {
             console.error("Lỗi AI API:", error);
             throw error;
