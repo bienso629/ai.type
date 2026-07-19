@@ -612,6 +612,7 @@ class ApiService {
     required List<String> uuids,
     required int pageNumber,
     required int size,
+    String keyword = '',
     String? bookmark,
   }) async {
     final prefs = await SharedPreferences.getInstance();
@@ -629,7 +630,7 @@ class ApiService {
       'appId': 'ai.typing',
       'username': username,
       'appToken': activeInfo['user']['appToken'],
-      'keyword': '',
+      'keyword': keyword,
       'uuids': uuids,
       'page': {
         'pageNumber': pageNumber,

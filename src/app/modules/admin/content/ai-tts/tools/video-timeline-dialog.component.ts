@@ -2696,7 +2696,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                     this.toastr.success('Hoàn tất! Video đã được AI chỉnh sửa và gộp lại trên Track 1.');
                 }
             } else {
-                this.toastr.error('Không thể trích xuất khung hình.');
+                console.error("extractResult:", extractResult);
+                this.toastr.error('Không thể trích xuất khung hình. Chi tiết: ' + JSON.stringify(extractResult));
             }
         } catch (err: any) {
             console.error('Lỗi quy trình Magic Kling:', err);
