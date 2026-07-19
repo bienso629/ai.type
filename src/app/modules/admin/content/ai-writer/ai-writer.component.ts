@@ -3282,11 +3282,9 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         }
 
         const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
-            width: '100vw',
-            maxWidth: '100vw',
-            height: '100vh',
-            maxHeight: '100vh',
-            panelClass: 'full-screen-dialog',
+            width: '1200px',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
             data: {
                 uuid: randomUuid,
                 projectData: projectData,
