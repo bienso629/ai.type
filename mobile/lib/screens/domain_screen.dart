@@ -144,7 +144,7 @@ class _DomainScreenState extends State<DomainScreen> {
 
   String _maskPassword(String password) {
     if (password.isEmpty) return '';
-    const chars = '*#@!$&?';
+    const chars = '*#@!\$&?';
     int seed = 0;
     for (int i = 0; i < password.length; i++) {
       seed += password.codeUnitAt(i);
@@ -517,7 +517,7 @@ class _DomainScreenState extends State<DomainScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _analyzeDomains,
-                icon: const Icon(FontAwesomeIcons.sparkles, size: 16, color: Colors.white),
+                icon: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
                 label: const Text('Phân tích AI', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.indigo,
@@ -530,7 +530,7 @@ class _DomainScreenState extends State<DomainScreen> {
             Expanded(
               child: ElevatedButton.icon(
                 onPressed: _planDomains,
-                icon: const Icon(FontAwesomeIcons.calendar, size: 16, color: Colors.white),
+                icon: const FaIcon(FontAwesomeIcons.calendar, size: 16, color: Colors.white),
                 label: const Text('Lên kế hoạch', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
