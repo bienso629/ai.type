@@ -13,6 +13,8 @@ import '../widgets/profile_popup.dart';
 import 'home_tab.dart';
 import 'login_screen.dart';
 import 'tools_screen.dart';
+import 'domain_screen.dart';
+
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -63,7 +65,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const HomeTab(),
     const ToolsScreen(),
     const Center(child: Text('Tác vụ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
-    const Center(child: Text('Cài đặt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const DomainScreen(),
   ];
 
   @override
@@ -267,7 +269,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildNavItem(1, FontAwesomeIcons.screwdriverWrench, FontAwesomeIcons.screwdriverWrench, 'Công cụ'),
                 const SizedBox(width: 48), // Space for FAB
                 _buildNavItem(2, FontAwesomeIcons.briefcase, FontAwesomeIcons.briefcase, 'Tác vụ'),
-                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cài đặt'),
+                _buildNavItem(3, FontAwesomeIcons.globe, FontAwesomeIcons.globe, 'Tên miền'),
               ],
             ),
           ),

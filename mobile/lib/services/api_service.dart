@@ -279,6 +279,74 @@ class ApiService {
     return null;
   }
 
+  static Future<dynamic> addDomain(Map<String, dynamic> domain) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/domain/add');
+
+    final dataForm = {
+      'server': server,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': activeInfo['user']['name'],
+      'appToken': activeInfo['user']['appToken'],
+      'domain': domain,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
+  static Future<dynamic> editDomain(Map<String, dynamic> domain) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/domain/edit');
+
+    final dataForm = {
+      'server': server,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': activeInfo['user']['name'],
+      'appToken': activeInfo['user']['appToken'],
+      'domain': domain,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
   static Future<dynamic> getNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
