@@ -11,7 +11,7 @@ import '../widgets/notification_popup.dart';
 import '../services/api_service.dart';
 import '../widgets/profile_popup.dart';
 import 'home_tab.dart';
-import 'home_tab.dart';
+import 'tasks_screen.dart';
 import 'login_screen.dart';
 import 'tools_screen.dart';
 
@@ -64,7 +64,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
   final List<Widget> _tabs = [
     const HomeTab(),
     const ToolsScreen(),
-    const Center(child: Text('Tác vụ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const TasksScreen(),
     const Center(child: Text('Cài đặt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
   ];
 

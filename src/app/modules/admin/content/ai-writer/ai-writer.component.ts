@@ -4090,11 +4090,19 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         let editor: any = this.multiAccountService.getItem('editor');
 
         if (editor) {
-            editor = JSON.parse(editor);
+            try {
+                if (typeof editor === 'string') {
+                    editor = JSON.parse(editor);
+                }
+            } catch (e) {
+                console.error('Lỗi khi parse editor data:', e);
+                editor = null;
+            }
 
             if (
+                editor && 
                 editor.title &&
-                editor.done.length > 0 &&
+                editor.done && editor.done.length > 0 &&
                 editor.uuid === this.uuid
             ) {
                 this.setdata(editor);
