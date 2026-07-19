@@ -2644,7 +2644,78 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         const electronApi = (window as any).electron;
         if (!electronApi || !video.videoUrl) return;
 
-        this.toastr.info('AI đang trích xuất frame để xử lý...');
+        // NEW: Try using the real Mì Tôm AI GenAI Proxy first if enabled
+        if (this._genaiService && this._genaiService.isUModelverseEnabled()) {
+            this.toastr.info('Đang gửi yêu cầu tới Mì Tôm AI (Video2Video)...', 'AI Processing', { timeOut: 5000 });
+            try {
+                let referenceImages = [];
+                // 1. Reference Video (The current segment)
+                referenceImages.push({
+                    image: {
+                        imageBytes: video.videoUrl, // URL or local path for the video
+                        mimeType: 'video/mp4'
+                    },
+                    referenceType: 'REFERENCE_VIDEO'
+                });
+
+                // 2. Control Image / Face replacement image
+                if (video.aiReferenceImageLocalUrl) {
+                    referenceImages.push({
+                        image: {
+                            imageBytes: video.aiReferenceImageLocalUrl,
+                            mimeType: 'image/png'
+                        },
+                        referenceType: 'CONTROL_IMAGE'
+                    });
+                }
+
+                // Call the API
+                const prompt = video.prompt || "Phát sinh video chuyển động tương tự video gốc";
+                const base64Vid = await this._genaiService.generateVideoUModelverse(
+                    prompt,
+                    '16:9',
+                    referenceImages,
+                    video.duration || 5, // Fallback to 5s if unknown
+                    undefined, // seed
+                    'kling-v3-motion-control' // Force Kling V3 Motion
+                );
+
+                // Save the generated AI video
+                if (base64Vid) {
+                    const fileName = `magic_kling_${Date.now()}.mp4`;
+                    const result = await electronApi.invoke('save-base64', {
+                        base64: base64Vid,
+                        fileName: fileName,
+                        folder: 'scenes_videos',
+                        username: 'ai_type',
+                        customDir: `tts/ai_magic`
+                    });
+
+                    if (result && result.success) {
+                        let finalUrl = `file://${result.path.replace(/\\/g, '/')}`;
+                        
+                        // Update track data
+                        video.videoUrl = finalUrl;
+                        video.trimStart = 0;
+                        video.trimEnd = undefined;
+                        video.maxDuration = undefined;
+                        
+                        this.saveData(true);
+                        this.cd.detectChanges();
+                        setTimeout(() => this.updateLines(), 200);
+                        this.toastr.success('Mì Tôm AI đã xử lý xong và trả về Video xịn 100%!');
+                        return; // Successfully processed using real AI
+                    }
+                }
+            } catch (err: any) {
+                console.error("Lỗi Mì Tôm AI Video2Video:", err);
+                this.toastr.warning(`Lỗi gọi API: ${err.message}. Tự động chuyển sang chạy Mock AI.`);
+                // Fall down to mock processing
+            }
+        }
+
+        // FALLBACK: Mock AI processing via FFmpeg overlay
+        this.toastr.info('Mì Tôm AI không khả dụng. Đang dùng FFmpeg (Mock AI) để xử lý...');
         
         try {
             const extractPayload = { 
