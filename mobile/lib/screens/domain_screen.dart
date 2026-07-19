@@ -43,11 +43,15 @@ class _DomainScreenState extends State<DomainScreen> {
       final activeInfoStr = prefs.getString('active_info');
       if (activeInfoStr != null) {
         final activeInfo = jsonDecode(activeInfoStr);
-        final uid = activeInfo['user']['id'] ?? 'default';
-        final settingsStr = prefs.getString('user_settings_$uid');
-        if (settingsStr != null) {
-          final settings = jsonDecode(settingsStr);
-          _domainTargets = settings['domainTargets'] ?? {};
+        final username = activeInfo['user']['name'] ?? '';
+        if (username.isNotEmpty) {
+          final profileRes = await ApiService.getProfile(username);
+          if (profileRes != null && profileRes['success'] == true) {
+            final profile = profileRes['data'];
+            if (profile != null && profile['settings'] != null) {
+              _domainTargets = profile['settings']['domainTargets'] ?? {};
+            }
+          }
         }
       }
 
@@ -136,6 +140,10 @@ class _DomainScreenState extends State<DomainScreen> {
       _domainTargets[domain] = settings['domainTargets'][domain];
       
       await prefs.setString(settingsKey, jsonEncode(settings));
+      
+      // Update profile on server
+      await ApiService.updateProfile(settings);
+      
       setState(() {});
     } catch (e) {
       print('Error saving target: $e');
@@ -337,7 +345,12 @@ class _DomainScreenState extends State<DomainScreen> {
                     children: [
                       const Text('Tài khoản', style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 4),
-                      Text(username.isEmpty ? '-' : (_showPassword ? username : _maskPassword(username)), style: const TextStyle(fontSize: 14)),
+                      Text(
+                        username.isEmpty ? '-' : (_showPassword ? username : _maskPassword(username)),
+                        style: const TextStyle(fontSize: 14),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),
@@ -347,7 +360,12 @@ class _DomainScreenState extends State<DomainScreen> {
                     children: [
                       const Text('Mật khẩu', style: TextStyle(fontSize: 12, color: Colors.grey)),
                       const SizedBox(height: 4),
-                      Text(password.isEmpty ? '-' : (_showPassword ? password : _maskPassword(password)), style: const TextStyle(fontSize: 14)),
+                      Text(
+                        password.isEmpty ? '-' : (_showPassword ? password : _maskPassword(password)),
+                        style: const TextStyle(fontSize: 14),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ],
                   ),
                 ),

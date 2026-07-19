@@ -347,6 +347,86 @@ class ApiService {
     return null;
   }
 
+  static Future<dynamic> getProfile(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/user/profile/$username');
+
+    final dataForm = {
+      'server': server,
+      'year': DateTime.now().year,
+      'appId': 'ai.typing',
+      'name': username,
+      'appToken': activeInfo['user']['appToken'],
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      final res = jsonDecode(response.body);
+      if (res != null && res['success'] == true && res['data'] != null) {
+        final profile = res['data'];
+        if (profile['settings'] != null) {
+          final uid = activeInfo['user']['id'] ?? 'default';
+          await prefs.setString('user_settings_$uid', jsonEncode(profile['settings']));
+        }
+      }
+      return res;
+    }
+    return null;
+  }
+
+  static Future<dynamic> updateProfile(Map<String, dynamic> settings) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/user/profile/update');
+
+    final dataForm = {
+      'server': server,
+      'year': DateTime.now().year,
+      'appId': 'ai.typing',
+      'username': activeInfo['user']['name'],
+      'appToken': activeInfo['user']['appToken'],
+      'profile': {
+        'settings': settings,
+        'active_info': activeInfo,
+      }
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.put(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
   static Future<dynamic> getNotifications() async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
