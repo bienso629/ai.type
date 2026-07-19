@@ -9,6 +9,7 @@ import 'package:http/http.dart' as http;
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
 import '../widgets/profile_popup.dart';
+import '../widgets/notification_popup.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
@@ -23,8 +24,11 @@ class _ActiveScreenState extends State<ActiveScreen> {
   final List<TextEditingController> _controllers = List.generate(6, (index) => TextEditingController());
   final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
   bool _isLoading = false;
+  List<dynamic> _notifications = [];
+  int _unreadCount = 0;
   String _errorMessage = '';
   Map<String, dynamic>? _activeInfo;
+  String? _avatarUrl;
 
   @override
   void initState() {
@@ -36,10 +40,24 @@ class _ActiveScreenState extends State<ActiveScreen> {
     final prefs = await SharedPreferences.getInstance();
     final str = prefs.getString('active_info');
     if (str != null) {
+      final activeInfo = jsonDecode(str);
       setState(() {
-        _activeInfo = jsonDecode(str);
+        _activeInfo = activeInfo;
+        _avatarUrl = activeInfo['user']['avatar'];
       });
     }
+
+    try {
+      final res = await ApiService.getNotifications();
+      if (res != null && res['success'] == true && res['data'] != null && res['data']['notifications'] != null) {
+        if (mounted) {
+          setState(() {
+            _notifications = res['data']['notifications'];
+            _unreadCount = _notifications.where((n) => n['read'] == false || n['read'] == 0).length;
+          });
+        }
+      }
+    } catch (_) {}
   }
 
   @override
@@ -177,9 +195,6 @@ class _ActiveScreenState extends State<ActiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final avatarUrl = _activeInfo?['user']?['avatar'];
-    final email = _activeInfo?['user']?['email'] ?? '';
-
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -193,6 +208,50 @@ class _ActiveScreenState extends State<ActiveScreen> {
           filterQuality: FilterQuality.high,
         ),
         actions: [
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.notifications_none, color: Colors.black87),
+                onPressed: () {
+                  showGeneralDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    barrierLabel: 'Dismiss',
+                    barrierColor: Colors.transparent,
+                    pageBuilder: (_, __, ___) => NotificationPopup(notifications: _notifications),
+                  );
+                },
+              ),
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$_unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
@@ -209,7 +268,7 @@ class _ActiveScreenState extends State<ActiveScreen> {
                 child: CircleAvatar(
                   radius: 16,
                   backgroundColor: Colors.transparent,
-                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) as ImageProvider : const AssetImage('assets/images/web.png'),
+                  backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) as ImageProvider : const AssetImage('assets/images/web.png'),
                 ),
               ),
             ),

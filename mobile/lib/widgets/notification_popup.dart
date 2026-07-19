@@ -3,7 +3,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../services/api_service.dart';
 
 class NotificationPopup extends StatefulWidget {
-  const NotificationPopup({super.key});
+  final List<dynamic>? notifications;
+  const NotificationPopup({super.key, this.notifications});
 
   @override
   State<NotificationPopup> createState() => _NotificationPopupState();
@@ -11,40 +12,16 @@ class NotificationPopup extends StatefulWidget {
 
 class _NotificationPopupState extends State<NotificationPopup> {
   List<dynamic> _notifications = [];
-  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _fetchNotifications();
-  }
-
-  Future<void> _fetchNotifications() async {
-    try {
-      final res = await ApiService.getNotifications();
-      if (res != null && res['success'] == true && res['data'] != null && res['data']['notifications'] != null) {
-        if (mounted) {
-          setState(() {
-            _notifications = res['data']['notifications'];
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error fetching notifications: $e');
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+    if (widget.notifications != null) {
+      _notifications = widget.notifications!;
     }
   }
+
+
 
   @override
   Widget build(BuildContext context) {
@@ -99,12 +76,7 @@ class _NotificationPopupState extends State<NotificationPopup> {
                       const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
                       
                       // Notification Items
-                      if (_isLoading)
-                        const Padding(
-                          padding: EdgeInsets.all(20.0),
-                          child: Center(child: CircularProgressIndicator()),
-                        )
-                      else if (_notifications.isEmpty)
+                      if (_notifications.isEmpty)
                         const Padding(
                           padding: EdgeInsets.all(20.0),
                           child: Center(child: Text('Không có thông báo mới', style: TextStyle(color: Colors.grey))),

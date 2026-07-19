@@ -8,6 +8,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/app_colors.dart';
 import '../widgets/notification_popup.dart';
+import '../services/api_service.dart';
 import '../widgets/profile_popup.dart';
 import 'home_tab.dart';
 import 'login_screen.dart';
@@ -24,6 +25,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
   String? _avatarUrl;
   Timer? _recordTimer;
   bool _isRecording = false;
+  List<dynamic> _notifications = [];
+  int _unreadCount = 0;
 
   @override
   void initState() {
@@ -41,12 +44,25 @@ class _DashboardScreenState extends State<DashboardScreen> {
         _avatarUrl = activeInfo['user']['avatar'];
       });
     }
+    
+    // Fetch notifications once on load
+    try {
+      final res = await ApiService.getNotifications();
+      if (res != null && res['success'] == true && res['data'] != null && res['data']['notifications'] != null) {
+        if (mounted) {
+          setState(() {
+            _notifications = res['data']['notifications'];
+            _unreadCount = _notifications.where((n) => n['read'] == false || n['read'] == 0).length;
+          });
+        }
+      }
+    } catch (_) {}
   }
   
   final List<Widget> _tabs = [
     const HomeTab(),
     const ToolsScreen(),
-    const Center(child: Text('Công việc', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const Center(child: Text('Tác vụ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
     const Center(child: Text('Cài đặt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
   ];
 
@@ -88,36 +104,37 @@ class _DashboardScreenState extends State<DashboardScreen> {
                     barrierDismissible: true,
                     barrierLabel: 'Dismiss',
                     barrierColor: Colors.transparent,
-                    pageBuilder: (_, __, ___) => const NotificationPopup(),
+                    pageBuilder: (_, __, ___) => NotificationPopup(notifications: _notifications),
                   );
                 },
               ),
-              Positioned(
-                right: 8,
-                top: 10,
-                child: Container(
-                  padding: const EdgeInsets.all(2),
-                  decoration: const BoxDecoration(
-                    color: Colors.red,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 16,
-                    minHeight: 16,
-                  ),
-                  child: const Center(
-                    child: Text(
-                      '2',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
+              if (_unreadCount > 0)
+                Positioned(
+                  right: 8,
+                  top: 10,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: const BoxDecoration(
+                      color: Colors.red,
+                      shape: BoxShape.circle,
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 16,
+                      minHeight: 16,
+                    ),
+                    child: Center(
+                      child: Text(
+                        '$_unreadCount',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
                       ),
-                      textAlign: TextAlign.center,
                     ),
                   ),
                 ),
-              ),
             ],
           ),
           Padding(
@@ -249,7 +266,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 _buildNavItem(0, FontAwesomeIcons.chartPie, FontAwesomeIcons.chartPie, 'Tổng quan'),
                 _buildNavItem(1, FontAwesomeIcons.screwdriverWrench, FontAwesomeIcons.screwdriverWrench, 'Công cụ'),
                 const SizedBox(width: 48), // Space for FAB
-                _buildNavItem(2, FontAwesomeIcons.briefcase, FontAwesomeIcons.briefcase, 'Công việc'),
+                _buildNavItem(2, FontAwesomeIcons.briefcase, FontAwesomeIcons.briefcase, 'Tác vụ'),
                 _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cài đặt'),
               ],
             ),
