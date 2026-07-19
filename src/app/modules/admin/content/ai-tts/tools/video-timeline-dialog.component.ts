@@ -74,6 +74,7 @@ interface electron {
     schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterViewInit {
+    private saveTimeout: any = null;
     private readonly STORAGE_CLIPS_KEY = 'ai_type_video_ready_data';
 
     // [THÊM BIẾN NÀY] Trạng thái hiển thị Master Prompt
@@ -2405,10 +2406,27 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
     }
 
     saveData(force: boolean = false) {
-        if (!force) return;
-        const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
-        this.multiAccountService.setItem(storageKey, this.projectData);
-        this.toastr.success('Đã lưu tiến trình Timeline!');
+        const executeSave = () => {
+            const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
+            this.multiAccountService.setItem(storageKey, this.projectData);
+        };
+
+        if (force) {
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+                this.saveTimeout = null;
+            }
+            executeSave();
+            this.toastr.success('Đã lưu tiến trình Timeline!');
+        } else {
+            if (this.saveTimeout) {
+                clearTimeout(this.saveTimeout);
+            }
+            this.saveTimeout = setTimeout(() => {
+                executeSave();
+                this.saveTimeout = null;
+            }, 500);
+        }
     }
 
     close() {

@@ -3263,24 +3263,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         }
 
         this.multiAccountService.setItem('ai_type_video_ready_data_' + randomUuid, projectData);
-
-        // Lưu lại UUID của video vào đoạn văn (item) để giữ trạng thái timeline TRƯỚC khi mở dialog
-        if (index !== -1 && typeof item === 'string') {
-            if (!item.includes('data-uuid=')) {
-                // Chèn thuộc tính data-uuid vào thẻ HTML gốc đầu tiên tìm được
-                const match = item.match(/<([a-zA-Z0-9]+)/);
-                if (match && match[1]) {
-                    const tagName = match[1];
-                    const newItem = item.replace(`<${tagName}`, `<${tagName} data-uuid="${randomUuid}"`);
-                    this.done[index] = newItem;
-                    this.storelocal(); // Force auto-save to localStorage/memory
-                    if (this.uuid) {
-                        this.update(false); // Sync to server immediately so F5 can recover it
-                    }
-                }
-            }
-        }
-
+        // Bỏ việc can thiệp vào `item` (HTML string) vì UUID đã được quản lý an toàn qua `videoMap`.
         const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
             width: '1200px',
             maxWidth: '90vw',
