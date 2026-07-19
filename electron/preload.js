@@ -57,6 +57,7 @@ contextBridge.exposeInMainWorld('electron', {
     exportGscPdf: (payload) => ipcRenderer.invoke('export-gsc-pdf', payload),
     analyticsReport: (payload) => ipcRenderer.invoke('ga:report', payload),
     saveBase64: (data) => ipcRenderer.invoke('save-base64', data),
+    overwriteFileBase64: (data) => ipcRenderer.invoke('overwrite-file-base64', data),
     captureApp: (data) => ipcRenderer.invoke('capture-app', data),
     getAppVersion: () => ipcRenderer.invoke('get-app-version'),
     relaunchApp: () => ipcRenderer.send('app:relaunch'),

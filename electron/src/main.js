@@ -4460,6 +4460,22 @@ app.whenReady().then(async () => {
         });
     });
 
+    // ===== OVERWRITE FILE BASE64 IPC =====
+    ipcMain.handle("overwrite-file-base64", async (_event, payload) => {
+        return new Promise((resolve, reject) => {
+            try {
+                let { filePath, base64 } = payload;
+                filePath = filePath.replace('file://', '').replace(/\\/g, '/');
+                const buffer = Buffer.from(base64, 'base64');
+                fs.writeFileSync(filePath, buffer);
+                resolve({ success: true });
+            } catch (err) {
+                console.error('overwrite-file-base64 error:', err);
+                reject(err);
+            }
+        });
+    });
+
     // ===== MOCK AI EDIT FRAMES IPC =====
     ipcMain.handle("mock-ai-edit-frames", async (_event, payload) => {
         return new Promise((resolve, reject) => {
