@@ -3284,7 +3284,9 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         const dialogRef = this.dialog.open(VideoTimelineDialogComponent, {
             width: '1200px',
             maxWidth: '90vw',
+            height: '90vh',
             maxHeight: '90vh',
+            panelClass: ['dialog-no-padding', 'overflow-hidden'],
             data: {
                 uuid: randomUuid,
                 projectData: projectData,

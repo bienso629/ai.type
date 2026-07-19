@@ -1095,3 +1095,7 @@ timeline-calendar .date-marker {
     z-index: 999 !important;
     opacity: 0.2 !important;
 }
+
+.dialog-no-padding .mdc-dialog__surface {
+    padding: 0 !important;
+}
