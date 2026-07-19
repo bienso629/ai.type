@@ -133,9 +133,9 @@
                         <div
                             class="sticky left-0 top-0 h-full w-32 bg-gray-50 border-r border-gray-300 flex flex-col items-center justify-center z-[60] overflow-hidden group">
                             <span class="text-xs font-semibold text-gray-700">Track {{tIdx + 1}}</span>
-                            <button *ngIf="tIdx === 0" mat-icon-button class="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 leading-6 flex items-center justify-center" 
+                            <button *ngIf="tIdx === 0" mat-icon-button class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
                                 (click)="addNewMediaBlock('video')" [matTooltip]="'app.add_media_block' | transloco">
-                                <mat-icon class="icon-size-4 text-gray-500 hover:text-green-500">add</mat-icon>
+                                <mat-icon class="text-gray-500 hover:text-green-500">add</mat-icon>
                             </button>
                         </div>
 
@@ -324,9 +324,9 @@
                             class="sticky left-0 top-0 h-full w-32 bg-gray-50 border-r border-gray-300 flex flex-col items-center justify-center z-[60] overflow-hidden group">
                             <span class="text-xs font-semibold text-gray-700">Track Audio</span>
                             <mat-icon class="icon-size-4 text-blue-400 mt-1">mic</mat-icon>
-                            <button mat-icon-button class="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 leading-6 flex items-center justify-center" 
+                            <button mat-icon-button class="absolute right-0 opacity-0 group-hover:opacity-100 transition-opacity scale-75" 
                                 (click)="addNewMediaBlock('audio')" [matTooltip]="'app.add_media_block' | transloco">
-                                <mat-icon class="icon-size-4 text-gray-500 hover:text-green-500">add</mat-icon>
+                                <mat-icon class="text-gray-500 hover:text-green-500">add</mat-icon>
                             </button>
                         </div>
 
