@@ -514,12 +514,13 @@ class _HomeTabState extends State<HomeTab> {
 
     return SingleChildScrollView(
       physics: const BouncingScrollPhysics(),
+      padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Main Chart Section
           Padding(
-            padding: const EdgeInsets.all(24),
+            padding: const EdgeInsets.only(bottom: 24),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -579,7 +580,7 @@ class _HomeTabState extends State<HomeTab> {
 
           // Stat Cards
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.only(bottom: 16),
             child: Column(
               children: [
                 _buildStatCard('Tổng số bài viết', totalArticles, totalArticlesStatus, _monthlyTotals, Colors.blue),
@@ -595,7 +596,7 @@ class _HomeTabState extends State<HomeTab> {
           
           // Collections Section
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.only(bottom: 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -639,7 +640,7 @@ class _HomeTabState extends State<HomeTab> {
             
             // Video Projects Section
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
+              padding: const EdgeInsets.only(bottom: 16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [

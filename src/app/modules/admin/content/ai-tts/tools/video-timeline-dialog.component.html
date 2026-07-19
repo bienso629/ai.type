@@ -220,15 +220,9 @@
                                                 
                                                 <button *ngIf="video.videoUrl" mat-icon-button
                                                     class="bg-fuchsia-600 border border-fuchsia-400 hover:bg-fuchsia-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(217,70,239,0.6)]"
-                                                    (click)="$event.stopPropagation(); autoGenerateVideo(scene, video, sceneIdx, vIdx, true)"
-                                                    title="Magic Kling v3 Motion Control (Max 10s)">
+                                                    (click)="$event.stopPropagation(); magicKlingV3(video, scene, sceneIdx, vIdx)"
+                                                    title="Magic Kling v3 (Tách frame & nhập prompt)">
                                                     <mat-icon class="icon-size-4 text-white">auto_awesome</mat-icon>
-                                                </button>
-                                                <button *ngIf="video.videoUrl" mat-icon-button
-                                                    class="bg-pink-600 hover:bg-pink-500 transition-colors icon-size-6 rounded flex items-center justify-center shadow-[0_0_8px_rgba(236,72,153,0.6)]"
-                                                    (click)="$event.stopPropagation(); extractFramesForVideo(video, scene, sceneIdx, vIdx)"
-                                                    title="Chuyển đoạn video này thành các khung hình ảnh để sửa">
-                                                    <mat-icon class="icon-size-4 text-white">burst_mode</mat-icon>
                                                 </button>
                                                 
                                                 <button *ngIf="video.videoUrl && !hasExtractedAudio(scene, video)"
