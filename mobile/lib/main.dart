@@ -19,7 +19,8 @@ void main() async {
   
   if (isLoggedIn) {
     final activeInfo = jsonDecode(prefs.getString('active_info')!);
-    if (activeInfo['user']['appToken'] == 'default_app_token' || activeInfo['user']['appToken'] == null) {
+    final token = activeInfo['user']['appToken'];
+    if (token == null || token == 'default_app_token' || token.toString().trim().isEmpty) {
       requiresActivation = true;
     }
   }
@@ -124,9 +125,13 @@ class AITypingApp extends StatelessWidget {
           }),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(4)),
         ),
-      useMaterial3: true,
+        dialogTheme: const DialogThemeData(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+        ),
+        useMaterial3: true,
       ),
-      home: hasSession ? const DashboardScreen() : const LoginScreen(),
+      home: initialScreen,
     );
   }
 }

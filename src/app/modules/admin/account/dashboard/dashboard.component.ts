@@ -380,6 +380,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        this.updateChart();
     }
 
     ngOnDestroy(): void {
@@ -470,9 +471,7 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     updateChart() {
-        if (!this.statistics || !this.statistics.domainStats) return;
-        
-        let domainStatsData = this.statistics.domainStats;
+        let domainStatsData = (this.statistics && this.statistics.domainStats) ? this.statistics.domainStats : {};
         let series = [];
         let categories = [];
         
@@ -779,10 +778,40 @@ export class DashboardComponent implements OnInit, OnDestroy {
             this.totalArticles = 0;
             this.activeDomains = 0;
             this.avgArticles = 0;
-            this.sparkline1 = null;
-            this.sparkline2 = null;
-            this.sparkline3 = null;
-            this.domainChartOptions = null;
+            
+            const emptyData = new Array(12).fill(0);
+            const commonSparklineConfig = {
+                chart: { type: 'area', height: 60, sparkline: { enabled: true }, animations: { enabled: false } },
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } },
+                stroke: { curve: 'smooth', width: 2 },
+                yaxis: { 
+                    min: 0,
+                    max: (max) => Math.max(2, Math.ceil(max * 1.5)) 
+                },
+                fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.0, stops: [0, 100] } },
+                tooltip: { fixed: { enabled: false }, x: { show: false }, y: { title: { formatter: function () { return '' } } }, marker: { show: false } }
+            };
+
+            this.sparkline1 = { ...commonSparklineConfig, series: [{ data: emptyData }], colors: ['#3b82f6'] };
+            this.sparkline2 = { ...commonSparklineConfig, series: [{ data: emptyData }], colors: ['#ef4444'] };
+            this.sparkline3 = { ...commonSparklineConfig, series: [{ data: emptyData }], colors: ['#10b981'] };
+            
+            let domainNames = ['Chưa có'];
+            this.domainChartOptions = {
+                series: [
+                    { name: 'Chỉ tiêu', type: 'line', data: [0] },
+                    { name: 'Thực tế', type: 'line', data: [0] }
+                ],
+                chart: { type: 'line', height: 60, sparkline: { enabled: true }, animations: { enabled: true } },
+                colors: ['#94a3b8', '#10b981'],
+                dataLabels: { enabled: false },
+                stroke: { curve: 'smooth', width: [2, 2], dashArray: [4, 0] },
+                xaxis: { categories: domainNames, labels: { show: false }, tooltip: { enabled: false } },
+                yaxis: { min: 0, max: 5, labels: { show: false } },
+                tooltip: { fixed: { enabled: true, position: 'topRight', offsetY: -20, offsetX: 0 }, x: { show: true }, marker: { show: false } },
+                legend: { show: false },
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } }
+            };
         }
     }
 

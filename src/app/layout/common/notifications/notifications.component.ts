@@ -624,10 +624,10 @@ export class NotificationsComponent implements OnInit, OnDestroy {
                             this.notifications = result.data.notifications.map((item: any) => {
                                 item = {
                                     id: item.pid,
-                                    icon: (item.user.picture) ? `https://type.vn${item.user.picture.replace(/&#x2F;/g, '/')}` : 'https://type.vn/assets/uploads/favicon.png',
+                                    icon: (item.user?.picture) ? `https://type.vn${item.user.picture.replace(/&#x2F;/g, '/')}` : 'https://type.vn/assets/uploads/favicon.png',
                                     image: (item.image) ? `https://type.vn${item.image.replace(/&#x2F;/g, '/')}` : null,
                                     title: item.subject,
-                                    description: (item.type === 'follow') ? `${item.user.username} bắt đầu theo dõi bạn` : (item.bodyLong ? new DOMParser().parseFromString(item.bodyLong, 'text/html').body.textContent.trim() : ''),
+                                    description: (item.type === 'follow') ? `${item.user?.username || 'Ai đó'} bắt đầu theo dõi bạn` : (item.bodyLong ? new DOMParser().parseFromString(item.bodyLong, 'text/html').body.textContent.trim() : ''),
                                     time: item.datetimeISO,
                                     link: `https://type.vn${item.path ? item.path.replace(/&#x2F;/g, '/') : ''}`,
                                     useRouter: false,
