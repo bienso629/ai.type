@@ -1,93 +1,275 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 
-class ToolsScreen extends StatelessWidget {
+class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
 
   @override
+  State<ToolsScreen> createState() => _ToolsScreenState();
+}
+
+class _ToolsScreenState extends State<ToolsScreen> {
+  Map<String, dynamic>? _user;
+  List<String> _groups = [];
+  bool _isLoading = true;
+  bool _isZaloInstalled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUser();
+  }
+
+  Future<void> _loadUser() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr != null) {
+      final activeInfo = jsonDecode(activeInfoStr);
+      _user = activeInfo['user'];
+      if (_user != null && _user!['groups'] != null) {
+        _groups = List<String>.from(_user!['groups']);
+      }
+    }
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_user == null) {
+      return const Center(child: Text('Vui lòng đăng nhập'));
+    }
+
+    int reputation = _user!['reputation'] ?? 0;
+    
+    int cn2 = 0, cn3 = 0;
+    if (_groups.contains('nhóm-tạo-hình-ảnh') || 
+        _groups.contains('nhóm-thu-thập-dữ-liệu') || 
+        _groups.contains('nhóm-txt2voice') || 
+        _groups.contains('nhóm-big-data') ||
+        _groups.contains('nhóm-download-video')) {
+      cn2++;
+    }
+
+    if (_groups.contains('nhóm-đã-mua-chatbot') || 
+        _groups.contains('nhóm-seo-và-phân-tích') || 
+        _groups.contains('nhóm-tự-động-hóa') || 
+        _groups.contains('nhóm-x-cms') || 
+        _groups.contains('nhóm-chạy-traffic')) {
+      cn3++;
+    }
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(20.0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            'Cơ bản',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+          if (reputation >= 0) ...[
+            const Text(
+              'Cơ bản',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.85,
-            children: [
-              _buildToolCard(
-                icon: FontAwesomeIcons.penToSquare,
-                title: 'Công việc',
-                description: 'Lên kịch bản, viết bài nhanh, tóm tắt nội dung...',
-                color: Colors.blueAccent,
-              ),
-              _buildToolCard(
-                icon: FontAwesomeIcons.globe,
-                title: 'Viết bài tự động',
-                description: 'Tạo nội dung chuẩn SEO với 1 click',
-                color: Colors.orangeAccent,
-              ),
-              _buildToolCard(
-                icon: FontAwesomeIcons.sitemap,
-                title: 'Lập dàn ý',
-                description: 'Cấu trúc bài viết mạch lạc',
-                color: Colors.purpleAccent,
-              ),
-              _buildToolCard(
-                icon: FontAwesomeIcons.language,
-                title: 'Từ điển',
-                description: 'Tra cứu & giải nghĩa các từ tiếng Việt',
-                color: Colors.green,
-              ),
-            ],
-          ),
-          const SizedBox(height: 32),
-          const Text(
-            'AI Mở rộng',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: AppColors.textPrimary,
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.85,
+              children: [
+                if (reputation >= 0)
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.penToSquare,
+                    title: 'Tác vụ',
+                    description: 'Lên kịch bản, viết bài nhanh, tóm tắt nội dung...',
+                    color: Colors.blueAccent,
+                    isActive: reputation >= 0,
+                  ),
+                if (reputation >= 0)
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.globe,
+                    title: 'Tên miền',
+                    description: 'Quản lý các tên miền đang hoạt động của bạn',
+                    color: Colors.orangeAccent,
+                    isActive: reputation >= 0,
+                  ),
+                if (_groups.contains('nhóm-quét-sitemap'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.codeBranch,
+                    title: 'Sitemap',
+                    description: 'Nhập hàng nghìn bài viết từ file Sitemap',
+                    color: Colors.purpleAccent,
+                    isActive: reputation >= 0,
+                  ),
+                if (reputation >= 0)
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.language,
+                    title: 'Từ điển',
+                    description: 'Tra cứu & giải nghĩa các từ tiếng Việt',
+                    color: Colors.green,
+                    isActive: reputation >= 0,
+                  ),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 2,
-            crossAxisSpacing: 16,
-            mainAxisSpacing: 16,
-            childAspectRatio: 0.85,
-            children: [
-              _buildToolCard(
-                icon: FontAwesomeIcons.image,
-                title: 'Tạo hình ảnh',
-                description: 'Sử dụng AI để tạo hình ảnh chất lượng cao',
-                color: Colors.pinkAccent,
+            const SizedBox(height: 32),
+          ],
+
+          if (cn2 > 0) ...[
+            const Text(
+              'Công cụ nâng cao',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
               ),
-              _buildToolCard(
-                icon: FontAwesomeIcons.microphone,
-                title: 'Tạo giọng đọc',
-                description: 'Chuyển văn bản thành giọng nói',
-                color: Colors.teal,
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.85,
+              children: [
+                if (_groups.contains('nhóm-tạo-hình-ảnh'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.image,
+                    title: 'Thiết kế',
+                    description: 'Sử dụng AI để tạo hình ảnh chất lượng cao',
+                    color: Colors.pinkAccent,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-download-video'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.youtube,
+                    title: 'Tải xuống',
+                    description: 'Tải xuống tất cả video từ Facebook, Youtube, Tiktok',
+                    color: Colors.redAccent,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-thu-thập-dữ-liệu'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.towerBroadcast,
+                    title: 'Xu hướng',
+                    description: 'Tự động quét xu hướng tìm kiếm từ Facebook',
+                    color: Colors.blueAccent,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-thu-thập-dữ-liệu'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.box,
+                    title: 'Thu thập',
+                    description: 'Thu thập dữ liệu, số điện thoại, email...',
+                    color: Colors.orangeAccent,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-txt2voice'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.microphone,
+                    title: 'Giọng nói',
+                    description: 'Chuyển văn bản thành giọng nói cảm xúc',
+                    color: Colors.teal,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-big-data'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.database,
+                    title: 'Dữ liệu',
+                    description: 'Quản lý, phân tích dữ liệu tự động',
+                    color: Colors.indigoAccent,
+                    isActive: true,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 32),
+          ],
+
+          if (cn3 > 0) ...[
+            const Text(
+              'Hỗ trợ khách hàng',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: AppColors.textPrimary,
               ),
-            ],
-          ),
-          const SizedBox(height: 80),
+            ),
+            const SizedBox(height: 16),
+            GridView.count(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              crossAxisCount: 2,
+              crossAxisSpacing: 16,
+              mainAxisSpacing: 16,
+              childAspectRatio: 0.85,
+              children: [
+                if (_groups.contains('nhóm-đã-mua-chatbot'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.message,
+                    title: 'Chatbot',
+                    description: 'Tạo chatbot AI thông minh cho doanh nghiệp',
+                    color: Colors.blueAccent,
+                    isActive: true,
+                  ),
+                if (_isZaloInstalled)
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.commentDots,
+                    title: 'Quản lý Zalo',
+                    description: 'Quản lý danh bạ, xem lịch sử và trả lời tin nhắn Zalo',
+                    color: Colors.blue,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-chạy-traffic'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.arrowTrendUp,
+                    title: 'Tăng Traffic',
+                    description: 'Cải thiện chất lượng từ khóa và đẩy mạnh truy cập',
+                    color: Colors.green,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-seo-và-phân-tích'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.bullseye,
+                    title: 'Kiểm tra SEO',
+                    description: 'Bộ sưu tập liên kết tuyệt vời của bạn',
+                    color: Colors.orange,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-seo-và-phân-tích'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.chartPie,
+                    title: 'Báo cáo',
+                    description: 'Phân tích và báo cáo tự động',
+                    color: Colors.purple,
+                    isActive: true,
+                  ),
+                if (_groups.contains('nhóm-tự-động-hóa'))
+                  _buildToolCard(
+                    icon: FontAwesomeIcons.calendar,
+                    title: 'Tăng tương tác',
+                    description: 'Tương tác tự động để cải thiện độ phổ biến',
+                    color: Colors.teal,
+                    isActive: true,
+                  ),
+              ],
+            ),
+            const SizedBox(height: 80),
+          ],
         ],
       ),
     );
@@ -98,19 +280,13 @@ class ToolsScreen extends StatelessWidget {
     required String title,
     required String description,
     required Color color,
+    required bool isActive,
   }) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: AppColors.accent.withOpacity(0.5)),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
       ),
       child: Material(
         color: Colors.transparent,
@@ -151,16 +327,21 @@ class ToolsScreen extends StatelessWidget {
                     color: AppColors.textSecondary,
                     height: 1.4,
                   ),
-                  maxLines: 3,
+                  maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Khám phá', style: TextStyle(color: AppColors.primary, fontSize: 10, fontWeight: FontWeight.w600)),
-                    const SizedBox(width: 4),
-                    const FaIcon(FontAwesomeIcons.chevronRight, size: 10, color: AppColors.primary),
+                    Text(
+                      isActive ? 'Kích hoạt' : 'Chưa kích hoạt',
+                      style: TextStyle(
+                        color: isActive ? Colors.green[600] : Colors.red[600],
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
                   ],
                 ),
               ],
