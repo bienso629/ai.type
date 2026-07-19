@@ -2683,7 +2683,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             
                             const parts: any[] = [{ text: prompt }];
                             
-                            // 1. Ảnh tham khảo (Control Image / Face)
+                            // 1. Ảnh frame gốc cần sửa (LUÔN ĐỨNG TRƯỚC ĐỂ LÀM BASE IMAGE TRONG IMAGE-TO-IMAGE)
+                            parts.push({
+                                inlineData: {
+                                    mimeType: 'image/jpeg',
+                                    data: frameBase64
+                                }
+                            });
+                            
+                            // 2. Ảnh tham khảo (Control Image / Face)
                             if (referenceBase64) {
                                 parts.push({
                                     inlineData: {
@@ -2692,14 +2700,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                     }
                                 });
                             }
-                            
-                            // 2. Ảnh frame gốc cần sửa
-                            parts.push({
-                                inlineData: {
-                                    mimeType: 'image/jpeg',
-                                    data: frameBase64
-                                }
-                            });
                             
                             // Gọi Tầng AI cao nhất đang được cấu hình
                             const response = await this._genaiService.generateContent({
