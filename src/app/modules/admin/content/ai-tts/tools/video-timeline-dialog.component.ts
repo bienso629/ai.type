@@ -2479,6 +2479,17 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.cd.detectChanges();
     }
 
+    async magicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
+        const promptText = window.prompt('Nhập prompt yêu cầu chỉnh sửa cho đoạn video này (Magic Kling v3):', video.prompt || '');
+        if (promptText === null) return; // User cancelled
+
+        // Update the prompt
+        video.prompt = promptText.trim();
+
+        // Tách frame
+        await this.extractFramesForVideo(video, scene, sceneIdx, vIdx);
+    }
+
     async extractFramesForVideo(video: any, scene: any, sceneIdx: number, vIdx: number) {
         const electronApi = (window as any).electron;
         if (!electronApi || !video.videoUrl) return;
