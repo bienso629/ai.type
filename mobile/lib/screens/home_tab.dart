@@ -18,7 +18,9 @@ class _HomeTabState extends State<HomeTab> {
   
   int totalArticles = 0;
   int activeDomains = 0;
+  int allDomainsLength = 0;
   int avgArticles = 0;
+  int _evalMonthToDisplay = 1;
   
   Map<String, dynamic> totalArticlesStatus = {'text': 'Tăng trưởng tốt', 'color': Colors.blue, 'icon': FontAwesomeIcons.arrowTrendUp};
   Map<String, dynamic> activeDomainsStatus = {'text': 'Cần tối ưu thêm', 'color': Colors.red, 'icon': FontAwesomeIcons.arrowTrendDown};
@@ -30,6 +32,9 @@ class _HomeTabState extends State<HomeTab> {
   List<double> _monthlyTotals = List.filled(12, 0);
   List<double> _monthlyActiveDomains = List.filled(12, 0);
   List<double> _monthlyAvg = List.filled(12, 0);
+  List<double> _domainActuals = [];
+  List<double> _domainTargets = [];
+  Map<String, List<double>> _domainMonthlyTotals = {};
 
   @override
   void initState() {
@@ -45,14 +50,11 @@ class _HomeTabState extends State<HomeTab> {
       print(statsResult);
       
       final collectionsResult = await ApiService.getCollections();
-      print('API Collections: ');
-      print(collectionsResult);
-
       if (collectionsResult != null && collectionsResult['success'] == true) {
         collections = collectionsResult['data']?.map((col) {
-          int count = col['count'] ?? 0;
-          if (count == 0 && col['uuid'] != null && col['uuid'] is List) {
-            count = (col['uuid'] as List).length;
+          int count = 0;
+          if (col['count'] != null) {
+            count = col['count'] is String ? int.tryParse(col['count']) ?? 0 : col['count'];
           }
           return {
             '_id': col['_id'],
@@ -64,6 +66,11 @@ class _HomeTabState extends State<HomeTab> {
         }).toList() ?? [];
       }
 
+      final domainsResult = await ApiService.getAllDomains();
+      if (domainsResult != null && domainsResult['success'] == true) {
+        allDomainsLength = (domainsResult['data'] as List?)?.length ?? 0;
+      }
+
       if (statsResult != null && statsResult['success'] == true) {
         final nodes = statsResult['data'] ?? [];
         Map<String, dynamic> domainStats = nodes.length > 3 && nodes[3] != null ? nodes[3] : {};
@@ -71,6 +78,7 @@ class _HomeTabState extends State<HomeTab> {
         _monthlyTotals = List.filled(12, 0);
         _monthlyActiveDomains = List.filled(12, 0);
         _monthlyAvg = List.filled(12, 0);
+        _domainMonthlyTotals.clear();
         
         int total = 0;
         Set<String> activeDoms = {};
@@ -78,9 +86,11 @@ class _HomeTabState extends State<HomeTab> {
         for (var entry in domainStats.entries) {
           var domainData = entry.value;
           bool hasArticles = false;
+          List<double> thisDomainTotals = List.filled(12, 0);
           if (domainData is Map) {
             for (int m = 1; m <= 12; m++) {
               int val = domainData[m.toString()] ?? domainData[m] ?? 0;
+              thisDomainTotals[m - 1] = val.toDouble();
               if (val > 0) {
                 _monthlyTotals[m - 1] += val;
                 total += val;
@@ -88,8 +98,19 @@ class _HomeTabState extends State<HomeTab> {
               }
             }
           }
-          if (hasArticles) activeDoms.add(entry.key);
+          if (hasArticles) {
+            activeDoms.add(entry.key);
+            _domainMonthlyTotals[entry.key] = thisDomainTotals;
+          }
         }
+
+        // Sort domains by total articles (descending) to match Angular's color assignment
+        var sortedEntries = _domainMonthlyTotals.entries.toList()..sort((a, b) {
+          double totalA = a.value.fold(0.0, (sum, val) => sum + val);
+          double totalB = b.value.fold(0.0, (sum, val) => sum + val);
+          return totalB.compareTo(totalA);
+        });
+        _domainMonthlyTotals = Map.fromEntries(sortedEntries);
 
         for (int m = 1; m <= 12; m++) {
           int activeCount = 0;
@@ -101,15 +122,61 @@ class _HomeTabState extends State<HomeTab> {
             }
           }
           _monthlyActiveDomains[m - 1] = activeCount.toDouble();
-          _monthlyAvg[m - 1] = activeCount > 0 ? (_monthlyTotals[m - 1] / activeCount).roundToDouble() : 0;
+        }
+
+        int lastActiveMonth = 11;
+        while (lastActiveMonth >= 0 && _monthlyTotals[lastActiveMonth] == 0) {
+          lastActiveMonth--;
+        }
+
+        int currentPeriodTotal = 0;
+        int previousPeriodTotal = 0;
+
+        if (lastActiveMonth > 0) {
+          currentPeriodTotal = _monthlyTotals[lastActiveMonth].toInt();
+          previousPeriodTotal = _monthlyTotals[lastActiveMonth - 1].toInt();
+        } else if (lastActiveMonth == 0) {
+          currentPeriodTotal = _monthlyTotals[0].toInt();
+          previousPeriodTotal = 0;
+        }
+
+        for (int i = 0; i < 12; i++) {
+          int activeCount = _monthlyActiveDomains[i].toInt();
+          int mTotal = _monthlyTotals[i].toInt();
+          int mAvg = activeCount > 0 ? (mTotal / activeCount).round() : 0;
+          _monthlyAvg[i] = mAvg.toDouble();
         }
 
         totalArticles = total;
         activeDomains = activeDoms.length;
-        avgArticles = activeDomains > 0 ? (total / activeDomains).round() : 0;
+        
+        int evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 1;
+        int totalDomainsCount = allDomainsLength > 0 ? allDomainsLength : (activeDomains > 0 ? activeDomains : 1);
+        avgArticles = (currentPeriodTotal / totalDomainsCount).round();
 
-        int currentPeriodTotal = _monthlyTotals[11].toInt();
-        int previousPeriodTotal = _monthlyTotals[10].toInt();
+        // Populate domain stats for the 3rd chart
+        List<String> domainsToChart = [];
+        if (domainsResult != null && domainsResult['success'] == true) {
+          for (var d in domainsResult['data']) {
+            domainsToChart.add(d['domain'] ?? d.toString());
+          }
+        } else {
+          domainsToChart = activeDoms.toList();
+        }
+
+        _domainActuals.clear();
+        _domainTargets.clear();
+        for (var dom in domainsToChart) {
+          int actual = 0;
+          if (domainStats.containsKey(dom) && domainStats[dom] is Map) {
+            actual = domainStats[dom][evalMonth.toString()] ?? domainStats[dom][evalMonth] ?? 0;
+          }
+          _domainActuals.add(actual.toDouble());
+          _domainTargets.add(20.0); // Hardcoded target
+        }
+
+        // Save evalMonth for UI
+        _evalMonthToDisplay = evalMonth;
 
         if (currentPeriodTotal >= previousPeriodTotal) {
           totalArticlesStatus = {'text': 'Tăng trưởng tốt', 'color': Colors.blue[600], 'icon': FontAwesomeIcons.arrowTrendUp};
@@ -117,7 +184,8 @@ class _HomeTabState extends State<HomeTab> {
           totalArticlesStatus = {'text': 'Tăng trưởng yếu', 'color': Colors.red[600], 'icon': FontAwesomeIcons.arrowTrendDown};
         }
 
-        if (activeDomains > 0) {
+        int totalDomainsCountForStatus = collections.length;
+        if (activeDomains > totalDomainsCountForStatus / 2) {
           activeDomainsStatus = {'text': 'Hoạt động tốt', 'color': Colors.green[600], 'icon': FontAwesomeIcons.arrowTrendUp};
         } else {
           activeDomainsStatus = {'text': 'Hoạt động yếu', 'color': Colors.red[600], 'icon': FontAwesomeIcons.arrowTrendDown};
@@ -159,20 +227,135 @@ class _HomeTabState extends State<HomeTab> {
             barWidth: 2,
             isStrokeCapRound: true,
             dotData: FlDotData(show: false),
-            belowBarData: BarAreaData(
-              show: true,
-              gradient: LinearGradient(
-                colors: [
-                  color.withOpacity(0.4),
-                  color.withOpacity(0.0),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
-            ),
+            belowBarData: BarAreaData(show: false),
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildDomainSparkline(List<double> actuals, List<double> targets, Color actualColor, Color targetColor) {
+    if (actuals.isEmpty || targets.isEmpty) return const SizedBox();
+    
+    double maxY1 = actuals.reduce((a, b) => a > b ? a : b);
+    double maxY2 = targets.reduce((a, b) => a > b ? a : b);
+    double maxY = maxY1 > maxY2 ? maxY1 : maxY2;
+    if (maxY == 0) maxY = 10;
+    
+    return LineChart(
+      LineChartData(
+        gridData: FlGridData(show: false),
+        titlesData: FlTitlesData(show: false),
+        borderData: FlBorderData(show: false),
+        minX: 0,
+        maxX: (actuals.length > 1 ? actuals.length - 1 : 1).toDouble(),
+        minY: 0,
+        maxY: maxY * 1.5,
+        lineBarsData: [
+          LineChartBarData(
+            spots: List.generate(targets.length, (index) => FlSpot(index.toDouble(), targets[index])),
+            isCurved: true,
+            color: targetColor,
+            barWidth: 2,
+            isStrokeCapRound: true,
+            dashArray: [4, 4],
+            dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(show: false),
+          ),
+          LineChartBarData(
+            spots: List.generate(actuals.length, (index) => FlSpot(index.toDouble(), actuals[index])),
+            isCurved: true,
+            color: actualColor,
+            barWidth: 2,
+            isStrokeCapRound: true,
+            dotData: FlDotData(show: false),
+            belowBarData: BarAreaData(show: false),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<Color> _chartColors = [
+    const Color(0xFF008FFB), const Color(0xFF00E396), const Color(0xFFFEB019), 
+    const Color(0xFFFF4560), const Color(0xFF775DD0), const Color(0xFF3F51B5), 
+    const Color(0xFF546E7A), const Color(0xFFD4526E), const Color(0xFF8D5B4C),
+  ];
+
+  List<LineChartBarData> _buildChartLines() {
+    if (_domainMonthlyTotals.isEmpty) {
+      return [
+        LineChartBarData(
+          spots: List.generate(12, (index) => FlSpot(index.toDouble(), _monthlyTotals[index])),
+          isCurved: true,
+          preventCurveOverShooting: true,
+          color: AppColors.primary,
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: FlDotData(show: false),
+        )
+      ];
+    }
+
+    List<LineChartBarData> lines = [];
+    int colorIndex = 0;
+    
+    _domainMonthlyTotals.forEach((domain, totals) {
+      final color = _chartColors[colorIndex % _chartColors.length];
+      colorIndex++;
+      
+      lines.add(
+        LineChartBarData(
+          spots: List.generate(12, (index) => FlSpot(index.toDouble(), totals[index])),
+          isCurved: true,
+          preventCurveOverShooting: true,
+          color: color,
+          barWidth: 3,
+          isStrokeCapRound: true,
+          dotData: FlDotData(show: false),
+          belowBarData: BarAreaData(
+            show: true,
+            gradient: LinearGradient(
+              colors: [color.withOpacity(0.2), color.withOpacity(0.0)],
+              begin: Alignment.topCenter,
+              end: Alignment.bottomCenter,
+            ),
+          ),
+        )
+      );
+    });
+    
+    return lines;
+  }
+
+  Widget _buildLegend() {
+    if (_domainMonthlyTotals.isEmpty) return const SizedBox();
+    
+    int colorIndex = 0;
+    List<Widget> legendItems = [];
+    
+    _domainMonthlyTotals.forEach((domain, totals) {
+      final color = _chartColors[colorIndex % _chartColors.length];
+      colorIndex++;
+      
+      legendItems.add(
+        Padding(
+          padding: const EdgeInsets.only(right: 16, bottom: 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+              const SizedBox(width: 6),
+              Text(domain, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+            ],
+          ),
+        )
+      );
+    });
+    
+    return Wrap(
+      alignment: WrapAlignment.center,
+      children: legendItems,
     );
   }
 
@@ -180,26 +363,19 @@ class _HomeTabState extends State<HomeTab> {
     double maxY = _monthlyTotals.reduce((a, b) => a > b ? a : b);
     if (maxY == 0) maxY = 10;
 
-    return Container(
-      height: 300,
-      padding: const EdgeInsets.only(right: 16, left: 0, top: 16, bottom: 0),
-      child: LineChart(
-        LineChartData(
-          gridData: FlGridData(
-            show: true,
-            drawVerticalLine: false,
-            horizontalInterval: maxY / 5 > 0 ? maxY / 5 : 1,
-            getDrawingHorizontalLine: (value) {
-              return FlLine(
-                color: Colors.grey.withOpacity(0.2),
-                strokeWidth: 1,
-              );
-            },
-          ),
+    return Column(
+      children: [
+        Container(
+          height: 300,
+          padding: const EdgeInsets.only(right: 16, left: 0, top: 16, bottom: 0),
+          child: LineChart(
+            LineChartData(
+          gridData: FlGridData(show: false),
           titlesData: FlTitlesData(
             show: true,
             rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
             topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+            leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
             bottomTitles: AxisTitles(
               sideTitles: SideTitles(
                 showTitles: true,
@@ -209,23 +385,11 @@ class _HomeTabState extends State<HomeTab> {
                   if (value % 1 == 0 && value >= 0 && value <= 11) {
                     return SideTitleWidget(
                       meta: meta,
-                      child: Text('T\${value.toInt() + 1}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
+                      child: Text('T${value.toInt() + 1}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 10)),
                     );
                   }
                   return const SizedBox();
                 },
-              ),
-            ),
-            leftTitles: AxisTitles(
-              sideTitles: SideTitles(
-                showTitles: true,
-                interval: maxY / 5 > 0 ? maxY / 5 : 1,
-                getTitlesWidget: (value, meta) {
-                  if (value == 0) return const SizedBox();
-                  String text = value >= 1000 ? '\${(value / 1000).toStringAsFixed(1)}k' : value.toInt().toString();
-                  return Text(text, style: const TextStyle(color: AppColors.textSecondary, fontSize: 10), textAlign: TextAlign.right);
-                },
-                reservedSize: 36,
               ),
             ),
           ),
@@ -234,69 +398,51 @@ class _HomeTabState extends State<HomeTab> {
           maxX: 11,
           minY: 0,
           maxY: maxY * 1.2,
-          lineBarsData: [
-            LineChartBarData(
-              spots: List.generate(12, (index) => FlSpot(index.toDouble(), _monthlyTotals[index])),
-              isCurved: true,
-              color: AppColors.primary,
-              barWidth: 3,
-              isStrokeCapRound: true,
-              dotData: FlDotData(show: true, getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(radius: 4, color: Colors.white, strokeWidth: 2, strokeColor: AppColors.primary)),
-              belowBarData: BarAreaData(
-                show: true,
-                gradient: LinearGradient(
-                  colors: [
-                    AppColors.primary.withOpacity(0.4),
-                    AppColors.primary.withOpacity(0.05),
-                  ],
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                ),
-              ),
-            ),
-          ],
+          lineBarsData: _buildChartLines(),
         ),
       ),
+      ), // This closes Container
+      const SizedBox(height: 16),
+      _buildLegend(),
+      ],
     );
   }
 
-  Widget _buildStatCard(String title, int value, Map<String, dynamic> status, List<double> chartData, Color chartColor) {
+  Widget _buildStatCard(String title, int value, Map<String, dynamic> status, List<double> chartData, Color chartColor, {bool isDomainChart = false}) {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: Colors.grey.withOpacity(0.2)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Text(value.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Row(
               children: [
-                Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
-                const SizedBox(height: 8),
-                Text(value.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    FaIcon(status['icon'], size: 12, color: status['color']),
-                    const SizedBox(width: 4),
-                    Flexible(
-                      child: Text(status['text'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: status['color']), overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+                FaIcon(status['icon'], size: 12, color: status['color']),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(status['text'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: status['color']), overflow: TextOverflow.ellipsis),
                 ),
               ],
             ),
-          ),
-          SizedBox(
-            height: 60,
-            width: double.infinity,
-            child: _buildSparkline(chartData, chartColor),
-          ),
-        ],
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 40,
+              width: double.infinity,
+              child: isDomainChart 
+                  ? _buildDomainSparkline(_domainActuals, _domainTargets, chartColor, const Color(0xFF94A3B8))
+                  : _buildSparkline(chartData, chartColor),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -349,7 +495,7 @@ class _HomeTabState extends State<HomeTab> {
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  '\$count bài viết',
+                  '$count bài viết',
                   style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.w600),
                 ),
               ),
@@ -377,54 +523,55 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text('Số lượng bài viết tạo ra trong \$_selectedYear', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
-                    ),
-                    const SizedBox(width: 8),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<int>(
-                          value: _selectedYear,
-                          isDense: true,
-                          icon: const Padding(
-                            padding: EdgeInsets.only(left: 8),
-                            child: FaIcon(FontAwesomeIcons.chevronDown, size: 12, color: AppColors.textSecondary),
-                          ),
-                          items: _yearsList.map((int year) {
-                            return DropdownMenuItem<int>(
-                              value: year,
-                              child: Text(year.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
-                            );
-                          }).toList(),
-                          onChanged: (int? newValue) {
-                            if (newValue != null) {
-                              setState(() {
-                                _selectedYear = newValue;
-                                _loadData();
-                              });
-                            }
-                          },
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                Text('Số lượng bài viết tạo ra', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                 const SizedBox(height: 24),
                 Container(
+                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
                     color: AppColors.surface,
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(color: Colors.grey.withOpacity(0.2)),
                   ),
-                  child: _buildMainChart(),
+                  child: Column(
+                    children: [
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                          decoration: BoxDecoration(
+                            border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: DropdownButtonHideUnderline(
+                            child: DropdownButton<int>(
+                              value: _selectedYear,
+                              isDense: true,
+                              icon: const Padding(
+                                padding: EdgeInsets.only(left: 8),
+                                child: FaIcon(FontAwesomeIcons.chevronDown, size: 12, color: AppColors.textSecondary),
+                              ),
+                              items: _yearsList.map((int year) {
+                                return DropdownMenuItem<int>(
+                                  value: year,
+                                  child: Text(year.toString(), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                                );
+                              }).toList(),
+                              onChanged: (int? newValue) {
+                                if (newValue != null) {
+                                  setState(() {
+                                    _selectedYear = newValue;
+                                    _loadData();
+                                  });
+                                }
+                              },
+                            ),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      _buildMainChart(),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -439,7 +586,7 @@ class _HomeTabState extends State<HomeTab> {
                 const SizedBox(height: 16),
                 _buildStatCard('Domain hoạt động', activeDomains, activeDomainsStatus, _monthlyActiveDomains, Colors.red),
                 const SizedBox(height: 16),
-                _buildStatCard('Trung bình bài / Domain', avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green),
+                _buildStatCard("Trung bình bài tháng ${_evalMonthToDisplay < 10 ? '0$_evalMonthToDisplay' : _evalMonthToDisplay} / Domain", avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green, isDomainChart: true),
               ],
             ),
           ),
@@ -452,7 +599,7 @@ class _HomeTabState extends State<HomeTab> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('\${collections.length} Danh sách Collection', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                Text('${collections.length} Danh sách Collection', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                 const SizedBox(height: 16),
                 if (collections.isEmpty)
                   Center(
@@ -496,7 +643,7 @@ class _HomeTabState extends State<HomeTab> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('\${videoProjects.length} Dự án Video đang xây dựng', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
+                  Text('${videoProjects.length} Dự án Video đang xây dựng', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
                   const SizedBox(height: 16),
                   if (videoProjects.isEmpty)
                     const Text('Bạn chưa có dự án video nào.', style: TextStyle(color: AppColors.textSecondary, fontSize: 14))
@@ -533,7 +680,7 @@ class _HomeTabState extends State<HomeTab> {
                                   children: [
                                     Text(proj['title'] ?? 'Unnamed Project', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15)),
                                     const SizedBox(height: 4),
-                                    Text('ID: \${proj["uuid"]}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontFamily: 'monospace')),
+                                    Text('ID: ${proj["uuid"]}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 11, fontFamily: 'monospace')),
                                   ],
                                 ),
                               ),
@@ -558,6 +705,6 @@ class _HomeTabState extends State<HomeTab> {
             const SizedBox(height: 32),
           ],
         ),
-      );
+    );
   }
 }

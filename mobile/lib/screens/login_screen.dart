@@ -91,7 +91,8 @@ class _LoginScreenState extends State<LoginScreen> {
       final activeInfoStr = prefs.getString('active_info');
       if (activeInfoStr != null) {
         final activeInfo = jsonDecode(activeInfoStr);
-        if (activeInfo['user']['appToken'] == 'default_app_token' || activeInfo['user']['appToken'] == null) {
+        final token = activeInfo['user']['appToken'];
+        if (token == null || token == 'default_app_token' || token.toString().trim().isEmpty) {
           requiresActivation = true;
         }
       }

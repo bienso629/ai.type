@@ -1261,4 +1261,182 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             this.router.navigate(['/tools']);
         });
     }
+    // PageSpeed Insights
+    pageSpeedData: any = null;
+    isPageSpeedLoading = false;
+    pageSpeedError = '';
+    pageSpeedActiveTab = 'performance';
+
+    async fetchPageSpeedData() {
+        this.pageSpeedError = '';
+        this.pageSpeedData = null;
+
+        if (!this.siteUrl) {
+            this.pageSpeedError = "Vui lòng chọn hoặc nhập Domain!";
+            return;
+        }
+
+        this.isPageSpeedLoading = true;
+        this.cd.markForCheck();
+
+        const API_KEY = 'AIzaSyD8CKrKLMTByra9kiAZFcTRYgoarpVixXA';
+        const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(this.siteUrl)}&strategy=desktop&key=${API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo`;
+
+        try {
+            const response = await fetch(apiEndpoint);
+            if (!response.ok) {
+                const errData = await response.json();
+                throw new Error(errData.error?.message || `Lỗi HTTP: ${response.status}`);
+            }
+
+            this.pageSpeedData = await response.json();
+            this.pageSpeedActiveTab = 'performance';
+        } catch (error: any) {
+            console.error(error);
+            this.pageSpeedError = `Đã xảy ra lỗi: ${error.message}`;
+        } finally {
+            this.isPageSpeedLoading = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    getPageSpeedScore(category: string): number | string {
+        if (!this.pageSpeedData) return 'N/A';
+        const score = this.pageSpeedData.lighthouseResult?.categories[category]?.score;
+        return score !== undefined ? Math.round(score * 100) : 'N/A';
+    }
+
+    getPageSpeedScoreColor(category: string): string {
+        const scoreVal = this.getPageSpeedScore(category);
+        if (scoreVal === 'N/A') return '#9aa0a6';
+        const score = scoreVal as number;
+        if (score >= 90) return '#1e8e3e';
+        if (score >= 50) return '#f9ab00';
+        return '#d93025';
+    }
+
+    switchPageSpeedTab(tab: string) {
+        this.pageSpeedActiveTab = tab;
+        this.cd.markForCheck();
+    }
+
+    getAuditLists(categoryKey: string) {
+        if (!this.pageSpeedData) return { passed: [], failed: [], inform: [], category: null };
+        const category = this.pageSpeedData.lighthouseResult.categories[categoryKey];
+        const audits = this.pageSpeedData.lighthouseResult.audits;
+        const passed: any[] = [];
+        const failed: any[] = [];
+        const inform: any[] = [];
+
+        if (category && category.auditRefs) {
+            category.auditRefs.forEach((ref: any) => {
+                const audit = audits[ref.id];
+                if (!audit) return;
+                
+                audit.cleanDesc = audit.description ? audit.description.replace(/\[(.*?)\]\((.*?)\)/g, '$1') : '';
+                audit.isPassed = audit.score !== null && audit.score >= 0.9;
+                audit.isInformational = audit.score === null;
+                audit.isExpanded = false;
+
+                if (audit.isPassed) passed.push(audit);
+                else if (audit.isInformational) inform.push(audit);
+                else failed.push(audit);
+            });
+        }
+        return { passed, failed, inform, category };
+    }
+
+    toggleAuditDetail(audit: any) {
+        audit.isExpanded = !audit.isExpanded;
+        this.cd.markForCheck();
+    }
+
+    truncateUrl(url: string) {
+        try {
+            const parsed = new URL(url);
+            let path = parsed.pathname + parsed.search;
+            if (path.length > 40) {
+                path = path.substring(0, 18) + '...' + path.substring(path.length - 15);
+            }
+            return parsed.hostname + path;
+        } catch(e) {
+            return url.length > 40 ? url.substring(0, 37) + '...' : url;
+        }
+    }
+
+    formatAuditValue(val: any, heading: any, key: string) {
+        if (val === undefined || val === null) return '';
+        if (typeof val === 'object' && val.type === 'url') return val.value;
+        if (heading.valueType === 'bytes') return (val / 1024).toFixed(1) + ' KB';
+        if (heading.valueType === 'timespanMs' || key.includes('Ms') || key.includes('time')) {
+            return typeof val === 'number' ? val.toFixed(0) + ' ms' : val;
+        }
+        return val;
+    }
+
+    isUrlValue(val: any) {
+        return (typeof val === 'object' && val.type === 'url') || (typeof val === 'string' && val.startsWith('http'));
+    }
+    
+    getUrlValue(val: any) {
+        if (typeof val === 'object' && val.type === 'url') return val.value;
+        return val;
+    }
+
+    getFieldData(experience: any) {
+        if (!experience || !experience.metrics) return null;
+        
+        const category = experience.overall_category || 'AVERAGE';
+        let badgeClass = 'badge none';
+        let badgeText = 'TRUNG BÌNH';
+        if (category === 'FAST') { badgeClass = 'badge passed'; badgeText = 'ĐẠT (FAST)'; }
+        else if (category === 'SLOW') { badgeClass = 'badge failed'; badgeText = 'TỆ (SLOW)'; }
+        
+        const metricsMapping: any = {
+            'FIRST_CONTENTFUL_PAINT_MS': 'FCP (First Contentful Paint)',
+            'LARGEST_CONTENTFUL_PAINT_MS': 'LCP (Largest Contentful Paint)',
+            'CUMULATIVE_LAYOUT_SHIFT_SCORE': 'CLS (Cumulative Layout Shift)',
+            'INTERACTIVE_TO_NEXT_PAINT': 'INP (Interaction to Next Paint)',
+            'FIRST_INPUT_DELAY_MS': 'FID (First Input Delay)'
+        };
+
+        const metricsList = Object.keys(experience.metrics).map(key => {
+            const metric = experience.metrics[key];
+            const name = metricsMapping[key] || key;
+            const val = metric.percentile;
+            const dists = metric.distributions;
+            let displayVal = val;
+            if (key.includes('MS') || key === 'INTERACTIVE_TO_NEXT_PAINT') {
+                displayVal = (val / 1000).toFixed(2) + ' s';
+            } else if (key.includes('SHIFT')) {
+                displayVal = (val / 100).toFixed(3);
+            }
+            const goodPct = Math.round((dists[0]?.proportion || 0) * 100);
+            const avgPct = Math.round((dists[1]?.proportion || 0) * 100);
+            const poorPct = Math.round((dists[2]?.proportion || 0) * 100);
+
+            return { name, displayVal, goodPct, avgPct, poorPct };
+        });
+
+        return { category, badgeClass, badgeText, metricsList };
+    }
+
+    downloadFullJSON() {
+        if (!this.pageSpeedData) return;
+        let domainName = "domain";
+        try {
+            domainName = new URL(this.siteUrl).hostname.replace('www.', '');
+        } catch(e) {}
+        const filename = `PageSpeed_RawData_${domainName}_${new Date().toISOString().slice(0,10)}.json`;
+        const jsonStr = JSON.stringify(this.pageSpeedData, null, 2);
+        const blob = new Blob([jsonStr], { type: "application/json" });
+        const downloadUrl = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+    }
 }

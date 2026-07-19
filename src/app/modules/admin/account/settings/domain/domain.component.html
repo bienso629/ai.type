@@ -14,7 +14,7 @@
 
     <div class="mt-8">
         <div class="flex justify-between items-center mb-4 px-2">
-            <div class="text-xl font-bold text-secondary">Chỉ tiêu & Kết quả</div>
+            <div class="text-base font-bold text-secondary">Chỉ tiêu & Kết quả</div>
             <div class="w-72 flex gap-4">
                 <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-1/2">
                     <mat-select [(value)]="selectedMonthNum" (selectionChange)="onMonthChange()">
@@ -40,81 +40,90 @@
                 [headerCheckboxable]="true"
                 [checkboxable]="true">
             </ngx-datatable-column>
-            <ngx-datatable-column name="{{ 'app.domain' | transloco }}" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            <ngx-datatable-column name="{{ 'app.domain' | transloco }}" headerClass="!text-base" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
-                    <span *ngIf="!rows[rowIndex].addnew" class="relative">
+                    <span *ngIf="!rows[rowIndex].addnew" class="relative flex items-center text-base">
                         {{ row.domain }}
 
-                        <div *ngIf="rowIndex === 0"
-                            class="absolute -right-18 -top-2 z-9999 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-8 bg-primary-200 text-primary-700">
-                            {{ 'app.default' | transloco }}
+                        <div *ngIf="rowIndex === 0" class="ml-2 flex items-center text-primary-500" matTooltip="Mặc định">
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
                         </div>
                     </span>
 
                     <input [placeholder]="'app.your_domain_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
+                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-40"
                         type="text" [value]="row.domain" />
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="{{ 'app.username' | transloco }}" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            <ngx-datatable-column name="{{ 'app.username' | transloco }}" headerClass="!text-base" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
                         (dblclick)="editing[rowIndex + '-username'] = true"
-                        *ngIf="!editing[rowIndex + '-username'] && !rows[rowIndex].addnew">
+                        *ngIf="!editing[rowIndex + '-username'] && !rows[rowIndex].addnew"
+                        class="text-base">
                         {{ showPassword ? row.username : maskPassword(row.username) }}
                     </span>
 
                     <input [placeholder]="'app.username_placeholder' | transloco" *ngIf="editing[rowIndex + '-username'] && !rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
+                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-40"
                         type="password" [value]="row.username" />
 
                     <input [placeholder]="'app.username_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
+                        (blur)="updateValue($event, 'username', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-40"
                         type="password" [value]="row.username" />
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="{{ 'app.secondary_password' | transloco }}" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            <ngx-datatable-column name="{{ 'app.secondary_password' | transloco }}" headerClass="!text-base" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
                         (dblclick)="editing[rowIndex + '-password'] = true"
-                        *ngIf="!editing[rowIndex + '-password'] && !rows[rowIndex].addnew">
+                        *ngIf="!editing[rowIndex + '-password'] && !rows[rowIndex].addnew"
+                        class="text-base">
                         {{ showPassword ? row.password : maskPassword(row.password) }}
                     </span>
 
                     <input [placeholder]="'app.secondary_password_placeholder' | transloco"
                         *ngIf="editing[rowIndex + '-password'] && !rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
+                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-40"
                         type="password" [value]="row.password" />
 
                     <input [placeholder]="'app.secondary_password_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-sm w-40"
+                        (blur)="updateValue($event, 'password', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-40"
                         type="password" [value]="row.password" />
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Chỉ tiêu (bài/tháng)" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Chỉ tiêu (bài/tháng)" headerClass="!text-base" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                    <input placeholder="Số bài" (blur)="updateValue($event, 'monthlyTarget', rowIndex)" class="text-blue-700 border rounded py-1 px-2 w-16 text-center text-sm" type="number" min="0" [value]="row.monthlyTarget || 0" />
+                    <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
+                        (dblclick)="editing[rowIndex + '-monthlyTarget'] = true"
+                        *ngIf="!editing[rowIndex + '-monthlyTarget'] && !rows[rowIndex].addnew"
+                        class="text-blue-700 cursor-pointer pl-1 text-base">
+                        {{ row.monthlyTarget || 0 }}
+                    </span>
+
+                    <input placeholder="Số bài" *ngIf="editing[rowIndex + '-monthlyTarget'] || rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'monthlyTarget', rowIndex)" class="text-blue-700 border rounded py-1 px-2 w-16 text-center text-base outline-none focus:ring-1 ring-blue-400" type="number" min="0" [value]="row.monthlyTarget || 0" />
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Kết quả" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Kết quả" headerClass="!text-base" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div class="flex items-center h-full">
-                        <span class="font-medium text-sm" [ngClass]="{'text-green-600': (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum] >= (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0, 'text-red-600': (!domainStatsData[row.domain] || domainStatsData[row.domain][selectedMonthNum] < (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0}">
+                        <span class="font-medium text-base" [ngClass]="{'text-green-600': (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum] >= (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0, 'text-red-600': (!domainStatsData[row.domain] || domainStatsData[row.domain][selectedMonthNum] < (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0}">
                             {{ (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum]) ? domainStatsData[row.domain][selectedMonthNum] : 0 }}
                         </span>
-                        <span class="text-gray-500 ml-1 text-sm">bài</span>
+                        <span class="text-gray-500 ml-1 text-base">bài</span>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Phân tích AI" [width]="250" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+            <ngx-datatable-column name="Phân tích AI" headerClass="!text-base" [width]="250" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div *ngIf="row.note" class="truncate text-base" [matTooltip]="row.note" matTooltipClass="max-w-md">
                         {{ row.note }}
@@ -125,18 +134,18 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="" [width]="100" [sortable]="false" [canAutoResize]="true" [draggable]="false"
+            <ngx-datatable-column name="" headerClass="!text-base" [width]="100" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div class="flex items-center justify-self-stretch">
                         <mat-label *ngIf="!row.addnew"
-                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
+                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-base font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
                             (click)="edit(rowIndex)">
                             {{ 'app.save' | transloco }}
                         </mat-label>
 
                         <mat-label *ngIf="row.addnew"
-                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-green-500 hover:bg-green-600 text-white"
+                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-base font-semibold bg-green-500 hover:bg-green-600 text-white"
                             (click)="add(rowIndex)">
                             {{ 'app.add_new' | transloco }}
                         </mat-label>
@@ -151,16 +160,16 @@
                         <button class="ml-4" [disabled]="rows[rowCount - 1] && rows[rowCount - 1].addnew" mat-flat-button
                             type="button" (click)="addNewForm()" [color]="'primary'">{{ 'app.add' | transloco }}</button>
                         
-                        <button class="ml-4" 
-                            [disabled]="selected.length === 0 || isAnalyzing" mat-flat-button color="accent"
+                        <button class="ml-4 text-white !bg-indigo-600 hover:!bg-indigo-700 disabled:!bg-gray-300 disabled:!text-gray-500" 
+                            [disabled]="isAnalyzing" mat-flat-button
                             type="button" (click)="analyzeDomains()">
                             <mat-icon *ngIf="!isAnalyzing" class="icon-size-5" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
                             <mat-icon *ngIf="isAnalyzing" class="icon-size-5 animate-spin" [svgIcon]="'heroicons_outline:arrow-path'"></mat-icon>
                             <mat-label class="ml-2">{{ isAnalyzing ? 'Đang phân tích...' : 'Phân tích bằng AI' }}</mat-label>
                         </button>
                         
-                        <button class="ml-4" 
-                            [disabled]="selected.length === 0" mat-flat-button color="primary"
+                        <button class="ml-4 text-white !bg-blue-600 hover:!bg-blue-700 disabled:!bg-gray-300 disabled:!text-gray-500" 
+                            mat-flat-button
                             type="button" (click)="planDomains()">
                             <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
                             <mat-label class="ml-2">Lên kế hoạch</mat-label>

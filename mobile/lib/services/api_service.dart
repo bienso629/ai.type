@@ -65,7 +65,7 @@ class ApiService {
     final encodedHeader = base64UrlEncode(utf8.encode(jsonEncode(header)));
     final encodedPayload = base64UrlEncode(utf8.encode(jsonEncode(payload)));
     
-    final signatureInput = '\$encodedHeader.\$encodedPayload';
+    final signatureInput = '$encodedHeader.$encodedPayload';
     
     final hmac = Hmac(sha256, utf8.encode('sh-0hPYnFVwEa5ydU9zWP9ET3BlbkFJeb81DqndysS0Zun3pOmK'));
     final digest = hmac.convert(utf8.encode(signatureInput));
@@ -179,6 +179,7 @@ class ApiService {
       'reportYear': reportYear,
       'appId': 'ai.typing',
       'username': activeInfo['user']['name'],
+      'appToken': activeInfo['user']['appToken'],
     };
     print('DEBUG dataForm: \$dataForm');
 
@@ -201,7 +202,7 @@ class ApiService {
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
     } else {
-      print('getStatistics failed: \${response.statusCode} - \${response.body}');
+      print('getStatistics failed: ${response.statusCode} - ${response.body}');
     }
     return null;
   }
@@ -221,6 +222,7 @@ class ApiService {
       'year': 2023,
       'appId': 'ai.typing',
       'username': activeInfo['user']['name'],
+      'appToken': activeInfo['user']['appToken'],
       'page': {'size': 100},
       'includeUuid': false
     };
@@ -242,6 +244,94 @@ class ApiService {
     return null;
   }
 
+  static Future<dynamic> getAllDomains() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/domain/all');
+
+    final dataForm = {
+      'server': server,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': activeInfo['user']['name'],
+      'appToken': activeInfo['user']['appToken']
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return null;
+  }
+
+  static Future<String?> restoreLicense() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return null;
+
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('$baseUrl/licensekey/restore');
+
+      String uuid = prefs.getString('device_uuid') ?? '';
+      if (uuid.isEmpty) {
+        uuid = DateTime.now().millisecondsSinceEpoch.toString() + '_flutter_device';
+        await prefs.setString('device_uuid', uuid);
+      }
+
+      final dataForm = {
+        'year': 2023,
+        'appId': 'ai.typing',
+        'username': activeInfo['user']['name'],
+        'email': activeInfo['user']['email'],
+        'machine': {
+          'uuid': uuid,
+          'du': uuid,
+        },
+      };
+
+      final encryptedParams = encryptAES(dataForm);
+      final jwt = generateJWTToken(activeInfo['user']);
+
+      final response = await http.post(
+        url,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + jwt,
+        },
+        body: jsonEncode({'params': encryptedParams}),
+      );
+
+      print('DEBUG RESTORE: ${response.statusCode} ${response.body}');
+      if (response.statusCode == 200) {
+        final jsonResponse = jsonDecode(response.body);
+        if (jsonResponse['success'] == true && jsonResponse['data'] != null && jsonResponse['data']['success'] == true) {
+          return jsonResponse['data']['licenseKey'] as String?;
+        }
+      }
+    } catch (e) {
+      print('Restore license error: $e');
+    }
+    return null;
+  }
+
   static Future<bool> activateLicense(String licenseKey) async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -251,7 +341,7 @@ class ApiService {
       final activeInfo = jsonDecode(activeInfoStr);
       final server = activeInfo['user']['server'];
       final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
-      final url = Uri.parse('\$baseUrl/licensekey/activate');
+      final url = Uri.parse('$baseUrl/licensekey/activate');
 
       String uuid = prefs.getString('device_uuid') ?? '';
       if (uuid.isEmpty) {
@@ -296,7 +386,7 @@ class ApiService {
       }
       return false;
     } catch (e) {
-      print('DEBUG ACTIVATE ERROR: \$e');
+      print('DEBUG ACTIVATE ERROR: $e');
       return false;
     }
   }
