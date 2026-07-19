@@ -3419,7 +3419,7 @@ export class MagicKlingPromptDialogComponent {
         this.prompt = data.prompt || '';
         if (data.attachmentUrl) {
             this.attachedFilePath = data.attachmentUrl;
-            this.isImage = !!data.attachmentUrl.match(/\\.(jpg|jpeg|png|gif|webp)$/i) || !data.attachmentUrl.match(/\\.(mp4|webm|avi|mov)$/i);
+            this.isImage = !!data.attachmentUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i) || !data.attachmentUrl.match(/\.(mp4|webm|avi|mov)$/i);
             this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(data.attachmentUrl);
         }
     }
@@ -3434,9 +3434,9 @@ export class MagicKlingPromptDialogComponent {
             if (originalPath) {
                 try {
                     const localFilePath = await electronApi.selectLocalFile(originalPath, 'tts/admin/attachments');
-                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : \`file://\${localFilePath.replace(/\\\\/g, '/')}\`;
+                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
                     this.attachedFilePath = finalPath;
-                    this.isImage = !!(file.type.startsWith('image/') || file.name.match(/\\.(jpg|jpeg|png|gif|webp)$/i));
+                    this.isImage = !!(file.type.startsWith('image/') || file.name.match(/\.(jpg|jpeg|png|gif|webp)$/i));
                     this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(finalPath);
                 } catch (e: any) {
                     this.toastr.error('Lỗi khi đính kèm file: ' + e.message);
