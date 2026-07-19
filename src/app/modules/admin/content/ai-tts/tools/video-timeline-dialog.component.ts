@@ -2662,8 +2662,15 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 
                 this.toastr.info(`Đã vào thư mục chứa ${extractResult.paths.length} frame. AI đang tiến hành chỉnh sửa hàng loạt...`);
                 
-                // Mock AI processing delay
-                await new Promise(resolve => setTimeout(resolve, 3000));
+                // Thao tác chỉnh sửa ảnh (Mock bằng cách overlay ảnh tham khảo)
+                if (video.aiReferenceImageLocalUrl) {
+                    await electronApi.invoke('mock-ai-edit-frames', {
+                        dirPath,
+                        attachmentUrl: video.aiReferenceImageLocalUrl
+                    });
+                } else {
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                }
                 
                 this.toastr.info('AI đã chỉnh sửa xong, đang gộp lại thành video...');
                 
