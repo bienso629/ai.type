@@ -2620,15 +2620,20 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 
     magicKlingV3(video: any, scene: any, sceneIdx: number, vIdx: number) {
         const dialogRef = this.dialog.open(MagicKlingPromptDialogComponent, {
-            width: '500px',
-            data: { prompt: video.prompt || '' }
+            width: '550px',
+            data: { prompt: video.prompt || '', attachmentUrl: video.aiReferenceImageLocalUrl || null }
         });
 
-        dialogRef.afterClosed().subscribe(async (promptText) => {
-            if (promptText === undefined || promptText === null) return; // User cancelled
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (!result || result.prompt === undefined) return; // User cancelled
             
             // Update the prompt
-            video.prompt = promptText.trim();
+            video.prompt = result.prompt.trim();
+            if (result.attachmentUrl) {
+                video.aiReferenceImageLocalUrl = result.attachmentUrl;
+            } else {
+                video.aiReferenceImageLocalUrl = null;
+            }
             
             // Tách frame
             await this.extractFramesForVideo(video, scene, sceneIdx, vIdx);
@@ -2662,7 +2667,8 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                         imageUrl: finalUrl,
                         duration: frameDuration,
                         maxDuration: frameDuration,
-                        prompt: video.prompt || ''
+                        prompt: video.prompt || '',
+                        aiReferenceImageLocalUrl: video.aiReferenceImageLocalUrl || null
                     };
                 });
 
@@ -3364,28 +3370,96 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
 @Component({
     selector: 'app-magic-kling-prompt-dialog',
     standalone: true,
-    imports: [MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, FormsModule],
+    imports: [CommonModule, MatDialogModule, MatFormFieldModule, MatInputModule, MatButtonModule, FormsModule, MatIconModule],
     template: `
         <h2 mat-dialog-title>Magic Kling v3</h2>
-        <mat-dialog-content>
-            <p class="mb-4">Nhập prompt yêu cầu chỉnh sửa cho đoạn video này:</p>
+        <mat-dialog-content class="flex flex-col gap-4">
+            <p class="mb-2">Nhập prompt yêu cầu chỉnh sửa cho đoạn video này:</p>
             <mat-form-field appearance="fill" class="w-full">
                 <mat-label>Prompt chỉnh sửa</mat-label>
                 <textarea matInput [(ngModel)]="prompt" rows="4"></textarea>
             </mat-form-field>
+
+            <div class="flex flex-col gap-2 mt-4">
+                <div class="flex items-center gap-2">
+                    <button mat-stroked-button (click)="fileInput.click()">
+                        <mat-icon>attach_file</mat-icon>
+                        Đính kèm file (Ảnh/Video) tham khảo AI
+                    </button>
+                    <input type="file" #fileInput class="hidden" accept="image/*,video/*" (change)="onFileSelected($event)">
+                </div>
+                
+                <div *ngIf="attachedFileUrl" class="relative w-fit border border-gray-300 rounded overflow-hidden mt-2 bg-gray-50">
+                    <img *ngIf="isImage" [src]="attachedFileUrl" class="max-h-40 object-contain block" />
+                    <video *ngIf="!isImage" [src]="attachedFileUrl" class="max-h-40 object-contain block" controls></video>
+                    <button mat-icon-button class="absolute top-1 right-1 bg-white/70 hover:bg-red-50 text-red-500 rounded-full scale-75" (click)="removeAttachment()">
+                        <mat-icon>close</mat-icon>
+                    </button>
+                </div>
+            </div>
         </mat-dialog-content>
-        <mat-dialog-actions align="end">
+        <mat-dialog-actions align="end" class="pt-4">
             <button mat-button (click)="dialogRef.close()">Hủy</button>
-            <button mat-flat-button color="primary" (click)="dialogRef.close(prompt)">Tiếp tục</button>
+            <button mat-flat-button color="primary" (click)="submit()">Tiếp tục</button>
         </mat-dialog-actions>
     `
 })
 export class MagicKlingPromptDialogComponent {
     prompt: string = '';
+    attachedFileUrl: any = null;
+    attachedFilePath: string | null = null;
+    isImage: boolean = true;
+
     constructor(
         public dialogRef: MatDialogRef<MagicKlingPromptDialogComponent>,
-        @Inject(MAT_DIALOG_DATA) public data: { prompt: string }
+        @Inject(MAT_DIALOG_DATA) public data: { prompt: string, attachmentUrl?: string },
+        private sanitizer: DomSanitizer,
+        private toastr: ToastrService
     ) {
         this.prompt = data.prompt || '';
+        if (data.attachmentUrl) {
+            this.attachedFilePath = data.attachmentUrl;
+            this.isImage = !!data.attachmentUrl.match(/\\.(jpg|jpeg|png|gif|webp)$/i) || !data.attachmentUrl.match(/\\.(mp4|webm|avi|mov)$/i);
+            this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(data.attachmentUrl);
+        }
+    }
+
+    async onFileSelected(event: any) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        const electronApi = (window as any).electron;
+        if (electronApi && electronApi.getPathForFile) {
+            const originalPath = electronApi.getPathForFile(file);
+            if (originalPath) {
+                try {
+                    const localFilePath = await electronApi.selectLocalFile(originalPath, 'tts/admin/attachments');
+                    const finalPath = localFilePath.startsWith('file://') ? localFilePath : \`file://\${localFilePath.replace(/\\\\/g, '/')}\`;
+                    this.attachedFilePath = finalPath;
+                    this.isImage = !!(file.type.startsWith('image/') || file.name.match(/\\.(jpg|jpeg|png|gif|webp)$/i));
+                    this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(finalPath);
+                } catch (e: any) {
+                    this.toastr.error('Lỗi khi đính kèm file: ' + e.message);
+                }
+            }
+        } else {
+            const url = URL.createObjectURL(file);
+            this.attachedFilePath = url;
+            this.isImage = file.type.startsWith('image/');
+            this.attachedFileUrl = this.sanitizer.bypassSecurityTrustUrl(url);
+        }
+        event.target.value = '';
+    }
+
+    removeAttachment() {
+        this.attachedFilePath = null;
+        this.attachedFileUrl = null;
+    }
+
+    submit() {
+        this.dialogRef.close({
+            prompt: this.prompt,
+            attachmentUrl: this.attachedFilePath
+        });
     }
 }

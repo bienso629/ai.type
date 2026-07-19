@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
+import 'domain_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -107,6 +108,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     description: 'Quản lý các tên miền đang hoạt động của bạn',
                     color: Colors.orangeAccent,
                     isActive: reputation >= 0,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DomainScreen()));
+                    },
                   ),
                 if (_groups.contains('nhóm-quét-sitemap'))
                   _buildToolCard(
@@ -281,6 +285,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
     required String description,
     required Color color,
     required bool isActive,
+    VoidCallback? onTap,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -292,7 +297,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(24),
-          onTap: () {},
+          onTap: onTap ?? () {},
           child: Padding(
             padding: const EdgeInsets.all(16.0),
             child: Column(
