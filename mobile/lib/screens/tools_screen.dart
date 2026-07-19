@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../theme/app_colors.dart';
 import 'domain_screen.dart';
 import 'tasks_screen.dart';
+import 'sitemap_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -123,6 +124,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     description: 'Nhập hàng nghìn bài viết từ file Sitemap',
                     color: Colors.purpleAccent,
                     isActive: reputation >= 0,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SitemapScreen()));
+                    },
                   ),
                 if (reputation >= 0)
                   _buildToolCard(
