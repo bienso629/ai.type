@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
+import 'dart:async';
+import 'dart:math';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:flutter_native_splash/flutter_native_splash.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import '../theme/app_colors.dart';
-import 'tools_screen.dart';
+import '../widgets/notification_popup.dart';
+import '../widgets/profile_popup.dart';
 import 'home_tab.dart';
-
+import 'login_screen.dart';
+import 'tools_screen.dart';
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
 
@@ -18,6 +22,8 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   int _currentIndex = 0;
   String? _avatarUrl;
+  Timer? _recordTimer;
+  bool _isRecording = false;
 
   @override
   void initState() {
@@ -41,49 +47,183 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const HomeTab(),
     const ToolsScreen(),
     const Center(child: Text('Công việc', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
-    const Center(child: Text('Cấu hình', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const Center(child: Text('Cài đặt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
   ];
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.background,
-      appBar: AppBar(
-        backgroundColor: AppColors.surface,
-        elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Image.asset(
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(kToolbarHeight),
+        child: Container(
+          decoration: BoxDecoration(
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 20,
+                offset: const Offset(0, 5),
+              ),
+            ],
+          ),
+          child: AppBar(
+            backgroundColor: AppColors.surface,
+            elevation: 0,
+            scrolledUnderElevation: 0,
+            title: Image.asset(
           'assets/images/logo.png',
           height: 36,
           fit: BoxFit.contain,
           filterQuality: FilterQuality.high,
         ),
         actions: [
-          IconButton(
-            icon: const FaIcon(FontAwesomeIcons.bell, color: AppColors.textPrimary, size: 20),
-            onPressed: () {},
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              IconButton(
+                icon: const FaIcon(FontAwesomeIcons.bell, color: AppColors.textPrimary, size: 20),
+                onPressed: () {
+                  showGeneralDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    barrierLabel: 'Dismiss',
+                    barrierColor: Colors.transparent,
+                    pageBuilder: (_, __, ___) => const NotificationPopup(),
+                  );
+                },
+              ),
+              Positioned(
+                right: 8,
+                top: 10,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '2',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
           Padding(
             padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-            child: CircleAvatar(
-              radius: 16,
-              backgroundColor: AppColors.accent,
-              backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) : null,
-              child: _avatarUrl == null ? const FaIcon(FontAwesomeIcons.user, size: 14, color: AppColors.textSecondary) : null,
+            child: GestureDetector(
+              onTap: () {
+                showGeneralDialog(
+                  context: context,
+                  barrierDismissible: true,
+                  barrierLabel: 'Dismiss',
+                  barrierColor: Colors.transparent,
+                  pageBuilder: (_, __, ___) => const ProfilePopup(),
+                );
+              },
+              child: CircleAvatar(
+                radius: 16,
+                backgroundColor: Colors.transparent,
+                backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) as ImageProvider : const AssetImage('assets/images/web.png'),
+              ),
             ),
           ),
         ],
       ),
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 300),
-        child: _tabs[_currentIndex],
+        ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
-        onPressed: () {},
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: const FaIcon(FontAwesomeIcons.plus, color: Colors.white, size: 20),
+      body: Stack(
+        children: [
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 300),
+            child: _tabs[_currentIndex],
+          ),
+          if (_isRecording)
+            Positioned.fill(
+              child: Container(
+                color: Colors.transparent,
+                child: Center(
+                  child: Container(
+                    margin: const EdgeInsets.symmetric(horizontal: 48),
+                    padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                    decoration: BoxDecoration(
+                      color: Colors.black87,
+                      borderRadius: BorderRadius.circular(16),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const SoundWaveAnimation(),
+                        const SizedBox(height: 24),
+                        const Text(
+                          'Đang ghi âm...',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+      floatingActionButton: Listener(
+        onPointerDown: (_) {
+          _recordTimer = Timer(const Duration(seconds: 1), () {
+            setState(() {
+              _isRecording = true;
+            });
+          });
+        },
+        onPointerUp: (_) {
+          _recordTimer?.cancel();
+          if (_isRecording) {
+            setState(() {
+              _isRecording = false;
+            });
+          }
+        },
+        onPointerCancel: (_) {
+          _recordTimer?.cancel();
+          if (_isRecording) {
+            setState(() {
+              _isRecording = false;
+            });
+          }
+        },
+        child: FloatingActionButton(
+          backgroundColor: _isRecording ? Colors.red : AppColors.primary,
+          onPressed: () {
+            if (!_isRecording) {
+              // Handle normal tap here
+            }
+          },
+          elevation: 4,
+          shape: const CircleBorder(),
+          child: FaIcon(_isRecording ? FontAwesomeIcons.microphone : FontAwesomeIcons.plus, color: Colors.white, size: 20),
+        ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
       bottomNavigationBar: Container(
@@ -107,10 +247,10 @@ class _DashboardScreenState extends State<DashboardScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, FontAwesomeIcons.chartPie, FontAwesomeIcons.chartPie, 'Tổng quan'),
-                _buildNavItem(1, FontAwesomeIcons.wrench, FontAwesomeIcons.wrench, 'Công cụ'),
+                _buildNavItem(1, FontAwesomeIcons.screwdriverWrench, FontAwesomeIcons.screwdriverWrench, 'Công cụ'),
                 const SizedBox(width: 48), // Space for FAB
-                _buildNavItem(2, FontAwesomeIcons.folder, FontAwesomeIcons.folderOpen, 'Công việc'),
-                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cấu hình'),
+                _buildNavItem(2, FontAwesomeIcons.briefcase, FontAwesomeIcons.briefcase, 'Công việc'),
+                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cài đặt'),
               ],
             ),
           ),
@@ -148,6 +288,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ],
       ),
+    );
+  }
+}
+
+class SoundWaveAnimation extends StatefulWidget {
+  const SoundWaveAnimation({super.key});
+
+  @override
+  State<SoundWaveAnimation> createState() => _SoundWaveAnimationState();
+}
+
+class _SoundWaveAnimationState extends State<SoundWaveAnimation> with SingleTickerProviderStateMixin {
+  late AnimationController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(vsync: this, duration: const Duration(milliseconds: 1000))..repeat();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, child) {
+        return SizedBox(
+          height: 50,
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: List.generate(5, (index) {
+            final delay = index * 0.2;
+            final phase = (_controller.value + delay) * 2 * pi;
+            final height = 20.0 + 30.0 * (0.5 + 0.5 * sin(phase));
+            return Container(
+              margin: const EdgeInsets.symmetric(horizontal: 4),
+              width: 8,
+              height: height,
+              decoration: BoxDecoration(
+                color: Colors.redAccent,
+                borderRadius: BorderRadius.circular(4),
+              ),
+            );
+          }),
+          ),
+        );
+      },
     );
   }
 }

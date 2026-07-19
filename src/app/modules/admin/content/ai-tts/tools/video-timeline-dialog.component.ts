@@ -10,7 +10,8 @@ import {
     HostListener,
     OnDestroy,
     TemplateRef,
-    AfterViewInit
+    AfterViewInit,
+    Optional
 } from '@angular/core';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { GoogleGenAI } from '@google/genai';
@@ -678,6 +679,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 projectUuid = parts[parts.length - 1];
                             }
                             let originalPath = playUrl.replace(/^file:\/\//i, '').split('?')[0];
+                            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+                                originalPath = '/' + originalPath;
+                            }
                             playUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
                         } else {
                             playUrl = playUrl.replace('media://', 'mediacors://');
@@ -715,6 +719,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                                 projectUuid = parts[parts.length - 1];
                             }
                             let originalPath = playUrl.replace(/^file:\/\//i, '').split('?')[0];
+                            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+                                originalPath = '/' + originalPath;
+                            }
                             playUrl = `mediacors://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=${encodeURIComponent(projectUuid || 'default')}`;
                         } else {
                             playUrl = playUrl.replace('media://', 'mediacors://');
@@ -1129,6 +1136,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 finalUrl = finalUrl.replace(/^unsafe:/, '');
                 let originalPath = finalUrl.split('?')[0];
                 originalPath = originalPath.replace(/^file:\/\//i, '');
+                if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+                    originalPath = '/' + originalPath;
+                }
                 const mediaDir = ''; 
                 finalUrl = `media://SMART_FIND/?path=${encodeURIComponent(originalPath)}&dir=${encodeURIComponent(mediaDir)}&uuid=default`;
             }
@@ -1783,6 +1793,9 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                 this.cancelLinking();
                 this.toastr.info('Đã hủy tạo liên kết.');
             }
+        } else if ((event.ctrlKey || event.metaKey) && (event.key === 's' || event.key === 'S')) {
+            event.preventDefault();
+            this.saveData(true);
         } else if ((event.ctrlKey || event.metaKey) && (event.key === 'b' || event.key === 'B')) {
             event.preventDefault();
             this.splitVideoAtPlayhead();
@@ -2391,9 +2404,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         return str;
     }
 
-    saveData() {
+    saveData(force: boolean = false) {
+        if (!force) return;
         const storageKey = `${this.STORAGE_CLIPS_KEY}_${this.data.uuid}`;
         this.multiAccountService.setItem(storageKey, this.projectData);
+        this.toastr.success('Đã lưu tiến trình Timeline!');
     }
 
     close() {
@@ -2462,6 +2477,51 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         video.maxDuration = undefined;
         this.saveData();
         this.cd.detectChanges();
+    }
+
+    async extractFramesForVideo(video: any, scene: any, sceneIdx: number, vIdx: number) {
+        const electronApi = (window as any).electron;
+        if (!electronApi || !video.videoUrl) return;
+
+        this.toastr.info('Đang tách khung hình, vui lòng đợi...');
+        try {
+            const extractPayload = { 
+                videoPath: video.videoUrl, 
+                interval: 1, // 1 frame per second by default for editing
+                startTime: video.trimStart || 0,
+                duration: video.duration 
+            };
+            const extractResult = await electronApi.invoke('extract-video-frames', extractPayload);
+            if (extractResult && extractResult.success && extractResult.paths.length > 0) {
+                const fps = extractResult.fps || 1;
+                const frameDuration = 1 / fps;
+                
+                const newImageBlocks = extractResult.paths.map((path: string, index: number) => {
+                    let finalUrl = path;
+                    if (!finalUrl.startsWith('file://')) {
+                        finalUrl = `file://${finalUrl.replace(/\\/g, '/')}`;
+                    }
+                    return {
+                        id: `frame_${Date.now()}_${index}`,
+                        imageUrl: finalUrl,
+                        duration: frameDuration,
+                        maxDuration: frameDuration,
+                        prompt: video.prompt || ''
+                    };
+                });
+
+                scene.videos.splice(vIdx, 1, ...newImageBlocks);
+                this.saveData();
+                this.cd.detectChanges();
+                setTimeout(() => this.updateLines(), 150);
+                this.toastr.success(`Đã tách đoạn video thành ${newImageBlocks.length} khung hình ảnh.`);
+            } else {
+                this.toastr.warning('Không tách được khung hình nào.');
+            }
+        } catch (err) {
+            console.error('Lỗi khi tách frame:', err);
+            this.toastr.error('Không thể tách khung hình.');
+        }
     }
 
     isImageType(url: string): boolean {
@@ -2932,10 +2992,16 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         private dialog: MatDialog,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
-        private sanitizer: DomSanitizer
+        private sanitizer: DomSanitizer,
+        @Optional() @Inject(MAT_DIALOG_DATA) public dialogData: any
     ) { 
-        this.data.uuid = this.route.snapshot.paramMap.get('uuid');
-        this.data.username = this.route.snapshot.paramMap.get('name');
+        this.data = this.dialogData || {};
+        if (!this.data.uuid) {
+            this.data.uuid = this.route.snapshot.paramMap.get('uuid');
+        }
+        if (!this.data.username) {
+            this.data.username = this.route.snapshot.paramMap.get('name');
+        }
     }
 
     private safeUrlCache: { [url: string]: SafeUrl } = {};
@@ -2957,6 +3023,11 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             cleanUrl = cleanUrl.replace(/^unsafe:/, '');
             let originalPath = cleanUrl.split('?')[0];
             originalPath = originalPath.replace(/^file:\/{2,3}/i, '');
+            
+            // Fix for Linux/Mac: if it doesn't look like a Windows drive letter, ensure it starts with /
+            if (!/^[a-zA-Z]:/.test(originalPath) && !originalPath.startsWith('/')) {
+                originalPath = '/' + originalPath;
+            }
 
             const mediaDir = this.projectData?.mediaDir || this.data?.mediaDir || '';
             let projectUuid = this.projectData?.uuid || this.data?.uuid;
@@ -2999,8 +3070,12 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         this.router.navigate(['../'], { relativeTo: this.route });
     }
     ngOnInit() {
-        this.data.uuid = this.route.snapshot.paramMap.get('uuid');
-        this.data.username = this.route.snapshot.paramMap.get('name');
+        if (!this.data.uuid) {
+            this.data.uuid = this.route.snapshot.paramMap.get('uuid');
+        }
+        if (!this.data.username) {
+            this.data.username = this.route.snapshot.paramMap.get('name');
+        }
         if (!this.data.uuid) { this.goBack(); return; }
 
         this.isSvgReady = false;

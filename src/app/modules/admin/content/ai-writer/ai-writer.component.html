@@ -977,7 +977,7 @@
                                                     (click)="insertVideo(); $event.stopPropagation()"
                                                     matTooltipPosition="above" [matTooltip]="'app.add_new_video' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
-                                                        [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                                                        [svgIcon]="'feather:upload'"></mat-icon>
                                                 </button>
                                             </mat-panel-title>
                                         </mat-expansion-panel-header>
@@ -1041,7 +1041,7 @@
                                                             <span>{{ 'app.auto_video_analysis' | transloco }}</span>
                                                         </button>
                                                         <button mat-menu-item [color]="'primary'" type="button"
-                                                            (click)="editVideo(item)">
+                                                            (click)="editVideo(item, i)">
                                                             <mat-icon class="icon-size-4"
                                                                 svgIcon="feather:video"></mat-icon>
                                                             <span>{{ 'app.edit_video' | transloco }}</span>

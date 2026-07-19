@@ -279,6 +279,39 @@ class ApiService {
     return null;
   }
 
+  static Future<dynamic> getNotifications() async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) return null;
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final uid = activeInfo['user']['id'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/forum/notification/$uid');
+
+    final dataForm = {
+      '_uid': uid,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+    final jwt = generateJWTToken(activeInfo['user']);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + jwt,
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return null;
+  }
+
   static Future<String?> restoreLicense() async {
     try {
       final prefs = await SharedPreferences.getInstance();

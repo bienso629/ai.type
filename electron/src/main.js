@@ -4346,18 +4346,44 @@ app.whenReady().then(async () => {
             }
         });
     });
+    // Function to get video fps using ffmpeg
+    const getVideoFPS = (ffmpegPath, videoPath) => {
+        return new Promise((resolve) => {
+            const child = spawn(ffmpegPath, ['-i', videoPath]);
+            let stderr = '';
+            child.stderr.on('data', (data) => stderr += data.toString());
+            child.on('close', () => {
+                const match = stderr.match(/, ([\d.]+) fps/);
+                if (match && match[1]) {
+                    resolve(parseFloat(match[1]));
+                } else {
+                    resolve(1); // fallback
+                }
+            });
+        });
+    };
+
     // ===== EXTRACT VIDEO FRAMES IPC =====
-    ipcMain.handle("extract-video-frames", async (_event, videoPath) => {
-        return new Promise((resolve, reject) => {
+    ipcMain.handle("extract-video-frames", async (_event, payload) => {
+        return new Promise(async (resolve, reject) => {
             if (!binaries.ffmpeg) {
                 return reject(new Error("Không tìm thấy FFmpeg"));
             }
             try {
+                const videoPath = typeof payload === 'string' ? payload : payload.videoPath;
+                const interval = typeof payload === 'object' && payload.interval ? payload.interval : null;
+                const startTime = typeof payload === 'object' && payload.startTime !== undefined ? payload.startTime : 0;
+                const duration = typeof payload === 'object' && payload.duration !== undefined ? payload.duration : null;
+
                 const videoPathDecoded = videoPath.replace('file://', '');
                 const stats = fs.statSync(videoPathDecoded);
                 const fileSize = stats.size;
                 const baseName = path.basename(videoPathDecoded, path.extname(videoPathDecoded)).replace(/[^a-zA-Z0-9_-]/g, '_');
-                const cacheDirName = `_frames_${baseName}_${fileSize}`;
+                
+                let cacheDirName = `_frames_${baseName}_${fileSize}`;
+                if (interval) cacheDirName += `_int_${interval}`;
+                if (startTime > 0) cacheDirName += `_ss_${startTime}`;
+                if (duration) cacheDirName += `_t_${duration}`;
 
                 const downloadsPath = app.getPath('downloads');
                 const aiTypingDir = path.join(downloadsPath, 'AI.TYPING');
@@ -4366,6 +4392,9 @@ app.whenReady().then(async () => {
                 }
 
                 const tempDir = path.join(aiTypingDir, cacheDirName);
+                
+                const fps = await getVideoFPS(binaries.ffmpeg, videoPath);
+                const effectiveFps = interval ? (1 / interval) : fps;
 
                 // Caching logic
                 if (fs.existsSync(tempDir)) {
@@ -4374,21 +4403,33 @@ app.whenReady().then(async () => {
                     if (frameFiles.length > 0) {
                         sendToRenderer("tools-log", `[FFmpeg] Sử dụng lại frames đã trích xuất: ${tempDir}`);
                         const framePaths = frameFiles.map(f => path.join(tempDir, f));
-                        return resolve({ success: true, paths: framePaths });
+                        return resolve({ success: true, paths: framePaths, fps: effectiveFps });
                     }
                 } else {
                     fs.mkdirSync(tempDir, { recursive: true });
                 }
 
-                const framePattern = path.join(tempDir, 'frame_%03d.jpg');
+                const framePattern = path.join(tempDir, 'frame_%05d.jpg');
                 const ffmpegPath = binaries.ffmpeg;
-                const args = [
-                    "-y",
-                    "-i", videoPath,
-                    "-vf", "fps=1,scale=720:-1",
+
+                const vfFilter = interval ? `scale=720:-1,fps=1/${interval}` : "scale=720:-1";
+                const args = ["-y"];
+                
+                if (startTime > 0) {
+                    args.push("-ss", startTime.toString());
+                }
+                
+                args.push("-i", videoPath);
+                
+                if (duration) {
+                    args.push("-t", duration.toString());
+                }
+                
+                args.push(
+                    "-vf", vfFilter,
                     "-q:v", "2",
                     framePattern
-                ];
+                );
 
                 sendToRenderer("tools-log", `[FFmpeg] Trích xuất frames: ${args.join(" ")}`);
                 const child = spawn(ffmpegPath, args);
@@ -4403,7 +4444,7 @@ app.whenReady().then(async () => {
                         const allFiles = fs.readdirSync(tempDir);
                         const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
                         const framePaths = frameFiles.map(f => path.join(tempDir, f));
-                        resolve({ success: true, paths: framePaths });
+                        resolve({ success: true, paths: framePaths, fps: fps });
                     } else {
                         sendToRenderer("tools-log", `[FFmpeg Error] ${stderrOutput}`);
                         reject(new Error(`FFmpeg exited with code ${code}`));
@@ -5776,6 +5817,92 @@ ipcMain.handle('cancel-tts', async (event) => {
     // Xóa sạch sổ
     activeTtsTasks.clear();
     return { success: true };
+});
+
+ipcMain.handle('download-single-video-temp', async (event, payload) => {
+    try {
+        const url = typeof payload === 'string' ? payload : payload.url;
+        const customCookies = typeof payload === 'object' ? payload.customCookies : '';
+        const ytdlpPath = binaries.ytdlp || "yt-dlp";
+        const tempDir = path.join(app.getPath('temp'), 'ai_typing_temp_' + Date.now());
+        fs.mkdirSync(tempDir, { recursive: true });
+
+        const outputTemplate = path.join(tempDir, 'video.%(ext)s');
+        const args = [
+            '-o', outputTemplate,
+            '--no-warnings',
+            '--rm-cache-dir',
+            '--js-runtimes', 'node',
+            '--extractor-args', 'youtube:player_client=ios,android,web',
+            '-f', 'bestvideo[height<=720]+bestaudio/best[height<=720]/best'
+        ];
+        if (binaries.ffmpeg) {
+            args.push('--ffmpeg-location', binaries.ffmpeg);
+        }
+
+        const isFacebook = url.includes('facebook.com') || url.includes('fb.watch') || url.includes('fb.com');
+        if (customCookies && customCookies.trim().length > 0) {
+            try {
+                let cookieContent = customCookies.trim();
+                if (cookieContent.startsWith('[')) {
+                    const cookiesData = JSON.parse(cookieContent);
+                    let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from custom cookies\n\n";
+                    for (const c of cookiesData) {
+                        let domain = c.domain || '';
+                        let includeSubdomains = domain.startsWith('.') ? 'TRUE' : 'FALSE';
+                        let cPath = c.path || '/';
+                        let secure = c.secure ? 'TRUE' : 'FALSE';
+                        let expiration = c.expirationDate ? Math.round(c.expirationDate) : (c.expires ? Math.round(c.expires) : 0);
+                        netscapeStr += `${domain}\t${includeSubdomains}\t${cPath}\t${secure}\t${expiration}\t${c.name}\t${c.value}\n`;
+                    }
+                    cookieContent = netscapeStr;
+                } else if (!cookieContent.includes('# Netscape')) {
+                    let netscapeStr = "# Netscape HTTP Cookie File\n# http://curl.haxx.se/rfc/cookie_spec.html\n# This file was generated from raw cookies\n\n";
+                    const pairs = cookieContent.split(';');
+                    for (const pair of pairs) {
+                        const trimmed = pair.trim();
+                        if (!trimmed) continue;
+                        const idx = trimmed.indexOf('=');
+                        if (idx > 0) {
+                            const key = trimmed.substring(0, idx).trim();
+                            const val = trimmed.substring(idx + 1).trim();
+                            netscapeStr += `.youtube.com\tTRUE\t/\tTRUE\t0\t${key}\t${val}\n`;
+                        }
+                    }
+                    cookieContent = netscapeStr;
+                }
+                const tempCookiePath = path.join(app.getPath('temp'), `cookies_temp_${Date.now()}.txt`);
+                fs.writeFileSync(tempCookiePath, cookieContent, 'utf8');
+                if (!isFacebook) args.push('--cookies', tempCookiePath);
+            } catch (err) {
+                console.error("Lỗi ghi file cookies tạm", err);
+            }
+        }
+
+        args.push(url);
+
+        await new Promise((resolve, reject) => {
+            const child = spawn(ytdlpPath, args);
+            let stderrOutput = "";
+            child.stderr.on('data', (data) => {
+                stderrOutput += data.toString();
+            });
+            child.on('close', (code) => {
+                if (code === 0) resolve();
+                else reject(new Error(`yt-dlp exited with code ${code}. Error: ${stderrOutput}`));
+            });
+        });
+
+        const files = fs.readdirSync(tempDir);
+        const foundVideoFile = files.find(f => f.startsWith('video.') && !f.endsWith('.json') && !f.endsWith('.vtt') && !f.endsWith('.srt'));
+        if (foundVideoFile) {
+            return { success: true, path: path.join(tempDir, foundVideoFile) };
+        } else {
+            return { success: false, error: 'Download complete but file not found.' };
+        }
+    } catch (err) {
+        return { success: false, error: err.message };
+    }
 });
 
 ipcMain.handle('download-video', async (event, payload) => {

@@ -8,6 +8,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
 import '../theme/app_colors.dart';
 import '../services/api_service.dart';
+import '../widgets/profile_popup.dart';
 import 'dashboard_screen.dart';
 import 'login_screen.dart';
 
@@ -195,37 +196,20 @@ class _ActiveScreenState extends State<ActiveScreen> {
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
-              child: PopupMenuButton<String>(
-                onSelected: (value) async {
-                  if (value == 'logout') {
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.remove('active_info');
-                    if (!context.mounted) return;
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(builder: (context) => const LoginScreen()),
-                    );
-                  }
+              child: GestureDetector(
+                onTap: () {
+                  showGeneralDialog(
+                    context: context,
+                    barrierDismissible: true,
+                    barrierLabel: 'Dismiss',
+                    barrierColor: Colors.transparent,
+                    pageBuilder: (_, __, ___) => const ProfilePopup(),
+                  );
                 },
-                offset: const Offset(0, 40),
-                color: Colors.white,
-                surfaceTintColor: Colors.transparent,
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(
-                    value: 'logout',
-                    child: Row(
-                      children: [
-                        FaIcon(FontAwesomeIcons.arrowRightFromBracket, size: 16, color: Colors.red),
-                        SizedBox(width: 8),
-                        Text('Thoát tài khoản', style: TextStyle(color: Colors.red, fontSize: 14, fontWeight: FontWeight.w500)),
-                      ],
-                    ),
-                  ),
-                ],
                 child: CircleAvatar(
                   radius: 16,
-                  backgroundColor: AppColors.accent,
-                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) : null,
-                  child: avatarUrl == null ? const FaIcon(FontAwesomeIcons.user, size: 14, color: AppColors.textSecondary) : null,
+                  backgroundColor: Colors.transparent,
+                  backgroundImage: avatarUrl != null ? NetworkImage(avatarUrl) as ImageProvider : const AssetImage('assets/images/web.png'),
                 ),
               ),
             ),
@@ -259,31 +243,32 @@ class _ActiveScreenState extends State<ActiveScreen> {
               const SizedBox(height: 12),
               
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: List.generate(6, (index) {
-                  return SizedBox(
-                    width: (MediaQuery.of(context).size.width - 48 - 5 * 8) / 6,
-                    child: TextField(
-                      controller: _controllers[index],
-                      focusNode: _focusNodes[index],
-                      textAlign: TextAlign.center,
-                      maxLength: 5,
-                      textCapitalization: TextCapitalization.characters,
-                      decoration: InputDecoration(
-                        counterText: '',
-                        hintText: 'XXXXX',
-                        hintStyle: TextStyle(color: Colors.grey.shade400),
-                        contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+                  return Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: index < 5 ? 8.0 : 0.0),
+                      child: TextField(
+                        controller: _controllers[index],
+                        focusNode: _focusNodes[index],
+                        textAlign: TextAlign.center,
+                        maxLength: 5,
+                        textCapitalization: TextCapitalization.characters,
+                        decoration: InputDecoration(
+                          counterText: '',
+                          hintText: 'XXXXX',
+                          hintStyle: TextStyle(color: Colors.grey.shade400),
+                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
                         ),
+                        onChanged: (value) {
+                          _onTextChanged(index, value);
+                          if (value.length > 5) {
+                            _onPaste(value);
+                          }
+                        },
                       ),
-                      onChanged: (value) {
-                        _onTextChanged(index, value);
-                        if (value.length > 5) {
-                          _onPaste(value);
-                        }
-                      },
                     ),
                   );
                 }),
@@ -371,10 +356,10 @@ class _ActiveScreenState extends State<ActiveScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 _buildNavItem(0, FontAwesomeIcons.chartPie, FontAwesomeIcons.chartPie, 'Tổng quan'),
-                _buildNavItem(1, FontAwesomeIcons.wrench, FontAwesomeIcons.wrench, 'Công cụ'),
+                _buildNavItem(1, FontAwesomeIcons.screwdriverWrench, FontAwesomeIcons.screwdriverWrench, 'Công cụ'),
                 const SizedBox(width: 48), // Space for FAB
-                _buildNavItem(2, FontAwesomeIcons.folder, FontAwesomeIcons.folderOpen, 'Công việc'),
-                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cấu hình'),
+                _buildNavItem(2, FontAwesomeIcons.briefcase, FontAwesomeIcons.briefcase, 'Công việc'),
+                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cài đặt'),
               ],
             ),
           ),
@@ -512,37 +497,39 @@ class _PaymentDialogState extends State<PaymentDialog> {
       child: Container(
         width: 700,
         padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('Thanh toán', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: const Icon(Icons.close),
-                  onPressed: () => Navigator.pop(context),
-                )
-              ],
-            ),
-            const SizedBox(height: 24),
-            LayoutBuilder(
-              builder: (context, constraints) {
-                if (constraints.maxWidth < 500) {
-                  return _buildVerticalLayout(price, qrUrl);
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Thanh toán', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  )
+                ],
+              ),
+              const SizedBox(height: 24),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  if (constraints.maxWidth < 500) {
+                    return _buildVerticalLayout(price, qrUrl);
+                  }
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _buildLeftPanel(price)),
+                      const SizedBox(width: 24),
+                      Expanded(child: _buildRightPanel(qrUrl)),
+                    ],
+                  );
                 }
-                return Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(child: _buildLeftPanel(price)),
-                    const SizedBox(width: 24),
-                    Expanded(child: _buildRightPanel(qrUrl)),
-                  ],
-                );
-              }
-            ),
-          ],
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -603,7 +590,7 @@ class _PaymentDialogState extends State<PaymentDialog> {
                 children: [
                   Text('⚠️ ', style: TextStyle(fontSize: 16)),
                   Text(
-                    'Nội dung chuyển khoản bắt buộc',
+                    'Mã giao dịch',
                     style: TextStyle(color: Colors.red, fontWeight: FontWeight.w600, fontSize: 14),
                   ),
                 ],

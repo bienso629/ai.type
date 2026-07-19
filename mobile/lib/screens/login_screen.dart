@@ -267,6 +267,7 @@ class _LoginScreenState extends State<LoginScreen> {
                     contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   ),
                   icon: const FaIcon(FontAwesomeIcons.chevronDown, color: AppColors.textSecondary, size: 16),
+                  isExpanded: true,
                   value: _selectedServer,
                   items: const [
                     DropdownMenuItem(value: 'vn.s1', child: Text('Việt Nam - TP.HCM/S1 (đang sửa chữa)', style: TextStyle(fontSize: 14, color: AppColors.textPrimary))),
