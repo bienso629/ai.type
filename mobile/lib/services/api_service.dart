@@ -571,4 +571,87 @@ class ApiService {
       return false;
     }
   }
+
+  static Future<dynamic> getCollections(String username) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/crawl/node/collections');
+
+    final dataForm = {
+      'server': server,
+      'year': DateTime.now().year,
+      'appId': 'ai.typing',
+      'username': username,
+      'appToken': activeInfo['user']['appToken'],
+      'page': {'size': 100},
+      'includeUuid': true,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
+
+  static Future<dynamic> getTasksArchive({
+    required String username,
+    required List<String> uuids,
+    required int pageNumber,
+    required int size,
+    String? bookmark,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/crawl/node/archive');
+
+    final dataForm = {
+      'server': server,
+      'year': DateTime.now().year,
+      'appId': 'ai.typing',
+      'username': username,
+      'appToken': activeInfo['user']['appToken'],
+      'keyword': '',
+      'uuids': uuids,
+      'page': {
+        'pageNumber': pageNumber,
+        'size': size,
+        'totalElements': 0,
+        'totalPages': 0,
+      },
+      if (bookmark != null) 'bookmark': bookmark,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) return jsonDecode(response.body);
+    return null;
+  }
 }
