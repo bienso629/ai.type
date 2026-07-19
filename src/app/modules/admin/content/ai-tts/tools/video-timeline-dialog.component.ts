@@ -3407,9 +3407,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         </div>
 
         <div mat-dialog-actions class="p-0 mt-6 flex justify-end gap-2">
-            <button mat-flat-button (click)="dialogRef.close()" color="medium" class="">
-                Hủy bỏ
-            </button>
             <button mat-flat-button color="primary" (click)="submit()" class="">
                 Xác nhận
             </button>

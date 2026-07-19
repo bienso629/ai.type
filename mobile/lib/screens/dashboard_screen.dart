@@ -282,9 +282,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final isSelected = _currentIndex == index;
     return GestureDetector(
       onTap: () {
-        setState(() {
-          _currentIndex = index;
-        });
+        if (index == 2) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen()));
+        } else {
+          setState(() {
+            _currentIndex = index;
+          });
+        }
       },
       behavior: HitTestBehavior.opaque,
       child: Column(
