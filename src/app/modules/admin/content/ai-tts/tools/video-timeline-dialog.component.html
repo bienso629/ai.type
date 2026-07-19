@@ -61,7 +61,7 @@
     <div mat-dialog-content class="!p-0 flex flex-col overflow-hidden flex-grow min-h-0 !max-h-none bg-gray-50">
 
         <!-- Preview Area (Upper Half) -->
-        <div class="w-full flex-grow flex-shrink min-h-[20vh] bg-gray-100 !p-0 flex flex-col items-center justify-center relative group">
+        <div class="w-full flex-grow flex-shrink min-h-[20vh] bg-gray-100 p-3 md:p-4 flex flex-col items-center justify-center relative group">
             <div class="w-full h-full relative flex flex-col items-center justify-center">
                 <video #mainVideoPlayer [src]="getSafeUrl(previewVideoUrl)" *ngIf="previewVideoUrl"
                     class="max-w-full max-h-full object-contain" (ended)="isPreviewPlaying = false"
