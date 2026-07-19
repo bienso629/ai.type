@@ -1,9 +1,4 @@
-import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
-import 'package:intl/intl.dart';
-import 'package:html_unescape/html_unescape.dart';
 import '../theme/app_colors.dart';
 
 class SitemapScreen extends StatefulWidget {
@@ -14,322 +9,275 @@ class SitemapScreen extends StatefulWidget {
 }
 
 class _SitemapScreenState extends State<SitemapScreen> {
-  List<Map<String, dynamic>> _domains = [];
-  Map<String, dynamic>? _selectedDomain;
-  
-  List<Map<String, dynamic>> _posts = [];
-  bool _isLoading = false;
-  bool _hasMore = true;
-  int _page = 1;
-  String _keyword = '';
-  
-  final ScrollController _scrollController = ScrollController();
-  final HtmlUnescape _unescape = HtmlUnescape();
+  final List<Map<String, dynamic>> _posts = List.generate(
+    20,
+    (index) => {
+      'title': [
+        'Báo chí nói gì về Hộp Thư - Email doanh nghiệp',
+        'Hộp thư hưởng ứng phong trào hiến máu nhân đạo 2023',
+        '3 phương pháp tạo email doanh nghiệp miễn phí',
+        'Email công ty có lợi ích gì cho doanh nghiệp?',
+        'Thư chúc Tết Quý Mão 2023 và thông báo lịch làm việc, hỗ trợ khách hàng',
+        'Hộp Thư chính thức cho ra mắt Ứng dụng Hộp Thư mobile app',
+        'Lợi ích của Email theo tên miền công ty là gì?',
+      ][index % 7],
+      'link': 'https://hopthu.vn/2023/${(index % 12) + 1}/${(index % 28) + 1}/...',
+      'date': '${(index % 12) + 1}/${(index % 28) + 1}/23, ${8 + (index % 12)}:${10 + (index % 50)} AM',
+      'selected': false,
+    },
+  );
 
-  @override
-  void initState() {
-    super.initState();
-    _loadDomains();
-    _scrollController.addListener(_onScroll);
-  }
+  int get _selectedCount => _posts.where((p) => p['selected'] as bool).length;
+  bool _selectAll = false;
 
-  @override
-  void dispose() {
-    _scrollController.dispose();
-    super.dispose();
-  }
-
-  void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
-      if (!_isLoading && _hasMore) {
-        _fetchPosts(loadMore: true);
+  void _toggleSelectAll(bool? value) {
+    if (value == null) return;
+    setState(() {
+      _selectAll = value;
+      for (var post in _posts) {
+        post['selected'] = value;
       }
-    }
+    });
   }
 
-  Future<void> _loadDomains() async {
-    final prefs = await SharedPreferences.getInstance();
-    final activeInfoStr = prefs.getString('active_info');
-    if (activeInfoStr == null) return;
-    
-    final activeInfo = jsonDecode(activeInfoStr);
-    final uid = activeInfo['user']['id'] ?? 'default';
-    
-    final domainsKey = 'user_domains_$uid';
-    final domainsStr = prefs.getString(domainsKey);
-    
-    if (domainsStr != null) {
-      final List<dynamic> parsed = jsonDecode(domainsStr);
-      _domains = parsed.cast<Map<String, dynamic>>();
-    }
-
-    if (_domains.isNotEmpty) {
-      _selectedDomain = _domains.first;
-      _fetchPosts();
-    }
-    
-    if (mounted) setState(() {});
-  }
-
-  Future<void> _fetchPosts({bool loadMore = false}) async {
-    if (_selectedDomain == null) return;
-    if (!loadMore) {
-      setState(() {
-        _posts.clear();
-        _page = 1;
-        _hasMore = true;
-        _isLoading = true;
-      });
-    } else {
-      setState(() => _isLoading = true);
-    }
-
-    try {
-      final domainUrl = _selectedDomain!['domain'];
-      var urlStr = '$domainUrl/wp-json/wp/v2/posts?per_page=20&_embed=1&page=$_page';
-      if (_keyword.isNotEmpty) {
-        urlStr += '&search=${Uri.encodeComponent(_keyword)}';
-      }
-      
-      final url = Uri.parse(urlStr);
-      final response = await http.get(url, headers: {
-        'content-type': 'application/json',
-      }).timeout(const Duration(seconds: 15));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(response.body);
-        
-        _page++;
-        
-        if (data.length < 20) {
-          _hasMore = false;
-        }
-        
-        if (mounted) {
-          setState(() {
-            _posts.addAll(data.cast<Map<String, dynamic>>());
-            _isLoading = false;
-          });
-        }
-      } else {
-        if (mounted) {
-          setState(() {
-            _hasMore = false;
-            _isLoading = false;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error fetching posts: $e');
-      if (mounted) {
-        setState(() {
-          _hasMore = false;
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  void _onSearch(String val) {
-    if (_keyword == val) return;
-    _keyword = val;
-    _fetchPosts();
-  }
-
-  String _formatDate(String? dateStr) {
-    if (dateStr == null || dateStr.isEmpty) return '';
-    try {
-      final dt = DateTime.parse(dateStr);
-      return DateFormat('dd/MM/yyyy HH:mm').format(dt);
-    } catch (e) {
-      return dateStr;
-    }
-  }
-
-  Widget _buildDomainDropdown() {
-    if (_domains.isEmpty) return const SizedBox();
-    return SizedBox(
-      height: 48,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<Map<String, dynamic>>(
-            value: _selectedDomain,
-            isExpanded: true,
-            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-            items: _domains.map((d) {
-              return DropdownMenuItem<Map<String, dynamic>>(
-                value: d,
-                child: Text(
-                  d['domain'] ?? '', 
-                  style: const TextStyle(fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
-            onChanged: (val) {
-              if (val != null && val['domain'] != _selectedDomain?['domain']) {
-                setState(() => _selectedDomain = val);
-                _fetchPosts();
-              }
-            },
-          ),
-        ),
-      ),
-    );
+  void _toggleSelect(int index, bool? value) {
+    if (value == null) return;
+    setState(() {
+      _posts[index]['selected'] = value;
+      _selectAll = _posts.every((p) => p['selected'] as bool);
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Bài viết từ Wordpress', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text('ai.type > sử dụng lại post từ wordpress', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.normal, fontSize: 16)),
         backgroundColor: Colors.white,
-        elevation: 0,
+        elevation: 1,
+        shadowColor: Colors.black12,
         surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Colors.black87),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Column(
         children: [
+          // Filter Bar
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.black12)),
             ),
             child: Row(
               children: [
                 Expanded(
-                  child: _buildDomainDropdown(),
+                  flex: 3,
+                  child: Container(
+                    height: 40,
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Icon(Icons.search, color: Colors.grey, size: 20),
+                        ),
+                        const Expanded(
+                          child: TextField(
+                            decoration: InputDecoration(
+                              hintText: 'Tìm kiếm bài viết',
+                              hintStyle: TextStyle(color: Colors.grey, fontSize: 14),
+                              border: InputBorder.none,
+                              isDense: true,
+                              contentPadding: EdgeInsets.symmetric(vertical: 10),
+                            ),
+                          ),
+                        ),
+                        Container(width: 1, color: Colors.black12),
+                        const Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 12),
+                          child: Row(
+                            children: [
+                              Text('Tất cả', style: TextStyle(color: Colors.black87, fontSize: 14)),
+                              SizedBox(width: 4),
+                              Icon(Icons.arrow_drop_down, color: Colors.grey),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
-                  child: SizedBox(
-                    height: 48,
-                    child: TextField(
-                      onSubmitted: _onSearch,
-                      onChanged: (val) {
-                        if (val.isEmpty && _keyword.isNotEmpty) {
-                          _onSearch('');
-                        }
-                      },
-                      decoration: InputDecoration(
-                        hintText: 'Tìm kiếm',
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                  flex: 2,
+                  child: Container(
+                    height: 40,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.black12),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: const Row(
+                      children: [
+                        Icon(Icons.language, color: Colors.grey, size: 20),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'https://hopthu.vn',
+                            style: TextStyle(color: Colors.black87, fontSize: 14),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                      ),
+                        Icon(Icons.arrow_drop_down, color: Colors.grey),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
+          
+          // Table Header
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.black12)),
+            ),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: _selectAll,
+                    onChanged: _toggleSelectAll,
+                    activeColor: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Expanded(
+                  flex: 5,
+                  child: Text('Tiêu đề', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
+                ),
+                const Expanded(
+                  flex: 3,
+                  child: Text('Link gốc', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500)),
+                ),
+                const Expanded(
+                  flex: 2,
+                  child: Text('Ngày tạo', style: TextStyle(color: Colors.grey, fontSize: 13, fontWeight: FontWeight.w500), textAlign: TextAlign.right),
+                ),
+              ],
+            ),
+          ),
+          
+          // List
           Expanded(
-            child: _isLoading && _posts.isEmpty
-                ? const Center(child: CircularProgressIndicator())
-                : _posts.isEmpty
-                    ? const Center(child: Text('Không có bài viết nào', style: TextStyle(color: Colors.grey)))
-                    : RefreshIndicator(
-                        onRefresh: () async {
-                          await _fetchPosts();
-                        },
-                        child: ListView.builder(
-                          controller: _scrollController,
-                          padding: const EdgeInsets.only(top: 8, bottom: 80),
-                          itemCount: _posts.length + (_hasMore ? 1 : 0),
-                          itemBuilder: (context, index) {
-                            if (index == _posts.length) {
-                              return const Padding(
-                                padding: EdgeInsets.all(16.0),
-                                child: Center(child: CircularProgressIndicator()),
-                              );
-                            }
-                            final post = _posts[index];
-                            final titleObj = post['title'];
-                            final title = _unescape.convert(titleObj is Map ? (titleObj['rendered'] ?? '') : titleObj.toString());
-                            final link = post['link']?.toString() ?? '';
-                            final dateStr = post['date']?.toString();
-                            
-                            return Card(
-                              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-                              elevation: 0,
-                              color: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                side: BorderSide(color: Colors.grey.shade200),
-                              ),
-                              child: Padding(
-                                padding: const EdgeInsets.all(16.0),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      title.isEmpty ? 'Không có tiêu đề' : title,
-                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, height: 1.3),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 12),
-                                    Row(
-                                      children: [
-                                        if (link.isNotEmpty)
-                                          Expanded(
-                                            child: Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                              decoration: BoxDecoration(
-                                                color: Colors.blue.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(16),
-                                              ),
-                                              child: Text(
-                                                link,
-                                                style: const TextStyle(fontSize: 12, color: Colors.blue),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          )
-                                        else
-                                          const Spacer(),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          _formatDate(dateStr),
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
-                                        ),
-                                      ],
-                                    )
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
+            child: ListView.separated(
+              itemCount: _posts.length,
+              separatorBuilder: (context, index) => const Divider(height: 1, color: Colors.black12),
+              itemBuilder: (context, index) {
+                final post = _posts[index];
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      SizedBox(
+                        width: 24,
+                        height: 24,
+                        child: Checkbox(
+                          value: post['selected'] as bool,
+                          onChanged: (val) => _toggleSelect(index, val),
+                          activeColor: AppColors.primary,
                         ),
                       ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 5,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                post['title'] as String,
+                                style: const TextStyle(color: Colors.black87, fontSize: 14),
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            const Icon(Icons.edit_outlined, size: 16, color: Colors.grey),
+                          ],
+                        ),
+                      ),
+                      Expanded(
+                        flex: 3,
+                        child: Align(
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF2B82F6), // Blue matching the image
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Text(
+                              post['link'] as String,
+                              style: const TextStyle(color: Colors.white, fontSize: 12),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        flex: 2,
+                        child: Text(
+                          post['date'] as String,
+                          style: const TextStyle(color: Colors.grey, fontSize: 13),
+                          textAlign: TextAlign.right,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+          
+          // Bottom Footer
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(top: BorderSide(color: Colors.black12)),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Đã chọn $_selectedCount trong ${_posts.length} bài viết',
+                  style: const TextStyle(color: Colors.grey, fontSize: 13),
+                ),
+              ],
+            ),
           ),
         ],
+      ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Sẽ import $_selectedCount bài viết đã chọn')),
+          );
+        },
+        backgroundColor: const Color(0xFF0D9488), // Teal color from the image
+        elevation: 2,
+        child: const Icon(Icons.edit, color: Colors.white),
       ),
     );
   }
