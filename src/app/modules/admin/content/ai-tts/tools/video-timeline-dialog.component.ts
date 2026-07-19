@@ -2649,7 +2649,6 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         try {
             const extractPayload = { 
                 videoPath: video.videoUrl, 
-                interval: 1, // 1 frame per second by default for editing
                 startTime: video.trimStart || 0,
                 duration: video.duration 
             };

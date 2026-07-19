@@ -190,7 +190,7 @@ class _TasksScreenState extends State<TasksScreen> {
   Widget _buildCollectionDropdown() {
     if (_collections.isEmpty) return const SizedBox();
     return SizedBox(
-      height: 40,
+      height: 48,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
         decoration: BoxDecoration(
@@ -360,7 +360,7 @@ class _TasksScreenState extends State<TasksScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: SizedBox(
-                    height: 40,
+                    height: 48,
                     child: TextField(
                       onSubmitted: _onSearch,
                       onChanged: (val) {

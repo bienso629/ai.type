@@ -4444,7 +4444,7 @@ app.whenReady().then(async () => {
                         const allFiles = fs.readdirSync(tempDir);
                         const frameFiles = allFiles.filter(f => f.startsWith('frame_') && f.endsWith('.jpg')).sort();
                         const framePaths = frameFiles.map(f => path.join(tempDir, f));
-                        resolve({ success: true, paths: framePaths, fps: fps });
+                        resolve({ success: true, paths: framePaths, fps: effectiveFps });
                     } else {
                         sendToRenderer("tools-log", `[FFmpeg Error] ${stderrOutput}`);
                         reject(new Error(`FFmpeg exited with code ${code}`));
