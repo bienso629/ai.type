@@ -176,88 +176,111 @@ class _DomainScreenState extends State<DomainScreen> {
     showDialog(
       context: context,
       builder: (context) {
-        return AlertDialog(
-          title: Text(isNew ? 'Thêm tên miền' : 'Chỉnh sửa tên miền', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: domainCtrl,
-                  decoration: const InputDecoration(labelText: 'Tên miền', hintText: 'VD: ai.type.vn', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: userCtrl,
-                  decoration: const InputDecoration(labelText: 'Tên đăng nhập', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: passCtrl,
-                  obscureText: true,
-                  decoration: const InputDecoration(labelText: 'Mật khẩu ứng dụng', border: OutlineInputBorder()),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: targetCtrl,
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Chỉ tiêu (bài/tháng)', border: OutlineInputBorder()),
-                ),
-              ],
+        return Dialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.transparent,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          child: Container(
+            width: 700,
+            padding: const EdgeInsets.all(24),
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(isNew ? 'Thêm tên miền' : 'Chỉnh sửa tên miền', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 24),
+                  TextField(
+                    controller: domainCtrl,
+                    decoration: const InputDecoration(labelText: 'Tên miền', hintText: 'VD: ai.type.vn', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: userCtrl,
+                    decoration: const InputDecoration(labelText: 'Tên đăng nhập', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(labelText: 'Mật khẩu ứng dụng', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: targetCtrl,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(labelText: 'Chỉ tiêu (bài/tháng)', border: OutlineInputBorder()),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      TextButton(
+                        onPressed: () => Navigator.pop(context),
+                        child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
+                      ),
+                      const SizedBox(width: 12),
+                      ElevatedButton(
+                        onPressed: () async {
+                          Navigator.pop(context);
+                          
+                          final updatedDomain = {
+                            ...domainItem,
+                            'domain': domainCtrl.text.trim(),
+                            'username': userCtrl.text.trim(),
+                            'password': passCtrl.text.trim(),
+                          };
+                          
+                          setState(() => _isLoading = true);
+                          
+                          dynamic res;
+                          if (isNew) {
+                            res = await ApiService.addDomain(updatedDomain);
+                          } else {
+                            res = await ApiService.editDomain(updatedDomain);
+                          }
+                          
+                          if (res != null && res['success'] == true) {
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isNew ? 'Thêm tên miền thành công!' : 'Cập nhật tên miền thành công!')));
+                            if (res['data'] != null && res['data']['_rev'] != null) {
+                              updatedDomain['_rev'] = res['data']['_rev'];
+                            }
+                            
+                            if (isNew) {
+                              updatedDomain['addnew'] = false;
+                              _domains[index] = updatedDomain;
+                            } else {
+                              _domains[index] = updatedDomain;
+                            }
+                            
+                            if (targetCtrl.text.isNotEmpty) {
+                              await _saveTarget(updatedDomain['domain'], int.tryParse(targetCtrl.text) ?? 0);
+                            }
+                            
+                            setState(() => _isLoading = false);
+                          } else {
+                            setState(() => _isLoading = false);
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Có lỗi xảy ra, vui lòng thử lại!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
+                          }
+                        },
+                        style: ElevatedButton.styleFrom(backgroundColor: isNew ? Colors.green : Colors.blue),
+                        child: const Text('Lưu', style: TextStyle(color: Colors.white)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Hủy', style: TextStyle(color: Colors.grey)),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.pop(context);
-                
-                final updatedDomain = {
-                  ...domainItem,
-                  'domain': domainCtrl.text.trim(),
-                  'username': userCtrl.text.trim(),
-                  'password': passCtrl.text.trim(),
-                };
-                
-                setState(() => _isLoading = true);
-                
-                dynamic res;
-                if (isNew) {
-                  res = await ApiService.addDomain(updatedDomain);
-                } else {
-                  res = await ApiService.editDomain(updatedDomain);
-                }
-                
-                if (res != null && res['success'] == true) {
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(isNew ? 'Thêm tên miền thành công!' : 'Cập nhật tên miền thành công!')));
-                  if (res['data'] != null && res['data']['_rev'] != null) {
-                    updatedDomain['_rev'] = res['data']['_rev'];
-                  }
-                  
-                  if (isNew) {
-                    updatedDomain['addnew'] = false;
-                    _domains[index] = updatedDomain;
-                  } else {
-                    _domains[index] = updatedDomain;
-                  }
-                  
-                  if (targetCtrl.text.isNotEmpty) {
-                    await _saveTarget(updatedDomain['domain'], int.tryParse(targetCtrl.text) ?? 0);
-                  }
-                  
-                  setState(() => _isLoading = false);
-                } else {
-                  setState(() => _isLoading = false);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Có lỗi xảy ra, vui lòng thử lại!', style: TextStyle(color: Colors.white)), backgroundColor: Colors.red));
-                }
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: isNew ? Colors.green : Colors.blue),
-              child: Text('Lưu', style: const TextStyle(color: Colors.white)),
-            ),
-          ],
         );
       }
     );
@@ -425,7 +448,8 @@ class _DomainScreenState extends State<DomainScreen> {
       appBar: AppBar(
         title: const Text('Tên miền', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
-        elevation: 1,
+        elevation: 0,
+        surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
             icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey[700]),
@@ -455,8 +479,17 @@ class _DomainScreenState extends State<DomainScreen> {
           children: [
             // Filter section
             Container(
-              color: Colors.white,
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.04),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
                   const Text('Chỉ tiêu & Kết quả', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
@@ -527,7 +560,11 @@ class _DomainScreenState extends State<DomainScreen> {
         decoration: BoxDecoration(
           color: Colors.white,
           boxShadow: [
-            BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -5))
+            BoxShadow(
+              color: Colors.black.withOpacity(0.04),
+              blurRadius: 15,
+              offset: const Offset(0, -4),
+            )
           ]
         ),
         child: Row(
@@ -538,9 +575,7 @@ class _DomainScreenState extends State<DomainScreen> {
                 icon: const Icon(Icons.auto_awesome, size: 16, color: Colors.white),
                 label: const Text('Phân tích AI', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.indigo,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
+                  backgroundColor: AppColors.primary,
                 ),
               ),
             ),
@@ -552,8 +587,6 @@ class _DomainScreenState extends State<DomainScreen> {
                 label: const Text('Lên kế hoạch', style: TextStyle(color: Colors.white)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Colors.blue,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8))
                 ),
               ),
             ),
