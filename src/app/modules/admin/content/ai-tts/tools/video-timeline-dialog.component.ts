@@ -2488,6 +2488,126 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
         }
     }
 
+    async addNewMediaBlock(type: 'video' | 'audio') {
+        const electronApi = (window as any).electron;
+        if (!electronApi || !electronApi.getPathForFile) {
+            this.toastr.error('Lỗi cấu hình. Tính năng này chỉ dùng trên App Desktop.');
+            return;
+        }
+
+        const input = document.createElement('input');
+        input.type = 'file';
+        if (type === 'video') {
+            input.accept = 'video/*,image/*';
+        } else {
+            input.accept = 'audio/*';
+        }
+
+        input.onchange = async (e: any) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const originalPath = electronApi.getPathForFile(file);
+            if (!originalPath) {
+                this.toastr.error('Không thể xác nhận đường dẫn file.');
+                return;
+            }
+
+            this.toastr.info('Đang xử lý file, vui lòng đợi...');
+
+            const uuid = this.projectData?.uuid || this.data?.uuid;
+            const customDir = uuid ? `tts/admin/${uuid}` : undefined;
+            const localFilePath = await electronApi.selectLocalFile(originalPath, customDir);
+            const finalPath = localFilePath.startsWith('file://') ? localFilePath : `file://${localFilePath.replace(/\\/g, '/')}`;
+
+            if (!this.projectData) this.projectData = { scenes: [] };
+            if (!this.projectData.scenes || this.projectData.scenes.length === 0) {
+                this.projectData.scenes.push({
+                    id: `scene_${Date.now()}`,
+                    subtitles: [],
+                    videos: [],
+                    prompt: ''
+                });
+            }
+
+            // Mặc định ném vào scene cuối cùng
+            const scene = this.projectData.scenes[this.projectData.scenes.length - 1];
+
+            if (type === 'video') {
+                if (!scene.videos) scene.videos = [];
+                let maxStart = 0;
+                scene.videos.forEach((v: any) => {
+                    const end = (v.startTime || 0) + (v.duration || 0);
+                    if (end > maxStart) maxStart = end;
+                });
+
+                const newVideo: any = {
+                    id: `video_${Date.now()}`,
+                    prompt: '',
+                    startTime: maxStart,
+                    duration: 5,
+                    maxDuration: 5,
+                    isCompleted: true
+                };
+
+                if (file.type.startsWith('video/') || file.name.match(/\.(mp4|webm|avi|mov)$/i)) {
+                    newVideo.videoUrl = finalPath;
+                    const videoObj = document.createElement('video');
+                    videoObj.src = this.getRawMediaUrl(finalPath) as string;
+                    videoObj.addEventListener('loadedmetadata', () => {
+                        if (videoObj.duration && !isNaN(videoObj.duration)) {
+                            newVideo.duration = parseFloat(videoObj.duration.toFixed(1));
+                            newVideo.maxDuration = newVideo.duration;
+                            this.saveData(true);
+                            this.cd.detectChanges();
+                            this.updateLines();
+                        }
+                    });
+                } else {
+                    newVideo.imageUrl = finalPath;
+                }
+
+                scene.videos.push(newVideo);
+            } else {
+                if (!scene.subtitles) scene.subtitles = [];
+                let maxStart = 0;
+                scene.subtitles.forEach((s: any) => {
+                    const end = (s.startTime || 0) + (s.duration || 0);
+                    if (end > maxStart) maxStart = end;
+                });
+
+                const newSub: any = {
+                    id: `sub_${Date.now()}`,
+                    text: 'Audio tùy chỉnh',
+                    startTime: maxStart,
+                    duration: 5,
+                    maxDuration: 5,
+                    audioUrl: finalPath
+                };
+                
+                const audioObj = document.createElement('audio');
+                audioObj.src = this.getRawMediaUrl(finalPath) as string;
+                audioObj.addEventListener('loadedmetadata', () => {
+                    if (audioObj.duration && !isNaN(audioObj.duration)) {
+                        newSub.duration = parseFloat(audioObj.duration.toFixed(1));
+                        newSub.maxDuration = newSub.duration;
+                        this.saveData(true);
+                        this.cd.detectChanges();
+                    }
+                });
+
+                scene.subtitles.push(newSub);
+            }
+
+            this.saveData(true);
+            this.cd.detectChanges();
+            setTimeout(() => this.updateLines(), 150);
+            this.toastr.success('Đã thêm file thành công!');
+        };
+
+        input.click();
+    }
+
     clearVideoMedia(video: any) {
         video.imageUrl = null;
         video.videoUrl = null;

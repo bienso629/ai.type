@@ -130,10 +130,13 @@
                     <div *ngFor="let _ of [].constructor(trackCount); let tIdx = index"
                         class="relative h-24 border-b border-gray-200 bg-white/30 flex-shrink-0 w-full">
 
-                        <!-- Track Header (Sticky Left) -->
                         <div
-                            class="sticky left-0 top-0 h-full w-32 bg-gray-50 border-r border-gray-300 flex flex-col items-center justify-center z-[60] overflow-hidden">
+                            class="sticky left-0 top-0 h-full w-32 bg-gray-50 border-r border-gray-300 flex flex-col items-center justify-center z-[60] overflow-hidden group">
                             <span class="text-xs font-semibold text-gray-700">Track {{tIdx + 1}}</span>
+                            <button *ngIf="tIdx === 0" mat-icon-button class="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 leading-6 flex items-center justify-center" 
+                                (click)="addNewMediaBlock('video')" [matTooltip]="'app.add_media_block' | transloco">
+                                <mat-icon class="icon-size-4 text-gray-500 hover:text-green-500">add</mat-icon>
+                            </button>
                         </div>
 
                         <!-- Video Blocks in this Track -->
@@ -318,9 +321,13 @@
                     <div class="relative h-24 border-b border-gray-200 bg-white/40 flex-shrink-0 w-full">
                         <!-- Track Header -->
                         <div
-                            class="sticky left-0 top-0 h-full w-32 bg-gray-50 border-r border-gray-300 flex flex-col items-center justify-center z-[60] overflow-hidden">
+                            class="sticky left-0 top-0 h-full w-32 bg-gray-50 border-r border-gray-300 flex flex-col items-center justify-center z-[60] overflow-hidden group">
                             <span class="text-xs font-semibold text-gray-700">Track Audio</span>
                             <mat-icon class="icon-size-4 text-blue-400 mt-1">mic</mat-icon>
+                            <button mat-icon-button class="absolute right-1 opacity-0 group-hover:opacity-100 transition-opacity w-6 h-6 leading-6 flex items-center justify-center" 
+                                (click)="addNewMediaBlock('audio')" [matTooltip]="'app.add_media_block' | transloco">
+                                <mat-icon class="icon-size-4 text-gray-500 hover:text-green-500">add</mat-icon>
+                            </button>
                         </div>
 
                         <!-- Audio Blocks -->
