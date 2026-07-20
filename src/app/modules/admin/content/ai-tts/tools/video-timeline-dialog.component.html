@@ -99,11 +99,6 @@
         <div class="flex flex-row flex-shrink-0 overflow-x-auto overflow-y-hidden relative w-full h-fit border-t border-gray-300 scene-scroll-area"
             id="timeline-scroll-container" (wheel)="onTimelineScroll($event)">
             <div class="relative w-[5000px] h-fit">
-                <!-- SVG Connection Lines -->
-                <svg #svgLayer
-                    class="absolute inset-0 w-full h-full pointer-events-none z-50 transition-opacity duration-300"
-                    [ngClass]="isSvgReady ? 'opacity-100' : 'opacity-0'">
-                </svg>
 
                 <!-- Timeline Ruler -->
                 <div class="h-6 w-full border-b border-gray-300 relative bg-gray-100 z-[90] cursor-text sticky top-0"
@@ -213,7 +208,7 @@
                                             </div>
 
                                             <!-- Thanh công cụ hover (đặt ngoài overflow-hidden để block nhỏ không bị đè) -->
-                                            <div *ngIf="!isDraggingLink"
+                                            <div
                                                 class="absolute top-2 left-1/2 -translate-x-1/2 opacity-0 group-hover:opacity-100 flex flex-row flex-nowrap items-center justify-center transition-all gap-1 z-[70] pointer-events-none group-hover:pointer-events-auto min-w-max bg-gray-50/80 backdrop-blur-sm p-1.5 rounded border border-gray-300 shadow-xl">
                                                 <button mat-icon-button
                                                     class="bg-indigo-600 hover:bg-indigo-500 transition-colors icon-size-6 rounded"
@@ -293,24 +288,7 @@
                                                     'image' }}</mat-icon>
                                             </button>
 
-                                            <!-- Node link Top -->
-                                            <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-indigo-500 rounded-full border-2 border-white shadow-sm z-50 pointer-events-auto transition-all"
-                                                [ngClass]="isDraggingLink || hasIncomingLink(sceneIdx, vIdx) ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'"
-                                                [class.ring-4]="isDraggingLink" [class.ring-indigo-500]="isDraggingLink"
-                                                [class.ring-opacity-50]="isDraggingLink"
-                                                [class.scale-125]="isDraggingLink">
-                                            </div>
-                                            <!-- Node link Bottom -->
-                                            <div class="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-4 rounded-full border-2 border-white shadow-sm z-50 pointer-events-auto flex items-center justify-center cursor-crosshair group/node"
-                                                [ngClass]="video.linkedTo ? 'bg-indigo-500 opacity-100 hover:bg-red-500' : 'bg-indigo-500 opacity-0 group-hover:opacity-100 hover:bg-indigo-600'"
-                                                (mousedown)="$event.stopPropagation(); !video.linkedTo ? onDragLinkStart($event, video, sceneIdx, vIdx) : null"
-                                                (click)="$event.stopPropagation(); video.linkedTo ? removeLink(video) : null">
-                                                @if (video.linkedTo) {
-                                                <mat-icon
-                                                    class="text-gray-900 opacity-0 group-hover/node:opacity-100 transition-opacity flex items-center justify-center"
-                                                    style="font-size: 10px; width: 10px; height: 10px;">close</mat-icon>
-                                                }
-                                            </div>
+
                                         </div>
                                 </ng-container>
                             </ng-container>

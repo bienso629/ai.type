@@ -135,4 +135,10 @@ ng-dropdown-panel.ng-select-bottom {
             }
         }
     }
+
+    .custom-dialog-bulk {
+        .mat-mdc-dialog-surface {
+            padding: 0 !important;
+        }
+    }
 }

@@ -5,6 +5,7 @@ import {
     OnInit,
     ViewChild,
     ViewEncapsulation,
+    TemplateRef,
 } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import {
@@ -26,6 +27,8 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MatDialog } from '@angular/material/dialog';
+import { GenaiService } from 'app/genai.service';
 
 @Component({
     selector: 'archives',
@@ -67,6 +70,15 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     selectedCollections: any;
     collections: any[] = [];
 
+    @ViewChild('bulkEditDialog') bulkEditDialogTemplate: TemplateRef<any>;
+    bulkEditPrompt: string = '';
+    bulkEditImageBase64: string = null;
+    bulkEditDialogRef: any;
+    bulkEditInProgress: boolean = false;
+    bulkEditProgress: number = 0;
+    bulkEditTotal: number = 0;
+    bulkEditStatusText: string = '';
+
     permissionText2Voice: boolean = false;
     permissionScriptCommentLike: boolean = false;
 
@@ -76,6 +88,289 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
         this.selected.push(...selected);
+    }
+
+    deleteSelected() {
+        if (!this.selected || this.selected.length === 0) return;
+        
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xác nhận xóa',
+            message: `Bạn có chắc muốn xóa <b>${this.selected.length}</b> bài viết đã chọn? Hành động này không thể hoàn tác.`,
+            icon: {
+                show: true,
+                name: 'heroicons_outline:exclamation',
+                color: 'warn',
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa ngay',
+                    color: 'warn',
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy',
+                },
+            },
+            dismissible: true,
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                const uuids = this.selected.map((r: any) => r.uuid);
+                
+                // Lấy chi tiết từng bài viết để lấy _rev, sau đó gán _deleted = true để xóa triệt để khỏi CouchDB
+                this.selected.forEach((r: any) => {
+                    this._crawlService.detail({ uuid: r.uuid, username: this.user.name })
+                        .pipe(takeUntil(this._unsubscribeAll))
+                        .subscribe({
+                            next: (res: any) => {
+                                if (res && res.success && res.data) {
+                                    const fullDoc = res.data;
+                                    const payload = {
+                                        ...fullDoc,
+                                        uuid: fullDoc.uuid || r.uuid,
+                                        username: this.user.name,
+                                        _deleted: true,
+                                        trash: true,
+                                        new_version: -1
+                                    };
+                                    this._crawlService.archiveUpdate(payload).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                                }
+                            }
+                        });
+                });
+
+                this.toastr.success(`Đã xóa ${uuids.length} bài viết.`);
+                        
+                // Cập nhật lại UI (xóa khỏi mảng dữ liệu nội bộ)
+                const newRows = [];
+                for (let i = 0; i < this.rows.length; i++) {
+                    const row = this.rows[i];
+                    if (!row || !uuids.includes(row.uuid)) {
+                        newRows.push(row);
+                    }
+                }
+                this.rows = [...newRows];
+                this.totalElements = Math.max(0, this.totalElements - uuids.length);
+                
+                this.cache = {}; // Reset cache
+                this.selected = [];
+                this.cd.detectChanges();
+                
+                // Cập nhật lại selectedCollections để bỏ các bài vừa xóa (nếu đang bật filter)
+                if (this.selectedCollections && this.selectedCollections.length > 0) {
+                    this.selectedCollections.forEach((col: any) => {
+                        if (col.uuid) {
+                            if (Array.isArray(col.uuid)) {
+                                col.uuid = col.uuid.filter((id: string) => !uuids.includes(id));
+                            } else if (uuids.includes(col.uuid)) {
+                                col.uuid = null;
+                            }
+                        }
+                    });
+                }
+
+                // Gỡ khỏi các bộ sưu tập trên server (nếu có)
+                if (this.selectedCollections && this.selectedCollections.length > 0) {
+                    this.selectedCollections.forEach((col: any) => {
+                        uuids.forEach((id: string) => {
+                            this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: this.user.name })
+                                .pipe(takeUntil(this._unsubscribeAll))
+                                .subscribe();
+                        });
+                    });
+                } else {
+                    // Nếu người dùng không chọn cụ thể nhóm nào ở filter, tự tìm nhóm để gỡ
+                    uuids.forEach((id: string) => {
+                        this._crawlService.nodeInCollection({ uuid: id, username: this.user.name })
+                            .pipe(takeUntil(this._unsubscribeAll))
+                            .subscribe(res => {
+                                if (res && res.success && res.data) {
+                                    res.data.forEach((col: any) => {
+                                        this._crawlService.removeCollection({ _id: col._id || col.id, uuid: id, username: this.user.name })
+                                            .pipe(takeUntil(this._unsubscribeAll))
+                                            .subscribe();
+                                    });
+                                }
+                            });
+                    });
+                }
+            }
+        });
+    }
+
+    // Bulk Edit Logic
+    openBulkEditDialog() {
+        this.bulkEditPrompt = '';
+        this.bulkEditImageBase64 = null;
+        this.bulkEditInProgress = false;
+        this.bulkEditProgress = 0;
+        this.bulkEditTotal = 0;
+        this.bulkEditStatusText = '';
+        this.bulkEditDialogRef = this._matDialog.open(this.bulkEditDialogTemplate, {
+            width: '600px',
+            panelClass: 'custom-dialog-bulk',
+            disableClose: false
+        });
+    }
+
+    onBulkEditImageSelected(event: any) {
+        const file = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.bulkEditImageBase64 = e.target.result as string;
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    async confirmBulkEdit() {
+        this.bulkEditDialogRef.close();
+        this.bulkEditInProgress = true;
+        this.bulkEditTotal = this.selected.length;
+        this.bulkEditProgress = 0;
+        
+        let successCount = 0;
+        let failCount = 0;
+
+        for (let index = 0; index < this.selected.length; index++) {
+            const r = this.selected[index];
+            try {
+                // Lấy chi tiết bài viết
+                const res: any = await this._crawlService.detail({ uuid: r.uuid, username: this.user.name }).toPromise();
+                if (res && res.success && res.data) {
+                    const fullDoc = res.data;
+                    
+                    // Thêm prompt và ảnh vào block "Gợi ý prompt cho bạn" (source.prompt)
+                    if (!fullDoc.source) fullDoc.source = {};
+                    if (!fullDoc.source.prompt) fullDoc.source.prompt = [];
+                    
+                    if (this.bulkEditPrompt) {
+                        fullDoc.source.prompt.push(`<p id="source-prompt-${r.uuid}">${this.bulkEditPrompt}</p>`);
+                    }
+                    if (this.bulkEditImageBase64) {
+                        fullDoc.source.prompt.push(`<p id="source-pre-${r.uuid}">Hình ảnh đính kèm: <img src="${this.bulkEditImageBase64}"/></p>`);
+                    }
+
+                    // Nếu bài có dàn ý (done), cho AI sửa lại
+                    let currentOutline = '';
+                    if (fullDoc.done && fullDoc.done.length > 0) {
+                        currentOutline = fullDoc.done.join('\n');
+                        
+                        const promptText = `Bạn là một chuyên gia biên tập và chuẩn hóa nội dung chuẩn SEO Google.
+Nhiệm vụ của bạn là xem xét dàn ý/nội dung hiện tại và sửa đổi nó dựa trên yêu cầu sau: "${this.bulkEditPrompt}".
+
+YÊU CẦU QUAN TRỌNG VỀ SEO:
+- BẮT BUỘC phải bắt đầu bài viết bằng một đoạn văn mở đầu (thẻ <p>) giới thiệu thật hấp dẫn và tóm tắt nội dung chính. Tuyệt đối KHÔNG bắt đầu ngay bằng thẻ tiêu đề (<h2>, <h3>).
+- Giữ hoặc tối ưu hóa cấu trúc Heading (H2, H3) sao cho logic, mỗi Heading phải đi kèm các đoạn văn (<p>) diễn giải chi tiết.
+
+Nội dung hiện tại:
+${currentOutline}
+
+Yêu cầu đầu ra:
+- Trả về dữ liệu dưới định dạng JSON với key là "done", value là mảng các chuỗi HTML.
+Ví dụ:
+{
+    "done": [
+        "<p>Đây là đoạn văn mở đầu siêu chuẩn SEO dẫn dắt vào bài viết...</p>",
+        "<h2>Phần 1...</h2><p>Nội dung phần 1...</p>",
+        "<h2>Phần 2...</h2><p>Nội dung phần 2...</p>"
+    ]
+}
+Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùng markdown code block thừa.`;
+
+                        const parts: any[] = [{ text: promptText }];
+
+                        if (this.bulkEditImageBase64) {
+                            // Extract mimeType and base64 from data URI
+                            // e.g., data:image/png;base64,iVBORw0KGgo...
+                            const match = this.bulkEditImageBase64.match(/^data:(image\/[a-zA-Z+]+);base64,(.+)$/);
+                            if (match && match.length === 3) {
+                                parts.push({
+                                    inlineData: {
+                                        mimeType: match[1],
+                                        data: match[2]
+                                    }
+                                });
+                            }
+                        }
+
+                        const aiResponse = await this._genaiService.generateContent({
+                            model: 'gemini-3.5-flash',
+                            contents: [{ role: 'user', parts: parts }],
+                        });
+
+                        let responseText = aiResponse.text;
+                        if (typeof responseText === 'function') {
+                            responseText = (aiResponse as any).text();
+                        }
+                        
+                        try {
+                            const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+                            if (jsonMatch) {
+                                const parsed = JSON.parse(jsonMatch[0]);
+                                if (parsed.done && Array.isArray(parsed.done)) {
+                                    fullDoc.done = parsed.done;
+                                } else if (parsed.contents && Array.isArray(parsed.contents)) {
+                                    fullDoc.done = parsed.contents;
+                                } else {
+                                    throw new Error('JSON không chứa mảng "done" hoặc "contents"');
+                                }
+                            } else {
+                                throw new Error('Không tìm thấy JSON hợp lệ trong phản hồi');
+                            }
+                        } catch (e) {
+                            console.error('Lỗi parse JSON AI:', e, responseText);
+                            this.toastr.error('Lỗi phân tích cú pháp AI: ' + e.message);
+                            failCount++;
+                            this.bulkEditProgress++;
+                            continue;
+                        }
+                    }
+
+                    // Tạo payload chuẩn xác như ai-writer để tránh lỗi "Not found" từ Backend
+                    const payload = {
+                        uuid: fullDoc.uuid || r.uuid,
+                        _rev: fullDoc._rev,
+                        title: fullDoc.title,
+                        url: fullDoc.url,
+                        source: fullDoc.source,
+                        done: fullDoc.done,
+                        trash: fullDoc.trash || false,
+                        seo: fullDoc.seo,
+                        arr_keyword: fullDoc.arr_keyword,
+                        domain: fullDoc.domain,
+                        username: this.user.name,
+                        thumbnail: fullDoc.thumbnail,
+                        confirm: fullDoc.confirm,
+                        createdAt: fullDoc.createdAt,
+                        new_version: -1
+                    };
+                    
+                    // Lưu bài viết
+                    const updateRes: any = await this._crawlService.archiveUpdate(payload).toPromise();
+                    if (updateRes && updateRes.data && updateRes.data.error) {
+                        throw new Error(updateRes.data.error);
+                    }
+                    successCount++;
+                } else {
+                    failCount++;
+                }
+            } catch (error) {
+                console.error(error);
+                failCount++;
+            }
+            this.bulkEditProgress++;
+        }
+
+        this.bulkEditInProgress = false;
+        if (failCount === 0) {
+            this.toastr.success(`Đã xử lý xong ${successCount} bài viết.`);
+        } else {
+            this.toastr.warning(`Đã xử lý xong ${successCount} bài, thất bại ${failCount} bài.`);
+        }
     }
 
     displayCheck(row: any) {
@@ -537,7 +832,9 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
         private _fuseConfirmationService: FuseConfirmationService,
         private router: Router,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _genaiService: GenaiService,
+        public _matDialog: MatDialog
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
 

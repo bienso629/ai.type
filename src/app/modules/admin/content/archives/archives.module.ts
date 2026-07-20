@@ -15,6 +15,9 @@ import { MatSelectModule } from '@angular/material/select';
 import { NgSelectModule } from '@ng-select/ng-select';
 import { ClipboardModule } from '@angular/cdk/clipboard';
 import { TimeagoModule } from 'ngx-timeago';
+import { MatDialogModule } from '@angular/material/dialog';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { SharedModule } from 'app/shared.module';
 import { AIArchiveComponent } from 'app/modules/admin/content/archives/archives.component';
 
@@ -47,6 +50,9 @@ const Routes: Route[] = [
         MatListModule,
         NgSelectModule,
         ClipboardModule,
+        MatDialogModule,
+        MatProgressBarModule,
+        MatProgressSpinnerModule,
         TimeagoModule.forRoot(),
         SharedModule
     ]
