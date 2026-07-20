@@ -64,7 +64,7 @@ export class WordpressService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return data && data.success !== undefined ? data.data : data;
             }),
             tap(_ => {
                 // this.log('login');
@@ -98,7 +98,7 @@ export class WordpressService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return data && data.success !== undefined ? data.data : data;
             }),
             tap(_ => {
             }),
@@ -146,7 +146,7 @@ export class WordpressService {
                 };
 
                 return this.http.post<any>(url, data, options).pipe(
-                    map(data => data),
+                    map(data => data && data.success !== undefined ? data.data : data),
                     catchError(this.handleError('server', []))
                 );
             })
@@ -224,7 +224,7 @@ export class WordpressService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return data && data.success !== undefined ? data.data : data;
             }),
             tap(_ => {
                 // this.log('login');
