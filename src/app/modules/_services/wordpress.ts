@@ -80,6 +80,7 @@ export class WordpressService {
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
 
         let url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/posts/all`;
 
