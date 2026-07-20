@@ -97,6 +97,9 @@ export class SitemapComponent implements OnInit, OnDestroy {
         
         const queryPayload: any = {
             domain: this.selectedDomain.domain,
+            domain_id: this.selectedDomain._id,
+            sys_username: this.selectedDomain.sys_username,
+            year: this.selectedDomain.year,
             page: this.page,
             username: username,
             apppass: apppass
