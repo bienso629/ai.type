@@ -15,6 +15,7 @@ class DomainScreen extends StatefulWidget {
 class _DomainScreenState extends State<DomainScreen> {
   bool _isLoading = false;
   List<dynamic> _domains = [];
+  bool _selectAll = false;
   Map<String, dynamic> _domainStatsData = {};
   Map<String, dynamic> _domainTargets = {};
 
@@ -57,7 +58,12 @@ class _DomainScreenState extends State<DomainScreen> {
 
       final domainsResult = await ApiService.getAllDomains();
       if (domainsResult != null && domainsResult['success'] == true) {
-        _domains = List.from(domainsResult['data'] ?? []);
+        final List newDomains = List.from(domainsResult['data'] ?? []);
+        _domains = newDomains.map((d) {
+          final domain = Map<String, dynamic>.from(d as Map);
+          domain['selected'] = _selectAll;
+          return domain;
+        }).toList();
       }
 
       await _fetchStats();
@@ -148,6 +154,24 @@ class _DomainScreenState extends State<DomainScreen> {
     } catch (e) {
       print('Error saving target: $e');
     }
+  }
+
+  void _toggleSelectAll(bool? value) {
+    if (value == null) return;
+    setState(() {
+      _selectAll = value;
+      for (var domain in _domains) {
+        domain['selected'] = value;
+      }
+    });
+  }
+
+  void _toggleSelect(int index, bool? value) {
+    if (value == null) return;
+    setState(() {
+      _domains[index]['selected'] = value;
+      _selectAll = _domains.every((d) => d['selected'] == true);
+    });
   }
 
   String _maskPassword(String password) {
@@ -342,7 +366,21 @@ class _DomainScreenState extends State<DomainScreen> {
                 Expanded(
                   child: Row(
                     children: [
-                      Text(domainName.isEmpty ? 'Tên miền mới' : domainName, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      Checkbox(
+                        value: domain['selected'] == true,
+                        onChanged: (val) => _toggleSelect(index, val),
+                        activeColor: AppColors.primary,
+                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          domainName.isEmpty ? 'Tên miền mới' : domainName, 
+                          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
                       if (index == 0 && !isNew)
                         const Padding(
                           padding: EdgeInsets.only(left: 8),
@@ -452,10 +490,12 @@ class _DomainScreenState extends State<DomainScreen> {
         surfaceTintColor: Colors.transparent,
         actions: [
           IconButton(
-            icon: Icon(_showPassword ? Icons.visibility_off : Icons.visibility, color: Colors.grey[700]),
-            onPressed: () => setState(() => _showPassword = !_showPassword),
-            tooltip: 'Hiện mật khẩu',
+            icon: Icon(_selectAll ? Icons.done_all : Icons.checklist, color: AppColors.primary),
+            onPressed: () {
+              _toggleSelectAll(!_selectAll);
+            },
           ),
+
           IconButton(
             icon: const Icon(Icons.add, color: AppColors.primary),
             onPressed: () {
@@ -480,21 +520,16 @@ class _DomainScreenState extends State<DomainScreen> {
             // Filter section
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.04),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                border: Border(bottom: BorderSide(color: Colors.black12)),
               ),
               child: Row(
                 children: [
                   const Text('Chỉ tiêu & Kết quả', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
                   const Spacer(),
                   Container(
+                    height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.withOpacity(0.3)),
@@ -503,6 +538,7 @@ class _DomainScreenState extends State<DomainScreen> {
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
                         value: _selectedMonthNum,
+                        isDense: true,
                         icon: const Icon(Icons.keyboard_arrow_down, size: 16),
                         items: _months.map((m) => DropdownMenuItem(value: m, child: Text('Tháng $m', style: const TextStyle(fontSize: 14)))).toList(),
                         onChanged: (val) {
@@ -515,6 +551,7 @@ class _DomainScreenState extends State<DomainScreen> {
                   ),
                   const SizedBox(width: 8),
                   Container(
+                    height: 46,
                     padding: const EdgeInsets.symmetric(horizontal: 12),
                     decoration: BoxDecoration(
                       border: Border.all(color: Colors.grey.withOpacity(0.3)),
@@ -523,6 +560,7 @@ class _DomainScreenState extends State<DomainScreen> {
                     child: DropdownButtonHideUnderline(
                       child: DropdownButton<int>(
                         value: _selectedYear,
+                        isDense: true,
                         icon: const Icon(Icons.keyboard_arrow_down, size: 16),
                         items: _years.map((y) => DropdownMenuItem(value: y, child: Text('$y', style: const TextStyle(fontSize: 14)))).toList(),
                         onChanged: (val) {
@@ -557,15 +595,9 @@ class _DomainScreenState extends State<DomainScreen> {
       ),
       bottomNavigationBar: Container(
         padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           color: Colors.white,
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.04),
-              blurRadius: 15,
-              offset: const Offset(0, -4),
-            )
-          ]
+          border: Border(top: BorderSide(color: Colors.black12)),
         ),
         child: Row(
           children: [

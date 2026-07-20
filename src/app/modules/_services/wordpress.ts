@@ -56,16 +56,13 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${dataForm.domain}/wp-json/wp/v2/categories?per_page=100`;
+        const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/categories/all`;
 
-        let options = {
-            headers: new HttpHeaders({
-                'content-type': 'application/json',
-                'x-api-key': '91cbb423-dcec-4b3d-aee2-d0f29a136d1b',
-            })
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
         };
 
-        return this.http.get<any>(url, options).pipe(
+        return this.http.post<any>(url, data, options).pipe(
             map(data => {
                 return data;
             }),
@@ -84,25 +81,22 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        let url = `${dataForm.domain}/wp-json/wp/v2/posts?per_page=100&_embed=1`;
-        if (dataForm.page) {
-            url += `&page=${dataForm.page}`;
-        }
+        let url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/posts/all`;
+
         if (dataForm.keyword) {
-            url += `&search=${encodeURIComponent(dataForm.keyword)}`;
+            dataForm.search = dataForm.keyword;
         }
         if (dataForm.category) {
-            url += `&categories=${dataForm.category}`;
+            dataForm.categories = dataForm.category;
         }
+        
+        dataForm.per_page = 100;
 
-        let options = {
-            headers: new HttpHeaders({
-                'content-type': 'application/json',
-                'x-api-key': '91cbb423-dcec-4b3d-aee2-d0f29a136d1b',
-            })
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
         };
 
-        return this.http.get<any>(url, options).pipe(
+        return this.http.post<any>(url, data, options).pipe(
             map(data => {
                 return data;
             }),
@@ -197,9 +191,13 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.puppeteer}/wordpress/create/category`;
+        const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/categories/create`;
 
-        return this.http.post<any>(url, dataForm, options).pipe(
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
             map(data => {
                 return data;
             }),
@@ -218,9 +216,13 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${dataForm.domain}/wp-json/wp/v2/tags?per_page=100`;
+        const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/tags/all`;
 
-        return this.http.get<any>(url, options).pipe(
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
             map(data => {
                 return data;
             }),
@@ -239,9 +241,13 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
-        const url = `${this.config.settings.puppeteer}/wordpress/create/tag`;
+        const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/tags/create`;
 
-        return this.http.post<any>(url, dataForm, options).pipe(
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
             map(data => {
                 return data;
             }),

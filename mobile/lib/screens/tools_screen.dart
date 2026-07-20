@@ -6,6 +6,7 @@ import '../theme/app_colors.dart';
 import 'domain_screen.dart';
 import 'tasks_screen.dart';
 import 'sitemap_screen.dart';
+import 'dictionary_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -120,8 +121,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 if (_groups.contains('nhóm-quét-sitemap'))
                   _buildToolCard(
                     icon: FontAwesomeIcons.codeBranch,
-                    title: 'Sitemap',
-                    description: 'Nhập hàng nghìn bài viết từ file Sitemap',
+                    title: 'WP Post',
+                    description: 'Nhập hàng nghìn bài viết từ file WP Post',
                     color: Colors.purpleAccent,
                     isActive: reputation >= 0,
                     onTap: () {
@@ -135,6 +136,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     description: 'Tra cứu & giải nghĩa các từ tiếng Việt',
                     color: Colors.green,
                     isActive: reputation >= 0,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
+                    },
                   ),
               ],
             ),
@@ -162,7 +166,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 if (_groups.contains('nhóm-tạo-hình-ảnh'))
                   _buildToolCard(
                     icon: FontAwesomeIcons.image,
-                    title: 'Thiết kế',
+                    title: 'Tạo hình',
                     description: 'Sử dụng AI để tạo hình ảnh chất lượng cao',
                     color: Colors.pinkAccent,
                     isActive: true,
@@ -194,8 +198,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 if (_groups.contains('nhóm-txt2voice'))
                   _buildToolCard(
                     icon: FontAwesomeIcons.microphone,
-                    title: 'Giọng nói',
-                    description: 'Chuyển văn bản thành giọng nói cảm xúc',
+                    title: 'Giọng đọc',
+                    description: 'Chuyển văn bản thành giọng đọc cảm xúc',
                     color: Colors.teal,
                     isActive: true,
                   ),
@@ -273,7 +277,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                 if (_groups.contains('nhóm-tự-động-hóa'))
                   _buildToolCard(
                     icon: FontAwesomeIcons.calendar,
-                    title: 'Tăng tương tác',
+                    title: 'Tự động',
                     description: 'Tương tác tự động để cải thiện độ phổ biến',
                     color: Colors.teal,
                     isActive: true,

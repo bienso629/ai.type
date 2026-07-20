@@ -575,7 +575,8 @@ class _HomeTabState extends State<HomeTab> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            height: 46,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
                             decoration: BoxDecoration(
                               border: Border.all(color: Colors.grey.withOpacity(0.3)),
                               borderRadius: BorderRadius.circular(8),

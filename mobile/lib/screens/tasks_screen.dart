@@ -4,6 +4,7 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import 'package:flutter_slidable/flutter_slidable.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -18,6 +19,7 @@ class _TasksScreenState extends State<TasksScreen> {
   Map<String, dynamic>? _selectedCollection;
   
   List<dynamic> _tasks = [];
+  bool _selectAll = false;
   String? _bookmark;
   bool _hasMore = true;
   int _pageNumber = 0;
@@ -122,12 +124,18 @@ class _TasksScreenState extends State<TasksScreen> {
         print('DEBUG RES: docs=${newDocs.length}, newBookmark=$newBookmark, oldBookmark=$_bookmark');
 
         if (!loadMore) {
-          _tasks = newDocs;
+          _tasks = newDocs.map((d) {
+            final task = Map<String, dynamic>.from(d as Map);
+            task['selected'] = _selectAll;
+            return task;
+          }).toList();
         } else {
           // Prevent adding duplicate tasks if backend returns same items
           for (var doc in newDocs) {
             if (!_tasks.any((t) => t['_id'] == doc['_id'])) {
-              _tasks.add(doc);
+              final task = Map<String, dynamic>.from(doc as Map);
+              task['selected'] = _selectAll;
+              _tasks.add(task);
             }
           }
         }
@@ -187,39 +195,6 @@ class _TasksScreenState extends State<TasksScreen> {
     _fetchTasks();
   }
 
-  Widget _buildCollectionDropdown() {
-    if (_collections.isEmpty) return const SizedBox();
-    return SizedBox(
-      height: 48,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.grey.shade300),
-        ),
-        child: DropdownButtonHideUnderline(
-          child: DropdownButton<Map<String, dynamic>>(
-            value: _selectedCollection,
-            isExpanded: true,
-            icon: const Icon(Icons.keyboard_arrow_down, color: Colors.grey),
-            items: _collections.map((c) {
-              return DropdownMenuItem<Map<String, dynamic>>(
-                value: c,
-                child: Text(
-                  c['title'] ?? 'Chưa đặt tên', 
-                  style: const TextStyle(fontSize: 14),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
-            onChanged: _onCollectionChanged,
-          ),
-        ),
-      ),
-    );
-  }
 
   String _formatTimeAgo(int timestamp) {
     if (timestamp <= 0) return '';
@@ -232,7 +207,25 @@ class _TasksScreenState extends State<TasksScreen> {
     return 'just now';
   }
 
-  Widget _buildTaskItem(Map<String, dynamic> task) {
+  void _toggleSelectAll(bool? value) {
+    if (value == null) return;
+    setState(() {
+      _selectAll = value;
+      for (var task in _tasks) {
+        task['selected'] = value;
+      }
+    });
+  }
+
+  void _toggleSelect(int index, bool? value) {
+    if (value == null) return;
+    setState(() {
+      _tasks[index]['selected'] = value;
+      _selectAll = _tasks.every((t) => t['selected'] == true);
+    });
+  }
+
+  Widget _buildTaskItem(Map<String, dynamic> task, int index) {
     final title = task['title'] ?? 'Không có tiêu đề';
     final uid = task['_id'] ?? '';
     final usage = task['usage'] ?? 0;
@@ -252,115 +245,202 @@ class _TasksScreenState extends State<TasksScreen> {
       );
     }
 
-    return Card(
-      color: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.grey.shade200),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+    return Column(
+      children: [
+        Slidable(
+          key: ValueKey(uid),
+          endActionPane: ActionPane(
+            motion: const ScrollMotion(),
+            extentRatio: 240 / MediaQuery.of(context).size.width,
+            children: [
+              CustomSlidableAction(
+                onPressed: (context) {},
+                backgroundColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
                   decoration: BoxDecoration(
-                    color: Colors.tealAccent.shade400,
-                    borderRadius: BorderRadius.circular(4),
+                    color: const Color(0xFF3B82F6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Text(
-                    uid.length > 8 ? uid.substring(0, 8) : uid,
-                    style: const TextStyle(color: Colors.black87, fontSize: 12, fontWeight: FontWeight.bold),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.edit, color: Color(0xFF3B82F6), size: 20),
+                      SizedBox(height: 4),
+                      Text('Sửa', style: TextStyle(color: Color(0xFF3B82F6), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
                   ),
                 ),
-                const SizedBox(width: 8),
-                if (wpPill != null) wpPill,
-                const Spacer(),
-                Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+              ),
+              CustomSlidableAction(
+                onPressed: (context) {},
+                backgroundColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF8B5CF6).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.movie, color: Color(0xFF8B5CF6), size: 20),
+                      SizedBox(height: 4),
+                      Text('Movie', style: TextStyle(color: Color(0xFF8B5CF6), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+              CustomSlidableAction(
+                onPressed: (context) {},
+                backgroundColor: Colors.transparent,
+                padding: EdgeInsets.zero,
+                child: Container(
+                  width: double.infinity,
+                  height: double.infinity,
+                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF10B981).withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.share, color: Color(0xFF10B981), size: 20),
+                      SizedBox(height: 4),
+                      Text('Chia sẻ', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: Checkbox(
+                    value: task['selected'] == true,
+                    onChanged: (val) {
+                      _toggleSelect(index, val);
+                      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                      final count = _tasks.where((t) => t['selected'] == true).length;
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Đã chọn $count trong ${_tasks.length} công việc'),
+                          duration: const Duration(seconds: 1),
+                        ),
+                      );
+                    },
+                    activeColor: AppColors.primary,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: const TextStyle(fontSize: 14, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      const SizedBox(height: 6),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 4,
+                        crossAxisAlignment: WrapCrossAlignment.center,
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: Colors.tealAccent.shade400.withOpacity(0.3),
+                              borderRadius: BorderRadius.circular(4),
+                              border: Border.all(color: Colors.teal),
+                            ),
+                            child: Text(
+                              uid.length > 8 ? uid.substring(0, 8) : uid,
+                              style: const TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.history, size: 12, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              Text('$usage lần', style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                            ],
+                          ),
+                          Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          if (wpPill != null) wpPill,
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
-            const SizedBox(height: 12),
-            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                const Icon(Icons.history, size: 14, color: Colors.grey),
-                const SizedBox(width: 4),
-                Text('$usage lần sử dụng', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                const Spacer(),
-                Row(
-                  children: [
-                    IconButton(
-                      icon: const FaIcon(FontAwesomeIcons.pen, size: 16, color: Colors.redAccent),
-                      onPressed: () {},
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                    IconButton(
-                      icon: const FaIcon(FontAwesomeIcons.film, size: 16, color: Colors.blueAccent),
-                      onPressed: () {},
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                    IconButton(
-                      icon: const FaIcon(FontAwesomeIcons.shareNodes, size: 16, color: Colors.green),
-                      onPressed: () {},
-                      constraints: const BoxConstraints(),
-                      padding: const EdgeInsets.all(8),
-                    ),
-                  ],
-                )
-              ],
-            )
-          ],
+          ),
         ),
-      ),
+        const Divider(height: 1, color: Colors.black12),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.background,
+      backgroundColor: Colors.white,
       appBar: AppBar(
         title: const Text('Công việc đang làm', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        iconTheme: const IconThemeData(color: Colors.black87),
+        actions: [
+          IconButton(
+            icon: Icon(_selectAll ? Icons.done_all : Icons.checklist, color: AppColors.primary),
+            onPressed: () {
+              _toggleSelectAll(!_selectAll);
+              ScaffoldMessenger.of(context).hideCurrentSnackBar();
+              final count = _tasks.where((t) => t['selected'] == true).length;
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Đã chọn $count trong ${_tasks.length} công việc'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                ),
-              ],
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: const BoxDecoration(
+              border: Border(bottom: BorderSide(color: Colors.black12)),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: _buildCollectionDropdown(),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: SizedBox(
-                    height: 48,
+            child: Container(
+              height: 46,
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    child: Icon(Icons.search, color: Colors.grey, size: 22),
+                  ),
+                  Expanded(
+                    flex: 3,
                     child: TextField(
                       onSubmitted: _onSearch,
                       onChanged: (val) {
@@ -368,23 +448,51 @@ class _TasksScreenState extends State<TasksScreen> {
                           _onSearch('');
                         }
                       },
-                      decoration: InputDecoration(
+                      decoration: const InputDecoration(
                         hintText: 'Tìm kiếm',
-                        prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 0),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Colors.grey.shade300),
+                        hintStyle: TextStyle(color: Colors.grey, fontSize: 15),
+                        border: InputBorder.none,
+                        enabledBorder: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        isDense: true,
+                        contentPadding: EdgeInsets.zero,
+                      ),
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                  ),
+                  if (_collections.isNotEmpty) Expanded(
+                    flex: 2,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 12),
+                      child: PopupMenuButton<Map<String, dynamic>>(
+                        initialValue: _selectedCollection,
+                        position: PopupMenuPosition.under,
+                        color: Colors.white,
+                        constraints: const BoxConstraints(minWidth: 180, maxWidth: 280),
+                        onSelected: _onCollectionChanged,
+                        itemBuilder: (context) {
+                          return _collections.map((c) => PopupMenuItem<Map<String, dynamic>>(
+                            value: c,
+                            child: Text(c['title'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 15)),
+                          )).toList();
+                        },
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _selectedCollection?['title'] ?? 'Tất cả', 
+                                overflow: TextOverflow.ellipsis, 
+                                style: const TextStyle(color: Colors.black87, fontSize: 15)
+                              ),
+                            ),
+                            const Icon(Icons.arrow_drop_down, color: Colors.grey),
+                          ],
                         ),
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
           Expanded(
@@ -398,7 +506,7 @@ class _TasksScreenState extends State<TasksScreen> {
                     },
                     child: ListView.builder(
                       controller: _scrollController,
-                      padding: const EdgeInsets.only(top: 8, bottom: 80),
+                      padding: EdgeInsets.zero,
                       itemCount: _tasks.length + (_hasMore ? 1 : 0),
                       itemBuilder: (context, index) {
                         if (index == _tasks.length) {
@@ -407,7 +515,7 @@ class _TasksScreenState extends State<TasksScreen> {
                             child: Center(child: CircularProgressIndicator()),
                           );
                         }
-                        return _buildTaskItem(_tasks[index]);
+                        return _buildTaskItem(_tasks[index], index);
                       },
                     ),
                   ),
