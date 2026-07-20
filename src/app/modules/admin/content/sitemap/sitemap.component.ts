@@ -104,6 +104,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
         
         if (username && apppass) {
             queryPayload.status = ['publish', 'draft', 'pending'];
+            queryPayload.context = 'edit';
         }
         
         if (this.keyword && this.keyword.trim() !== '') {
