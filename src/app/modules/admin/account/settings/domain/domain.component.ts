@@ -30,6 +30,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     domains: any[] = [];
     domainTargets: any = {};
     domainStatsData: any = {};
+    domainStyles: any = {};
     currentMonthNum: number = new Date().getMonth() + 1;
     selectedMonthNum: number = new Date().getMonth() + 1;
     selectedYear: number = new Date().getFullYear();
@@ -40,6 +41,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
     isAnalyzing: boolean = false;
     ColumnMode = ColumnMode;
     SelectionType = SelectionType;
+    styles: any[] = [];
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -110,9 +112,11 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
                         
                         let settings = this.multiAccountService.getItem('settings') || {};
                         this.domainTargets = settings.domainTargets || {};
+                        this.domainStyles = settings.domainStyles || {};
                         
                         this.rows.forEach(r => {
                             r.monthlyTarget = this.getResolvedTarget(r.domain, this.selectedMonthNum);
+                            r.writingStyle = this.domainStyles[r.domain] || '';
                         });
                         
                         this.rows = [...this.rows];
@@ -188,6 +192,31 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         if (cell === 'monthlyTarget') {
             this.saveTarget(this.rows[rowIndex].domain, Number(event.target.value));
         }
+        if (cell === 'writingStyle') {
+            this.saveWritingStyle(this.rows[rowIndex].domain, event.target.value);
+        }
+    }
+
+    saveWritingStyle(domain: string, styleName: string) {
+        let settings = this.multiAccountService.getItem('settings') || {};
+        if (!settings.domainStyles) settings.domainStyles = {};
+        
+        settings.domainStyles[domain] = styleName;
+        this.domainStyles[domain] = styleName;
+        
+        this.multiAccountService.setItem('settings', settings);
+        let editor = this.multiAccountService.getItem('editor');
+        let following_users = this.multiAccountService.getItem('following_users');
+
+        this._userClientService.updateProfile({
+            profile: {
+                settings: settings,
+                active_info: this.multiAccountService.getItem('active_info'),
+                editor: (editor && editor != 'undefined') ? editor : {},
+                following_users: (following_users && following_users != 'undefined') ? following_users : [],
+            },
+            username: this.user.name
+        }).subscribe();
     }
 
     saveTarget(domain: string, target: number) {
@@ -377,7 +406,8 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                this.user = user;
+                // lấy danh sách styles
+                this.styles = this.multiAccountService.getItem('styles') || [];
 
                 // lấy danh sách domains
                 this.fetch();

@@ -123,6 +123,18 @@
                 </ng-template>
             </ngx-datatable-column>
 
+            <ngx-datatable-column name="Phong cách" headerClass="!text-base" [width]="180" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-full" *ngIf="styles && styles.length > 0">
+                        <mat-select [(value)]="row.writingStyle" placeholder="Chọn phong cách" (selectionChange)="updateValue({target: {value: $event.value}}, 'writingStyle', rowIndex)">
+                            <mat-option *ngFor="let s of styles" [value]="s.name">{{ s.name }}</mat-option>
+                            <mat-option [value]="''">Không dùng</mat-option>
+                        </mat-select>
+                    </mat-form-field>
+                    <div *ngIf="!styles || styles.length === 0" class="text-gray-500 italic text-base">Chưa tạo phong cách</div>
+                </ng-template>
+            </ngx-datatable-column>
+
             <ngx-datatable-column name="Phân tích AI" headerClass="!text-base" [width]="250" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div *ngIf="row.note" class="truncate text-base" [matTooltip]="row.note" matTooltipClass="max-w-md">
@@ -138,17 +150,17 @@
                 [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div class="flex items-center justify-self-stretch">
-                        <mat-label *ngIf="!row.addnew"
-                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-base font-semibold bg-blue-500 hover:bg-blue-600 text-white mr-2"
-                            (click)="edit(rowIndex)">
-                            {{ 'app.save' | transloco }}
-                        </mat-label>
+                        <button *ngIf="!row.addnew"
+                            mat-icon-button color="primary"
+                            (click)="edit(rowIndex)" matTooltip="Lưu lại">
+                            <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                        </button>
 
-                        <mat-label *ngIf="row.addnew"
-                            class="ml-2 h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-base font-semibold bg-green-500 hover:bg-green-600 text-white"
-                            (click)="add(rowIndex)">
-                            {{ 'app.add_new' | transloco }}
-                        </mat-label>
+                        <button *ngIf="row.addnew"
+                            mat-icon-button class="text-green-600"
+                            (click)="add(rowIndex)" matTooltip="Thêm mới">
+                            <mat-icon class="icon-size-5" [svgIcon]="'heroicons_outline:plus'"></mat-icon>
+                        </button>
                     </div>
                 </ng-template>
             </ngx-datatable-column>

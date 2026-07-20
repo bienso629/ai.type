@@ -407,12 +407,27 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     compareDomainFn = (o1: any, o2: any) => {
         if (!o1 || !o2) return o1 === o2;
-        return o1._id === o2._id;
+        return o1.domain === o2.domain;
     };
+
+    applyDomainStyle(domainObj: any) {
+        if (!domainObj) return;
+        let settings = this.multiAccountService.getItem('settings') || {};
+        let domainStyles = settings.domainStyles || {};
+        let styleName = domainStyles[domainObj.domain];
+        if (styleName && this.styles && this.styles.length > 0) {
+            let foundStyle = this.styles.find(s => s.name === styleName);
+            if (foundStyle) {
+                this.style = foundStyle;
+                localStorage.setItem('style', JSON.stringify(this.style));
+            }
+        }
+    }
 
     connect(e: any) {
         this.domain = e.value;
         this.multiAccountService.setItem('domain', this.domain);
+        this.applyDomainStyle(this.domain);
     }
 
     compareStyleFn = (o1: any, o2: any) => {
@@ -507,13 +522,13 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
                     }
 
                     // Tải ảnh trực tiếp lên WordPress domain được chọn
-                    this._wordpressService.upload_media(this.domain.domain, base64DataUrl, uname, pass)
+                    this._wordpressService.upload_media(this.domain.domain, base64DataUrl, uname, pass, this.domain)
                         .pipe(takeUntil(this._unsubscribeAll))
                         .subscribe({
-                            next: (result) => {
-                                if (result && result.source_url) {
+                            next: (result: any) => {
+                                if (result && result.data && result.data.source_url) {
                                     // Thay thế URL local bằng URL trên domain WordPress
-                                    this.done[event.currentIndex] = this.done[event.currentIndex].replace(img, result.source_url);
+                                    this.done[event.currentIndex] = this.done[event.currentIndex].replace(img, result.data.source_url);
                                     
                                     // Hiện ảnh rõ nét trở lại
                                     $(event.item.element.nativeElement).find('img:first').css('opacity', 1);
@@ -1297,7 +1312,9 @@ ${content}`;
             return;
         }
 
-        const promptText = this.removeHTML.transform(item);
+        let promptText = this.removeHTML.transform(item);
+        promptText += ' (Nếu có văn bản xuất hiện trong hình ảnh, bắt buộc phải sử dụng Tiếng Việt)';
+
 
         // NẾU BẬT MÌ TÔM AI -> DÙNG MÌ TÔM AI THAY VÌ MỞ DREAMINA
         if (this._genaiService.isUModelverseEnabled()) {
@@ -2238,9 +2255,24 @@ ${content}`;
                         this.domains = result.data;
                     }
 
-                    if (!this.multiAccountService.getItem('domain')) {
-                        this.domain = this.domains[0];
+                    let targetDomainStr = this.source?.wp_domain;
+                    let selectedDomain = null;
+                    if (targetDomainStr) {
+                        selectedDomain = this.domains.find(d => d.domain === targetDomainStr);
                     }
+
+                    if (selectedDomain) {
+                        this.domain = selectedDomain;
+                        this.multiAccountService.setItem('domain', this.domain);
+                    } else if (!this.multiAccountService.getItem('domain')) {
+                        this.domain = this.domains[0];
+                    } else {
+                        let cached = this.multiAccountService.getItem('domain');
+                        let found = this.domains.find(d => d.domain === cached.domain);
+                        this.domain = found ? found : this.domains[0];
+                    }
+                    
+                    this.applyDomainStyle(this.domain);
 
                     // lam moi lai giao dien
                     this.cd.markForCheck();
@@ -2734,7 +2766,11 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
             });
 
-            const imagePrompt = promptResponse.text ? promptResponse.text.trim() : outlineText.substring(0, 100);
+            let imagePrompt = promptResponse.text ? promptResponse.text.trim() : outlineText.substring(0, 100);
+            
+            // Ép buộc dùng Tiếng Việt trên hình
+            imagePrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
+
             this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
 
             // 2. Tạo hình ảnh bằng Gemini
@@ -4189,7 +4225,18 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Cài đặt công việc ban đầu
      */
     setdata(editor: any) {
-        // this.domain = (editor.domain) ? editor.domain : this.domain;
+        if (editor.domain) {
+            if (typeof editor.domain === 'string' && this.domains) {
+                let found = this.domains.find(d => d.domain === editor.domain);
+                if (found) {
+                    this.domain = found;
+                    this.multiAccountService.setItem('domain', this.domain);
+                }
+            } else if (typeof editor.domain === 'object') {
+                this.domain = editor.domain;
+                this.multiAccountService.setItem('domain', this.domain);
+            }
+        }
         // kiểm tra nếu used là -1 có nghĩa là nó được convert từ node sang
         // như vậy phải update lần đầu tiên cho nó ngay
         if (editor.used === -1) {

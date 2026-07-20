@@ -88,6 +88,12 @@ hr {
     border-radius: 6px !important;
 }
 
+.custom-dialog-bulk .mdc-dialog__surface,
+.custom-dialog-bulk .mat-mdc-dialog-surface,
+.custom-dialog-bulk .mat-dialog-container {
+    padding: 0 !important;
+}
+
 .mat-mdc-unelevated-button>.mat-icon,
 .mat-mdc-raised-button>.mat-icon,
 .mat-mdc-outlined-button>.mat-icon {

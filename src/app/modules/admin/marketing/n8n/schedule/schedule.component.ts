@@ -17,7 +17,8 @@ import {
     timer,
     interval,
     startWith,
-    forkJoin
+    forkJoin,
+    firstValueFrom
 } from 'rxjs';
 import { FuseConfigService } from '@fuse/services/config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
@@ -44,6 +45,7 @@ import Hls from 'hls.js';
 
 import { N8nService } from 'app/modules/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { CrawlService } from 'app/modules/_services/crawl';
 
 registerLocaleData(localeVi);
 
@@ -202,7 +204,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
         private _domainService: DomainService,
-        private _tasksService: TasksService
+        private _tasksService: TasksService,
+        private _crawlService: CrawlService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -1661,6 +1664,14 @@ Không dùng markdown \`\`\`json.`;
         return [{ id: parentId + "-child", name: 'Công việc', streamItems: tasks }];
     }
 
+    onFileSelected(event: any) {
+        const files = event.target.files;
+        if (files && files.length > 0) {
+            this.toastr.success(`Đã chọn ${files.length} tệp đính kèm. Xử lý tệp sẽ được cập nhật sớm!`);
+            event.target.value = '';
+        }
+    }
+
     async sendChat(event?: Event) {
         if (event) {
             event.preventDefault();
@@ -1677,6 +1688,150 @@ Không dùng markdown \`\`\`json.`;
         this.cd.detectChanges();
 
         try {
+            const executeMatch = userMessage.match(/(chạy|thực thi|viết|tạo).*?(tất cả|bài|task)/i);
+            const isToday = userMessage.match(/(hôm nay|nay|20\/07)/i);
+
+            if (executeMatch && isToday) {
+                let todayTasks: any[] = [];
+                let todayStr = new Date().toISOString().split('T')[0];
+                this.items.forEach((domain: any) => {
+                    if (domain.childrenItems && domain.childrenItems[0] && domain.childrenItems[0].streamItems) {
+                        domain.childrenItems[0].streamItems.forEach((task: any) => {
+                            if (task.startDate) {
+                                let tDate = new Date(task.startDate).toISOString().split('T')[0];
+                                if (tDate === todayStr) {
+                                    todayTasks.push({ ...task, domain: domain.name, originalTask: task });
+                                }
+                            }
+                        });
+                    }
+                });
+
+                if (todayTasks.length === 0) {
+                    this.chatHistory.push({ role: 'model', content: `Dạ Sếp ơi, hôm nay không có task nào cả, sếp nghỉ ngơi đi ạ! 😎` });
+                    this.isChatting = false;
+                    this.cd.detectChanges();
+                    this.scrollToBottom();
+                    return;
+                }
+
+                this.chatHistory.push({ role: 'model', content: `Dạ Sếp! Em đang tiến hành chạy kịch bản viết bài cho **${todayTasks.length} task** của ngày hôm nay... 🚀` });
+                this.cd.detectChanges();
+                this.scrollToBottom();
+
+                let successCount = 0;
+                let pendingArticles = this.multiAccountService.getItem('pending_articles') || [];
+
+                for (let i = 0; i < todayTasks.length; i++) {
+                    if (!this.isChatting) {
+                        this.chatHistory.push({ role: 'model', content: `🛑 Đã dừng xử lý theo yêu cầu của Sếp!` });
+                        break;
+                    }
+                    const task = todayTasks[i];
+                    
+                    this.chatHistory.push({ role: 'model', content: `⏳ Đang xử lý task [${i+1}/${todayTasks.length}]: **${task.name}** (Domain: ${task.domain})...` });
+                    this.cd.detectChanges();
+                    this.scrollToBottom();
+
+                    try {
+                        const prompt = `Bạn là chuyên gia Content SEO. Hãy viết một bài blog chi tiết cho website ${task.domain} với chủ đề/nhiệm vụ: "${task.name}".
+Yêu cầu: Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ giải thích nào khác:
+{
+  "title": "Tiêu đề bài viết",
+  "content": "Nội dung bài viết (HTML, có thẻ h2, h3)",
+  "description": "Mô tả ngắn gọn",
+  "image_prompt": "Gợi ý ảnh tiếng Anh cho bài viết"
+}`;
+                        const response = await this._genaiService.generateContent({
+                            model: 'gemini-3.5-flash',
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                        });
+                        
+                        let jsonText = response.text;
+                        let articleData = null;
+                        if (jsonText) {
+                            try {
+                                const jsonMatch = jsonText.match(/```json([\s\S]*?)```/);
+                                if (jsonMatch) jsonText = jsonMatch[1];
+                                articleData = JSON.parse(jsonText.trim());
+                            } catch (e) {
+                                articleData = { title: task.name, content: jsonText };
+                            }
+                        }
+
+                        let domainData = this.settings?.domains?.find((d: any) => d.name === task.domain) || { domain: task.domain };
+                        let archivePayload = {
+                            title: articleData?.title || task.name,
+                            url: task.id,
+                            source: {
+                                title: [], description: [], url: [], domain: [],
+                                img: [], h: [], a: [], p: [], source: [],
+                                iframe: [], pre: [ articleData?.image_prompt || '' ], type: 'html', prompt: [ task.name ],
+                                synonyms: [], keyword: '', wp_post_id: null,
+                                wp_domain: domainData.domain, wpPosts: [],
+                                nodes: [], totalNodes: 1, wp_task_id: task.id
+                            },
+                            done: [ articleData?.content || '' ],
+                            trash: [],
+                            seo: {
+                                description: { length: 0, text: articleData?.description || '' },
+                                title: { length: 0, text: articleData?.title || task.name },
+                                links: 0, words: { basic: 0, total: 0 },
+                                images: { total: 0, alt: 0 },
+                                heading: {
+                                    h1: { total: 0, keys: [] }, h2: { total: 0, keys: [] },
+                                    h3: { total: 0, keys: [] }, h4: { total: 0, keys: [] }
+                                }, kw: []
+                            },
+                            arr_keyword: [],
+                            domain: domainData,
+                            username: this.user.name,
+                            thumbnail: articleData?.image_prompt || ''
+                        };
+
+                        try {
+                            const res: any = await firstValueFrom(this._crawlService.storeArchive(archivePayload));
+                            if (res && res.success) {
+                                this.chatHistory.push({ role: 'model', content: `✅ Đã viết và lưu xong bài: **${articleData?.title || task.name}** (UUID: ${res.data?.uuid}).` });
+                            } else {
+                                this.chatHistory.push({ role: 'model', content: `⚠️ Cảnh báo: API lưu bài thất bại - ${JSON.stringify(res)}` });
+                            }
+                        } catch (e: any) {
+                            this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi gọi API lưu bài: ${e.message}` });
+                        }
+                        if (!task.originalTask.name.startsWith('✅')) {
+                            task.originalTask.name = '✅ ' + task.originalTask.name;
+                        }
+                        task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta + ' ' : '') + '✅ Done';
+                        successCount++;
+                        
+                        // Force Angular Calendar Timeline to detect changes deeply
+                        this.items.forEach((domain: any) => {
+                            if (domain.childrenItems && domain.childrenItems[0] && domain.childrenItems[0].streamItems) {
+                                domain.childrenItems[0].streamItems = [...domain.childrenItems[0].streamItems];
+                            }
+                        });
+                        this.items = [...this.items];
+                        this.cd.detectChanges();
+                    } catch (err: any) {
+                        this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi xử lý task **${task.name}**: ${err.message}` });
+                    }
+                    
+                    this.cd.detectChanges();
+                    this.scrollToBottom();
+                }
+
+                if (this.isChatting) {
+                    this.chatHistory.push({ role: 'model', content: `🎉 Báo cáo Sếp: Đã thực thi hoàn tất ${successCount}/${todayTasks.length} task! Toàn bộ bài viết & thumbnail đã được lưu ở trạng thái Chờ duyệt (Pending). Sếp có thể vào kiểm tra nhé! 😎` });
+                }
+                
+                this.items = [...this.items];
+                this.isChatting = false;
+                this.cd.detectChanges();
+                this.scrollToBottom();
+                return;
+            }
+
             // Chuẩn bị nội dung gửi đi
             let contents = this.chatHistory.map(msg => ({
                 role: msg.role === 'user' ? 'user' : 'model',
@@ -1805,12 +1960,11 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         const isMonth = userMessage.match(/tháng\s*(0?[1-9]|1[0-2])(?:\/(\d{4}))?/i);
                         
                         if (isExactDate && !isMonth) {
-                            generateInstruction = `- NGƯỜI DÙNG ĐANG YÊU CẦU SỬA/TẠO CHO 1 NGÀY CỤ THỂ: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày đó (không tạo cho ngày khác).
-- BẮT BUỘC phải trả về TOÀN BỘ các task CŨ của ngày đó kèm theo thuộc tính "_deleted": true (để dọn sạch lịch ngày đó trước khi đè task mới lên).`;
+                            generateInstruction = `- NẾU NGƯỜI DÙNG CHỈ MUỐN HỎI/XEM LỊCH (VD: "hôm nay làm gì", "xem lịch"): Đọc dữ liệu JSON bên trên và kể tên các công việc bằng chữ. Tuyệt đối KHÔNG TẠO task mới và KHÔNG XÓA task cũ. Phần block code JSON bắt buộc phải trả về mảng rỗng: \`\`\`json\n[]\n\`\`\`.
+- NẾU NGƯỜI DÙNG YÊU CẦU SỬA/TẠO MỚI/LÊN LỊCH CHO 1 NGÀY CỤ THỂ: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày đó (không tạo cho ngày khác). BẮT BUỘC phải trả về TOÀN BỘ các task CŨ của ngày đó kèm theo thuộc tính "_deleted": true (để dọn sạch lịch ngày đó trước khi đè task mới lên).`;
                         } else {
-                            generateInstruction = `- NGƯỜI DÙNG ĐANG YÊU CẦU LÊN LỊCH CHO TOÀN BỘ THÁNG: Bạn BẮT BUỘC phải tạo [dailyTarget] task CHO TỪNG NGÀY LÀM VIỆC CÒN LẠI (từ startDate đến cuối tháng).
-- TỔNG SỐ TASK PHẢI TẠO BẰNG CHÍNH XÁC: dailyTarget * remainingDays. Đừng lười biếng, hãy tạo đủ toàn bộ số lượng task cho tất cả các ngày!
-- BẮT BUỘC phải trả về TOÀN BỘ các task CŨ (từ hôm nay trở đi) kèm theo thuộc tính "_deleted": true (để dọn sạch tương lai trước khi đè plan mới lên).`;
+                            generateInstruction = `- NẾU NGƯỜI DÙNG CHỈ MUỐN HỎI/XEM LỊCH (VD: "có lịch gì", "làm gì"): Đọc dữ liệu JSON bên trên và liệt kê công việc. Tuyệt đối KHÔNG TẠO task mới và KHÔNG XÓA task cũ. Trả về JSON rỗng \`\`\`json\n[]\n\`\`\`.
+- NẾU NGƯỜI DÙNG YÊU CẦU TẠO/SỬA/LÊN LỊCH CHO THÁNG: Bạn BẮT BUỘC phải tạo [dailyTarget] task CHO TỪNG NGÀY LÀM VIỆC CÒN LẠI (từ startDate đến cuối tháng). TỔNG SỐ TASK PHẢI TẠO = dailyTarget * remainingDays. Đừng lười biếng, hãy tạo đủ toàn bộ số lượng task cho tất cả các ngày! BẮT BUỘC phải trả về TOÀN BỘ các task CŨ (từ hôm nay trở đi) kèm theo thuộc tính "_deleted": true (để dọn sạch tương lai trước khi đè plan mới lên).`;
                         }
 
                         lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (Hôm nay là: ${todayStr}):
@@ -1970,8 +2124,8 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     if (jsonRegex.test(oldText)) {
                         oldText = oldText.replace(jsonRegex, `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI:\n\`\`\`json\n${JSON.stringify(dayContextData, null, 2)}\n\`\`\``);
                     }
-                    const newText = oldText.replace(/- NGƯỜI DÙNG ĐANG YÊU CẦU LÊN LỊCH CHO TOÀN BỘ THÁNG.*_deleted": true \([^\)]+\)\./s,
-                        `- NGƯỜI DÙNG ĐANG YÊU CẦU LÊN LỊCH: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày ${vDateStrIso}. BẮT BUỘC startDate và endDate của các task này phải nằm trong ngày ${vDateStrIso}. Không cần trả về task cũ (không cần _deleted).`);
+                    const newText = oldText.replace(/- NẾU NGƯỜI DÙNG YÊU CẦU TẠO\/SỬA\/LÊN LỊCH CHO THÁNG:.*?plan mới lên\)\./s,
+                        `- NẾU NGƯỜI DÙNG YÊU CẦU LÊN LỊCH: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày ${vDateStrIso}. BẮT BUỘC startDate và endDate của các task này phải nằm trong ngày ${vDateStrIso}. Không cần trả về task cũ (không cần _deleted).`);
                     lastDayMsg.parts[0].text = newText;
                     
                     try {

@@ -101,19 +101,21 @@
             <div class="p-4 bg-white shrink-0">
                 <div class="flex items-end bg-white rounded-xl border border-gray-300 focus-within:border-primary overflow-hidden p-1.5 transition-all">
                     <!-- Attach button -->
-                    <button mat-icon-button class="shrink-0 mb-0.5 text-gray-500 hover:text-gray-700">
+                    <input type="file" #fileInput (change)="onFileSelected($event)" style="display: none;" multiple>
+                    <button mat-icon-button class="shrink-0 mb-0.5 text-gray-500 hover:text-gray-700" (click)="fileInput.click()">
                         <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
                     </button>
                     
                     <!-- Textarea -->
                     <textarea 
-                        class="flex-auto max-h-32 min-h-[44px] bg-transparent border-0 focus:ring-0 resize-none py-3 px-2 text-sm text-gray-800 placeholder-gray-400 overflow-hidden"
-                        rows="1"
+                        class="flex-auto bg-transparent border-0 focus:ring-0 resize-none py-3 px-2 text-sm text-gray-800 placeholder-gray-400"
+                        cdkTextareaAutosize
+                        [cdkAutosizeMinRows]="1"
+                        [cdkAutosizeMaxRows]="5"
                         placeholder="Hỏi tiếp từ prompt này..." 
                         [(ngModel)]="chatPrompt"
                         [ngModelOptions]="{ standalone: true }"
                         (keydown.enter)="sendChat($event)"
-                        cdkTextareaAutosize
                         #chatInput></textarea>
                         
                     <!-- Send/Stop button -->
