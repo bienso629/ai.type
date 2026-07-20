@@ -3,7 +3,7 @@ import { DomSanitizer, Title } from '@angular/platform-browser';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { Clipboard } from '@angular/cdk/clipboard';
 
 import { ColumnMode } from '@swimlane/ngx-datatable';
@@ -223,12 +223,50 @@ export class SitemapComponent implements OnInit, OnDestroy {
         });
     }
 
-    editAllSelected() {
+    async publishSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
         
-        this.router.navigate(['/ai-writer'], {
-            state: { wpPosts: this.selected }
+        const postsToPublish = this.selected.filter(post => post.status !== 'publish');
+        
+        if (postsToPublish.length === 0) {
+            this.toastr.info('Tất cả bài viết đã được publish!');
+            return;
+        }
+
+        this.loadingPosts = true;
+        this.cd.detectChanges();
+
+        const username = this.selectedDomain.wp_username || this.selectedDomain.username;
+        const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+
+        const publishTasks = postsToPublish.map(post => {
+            const dataForm = {
+                id: post.id,
+                status: 'publish',
+                domain: this.selectedDomain.domain,
+                domain_id: this.selectedDomain._id,
+                sys_username: this.selectedDomain.sys_username,
+                year: this.selectedDomain.year,
+                username: username,
+                apppass: apppass
+            };
+            return firstValueFrom(this._wordpressService.update_post(dataForm));
         });
+
+        try {
+            const results = await Promise.all(publishTasks);
+            this.toastr.success(`Đã publish thành công ${results.filter(r => r).length} bài viết!`);
+            this.selected = [];
+            this.page = 1;
+            this.posts = [];
+            this.hasMorePosts = true;
+            this.fetchPosts();
+        } catch (err) {
+            console.error(err);
+            this.toastr.error('Có lỗi xảy ra khi publish bài viết');
+            this.loadingPosts = false;
+            this.cd.detectChanges();
+        }
     }
 
     decodeHTMLEntities(text: string): string {
