@@ -206,13 +206,13 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
     /**
      * Thêm mới vào Category
      */
-    addCategory(name: string, id: number) {
+    addCategory = (name: string) => {
         return new Promise((resolve) => {
             this.loading = true;
 
             // Simulate backend call.
             setTimeout(() => {
-                resolve({ name: name, id: id, new: true });
+                resolve({ name: name, new: true });
                 this.loading = false;
             }, 1000);
         });
@@ -236,13 +236,22 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                 next: async (result) => {
                     if (result) {
-                        $event.id = result.id;
-                        let temp = this.editorForm.get('categories').value;
-                        temp = temp.filter(Number);
-                        temp.push(result.id);
-                        this.editorForm.controls['categories'].setValue(temp);
-
-                        this.toastr.success(`Tạo danh mục mới thành công.`);
+                        const newId = result.id || (result.data ? result.data.id : null);
+                        if (newId) {
+                            $event.id = newId;
+                            let temp = this.editorForm.get('categories').value || [];
+                            temp = temp.filter(Number);
+                            if (!temp.includes(newId)) {
+                                temp.push(newId);
+                            }
+                            this.editorForm.controls['categories'].setValue(temp);
+                            this.toastr.success(`Tạo danh mục mới thành công.`);
+                        } else {
+                            this.toastr.warning('Tạo danh mục mới thất bại (Không nhận được ID).');
+                            let temp = this.editorForm.get('categories').value || [];
+                            temp = temp.filter(Number);
+                            this.editorForm.controls['categories'].setValue(temp);
+                        }
                     } else {
                         this.toastr.warning('Tạo danh mục mới thất bại.');
                     }
@@ -284,13 +293,13 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
     /**
      * Thêm mới vào Tag
      */
-    addTag(name: string, id: number) {
+    addTag = (name: string) => {
         return new Promise((resolve) => {
             this.loading = true;
 
             // Simulate backend call.
             setTimeout(() => {
-                resolve({ name: name, id: id, new: true });
+                resolve({ name: name, new: true });
                 this.loading = false;
             }, 1000);
         });
@@ -306,13 +315,22 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                 next: async (result) => {
                     if (result) {
-                        $event.id = result.id;
-                        let temp = this.editorForm.get('tags').value;
-                        temp = temp.filter(Number);
-                        temp.push(result.id);
-                        this.editorForm.controls['tags'].setValue(temp);
-
-                        this.toastr.success(`Tạo thẻ mới thành công.`);
+                        const newId = result.id || (result.data ? result.data.id : null);
+                        if (newId) {
+                            $event.id = newId;
+                            let temp = this.editorForm.get('tags').value || [];
+                            temp = temp.filter(Number);
+                            if (!temp.includes(newId)) {
+                                temp.push(newId);
+                            }
+                            this.editorForm.controls['tags'].setValue(temp);
+                            this.toastr.success(`Tạo thẻ mới thành công.`);
+                        } else {
+                            this.toastr.warning('Tạo thẻ mới thất bại (Không nhận được ID).');
+                            let temp = this.editorForm.get('tags').value || [];
+                            temp = temp.filter(Number);
+                            this.editorForm.controls['tags'].setValue(temp);
+                        }
                     } else {
                         this.toastr.warning('Tạo thẻ mới thất bại.');
                     }
