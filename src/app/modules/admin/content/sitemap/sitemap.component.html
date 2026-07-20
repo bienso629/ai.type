@@ -81,6 +81,17 @@
             <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
 
+            <ngx-datatable-column [name]="'app.thumbnail' | transloco" prop="thumbnail" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+                <ng-template let-row="row" ngx-datatable-cell-template>
+                    <div class="flex items-center justify-center w-full h-full">
+                        <img *ngIf="row.thumbnail" [src]="row.thumbnail" class="object-cover w-10 h-10 rounded shadow-sm">
+                        <div *ngIf="!row.thumbnail" class="flex items-center justify-center w-10 h-10 bg-gray-100 rounded shadow-sm">
+                            <mat-icon class="icon-size-5 text-gray-400" [svgIcon]="'feather:image'"></mat-icon>
+                        </div>
+                    </div>
+                </ng-template>
+            </ngx-datatable-column>
+
             <ngx-datatable-column [name]="'app.title' | transloco" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
