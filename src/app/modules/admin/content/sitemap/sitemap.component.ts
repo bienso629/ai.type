@@ -63,13 +63,6 @@ export class SitemapComponent implements OnInit, OnDestroy {
         this.fetchPosts();
     }
 
-    getRowClass = (row: any) => {
-        return {
-            'text-gray-400 bg-gray-50': row.status === 'pending',
-            'text-yellow-600 bg-yellow-50': row.status === 'draft'
-        };
-    };
-
     onSelect({ selected }: any) {
         this.selected = [...selected];
     }

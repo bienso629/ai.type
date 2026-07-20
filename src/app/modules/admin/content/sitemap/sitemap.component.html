@@ -76,7 +76,7 @@
         <ngx-datatable [appScrollLock]="loadingPosts" [virtualization]="true" class="material fullscreen transition-opacity duration-300"
             [columnMode]="ColumnMode.force" [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true"
             [rows]="posts" [selectionType]="'checkbox'" [selected]="selected" (select)="onSelect($event)"
-            (scroll)="onScroll($event)" [rowClass]="getRowClass">
+            (scroll)="onScroll($event)">
 
             <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
@@ -95,7 +95,9 @@
             <ngx-datatable-column [name]="'app.title' | transloco" prop="title" [width]="500" [sortable]="true" [canAutoResize]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center w-full">
-                        <p class="font-normal truncate hover:text-clip" [innerHTML]="row?.title"></p>
+                        <p class="font-normal truncate hover:text-clip" 
+                           [ngClass]="{'text-gray-400': row.status === 'pending', 'text-yellow-600': row.status === 'draft'}"
+                           [innerHTML]="row?.title"></p>
                         <button mat-icon-button (click)="editPost(row)" [matTooltip]="'app.edit_post' | transloco"
                             class="flex items-center justify-center ml-2 transition-colors shrink-0">
                             <mat-icon class="icon-size-4 text-gray-600" [svgIcon]="'feather:edit-3'"></mat-icon>
@@ -109,7 +111,12 @@
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row" class="flex items-center justify-end w-full">
                         <a [href]="row.link" target="_blank"
-                            class="h-7 leading-7 px-3 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-semibold truncate hover:text-clip">
+                            class="h-7 leading-7 px-3 text-white rounded-full text-sm font-semibold truncate hover:text-clip"
+                            [ngClass]="{
+                                'bg-gray-400 hover:bg-gray-500': row.status === 'pending',
+                                'bg-yellow-500 hover:bg-yellow-600': row.status === 'draft',
+                                'bg-blue-500 hover:bg-blue-600': row.status !== 'pending' && row.status !== 'draft'
+                            }">
                             {{row.link}}
                         </a>
                     </div>
@@ -120,7 +127,11 @@
                 headerClass="text-right">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-end w-full">
-                        <span class="text-gray-500">{{ row?.date | date:'short' }}</span>
+                        <span [ngClass]="{
+                            'text-gray-400': row.status === 'pending',
+                            'text-yellow-600': row.status === 'draft',
+                            'text-gray-500': row.status !== 'pending' && row.status !== 'draft'
+                        }">{{ row?.date | date:'short' }}</span>
                     </div>
                 </ng-template>
             </ngx-datatable-column>
