@@ -62,11 +62,6 @@
                 </mat-select>
             </mat-form-field>
 
-            <!-- Sửa toàn bộ -->
-            <button mat-flat-button color="primary" *ngIf="selected && selected.length > 0" (click)="editAllSelected()">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:edit-3'"></mat-icon>
-                <mat-label class="ml-2">{{ 'app.edit_all' | transloco }}</mat-label>
-            </button>
         </div>
     </div>
 
@@ -142,9 +137,15 @@
                     let-isVisible="isVisible">
                     <div class="flex w-full sm:items-center sm:justify-between px-4">
                         <div class="flex-1 min-w-0">
-                            <div class="page-count text-sm">
+                            <div class="page-count text-sm font-medium">
                                 {{ 'app.selected_posts_count' | transloco:{selected: (selectedCount ? selectedCount.toLocaleString() : 0), total: (rowCount ? rowCount.toLocaleString() : 0)} }}
                             </div>
+                        </div>
+                        <div class="flex items-center ml-4">
+                            <button mat-flat-button color="primary" *ngIf="selected && selected.length > 0" (click)="editAllSelected()" class="px-6 rounded-full shadow-md">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
+                                <span class="ml-2 font-semibold">Publish</span>
+                            </button>
                         </div>
                     </div>
                 </ng-template>
