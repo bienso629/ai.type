@@ -92,13 +92,19 @@ export class SitemapComponent implements OnInit, OnDestroy {
             hostname = this.selectedDomain.domain;
         }
 
+        const username = this.selectedDomain.wp_username || this.selectedDomain.username;
+        const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+        
         const queryPayload: any = {
             domain: this.selectedDomain.domain,
             page: this.page,
-            username: this.selectedDomain.wp_username || this.selectedDomain.username,
-            apppass: this.selectedDomain.wp_password || this.selectedDomain.password,
-            status: 'publish,draft,pending,private,future'
+            username: username,
+            apppass: apppass
         };
+        
+        if (username && apppass) {
+            queryPayload.status = ['publish', 'draft', 'pending'];
+        }
         
         if (this.keyword && this.keyword.trim() !== '') {
             queryPayload.keyword = this.keyword.trim();
