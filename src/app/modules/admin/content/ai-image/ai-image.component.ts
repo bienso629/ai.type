@@ -323,29 +323,12 @@ export class AIImageComponent
     deleteImage(filePath: string, index: number) {
         this.alert({
             title: 'Thông báo',
-            message: `Chương trình sẽ xóa tấm hình này?`,
+            message: `Chương trình sẽ xóa tấm hình này khỏi danh sách hiển thị?`,
             confirm: 'Xóa ngay',
             cb: () => {
-                this._blogService
-                    .deleteImage({
-                        filePath: filePath,
-                        username: this.user.name,
-                    })
-                    .pipe(takeUntil(this._unsubscribeAll))
-                    .subscribe({
-                        next: async (result) => {
-                            if (result && result.message === 'Xóa thành công') {
-                                this.imageUrls.splice(index, 1);
-                                this.rebuildRows();
-                                this.toastr.success('Xóa hình ảnh thành công!');
-                            } else {
-                                this.toastr.warning('Không xóa được hình ảnh (chưa tìm thấy file gốc).');
-                            }
-                        },
-                        error: () => {
-                            this.toastr.warning('Không xóa được hình ảnh.');
-                        },
-                    });
+                this.imageUrls.splice(index, 1);
+                this.rebuildRows();
+                this.toastr.success('Xóa hình ảnh khỏi danh sách thành công!');
             },
         });
     }
