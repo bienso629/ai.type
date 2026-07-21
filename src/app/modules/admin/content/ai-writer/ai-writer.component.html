@@ -1077,127 +1077,7 @@
                                         </div>
                                     </mat-expansion-panel>
 
-                                    <mat-expansion-panel [expanded]="expanded">
-                                        <mat-expansion-panel-header #panelH3>
-                                            <mat-panel-title (click)="panelH3._toggle()" class="flex items-center">
-                                                <mat-icon class="icon-size-4 mr-2 text-purple-500"
-                                                    [svgIcon]="'feather:cpu'"></mat-icon>
-                                                <mat-label class="font-semibold">{{ 'app.gemini_responded' | transloco }}</mat-label>
-                                                <!-- <mat-label
-                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-primary-600 text-white"
-                                                    matTooltipPosition="above"
-                                                    [matTooltip]="'app.auto_copy_all_chatgpt_to_the_outlin' | transloco"
-                                                    (click)="moveall(source.chatgpt, $event); source.chatgpt = []">
-                                                    chuyển ({{source.chatgpt.length}})</mat-label>
 
-                                                <mat-label
-                                                    class="ml-2 flex items-center h-7 px-3 rounded-full text-xs font-semibold leading-7 bg-red-500 text-white"
-                                                    matTooltipPosition="above" [matTooltip]="'app.auto_delete_completely_1' | transloco"
-                                                    (click)="clearall($event); source.chatgpt = []">
-                                                    xoá ({{source.chatgpt.length}})</mat-label> -->
-
-                                                <button mat-icon-button class="ml-auto icon-size-8"
-                                                    (click)="moveall(source.chatgpt, $event); source.chatgpt = []"
-                                                    [matBadge]="source.chatgpt.length" matBadgePosition="above after"
-                                                    matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" [matTooltip]="'app.move_to_outline' | transloco">
-                                                    <mat-icon class="icon-size-4 text-blue-500"
-                                                        [svgIcon]="'feather:align-left'"></mat-icon>
-                                                </button>
-
-                                                <button mat-icon-button class="ml-0 icon-size-8"
-                                                    (click)="clearall($event); source.chatgpt = []"
-                                                    [matBadge]="source.chatgpt.length" matBadgePosition="above after"
-                                                    matBadgeColor="accent" matBadgeSize="small"
-                                                    matTooltipPosition="above" [matTooltip]="'app.auto_quick_delete' | transloco">
-                                                    <mat-icon class="icon-size-4 text-red-600"
-                                                        [svgIcon]="'heroicons_outline:trash'"></mat-icon>
-                                                </button>
-                                            </mat-panel-title>
-                                        </mat-expansion-panel-header>
-
-                                        <div cdkDropList #chatgptList="cdkDropList" [cdkDropListData]="source.chatgpt"
-                                            [cdkDropListConnectedTo]="[doneList]" class="example-list chatgpt"
-                                            (cdkDropListDropped)="drop($event)">
-                                            <div class="flex items-center example-box p-1"
-                                                *ngFor="let item of source.chatgpt; let i = index" cdkDrag>
-                                                <div class="flex-1 min-w-0 break-words" [innerHTML]="item | renderTrustHTML"
-                                                    (dblclick)="edit(source.chatgpt, i)"></div>
-
-                                                <div class="flex flex-col shrink-0 ml-2 border p-0.5 rounded-full">
-                                                    <button mat-icon-button matTooltipPosition="above"
-                                                        [matTooltip]="'app.auto_easily_create_new_paragraphs_t' | transloco"
-                                                        class="icon-size-8"
-                                                        (click)="synonymsForSentence(source.chatgpt, i, 'chatgpt')"><mat-icon>switch_access_shortcut_add</mat-icon></button>
-                                                    <div class="border-t border-soild h-0 w-full my-1"></div><button
-                                                        mat-icon-button class="icon-size-8" [matMenuTriggerFor]="menu">
-                                                        <mat-icon>more_horiz</mat-icon>
-                                                    </button>
-                                                    <mat-menu #menu="matMenu">
-                                                        <button mat-menu-item [cdkCopyToClipboard]="item | removeHTML"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:copy'"></mat-icon>
-                                                            <span>{{ 'app.copy' | transloco }}</span>
-                                                        </button>
-                                                        <button mat-menu-item (click)="markdown2html(source.chatgpt, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:code'"></mat-icon>
-                                                            <span>HTML code</span>
-                                                        </button>
-                                                        <button mat-menu-item (click)="tomp3(item)" [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:volume-2'"></mat-icon>
-                                                            <span>{{ 'app.convert_to_mp3' | transloco }}</span>
-                                                        </button>
-                                                        <button mat-menu-item (click)="copyto(item)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:chevrons-right'"></mat-icon>
-                                                            <span>{{ 'app.copy_to_outline' | transloco }}</span>
-                                                        </button>
-                                                        <!-- <button mat-menu-item (click)="split(source.chatgpt, item, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:minus'"></mat-icon>
-                                                            <span>{{ 'app.auto_automatically_split_paragraphs' | transloco }}</span>
-                                                        </button> -->
-                                                        <button mat-menu-item (click)="comment(source.chatgpt, item, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:message-square'"></mat-icon>
-                                                            <span>{{ 'app.comment' | transloco }}</span>
-                                                        </button>
-                                                        <button mat-menu-item (click)="keyword(source.chatgpt, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:tag'"></mat-icon>
-                                                            <span>Từ khoá</span>
-                                                        </button>
-                                                        <button mat-menu-item (click)="edit(source.chatgpt, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:edit-3'"></mat-icon>
-                                                            <span>{{ 'app.edit_paragraph' | transloco }}</span>
-                                                        </button>
-                                                        <button mat-menu-item (click)="split(source.chatgpt, i)"
-                                                            [color]="'primary'">
-                                                            <mat-icon class="icon-size-4"
-                                                                [svgIcon]="'feather:align-left'"></mat-icon>
-                                                            <span>{{ 'app.split_paragraph' | transloco }}</span>
-                                                        </button>
-                                                        <button mat-menu-item [color]="'primary'" type="button"
-                                                            (click)="clearitem(i, source.chatgpt, 'chatgpt')">
-                                                            <mat-icon class="icon-size-4"
-                                                                svgIcon="feather:trash"></mat-icon>
-                                                            <span>{{ 'app.delete_paragraph' | transloco }}</span>
-                                                        </button>
-                                                    </mat-menu>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </mat-expansion-panel>
 
 
 
@@ -2716,7 +2596,7 @@
                                     </div>
                                     <div class="example-container w-full">
                                         <div cdkDropList #emptyList="cdkDropList" [cdkDropListData]="trash"
-                                            [cdkDropListConnectedTo]="[doneList, textList, pList, spanList, labelList, ddList, tdList, liList, iList, h1List, h2List, h3List, h4List, h5List, chatgptList, wordList, imgList, sourceList, preList, aList, sourceYoutubeList]"
+                                            [cdkDropListConnectedTo]="[doneList, textList, pList, spanList, labelList, ddList, tdList, liList, iList, h1List, h2List, h3List, h4List, h5List, wordList, imgList, sourceList, preList, aList, sourceYoutubeList]"
                                             class="example-list" (cdkDropListDropped)="drop($event)">
                                             <div class="example-box-result p-2 flex flex-row items-center relative mb-2"
                                                 *ngFor="let item of trash" cdkDrag>

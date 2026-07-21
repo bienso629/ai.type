@@ -20,9 +20,42 @@ class ActiveScreen extends StatefulWidget {
   State<ActiveScreen> createState() => _ActiveScreenState();
 }
 
+class _LicenseKeyFormatter extends TextInputFormatter {
+  @override
+  TextEditingValue formatEditUpdate(TextEditingValue oldValue, TextEditingValue newValue) {
+    String text = newValue.text.replaceAll('-', '').toUpperCase();
+    if (text.length > 30) {
+      text = text.substring(0, 30);
+    }
+
+    StringBuffer buffer = StringBuffer();
+    for (int i = 0; i < text.length; i++) {
+      buffer.write(text[i]);
+      if ((i + 1) % 5 == 0 && i != text.length - 1) {
+        buffer.write('-');
+      }
+    }
+
+    String formatted = buffer.toString();
+    int cursorOffset = newValue.selection.end;
+    
+    // Simple heuristic for cursor position
+    if (formatted.length == newValue.text.length) {
+      cursorOffset = newValue.selection.end;
+    } else {
+      cursorOffset = formatted.length;
+    }
+
+    return TextEditingValue(
+      text: formatted,
+      selection: TextSelection.collapsed(offset: cursorOffset),
+    );
+  }
+}
+
 class _ActiveScreenState extends State<ActiveScreen> {
-  final List<TextEditingController> _controllers = List.generate(6, (index) => TextEditingController());
-  final List<FocusNode> _focusNodes = List.generate(6, (index) => FocusNode());
+  final TextEditingController _controller = TextEditingController();
+  final FocusNode _focusNode = FocusNode();
   bool _isLoading = false;
   List<dynamic> _notifications = [];
   int _unreadCount = 0;
@@ -62,47 +95,29 @@ class _ActiveScreenState extends State<ActiveScreen> {
 
   @override
   void dispose() {
-    for (var controller in _controllers) {
-      controller.dispose();
-    }
-    for (var node in _focusNodes) {
-      node.dispose();
-    }
+    _controller.dispose();
+    _focusNode.dispose();
     super.dispose();
   }
 
-  void _onTextChanged(int index, String value) {
-    if (value.length == 5 && index < 5) {
-      _focusNodes[index + 1].requestFocus();
-    }
-    if (value.isEmpty && index > 0) {
-      _focusNodes[index - 1].requestFocus();
-    }
-  }
-
   void _onPaste(String text) {
-    text = text.replaceAll('-', '').toUpperCase();
-    if (text.length >= 30) {
-      for (int i = 0; i < 6; i++) {
-        int start = i * 5;
-        if (start < text.length) {
-          int end = (start + 5 < text.length) ? start + 5 : text.length;
-          _controllers[i].text = text.substring(start, end);
-        }
-      }
-    }
+    _controller.text = text.replaceAll('-', '').toUpperCase();
   }
 
   Future<void> _activate() async {
-    final keyParts = _controllers.map((c) => c.text.trim().toUpperCase()).toList();
-    if (keyParts.any((part) => part.length != 5)) {
+    final text = _controller.text.replaceAll('-', '').trim().toUpperCase();
+    if (text.length != 30) {
       setState(() {
-        _errorMessage = 'Vui lòng điền đủ 30 ký tự (6 ô, mỗi ô 5 ký tự)';
+        _errorMessage = 'Vui lòng điền đủ 30 ký tự (6 cụm, mỗi cụm 5 ký tự)';
       });
       return;
     }
 
-    final licenseKey = keyParts.join('-');
+    final chunks = <String>[];
+    for (int i = 0; i < 30; i += 5) {
+      chunks.add(text.substring(i, i + 5));
+    }
+    final licenseKey = chunks.join('-');
 
     setState(() {
       _isLoading = true;
@@ -135,8 +150,10 @@ class _ActiveScreenState extends State<ActiveScreen> {
   }
 
   void _openMomoPayment() {
-    showDialog(
+    showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (context) => const PaymentDialog(),
     ).then((result) {
       if (result == 'restore') {
@@ -167,12 +184,7 @@ class _ActiveScreenState extends State<ActiveScreen> {
         );
         final keyClean = licenseKey.replaceAll('-', '');
         if (keyClean.length >= 30) {
-          _controllers[0].text = keyClean.substring(0, 5);
-          _controllers[1].text = keyClean.substring(5, 10);
-          _controllers[2].text = keyClean.substring(10, 15);
-          _controllers[3].text = keyClean.substring(15, 20);
-          _controllers[4].text = keyClean.substring(20, 25);
-          _controllers[5].text = keyClean.substring(25, 30);
+          _controller.text = licenseKey;
           _activate();
         }
       } else {
@@ -196,84 +208,13 @@ class _ActiveScreenState extends State<ActiveScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        title: const Text('Kích hoạt phần mềm', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
+        backgroundColor: AppColors.background,
         elevation: 0,
-        scrolledUnderElevation: 0,
-        title: Image.asset(
-          'assets/images/logo.png',
-          height: 32,
-          fit: BoxFit.contain,
-          filterQuality: FilterQuality.high,
-        ),
-        actions: [
-          Stack(
-            alignment: Alignment.center,
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.black87),
-                onPressed: () {
-                  showGeneralDialog(
-                    context: context,
-                    barrierDismissible: true,
-                    barrierLabel: 'Dismiss',
-                    barrierColor: Colors.transparent,
-                    pageBuilder: (_, __, ___) => NotificationPopup(notifications: _notifications),
-                  );
-                },
-              ),
-              if (_unreadCount > 0)
-                Positioned(
-                  right: 8,
-                  top: 10,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 16,
-                      minHeight: 16,
-                    ),
-                    child: Center(
-                      child: Text(
-                        '$_unreadCount',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 10,
-                          fontWeight: FontWeight.bold,
-                        ),
-                        textAlign: TextAlign.center,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.only(right: 16.0),
-            child: Center(
-              child: GestureDetector(
-                onTap: () {
-                  showGeneralDialog(
-                    context: context,
-                    barrierDismissible: true,
-                    barrierLabel: 'Dismiss',
-                    barrierColor: Colors.transparent,
-                    pageBuilder: (_, __, ___) => const ProfilePopup(),
-                  );
-                },
-                child: CircleAvatar(
-                  radius: 16,
-                  backgroundColor: Colors.transparent,
-                  backgroundImage: _avatarUrl != null ? NetworkImage(_avatarUrl!) as ImageProvider : const AssetImage('assets/images/web.png'),
-                ),
-              ),
-            ),
-          ),
-        ],
+        surfaceTintColor: Colors.transparent,
+        iconTheme: const IconThemeData(color: Colors.black87),
       ),
       body: SafeArea(
         child: SingleChildScrollView(
@@ -282,15 +223,6 @@ class _ActiveScreenState extends State<ActiveScreen> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Kích hoạt phần mềm',
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
-              ),
-              const SizedBox(height: 32),
               const Text(
                 'Nhập License Key',
                 style: TextStyle(
@@ -301,36 +233,29 @@ class _ActiveScreenState extends State<ActiveScreen> {
               ),
               const SizedBox(height: 12),
               
-              Row(
-                children: List.generate(6, (index) {
-                  return Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: index < 5 ? 8.0 : 0.0),
-                      child: TextField(
-                        controller: _controllers[index],
-                        focusNode: _focusNodes[index],
-                        textAlign: TextAlign.center,
-                        maxLength: 5,
-                        textCapitalization: TextCapitalization.characters,
-                        decoration: InputDecoration(
-                          counterText: '',
-                          hintText: 'XXXXX',
-                          hintStyle: TextStyle(color: Colors.grey.shade400),
-                          contentPadding: const EdgeInsets.symmetric(vertical: 16),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          _onTextChanged(index, value);
-                          if (value.length > 5) {
-                            _onPaste(value);
-                          }
-                        },
-                      ),
-                    ),
-                  );
-                }),
+              TextField(
+                controller: _controller,
+                focusNode: _focusNode,
+                textAlign: TextAlign.left,
+                maxLength: 35,
+                textCapitalization: TextCapitalization.characters,
+                inputFormatters: [
+                  _LicenseKeyFormatter(),
+                ],
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX',
+                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14, letterSpacing: 0),
+                  contentPadding: EdgeInsets.zero,
+                  border: InputBorder.none,
+                  focusedBorder: InputBorder.none,
+                  enabledBorder: InputBorder.none,
+                  filled: false,
+                ),
+                onChanged: (value) {
+                  // We can optionally format on the fly here, but simplest is to just let them type
+                },
               ),
               
               const SizedBox(height: 24),
@@ -386,84 +311,10 @@ class _ActiveScreenState extends State<ActiveScreen> {
           ),
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        backgroundColor: AppColors.primary,
-        onPressed: () {},
-        elevation: 4,
-        shape: const CircleBorder(),
-        child: const FaIcon(FontAwesomeIcons.plus, color: Colors.white, size: 20),
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.05),
-              blurRadius: 20,
-              offset: const Offset(0, -5),
-            ),
-          ],
-        ),
-        child: BottomAppBar(
-          shape: const CircularNotchedRectangle(),
-          notchMargin: 8,
-          color: AppColors.surface,
-          elevation: 0,
-          child: SizedBox(
-            height: 60,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, FontAwesomeIcons.chartPie, FontAwesomeIcons.chartPie, 'Tổng quan'),
-                _buildNavItem(1, FontAwesomeIcons.screwdriverWrench, FontAwesomeIcons.screwdriverWrench, 'Công cụ'),
-                const SizedBox(width: 48), // Space for FAB
-                _buildNavItem(2, FontAwesomeIcons.briefcase, FontAwesomeIcons.briefcase, 'Công việc'),
-                _buildNavItem(3, FontAwesomeIcons.gear, FontAwesomeIcons.gear, 'Cài đặt'),
-              ],
-            ),
-          ),
-        ),
-      ),
     );
   }
-
-  Widget _buildNavItem(int index, dynamic icon, dynamic activeIcon, String label) {
-    final isSelected = 3 == index; // ActiveScreen is usually considered under Settings/Cấu hình
-    return GestureDetector(
-      onTap: () {
-        if (index == 3) return; // Already here
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Vui lòng kích hoạt phần mềm để sử dụng tính năng này'),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      },
-      behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          FaIcon(
-            isSelected ? activeIcon : icon,
-            color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            size: 20,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              color: isSelected ? AppColors.primary : AppColors.textSecondary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
 }
+
 
 class PaymentDialog extends StatefulWidget {
   const PaymentDialog({super.key});
@@ -549,43 +400,51 @@ class _PaymentDialogState extends State<PaymentDialog> {
     final price = _plans.firstWhere((p) => p['months'] == _selectedMonths)['price'] as int;
     final qrUrl = 'https://vietqr.app/img?bank=MBBank&acc=0938414436&template=compact&amount=$price&showinfo=true&holder=NGUYEN%20NGOC%20THANH%20VY&store=AI%20Type&des=$_orderCode';
 
-    return Dialog(
-      backgroundColor: Colors.white,
-      surfaceTintColor: Colors.transparent,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        width: 700,
-        padding: const EdgeInsets.all(24),
-        child: SingleChildScrollView(
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: SafeArea(
+        child: Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(context).viewInsets.bottom,
+          ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Text('Thanh toán', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
-                  )
-                ],
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 12),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
-              const SizedBox(height: 24),
-              LayoutBuilder(
-                builder: (context, constraints) {
-                  if (constraints.maxWidth < 500) {
-                    return _buildVerticalLayout(price, qrUrl);
-                  }
-                  return Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _buildLeftPanel(price)),
-                      const SizedBox(width: 24),
-                      Expanded(child: _buildRightPanel(qrUrl)),
-                    ],
-                  );
-                }
+              const Padding(
+                padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                child: Text('Thanh toán', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              ),
+              Flexible(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  child: LayoutBuilder(
+                    builder: (context, constraints) {
+                      if (constraints.maxWidth < 500) {
+                        return _buildVerticalLayout(price, qrUrl);
+                      }
+                      return Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(child: _buildLeftPanel(price)),
+                          const SizedBox(width: 24),
+                          Expanded(child: _buildRightPanel(qrUrl)),
+                        ],
+                      );
+                    }
+                  ),
+                ),
               ),
             ],
           ),

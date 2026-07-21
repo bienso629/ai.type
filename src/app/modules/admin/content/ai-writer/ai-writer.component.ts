@@ -58,6 +58,7 @@ import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-d
 import { forkJoin } from 'rxjs'; // RxJS 6 syntax
 import { DomainService } from 'app/modules/_services/domain';
 import { WordpressService } from 'app/modules/_services/wordpress';
+import { GlobalAgentService } from 'app/modules/_services/global-agent.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 
 import * as _ from 'lodash';
@@ -2909,23 +2910,13 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Hỏi ChatGPT trực tiếp
      */
     chatgpt(content?: string, event?: any): void {
-        // if (!content) return;
-        // event.preventDefault();
+        if (event) {
+            event.preventDefault();
+        }
 
-        const bottomSheetRef = this._bottomSheet.open(ChatGPTQuestionSheet, {
-            data: { content: content || '' },
-        });
-
-        bottomSheetRef.afterDismissed().subscribe((data) => {
-            // Restore focus to an appropriate element for the user's workflow here.
-            if (data && data.result) {
-                this.source.chatgpt.push(data.result);
-                this.toastr.success(`Nội dung đã được trả lời.`);
-                this.selectedIndex = 0;
-
-                // lam moi lai giao dien
-                this.cd.markForCheck();
-            }
+        // Redirect to Global Agent (Header)
+        this._h.openChatGPTWithSEO$.next({
+            goiy: content ? "Hãy giải thích hoặc trả lời câu hỏi liên quan đến nội dung này:\n\n" + content : "Bạn cần hỏi gì?",
         });
     }
 
@@ -4768,7 +4759,8 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         private multiAccountService: MultiAccountService,
         private sanitizer: DomSanitizer,
         private _genaiService: GenaiService,
-        public _wordpressService: WordpressService
+        public _wordpressService: WordpressService,
+        public globalAgentService: GlobalAgentService
     ) {
         this.route.params.subscribe((params: Params) => {
             if (params['uuid']) {
@@ -4987,6 +4979,19 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 this.source.wp_domain = post.domain;
             }
         }
+
+        this.updateAgentContext();
+    }
+
+    updateAgentContext() {
+        this.globalAgentService.updateContext({
+            sourcePage: 'Văn Bản (AI Writer)',
+            action: 'EDIT_ARTICLE',
+            data: {
+                title: this.detectForm?.get('step1.title')?.value || '',
+                documentCount: this.done?.length || 0,
+            }
+        });
     }
 
     ngAfterViewInit(): void {
@@ -5297,6 +5302,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * On destroy
      */
     ngOnDestroy(): void {
+        this.globalAgentService.clearContext();
         window.removeEventListener('stt-transcribed', this.onSttTranscribed);
         clearInterval(this.intervalAutoSave);
 

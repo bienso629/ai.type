@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../screens/login_screen.dart';
+import '../screens/settings_screen.dart';
 
 class ProfilePopup extends StatelessWidget {
   const ProfilePopup({super.key});
@@ -49,6 +50,7 @@ class ProfilePopup extends StatelessWidget {
                       
                       _buildMenuItem(context, FontAwesomeIcons.gear, 'Cài đặt', () {
                         Navigator.of(context).pop();
+                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
                       }),
                       const SizedBox(height: 16),
                       

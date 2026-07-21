@@ -5,6 +5,9 @@
             <button mat-icon-button (click)="zoomOut()" matTooltip="Thu nhỏ">
                 <mat-icon [svgIcon]="'heroicons_outline:minus'"></mat-icon>
             </button>
+            <button mat-icon-button color="warn" (click)="resetCurrentMonth()" matTooltip="Xóa toàn bộ tasks tháng này">
+                <mat-icon [svgIcon]="'heroicons_outline:trash'"></mat-icon>
+            </button>
             <button mat-icon-button (click)="scrollToToday()" matTooltip="Về hôm nay">
                 <mat-icon [svgIcon]="'heroicons_outline:calendar'"></mat-icon>
             </button>

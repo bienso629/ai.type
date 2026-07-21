@@ -5,7 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:html_unescape/html_unescape.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_styles.dart';
 import '../services/api_service.dart';
+import 'package:flutter_html/flutter_html.dart';
 
 class SitemapScreen extends StatefulWidget {
   const SitemapScreen({super.key});
@@ -15,13 +17,26 @@ class SitemapScreen extends StatefulWidget {
 }
 
 class _SitemapScreenState extends State<SitemapScreen> {
+  static bool _hasLoadedOnce = false;
+  static List<Map<String, dynamic>> _cachedPosts = [];
+  static bool _cachedHasMore = true;
+  static int _cachedPage = 1;
+  static Map<String, int> _cachedCategoryIds = {};
+  static String _cachedSelectedCategory = 'Tất cả';
+  static String _cachedSelectedDomain = 'Đang tải...';
+  static List<String> _cachedCategories = ['Tất cả'];
+  static List<String> _cachedDomains = ['Đang tải...'];
+  static List<dynamic> _cachedRawDomains = [];
+  static double _cachedScrollOffset = 0.0;
+
   final HtmlUnescape _unescape = HtmlUnescape();
   List<Map<String, dynamic>> _posts = [];
   bool _isLoadingPosts = false;
+  bool _isUpdatingPosts = false;
   bool _isLoadingMore = false;
   bool _hasMore = true;
   int _page = 1;
-  final ScrollController _scrollController = ScrollController();
+  late ScrollController _scrollController;
   Map<String, int> _categoryIds = {};
 
   int get _selectedCount => _posts.where((p) => p['selected'] as bool).length;
@@ -36,7 +51,21 @@ class _SitemapScreenState extends State<SitemapScreen> {
   @override
   void initState() {
     super.initState();
-    _fetchDomains();
+    _scrollController = ScrollController(initialScrollOffset: _cachedScrollOffset);
+    if (_hasLoadedOnce) {
+      _posts = _cachedPosts;
+      _hasMore = _cachedHasMore;
+      _page = _cachedPage;
+      _categoryIds = _cachedCategoryIds;
+      _selectedCategory = _cachedSelectedCategory;
+      _selectedDomain = _cachedSelectedDomain;
+      _categories = _cachedCategories;
+      _domains = _cachedDomains;
+      _rawDomains = _cachedRawDomains;
+      _isLoadingDomains = false;
+    } else {
+      _fetchDomains();
+    }
     _scrollController.addListener(() {
       if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
         if (!_isLoadingPosts && !_isLoadingMore && _hasMore) {
@@ -46,8 +75,22 @@ class _SitemapScreenState extends State<SitemapScreen> {
     });
   }
 
+
   @override
   void dispose() {
+    _cachedPosts = _posts;
+    _cachedHasMore = _hasMore;
+    _cachedPage = _page;
+    _cachedCategoryIds = _categoryIds;
+    _cachedSelectedCategory = _selectedCategory;
+    _cachedSelectedDomain = _selectedDomain;
+    _cachedCategories = _categories;
+    _cachedDomains = _domains;
+    _cachedRawDomains = _rawDomains;
+    if (_scrollController.hasClients) {
+      _cachedScrollOffset = _scrollController.offset;
+    }
+    _hasLoadedOnce = true;
     _scrollController.dispose();
     super.dispose();
   }
@@ -101,6 +144,66 @@ class _SitemapScreenState extends State<SitemapScreen> {
     }
   }
 
+  Future<void> _updateSelectedPosts(String targetStatus) async {
+    final postsToUpdate = _posts.where((p) => p['selected'] == true && p['status'] != targetStatus).toList();
+    if (postsToUpdate.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Các bài viết được chọn đã ở trạng thái $targetStatus!')),
+      );
+      return;
+    }
+
+    setState(() => _isUpdatingPosts = true);
+
+    int successCount = 0;
+    try {
+      final domainObj = _rawDomains.firstWhere((d) => d['domain'] == _selectedDomain);
+      final domainId = domainObj['_id'] ?? domainObj['id'];
+      final wpUsername = domainObj['wp_username'] ?? domainObj['username'] ?? '';
+      final wpPassword = domainObj['wp_password'] ?? domainObj['password'] ?? '';
+
+      final futures = postsToUpdate.map((post) {
+        return ApiService.updateWordpressPost(
+          domain: _selectedDomain,
+          domainId: domainId,
+          postId: post['id'],
+          status: targetStatus,
+          wpUsername: wpUsername,
+          wpPassword: wpPassword,
+        );
+      });
+
+      final results = await Future.wait(futures);
+      successCount = results.where((r) => r == true).length;
+
+      if (successCount > 0) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã cập nhật $successCount bài viết thành $targetStatus!')),
+        );
+        setState(() {
+          for (var post in postsToUpdate) {
+            final idx = _posts.indexWhere((p) => p['id'] == post['id']);
+            if (idx != -1) {
+              _posts[idx]['status'] = targetStatus;
+            }
+          }
+          _selectAll = false;
+          for (var p in _posts) { p['selected'] = false; }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Có lỗi xảy ra, không có bài viết nào được cập nhật')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Có lỗi xảy ra: $e')),
+      );
+    } finally {
+      setState(() => _isUpdatingPosts = false);
+    }
+  }
+
   Future<void> _fetchPosts({bool isRefresh = false}) async {
     if (_selectedDomain.isEmpty || _selectedDomain == 'Đang tải...' || _selectedDomain == 'Lỗi kết nối' || _selectedDomain == 'Chưa có tên miền') return;
     setState(() {
@@ -144,11 +247,16 @@ class _SitemapScreenState extends State<SitemapScreen> {
               imageUrl = p['_embedded']['wp:featuredmedia'][0]['source_url'];
             }
             return {
+              'id': p['id'],
               'title': p['title']?['rendered'] ?? p['title'] ?? '',
               'link': p['link'] ?? p['url'] ?? '',
               'date': (p['date'] ?? '').toString().split('T').join(' '),
               'status': p['status'] ?? 'publish',
               'imageUrl': imageUrl ?? p['thumbnail'],
+              'content': p['content']?['rendered'] ?? p['content'] ?? '',
+              'excerpt': p['excerpt']?['rendered'] ?? p['excerpt'] ?? '',
+              'categories': p['categories'],
+              'tags': p['tags'],
               'selected': false,
             };
           }).toList();
@@ -202,11 +310,16 @@ class _SitemapScreenState extends State<SitemapScreen> {
                 imageUrl = p['_embedded']['wp:featuredmedia'][0]['source_url'];
               }
               return {
+                'id': p['id'],
                 'title': p['title']?['rendered'] ?? p['title'] ?? '',
                 'link': p['link'] ?? p['url'] ?? '',
                 'date': (p['date'] ?? '').toString().split('T').join(' '),
                 'status': p['status'] ?? 'publish',
                 'imageUrl': imageUrl ?? p['thumbnail'],
+                'content': p['content']?['rendered'] ?? p['content'] ?? '',
+                'excerpt': p['excerpt']?['rendered'] ?? p['excerpt'] ?? '',
+                'categories': p['categories'],
+                'tags': p['tags'],
                 'selected': _selectAll,
               };
             }));
@@ -218,6 +331,214 @@ class _SitemapScreenState extends State<SitemapScreen> {
       if (mounted) setState(() => _hasMore = false);
     }
     if (mounted) setState(() => _isLoadingMore = false);
+  }
+
+  String _getCategoryNames(List<dynamic>? catIds) {
+    if (catIds == null || catIds.isEmpty) return 'Không có';
+    final names = <String>[];
+    for (var id in catIds) {
+      final entry = _categoryIds.entries.where((e) => e.value == id).toList();
+      if (entry.isNotEmpty) {
+        names.add(entry.first.key);
+      } else {
+        names.add('ID: $id');
+      }
+    }
+    return names.join(', ');
+  }
+
+  Future<void> _updateSinglePostStatus(BuildContext ctx, Map<String, dynamic> post, String targetStatus) async {
+    Navigator.pop(ctx); // Close bottom sheet
+    setState(() => _isUpdatingPosts = true);
+    try {
+      final domainObj = _rawDomains.firstWhere((d) => d['domain'] == _selectedDomain);
+      final domainId = domainObj['_id'] ?? domainObj['id'];
+      final wpUsername = domainObj['wp_username'] ?? domainObj['username'] ?? '';
+      final wpPassword = domainObj['wp_password'] ?? domainObj['password'] ?? '';
+
+      final success = await ApiService.updateWordpressPost(
+        domain: _selectedDomain,
+        domainId: domainId,
+        postId: post['id'],
+        status: targetStatus,
+        wpUsername: wpUsername,
+        wpPassword: wpPassword,
+      );
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Đã cập nhật bài viết thành $targetStatus!')),
+        );
+        setState(() {
+          final idx = _posts.indexWhere((p) => p['id'] == post['id']);
+          if (idx != -1) {
+            _posts[idx]['status'] = targetStatus;
+          }
+        });
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Có lỗi xảy ra, không thể cập nhật bài viết')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Có lỗi xảy ra: $e')),
+      );
+    } finally {
+      setState(() => _isUpdatingPosts = false);
+    }
+  }
+
+  void _showPostDetail(Map<String, dynamic> post) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        return Container(
+          height: MediaQuery.of(ctx).size.height * 0.9,
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+          ),
+          child: Column(
+            children: [
+              Container(
+                margin: const EdgeInsets.symmetric(vertical: 8),
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+              ),
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _unescape.convert(post['title'] ?? ''),
+                        style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 16),
+                      if (post['imageUrl'] != null && post['imageUrl'].isNotEmpty)
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(post['imageUrl'], width: double.infinity, height: 200, fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const SizedBox(),
+                          ),
+                        ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Icon(Icons.calendar_today, size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Text(post['date'] ?? '', style: TextStyle(color: Colors.grey.shade600, fontSize: 13)),
+                          const SizedBox(width: 16),
+                          Icon(Icons.category, size: 14, color: Colors.grey.shade600),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              _getCategoryNames(post['categories']),
+                              style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      if (post['tags'] != null && (post['tags'] as List).isNotEmpty) ...[
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Icon(Icons.local_offer, size: 14, color: Colors.grey.shade600),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                'Tags: ${(post['tags'] as List).join(', ')}',
+                                style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                      if (post['excerpt'] != null && post['excerpt'].toString().trim().isNotEmpty) ...[
+                        Text('Mô tả:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                        Html(
+                          data: post['excerpt'],
+                          style: {
+                            "body": Style(margin: Margins.zero, padding: HtmlPaddings.zero),
+                          },
+                          extensions: [
+                            ImageExtension(
+                              builder: (extensionContext) {
+                                final src = extensionContext.attributes['src'];
+                                if (src == null) return const SizedBox();
+                                return Image.network(
+                                  src,
+                                  width: double.infinity,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, __, ___) => const SizedBox(),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        const Divider(height: 24),
+                      ],
+                      Text('Nội dung:', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primary)),
+                      Html(
+                        data: post['content'] ?? '<p>Không có nội dung</p>',
+                        style: {
+                          "body": Style(margin: Margins.zero, padding: HtmlPaddings.zero),
+                        },
+                        extensions: [
+                          ImageExtension(
+                            builder: (extensionContext) {
+                              final src = extensionContext.attributes['src'];
+                              if (src == null) return const SizedBox();
+                              return Image.network(
+                                src,
+                                width: double.infinity,
+                                fit: BoxFit.contain,
+                                errorBuilder: (_, __, ___) => const SizedBox(),
+                              );
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border(top: BorderSide(color: Colors.grey.shade200)),
+                ),
+                child: SafeArea(
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      onPressed: () {
+                        final targetStatus = post['status'] == 'publish' ? 'draft' : 'publish';
+                        _updateSinglePostStatus(ctx, post, targetStatus);
+                      },
+                      style: post['status'] == 'publish' ? AppStyles.secondaryButton : AppStyles.primaryButton,
+                      child: Text(
+                        post['status'] == 'publish' ? 'Unpublish (Chuyển thành Nháp)' : 'Publish (Đăng bài)',
+                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   Future<void> _updateCategoriesForDomain(String domainUrl) async {
@@ -297,6 +618,23 @@ class _SitemapScreenState extends State<SitemapScreen> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          if (_selectedCount > 0)
+            Row(
+              children: [
+                if (_isUpdatingPosts) const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 8.0),
+                  child: SizedBox(width: 14, height: 14, child: CircularProgressIndicator(strokeWidth: 2)),
+                ),
+                const Text('Publish', style: TextStyle(fontSize: 12, color: Colors.black87, fontWeight: FontWeight.bold)),
+                Switch(
+                  value: _posts.where((p) => p['selected'] == true).every((p) => p['status'] == 'publish'),
+                  onChanged: _isUpdatingPosts ? null : (val) {
+                    _updateSelectedPosts(val ? 'publish' : 'draft');
+                  },
+                  activeColor: AppColors.primary,
+                ),
+              ],
+            ),
           IconButton(
             icon: Icon(_selectAll ? Icons.done_all : Icons.checklist, color: AppColors.primary),
             onPressed: () {
@@ -545,8 +883,9 @@ class _SitemapScreenState extends State<SitemapScreen> {
                               child: const Icon(Icons.image, color: Colors.grey, size: 20),
                             );
 
-                      return Container(
-                        child: Padding(
+                      return InkWell(
+                        onTap: () => _showPostDetail(post),
+                        child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.center,

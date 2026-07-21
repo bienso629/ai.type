@@ -115,7 +115,7 @@
                 </div>
 
                 <!-- Styled Input Container -->
-                <div class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
+                <div class="flex items-center flex-auto bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm relative">
                     <!-- Hidden file input for main chat -->
                     <input type="file" (change)="upload($event, false)" #fileInputMain class="hidden">
 
@@ -126,10 +126,24 @@
                         <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
                     </button>
 
-                    <input class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
+                    <input #mainInput class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0"
                         [placeholder]="('app.we_use_gemini' | transloco)"
-                        (keyup.enter)="(!isLoading && (goiy?.trim() || attachedFileMain)) && chatgpt(goiy)" [(ngModel)]="goiy" required [disabled]="isLoading" />
+                        (input)="onChatInput($event)"
+                        (keydown)="onChatKeyDown($event, mainInput)"
+                        (keyup.enter)="!ignoreNextEnter && !showMentions && (!isLoading && (goiy?.trim() || attachedFileMain)) && chatgpt(goiy)" [(ngModel)]="goiy" required [disabled]="isLoading" />
                     
+                    <!-- Suggestions Dropdown -->
+                    <div *ngIf="showMentions && filteredMentionOptions.length > 0" 
+                         class="absolute top-[110%] left-0 z-50 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden">
+                        <div *ngFor="let option of filteredMentionOptions; let i = index" 
+                             (click)="selectMention(option, mainInput)"
+                             class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
+                             [ngClass]="{'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300': i === mentionIndex, 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50': i !== mentionIndex}">
+                            <mat-icon class="icon-size-4 mr-3 text-current" [svgIcon]="option.icon"></mat-icon>
+                            <span class="font-medium text-sm">{{ option.id }}</span>
+                        </div>
+                    </div>
+
                     <button mat-mini-fab color="primary" [disabled]="isLoading || (!goiy?.trim() && !attachedFileMain)" (click)="!isLoading && chatgpt(goiy)"
                         class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
                         [matTooltip]="('app.send_question_to_gemini' | transloco)">
@@ -169,7 +183,7 @@
 
 
 
-                <ngx-datatable-column [name]="('app.time' | transloco)" [width]="150" [sortable]="false" [canAutoResize]="false"
+                <ngx-datatable-column [name]="('app.time' | transloco)" [width]="90" [sortable]="false" [canAutoResize]="false"
                     [draggable]="false" [resizeable]="false">
                     <ng-template let-rowIndex="rowIndex" let-row="row" ngx-datatable-cell-template>
                         {{ row?.updatedAt | timeago }}
@@ -270,7 +284,7 @@
                     </div>
 
                     <!-- Styled Input Container -->
-                    <div class="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm">
+                    <div class="flex items-center bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-700 rounded-lg px-3 py-1.5 shadow-sm relative">
                         <!-- Hidden file input for follow-up chat -->
                         <input type="file" (change)="upload($event, true, chatInput)" #fileInputFollow class="hidden">
 
@@ -281,12 +295,24 @@
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:paper-clip'"></mat-icon>
                         </button>
 
-                        <input #chatInput (input)="0" class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0" 
+                        <input #chatInput (input)="onChatInput($event, chatInput)" (keydown)="onChatKeyDown($event, chatInput)" class="w-full text-base font-normal bg-transparent border-none outline-none text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-500 focus:ring-0" 
                             placeholder="Hỏi tiếp từ prompt này..."
                             [disabled]="activeChatRow['chatLoading']"
-                            (keyup.enter)="triggerFollowUp(activeChatRow, chatInput)">
+                            (keyup.enter)="!ignoreNextEnter && !showMentions && triggerFollowUp(activeChatRow, chatInput)">
                         
-                        <button mat-mini-fab color="primary" [disabled]="activeChatRow['chatLoading'] || (!chatInput.value?.trim() && !attachedFileFollow)" (click)="triggerFollowUp(activeChatRow, chatInput)"
+                        <!-- Suggestions Dropdown -->
+                        <div *ngIf="showMentions && filteredMentionOptions.length > 0" 
+                             class="absolute bottom-[110%] left-0 z-50 w-64 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 py-1 overflow-hidden">
+                            <div *ngFor="let option of filteredMentionOptions; let i = index" 
+                                 (click)="selectMention(option, chatInput)"
+                                 class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
+                                 [ngClass]="{'bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-300': i === mentionIndex, 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50': i !== mentionIndex}">
+                                <mat-icon class="icon-size-4 mr-3 text-current" [svgIcon]="option.icon"></mat-icon>
+                                <span class="font-medium text-sm">{{ option.id }}</span>
+                            </div>
+                        </div>
+
+                        <button mat-mini-fab color="primary" [disabled]="activeChatRow['chatLoading'] || (!chatInput.value?.trim() && !attachedFileFollow)" (click)="!showMentions && triggerFollowUp(activeChatRow, chatInput)"
                             class="ml-2 w-8 h-8 min-w-8 min-h-8 flex items-center justify-center shadow-sm focus:outline-none shrink-0"
                             [matTooltip]="('app.send_question_to_gemini' | transloco)">
                             <mat-icon class="icon-size-4 text-white" [svgIcon]="'heroicons_solid:paper-airplane'"></mat-icon>
