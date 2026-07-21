@@ -79,8 +79,10 @@
             <ngx-datatable-column [name]="'app.thumbnail' | transloco" prop="thumbnail" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div class="flex items-center justify-center w-full h-full">
-                        <img *ngIf="row.thumbnail" [src]="row.thumbnail" class="object-cover w-8 h-8 rounded shadow-sm">
-                        <div *ngIf="!row.thumbnail" class="flex items-center justify-center w-8 h-8 bg-gray-100 rounded shadow-sm">
+                        <img *ngIf="row.thumbnail" [src]="row.thumbnail" class="object-cover w-8 h-8 rounded-none shadow-sm"
+                             [ngClass]="{'grayscale': row.status === 'pending', 'ring-2 ring-yellow-400': row.status === 'draft'}">
+                        <div *ngIf="!row.thumbnail" class="flex items-center justify-center w-8 h-8 rounded-none shadow-sm"
+                             [ngClass]="{'bg-gray-300': row.status === 'pending', 'bg-yellow-100': row.status === 'draft', 'bg-gray-100': row.status !== 'pending' && row.status !== 'draft'}">
                             <mat-icon class="icon-size-4 text-gray-400" [svgIcon]="'feather:image'"></mat-icon>
                         </div>
                     </div>
@@ -141,8 +143,12 @@
                                 {{ 'app.selected_posts_count' | transloco:{selected: (selectedCount ? selectedCount.toLocaleString() : 0), total: (rowCount ? rowCount.toLocaleString() : 0)} }}
                             </div>
                         </div>
-                        <div class="flex items-center ml-4">
-                            <button mat-flat-button color="primary" *ngIf="selected && selected.length > 0" (click)="publishSelectedPosts()">
+                        <div class="flex items-center ml-4 space-x-2">
+                            <button mat-flat-button class="rounded-none bg-gray-200" *ngIf="selected && selected.length > 0" (click)="unpublishSelectedPosts()">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:archive'"></mat-icon>
+                                <span class="ml-2">Unpublish</span>
+                            </button>
+                            <button mat-flat-button class="rounded-none bg-blue-600 text-white" *ngIf="selected && selected.length > 0" (click)="publishSelectedPosts()">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
                                 <span class="ml-2">Publish</span>
                             </button>

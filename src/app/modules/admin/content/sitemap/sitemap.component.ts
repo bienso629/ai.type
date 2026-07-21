@@ -268,6 +268,51 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.cd.detectChanges();
         }
     }
+    async unpublishSelectedPosts() {
+        if (!this.selected || this.selected.length === 0) return;
+        
+        const postsToUnpublish = this.selected.filter(post => post.status !== 'draft');
+        
+        if (postsToUnpublish.length === 0) {
+            this.toastr.info('Tất cả bài viết đã ở trạng thái draft!');
+            return;
+        }
+
+        this.loadingPosts = true;
+        this.cd.detectChanges();
+
+        const username = this.selectedDomain.wp_username || this.selectedDomain.username;
+        const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+
+        const unpublishTasks = postsToUnpublish.map(post => {
+            const dataForm = {
+                id: post.id,
+                status: 'draft',
+                domain: this.selectedDomain.domain,
+                domain_id: this.selectedDomain._id,
+                sys_username: this.selectedDomain.sys_username,
+                year: this.selectedDomain.year,
+                username: username,
+                apppass: apppass
+            };
+            return firstValueFrom(this._wordpressService.update_post(dataForm));
+        });
+
+        try {
+            const results = await Promise.all(unpublishTasks);
+            this.toastr.success(`Đã unpublish thành công ${results.filter(r => r).length} bài viết!`);
+            this.selected = [];
+            this.page = 1;
+            this.posts = [];
+            this.hasMorePosts = true;
+            this.fetchPosts();
+        } catch (err) {
+            console.error(err);
+            this.toastr.error('Có lỗi xảy ra khi unpublish bài viết');
+            this.loadingPosts = false;
+            this.cd.detectChanges();
+        }
+    }
 
     decodeHTMLEntities(text: string): string {
         if (!text) return '';
