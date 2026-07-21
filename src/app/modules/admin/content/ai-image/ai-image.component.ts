@@ -334,10 +334,12 @@ export class AIImageComponent
                     .pipe(takeUntil(this._unsubscribeAll))
                     .subscribe({
                         next: async (result) => {
-                            if (result) {
+                            if (result && result.message === 'Xóa thành công') {
                                 this.imageUrls.splice(index, 1);
                                 this.rebuildRows();
                                 this.toastr.success('Xóa hình ảnh thành công!');
+                            } else {
+                                this.toastr.warning('Không xóa được hình ảnh (chưa tìm thấy file gốc).');
                             }
                         },
                         error: () => {
