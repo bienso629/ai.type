@@ -110,36 +110,49 @@ class _SitemapScreenState extends State<SitemapScreen> {
       _hasMore = true;
     });
     try {
-      String url = '$_selectedDomain/wp-json/wp/v2/posts?per_page=20&page=$_page&_embed';
+      String? catId;
       if (_selectedCategory != 'Tất cả' && _selectedCategory != 'Đang tải...' && _categoryIds.containsKey(_selectedCategory)) {
-        url += '&categories=${_categoryIds[_selectedCategory]}';
+        catId = _categoryIds[_selectedCategory].toString();
       }
-      final res = await http.get(Uri.parse(url), headers: {
-        'x-api-key': '91cbb423-dcec-4b3d-aee2-d0f29a136d1b',
-      });
-      if (res.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(res.body);
-        if (mounted) {
-          setState(() {
-            if (data.length < 20) _hasMore = false;
-            _posts = data.map((p) {
-              String? imageUrl;
-              if (p['_embedded'] != null && p['_embedded']['wp:featuredmedia'] != null && p['_embedded']['wp:featuredmedia'].isNotEmpty) {
-                imageUrl = p['_embedded']['wp:featuredmedia'][0]['source_url'];
-              }
-              return {
-                'title': p['title']?['rendered'] ?? '',
-                'link': p['link'] ?? '',
-                'date': (p['date'] ?? '').toString().split('T').join(' '),
-                'status': p['status'] ?? 'publish',
-                'imageUrl': imageUrl,
-                'selected': false,
-              };
-            }).toList();
-          });
-        }
-      } else {
-        if (mounted) setState(() => _hasMore = false);
+      
+      String? wpUsername;
+      String? wpPassword;
+      String? domainId;
+      try {
+        final dInfo = _rawDomains.firstWhere((d) => d['domain'] == _selectedDomain);
+        wpUsername = dInfo['username'];
+        wpPassword = dInfo['password'];
+        domainId = dInfo['_id'] ?? dInfo['id'];
+      } catch (_) {}
+
+      final data = await ApiService.fetchWordpressPosts(
+        domain: _selectedDomain,
+        domainId: domainId ?? '',
+        page: _page,
+        perPage: 100,
+        category: catId,
+        wpUsername: wpUsername,
+        wpPassword: wpPassword,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (data.length < 100) _hasMore = false;
+          _posts = data.map((p) {
+            String? imageUrl;
+            if (p['_embedded'] != null && p['_embedded']['wp:featuredmedia'] != null && p['_embedded']['wp:featuredmedia'].isNotEmpty) {
+              imageUrl = p['_embedded']['wp:featuredmedia'][0]['source_url'];
+            }
+            return {
+              'title': p['title']?['rendered'] ?? p['title'] ?? '',
+              'link': p['link'] ?? p['url'] ?? '',
+              'date': (p['date'] ?? '').toString().split('T').join(' '),
+              'status': p['status'] ?? 'publish',
+              'imageUrl': imageUrl ?? p['thumbnail'],
+              'selected': false,
+            };
+          }).toList();
+        });
       }
     } catch (e) {
       print('Fetch posts error: $e');
@@ -152,41 +165,53 @@ class _SitemapScreenState extends State<SitemapScreen> {
     setState(() => _isLoadingMore = true);
     _page++;
     try {
-      String url = '$_selectedDomain/wp-json/wp/v2/posts?per_page=20&page=$_page&_embed';
+      String? catId;
       if (_selectedCategory != 'Tất cả' && _selectedCategory != 'Đang tải...' && _categoryIds.containsKey(_selectedCategory)) {
-        url += '&categories=${_categoryIds[_selectedCategory]}';
+        catId = _categoryIds[_selectedCategory].toString();
       }
+      
+      String? wpUsername;
+      String? wpPassword;
+      String? domainId;
+      try {
+        final dInfo = _rawDomains.firstWhere((d) => d['domain'] == _selectedDomain);
+        wpUsername = dInfo['username'];
+        wpPassword = dInfo['password'];
+        domainId = dInfo['_id'] ?? dInfo['id'];
+      } catch (_) {}
 
-      final res = await http.get(Uri.parse(url), headers: {
-        'x-api-key': '91cbb423-dcec-4b3d-aee2-d0f29a136d1b',
-      });
-      if (res.statusCode == 200) {
-        final List<dynamic> data = jsonDecode(res.body);
-        if (mounted) {
-          setState(() {
-            if (data.isEmpty) {
-              _hasMore = false;
-            } else {
-              if (data.length < 20) _hasMore = false;
-              _posts.addAll(data.map((p) {
-                String? imageUrl;
-                if (p['_embedded'] != null && p['_embedded']['wp:featuredmedia'] != null && p['_embedded']['wp:featuredmedia'].isNotEmpty) {
-                  imageUrl = p['_embedded']['wp:featuredmedia'][0]['source_url'];
-                }
-                return {
-                  'title': p['title']?['rendered'] ?? '',
-                  'link': p['link'] ?? '',
-                  'date': (p['date'] ?? '').toString().split('T').join(' '),
-                  'status': p['status'] ?? 'publish',
-                  'imageUrl': imageUrl,
-                  'selected': _selectAll,
-                };
-              }));
-            }
-          });
-        }
-      } else {
-        if (mounted) setState(() => _hasMore = false);
+      final data = await ApiService.fetchWordpressPosts(
+        domain: _selectedDomain,
+        domainId: domainId ?? '',
+        page: _page,
+        perPage: 100,
+        category: catId,
+        wpUsername: wpUsername,
+        wpPassword: wpPassword,
+      );
+
+      if (mounted) {
+        setState(() {
+          if (data.isEmpty) {
+            _hasMore = false;
+          } else {
+            if (data.length < 100) _hasMore = false;
+            _posts.addAll(data.map((p) {
+              String? imageUrl;
+              if (p['_embedded'] != null && p['_embedded']['wp:featuredmedia'] != null && p['_embedded']['wp:featuredmedia'].isNotEmpty) {
+                imageUrl = p['_embedded']['wp:featuredmedia'][0]['source_url'];
+              }
+              return {
+                'title': p['title']?['rendered'] ?? p['title'] ?? '',
+                'link': p['link'] ?? p['url'] ?? '',
+                'date': (p['date'] ?? '').toString().split('T').join(' '),
+                'status': p['status'] ?? 'publish',
+                'imageUrl': imageUrl ?? p['thumbnail'],
+                'selected': _selectAll,
+              };
+            }));
+          }
+        });
       }
     } catch (e) {
       print('Fetch more posts error: $e');
@@ -481,87 +506,111 @@ class _SitemapScreenState extends State<SitemapScreen> {
                       ),
                     ],
                   ),
-                  child: Container(
-                    color: post['status'] == 'pending'
-                        ? Colors.grey[200]
-                        : (post['status'] == 'draft' ? Colors.yellow[100] : null),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        SizedBox(
-                          width: 24,
-                          height: 24,
-                          child: Checkbox(
-                            value: post['selected'] as bool,
-                            onChanged: (val) {
-                              _toggleSelect(index, val);
-                              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text('Đã chọn $_selectedCount trong ${_posts.length} bài viết'),
-                                  duration: const Duration(seconds: 1),
-                                ),
-                              );
-                            },
-                            activeColor: AppColors.primary,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        if (post['imageUrl'] != null)
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(6),
-                            child: Image.network(
-                              post['imageUrl'] as String,
-                              width: 48,
-                              height: 48,
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) => Container(
+                  child: Builder(
+                    builder: (context) {
+                      Color titleColor = Colors.black87;
+                      Color dateColor = Colors.grey;
+                      
+                      if (post['status'] == 'pending') {
+                        titleColor = Colors.grey;
+                        dateColor = Colors.grey[400]!;
+                      } else if (post['status'] == 'draft') {
+                        titleColor = Colors.amber[700]!;
+                        dateColor = Colors.amber[600]!;
+                      }
+
+                      Widget imageWidget = post['imageUrl'] != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(6),
+                              child: Image.network(
+                                post['imageUrl'] as String,
                                 width: 48,
                                 height: 48,
+                                fit: BoxFit.cover,
+                                errorBuilder: (context, error, stackTrace) => Container(
+                                  width: 48,
+                                  height: 48,
+                                  color: Colors.grey[200],
+                                  child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
                                 color: Colors.grey[200],
-                                child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
+                                borderRadius: BorderRadius.circular(6),
                               ),
-                            ),
-                          )
-                        else
-                          Container(
-                            width: 48,
-                            height: 48,
-                            decoration: BoxDecoration(
-                              color: Colors.grey[200],
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: const Icon(Icons.image, color: Colors.grey, size: 20),
-                          ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
+                              child: const Icon(Icons.image, color: Colors.grey, size: 20),
+                            );
+
+                      if (post['status'] == 'pending') {
+                        imageWidget = ColorFiltered(
+                          colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
+                          child: imageWidget,
+                        );
+                      } else if (post['status'] == 'draft') {
+                        imageWidget = ColorFiltered(
+                          colorFilter: ColorFilter.mode(Colors.yellow.withOpacity(0.3), BlendMode.srcATop),
+                          child: imageWidget,
+                        );
+                      }
+
+                      return Container(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Text(
-                                _unescape.convert(post['title'] as String),
-                                style: const TextStyle(color: Colors.black87, fontSize: 14),
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
+                              SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: Checkbox(
+                                  value: post['selected'] as bool,
+                                  onChanged: (val) {
+                                    _toggleSelect(index, val);
+                                    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text('Đã chọn $_selectedCount trong ${_posts.length} bài viết'),
+                                        duration: const Duration(seconds: 1),
+                                      ),
+                                    );
+                                  },
+                                  activeColor: AppColors.primary,
+                                ),
                               ),
-                              const SizedBox(height: 4),
-                              Text(
-                                post['date'] as String,
-                                style: const TextStyle(color: Colors.grey, fontSize: 12),
+                              const SizedBox(width: 8),
+                              imageWidget,
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      _unescape.convert(post['title'] as String),
+                                      style: TextStyle(color: titleColor, fontSize: 14),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      post['date'] as String,
+                                      style: TextStyle(color: dateColor, fontSize: 12),
+                                    ),
+                                  ],
+                                ),
                               ),
                             ],
                           ),
                         ),
-                      ],
-                    ),
-                  ),
+                      );
+                    },
                   ),
                 );
               },
-            ),
           ),
         ),
       ],
