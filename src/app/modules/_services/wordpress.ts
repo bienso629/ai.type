@@ -115,7 +115,7 @@ export class WordpressService {
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
-        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? dataForm.domainObj.id : null) || dataForm.id;
+        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
 
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/update`;
 
@@ -161,7 +161,7 @@ export class WordpressService {
         let dataForm: any = {
              domain: domain,
              b64: b64,
-             domain_id: domainObj ? domainObj.id : null,
+             domain_id: domainObj ? (domainObj.domain_id || domainObj.id || domainObj._id) : null,
              year: this.year,
              appId: 'ai.typing',
              appToken: activeInfo['user']['appToken'],
@@ -191,6 +191,8 @@ export class WordpressService {
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
+        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
 
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/categories/create`;
 
@@ -241,6 +243,8 @@ export class WordpressService {
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
+        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
 
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/tags/create`;
 
@@ -279,6 +283,8 @@ export class WordpressService {
         dataForm.year = this.year;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
+        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
 
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/create`;
 
