@@ -1491,21 +1491,55 @@ Không dùng markdown \`\`\`json.`;
     loadScheduleFromDB() {
         this._domainService.fetch({ username: this.user.name }).subscribe({
             next: (res: any) => {
-                if (res && res.result && res.result.length > 0) {
-                    const domainsWithPlan = res.result.filter((d: any) => d.plan && d.plan.length > 0);
-                    if (domainsWithPlan.length > 0) {
-                        const currentMonth = new Date().getMonth() + 1;
-                        const currentYear = new Date().getFullYear();
-                        domainsWithPlan.forEach((d: any) => {
-                            if (!d.monthlyTarget) {
-                                d.monthlyTarget = this.getResolvedTarget(d.domain, currentMonth, currentYear);
+                let domains: any[] = [];
+                if (res && res.success && Array.isArray(res.data)) {
+                    domains = res.data;
+                } else if (res && Array.isArray(res.result)) {
+                    domains = res.result;
+                } else if (Array.isArray(res)) {
+                    domains = res;
+                }
+
+                if (domains.length > 0) {
+                    const currentMonth = new Date().getMonth() + 1;
+                    const currentYear = new Date().getFullYear();
+                    domains.forEach((d: any) => {
+                        if (!d.monthlyTarget) {
+                            d.monthlyTarget = this.getResolvedTarget(d.domain, currentMonth, currentYear);
+                        }
+                        d.plan = []; // Initialize empty plan
+                    });
+
+                    // Fetch tasks from tasks db
+                    this._tasksService.fetch({ username: this.user.name, year: currentYear }).subscribe({
+                        next: (tasksRes: any) => {
+                            let tasks: any[] = [];
+                            if (Array.isArray(tasksRes)) {
+                                tasks = tasksRes;
+                            } else if (tasksRes && Array.isArray(tasksRes.data)) {
+                                tasks = tasksRes.data;
+                            } else if (tasksRes && Array.isArray(tasksRes.result)) {
+                                tasks = tasksRes.result;
                             }
-                        });
-                        this.processDomains(domainsWithPlan, undefined, currentMonth, false);
-                    } else {
-                        // Nếu chưa có plan nào trong DB, thử fallback về localStorage
-                        this.loadScriptState();
-                    }
+                            
+                            if (tasks.length > 0) {
+                                // Map tasks to their corresponding domains
+                                domains.forEach((d: any, index: number) => {
+                                    d.plan = tasks.filter((t: any) => 
+                                        t.domain_id === index || 
+                                        t.domain_id === d.domain || 
+                                        t.domain_id === d.id || 
+                                        t.domain_id === d._id
+                                    );
+                                });
+                            }
+                            this.processDomains(domains, undefined, currentMonth, false);
+                        },
+                        error: () => {
+                            // If tasks fail to load, still process domains
+                            this.processDomains(domains, undefined, currentMonth, false);
+                        }
+                    });
                 } else {
                     this.loadScriptState();
                 }
@@ -1523,6 +1557,61 @@ Không dùng markdown \`\`\`json.`;
             this.multiAccountService.setItem(this.STORAGE_KEY + '_CHAT', this.chatHistory);
             this.multiAccountService.setItem(this.STORAGE_KEY + '_DISABLED_DATES', Array.from(this.disabledDates));
             
+            // Cập nhật ngữ cảnh cho Global AI Agent trên Header
+            if (this._globalAgentService) {
+                const summaryData = this.items.map(item => {
+                    const streamItems = item.childrenItems?.[0]?.streamItems || [];
+                    return {
+                        domain: item.name,
+                        monthlyTarget: item.domainData?.monthlyTarget || 0,
+                        note: item.domainData?.note || 'Chưa có phân tích',
+                        tasksCount: streamItems.length,
+                        tasks: streamItems.map((t: any) => ({
+                            name: t.name,
+                            startDate: t.startDate,
+                            endDate: t.endDate,
+                            meta: t.meta || ''
+                        }))
+                    };
+                });
+                const tzOffset = -(new Date().getTimezoneOffset() / 60);
+                const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
+                const disabledStr = Array.from(this.disabledDates).join(', ');
+
+                this._globalAgentService.updateContext({
+                    sourcePage: 'Lịch làm việc (Schedule)',
+                    action: 'schedule_tasks',
+                    data: summaryData,
+                    prompt: `BẠN LÀ MỘT HỆ THỐNG XỬ LÝ DỮ LIỆU. BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT KHỐI CODE JSON \`\`\`json [ ... ] \`\`\`.
+KHÔNG ĐƯỢC PHÉP TRẢ LỜI BẤT KỲ VĂN BẢN NÀO KHÁC BÊN NGOÀI KHỐI CODE JSON.
+KHÔNG ĐƯỢC CHÀO HỎI. KHÔNG ĐƯỢC GIẢI THÍCH. KHÔNG ĐƯỢC NHẮC ĐẾN LƯU FILE HAY COMMAND.JSON.
+
+Mảng JSON phải có cấu trúc: { "domain": "...", "tasks": [ { "name": "...", "meta": "...", "startDate": "YYYY-MM-DDTHH:mm:ss", "endDate": "YYYY-MM-DDTHH:mm:ss" } ] }.
+
+YÊU CẦU TẠO TASK:
+- Dựa vào 'monthlyTarget' và 'note' (phân tích ngách) của từng domain, tạo CÁC TIÊU ĐỀ BÀI VIẾT THẬT PHONG PHÚ, CỤ THỂ, ĐA DẠNG theo đúng mục tiêu của số ngày được yêu cầu. Ví dụ: Nếu người dùng yêu cầu phân bổ cho 1 ngày cụ thể, chỉ tạo task cho ngày đó với số lượng task phù hợp. Nếu yêu cầu cho cả tháng, phân bổ đều.
+- TUYỆT ĐỐI KHÔNG viết chung chung kiểu "Viết 4 bài chuẩn SEO". Nếu cần 4 bài, hãy tạo ra 4 task riêng biệt với 4 tiêu đề cụ thể khác nhau. Trường "name" chính là tiêu đề bài viết.
+- Để tạo task mới: KHÔNG trả về trường "id". Sửa task: giữ nguyên "id". Xóa task: trả về "_deleted": true kèm "id".
+- TẤT CẢ task cùng 1 ngày BẮT BUỘC startDate là 08:00:00 và endDate 17:00:00. Định dạng local: "YYYY-MM-DDTHH:mm:ss" (không có Z).
+NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG lên lịch vào ngày này. Múi giờ: GMT${tzString}.
+
+ĐỊNH DẠNG TRẢ VỀ BẮT BUỘC (CHỈ GỒM CODE JSON, KHÔNG CÓ TEXT NÀO KHÁC):
+\`\`\`json
+[
+  {
+    "domain": "type.vn",
+    "tasks": [
+      {
+        "name": "Cách viết bài chuẩn SEO...",
+        "startDate": "2026-07-21T08:00:00",
+        "endDate": "2026-07-21T17:00:00"
+      }
+    ]
+  }
+]
+\`\`\``
+                });
+            }
         } catch (e) { console.error('Lỗi khi lưu lịch làm việc:', e); }
     }
 
@@ -1622,6 +1711,34 @@ Không dùng markdown \`\`\`json.`;
         this.items = [...this.items];
         this.cd.markForCheck();
         this.toastr.info('Đã xóa ngữ cảnh AI và kịch bản cũ.');
+    }
+
+    resetCurrentMonth() {
+        const currentMonth = this.month || (new Date().getMonth() + 1);
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Khôi phục Mặc định',
+            message: `Bạn có chắc chắn muốn xóa toàn bộ công việc trong tháng ${currentMonth} không? Hành động này không thể hoàn tác!`,
+            icon: { show: true, name: 'feather:alert-triangle', color: 'error' },
+            actions: { confirm: { show: true, label: 'Xóa Tất Cả', color: 'warn' }, cancel: { show: true, label: 'Hủy' } },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe((result) => {
+            if (result === 'confirmed') {
+                this.items.forEach(domain => {
+                    if (domain.childrenItems && domain.childrenItems[0]) {
+                        domain.childrenItems[0].streamItems = [];
+                    }
+                    if (domain.domainData) {
+                        domain.domainData.plan = [];
+                    }
+                });
+                this.disabledDates.clear();
+                this.saveScriptState();
+                this.cd.detectChanges();
+                this.toastr.success(`Đã xóa toàn bộ công việc tháng ${currentMonth}.`);
+            }
+        });
     }
 
     cleanText() { this.deleteSelectedRows(); }
@@ -2468,12 +2585,22 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         (existingDomain as any).domainData.plan = newTasks;
                         
                         // Cập nhật hoặc thêm mới task, KHÔNG XÓA task cũ
+                        const safeDomainId = (existingDomain as any).domainData?.domain || (existingDomain as any).name || existingDomain.id;
                         this._tasksService.fetch({ username: this.user.name, year: new Date().getFullYear() }).pipe(takeUntil(this._unsubscribeAll)).subscribe((resFetch: any) => {
-                            if (resFetch && resFetch.data) {
-                                const oldTasks = resFetch.data.filter((t: any) => t.domain_id === existingDomain.id);
+                            let fetchedTasks: any[] = [];
+                            if (Array.isArray(resFetch)) {
+                                fetchedTasks = resFetch;
+                            } else if (resFetch && Array.isArray(resFetch.data)) {
+                                fetchedTasks = resFetch.data;
+                            } else if (resFetch && Array.isArray(resFetch.result)) {
+                                fetchedTasks = resFetch.result;
+                            }
+                            
+                            if (fetchedTasks.length > 0) {
+                                const oldTasks = fetchedTasks.filter((t: any) => t.domain_id === safeDomainId || t.domain_id === existingDomain.id);
                                 
                                 newTasks.forEach((task: any) => {
-                                    task.domain_id = existingDomain.id;
+                                    task.domain_id = safeDomainId;
                                     const oldTask = oldTasks.find((ot: any) => ot.id === task.id || ot._id === task.id);
                                     
                                     if (oldTask) {
@@ -2483,6 +2610,12 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                     } else {
                                         this._tasksService.add({ username: this.user.name, task: task }).subscribe();
                                     }
+                                });
+                            } else {
+                                // If no old tasks, just add new ones
+                                newTasks.forEach((task: any) => {
+                                    task.domain_id = safeDomainId;
+                                    this._tasksService.add({ username: this.user.name, task: task }).subscribe();
                                 });
                             }
                         });

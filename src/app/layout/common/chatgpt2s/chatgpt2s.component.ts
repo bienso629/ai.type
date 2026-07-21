@@ -524,11 +524,27 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 // Remove the mention from the question
                 const cleanQuestion = question.replace('@' + matchedMention.id, '').trim();
                 
-                // Navigate to the screen
+                // Check if already on the target page with correct context
+                const currentContext = this.globalAgentService.getContext();
+                const isAlreadyOnTarget = currentContext && currentContext.sourcePage && currentContext.sourcePage.toLowerCase().includes(matchedMention.id.toLowerCase());
+                
+                if (isAlreadyOnTarget) {
+                    this.goiy = '';
+                    if (cleanQuestion) {
+                        this.chatgpt(cleanQuestion, index);
+                    }
+                    return;
+                }
+
+                // Navigate to the screen (force reload to ensure ngOnInit triggers if same URL but different panel)
                 if (matchedMention.panel) {
-                    this._router.navigate([matchedMention.url], { state: { panel: matchedMention.panel } });
+                    this._router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
+                        this._router.navigate([matchedMention.url], { state: { panel: matchedMention.panel } });
+                    });
                 } else {
-                    this._router.navigate([matchedMention.url]);
+                    this._router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
+                        this._router.navigate([matchedMention.url]);
+                    });
                 }
                 this.goiy = '';
                 
