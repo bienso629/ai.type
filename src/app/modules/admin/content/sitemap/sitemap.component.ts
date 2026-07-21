@@ -260,6 +260,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.page = 1;
             this.posts = [];
             this.hasMorePosts = true;
+            this.loadingPosts = false;
             this.fetchPosts();
         } catch (err) {
             console.error(err);
@@ -305,6 +306,7 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.page = 1;
             this.posts = [];
             this.hasMorePosts = true;
+            this.loadingPosts = false;
             this.fetchPosts();
         } catch (err) {
             console.error(err);
