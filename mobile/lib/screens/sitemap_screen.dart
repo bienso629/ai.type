@@ -545,18 +545,6 @@ class _SitemapScreenState extends State<SitemapScreen> {
                               child: const Icon(Icons.image, color: Colors.grey, size: 20),
                             );
 
-                      if (post['status'] == 'pending') {
-                        imageWidget = ColorFiltered(
-                          colorFilter: const ColorFilter.mode(Colors.grey, BlendMode.saturation),
-                          child: imageWidget,
-                        );
-                      } else if (post['status'] == 'draft') {
-                        imageWidget = ColorFiltered(
-                          colorFilter: ColorFilter.mode(Colors.yellow.withOpacity(0.3), BlendMode.srcATop),
-                          child: imageWidget,
-                        );
-                      }
-
                       return Container(
                         child: Padding(
                           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -611,6 +599,7 @@ class _SitemapScreenState extends State<SitemapScreen> {
                   ),
                 );
               },
+            ),
           ),
         ),
       ],
