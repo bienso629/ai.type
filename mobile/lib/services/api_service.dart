@@ -780,4 +780,41 @@ class ApiService {
     }
     return false;
   }
+
+  static Future<Map<String, dynamic>?> getAdminLicenseKeys() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return null;
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      if (server == null) return null;
+      
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      if (baseUrl == null) return null;
+
+      final url = Uri.parse('$baseUrl/licensekey/all');
+      
+      final dataForm = {
+        'year': 2023,
+        'appId': 'ai.typing',
+        'appToken': activeInfo['user']['appToken'],
+      };
+      
+      final encParams = encryptAES(dataForm);
+      final res = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'params': encParams}),
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      print('getAdminLicenseKeys error: $e');
+    }
+    return null;
+  }
 }
