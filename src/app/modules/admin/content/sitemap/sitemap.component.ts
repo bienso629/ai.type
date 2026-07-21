@@ -255,13 +255,21 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
         try {
             const results = await Promise.all(publishTasks);
-            this.toastr.success(`Đã publish thành công ${results.filter(r => r).length} bài viết!`);
+            const successCount = results.filter(r => r).length;
+            this.toastr.success(`Đã publish thành công ${successCount} bài viết!`);
+            
+            const updatedIds = postsToPublish.map(p => p.id);
+            this.posts = this.posts.map(p => {
+                if (updatedIds.includes(p.id)) {
+                    return { ...p, status: 'publish' };
+                }
+                return p;
+            });
+            this.posts = [...this.posts]; // trigger change detection
+
             this.selected = [];
-            this.page = 1;
-            this.posts = [];
-            this.hasMorePosts = true;
             this.loadingPosts = false;
-            this.fetchPosts();
+            this.cd.detectChanges();
         } catch (err) {
             console.error(err);
             this.toastr.error('Có lỗi xảy ra khi publish bài viết');
@@ -301,13 +309,21 @@ export class SitemapComponent implements OnInit, OnDestroy {
 
         try {
             const results = await Promise.all(unpublishTasks);
-            this.toastr.success(`Đã unpublish thành công ${results.filter(r => r).length} bài viết!`);
+            const successCount = results.filter(r => r).length;
+            this.toastr.success(`Đã unpublish thành công ${successCount} bài viết!`);
+            
+            const updatedIds = postsToUnpublish.map(p => p.id);
+            this.posts = this.posts.map(p => {
+                if (updatedIds.includes(p.id)) {
+                    return { ...p, status: 'draft' };
+                }
+                return p;
+            });
+            this.posts = [...this.posts]; // trigger change detection
+
             this.selected = [];
-            this.page = 1;
-            this.posts = [];
-            this.hasMorePosts = true;
             this.loadingPosts = false;
-            this.fetchPosts();
+            this.cd.detectChanges();
         } catch (err) {
             console.error(err);
             this.toastr.error('Có lỗi xảy ra khi unpublish bài viết');
