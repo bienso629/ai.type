@@ -15,8 +15,9 @@ declare var TurndownService: any;
     selector: 'edit-before-export-sheet',
     styles: [`
         ::ng-deep .edit-before-export-quill .ql-container {
-            max-height: 45vh !important;
-            min-height: 250px !important;
+            height: 35vh !important;
+            max-height: 400px !important;
+            overflow-y: auto !important;
         }
         ::ng-deep .edit-before-export-quill .ql-editor {
             padding: 16px !important;
@@ -33,11 +34,11 @@ declare var TurndownService: any;
             </button>
         </div>
 
-        <div mat-dialog-content class="mt-2 p-0 overflow-hidden" style="max-height: none;">
+        <div class="mt-2 p-0">
             <form [formGroup]="editorForm">
                 <div class="flex flex-col p-0 bg-white rounded-md">
                     <div class="my-1 flex flex-row" *ngIf="data.function === 'share' || data.function === 'update'">
-                        <ng-select class="custom-select-ai-writer"
+                        <ng-select class="custom-select-ai-writer flex-1"
                             placeholder="Chọn danh mục" [items]="categoryitems" multiple="true" bindLabel="name" bindValue="id" [clearable]="true" [formControlName]="'categories'" [dropdownPosition]="'bottom'" [addTag]="addCategory" (clear)="onClearCategory()" (add)="onAddCategory($event)" (remove)="onRemoveCategory($event)" (change)="onChangeCategory($event)" [loading]="loading" appendTo="body">
                             <ng-template ng-tag-tmp let-search="searchTerm">
                                 <mat-label class="text-base">Click để tạo danh mục mới:
@@ -45,7 +46,7 @@ declare var TurndownService: any;
                             </ng-template>
                         </ng-select>
 
-                        <ng-select class="custom-select-ai-writer ml-2"
+                        <ng-select class="custom-select-ai-writer ml-2 flex-1"
                             placeholder="Chọn thẻ" [items]="tagitems" multiple="true" bindLabel="name" bindValue="id" [clearable]="true" [formControlName]="'tags'" [dropdownPosition]="'bottom'" [addTag]="addTag" (clear)="onClearTag()" (add)="onAddTag($event)" (remove)="onRemoveTag($event)" (change)="onChangeTag($event)" [loading]="loading" appendTo="body">
                             <ng-template ng-tag-tmp let-search="searchTerm">
                                 <mat-label class="text-base">Click để tạo thẻ mới:
@@ -58,7 +59,7 @@ declare var TurndownService: any;
                     <div class="my-1"><mat-label><b>Khoá chính:</b> {{this.data.mainkey || "Chưa có khoá chính"}}</mat-label></div> -->
 
                     <div class="my-1 flex flex-col w-full">
-                        <quill-editor class="w-full mt-2 edit-before-export-quill" theme="snow" format="html" placeholder="Nhập nội dung" [formControlName]="'content'" (onEditorCreated)="getEditorInstance($event)" [modules]="quillModules"><div quill-editor-toolbar> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <select class="ql-header hover:bg-slate-100"> <option value="1">Heading</option> <option value="2">Subheading</option> <option selected>Normal</option> </select> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-bold !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-italic !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-underline !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="ordered"></button> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="bullet"></button> <select class="ql-align !border !border-solid !border-slate-300 rounded hover:bg-slate-100"> <option label="left" selected></option> <option label="center" value="center"></option> <option label="right" value="right"></option> <option label="justify" value="justify"></option> </select> </span> <span class="ql-formats inline-flex gap-1 mb-1"> 
+                        <quill-editor class="w-full mt-2 edit-before-export-quill" theme="snow" format="html" placeholder="Nhập nội dung" [formControlName]="'content'" (onEditorCreated)="getEditorInstance($event)" [modules]="quillModules"><div quill-editor-toolbar class="flex flex-wrap items-center"> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <select class="ql-header hover:bg-slate-100"> <option value="1">Heading</option> <option value="2">Subheading</option> <option selected>Normal</option> </select> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-bold !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-italic !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> <button class="ql-underline !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100"></button> </span> <span class="ql-formats inline-flex gap-1 mr-2 mb-1"> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="ordered"></button> <button class="ql-list !border !border-solid !border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" value="bullet"></button> <select class="ql-align !border !border-solid !border-slate-300 rounded hover:bg-slate-100"> <option label="left" selected></option> <option label="center" value="center"></option> <option label="right" value="right"></option> <option label="justify" value="justify"></option> </select> </span> <span class="ql-formats inline-flex gap-1 mb-1">
                             <button class="ql-blockquote !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Quote"><mat-icon class="icon-size-4" [svgIcon]="'feather:message-square'"></mat-icon></button>
                             <button class="ql-code-block !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Code"><mat-icon class="icon-size-4" [svgIcon]="'feather:code'"></mat-icon></button> 
                             <button class="ql-link !border border-solid border-slate-300 rounded flex items-center justify-center hover:bg-slate-100" title="Link"><mat-icon class="icon-size-4" [svgIcon]="'feather:link'"></mat-icon></button> 
@@ -71,7 +72,7 @@ declare var TurndownService: any;
             </form>
         </div>
 
-        <div mat-dialog-actions class="p-0 mt-4 flex justify-end gap-2">
+        <div class="p-0 mt-4 flex justify-end gap-2">
             <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
                 <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
                 <mat-label class="ml-2">Đăng bài</mat-label>
@@ -233,10 +234,11 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 domain: this.editorForm.get('domain').value,
                 username: this.editorForm.get('username').value,
                 apppass: this.editorForm.get('apppass').value,
+                domainObj: this.domain,
             }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                 next: async (result) => {
                     if (result) {
-                        const newId = result.id || (result.data ? result.data.id : null);
+                        const newId = result.id || (result.data ? (Array.isArray(result.data) ? result.data[0]?.id : result.data.id) : null);
                         if (newId) {
                             $event.id = newId;
                             let temp = this.editorForm.get('categories').value || [];
@@ -312,10 +314,11 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 domain: this.editorForm.get('domain').value,
                 username: this.editorForm.get('username').value,
                 apppass: this.editorForm.get('apppass').value,
+                domainObj: this.domain,
             }).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                 next: async (result) => {
                     if (result) {
-                        const newId = result.id || (result.data ? result.data.id : null);
+                        const newId = result.id || (result.data ? (Array.isArray(result.data) ? result.data[0]?.id : result.data.id) : null);
                         if (newId) {
                             $event.id = newId;
                             let temp = this.editorForm.get('tags').value || [];
@@ -391,7 +394,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             this.toastr.info(`Đang tải lên ${b64Images.length} hình ảnh...`);
             for (let i = 0; i < b64Images.length; i++) {
                 try {
-                    const result = await firstValueFrom(this._wordpressService.upload_media(domain, b64Images[i], uname, pass));
+                    const result = await firstValueFrom(this._wordpressService.upload_media(domain, b64Images[i], uname, pass, this.domain));
                     if (result && result.source_url) {
                         content = content.replace(b64Images[i], result.source_url);
                     }
@@ -456,7 +459,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             this.toastr.info('Đang tải lên hình ảnh đại diện (thumbnail)...');
 
             try {
-                const result = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass));
+                const result = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass, this.domain));
                 if (result && result.id) {
                     // Set featured_media ID cho bài viết mới
                     this.editorForm.addControl('featured_media', this._formBuilder.control(result.id));
@@ -481,34 +484,37 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         await this.processThumbnailBeforeSave();
         await this.processBase64ImagesBeforeSave();
 
-        this._wordpressService.create_post(this.editorForm.value)
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
-                next: async (result) => {
-                    if (result && result.success && result.data && result.data.id) {
-                        // this.money(result.data);
-                        this._bottomSheetRef.dismiss(result);
-                        this.toastr.success(`Đăng bài ID POST ${result.data.id}!`);
-                    } else {
-                        this.toastr.warning('Đăng bài thất bại.');
-                    }
-                },
-                error: () => {
-                    this.toastr.warning('Đăng bài thất bại.');
-                },
-                complete: () => {
-                    if (this.editorForm.get('save').value) {
-                        const oha: String = this._h.encrypt({
-                            username: this.editorForm.get('username').value,
-                            apppass: this.editorForm.get('apppass').value
-                        }, `${this.domain['domain']}.account.key`);
+        let submitData = {
+            ...this.editorForm.value,
+            domain_id: this.domain ? (this.domain._id || this.domain.id) : null
+        };
 
-                        localStorage.setItem(`${this.domain['domain']}.account`, `${oha}`);
-                    } else {
-                        localStorage.removeItem(`${this.domain['domain']}.account`);
-                    }
+        this._wordpressService.create_post(submitData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+            next: async (result) => {
+                if (result && result.success && result.data && result.data.id) {
+                    // this.money(result.data);
+                    this._bottomSheetRef.dismiss(result);
+                    this.toastr.success(`Đăng bài ID POST ${result.data.id}!`);
+                } else {
+                    this.toastr.warning('Đăng bài thất bại.');
                 }
-            });
+            },
+            error: () => {
+                this.toastr.warning('Đăng bài thất bại.');
+            },
+            complete: () => {
+                if (this.editorForm.get('save').value) {
+                    const oha: String = this._h.encrypt({
+                        username: this.editorForm.get('username').value,
+                        apppass: this.editorForm.get('apppass').value
+                    }, `${this.domain['domain']}.account.key`);
+
+                    localStorage.setItem(`${this.domain['domain']}.account`, `${oha}`);
+                } else {
+                    localStorage.removeItem(`${this.domain['domain']}.account`);
+                }
+            }
+        });
     }
 
     async update(event: MouseEvent): Promise<void> {
@@ -516,9 +522,13 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         await this.processThumbnailBeforeSave();
         await this.processBase64ImagesBeforeSave();
 
-        this._wordpressService.update_post(this.editorForm.value)
-            .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe({
+        let submitData = {
+            ...this.editorForm.value,
+            domain_id: this.domain ? (this.domain._id || this.domain.id) : null
+        };
+
+        if (this.editorForm.get('wp_post_id').value) {
+            this._wordpressService.update_post(submitData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
                 next: async (result) => {
                     if (result && result.id) {
                         this._bottomSheetRef.dismiss(result);
@@ -544,6 +554,34 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                     }
                 }
             });
+        } else {
+            this._wordpressService.create_post(submitData).pipe(takeUntil(this._unsubscribeAll)).subscribe({
+                next: async (result) => {
+                    if (result && result.success && result.data && result.data.id) {
+                        this._bottomSheetRef.dismiss(result);
+                        this.toastr.success(`Đăng bài thành công ID POST ${result.data.id}!`);
+                    } else {
+                        this.toastr.warning('Đăng bài thất bại.');
+                    }
+                },
+                error: (err) => {
+                    this.toastr.error('Lỗi khi đăng bài viết.');
+                    console.error('Create Error:', err);
+                },
+                complete: () => {
+                    if (this.editorForm.get('save').value) {
+                        const oha: String = this._h.encrypt({
+                            username: this.editorForm.get('username').value,
+                            apppass: this.editorForm.get('apppass').value
+                        }, `${this.domain['domain']}.account.key`);
+
+                        localStorage.setItem(`${this.domain['domain']}.account`, `${oha}`);
+                    } else {
+                        localStorage.removeItem(`${this.domain['domain']}.account`);
+                    }
+                }
+            });
+        }
     }
 
     money(post: any) {
