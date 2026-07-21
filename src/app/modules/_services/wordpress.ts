@@ -117,7 +117,7 @@ export class WordpressService {
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
         dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? dataForm.domainObj.id : null) || dataForm.id;
 
-        const url = `${this.config.settings.api[this.user.server]}/wordpress/post/update`;
+        const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/update`;
 
         let options = {
             headers: new HttpHeaders({

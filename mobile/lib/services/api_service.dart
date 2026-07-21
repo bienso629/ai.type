@@ -655,4 +655,79 @@ class ApiService {
     if (response.statusCode == 200) return jsonDecode(response.body);
     return null;
   }
+
+  static Future<List<dynamic>> fetchWordpressPosts({
+    required String domain,
+    required String domainId,
+    required int page,
+    int perPage = 100,
+    String? keyword,
+    String? category,
+    String? wpUsername,
+    String? wpPassword,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/plugins/wordpress/posts/all');
+
+    final dataForm = <String, dynamic>{
+      'domain': domain,
+      'domain_id': domainId,
+      'page': page,
+      'per_page': perPage,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'appToken': activeInfo['user']['appToken'],
+      'sys_username': activeInfo['user']['name'] ?? activeInfo['user']['username'],
+    };
+
+    if (wpUsername != null && wpUsername.isNotEmpty && wpPassword != null && wpPassword.isNotEmpty) {
+      dataForm['username'] = wpUsername;
+      dataForm['apppass'] = wpPassword;
+      dataForm['wp_username'] = wpUsername;
+      dataForm['wp_password'] = wpPassword;
+      dataForm['status'] = ['publish', 'draft', 'pending'];
+      dataForm['context'] = 'edit';
+    }
+
+    if (keyword != null && keyword.trim().isNotEmpty) {
+      dataForm['keyword'] = keyword.trim();
+      dataForm['search'] = keyword.trim();
+    }
+    if (category != null && category.trim().isNotEmpty) {
+      dataForm['category'] = category;
+      dataForm['categories'] = category;
+    }
+
+    print('DEBUG DATAFORM: $dataForm, ACTIVE_INFO: $activeInfo');
+    final encryptedParams = encryptAES(dataForm);
+    
+    final jwt = generateJWTToken(activeInfo['user']);
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + jwt,
+        'x-api-key': '91cbb423-dcec-4b3d-aee2-d0f29a136d1b',
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(response.body);
+      if (jsonResponse['success'] == true) {
+        return jsonResponse['data'] ?? [];
+      } else {
+        throw Exception(jsonResponse['message'] ?? 'Failed to fetch posts');
+      }
+    } else {
+      throw Exception('Server error: ${response.statusCode} - ${response.body}');
+    }
+  }
 }
