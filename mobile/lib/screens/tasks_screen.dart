@@ -14,6 +14,17 @@ class TasksScreen extends StatefulWidget {
 }
 
 class _TasksScreenState extends State<TasksScreen> {
+  static bool _hasLoadedOnce = false;
+  static List<dynamic> _cachedCollections = [];
+  static Map<String, dynamic>? _cachedSelectedCollection;
+  static List<dynamic> _cachedTasks = [];
+  static String? _cachedBookmark;
+  static bool _cachedHasMore = true;
+  static int _cachedPageNumber = 0;
+  static String _cachedSearchKeyword = '';
+  static String _cachedUsername = '';
+  static double _cachedScrollOffset = 0.0;
+
   bool _isLoading = false;
   List<dynamic> _collections = [];
   Map<String, dynamic>? _selectedCollection;
@@ -26,17 +37,43 @@ class _TasksScreenState extends State<TasksScreen> {
   String _searchKeyword = '';
   
   String _username = '';
-  final ScrollController _scrollController = ScrollController();
+  late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
+    _scrollController = ScrollController(initialScrollOffset: _cachedScrollOffset);
+    if (_hasLoadedOnce) {
+      _collections = _cachedCollections;
+      _selectedCollection = _cachedSelectedCollection;
+      _tasks = _cachedTasks;
+      _bookmark = _cachedBookmark;
+      _hasMore = _cachedHasMore;
+      _pageNumber = _cachedPageNumber;
+      _searchKeyword = _cachedSearchKeyword;
+      _username = _cachedUsername;
+    } else {
+      _initData();
+    }
     _scrollController.addListener(_onScroll);
-    _initData();
   }
+
 
   @override
   void dispose() {
+    _cachedCollections = _collections;
+    _cachedSelectedCollection = _selectedCollection;
+    _cachedTasks = _tasks;
+    _cachedBookmark = _bookmark;
+    _cachedHasMore = _hasMore;
+    _cachedPageNumber = _pageNumber;
+    _cachedSearchKeyword = _searchKeyword;
+    _cachedUsername = _username;
+    if (_scrollController.hasClients) {
+      _cachedScrollOffset = _scrollController.offset;
+    }
+    _hasLoadedOnce = true;
+    
     _scrollController.dispose();
     super.dispose();
   }
@@ -196,15 +233,24 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
 
-  String _formatTimeAgo(int timestamp) {
-    if (timestamp <= 0) return '';
-    final diff = DateTime.now().difference(DateTime.fromMillisecondsSinceEpoch(timestamp));
-    if (diff.inDays > 365) return '${diff.inDays ~/ 365} years ago';
-    if (diff.inDays > 30) return '${diff.inDays ~/ 30} months ago';
-    if (diff.inDays > 0) return '${diff.inDays} days ago';
-    if (diff.inHours > 0) return '${diff.inHours} hours ago';
-    if (diff.inMinutes > 0) return '${diff.inMinutes} minutes ago';
-    return 'just now';
+  String _formatTimeAgo(dynamic timeData) {
+    if (timeData == null) return '';
+    DateTime? date;
+    if (timeData is int) {
+      if (timeData <= 0) return '';
+      date = DateTime.fromMillisecondsSinceEpoch(timeData);
+    } else if (timeData is String) {
+      date = DateTime.tryParse(timeData);
+    }
+    if (date == null) return '';
+
+    final diff = DateTime.now().difference(date);
+    if (diff.inDays > 365) return '${diff.inDays ~/ 365} năm trước';
+    if (diff.inDays > 30) return '${diff.inDays ~/ 30} tháng trước';
+    if (diff.inDays > 0) return '${diff.inDays} ngày trước';
+    if (diff.inHours > 0) return '${diff.inHours} giờ trước';
+    if (diff.inMinutes > 0) return '${diff.inMinutes} phút trước';
+    return 'vừa xong';
   }
 
   void _toggleSelectAll(bool? value) {
@@ -227,21 +273,52 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Widget _buildTaskItem(Map<String, dynamic> task, int index) {
     final title = task['title'] ?? 'Không có tiêu đề';
-    final uid = task['_id'] ?? '';
-    final usage = task['usage'] ?? 0;
-    final timestamp = task['time'] ?? 0;
+    final uid = task['uuid']?.toString() ?? task['_id']?.toString() ?? '';
+    final timestamp = task['createdAt'] ?? task['updatedAt'] ?? task['time'];
     final dateStr = _formatTimeAgo(timestamp);
     
     // WordPress pill
     Widget? wpPill;
-    if (task['wp'] != null && task['wp'].toString().isNotEmpty) {
+    String? domainStr;
+    String? wpIdStr;
+
+    final sourceData = task['source'];
+    if (sourceData != null && sourceData is Map) {
+      if (sourceData['domain'] != null) {
+        if (sourceData['domain'] is String && sourceData['domain'].toString().isNotEmpty) {
+          domainStr = sourceData['domain'].toString();
+        }
+      }
+      if (sourceData['wp_domain'] != null && sourceData['wp_domain'].toString().isNotEmpty) {
+        domainStr = sourceData['wp_domain'].toString();
+      }
+      if (sourceData['wp_post_id'] != null && sourceData['wp_post_id'].toString().isNotEmpty) {
+        wpIdStr = sourceData['wp_post_id'].toString();
+      }
+
+      if (sourceData['wpPosts'] != null && sourceData['wpPosts'] is List && sourceData['wpPosts'].isNotEmpty) {
+        final firstWp = sourceData['wpPosts'][0];
+        if (firstWp is Map) {
+          domainStr ??= firstWp['domain']?.toString();
+          wpIdStr ??= firstWp['id']?.toString() ?? firstWp['wp_post_id']?.toString();
+        }
+      }
+    }
+
+    if (domainStr != null || wpIdStr != null) {
+      final wpText = [
+        if (domainStr != null) domainStr,
+        if (wpIdStr != null) 'ID: $wpIdStr'
+      ].join(' - ');
+
       wpPill = Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
         decoration: BoxDecoration(
-          color: Colors.blue.shade700,
+          color: Colors.blue.shade400.withOpacity(0.3),
           borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.blue),
         ),
-        child: Text('WP: ${task['wp']} ✕', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+        child: Text(wpText, style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
       );
     }
 
@@ -357,27 +434,23 @@ class _TasksScreenState extends State<TasksScreen> {
                         runSpacing: 4,
                         crossAxisAlignment: WrapCrossAlignment.center,
                         children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                            decoration: BoxDecoration(
-                              color: Colors.tealAccent.shade400.withOpacity(0.3),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border.all(color: Colors.teal),
+                          if (dateStr.isNotEmpty)
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade300.withOpacity(0.5),
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: Colors.grey.shade400),
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(Icons.access_time, size: 10, color: Colors.grey.shade700),
+                                  const SizedBox(width: 4),
+                                  Text(dateStr, style: TextStyle(color: Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
+                                ],
+                              ),
                             ),
-                            child: Text(
-                              uid.length > 8 ? uid.substring(0, 8) : uid,
-                              style: const TextStyle(color: Colors.teal, fontSize: 11, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.history, size: 12, color: Colors.grey),
-                              const SizedBox(width: 4),
-                              Text('$usage lần', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                            ],
-                          ),
-                          Text(dateStr, style: const TextStyle(color: Colors.grey, fontSize: 12)),
                           if (wpPill != null) wpPill,
                         ],
                       ),
@@ -398,7 +471,7 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Công việc đang làm', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text('Tác vụ đang làm', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,

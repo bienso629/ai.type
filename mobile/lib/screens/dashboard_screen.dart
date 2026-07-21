@@ -12,7 +12,8 @@ import '../services/api_service.dart';
 import '../widgets/profile_popup.dart';
 import 'home_tab.dart';
 import 'tasks_screen.dart';
-import 'login_screen.dart';
+import 'domain_screen.dart';
+import 'settings_screen.dart';
 import 'tools_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -65,13 +66,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
     const HomeTab(),
     const ToolsScreen(),
     const TasksScreen(),
-    const Center(child: Text('Cài đặt', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold))),
+    const SettingsScreen(),
   ];
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.background,
+    return ScaffoldMessenger(
+      child: Scaffold(
+        backgroundColor: AppColors.background,
       appBar: PreferredSize(
         preferredSize: const Size.fromHeight(kToolbarHeight),
         child: Container(
@@ -275,7 +277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ),
         ),
       ),
-    );
+    ));
   }
 
   Widget _buildNavItem(int index, dynamic icon, dynamic activeIcon, String label) {
@@ -284,6 +286,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       onTap: () {
         if (index == 2) {
           Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen()));
+        } else if (index == 3) {
+          Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
         } else {
           setState(() {
             _currentIndex = index;

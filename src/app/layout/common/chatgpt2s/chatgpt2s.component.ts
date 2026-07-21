@@ -23,6 +23,8 @@ import { GenaiService } from 'app/genai.service';
 import { HelperService } from 'app/helper.service';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { GlobalAgentService } from '../../../modules/_services/global-agent.service';
+import { Router } from '@angular/router';
 
 @Component({
     selector: 'chatgpt2s',
@@ -77,6 +79,16 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     chatgpt2s: any[] = [];
     expanded: any = {};
     goiy: string = '';
+    
+    showMentions: boolean = false;
+    mentionIndex: number = 0;
+    ignoreNextEnter: boolean = false;
+    mentionOptions = [
+        { id: 'Lịch làm việc', icon: 'heroicons_outline:calendar', url: '/amxh', panel: 'schedule' },
+        { id: 'Quản lý bài viết', icon: 'heroicons_outline:document-text', url: '/admin/marketing/clone-product' },
+        { id: 'SEO Links', icon: 'heroicons_outline:link', url: '/admin/marketing/seo-links' }
+    ];
+    filteredMentionOptions: any[] = [];
 
     totalElements: number;
     attachedFileMain: { name: string, type: string, path?: string, base64: string } | null = null;
@@ -447,17 +459,138 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             });
     }
 
+    onChatInput(event: any, inputEl: any) {
+        const val = inputEl.value || '';
+        const lastAt = val.lastIndexOf('@');
+        
+        if (lastAt !== -1) {
+            const query = val.substring(lastAt + 1).toLowerCase();
+            this.filteredMentionOptions = this.mentionOptions.filter(m => m.id.toLowerCase().includes(query));
+            this.showMentions = this.filteredMentionOptions.length > 0;
+            this.mentionIndex = 0;
+        } else {
+            this.showMentions = false;
+        }
+    }
+
+    onChatKeyDown(event: KeyboardEvent, inputEl: any) {
+        if (this.showMentions) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                this.mentionIndex = (this.mentionIndex + 1) % this.filteredMentionOptions.length;
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.mentionIndex = (this.mentionIndex - 1 + this.filteredMentionOptions.length) % this.filteredMentionOptions.length;
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (this.filteredMentionOptions.length > 0) {
+                    this.ignoreNextEnter = true;
+                    this.selectMention(this.filteredMentionOptions[this.mentionIndex], inputEl);
+                    setTimeout(() => this.ignoreNextEnter = false, 100);
+                }
+            } else if (event.key === 'Escape') {
+                this.showMentions = false;
+            }
+        }
+    }
+
+    selectMention(option: any, inputEl?: any) {
+        if (inputEl) {
+            const val = inputEl.value || '';
+            const lastAt = val.lastIndexOf('@');
+            if (lastAt !== -1) {
+                const newVal = val.substring(0, lastAt) + '@' + option.id + ' ';
+                inputEl.value = newVal;
+                inputEl.dispatchEvent(new Event('input'));
+            }
+            inputEl.focus();
+        } else {
+            const lastAt = this.goiy.lastIndexOf('@');
+            if (lastAt !== -1) {
+                this.goiy = this.goiy.substring(0, lastAt) + '@' + option.id + ' ';
+            }
+        }
+        this.showMentions = false;
+    }
+
     async chatgpt(question: string, index?: number) {
         if (this.isLoading) return;
 
         if (question) {
+            // Check for @mentions
+            const matchedMention = this.mentionOptions.find(m => question.includes('@' + m.id));
+            if (matchedMention) {
+                // Remove the mention from the question
+                const cleanQuestion = question.replace('@' + matchedMention.id, '').trim();
+                
+                // Navigate to the screen
+                if (matchedMention.panel) {
+                    this._router.navigate([matchedMention.url], { state: { panel: matchedMention.panel } });
+                } else {
+                    this._router.navigate([matchedMention.url]);
+                }
+                this.goiy = '';
+                
+                // Wait for navigation and component init, then send prompt to THIS agent
+                if (cleanQuestion) {
+                    this.globalAgentService.clearContext(); // Clear old context
+                    let timeoutId: any;
+                    let sub: any;
+                    
+                    sub = this.globalAgentService.currentContext$.subscribe(ctx => {
+                        if (ctx && ctx.action) {
+                            clearTimeout(timeoutId);
+                            if (sub) sub.unsubscribe();
+                            this.chatgpt(cleanQuestion, index);
+                        }
+                    });
+                    
+                    // Fallback in case component takes too long or doesn't set context
+                    timeoutId = setTimeout(() => {
+                        if (sub) sub.unsubscribe();
+                        this.chatgpt(cleanQuestion, index);
+                    }, 5000); // 5 seconds wait
+                }
+                return;
+            }
             if (this.secretKey) {
                 // Đọc cài đặt
                 const settings = this.multiAccountService.getItem('settings');
                 const isAiAgentEnabled = settings?.enableAiAgent === true;
 
                 // Chuẩn bị tin nhắn của user
-                const prompt = `Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
+                let systemContext = '';
+                const agentContext = this.globalAgentService.getContext();
+                const latestApiData = this.globalAgentService.getApiData();
+                let apiContextStr = '';
+                
+                try {
+                    if (latestApiData && Object.keys(latestApiData).length > 0) {
+                        apiContextStr = '\n- Dữ liệu API gần đây:\n' + JSON.stringify(latestApiData).substring(0, 10000);
+                    }
+                } catch (e) {}
+
+                if (agentContext) {
+                    let ctxData = '';
+                    try { ctxData = JSON.stringify(agentContext.data).substring(0, 3000); } catch (e) {}
+                    systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt (chính xác nhất, cập nhật theo thời gian thực): ${ctxData}${apiContextStr}\n\nHãy ưu tiên trả lời dựa trên Dữ liệu tóm tắt. Dữ liệu API chỉ dùng để bổ sung chi tiết. Nếu có mâu thuẫn về trạng thái (ví dụ task đã xong hay chưa), LUÔN LUÔN tin tưởng Dữ liệu tóm tắt.\n\n`;
+                    
+                    if (agentContext.prompt) {
+                        systemContext += `HƯỚNG DẪN ĐẶC BIỆT TỪ MÀN HÌNH NÀY: ${agentContext.prompt}\n\n`;
+                    }
+                    
+                    // Removed sendUserPrompt call
+                } else if (apiContextStr) {
+                    systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):${apiContextStr}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
+                }
+
+                let prompt = '';
+                if (agentContext?.action) {
+                    prompt = `${systemContext}Yêu cầu của người dùng: "${question}". Hãy thực hiện chính xác theo HƯỚNG DẪN ĐẶC BIỆT.`;
+                } else {
+                    prompt = `${systemContext}Trả lời câu hỏi: "${question}" một cách ngắn gọn và chính xác. Kết quả trả lời là text thuần, không phải định dạng html hoặc markdown.`;
+                }
                 const parts: any[] = [{ text: prompt }];
                 const userMsg: any = { role: 'user', text: question };
 
@@ -522,6 +655,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         newRow.answer = result.text;
                         newRow.messages.push({ role: 'model', text: result.text });
                         newRow.updatedAt = new Date();
+
+                        // Nếu màn hình hiện tại có yêu cầu action, gửi kết quả về cho màn hình xử lý
+                        if (agentContext && agentContext.action) {
+                            this.globalAgentService.sendActionResult(result.text);
+                        }
 
                         this.chatgptStore(result.text, question, newRow);
                     } else {
@@ -593,6 +731,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
      * Constructor
      */
     constructor(
+        private _router: Router,
         private clipboard: Clipboard,
         private toastr: ToastrService,
         private _chatGPTService: ChatGPTService,
@@ -606,7 +745,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         private _viewContainerRef: ViewContainerRef,
         private _genaiService: GenaiService,
         private _fuseConfirmationService: FuseConfirmationService,
-        private _forumService: ForumService
+        private _forumService: ForumService,
+        public globalAgentService: GlobalAgentService
     ) {
         // lấy secretKey và searchAPIKey
         this.settings = this.multiAccountService.getItem('settings');
@@ -711,6 +851,22 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     triggerFollowUp(row: any, inputElement: HTMLInputElement) {
         const val = inputElement.value ? inputElement.value.trim() : '';
         if (val || this.attachedFileFollow) {
+            // Check for @mentions
+            const matchedMention = this.mentionOptions.find(m => val.includes('@' + m.id));
+            if (matchedMention) {
+                const cleanQuestion = val.replace('@' + matchedMention.id, '').trim();
+                
+                this._router.navigate([matchedMention.url]);
+                inputElement.value = '';
+                
+                if (cleanQuestion) {
+                    setTimeout(() => {
+                        this.sendFollowUp(row, cleanQuestion);
+                    }, 800);
+                }
+                return;
+            }
+
             this.sendFollowUp(row, val);
             inputElement.value = '';
         }
@@ -757,6 +913,14 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 }
                 return { role: m.role, parts: parts };
             });
+            // Inject context into the last user message
+            const agentContext = this.globalAgentService.getContext();
+            if (agentContext && contents.length > 0 && contents[contents.length - 1].role === 'user') {
+                let ctxData = '';
+                try { ctxData = JSON.stringify(agentContext.data).substring(0, 3000); } catch (e) {}
+                const systemContext = `Ngữ cảnh màn hình hiện tại:\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt: ${ctxData}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
+                contents[contents.length - 1].parts[0].text = systemContext + contents[contents.length - 1].parts[0].text;
+            }
             
             const result = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
@@ -767,6 +931,11 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 row.messages.push({ role: 'model', text: result.text });
                 row.answer = result.text;
                 row.updatedAt = new Date();
+                
+                // Nếu màn hình hiện tại có yêu cầu action, gửi kết quả về cho màn hình xử lý
+                if (agentContext && agentContext.action) {
+                    this.globalAgentService.sendActionResult(result.text);
+                }
                 
                 this._chatGPTService.store({
                     _id: row._id,

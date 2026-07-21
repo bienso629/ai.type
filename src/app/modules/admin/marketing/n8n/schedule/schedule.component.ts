@@ -46,6 +46,7 @@ import Hls from 'hls.js';
 import { N8nService } from 'app/modules/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { CrawlService } from 'app/modules/_services/crawl';
+import { GlobalAgentService } from 'app/modules/_services/global-agent.service';
 
 registerLocaleData(localeVi);
 
@@ -205,7 +206,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         private _genaiService: GenaiService,
         private _domainService: DomainService,
         private _tasksService: TasksService,
-        private _crawlService: CrawlService
+        private _crawlService: CrawlService,
+        private _globalAgentService: GlobalAgentService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -237,6 +239,27 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             .subscribe((user: User) => {
                 this.user = user;
             });
+
+        if (this._globalAgentService) {
+            this._globalAgentService.actionResult$
+                .pipe(takeUntil(this._unsubscribeAll))
+                .subscribe((result: string) => {
+                    if (result && result.includes('```json')) {
+                        const jsonMatch = result.match(/```json\n([\s\S]*?)\n```/);
+                        if (jsonMatch && jsonMatch[1]) {
+                            try {
+                                const parsedTasks = JSON.parse(jsonMatch[1]);
+                                if (Array.isArray(parsedTasks)) {
+                                    this.applyParsedTasks(parsedTasks);
+                                    this.toastr.success('Đã cập nhật lịch làm việc!');
+                                }
+                            } catch (e) {
+                                console.error('Lỗi parse JSON từ Global Agent:', e);
+                            }
+                        }
+                    }
+                });
+        }
 
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))

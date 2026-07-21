@@ -81,15 +81,6 @@ export class InitialDataResolver
                     catchError(() => of(null))
                 );
 
-                const domains$ = this._domainService.fetch({ username: user.name }).pipe(
-                    tap(result => {
-                        if (result && result.success) {
-                            localStorage.setItem(`dashboard_domains_${user.name}`, JSON.stringify(result.data || []));
-                            (window as any)['dashboard_domains_preloaded'] = true;
-                        }
-                    }),
-                    catchError(() => of(null))
-                );
 
                 const collections$ = this._crawlService.collections({
                     username: user.name,
@@ -151,7 +142,6 @@ export class InitialDataResolver
                 return forkJoin([
                     baseResolvers,
                     profile$,
-                    domains$,
                     collections$,
                     statistics$
                 ]);

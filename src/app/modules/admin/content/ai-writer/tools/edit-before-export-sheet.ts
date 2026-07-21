@@ -14,9 +14,44 @@ declare var TurndownService: any;
 @Component({
     selector: 'edit-before-export-sheet',
     styles: [`
+        :host {
+            display: flex;
+            flex-direction: column;
+            max-height: 85vh; /* Keep within viewport */
+        }
+        .px-2.pb-4.pt-2 {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .mt-2.p-0 {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        form {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        .my-1.flex.flex-col.w-full {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        ::ng-deep .edit-before-export-quill {
+            display: flex;
+            flex-direction: column;
+            flex-grow: 1;
+            overflow: hidden;
+        }
         ::ng-deep .edit-before-export-quill .ql-container {
+            flex-grow: 1;
             height: 35vh !important;
-            max-height: 400px !important;
             overflow-y: auto !important;
         }
         ::ng-deep .edit-before-export-quill .ql-editor {
@@ -72,26 +107,34 @@ declare var TurndownService: any;
             </form>
         </div>
 
-        <div class="p-0 mt-4 flex justify-end gap-2">
-            <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
-                <mat-label class="ml-2">Đăng bài</mat-label>
-            </button>
+        <div class="p-0 mt-4 flex justify-between gap-2">
+            <div>
+                <button mat-stroked-button color="accent" (click)="askGlobalAgent()" type="button" class="bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100">
+                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
+                    <mat-label class="ml-2">Hỏi AI</mat-label>
+                </button>
+            </div>
+            <div class="flex gap-2">
+                <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
+                    <mat-label class="ml-2">Đăng bài</mat-label>
+                </button>
 
-            <button mat-flat-button *ngIf="data.function === 'update'" [color]="'primary'" (click)="update($event)" [disabled]="categoryitems.length == 0">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                <mat-label class="ml-2">Cập nhật</mat-label>
-            </button>
-            
-            <button mat-flat-button *ngIf="data.function === 'edit'" color="primary" (click)="save($event)">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
-                <mat-label class="ml-2">Chỉnh xong</mat-label>
-            </button>
+                <button mat-flat-button *ngIf="data.function === 'update'" [color]="'primary'" (click)="update($event)" [disabled]="categoryitems.length == 0">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:refresh-cw'"></mat-icon>
+                    <mat-label class="ml-2">Cập nhật</mat-label>
+                </button>
+                
+                <button mat-flat-button *ngIf="data.function === 'edit'" color="primary" (click)="save($event)">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:check'"></mat-icon>
+                    <mat-label class="ml-2">Chỉnh xong</mat-label>
+                </button>
 
-            <button mat-flat-button *ngIf="data.function === 'new'" color="primary" (click)="save($event)">
-                <mat-icon class="icon-size-4" [svgIcon]="'feather:save'"></mat-icon>
-                <mat-label class="ml-2">Lưu nội dung</mat-label>
-            </button>
+                <button mat-flat-button *ngIf="data.function === 'new'" color="primary" (click)="save($event)">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:save'"></mat-icon>
+                    <mat-label class="ml-2">Lưu nội dung</mat-label>
+                </button>
+            </div>
         </div>`,
     providers: [WordpressService, CrawlService]
 })
@@ -133,6 +176,26 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 </tbody>
             </table><p><br></p>`);
         }
+    }
+
+    askGlobalAgent() {
+        const content = this.editorForm.get('content')?.value || '';
+        const turndownService = new TurndownService();
+        const markdown = turndownService.turndown(content);
+        
+        let base64 = '';
+        try {
+            base64 = btoa(unescape(encodeURIComponent(markdown)));
+        } catch (e) {}
+
+        this._h.openChatGPTWithSEO$.next({
+            goiy: "Hãy giúp tôi tóm tắt hoặc viết lại nội dung đính kèm này sao cho hay hơn:",
+            attachedFile: {
+                name: (this.data.title || 'Noi_dung') + '.md',
+                type: 'text/markdown',
+                base64: base64
+            }
+        });
     }
 
     imageHandler = (image: any, callback: any) => {

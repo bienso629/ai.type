@@ -13,6 +13,13 @@ class DomainScreen extends StatefulWidget {
 }
 
 class _DomainScreenState extends State<DomainScreen> {
+  static bool _hasLoadedOnce = false;
+  static List<dynamic> _cachedDomains = [];
+  static Map<String, dynamic> _cachedDomainStatsData = {};
+  static Map<String, dynamic> _cachedDomainTargets = {};
+  static int? _cachedSelectedMonthNum;
+  static int? _cachedSelectedYear;
+
   bool _isLoading = false;
   List<dynamic> _domains = [];
   bool _selectAll = false;
@@ -31,7 +38,28 @@ class _DomainScreenState extends State<DomainScreen> {
   @override
   void initState() {
     super.initState();
-    _loadData();
+    if (_hasLoadedOnce) {
+      _domains = _cachedDomains;
+      _domainStatsData = _cachedDomainStatsData;
+      _domainTargets = _cachedDomainTargets;
+      if (_cachedSelectedMonthNum != null) _selectedMonthNum = _cachedSelectedMonthNum!;
+      if (_cachedSelectedYear != null) _selectedYear = _cachedSelectedYear!;
+    } else {
+      _loadData();
+    }
+  }
+
+
+
+  @override
+  void dispose() {
+    _cachedDomains = _domains;
+    _cachedDomainStatsData = _domainStatsData;
+    _cachedDomainTargets = _domainTargets;
+    _cachedSelectedMonthNum = _selectedMonthNum;
+    _cachedSelectedYear = _selectedYear;
+    _hasLoadedOnce = true;
+    super.dispose();
   }
 
   Future<void> _loadData({bool forceRefresh = false}) async {
@@ -148,7 +176,7 @@ class _DomainScreenState extends State<DomainScreen> {
       await prefs.setString(settingsKey, jsonEncode(settings));
       
       // Update profile on server
-      await ApiService.updateProfile(settings);
+      await ApiService.updateProfile({'settings': settings});
       
       setState(() {});
     } catch (e) {
@@ -201,27 +229,19 @@ class _DomainScreenState extends State<DomainScreen> {
       context: context,
       builder: (context) {
         return Dialog(
+          insetPadding: const EdgeInsets.symmetric(horizontal: 16),
           backgroundColor: Colors.white,
           surfaceTintColor: Colors.transparent,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
           child: Container(
-            width: 700,
+            width: MediaQuery.of(context).size.width,
             padding: const EdgeInsets.all(24),
             child: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(isNew ? 'Thêm tên miền' : 'Chỉnh sửa tên miền', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      )
-                    ],
-                  ),
+                  Text(isNew ? 'Thêm tên miền' : 'Chỉnh sửa tên miền', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   const SizedBox(height: 24),
                   TextField(
                     controller: domainCtrl,
@@ -348,14 +368,13 @@ class _DomainScreenState extends State<DomainScreen> {
     bool isTargetMissed = (target > 0 && result < target);
 
     return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      margin: const EdgeInsets.only(bottom: 8),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.zero),
       elevation: 0,
       color: Colors.white,
       child: Container(
         decoration: BoxDecoration(
-          border: Border.all(color: Colors.grey.withOpacity(0.2)),
-          borderRadius: BorderRadius.circular(12),
+          border: Border(bottom: BorderSide(color: Colors.grey.withOpacity(0.2))),
         ),
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -583,7 +602,7 @@ class _DomainScreenState extends State<DomainScreen> {
               child: _isLoading && _domains.isEmpty
                 ? const Center(child: CircularProgressIndicator())
                 : ListView.builder(
-                    padding: const EdgeInsets.all(20),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
                     itemCount: _domains.length,
                     itemBuilder: (context, index) {
                       return _buildDomainCard(_domains[index], index);

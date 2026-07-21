@@ -390,7 +390,7 @@ class ApiService {
     return null;
   }
 
-  static Future<dynamic> updateProfile(Map<String, dynamic> settings) async {
+  static Future<dynamic> updateProfile(Map<String, dynamic> profileUpdates) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
     if (activeInfoStr == null) throw Exception('No active session');
@@ -407,7 +407,7 @@ class ApiService {
       'username': activeInfo['user']['name'],
       'appToken': activeInfo['user']['appToken'],
       'profile': {
-        'settings': settings,
+        ...profileUpdates,
         'active_info': activeInfo,
       }
     };
@@ -729,5 +729,55 @@ class ApiService {
     } else {
       throw Exception('Server error: ${response.statusCode} - ${response.body}');
     }
+  }
+
+  static Future<bool> updateWordpressPost({
+    required String domain,
+    required String domainId,
+    required dynamic postId,
+    required String status,
+    required String wpUsername,
+    required String wpPassword,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/plugins/wordpress/post/update');
+
+    final dataForm = <String, dynamic>{
+      'id': postId,
+      'status': status,
+      'domain': domain,
+      'domain_id': domainId,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'appToken': activeInfo['user']['appToken'],
+      'sys_username': activeInfo['user']['name'] ?? activeInfo['user']['username'],
+      'username': wpUsername,
+      'apppass': wpPassword,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+    final jwt = generateJWTToken(activeInfo['user']);
+    
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + jwt,
+        'x-api-key': '91cbb423-dcec-4b3d-aee2-d0f29a136d1b',
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      final jsonResponse = jsonDecode(response.body);
+      return jsonResponse['success'] == true;
+    }
+    return false;
   }
 }
