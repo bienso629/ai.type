@@ -15,7 +15,9 @@ class MembersTab extends StatefulWidget {
   State<MembersTab> createState() => _MembersTabState();
 }
 
-class _MembersTabState extends State<MembersTab> {
+class _MembersTabState extends State<MembersTab> with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
   bool _isLoading = true;
   String _statusMessage = 'Đang tải danh sách thành viên...';
   
@@ -186,11 +188,10 @@ class _MembersTabState extends State<MembersTab> {
     });
   }
 
-  void _showGroupSelection(Map<String, dynamic> user) {
+  Future<void> _showGroupSelection(Map<String, dynamic> user) async {
     if (_nodebbUrl == null || _nodebbToken == null) return;
-    final uid = user['uid'];
     
-    showDialog(
+    final bool? updated = await showDialog<bool>(
       context: context,
       builder: (ctx) {
         return _GroupSelectionDialog(
@@ -201,10 +202,28 @@ class _MembersTabState extends State<MembersTab> {
         );
       },
     );
+
+    if (updated == true && mounted) {
+      // Reload groups to reflect new memberships in subsequent dialog opens
+      try {
+        final groupsRes = await http.get(
+          Uri.parse('$_nodebbUrl/api/v3/groups?_uid=1'),
+          headers: {'Authorization': 'Bearer $_nodebbToken'},
+        );
+        if (groupsRes.statusCode == 200) {
+          final groupsData = jsonDecode(groupsRes.body);
+          final responseData = groupsData['response'] ?? groupsData;
+          setState(() {
+            _groups = responseData['groups'] ?? responseData ?? [];
+          });
+        }
+      } catch (_) {}
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     if (_isLoading) {
       return Center(
         child: Column(
@@ -231,9 +250,11 @@ class _MembersTabState extends State<MembersTab> {
       children: [
         // Data list
         Expanded(
-          child: ListView.separated(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            itemCount: _filteredUsers.length,
+          child: RefreshIndicator(
+            onRefresh: _loadData,
+            child: ListView.separated(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              itemCount: _filteredUsers.length,
             separatorBuilder: (ctx, idx) => const Divider(height: 1),
             itemBuilder: (ctx, idx) {
               final user = _filteredUsers[idx];
@@ -290,7 +311,7 @@ class _MembersTabState extends State<MembersTab> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(user['username'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                            Text(user['username'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             const SizedBox(height: 6),
                             Row(
                               children: [
@@ -322,6 +343,7 @@ class _MembersTabState extends State<MembersTab> {
                 },
               );
             },
+            ),
           ),
         )
       ],
@@ -423,8 +445,19 @@ class _GroupSelectionDialogState extends State<_GroupSelectionDialog> {
     for (final slug in added) {
       try {
         final url = Uri.parse('${widget.nodebbUrl}/api/v3/groups/$slug/membership/${widget.user['uid']}?_uid=1');
-        final res = await http.put(url, headers: {'Authorization': 'Bearer ${widget.nodebbToken}'});
-        if (res.statusCode == 200) successCount++; else failCount++;
+        final res = await http.put(
+          url, 
+          headers: {
+            'Authorization': 'Bearer ${widget.nodebbToken}',
+            'Content-Type': 'application/json',
+          },
+          body: jsonEncode({}),
+        );
+        if (res.statusCode == 200) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       } catch (e) {
         failCount++;
       }
@@ -433,8 +466,18 @@ class _GroupSelectionDialogState extends State<_GroupSelectionDialog> {
     for (final slug in removed) {
       try {
         final url = Uri.parse('${widget.nodebbUrl}/api/v3/groups/$slug/membership/${widget.user['uid']}?_uid=1');
-        final res = await http.delete(url, headers: {'Authorization': 'Bearer ${widget.nodebbToken}'});
-        if (res.statusCode == 200) successCount++; else failCount++;
+        final res = await http.delete(
+          url, 
+          headers: {
+            'Authorization': 'Bearer ${widget.nodebbToken}',
+            'Content-Type': 'application/json',
+          },
+        );
+        if (res.statusCode == 200) {
+          successCount++;
+        } else {
+          failCount++;
+        }
       } catch (e) {
         failCount++;
       }

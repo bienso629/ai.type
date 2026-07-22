@@ -97,7 +97,7 @@ class _AdminScreenState extends State<AdminScreen> with SingleTickerProviderStat
                     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sẽ gửi mail cho ${selected.length} thành viên (Tính năng đang phát triển)')));
                   },
                   icon: const Icon(Icons.mail, color: AppColors.primary, size: 20),
-                  label: Text('Gửi (${selected.length})', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
+                  label: Text('(${selected.length})', style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold)),
                 ),
               );
             },

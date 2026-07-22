@@ -1,0 +1,141 @@
+diff --git a/src/app/modules/admin/marketing/n8n/schedule/schedule.component.ts b/src/app/modules/admin/marketing/n8n/schedule/schedule.component.ts
+index 9f1fc9d..879450d 100644
+--- a/src/app/modules/admin/marketing/n8n/schedule/schedule.component.ts
++++ b/src/app/modules/admin/marketing/n8n/schedule/schedule.component.ts
+@@ -244,17 +244,15 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit,
+             this._globalAgentService.actionResult$
+                 .pipe(takeUntil(this._unsubscribeAll))
+                 .subscribe((result: string) => {
+-                    if (result && result.includes('```json')) {
+-                        const jsonMatch = result.match(/```json\n([\s\S]*?)\n```/);
+-                        if (jsonMatch && jsonMatch[1]) {
+-                            try {
+-                                const parsedTasks = JSON.parse(jsonMatch[1]);
+-                                if (Array.isArray(parsedTasks)) {
+-                                    this.applyParsedTasks(parsedTasks);
+-                                    this.toastr.success('Đã cập nhật lịch làm việc!');
+-                                }
+-                            } catch (e) {
+-                                console.error('Lỗi parse JSON từ Global Agent:', e);
++                    if (result) {
++                        let parsed = this.getParsedAiTask(result);
++                        if (parsed) {
++                            if (!Array.isArray(parsed)) {
++                                parsed = [parsed];
++                            }
++                            const success = this.applyParsedTasks(parsed);
++                            if (success) {
++                                this.toastr.success('Đã cập nhật công việc từ AI', 'Thành công');
+                             }
+                         }
+                     }
+@@ -1559,11 +1557,34 @@ Không dùng markdown \`\`\`json.`;
+             
+             // Cập nhật ngữ cảnh cho Global AI Agent trên Header
+             if (this._globalAgentService) {
++                const currentMonth = this.month || (new Date().getMonth() + 1);
++                const currentYear = new Date().getFullYear();
++                
+                 const summaryData = this.items.map(item => {
+                     const streamItems = item.childrenItems?.[0]?.streamItems || [];
++                    const monthlyTarget = item.domainData?.monthlyTarget || this.getResolvedTarget(item.name, currentMonth, currentYear) || 0;
++                    const currentResult = (this.statsData && this.statsData[item.name] && this.statsData[item.name][currentMonth]) ? this.statsData[item.name][currentMonth] : 0;
++                    
++                    const daysInMonth = new Date(currentYear, currentMonth, 0).getDate();
++                    let remainingDays = 0;
++                    for (let i = new Date().getDate(); i <= daysInMonth; i++) {
++                        const checkDate = `${currentYear}-${currentMonth.toString().padStart(2, '0')}-${i.toString().padStart(2, '0')}`;
++                        if (!this.disabledDates.has(checkDate)) {
++                            remainingDays++;
++                        }
++                    }
++                    
++                    let missing = monthlyTarget - currentResult;
++                    if (missing < 0) missing = 0;
++                    const dailyTarget = monthlyTarget > 0 ? (remainingDays > 0 ? Math.ceil(missing / remainingDays) : missing) : 0;
++
+                     return {
+                         domain: item.name,
+-                        monthlyTarget: item.domainData?.monthlyTarget || 0,
++                        monthlyTarget: monthlyTarget,
++                        currentResult: currentResult,
++                        missingTasks: missing,
++                        remainingDays: remainingDays,
++                        dailyTarget: dailyTarget,
+                         note: item.domainData?.note || 'Chưa có phân tích',
+                         tasksCount: streamItems.length,
+                         tasks: streamItems.map((t: any) => ({
+@@ -1578,18 +1599,23 @@ Không dùng markdown \`\`\`json.`;
+                 const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
+                 const disabledStr = Array.from(this.disabledDates).join(', ');
+ 
++                const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
++                const todayStr = tzOffsetStr(new Date());
++
+                 this._globalAgentService.updateContext({
+                     sourcePage: 'Lịch làm việc (Schedule)',
+                     action: 'schedule_tasks',
+                     data: summaryData,
+-                    prompt: `BẠN LÀ MỘT HỆ THỐNG XỬ LÝ DỮ LIỆU. BẠN PHẢI TRẢ VỀ DUY NHẤT MỘT KHỐI CODE JSON \`\`\`json [ ... ] \`\`\`.
+-KHÔNG ĐƯỢC PHÉP TRẢ LỜI BẤT KỲ VĂN BẢN NÀO KHÁC BÊN NGOÀI KHỐI CODE JSON.
+-KHÔNG ĐƯỢC CHÀO HỎI. KHÔNG ĐƯỢC GIẢI THÍCH. KHÔNG ĐƯỢC NHẮC ĐẾN LƯU FILE HAY COMMAND.JSON.
++                    prompt: `BẠN LÀ MỘT HỆ THỐNG XỬ LÝ DỮ LIỆU. BẠN PHẢI TRẢ VỀ MẢNG JSON [ ... ]. BẠN PHẢI BỌC KẾT QUẢ TRONG CẶP MARKDOWN \`\`\`json VÀ \`\`\`.
++KHÔNG ĐƯỢC CHÀO HỎI. KHÔNG ĐƯỢC GIẢI THÍCH.
++
++
++Mảng JSON phải có cấu trúc MẢNG CHỨA CÁC OBJECT: [ { "domain": "...", "tasks": [ { "name": "...", "meta": "...", "startDate": "YYYY-MM-DDTHH:mm:ss", "endDate": "YYYY-MM-DDTHH:mm:ss" } ] } ]
+ 
+-Mảng JSON phải có cấu trúc: { "domain": "...", "tasks": [ { "name": "...", "meta": "...", "startDate": "YYYY-MM-DDTHH:mm:ss", "endDate": "YYYY-MM-DDTHH:mm:ss" } ] }.
++HÔM NAY LÀ NGÀY: ${todayStr}
+ 
+ YÊU CẦU TẠO TASK:
+-- Dựa vào 'monthlyTarget' và 'note' (phân tích ngách) của từng domain, tạo CÁC TIÊU ĐỀ BÀI VIẾT THẬT PHONG PHÚ, CỤ THỂ, ĐA DẠNG theo đúng mục tiêu của số ngày được yêu cầu. Ví dụ: Nếu người dùng yêu cầu phân bổ cho 1 ngày cụ thể, chỉ tạo task cho ngày đó với số lượng task phù hợp. Nếu yêu cầu cho cả tháng, phân bổ đều.
++- Dựa vào 'dailyTarget' và 'note' (phân tích ngách) của từng domain, tạo CÁC TIÊU ĐỀ BÀI VIẾT THẬT PHONG PHÚ, CỤ THỂ, ĐA DẠNG. Bạn bắt buộc phải tạo đúng số lượng task bằng với giá trị 'dailyTarget' cho mỗi ngày được yêu cầu (ví dụ dailyTarget = 10 thì BẮT BUỘC trả về 10 tasks cho ngày đó).
+ - TUYỆT ĐỐI KHÔNG viết chung chung kiểu "Viết 4 bài chuẩn SEO". Nếu cần 4 bài, hãy tạo ra 4 task riêng biệt với 4 tiêu đề cụ thể khác nhau. Trường "name" chính là tiêu đề bài viết.
+ - Để tạo task mới: KHÔNG trả về trường "id". Sửa task: giữ nguyên "id". Xóa task: trả về "_deleted": true kèm "id".
+ - TẤT CẢ task cùng 1 ngày BẮT BUỘC startDate là 08:00:00 và endDate 17:00:00. Định dạng local: "YYYY-MM-DDTHH:mm:ss" (không có Z).
+@@ -1603,8 +1629,8 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG
+     "tasks": [
+       {
+         "name": "Cách viết bài chuẩn SEO...",
+-        "startDate": "2026-07-21T08:00:00",
+-        "endDate": "2026-07-21T17:00:00"
++        "startDate": "${todayStr}T08:00:00",
++        "endDate": "${todayStr}T17:00:00"
+       }
+     ]
+   }
+@@ -2491,10 +2517,31 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
+     
+     private applyParsedTasks(parsed: any[]) {
+         let hasAnyTasks = false;
++        
++        // Nếu AI lười, trả thẳng array task thay vì array domain
++        if (parsed.length > 0 && !parsed[0].domain && (parsed[0].name || parsed[0].title)) {
++            parsed = [{
++                domain: this.items.length > 0 ? this.items[0].name : '',
++                tasks: parsed
++            }];
++        }
++
+         // Update all tasks by merging
+         parsed.forEach((parsedDomain: any) => {
+-            const domainName = (parsedDomain.domain || '').toLowerCase().trim();
+-            let existingDomainIndex = this.items.findIndex(d => d.name.toLowerCase().trim() === domainName);
++            if (!parsedDomain.domain && parsedDomain.tasks) {
++                 parsedDomain.domain = this.items.length > 0 ? this.items[0].name : '';
++            }
++            const domainName = (parsedDomain.domain || '').toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
++            let existingDomainIndex = this.items.findIndex(d => {
++                const dName = d.name.toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
++                return dName === domainName || dName.includes(domainName) || domainName.includes(dName);
++            });
++            
++            // Fallback nếu không tìm thấy domain khớp
++            if (existingDomainIndex === -1 && this.items.length > 0) {
++                existingDomainIndex = 0; // Tự động gán vào domain đầu tiên
++            }
++
+             if (existingDomainIndex > -1) {
+                 let existingDomain = { ...this.items[existingDomainIndex] };
+                 let newTasks = existingDomain.childrenItems?.[0]?.streamItems ? [...existingDomain.childrenItems[0].streamItems] : (existingDomain.childrenItems?.length ? [...existingDomain.childrenItems] : []);

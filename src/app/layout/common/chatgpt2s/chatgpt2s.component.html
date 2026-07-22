@@ -262,7 +262,7 @@
                     <div class="flex justify-start" *ngIf="activeChatRow['chatLoading']">
                         <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl rounded-tl-none px-4 py-2.5 text-base flex items-center space-x-2">
                             <mat-progress-spinner [diameter]="20" [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
-                            <span class="text-base font-normal">AI đang trả lời...</span>
+                            <span class="text-base font-normal" [innerHTML]="(activeChatRow.answer ? activeChatRow.answer : 'AI đang trả lời...') | markdown"></span>
                             <button (click)="stopChatLoading(activeChatRow)" 
                                 class="ml-2 p-0.5 text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center justify-center transition-colors duration-150 focus:outline-none shrink-0" 
                                 title="Dừng AI">
