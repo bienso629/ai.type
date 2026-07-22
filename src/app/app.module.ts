@@ -14,7 +14,7 @@ import { appConfig } from 'app/core/config/app.config';
 import { mockApiServices } from 'app/api';
 import { LayoutModule } from 'app/layout/layout.module';
 import { TranslocoCoreModule } from "app/core/transloco.module";
-import { ToastrModule } from 'ngx-toastr';
+import { ToastrModule, ToastNoAnimation, ToastNoAnimationModule } from 'ngx-toastr';
 import { AppComponent } from 'app/app.component';
 import { appRoutes } from 'app/app.routing';
 
@@ -64,6 +64,7 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
         LayoutModule,
 
         // ToastrModule added
+        ToastNoAnimationModule,
         ToastrModule.forRoot({
             timeOut: 2000,
             positionClass: 'toast-top-center',
@@ -71,7 +72,8 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
             maxOpened: 1,
             autoDismiss: true,
             countDuplicates: true,
-            progressBar: false
+            progressBar: false,
+            toastComponent: ToastNoAnimation,
         }),
     ],
     bootstrap: [

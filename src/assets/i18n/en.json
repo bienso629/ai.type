@@ -608,6 +608,7 @@
     },
     "app.scanned_nodes_repo": "Scanned nodes repository",
     "app.search_by_title": "Search by title",
+    "app.thumbnail": "Thumbnail",
     "app.view_details": "View details",
     "app.convert_to_text": "Convert to text",
     "app.re_scan": "Rescan",

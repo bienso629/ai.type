@@ -314,14 +314,15 @@ class _MembersTabState extends State<MembersTab> with AutomaticKeepAliveClientMi
                             Text(user['username'] ?? 'Unknown', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                             const SizedBox(height: 6),
                             Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
                               children: [
-                                const Icon(Icons.article, size: 14, color: AppColors.textSecondary),
+                                const Icon(Icons.article, size: 16, color: AppColors.textSecondary),
                                 const SizedBox(width: 4),
-                                Text('${user['postcount'] ?? 0} bài'),
+                                Text('${user['postcount'] ?? 0} bài', style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                                 const SizedBox(width: 16),
-                                const Icon(Icons.star, size: 14, color: Colors.amber),
+                                const Icon(Icons.star, size: 16, color: Colors.amber),
                                 const SizedBox(width: 4),
-                                Text('${user['reputation'] ?? 0}'),
+                                Text('${user['reputation'] ?? 0}', style: const TextStyle(color: AppColors.textSecondary, fontSize: 14)),
                               ],
                             )
                           ],
@@ -332,7 +333,7 @@ class _MembersTabState extends State<MembersTab> with AutomaticKeepAliveClientMi
                         crossAxisAlignment: CrossAxisAlignment.end,
                         children: [
                           Text('UID: ${user['uid']}', style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 6),
                           Text(dateStr, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                         ],
                       )

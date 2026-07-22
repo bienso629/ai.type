@@ -3214,8 +3214,15 @@ function startAiAgent() {
         const userPluginsDir = path.join(os.homedir(), "Documents", "ai.type", "plugins");
         const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
         if (fs.existsSync(agentPath)) {
+            let args = [];
+            try {
+                if (fs.existsSync(aiAgentConfigPath)) {
+                    const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
+                    if (data.apiKey) args.push('--api-key', data.apiKey);
+                }
+            } catch(e) {}
             // Using inherit or pipe to see errors in Electron console
-            aiAgentProcess = spawn(agentPath, [], { stdio: 'pipe' });
+            aiAgentProcess = spawn(agentPath, args, { stdio: 'pipe' });
             
             aiAgentProcess.stdout.on('data', (data) => console.log(`[AI Agent] ${data}`));
             aiAgentProcess.stderr.on('data', (data) => console.error(`[AI Agent] ${data}`));
@@ -3240,18 +3247,48 @@ function startAiAgent() {
 }
 
 function stopAiAgent() {
+    try {
+        // Luôn gọi shutdown API kể cả khi aiAgentProcess = null (zombie)
+        const http = require('http');
+        const req = http.get('http://127.0.0.1:54321/api/shutdown', (res) => {});
+        req.on('error', () => {});
+    } catch (e) { }
+
     if (aiAgentProcess) {
         try {
             aiAgentProcess.kill('SIGKILL');
             aiAgentProcess = null;
-            console.log('[AI Agent] Đã tắt');
         } catch (e) { }
     }
+    
+    // Fallback dọn dẹp port 54321
+    try {
+        const cp = require('child_process');
+        if (process.platform === 'win32') {
+            cp.exec('netstat -ano | findstr :54321', (err, stdout) => {
+                if (stdout) {
+                    const lines = stdout.trim().split('\n');
+                    for (const line of lines) {
+                        const parts = line.trim().split(/\s+/);
+                        const pid = parts[parts.length - 1];
+                        if (pid && pid !== '0') cp.exec(`taskkill /f /pid ${pid}`);
+                    }
+                }
+            });
+        } else {
+            cp.exec('fuser -k 54321/tcp');
+            cp.exec('killall -9 ai_agent_linux');
+        }
+    } catch (e) {}
+    
+    console.log('[AI Agent] Đã tắt');
 }
 
-ipcMain.handle('toggle-ai-agent', (event, enable) => {
+ipcMain.handle('toggle-ai-agent', (event, enable, apiKey) => {
     try {
-        fs.writeFileSync(aiAgentConfigPath, JSON.stringify({ enable }), 'utf8');
+        const configData = { enable };
+        if (apiKey) configData.apiKey = apiKey;
+        fs.writeFileSync(aiAgentConfigPath, JSON.stringify(configData), 'utf8');
         if (enable) {
             startAiAgent();
         } else {
@@ -3269,7 +3306,14 @@ ipcMain.handle('is-ai-agent-active', async () => {
         const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
         const exists = fs.existsSync(agentPath);
         const enabled = isAiAgentEnabled();
-        return { exists, enabled, active: exists && enabled };
+        let apiKey = 'type-vn-local-agent-2026';
+        try {
+            if (fs.existsSync(aiAgentConfigPath)) {
+                const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
+                if (data.apiKey) apiKey = data.apiKey;
+            }
+        } catch(e) {}
+        return { exists, enabled, active: exists && enabled, apiKey };
     } catch (e) {
         return { exists: false, enabled: false, active: false };
     }
@@ -3414,6 +3458,13 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const userAgentPath = path.join(userPluginsDir, 'ai_agent_linux');
         const agentInstalled = fs.existsSync(userAgentPath);
         const agentEnabled = isAiAgentEnabled();
+        let agentApiKey = 'type-vn-local-agent-2026';
+        try {
+            if (fs.existsSync(aiAgentConfigPath)) {
+                const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
+                if (data.apiKey) agentApiKey = data.apiKey;
+            }
+        } catch(e) {}
         
         return [
             {
@@ -3433,6 +3484,7 @@ ipcMain.handle('get-plugins-status', async (event) => {
                 installed: agentInstalled,
                 canInstall: false, // User installs manually by copying file
                 enabled: agentEnabled,
+                apiKey: agentApiKey,
                 version: '1.0'
             }
         ];

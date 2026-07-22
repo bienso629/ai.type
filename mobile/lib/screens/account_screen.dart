@@ -28,6 +28,17 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
   bool _autosave = false;
   String _language = 'vi';
 
+  // Email Configs (Admin)
+  final _emailNodebbUrlCtrl = TextEditingController();
+  final _emailNodebbTokenCtrl = TextEditingController();
+  final _emailSmtpHostCtrl = TextEditingController();
+  final _emailSmtpPortCtrl = TextEditingController();
+  final _emailSmtpUserCtrl = TextEditingController();
+  final _emailSmtpPassCtrl = TextEditingController();
+
+  // Type Lite Configs
+  final _customCookiesCtrl = TextEditingController();
+
   // Jobs Tab
   final _chatbotCtrl = TextEditingController();
   final _customerCtrl = TextEditingController();
@@ -140,6 +151,15 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
           _autosave = settings['autosave'] == true;
           _language = settings['language'] ?? 'vi';
 
+          _emailNodebbUrlCtrl.text = settings['emailConfig_nodebbUrl']?.toString() ?? '';
+          _emailNodebbTokenCtrl.text = settings['emailConfig_nodebbToken']?.toString() ?? '';
+          _emailSmtpHostCtrl.text = settings['emailConfig_smtpHost']?.toString() ?? '';
+          _emailSmtpPortCtrl.text = settings['emailConfig_smtpPort']?.toString() ?? '';
+          _emailSmtpUserCtrl.text = settings['emailConfig_smtpUser']?.toString() ?? '';
+          _emailSmtpPassCtrl.text = settings['emailConfig_smtpPass']?.toString() ?? '';
+          
+          _customCookiesCtrl.text = settings['customCookies']?.toString() ?? '';
+
           _chatbotCtrl.text = settings['chatbot'] ?? '';
           _customerCtrl.text = settings['customer'] ?? '';
           _bigdataCtrl.text = settings['bigdata'] ?? '';
@@ -147,7 +167,7 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
           _sstCtrl.text = settings['sst'] ?? '';
           _mxhautoCtrl.text = settings['mxhauto'] ?? '';
 
-          _geminiKeyCtrl.text = settings['geminiKey'] ?? '';
+          _geminiKeyCtrl.text = settings['secretKey'] ?? '';
           _enableUmodelverse = settings['enableUmodelverse'] == true;
           _umodelverseUrlCtrl.text = settings['umodelverseUrl'] ?? '';
           _umodelverseKeyCtrl.text = settings['umodelverseKey'] ?? '';
@@ -179,6 +199,15 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
     _settings['autosave'] = _autosave;
     _settings['language'] = _language;
     
+    _settings['emailConfig_nodebbUrl'] = _emailNodebbUrlCtrl.text;
+    _settings['emailConfig_nodebbToken'] = _emailNodebbTokenCtrl.text;
+    _settings['emailConfig_smtpHost'] = _emailSmtpHostCtrl.text;
+    _settings['emailConfig_smtpPort'] = int.tryParse(_emailSmtpPortCtrl.text) ?? _emailSmtpPortCtrl.text;
+    _settings['emailConfig_smtpUser'] = _emailSmtpUserCtrl.text;
+    _settings['emailConfig_smtpPass'] = _emailSmtpPassCtrl.text;
+
+    _settings['customCookies'] = _customCookiesCtrl.text;
+    
     _settings['chatbot'] = _chatbotCtrl.text;
     _settings['customer'] = _customerCtrl.text;
     _settings['bigdata'] = _bigdataCtrl.text;
@@ -186,7 +215,7 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
     _settings['sst'] = _sstCtrl.text;
     _settings['mxhauto'] = _mxhautoCtrl.text;
 
-    _settings['geminiKey'] = _geminiKeyCtrl.text;
+    _settings['secretKey'] = _geminiKeyCtrl.text;
     _settings['enableUmodelverse'] = _enableUmodelverse;
     _settings['umodelverseUrl'] = _umodelverseUrlCtrl.text;
     _settings['umodelverseKey'] = _umodelverseKeyCtrl.text;
@@ -349,6 +378,28 @@ class _AccountScreenState extends State<AccountScreen> with SingleTickerProvider
                         if (val != null) setState(() => _language = val);
                       },
                     ),
+
+                    _buildSectionTitle('Cấu hình Type-Lite'),
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 16),
+                      child: TextField(
+                        controller: _customCookiesCtrl,
+                        maxLines: 4,
+                        decoration: const InputDecoration(
+                          labelText: 'File Cookies (Paste nội dung file cookie JSON vào đây)',
+                          border: OutlineInputBorder(),
+                        ),
+                      ),
+                    ),
+
+                    if (_reputation >= 100000000) ...[
+                      _buildSectionTitle('Cấu hình Gửi Mail (Admin)'),
+                      _buildTextField('Admin Token (NodeBB)', _emailNodebbTokenCtrl, icon: Icons.key, isPassword: true),
+                      _buildTextField('SMTP Host', _emailSmtpHostCtrl, icon: Icons.cloud),
+                      _buildTextField('SMTP Port', _emailSmtpPortCtrl, icon: Icons.numbers),
+                      _buildTextField('SMTP Email', _emailSmtpUserCtrl, icon: Icons.person),
+                      _buildTextField('SMTP Password', _emailSmtpPassCtrl, icon: Icons.password, isPassword: true),
+                    ],
                   ],
                 ),
 

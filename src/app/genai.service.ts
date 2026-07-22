@@ -468,7 +468,7 @@ export class GenaiService {
             formData.append('model', params.model);
         }
         
-        let sysContent = 'Bạn là trợ lý AI thông minh đa phương tiện.';
+        let sysContent = 'Bạn là Global AI Agent toàn năng. Bạn có khả năng phân tích, điều khiển và thực thi mọi tác vụ trong hệ thống phần mềm để tự động hóa công việc cho người dùng.';
         if (params.config && params.config.systemInstruction) {
             if (typeof params.config.systemInstruction === 'string') {
                 sysContent = params.config.systemInstruction;
@@ -492,11 +492,37 @@ export class GenaiService {
         formData.append('system_instructions', sysContent);
 
         this.localAgentAbortController = new AbortController();
+        let isAiAgentActive = false;
+        let secretApiKey = 'type-vn-local-agent-2026';
+        let apiUrl = 'https://sontinh.type.vn/api/chat'; // Fallback for Web/Mobile
+
+        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const aiAgent = list?.find(p => p.id === 'ai_agent');
+                if (aiAgent && aiAgent.enabled) {
+                    isAiAgentActive = true;
+                }
+                if (aiAgent && aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
+            } catch(e) {}
+            // Desktop App ALWAYS points to the local agent
+            apiUrl = 'http://127.0.0.1:54321/api/chat';
+        } else {
+            // Web / Mobile / Another Account fallback logic
+            const settings = this.multiAccountService.getItem('settings') || {};
+            if (settings.enableAiAgent) isAiAgentActive = true;
+            if (settings.aiAgentApiKey) secretApiKey = settings.aiAgentApiKey;
+        }
+
+        if (!isAiAgentActive) {
+            throw new Error("Plugin AI Agent chưa được bật.");
+        }
+        
         try {
-            const response = await fetch('http://127.0.0.1:54321/api/chat', {
+            const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
-                    'x-api-key': 'type-vn-local-agent-2026'
+                    'x-api-key': secretApiKey
                 },
                 body: formData,
                 signal: this.localAgentAbortController.signal
@@ -506,14 +532,80 @@ export class GenaiService {
                 throw new Error(`AI Agent phản hồi lỗi HTTP ${response.status}`);
             }
 
-            const data = await response.json();
-            if (!data.success) {
-                throw new Error(data.error || 'AI Agent xử lý thất bại');
-            }
+            let replyText = '';
+            let imageBase64: string | undefined;
+            let videoBase64: string | undefined;
+            let audioBase64: string | undefined;
+            
+            if (response.body) {
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder("utf-8");
+                let buffer = '';
 
-            let replyText = data.result || '';
-            let imageBase64 = data.image_base64;
-            let videoBase64 = data.video_base64;
+                while (true) {
+                    const { value, done } = await reader.read();
+                    if (done) break;
+                    
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split('\n');
+                    buffer = lines.pop() || '';
+                    
+                    for (let line of lines) {
+                        line = line.trim();
+                        if (!line) continue;
+                        if (line.startsWith('data: ')) {
+                            line = line.slice(6).trim();
+                        }
+                        if (line === '[DONE]') continue;
+                        
+                        try {
+                            const chunk = JSON.parse(line);
+                            if (chunk.success === false) {
+                                throw new Error(chunk.error || 'AI Agent xử lý thất bại');
+                            }
+                            
+                            // Streaming chunk
+                            if (chunk.content) {
+                                replyText += chunk.content;
+                                if ((params.config as any)?.onStream) (params.config as any).onStream(chunk.content, false);
+                            }
+                            // Fallback cho luồng cũ (trả 1 lần)
+                            if (chunk.result !== undefined && !chunk.content) {
+                                replyText = chunk.result;
+                                if ((params.config as any)?.onStream) (params.config as any).onStream(chunk.result, true);
+                            }
+                            
+                            if (chunk.image_base64) imageBase64 = chunk.image_base64;
+                            if (chunk.video_base64) videoBase64 = chunk.video_base64;
+                            if (chunk.audio_base64) audioBase64 = chunk.audio_base64;
+                        } catch (e) {
+                            // Bỏ qua lỗi parse JSON nếu chunk chưa hoàn thiện
+                        }
+                    }
+                }
+                
+                // Xử lý nốt buffer cuối
+                if (buffer.trim()) {
+                    try {
+                        let line = buffer.trim();
+                        if (line.startsWith('data: ')) line = line.slice(6).trim();
+                        const chunk = JSON.parse(line);
+                        if (chunk.success === false) throw new Error(chunk.error);
+                        if (chunk.content) replyText += chunk.content;
+                        if (chunk.result !== undefined && !chunk.content) replyText = chunk.result;
+                        if (chunk.image_base64) imageBase64 = chunk.image_base64;
+                        if (chunk.video_base64) videoBase64 = chunk.video_base64;
+                        if (chunk.audio_base64) audioBase64 = chunk.audio_base64;
+                    } catch (e) {}
+                }
+            } else {
+                const data = await response.json();
+                if (!data.success) throw new Error(data.error || 'AI Agent xử lý thất bại');
+                replyText = data.result || '';
+                imageBase64 = data.image_base64;
+                videoBase64 = data.video_base64;
+                audioBase64 = data.audio_base64;
+            }
 
             // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về tag [LOCAL_IMAGE: /path/to/file]
             const match = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
@@ -555,6 +647,15 @@ export class GenaiService {
                     videoUrl: 'data:video/mp4;base64,' + videoBase64
                 });
             }
+            if (audioBase64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'audio/mp3',
+                        data: audioBase64
+                    },
+                    audioUrl: 'data:audio/mp3;base64,' + audioBase64
+                });
+            }
 
             return {
                 get text() {
@@ -571,7 +672,7 @@ export class GenaiService {
             };
         } catch (e: any) {
             console.error('[AI Agent Error]', e);
-            throw new Error(`Không thể kết nối đến AI Agent (Port 54321): ${e.message}`);
+            throw new Error(`Không thể kết nối đến máy chủ AI Agent: ${e.message}`);
         } finally {
             this.localAgentAbortController = undefined;
         }
