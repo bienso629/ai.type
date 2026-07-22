@@ -107,13 +107,7 @@ declare var TurndownService: any;
             </form>
         </div>
 
-        <div class="p-0 mt-4 flex justify-between gap-2">
-            <div>
-                <button mat-stroked-button color="accent" (click)="askGlobalAgent()" type="button" class="bg-blue-50 text-blue-600 border-blue-200 hover:bg-blue-100">
-                    <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:sparkles'"></mat-icon>
-                    <mat-label class="ml-2">Hỏi AI</mat-label>
-                </button>
-            </div>
+        <div class="p-0 mt-4 flex justify-end gap-2">
             <div class="flex gap-2">
                 <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
@@ -178,25 +172,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         }
     }
 
-    askGlobalAgent() {
-        const content = this.editorForm.get('content')?.value || '';
-        const turndownService = new TurndownService();
-        const markdown = turndownService.turndown(content);
-        
-        let base64 = '';
-        try {
-            base64 = btoa(unescape(encodeURIComponent(markdown)));
-        } catch (e) {}
 
-        this._h.openChatGPTWithSEO$.next({
-            goiy: "Hãy giúp tôi tóm tắt hoặc viết lại nội dung đính kèm này sao cho hay hơn:",
-            attachedFile: {
-                name: (this.data.title || 'Noi_dung') + '.md',
-                type: 'text/markdown',
-                base64: base64
-            }
-        });
-    }
 
     imageHandler = (image: any, callback: any) => {
         const that = this;

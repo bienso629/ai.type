@@ -147,7 +147,17 @@ export class WordpressService {
                 };
 
                 return this.http.post<any>(url, data, options).pipe(
-                    map(data => data && data.success !== undefined ? data.data : data),
+                    map(res => {
+                        if (res && res.success !== undefined) {
+                            if (res.success && !res.data) {
+                                // Backend might return data: null on successful update.
+                                // Construct a valid response so the callers (which expect result.id) do not fail.
+                                return { id: dataForm.id || dataForm.wp_post_id || 'updated', ...res };
+                            }
+                            return res.data;
+                        }
+                        return res;
+                    }),
                     catchError(this.handleError('server', []))
                 );
             })
@@ -179,7 +189,7 @@ export class WordpressService {
         };
 
         return this.http.post<any>(url, data, options).pipe(
-            map(res => res),
+            map(res => res && res.success !== undefined ? res.data : res),
             catchError(this.handleError('upload_media', null))
         );
     }
@@ -288,18 +298,43 @@ export class WordpressService {
 
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/create`;
 
-        let data = {
-            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        let options = {
+            headers: new HttpHeaders({
+                'content-type': 'application/json'
+            })
         };
 
-        return this.http.post<any>(url, data, options).pipe(
-            map(data => {
-                return data;
-            }),
-            tap(_ => {
-                // this.log('login');
-            }),
-            catchError(this.handleError('server', []))
+        let uploadObs: Observable<any> = of(null);
+        if (dataForm.thumbnail && dataForm.force_update_thumbnail) {
+            const thumbs = dataForm.thumbnail.split('\n').map((t: string) => t.trim()).filter((t: string) => t);
+            const dataImageThumb = thumbs.find((t: string) => t.startsWith('data:image'));
+            
+            if (dataImageThumb) {
+                // Pass uname and pass as empty strings, domainObj as dataForm
+                uploadObs = this.upload_media(dataForm.domain, dataImageThumb, '', '', dataForm);
+            }
+        }
+
+        return uploadObs.pipe(
+            switchMap(mediaRes => {
+                if (mediaRes && mediaRes.id) {
+                    dataForm.featured_media = mediaRes.id;
+                }
+                
+                let data = {
+                    params: this._h.encrypt(dataForm, this.config.settings.gen)
+                };
+
+                return this.http.post<any>(url, data, options).pipe(
+                    map(data => {
+                        return data;
+                    }),
+                    tap(_ => {
+                        // this.log('login');
+                    }),
+                    catchError(this.handleError('server', []))
+                );
+            })
         );
     }
 

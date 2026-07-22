@@ -359,7 +359,7 @@ class ApiService {
 
     final dataForm = {
       'server': server,
-      'year': DateTime.now().year,
+      'year': 2023,
       'appId': 'ai.typing',
       'name': username,
       'appToken': activeInfo['user']['appToken'],
@@ -402,7 +402,7 @@ class ApiService {
 
     final dataForm = {
       'server': server,
-      'year': DateTime.now().year,
+      'year': 2023,
       'appId': 'ai.typing',
       'username': activeInfo['user']['name'],
       'appToken': activeInfo['user']['appToken'],
@@ -797,24 +797,93 @@ class ApiService {
       final url = Uri.parse('$baseUrl/licensekey/all');
       
       final dataForm = {
+        'username': activeInfo['user']['name'],
         'year': 2023,
         'appId': 'ai.typing',
         'appToken': activeInfo['user']['appToken'],
       };
       
+      final jwt = generateJWTToken(activeInfo['user']);
       final encParams = encryptAES(dataForm);
       final res = await http.post(
         url,
-        headers: {'Content-Type': 'application/json'},
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwt',
+        },
         body: jsonEncode({'params': encParams}),
       );
       
       if (res.statusCode == 200) {
+        print('getAdminLicenseKeys 200 OK: ${res.body}');
         return jsonDecode(res.body);
+      } else {
+        print('getAdminLicenseKeys Failed: ${res.statusCode} ${res.body}');
       }
     } catch (e) {
       print('getAdminLicenseKeys error: $e');
     }
     return null;
+  }
+
+  static Future<bool> extendLicenseKey(Map<String, dynamic> item, int manualMonths) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return false;
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      final username = activeInfo['user']['name'];
+      final appToken = activeInfo['user']['appToken'];
+      if (server == null || username == null || appToken == null) return false;
+
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('$baseUrl/licensekey/extend');
+
+      final createDate = DateTime.now();
+      
+      var exp = DateTime.now();
+      int year = exp.year;
+      int month = exp.month + manualMonths;
+      while (month > 12) {
+        year++;
+        month -= 12;
+      }
+      final expirationDate = DateTime(year, month, exp.day, exp.hour, exp.minute, exp.second, exp.millisecond, exp.microsecond);
+
+      final licenseInfo = Map<String, dynamic>.from(item);
+      licenseInfo['info'] = Map<String, dynamic>.from(licenseInfo['info'] ?? {});
+      licenseInfo['info']['createDate'] = createDate.toUtc().toIso8601String();
+      licenseInfo['expirationDate'] = expirationDate.toUtc().toIso8601String();
+
+      final payload = {
+        'username': username,
+        'year': 2023,
+        'appId': 'ai.typing',
+        'appToken': appToken,
+        'licenseInfo': licenseInfo
+      };
+
+      final encParams = encryptAES(payload);
+      final jwt = generateJWTToken(activeInfo['user']);
+
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwt',
+        },
+        body: jsonEncode({'params': encParams}),
+      );
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['success'] == true;
+      }
+    } catch (e) {
+      print('extendLicenseKey error: $e');
+    }
+    return false;
   }
 }

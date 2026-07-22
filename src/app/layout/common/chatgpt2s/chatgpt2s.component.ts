@@ -589,7 +589,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                 if (agentContext) {
                     let ctxData = '';
-                    try { ctxData = JSON.stringify(agentContext.data).substring(0, 3000); } catch (e) {}
+                    try { ctxData = JSON.stringify(agentContext.data); } catch (e) {}
                     systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt (chính xác nhất, cập nhật theo thời gian thực): ${ctxData}${apiContextStr}\n\nHãy ưu tiên trả lời dựa trên Dữ liệu tóm tắt. Dữ liệu API chỉ dùng để bổ sung chi tiết. Nếu có mâu thuẫn về trạng thái (ví dụ task đã xong hay chưa), LUÔN LUÔN tin tưởng Dữ liệu tóm tắt.\n\n`;
                     
                     if (agentContext.prompt) {
@@ -651,9 +651,15 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 this.scrollToBottom();
 
                 try {
+                    const genConfig: any = { bypassUModelverse: agentContext?.action ? true : false };
+                    if (agentContext?.action) {
+                        genConfig.responseMimeType = 'application/json';
+                    }
+
                     const result = await this._genaiService.generateContent({
                         model: 'gemini-3.5-flash',
                         contents: [{ role: 'user', parts: parts }],
+                        config: genConfig
                     });
 
                     if (result && result.text) {
@@ -667,17 +673,22 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             (result as any).html = `${(result as any).html}<div class="chatgpt-imgs">${divImgs}</div>`;
                         }
 
-                        // Cập nhật câu trả lời từ AI
-                        newRow.answer = result.text;
-                        newRow.messages.push({ role: 'model', text: result.text });
-                        newRow.updatedAt = new Date();
-
-                        // Nếu màn hình hiện tại có yêu cầu action, gửi kết quả về cho màn hình xử lý
+                        let finalDisplayText = result.text;
                         if (agentContext && agentContext.action) {
                             this.globalAgentService.sendActionResult(result.text);
+                            
+                            const match = result.text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+                            if (match || result.text.trim().startsWith('[')) {
+                                finalDisplayText = `Đã gửi lệnh điều khiển tự động lên màn hình **${agentContext.sourcePage || 'hiện tại'}** thành công! ✅\n\n*(Dữ liệu JSON đã được hệ thống tiếp nhận và cập nhật vào giao diện)*`;
+                            }
                         }
 
-                        this.chatgptStore(result.text, question, newRow);
+                        // Cập nhật câu trả lời từ AI
+                        newRow.answer = finalDisplayText;
+                        newRow.messages.push({ role: 'model', text: finalDisplayText });
+                        newRow.updatedAt = new Date();
+
+                        this.chatgptStore(finalDisplayText, question, newRow);
                     } else {
                         this.toastr.warning('Gemini của bạn chưa hoạt động.');
                         newRow.messages.push({ role: 'model', text: 'Gemini chưa hoạt động.' });
@@ -794,7 +805,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                 if (existingRow) {
                     if (data.loading) {
-                        // Nếu vẫn báo loading, không làm gì cả
+                        if (data.answer) {
+                            existingRow.answer = data.answer;
+                            this.cdref.detectChanges();
+                        }
                         return;
                     }
                     // Cập nhật kết quả khi đã quét xong
@@ -849,6 +863,29 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     if (!data.loading) {
                         this.chatgptStore(data.answer, data.question, newRow);
                     }
+                }
+            });
+            
+        // Subscribe to direct streaming updates from background tasks (e.g. processDomains)
+        this.globalAgentService.streamMessage$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((msg: any) => {
+                if (this.activeChatRow) {
+                    if (msg.isStreaming || msg.replaceLast) {
+                        this.activeChatRow['chatLoading'] = true;
+                        this.activeChatRow.answer = msg.content;
+                    } else if (msg.isStreaming === false) {
+                        this.activeChatRow['chatLoading'] = false;
+                        this.activeChatRow.answer = msg.content;
+                        if (!this.activeChatRow.messages) {
+                            this.activeChatRow.messages = [
+                                { role: 'user', text: this.activeChatRow.question || '' }
+                            ];
+                        }
+                        this.activeChatRow.messages.push({ role: msg.role, text: msg.content });
+                    }
+                    this.cdref.detectChanges();
+                    this.scrollToBottom();
                 }
             });
     }
@@ -933,14 +970,20 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             const agentContext = this.globalAgentService.getContext();
             if (agentContext && contents.length > 0 && contents[contents.length - 1].role === 'user') {
                 let ctxData = '';
-                try { ctxData = JSON.stringify(agentContext.data).substring(0, 3000); } catch (e) {}
+                try { ctxData = JSON.stringify(agentContext.data); } catch (e) {}
                 const systemContext = `Ngữ cảnh màn hình hiện tại:\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt: ${ctxData}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
                 contents[contents.length - 1].parts[0].text = systemContext + contents[contents.length - 1].parts[0].text;
             }
             
+            const genConfig: any = { bypassUModelverse: agentContext?.action ? true : false };
+            if (agentContext?.action) {
+                genConfig.responseMimeType = 'application/json';
+            }
+
             const result = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
-                contents: contents
+                contents: contents,
+                config: genConfig
             }, row._id);
             
             if (result && result.text) {
