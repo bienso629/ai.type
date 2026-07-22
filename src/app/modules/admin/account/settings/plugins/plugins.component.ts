@@ -12,6 +12,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 export class SettingsPluginsComponent implements OnInit {
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
+    aiAgentApiKey: string = 'type-vn-local-agent-2026';
 
     constructor(
         private _fuseConfirmationService: FuseConfirmationService,
@@ -37,9 +38,27 @@ export class SettingsPluginsComponent implements OnInit {
                     enabled: false,
                     mode: 'tool',
                     version: '1.0'
+                },
+                {
+                    id: 'ai_agent',
+                    name: 'AI Agent System',
+                    description: 'Tích hợp Agent thông minh trên máy tính của bạn.',
+                    installed: false,
+                    canInstall: true,
+                    enabled: false,
+                    version: '1.0'
                 }
             ];
-            this.zaloPluginMode = 'tool';
+            
+            const settings = this.multiAccountService.getItem('settings') || {};
+            const zaloPlugin = this.plugins.find(p => p.id === 'zalo_reply');
+            if (zaloPlugin) zaloPlugin.enabled = settings.zaloPluginEnabled || false;
+            
+            const aiAgentPlugin = this.plugins.find(p => p.id === 'ai_agent');
+            if (aiAgentPlugin) aiAgentPlugin.enabled = settings.enableAiAgent || false;
+            
+            this.zaloPluginMode = settings.zaloPluginMode || 'tool';
+            this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
             this.cd.detectChanges();
             return;
         }
@@ -50,6 +69,12 @@ export class SettingsPluginsComponent implements OnInit {
             const zalo = this.plugins.find(p => p.id === 'zalo_reply');
             if (zalo) {
                 this.zaloPluginMode = zalo.mode || 'tool';
+            }
+            const aiAgent = this.plugins.find(p => p.id === 'ai_agent');
+            if (aiAgent && aiAgent.apiKey) {
+                this.aiAgentApiKey = aiAgent.apiKey;
+            } else {
+                this.aiAgentApiKey = 'type-vn-local-agent-2026';
             }
         } catch (err) {
             this.toastr.error('Lỗi khi lấy trạng thái plugin: ' + err.message);
@@ -112,7 +137,19 @@ export class SettingsPluginsComponent implements OnInit {
 
     async togglePlugin(plugin: any, event: any) {
         if (!(window as any).electronAPI) {
-            this.toastr.error('Chưa kết nối được với hệ thống Electron.');
+            if (plugin.id === 'ai_agent') {
+                plugin.enabled = event.checked;
+                const settings = this.multiAccountService.getItem('settings') || {};
+                settings.enableAiAgent = event.checked;
+                this.multiAccountService.setItem('settings', settings);
+                this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent trên trình duyệt/mobile.' : 'Đã tắt AI Agent.');
+            } else if (plugin.id === 'zalo_reply') {
+                plugin.enabled = event.checked;
+                const settings = this.multiAccountService.getItem('settings') || {};
+                settings.zaloPluginEnabled = event.checked;
+                this.multiAccountService.setItem('settings', settings);
+                this.toastr.success(event.checked ? 'Đã kích hoạt Zalo trên trình duyệt.' : 'Đã tắt Zalo.');
+            }
             return;
         }
         
@@ -131,9 +168,14 @@ export class SettingsPluginsComponent implements OnInit {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
                 }
             } else if (plugin.id === 'ai_agent') {
-                const res = await (window as any).electronAPI.toggleAiAgent(event.checked);
+                const res = await (window as any).electronAPI.toggleAiAgent(event.checked, this.aiAgentApiKey);
                 if (res && res.success) {
                     plugin.enabled = event.checked;
+                    
+                    const settings = this.multiAccountService.getItem('settings') || {};
+                    settings.enableAiAgent = event.checked;
+                    this.multiAccountService.setItem('settings', settings);
+                    
                     this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
@@ -142,6 +184,26 @@ export class SettingsPluginsComponent implements OnInit {
         } catch (err) {
             this.toastr.error('Lỗi thay đổi trạng thái: ' + err.message);
             event.source.checked = !event.checked;
+        }
+    }
+
+    async saveAiAgentKey(plugin: any) {
+        if (!(window as any).electronAPI) {
+            const settings = this.multiAccountService.getItem('settings') || {};
+            settings.aiAgentApiKey = this.aiAgentApiKey;
+            this.multiAccountService.setItem('settings', settings);
+            this.toastr.success('Đã lưu Secret Key trên trình duyệt/mobile.');
+            return;
+        }
+        try {
+            const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey);
+            if (res && res.success) {
+                this.toastr.success('Đã lưu Secret Key. Hệ thống sẽ khởi động lại AI Agent nếu đang bật.');
+            } else {
+                this.toastr.error(res?.error || 'Lỗi lưu key.');
+            }
+        } catch (err) {
+            this.toastr.error('Lỗi: ' + err.message);
         }
     }
 }

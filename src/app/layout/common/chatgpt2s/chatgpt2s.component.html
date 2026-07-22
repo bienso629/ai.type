@@ -213,9 +213,9 @@
             </ngx-datatable>
 
             <!-- Chat Overlay Panel (Sibling of table, covers everything with absolute inset-0) -->
-            <div *ngIf="activeChatRow" class="absolute inset-0 z-50 flex flex-col border-none bg-card dark:bg-slate-900 w-full h-full overflow-hidden">
+            <div *ngIf="activeChatRow" class="absolute inset-0 z-50 flex flex-col border-none bg-gray-50 dark:bg-gray-900 w-full h-full overflow-hidden">
                 <!-- Chat Header / Back button -->
-                <div class="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 shrink-0">
+                <div class="flex items-center px-4 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 shrink-0">
                     <button (click)="toggleExpandRow(activeChatRow)" 
                         class="w-8 h-8 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center justify-center mr-2 transition-colors duration-150 focus:outline-none shrink-0" 
                         title="Quay lại">
@@ -223,7 +223,7 @@
                     </button>
                     <div class="flex-auto min-w-0">
                         <h4 class="text-sm font-semibold truncate text-gray-900 dark:text-gray-100">
-                            {{ activeChatRow.question || 'Chi tiết cuộc hội thoại' }}
+                            {{ activeChatRow.question || 'Global AI Agent' }}
                         </h4>
                     </div>
                 </div>
@@ -247,8 +247,21 @@
                         </div>
                         <!-- Model message -->
                         <div class="flex justify-start flex-col items-start gap-1" *ngIf="msg.role === 'model'">
-                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result"
-                                [innerHTML]="msg.text | markdown">
+                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result">
+                                <div [innerHTML]="msg.text | markdown"></div>
+                                
+                                <!-- File attachment rendering for model -->
+                                <div *ngIf="msg.inlineData" class="mt-2 pt-2 flex flex-col items-start w-full">
+                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain max-h-96" />
+                                    
+                                    <video *ngIf="msg.inlineData.mimeType?.startsWith('video/')" controls class="rounded-lg object-contain max-h-96 w-full mt-2">
+                                        <source [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [type]="msg.inlineData.mimeType" />
+                                    </video>
+                                    
+                                    <audio *ngIf="msg.inlineData.mimeType?.startsWith('audio/')" controls autoplay class="w-full mt-2">
+                                        <source [src]="msg.audioUrl || ('data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data)" type="audio/mp3">
+                                    </audio>
+                                </div>
                             </div>
                             <!-- Action button for sharing -->
                             <div *ngIf="activeChatRow?.question?.startsWith('Chia sẻ ảnh')" class="ml-4 mt-1 flex items-center">
@@ -262,7 +275,7 @@
                     <div class="flex justify-start" *ngIf="activeChatRow['chatLoading']">
                         <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-500 rounded-2xl rounded-tl-none px-4 py-2.5 text-base flex items-center space-x-2">
                             <mat-progress-spinner [diameter]="20" [strokeWidth]="2" [mode]="'indeterminate'"></mat-progress-spinner>
-                            <span class="text-base font-normal" [innerHTML]="(activeChatRow.answer ? activeChatRow.answer : 'AI đang trả lời...') | markdown"></span>
+                            <span class="text-base font-normal" [innerHTML]="(activeChatRow.answer ? activeChatRow.answer : 'Ông chủ đợi tôi xíu nhé...') | markdown"></span>
                             <button (click)="stopChatLoading(activeChatRow)" 
                                 class="ml-2 p-0.5 text-red-600 dark:text-red-500 hover:text-red-700 dark:hover:text-red-400 flex items-center justify-center transition-colors duration-150 focus:outline-none shrink-0" 
                                 title="Dừng AI">

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../theme/app_colors.dart';
+import '../../theme/app_styles.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
 import '../../services/api_service.dart';
@@ -72,66 +73,240 @@ class _LicenseKeysTabState extends State<LicenseKeysTab> with AutomaticKeepAlive
   }
 
   Future<void> _showExtendDialog(Map<String, dynamic> item) async {
-    final monthsController = TextEditingController(text: '1');
+    int manualMonths = 1;
     bool isExtending = false;
+    
+    final customerName = item['info']?['customerName'] ?? item['info']?['email'] ?? 'Unknown';
+    final licenseKey = item['licenseKey'] ?? '';
 
     await showDialog(
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (context, setState) {
-          return AlertDialog(
+          return Dialog(
             insetPadding: const EdgeInsets.symmetric(horizontal: 16),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-            title: const Text('Gia hạn License Key', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text('Nhập số tháng muốn gia hạn:', style: TextStyle(color: AppColors.textSecondary, fontSize: 14)),
-                const SizedBox(height: 12),
-                TextField(
-                  controller: monthsController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent)),
-                    enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.accent)),
-                    focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: AppColors.primary)),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Gia hạn tài khoản', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                        onPressed: () => Navigator.pop(ctx),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      )
+                    ],
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  RichText(
+                    text: TextSpan(
+                      text: 'Đang thao tác cho khách hàng: ',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      children: [
+                        TextSpan(text: customerName, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                      ]
+                    )
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('License Key', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  TextField(
+                    controller: TextEditingController(text: licenseKey),
+                    enabled: false,
+                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.key, size: 20),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent)),
+                      disabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent)),
+                      filled: true,
+                      fillColor: Colors.grey.shade100,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text('Chọn gói gia hạn', style: TextStyle(fontSize: 12, color: AppColors.textSecondary, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  DropdownButtonFormField<int>(
+                    value: manualMonths,
+                    decoration: InputDecoration(
+                      prefixIcon: const Icon(Icons.calendar_today, size: 18),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent)),
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.accent)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: const BorderSide(color: AppColors.primary)),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('1 tháng')),
+                      DropdownMenuItem(value: 3, child: Text('3 tháng')),
+                      DropdownMenuItem(value: 6, child: Text('6 tháng')),
+                      DropdownMenuItem(value: 12, child: Text('1 năm')),
+                    ],
+                    onChanged: (val) {
+                      if (val != null) setState(() => manualMonths = val);
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: isExtending ? null : () async {
+                          setState(() => isExtending = true);
+                          final success = await ApiService.extendLicenseKey(item, manualMonths);
+                          setState(() => isExtending = false);
+                          if (success) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gia hạn thành công!')));
+                            Navigator.pop(ctx);
+                            _loadData();
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gia hạn thất bại')));
+                          }
+                        },
+                        style: AppStyles.primaryButton,
+                        icon: isExtending 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.check_circle_outline, color: Colors.white, size: 20),
+                        label: const Text('Xác nhận gia hạn', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
-            actions: [
-              TextButton(
-                onPressed: isExtending ? null : () => Navigator.pop(ctx),
-                child: const Text('Hủy', style: TextStyle(color: AppColors.textSecondary)),
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _showEmailDialog(Map<String, dynamic> item) async {
+    final customerName = item['info']?['customerName'] ?? item['info']?['email'] ?? 'Unknown';
+    final customerEmail = item['info']?['customerEmail'] ?? item['info']?['email'] ?? '';
+    
+    if (customerEmail.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không tìm thấy email của khách hàng này.')));
+      return;
+    }
+
+    final senderNameCtrl = TextEditingController(text: 'Ban quản trị Type.VN');
+    final subjectCtrl = TextEditingController();
+    final contentCtrl = TextEditingController();
+    bool isSending = false;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setState) {
+          return Dialog(
+            insetPadding: const EdgeInsets.symmetric(horizontal: 16),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            child: Padding(
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      const Text('Soạn email', style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.bold, fontSize: 18)),
+                      IconButton(
+                        icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                        onPressed: () => Navigator.pop(ctx),
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(),
+                      )
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+                  RichText(
+                    text: TextSpan(
+                      text: 'Gửi: ',
+                      style: const TextStyle(color: AppColors.textSecondary, fontSize: 14),
+                      children: customerName == customerEmail
+                          ? [
+                              TextSpan(text: customerEmail, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                            ]
+                          : [
+                              TextSpan(text: customerName, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.blue)),
+                              const TextSpan(text: ' ('),
+                              TextSpan(text: customerEmail, style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                              const TextSpan(text: ')'),
+                            ],
+                    )
+                  ),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: senderNameCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Tên người gửi',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: subjectCtrl,
+                    decoration: InputDecoration(
+                      labelText: 'Tiêu đề Email',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: contentCtrl,
+                    maxLines: 5,
+                    decoration: InputDecoration(
+                      labelText: 'Nội dung Email (hỗ trợ HTML)',
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.end,
+                    children: [
+                      ElevatedButton.icon(
+                        onPressed: isSending ? null : () async {
+                          if (subjectCtrl.text.isEmpty || contentCtrl.text.isEmpty) {
+                            ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập tiêu đề và nội dung')));
+                            return;
+                          }
+                          setState(() => isSending = true);
+                          final result = await ApiService.sendEmail(
+                            to: customerEmail,
+                            senderName: senderNameCtrl.text,
+                            subject: subjectCtrl.text,
+                            htmlContent: contentCtrl.text,
+                          );
+                          setState(() => isSending = false);
+                          
+                          if (result == 'success') {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gửi email thành công!')));
+                            if (mounted) Navigator.pop(ctx);
+                          } else {
+                            if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result)));
+                          }
+                        },
+                        style: AppStyles.primaryButton,
+                        icon: isSending 
+                            ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                            : const Icon(Icons.send, color: Colors.white, size: 20),
+                        label: const Text('Gửi Mail', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              ElevatedButton(
-                onPressed: isExtending ? null : () async {
-                  final months = int.tryParse(monthsController.text);
-                  if (months == null || months <= 0) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Số tháng không hợp lệ')));
-                    return;
-                  }
-                  setState(() => isExtending = true);
-                  final success = await ApiService.extendLicenseKey(item, months);
-                  setState(() => isExtending = false);
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gia hạn thành công!')));
-                    Navigator.pop(ctx);
-                    _loadData();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Gia hạn thất bại')));
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                ),
-                child: isExtending
-                    ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
-                    : const Text('Gia hạn', style: TextStyle(color: Colors.white)),
-              ),
-            ],
+            ),
           );
         },
       ),
@@ -263,9 +438,7 @@ class _LicenseKeysTabState extends State<LicenseKeysTab> with AutomaticKeepAlive
                 ),
               ),
               CustomSlidableAction(
-                onPressed: (context) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Tính năng Gửi Mail đang phát triển')));
-                },
+                onPressed: (context) => _showEmailDialog(item),
                 backgroundColor: Colors.transparent,
                 padding: EdgeInsets.zero,
                 child: Container(
@@ -316,7 +489,7 @@ class _LicenseKeysTabState extends State<LicenseKeysTab> with AutomaticKeepAlive
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(color: nameColor.withOpacity(0.5)),
                             ),
-                            child: Text(appVersion.isNotEmpty ? '$appId (v$appVersion)' : appId, style: TextStyle(color: nameColor, fontSize: 12, fontWeight: FontWeight.bold)),
+                            child: Text(appId, style: TextStyle(color: nameColor, fontSize: 12, fontWeight: FontWeight.bold)),
                           ),
                           if (cState.isNotEmpty) ...[
                             const SizedBox(width: 8),
@@ -331,6 +504,10 @@ class _LicenseKeysTabState extends State<LicenseKeysTab> with AutomaticKeepAlive
                   crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(formattedExpDate, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    if (appVersion.isNotEmpty) ...[
+                      const SizedBox(height: 6),
+                      Text('v$appVersion', style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    ]
                   ],
                 ),
               ],

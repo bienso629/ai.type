@@ -656,6 +656,21 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         genConfig.responseMimeType = 'application/json';
                     }
 
+                    let currentStreamedText = '';
+                    genConfig.onStream = (chunk: string, isFull: boolean) => {
+                        if (isFull) currentStreamedText = chunk;
+                        else currentStreamedText += chunk;
+                        
+                        newRow.answer = currentStreamedText;
+                        if (newRow.messages.length === 1) {
+                            newRow.messages.push({ role: 'model', text: currentStreamedText });
+                        } else {
+                            newRow.messages[1].text = currentStreamedText;
+                        }
+                        this.cdref.detectChanges();
+                        this.scrollToBottom();
+                    };
+
                     const result = await this._genaiService.generateContent({
                         model: 'gemini-3.5-flash',
                         contents: [{ role: 'user', parts: parts }],
@@ -685,7 +700,22 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                         // Cập nhật câu trả lời từ AI
                         newRow.answer = finalDisplayText;
-                        newRow.messages.push({ role: 'model', text: finalDisplayText });
+                        
+                        if (newRow.messages.length === 1) {
+                             newRow.messages.push({ role: 'model', text: finalDisplayText });
+                        } else {
+                             newRow.messages[1].text = finalDisplayText;
+                        }
+                        const modelMsg = newRow.messages[1];
+
+                        if (result.candidates && result.candidates[0]?.content?.parts) {
+                            const parts = result.candidates[0].content.parts;
+                            const mediaPart = parts.find((p: any) => p.inlineData);
+                            if (mediaPart) {
+                                modelMsg.inlineData = mediaPart.inlineData;
+                            }
+                        }
+                        
                         newRow.updatedAt = new Date();
 
                         this.chatgptStore(finalDisplayText, question, newRow);
@@ -945,6 +975,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
         row.messages.push(userMsg);
         row['chatLoading'] = true;
+        row.answer = ''; // Clear the old answer so the loading text shows up
         this.attachedFileFollow = null; // Clear attachment preview
         
         this.cdref.detectChanges();
@@ -980,15 +1011,46 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 genConfig.responseMimeType = 'application/json';
             }
 
+            let currentStreamedText = '';
+            let modelMsgRef: any = null;
+            genConfig.onStream = (chunk: string, isFull: boolean) => {
+                if (isFull) currentStreamedText = chunk;
+                else currentStreamedText += chunk;
+                
+                if (!modelMsgRef) {
+                    modelMsgRef = { role: 'model', text: currentStreamedText };
+                    row.messages.push(modelMsgRef);
+                } else {
+                    modelMsgRef.text = currentStreamedText;
+                }
+                row.answer = currentStreamedText;
+                this.cdref.detectChanges();
+                this.scrollToBottom();
+            };
+
             const result = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
                 contents: contents,
                 config: genConfig
             }, row._id);
             
-            if (result && result.text) {
-                row.messages.push({ role: 'model', text: result.text });
-                row.answer = result.text;
+            if (result) {
+                if (!modelMsgRef) {
+                    modelMsgRef = { role: 'model', text: result.text || '' };
+                    row.messages.push(modelMsgRef);
+                } else {
+                    modelMsgRef.text = result.text || '';
+                }
+                
+                if (result.candidates && result.candidates[0]?.content?.parts) {
+                    const parts = result.candidates[0].content.parts;
+                    const mediaPart = parts.find((p: any) => p.inlineData);
+                    if (mediaPart) {
+                        modelMsgRef.inlineData = mediaPart.inlineData;
+                    }
+                }
+                
+                row.answer = result.text || '';
                 row.updatedAt = new Date();
                 
                 // Nếu màn hình hiện tại có yêu cầu action, gửi kết quả về cho màn hình xử lý

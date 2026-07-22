@@ -11,6 +11,20 @@
                     <span class="text-xs font-semibold bg-gray-100 text-gray-600 px-2 py-1 rounded">v{{ plugin.version }}</span>
                 </div>
                 <p class="text-base text-secondary mb-4 leading-relaxed">{{ plugin.description }}</p>
+                <div *ngIf="plugin.id === 'ai_agent'" class="mt-2">
+                    <div class="flex items-end space-x-3">
+                        <mat-form-field class="flex-auto fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Secret API Key (Mobile App)</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
+                            <input matInput [(ngModel)]="aiAgentApiKey" type="password" placeholder="Nhập mã bảo mật">
+                        </mat-form-field>
+                        <button mat-flat-button color="primary" (click)="saveAiAgentKey(plugin)">
+                            <mat-icon [svgIcon]="'heroicons_outline:check'"></mat-icon>
+                            <span class="ml-2">Lưu</span>
+                        </button>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-3">Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.</p>
+                </div>
             </div>
             
             <div class="w-full h-px bg-gray-100 my-4"></div>
@@ -26,7 +40,7 @@
                     </button>
                 </div>
                 
-                <div *ngIf="plugin.installed">
+                <div *ngIf="plugin.installed || plugin.id === 'ai_agent'">
                     <mat-slide-toggle [checked]="plugin.enabled" (change)="togglePlugin(plugin, $event)">
                         {{ plugin.enabled ? 'Đang bật' : 'Đang tắt' }}
                     </mat-slide-toggle>

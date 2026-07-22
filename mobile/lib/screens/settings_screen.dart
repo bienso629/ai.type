@@ -8,6 +8,7 @@ import 'active_screen.dart';
 import 'style_screen.dart';
 import 'account_screen.dart';
 import 'admin_screen.dart';
+import 'plugins_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -89,9 +90,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const ActiveScreen()));
     } else if (id == 'style') {
       Navigator.push(context, MaterialPageRoute(builder: (_) => const StyleScreen()));
+    } else if (id == 'plugins') {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => const PluginsScreen()));
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Tính năng này sẽ được cập nhật sau.')),
+        const SnackBar(content: Text('Tính năng này sẽ được cập nhật sau.')),
       );
     }
   }

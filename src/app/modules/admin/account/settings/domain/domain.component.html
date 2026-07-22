@@ -13,8 +13,9 @@
     </div>
 
     <div class="mt-8">
-        <div class="flex justify-between items-center mb-4 px-2">
-            <div class="text-base font-bold text-secondary">Chỉ tiêu & Kết quả</div>
+        <div class="flex justify-between items-center mb-4">
+            <button [disabled]="rows.length > 0 && rows[rows.length - 1].addnew" mat-flat-button
+                type="button" (click)="addNewForm()" [color]="'primary'">{{ 'app.add' | transloco }}</button>
             <div class="w-72 flex gap-4">
                 <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-1/2">
                     <mat-select [(value)]="selectedMonthNum" (selectionChange)="onMonthChange()">
@@ -169,9 +170,6 @@
                 <ng-template ngx-datatable-footer-template let-rowCount="rowCount" let-pageSize="pageSize"
                     let-selectedCount="selectedCount" let-curPage="curPage" let-offset="offset">
                     <div class="flex items-center">
-                        <button class="ml-4" [disabled]="rows[rowCount - 1] && rows[rowCount - 1].addnew" mat-flat-button
-                            type="button" (click)="addNewForm()" [color]="'primary'">{{ 'app.add' | transloco }}</button>
-                        
                         <button class="ml-4 text-white !bg-indigo-600 hover:!bg-indigo-700 disabled:!bg-gray-300 disabled:!text-gray-500" 
                             [disabled]="isAnalyzing" mat-flat-button
                             type="button" (click)="analyzeDomains()">

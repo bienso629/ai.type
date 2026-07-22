@@ -15,6 +15,7 @@ import 'tasks_screen.dart';
 import 'domain_screen.dart';
 import 'settings_screen.dart';
 import 'tools_screen.dart';
+import 'chat_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -97,6 +98,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           filterQuality: FilterQuality.high,
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline, color: AppColors.textPrimary, size: 22),
+            onPressed: () {
+              Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
+            },
+          ),
           Stack(
             alignment: Alignment.center,
             children: [

@@ -5,6 +5,8 @@ import 'package:crypto/crypto.dart';
 import 'package:encrypt/encrypt.dart' as enc;
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:mailer/mailer.dart';
+import 'package:mailer/smtp_server.dart';
 
 class ApiService {
   static const String genKey = '31d0a5e6e04fc470418db218464e8ac165816e8309afdd801725e3c2f42c43b8';
@@ -205,6 +207,268 @@ class ApiService {
       print('getStatistics failed: ${response.statusCode} - ${response.body}');
     }
     return null;
+  }
+
+  static Future<dynamic> getChatHistory({int page = 1, int limit = 50}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final username = activeInfo['user']['name'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/blog/$username/chatgpt');
+
+    final dataForm = {
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': username,
+      'appToken': activeInfo['user']['appToken'],
+      'page': {'size': limit},
+      'order': {'createDate': 'DESC'},
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      print('DEBUG CHAT HISTORY: ${response.body}');
+      return jsonDecode(response.body);
+    }
+    print('DEBUG CHAT HISTORY ERROR: ${response.statusCode} - ${response.body}');
+    return null;
+  }
+
+  static Future<dynamic> askChatGpt(String prompt) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/blog/chatgpt/2025/answear');
+
+    final dataForm = {
+      'year': 2023,
+      'appId': 'ai.typing',
+      'prompt': prompt,
+      'appToken': activeInfo['user']['appToken'],
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return null;
+  }
+
+  static Future<String?> askSonTinhAgent(String question, String historyJson, {String? conversationId}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString('ai_agent_api_key') ?? 'type-vn-local-agent-2026';
+
+    var uri = Uri.parse('https://sontinh.type.vn/api/chat');
+    var request = http.MultipartRequest('POST', uri);
+    
+    request.headers.addAll({
+      'x-api-key': apiKey,
+    });
+    
+    request.fields['prompt'] = question;
+    if (historyJson.isNotEmpty && historyJson != '[]') {
+      request.fields['history'] = historyJson;
+    }
+    if (conversationId != null && conversationId.isNotEmpty) {
+      request.fields['conversation_id'] = conversationId;
+    }
+
+    try {
+      var response = await request.send();
+      print('DEBUG askSonTinhAgent: statusCode=${response.statusCode}');
+      if (response.statusCode == 200) {
+        String responseBody = await response.stream.bytesToString();
+        print('DEBUG askSonTinhAgent: body=$responseBody');
+        var jsonData = json.decode(responseBody);
+        if (jsonData['success'] == true) {
+          return jsonData['result'];
+        }
+      } else {
+        String responseBody = await response.stream.bytesToString();
+        print('DEBUG askSonTinhAgent error body: $responseBody');
+      }
+    } catch (e) {
+      print('DEBUG Error calling SonTinh API: $e');
+    }
+    return null;
+  }
+
+  static Future<String?> askUmodelverse(String question, List<Map<String, dynamic>> history, String url, String key, String model) async {
+    try {
+      if (!url.startsWith('http')) url = 'https://$url';
+      if (url.endsWith('/')) url = url.substring(0, url.length - 1);
+      final apiUrl = Uri.parse('$url/chat/completions');
+
+      final List<Map<String, dynamic>> messages = [];
+      for (var h in history) {
+        messages.add({
+          'role': h['role'] == 'model' ? 'assistant' : 'user',
+          'content': h['parts'][0]['text'],
+        });
+      }
+      messages.add({'role': 'user', 'content': question});
+
+      final response = await http.post(
+        apiUrl,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $key',
+        },
+        body: jsonEncode({
+          'model': model.isEmpty ? 'gpt-4o' : model,
+          'messages': messages,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['choices'] != null && data['choices'].isNotEmpty) {
+          return data['choices'][0]['message']['content'];
+        }
+      } else {
+        print('Umodelverse error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('askUmodelverse error: $e');
+    }
+    return null;
+  }
+
+  static Future<String?> askGemini(String question, List<Map<String, dynamic>> history, String apiKey) async {
+    try {
+      final apiUrl = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey');
+      
+      final List<Map<String, dynamic>> contents = [];
+      contents.addAll(history);
+      contents.add({
+        'role': 'user',
+        'parts': [{'text': question}]
+      });
+
+      final response = await http.post(
+        apiUrl,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'contents': contents}),
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+          final parts = data['candidates'][0]['content']['parts'] as List;
+          if (parts.isNotEmpty) {
+            return parts[0]['text'];
+          }
+        }
+      } else {
+        print('Gemini error: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('askGemini error: $e');
+    }
+    return null;
+  }
+
+  static Future<dynamic> saveChatGpt(String question, String answer, {String? id, List<dynamic>? messages}) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final username = activeInfo['user']['name'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl/blog/chatgpt');
+
+    final dataForm = {
+      'year': 2023,
+      'appId': 'ai.typing',
+      'username': username,
+      'appToken': activeInfo['user']['appToken'],
+      'question': question,
+      'answer': answer,
+    };
+    if (id != null) dataForm['_id'] = id;
+    if (messages != null) dataForm['messages'] = messages;
+
+    final encryptedParams = encryptAES(dataForm);
+    final response = await http.post(
+      url,
+      headers: {
+        'content-type': 'application/json',
+        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+      },
+      body: jsonEncode({'params': encryptedParams}),
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body);
+    }
+    return null;
+  }
+
+  static Future<bool> deleteChatGpt(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return false;
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      final username = activeInfo['user']['name'];
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('$baseUrl/blog/chatgpt/delete');
+
+      final dataForm = {
+        '_id': id,
+        'year': 2023,
+        'appId': 'ai.typing',
+        'username': username,
+        'appToken': activeInfo['user']['appToken'],
+      };
+
+      final encryptedParams = encryptAES(dataForm);
+      final response = await http.post(
+        url,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+        },
+        body: jsonEncode({'params': encryptedParams}),
+      );
+
+      if (response.statusCode == 200) {
+        return true;
+      }
+    } catch (e) {
+      print('deleteChatGpt error: $e');
+    }
+    return false;
   }
 
   static Future<dynamic> getCollections() async {
@@ -572,6 +836,224 @@ class ApiService {
     }
   }
 
+  static Future<Map<String, dynamic>?> getAdminUsers() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return null;
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      if (server == null) return null;
+      
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      
+      final url = Uri.parse('$baseUrl/user/users');
+      
+      final dataForm = {
+        'username': activeInfo['user']['name'],
+        'year': 2023,
+        'appId': 'ai.typing',
+        'appToken': activeInfo['user']['appToken'],
+      };
+      
+      final jwt = generateJWTToken(activeInfo['user']);
+      final encParams = encryptAES(dataForm);
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwt',
+        },
+        body: jsonEncode({'params': encParams}),
+      );
+      
+      if (res.statusCode == 200) {
+        return jsonDecode(res.body);
+      }
+    } catch (e) {
+      print('getAdminUsers error: $e');
+    }
+    return null;
+  }
+
+  static Future<Map<String, dynamic>?> getUserStatistics(String targetUsername) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return null;
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      if (server == null) return null;
+      
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      
+      final dataForm = {
+        'username': targetUsername,
+        'year': 2023,
+        'appId': 'ai.typing',
+        'appToken': activeInfo['user']['appToken'], 
+      };
+      
+      final encParams = encryptAES(dataForm);
+      final jwt = generateJWTToken(activeInfo['user']);
+      final headers = {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $jwt',
+      };
+      
+      final crawlRes = await http.post(Uri.parse('$baseUrl/crawl/statistics'), headers: headers, body: jsonEncode({'params': encParams}));
+      final gptRes = await http.post(Uri.parse('$baseUrl/chatgpt/total'), headers: headers, body: jsonEncode({'params': encParams}));
+      final wp2mdRes = await http.post(Uri.parse('$baseUrl/wp2md/totalwp2mdarchive'), headers: headers, body: jsonEncode({'params': encParams}));
+      
+      Map<String, dynamic> result = {
+        'done': 0,
+        'money': 0,
+        'archives': {'total': 0},
+        'writing': {'total': 0},
+        'chatgpt': 0,
+        'wp2md': 0
+      };
+
+      if (crawlRes.statusCode == 200) {
+        final resDecoded = jsonDecode(crawlRes.body);
+        final nodes = resDecoded['data'] ?? [];
+        if (nodes.isNotEmpty) {
+          result['done'] = nodes[0] != null ? (nodes[0] as List).length : 0;
+          result['money'] = nodes[0] != null ? (nodes[0] as List).fold<num>(0, (sum, item) => sum + (num.tryParse(item['amount']?.toString() ?? '0') ?? 0)) : 0;
+          if (nodes.length > 1) result['writing'] = nodes[1] ?? {'total': 0};
+          if (nodes.length > 2) result['archives'] = nodes[2] ?? {'total': 0};
+        }
+      }
+      
+      if (gptRes.statusCode == 200) {
+        final resDecoded = jsonDecode(gptRes.body);
+        result['chatgpt'] = resDecoded['data'] != null ? (resDecoded['data']['total'] ?? 0) : 0;
+      }
+      
+      if (wp2mdRes.statusCode == 200) {
+        final resDecoded = jsonDecode(wp2mdRes.body);
+        result['wp2md'] = resDecoded['data'] != null ? (resDecoded['data']['total'] ?? 0) : 0;
+      }
+      
+      return result;
+    } catch (e) {
+      print('getUserStatistics error: $e');
+    }
+    return null;
+  }
+
+  static Future<List<dynamic>> getN8nWorkflows() async {
+    try {
+      final token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYTEwNDEyZC00OGMxLTQ2ZjQtYTU0Yy0xODFjNzRhNjU2NWIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNGVlNDRhNjktMTFhYS00ODk1LWE4MWItM2RiNDllMDczZmQzIiwiaWF0IjoxNzc4MDc3Mzg0fQ.TUAw1E5_KveZOdAj_NDpJgoOkNmaHQrA2hew-BpkdT4';
+      final res = await http.get(
+        Uri.parse('https://n8n.type.vn/api/v1/workflows'),
+        headers: {
+          'X-N8N-API-KEY': token,
+        },
+      );
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body);
+        return data['data'] ?? [];
+      }
+    } catch (e) {
+      print('getN8nWorkflows error: $e');
+    }
+    return [];
+  }
+
+  static Future<bool> deleteN8nWorkflow(String id) async {
+    try {
+      final token = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYTEwNDEyZC00OGMxLTQ2ZjQtYTU0Yy0xODFjNzRhNjU2NWIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNGVlNDRhNjktMTFhYS00ODk1LWE4MWItM2RiNDllMDczZmQzIiwiaWF0IjoxNzc4MDc3Mzg0fQ.TUAw1E5_KveZOdAj_NDpJgoOkNmaHQrA2hew-BpkdT4';
+      final res = await http.delete(
+        Uri.parse('https://n8n.type.vn/api/v1/workflows/$id'),
+        headers: {
+          'X-N8N-API-KEY': token,
+        },
+      );
+      return res.statusCode == 200;
+    } catch (e) {
+      print('deleteN8nWorkflow error: $e');
+      return false;
+    }
+  }
+
+  static Future<bool> backupDatabase() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return false;
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      if (server == null) return false;
+      
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      
+      final dataForm = {
+        'year': 2023,
+        'appId': 'ai.typing',
+        'appToken': activeInfo['user']['appToken'],
+      };
+      
+      final encParams = encryptAES(dataForm);
+      final jwt = generateJWTToken(activeInfo['user']);
+      final url = Uri.parse('$baseUrl/user/database/backup');
+      
+      final res = await http.post(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $jwt',
+        },
+        body: jsonEncode({'params': encParams}),
+      );
+      
+      return res.statusCode == 200;
+    } catch (e) {
+      print('backupDatabase error: $e');
+      return false;
+    }
+  }
+
+  static Future<List<dynamic>> getTransactions([String? emailSearch]) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return [];
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      if (server == null) return [];
+      
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      
+      String url = '$baseUrl/payment/transactions';
+      if (emailSearch != null && emailSearch.isNotEmpty) {
+        url += '?email=${Uri.encodeComponent(emailSearch)}';
+      }
+
+      final response = await http.get(
+        Uri.parse(url),
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final res = jsonDecode(response.body);
+        if (res != null && res['success'] == true) {
+          return res['data'] ?? [];
+        }
+      }
+    } catch (e) {
+      print('getTransactions error: $e');
+    }
+    return [];
+  }
+
   static Future<dynamic> getTasksCollections(String username) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
@@ -885,5 +1367,53 @@ class ApiService {
       print('extendLicenseKey error: $e');
     }
     return false;
+  }
+
+  static Future<String> sendEmail({
+    required String to,
+    required String senderName,
+    required String subject,
+    required String htmlContent,
+  }) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) return 'Chưa đăng nhập';
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final uid = activeInfo['user']['id'] ?? 'default';
+      final userSettingsStr = prefs.getString('user_settings_$uid');
+      if (userSettingsStr == null) return 'Chưa cấu hình SMTP trong Cài đặt';
+      
+      final settings = jsonDecode(userSettingsStr);
+      final smtpHost = settings['emailConfig_smtpHost']?.toString() ?? '';
+      final smtpPort = int.tryParse(settings['emailConfig_smtpPort']?.toString() ?? '') ?? 587;
+      final smtpUser = settings['emailConfig_smtpUser']?.toString() ?? '';
+      final smtpPass = settings['emailConfig_smtpPass']?.toString() ?? '';
+
+      if (smtpHost.isEmpty || smtpUser.isEmpty || smtpPass.isEmpty) {
+        return 'Thiếu thông tin SMTP (Host, User, Pass). Vui lòng cấu hình trong Tài khoản.';
+      }
+
+      final smtpServer = SmtpServer(
+        smtpHost,
+        port: smtpPort,
+        username: smtpUser,
+        password: smtpPass,
+        ignoreBadCertificate: true,
+      );
+
+      final message = Message()
+        ..from = Address(smtpUser, senderName.isNotEmpty ? senderName : 'Admin')
+        ..recipients.add(to)
+        ..subject = subject
+        ..html = htmlContent;
+
+      await send(message, smtpServer);
+      return 'success';
+    } catch (e) {
+      print('Send email error: $e');
+      return 'Lỗi gửi mail: $e';
+    }
   }
 }

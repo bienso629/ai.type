@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { map, Observable, ReplaySubject, switchMap, take, tap } from 'rxjs';
+import { map, Observable, ReplaySubject, switchMap, take, tap, of } from 'rxjs';
 import { Shortcut } from 'app/layout/common/shortcuts/shortcuts.types';
 
 @Injectable({
@@ -27,6 +27,39 @@ export class ShortcutsService {
     }
 
     // -----------------------------------------------------------------------------------------------------
+    // @ Private methods
+    // -----------------------------------------------------------------------------------------------------
+
+    private _loadFromLocalStorage(): Shortcut[] {
+        const data = localStorage.getItem('ai_shortcuts');
+        if (data) {
+            try {
+                return JSON.parse(data);
+            } catch (e) {
+                // Return default if error
+            }
+        }
+        return [
+            {
+                id: '2496f42e-2f25-4e34-83d5-3ff9568fd984',
+                label: 'Viết bài',
+                description: 'Công cụ giúp bạn viết bài nhanh, chính xác & mượt mà hơn',
+                icon: 'feather:book',
+                link: '/archives',
+                useRouter: true
+            },
+            {
+                id: '56a0a561-17e7-40b3-bd75-0b6cef230b7e',
+                label: 'Từ điển',
+                description: 'Tra cứu & giải nghĩa các từ tiếng Việt phục vụ cho Văn bản',
+                icon: 'feather:type',
+                link: '/synonym',
+                useRouter: true
+            }
+        ];
+    }
+
+    // -----------------------------------------------------------------------------------------------------
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
 
@@ -34,11 +67,9 @@ export class ShortcutsService {
      * Get all messages
      */
     getAll(): Observable<Shortcut[]> {
-        return this._httpClient.get<Shortcut[]>('api/common/shortcuts').pipe(
-            tap((shortcuts) => {
-                this._shortcuts.next(shortcuts);
-            })
-        );
+        const shortcuts = this._loadFromLocalStorage();
+        this._shortcuts.next(shortcuts);
+        return of(shortcuts);
     }
 
     /**
@@ -49,16 +80,13 @@ export class ShortcutsService {
     create(shortcut: Shortcut): Observable<Shortcut> {
         return this.shortcuts$.pipe(
             take(1),
-            switchMap(shortcuts => this._httpClient.post<Shortcut>('api/common/shortcuts', { shortcut }).pipe(
-                map((newShortcut) => {
-
-                    // Update the shortcuts with the new shortcut
-                    this._shortcuts.next([...shortcuts, newShortcut]);
-
-                    // Return the new shortcut from observable
-                    return newShortcut;
-                })
-            ))
+            map(shortcuts => {
+                const newShortcut = { ...shortcut, id: Math.random().toString(36).substring(2, 15) };
+                const updated = [...shortcuts, newShortcut];
+                localStorage.setItem('ai_shortcuts', JSON.stringify(updated));
+                this._shortcuts.next(updated);
+                return newShortcut;
+            })
         );
     }
 
@@ -71,25 +99,16 @@ export class ShortcutsService {
     update(id: string, shortcut: Shortcut): Observable<Shortcut> {
         return this.shortcuts$.pipe(
             take(1),
-            switchMap(shortcuts => this._httpClient.patch<Shortcut>('api/common/shortcuts', {
-                id,
-                shortcut
-            }).pipe(
-                map((updatedShortcut: Shortcut) => {
-
-                    // Find the index of the updated shortcut
-                    const index = shortcuts.findIndex(item => item.id === id);
-
-                    // Update the shortcut
-                    shortcuts[index] = updatedShortcut;
-
-                    // Update the shortcuts
+            map(shortcuts => {
+                const index = shortcuts.findIndex(item => item.id === id);
+                if (index !== -1) {
+                    shortcuts[index] = { ...shortcut, id };
+                    localStorage.setItem('ai_shortcuts', JSON.stringify(shortcuts));
                     this._shortcuts.next(shortcuts);
-
-                    // Return the updated shortcut
-                    return updatedShortcut;
-                })
-            ))
+                    return shortcuts[index];
+                }
+                return null;
+            })
         );
     }
 
@@ -101,22 +120,16 @@ export class ShortcutsService {
     delete(id: string): Observable<boolean> {
         return this.shortcuts$.pipe(
             take(1),
-            switchMap(shortcuts => this._httpClient.delete<boolean>('api/common/shortcuts', { params: { id } }).pipe(
-                map((isDeleted: boolean) => {
-
-                    // Find the index of the deleted shortcut
-                    const index = shortcuts.findIndex(item => item.id === id);
-
-                    // Delete the shortcut
+            map(shortcuts => {
+                const index = shortcuts.findIndex(item => item.id === id);
+                if (index !== -1) {
                     shortcuts.splice(index, 1);
-
-                    // Update the shortcuts
+                    localStorage.setItem('ai_shortcuts', JSON.stringify(shortcuts));
                     this._shortcuts.next(shortcuts);
-
-                    // Return the deleted status
-                    return isDeleted;
-                })
-            ))
+                    return true;
+                }
+                return false;
+            })
         );
     }
 }

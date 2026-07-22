@@ -207,6 +207,20 @@ class _ActiveScreenState extends State<ActiveScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isActive = _activeInfo != null && _activeInfo!['user'] != null;
+    final String expirationDate = isActive ? _activeInfo!['user']['expirationDate'] ?? '' : '';
+    final String appToken = isActive ? _activeInfo!['user']['appToken'] ?? '' : '';
+
+    String formattedExpiration = '';
+    if (expirationDate.isNotEmpty) {
+      try {
+        final date = DateTime.parse(expirationDate).toLocal();
+        formattedExpiration = "${date.day}/${date.month}/${date.year} ${date.hour}:${date.minute.toString().padLeft(2, '0')}";
+      } catch (e) {
+        formattedExpiration = expirationDate;
+      }
+    }
+
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
@@ -223,90 +237,151 @@ class _ActiveScreenState extends State<ActiveScreen> {
             mainAxisAlignment: MainAxisAlignment.start,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                'Nhập License Key',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF374151),
-                ),
-              ),
-              const SizedBox(height: 12),
-              
-              TextField(
-                controller: _controller,
-                focusNode: _focusNode,
-                textAlign: TextAlign.left,
-                maxLength: 35,
-                textCapitalization: TextCapitalization.characters,
-                inputFormatters: [
-                  _LicenseKeyFormatter(),
-                ],
-                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX',
-                  hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14, letterSpacing: 0),
-                  contentPadding: EdgeInsets.zero,
-                  border: InputBorder.none,
-                  focusedBorder: InputBorder.none,
-                  enabledBorder: InputBorder.none,
-                  filled: false,
-                ),
-                onChanged: (value) {
-                  // We can optionally format on the fly here, but simplest is to just let them type
-                },
-              ),
-              
-              const SizedBox(height: 24),
-              const Divider(),
-              const SizedBox(height: 24),
-
-              if (_errorMessage.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 16),
-                  child: Text(
-                    _errorMessage,
-                    style: const TextStyle(color: Colors.red, fontSize: 14),
+              if (isActive) ...[
+                // Hiển thị thông tin đã kích hoạt
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    border: Border.all(color: Colors.green.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green.shade700),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          'Có hiệu lực đến $formattedExpiration',
+                          style: TextStyle(color: Colors.green.shade900, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  ElevatedButton(
-                    onPressed: _isLoading ? null : _activate,
-                    child: _isLoading
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                          )
-                        : const Text(
-                            'Kích hoạt phần mềm',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                          ),
-                  ),
-                  const SizedBox(height: 12),
-                  TextButton(
-                    onPressed: _isLoading ? null : _openMomoPayment,
-                    style: TextButton.styleFrom(
-                      padding: EdgeInsets.zero,
-                      minimumSize: const Size(50, 30),
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                const SizedBox(height: 16),
+                InkWell(
+                  onTap: () {
+                    // Xử lý copy appToken
+                    if (appToken.isNotEmpty) {
+                      // Import services/clipboard or similar if needed. For now use flutter root
+                    }
+                  },
+                  child: Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.orange.shade50,
+                      border: Border.all(color: Colors.orange.shade300),
+                      borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Text(
-                      'Tự động nhận License Key',
-                      style: TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
-                        color: AppColors.primary,
-                        decoration: TextDecoration.underline,
+                    child: Row(
+                      children: [
+                        Icon(Icons.copy, color: Colors.orange.shade700, size: 20),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            appToken,
+                            style: TextStyle(color: Colors.orange.shade900, fontWeight: FontWeight.w500),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 32),
+                ElevatedButton.icon(
+                  onPressed: _openMomoPayment,
+                  icon: const Icon(Icons.calendar_month, size: 18),
+                  label: const Text('Thêm ngày sử dụng'),
+                ),
+              ] else ...[
+                // Hiển thị form nhập License Key
+                const Text(
+                  'Nhập License Key',
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF374151),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                
+                TextField(
+                  controller: _controller,
+                  focusNode: _focusNode,
+                  textAlign: TextAlign.left,
+                  maxLength: 35,
+                  textCapitalization: TextCapitalization.characters,
+                  inputFormatters: [
+                    _LicenseKeyFormatter(),
+                  ],
+                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, letterSpacing: 2),
+                  decoration: InputDecoration(
+                    counterText: '',
+                    hintText: 'XXXXX-XXXXX-XXXXX-XXXXX-XXXXX-XXXXX',
+                    hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14, letterSpacing: 0),
+                    contentPadding: EdgeInsets.zero,
+                    border: InputBorder.none,
+                    focusedBorder: InputBorder.none,
+                    enabledBorder: InputBorder.none,
+                    filled: false,
+                  ),
+                  onChanged: (value) {
+                  },
+                ),
+                
+                const SizedBox(height: 24),
+                const Divider(),
+                const SizedBox(height: 24),
+
+                if (_errorMessage.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    child: Text(
+                      _errorMessage,
+                      style: const TextStyle(color: Colors.red, fontSize: 14),
+                    ),
+                  ),
+
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ElevatedButton(
+                      onPressed: _isLoading ? null : _activate,
+                      child: _isLoading
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            )
+                          : const Text(
+                              'Kích hoạt phần mềm',
+                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                    ),
+                    const SizedBox(height: 12),
+                    TextButton(
+                      onPressed: _isLoading ? null : _openMomoPayment,
+                      style: TextButton.styleFrom(
+                        padding: EdgeInsets.zero,
+                        minimumSize: const Size(50, 30),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                      child: const Text(
+                        'Tự động nhận License Key',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w500,
+                          color: AppColors.primary,
+                          decoration: TextDecoration.underline,
+                        ),
                       ),
                     ),
-                  ),
-                ],
-              ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),
@@ -542,23 +617,24 @@ class _PaymentDialogState extends State<PaymentDialog> {
           ),
         ),
         const SizedBox(height: 16),
-        Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('hoặc ', style: TextStyle(color: Colors.grey)),
-              TextButton(
-                onPressed: () => Navigator.pop(context, 'restore'),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: const Size(50, 30),
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: const Text('Khôi phục gói đăng ký', style: TextStyle(decoration: TextDecoration.underline, color: AppColors.primary)),
-              )
-            ],
-          ),
-        )
+        if (!(_activeInfo != null && _activeInfo!['user'] != null))
+          Center(
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text('hoặc ', style: TextStyle(color: Colors.grey)),
+                TextButton(
+                  onPressed: () => Navigator.pop(context, 'restore'),
+                  style: TextButton.styleFrom(
+                    padding: EdgeInsets.zero,
+                    minimumSize: const Size(50, 30),
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: const Text('Khôi phục gói đăng ký', style: TextStyle(decoration: TextDecoration.underline, color: AppColors.primary)),
+                )
+              ],
+            ),
+          )
       ],
     );
   }
