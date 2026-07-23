@@ -450,11 +450,8 @@ export class GenaiService {
                 }
             }
             
-            if (historyText) {
-                promptText = `Lịch sử cuộc trò chuyện (chỉ để tham khảo ngữ cảnh):\n\n${historyText}\n---\nYêu cầu mới nhất của User cần được trả lời:\n${latestText}\n\n(Lưu ý: Chỉ đưa ra câu trả lời trực tiếp cho yêu cầu mới nhất. Tuyệt đối không lặp lại lịch sử, không xuất ra các tiền tố như "AI Agent:", không giả lập hội thoại)`;
-            } else {
-                promptText = latestText;
-            }
+            // Bỏ việc nhồi lịch sử chat vào prompt vì AI Agent (agy) đã tự động quản lý qua conversation_id
+            promptText = latestText;
         }
 
         let finalPrompt = promptText.trim() || 'Xin chào';
@@ -491,16 +488,16 @@ export class GenaiService {
         }
 
         // Tự động đọc và tiêm Context tĩnh (File ai-agent-context.md) 
-        if ((window as any).electron && (window as any).electron.invoke) {
-            try {
-                const res = await (window as any).electron.invoke('get-ai-agent-context');
-                if (res && res.success && res.content) {
-                    sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT) ---\n${res.content}\n--- HẾT HƯỚNG DẪN ---`;
-                }
-            } catch (e) {
-                console.warn("Không thể tải ai-agent-context.md", e);
-            }
-        }
+        // if ((window as any).electron && (window as any).electron.invoke) {
+        //     try {
+        //         const res = await (window as any).electron.invoke('get-ai-agent-context');
+        //         if (res && res.success && res.content) {
+        //             sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT) ---\n${res.content}\n--- HẾT HƯỚNG DẪN ---`;
+        //         }
+        //     } catch (e) {
+        //         console.warn("Không thể tải ai-agent-context.md", e);
+        //     }
+        // }
         
         formData.append('system_instructions', sysContent);
 
@@ -545,24 +542,68 @@ export class GenaiService {
         }
         
         const settings = this.multiAccountService.getItem('settings') || {};
-        formData.append('tts_voice', settings.ttsVoice || 'vi-VN-HoaiMyNeural');
-        formData.append('tts_rate', settings.ttsRate || '+0%');
+        const ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
+        const ttsRate = settings.ttsRate || '+0%';
+        formData.append('tts_voice', ttsVoice === 'local' ? 'none' : ttsVoice);
+        formData.append('tts_rate', ttsRate);
         
         try {
+            const localTTSQueue = {
+                buffer: '',
+                play: function(force = false) {
+                    if (ttsVoice !== 'local') return;
+                    if (!window.speechSynthesis) return;
+                    
+                    let match = this.buffer.match(/([^.?!:\n]+[.?!:\n]+)(.*)/);
+                    if (force && this.buffer.trim()) {
+                         match = [this.buffer, this.buffer, ''];
+                    }
+                    if (match) {
+                        const sentence = match[1].trim();
+                        this.buffer = match[2] || '';
+                        
+                        if (sentence) {
+                            const utterance = new SpeechSynthesisUtterance(sentence);
+                            utterance.lang = 'vi-VN';
+                            let rate = 1.25;
+                            if (ttsRate === '-10%') rate = 1.0;
+                            else if (ttsRate === '+10%') rate = 1.5;
+                            else if (ttsRate === '+25%') rate = 1.75;
+                            utterance.rate = rate;
+                            window.speechSynthesis.speak(utterance);
+                        }
+                        if (force) this.play(true);
+                        else this.play();
+                    }
+                }
+            };
             // Audio queue để phát lần lượt các luồng TTS streaming
             const audioQueue = {
                 queue: [] as string[],
                 isPlaying: false,
                 add: function(base64: string) {
+                    if (ttsVoice === 'none') return;
                     this.queue.push(base64);
                     this.playNext();
                 },
                 playNext: function() {
                     if (this.isPlaying || this.queue.length === 0) return;
+                    if (ttsVoice === 'none') {
+                        this.queue = [];
+                        return;
+                    }
                     this.isPlaying = true;
                     const b64 = this.queue.shift();
                     const audio = new Audio('data:audio/mp3;base64,' + b64);
-                    // Do not hardcode playbackRate, let the backend TTS rate handle it
+                    
+                    // Boost the playback rate on frontend to make it faster
+                    let rateMultiplier = 1.25;
+                    if (ttsRate === '-10%') rateMultiplier = 1.0;
+                    else if (ttsRate === '+10%') rateMultiplier = 1.45;
+                    else if (ttsRate === '+25%') rateMultiplier = 1.7;
+                    
+                    audio.playbackRate = rateMultiplier;
+                    
                     audio.onended = () => {
                         this.isPlaying = false;
                         this.playNext();
@@ -591,6 +632,7 @@ export class GenaiService {
             let imageBase64: string | undefined;
             let videoBase64: string | undefined;
             let audioBase64: string | undefined;
+            let conversationId: string | undefined;
             
             if (response.body) {
                 const reader = response.body.getReader();
@@ -624,6 +666,8 @@ export class GenaiService {
                             if (chunk.content) {
                                 replyText += chunk.content;
                                 batchStreamedContent += chunk.content;
+                                localTTSQueue.buffer += chunk.content;
+                                localTTSQueue.play();
                             }
                             // Fallback cho luồng cũ (trả 1 lần)
                             if (chunk.result !== undefined && !chunk.content) {
@@ -635,6 +679,9 @@ export class GenaiService {
                             if (chunk.video_base64) videoBase64 = chunk.video_base64;
                             if (chunk.audio_base64) {
                                 audioQueue.add(chunk.audio_base64);
+                            }
+                            if (chunk.conversation_id) {
+                                conversationId = chunk.conversation_id;
                             }
                         } catch (e) {
                             // Bỏ qua lỗi parse JSON nếu chunk chưa hoàn thiện
@@ -653,11 +700,15 @@ export class GenaiService {
                         if (line.startsWith('data: ')) line = line.slice(6).trim();
                         const chunk = JSON.parse(line);
                         if (chunk.success === false) throw new Error(chunk.error);
-                        if (chunk.content) replyText += chunk.content;
+                        if (chunk.content) {
+                            replyText += chunk.content;
+                            localTTSQueue.buffer += chunk.content;
+                        }
                         if (chunk.result !== undefined && !chunk.content) replyText = chunk.result;
                         if (chunk.image_base64) imageBase64 = chunk.image_base64;
                         if (chunk.video_base64) videoBase64 = chunk.video_base64;
                         if (chunk.audio_base64) audioQueue.add(chunk.audio_base64);
+                        if (chunk.conversation_id) conversationId = chunk.conversation_id;
                     } catch (e) {}
                 }
             } else {
@@ -667,7 +718,10 @@ export class GenaiService {
                 imageBase64 = data.image_base64;
                 videoBase64 = data.video_base64;
                 audioBase64 = data.audio_base64;
+                conversationId = data.conversation_id;
             }
+            
+            localTTSQueue.play(true);
 
             // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về tag [LOCAL_IMAGE: /path/to/file]
             const match = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
@@ -718,6 +772,7 @@ export class GenaiService {
                 get text() {
                     return replyText;
                 },
+                conversation_id: conversationId,
                 candidates: [
                     {
                         content: {

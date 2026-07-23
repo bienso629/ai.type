@@ -91,6 +91,7 @@ class _ChatScreenState extends State<ChatScreen> {
               print('DEBUG HISTORY DOC: ${jsonEncode(e)}');
               return <String, dynamic>{
                 'id': e['_id'],
+                'conversation_id': e['conversation_id'],
                 'question': e['question']?.toString() ?? '',
                 'answer': (e['html'] ?? e['answer'])?.toString() ?? '',
                 'updatedAt': e['updatedAt'] ?? e['createdAt'] ?? '',
@@ -131,6 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
               String? base64 = rawMsgs[i + 1]['imageBase64'];
               pairs.add({
                 'id': msg['id'],
+                'conversation_id': msg['conversation_id'],
                 'question': q,
                 'answer': a,
                 if (base64 != null) 'imageBase64': base64,
@@ -140,6 +142,7 @@ class _ChatScreenState extends State<ChatScreen> {
             } else {
               pairs.add({
                 'id': msg['id'],
+                'conversation_id': msg['conversation_id'],
                 'question': q,
                 'answer': a,
                 'loading': false,
@@ -179,6 +182,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     try {
       final List<Map<String, dynamic>> historyArray = [];
+      
       for (int i = _messages.length - 1; i >= 1; i--) {
         if (_messages[i]['question'] != null && _messages[i]['question'].toString().isNotEmpty) {
           historyArray.add({
@@ -197,47 +201,87 @@ class _ChatScreenState extends State<ChatScreen> {
           historyArray.add(modelData);
         }
       }
-      String historyJson = jsonEncode(historyArray);
+      String historyJson = "";
 
       final prefs = await SharedPreferences.getInstance();
       final aiAgentEnabled = prefs.getBool('ai_agent_enabled') ?? true;
       print('DEBUG _sendMessage: aiAgentEnabled=$aiAgentEnabled');
       
-      String? chatId;
-      if (_messages.length > 1 && _messages[1]['id'] != null) {
-        chatId = _messages[1]['id'];
+      String? dbId;
+      String? agentConversationId;
+      for (int i = 1; i < _messages.length; i++) {
+        if (_messages[i]['id'] != null) {
+          dbId = _messages[i]['id'];
+          agentConversationId = _messages[i]['conversation_id'];
+          break;
+        }
       }
       
       String? answerText = '';
+      DateTime lastUpdate = DateTime.now();
+      bool updatePending = false;
+      Timer? textDoneTimer;
       
+      print('DEBUG _sendMessage: dbId=$dbId, agentConversationId=$agentConversationId');
       if (aiAgentEnabled) {
-        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: chatId, onChunk: (chunk) {
+        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: agentConversationId, onChunk: (chunk) {
           if (mounted && newMessage['cancelled'] != true) {
-            setState(() {
-              if (chunk['text'] != null) {
-                newMessage['answer'] = (newMessage['answer'] as String) + chunk['text'];
-              } else if (chunk['content'] != null) {
-                newMessage['answer'] = (newMessage['answer'] as String) + chunk['content'];
-              }
-              
-              if (chunk['image_path'] != null) {
-                newMessage['imagePath'] = chunk['image_path'];
-              }
-              if (chunk['image_base64'] != null) {
-                newMessage['imageBase64'] = chunk['image_base64'];
-              }
-              if (chunk['video_path'] != null) {
-                newMessage['videoPath'] = chunk['video_path'];
-              }
-              if (chunk['file_path'] != null) {
-                newMessage['filePath'] = chunk['file_path'];
-              }
-            });
+            if (agentConversationId == null && chunk['conversation_id'] != null && chunk['conversation_id'].toString().isNotEmpty) {
+              agentConversationId = chunk['conversation_id'];
+            }
+            if (chunk['text'] != null) {
+              newMessage['answer'] = (newMessage['answer'] as String) + chunk['text'];
+            } else if (chunk['content'] != null) {
+              newMessage['answer'] = (newMessage['answer'] as String) + chunk['content'];
+            }
+            String addedText = chunk['text'] ?? chunk['content'] ?? '';
+            if (addedText.isNotEmpty) {
+              textDoneTimer?.cancel();
+              textDoneTimer = Timer(const Duration(milliseconds: 1000), () {
+                if (mounted && _isSending) {
+                  setState(() { _isSending = false; });
+                }
+              });
+            }
+            
+            if (chunk['image_path'] != null) {
+              newMessage['imagePath'] = chunk['image_path'];
+            }
+            if (chunk['image_base64'] != null) {
+              newMessage['imageBase64'] = chunk['image_base64'];
+            }
+            if (chunk['video_path'] != null) {
+              newMessage['videoPath'] = chunk['video_path'];
+            }
+            if (chunk['file_path'] != null) {
+              newMessage['filePath'] = chunk['file_path'];
+            }
+            
+            newMessage['loading'] = false;
+            
+            if (DateTime.now().difference(lastUpdate).inMilliseconds > 40) {
+              setState(() {});
+              lastUpdate = DateTime.now();
+            } else if (!updatePending) {
+              updatePending = true;
+              Future.delayed(const Duration(milliseconds: 40), () {
+                if (mounted && newMessage['cancelled'] != true) {
+                  setState(() {});
+                  lastUpdate = DateTime.now();
+                }
+                updatePending = false;
+              });
+            }
+
             if (chunk['audio_base64'] != null) {
               _enqueueAudio(chunk['audio_base64']);
+              if (_isSending) {
+                setState(() { _isSending = false; });
+              }
             }
           }
         });
+        if (mounted) setState(() {});
         print('DEBUG _sendMessage: askSonTinhAgent res="$answerText"');
       }
       
@@ -310,9 +354,14 @@ class _ChatScreenState extends State<ChatScreen> {
         }
         allMessages.add(currentModelMap);
 
-        final saveRes = await ApiService.saveChatGpt(text, answerText, id: chatId, messages: allMessages);
+        final saveRes = await ApiService.saveChatGpt(text, answerText, id: dbId, conversationId: agentConversationId, messages: allMessages);
         if (saveRes != null && saveRes['success'] == true && saveRes['data'] != null) {
           newMessage['id'] = saveRes['data']['_id'];
+          newMessage['conversation_id'] = agentConversationId;
+          for (var i = 0; i < _messages.length; i++) {
+             _messages[i]['id'] = saveRes['data']['_id'];
+             _messages[i]['conversation_id'] = agentConversationId;
+          }
         }
       }
 

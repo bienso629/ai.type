@@ -517,6 +517,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         } else {
             this.showMentions = false;
         }
+        this.cdref.detectChanges();
     }
 
     onChatKeyDown(event: KeyboardEvent, inputEl: any) {
@@ -560,7 +561,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         this.showMentions = false;
     }
 
-    async chatgpt(question: string, index?: number) {
+    async chatgpt(question: string, index?: number, forceContext: boolean = false) {
         if (this.isLoading) return;
 
         if (question) {
@@ -577,7 +578,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 if (isAlreadyOnTarget) {
                     this.goiy = '';
                     if (cleanQuestion) {
-                        this.chatgpt(cleanQuestion, index);
+                        this.chatgpt(cleanQuestion, index, true);
                     }
                     return;
                 }
@@ -604,14 +605,14 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         if (ctx && ctx.action) {
                             clearTimeout(timeoutId);
                             if (sub) sub.unsubscribe();
-                            this.chatgpt(cleanQuestion, index);
+                            this.chatgpt(cleanQuestion, index, true);
                         }
                     });
                     
                     // Fallback in case component takes too long or doesn't set context
                     timeoutId = setTimeout(() => {
                         if (sub) sub.unsubscribe();
-                        this.chatgpt(cleanQuestion, index);
+                        this.chatgpt(cleanQuestion, index, true);
                     }, 5000); // 5 seconds wait
                 }
                 return;
@@ -628,15 +629,15 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 let apiContextStr = '';
                 
                 try {
-                    if (latestApiData && Object.keys(latestApiData).length > 0) {
-                        apiContextStr = '\n- Dữ liệu API gần đây:\n' + JSON.stringify(latestApiData).substring(0, 10000);
-                    }
+                    // if (latestApiData && Object.keys(latestApiData).length > 0) {
+                    //     apiContextStr = '\n- Dữ liệu API gần đây:\n' + JSON.stringify(latestApiData).substring(0, 10000);
+                    // }
                 } catch (e) {}
 
-                if (agentContext) {
+                if (agentContext && (forceContext || agentContext.action || agentContext.prompt)) {
                     let ctxData = '';
                     try { ctxData = JSON.stringify(agentContext.data); } catch (e) {}
-                    systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt (chính xác nhất, cập nhật theo thời gian thực): ${ctxData}${apiContextStr}\n\nHãy ưu tiên trả lời dựa trên Dữ liệu tóm tắt. Dữ liệu API chỉ dùng để bổ sung chi tiết. Nếu có mâu thuẫn về trạng thái (ví dụ task đã xong hay chưa), LUÔN LUÔN tin tưởng Dữ liệu tóm tắt.\n\n`;
+                    systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt: ${ctxData}\n\nHãy ưu tiên trả lời dựa trên Dữ liệu tóm tắt trên màn hình.\n\n`;
                     
                     if (agentContext.prompt) {
                         systemContext += `HƯỚNG DẪN ĐẶC BIỆT TỪ MÀN HÌNH NÀY: ${agentContext.prompt}\n\n`;
@@ -644,7 +645,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     
                     // Removed sendUserPrompt call
                 } else if (apiContextStr) {
-                    systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):${apiContextStr}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
+                    // systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):${apiContextStr}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
+                    systemContext = ``;
                 }
 
                 let prompt = '';
@@ -676,7 +678,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                 // 1. Khởi tạo dòng chat mới và chuyển sang giao diện chat ngay lập tức
                 const newRow: any = {
-                    conversation_id: 'local_' + Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
+                    conversation_id: '',
                     question: question,
                     answer: '',
                     updatedAt: new Date(),
@@ -793,8 +795,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             newRow.messages[1] = { ...modelMsg };
                             newRow.messages = [...newRow.messages];
                         }
-                        
                         newRow.updatedAt = new Date();
+                        if ((result as any).conversation_id) {
+                            newRow.conversation_id = (result as any).conversation_id;
+                        }
 
                         this.chatgptStore(finalDisplayText, question, newRow);
                     } else {
@@ -829,6 +833,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         this._chatGPTService.store({
             content: question,
             answer: answer,
+            conversation_id: row?.conversation_id,
             username: this.user.name
         })
             .pipe(takeUntil(this._unsubscribeAll))
@@ -953,7 +958,18 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     if (data.loading) {
                         newRow['chatLoading'] = true;
                     } else {
-                        newRow.messages.push({ role: 'model', text: data.answer || '' });
+                        let ans = data.answer || '';
+                        let extractedInlineData: any = null;
+                        const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+                        if (match) {
+                            extractedInlineData = { mimeType: match[2], data: match[3] };
+                            ans = ans.replace(match[0], '').trim();
+                        }
+                        const msgObj: any = { role: 'model', text: ans };
+                        if (extractedInlineData) {
+                            msgObj.inlineData = extractedInlineData;
+                        }
+                        newRow.messages.push(msgObj);
                     }
 
                     if (!this.chatgpt2s) {
@@ -990,7 +1006,20 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                                 { role: 'user', text: this.activeChatRow.question || '' }
                             ];
                         }
-                        this.activeChatRow.messages.push({ role: msg.role, text: msg.content });
+                        
+                        let ans = msg.content || '';
+                        let extractedInlineData: any = null;
+                        const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+                        if (match) {
+                            extractedInlineData = { mimeType: match[2], data: match[3] };
+                            ans = ans.replace(match[0], '').trim();
+                        }
+                        
+                        const msgObj: any = { role: msg.role, text: ans };
+                        if (extractedInlineData) {
+                            msgObj.inlineData = extractedInlineData;
+                        }
+                        this.activeChatRow.messages.push(msgObj);
                     }
                     this.cdref.detectChanges();
                     this.scrollToBottom();
@@ -1143,12 +1172,16 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 if (agentContext && agentContext.action) {
                     this.globalAgentService.sendActionResult(result.text);
                 }
+                if ((result as any).conversation_id) {
+                    row.conversation_id = (result as any).conversation_id;
+                }
                 
                 this._chatGPTService.store({
                     _id: row._id,
                     content: row.question,
                     answer: result.text,
                     messages: row.messages,
+                    conversation_id: row.conversation_id,
                     username: this.user.name
                 }).subscribe({
                     next: (res) => {
