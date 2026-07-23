@@ -29,7 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
   stt.SpeechToText _speech = stt.SpeechToText();
   bool _isListening = false;
   Timer? _recordTimer;
-  String _lastRecognizedWords = '';
+  final ValueNotifier<String> _recognizedWordsNotifier = ValueNotifier<String>('');
 
   final AudioPlayer _audioPlayer = AudioPlayer();
   final List<Uint8List> _audioQueue = [];
@@ -149,7 +149,18 @@ class _ChatScreenState extends State<ChatScreen> {
     print('DEBUG _sendMessage: text="$text"');
     if (text.isEmpty) return;
 
-    final newMessage = {'question': text, 'answer': '', 'loading': true, 'cancelled': false};
+    final Map<String, dynamic> newMessage = {
+      'question': text, 
+      'answer': '', 
+      'loading': true, 
+      'cancelled': false,
+      'isImage': false,
+      'imagePath': null,
+      'imageBase64': null,
+      'videoPath': null,
+      'filePath': null,
+      'id': null,
+    };
     setState(() {
       _messages.insert(0, newMessage);
       _isSending = true;
@@ -290,8 +301,9 @@ class _ChatScreenState extends State<ChatScreen> {
           _isSending = false;
         });
       }
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('DEBUG _sendMessage: error=$e');
+      print('DEBUG _sendMessage: stackTrace=$stackTrace');
       if (mounted && newMessage['cancelled'] != true) {
         setState(() {
           newMessage['loading'] = false;
@@ -520,14 +532,19 @@ class _ChatScreenState extends State<ChatScreen> {
                       children: [
                         const SoundWaveAnimation(),
                         const SizedBox(height: 24),
-                        Text(
-                          _lastRecognizedWords.isEmpty ? 'Đang nghe...' : _lastRecognizedWords,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          textAlign: TextAlign.center,
+                        ValueListenableBuilder<String>(
+                          valueListenable: _recognizedWordsNotifier,
+                          builder: (context, value, child) {
+                            return Text(
+                              value.isEmpty ? 'Đang nghe...' : value,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
+                              textAlign: TextAlign.center,
+                            );
+                          },
                         ),
                       ],
                     ),
@@ -615,7 +632,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   child: Stack(
                                     children: [
                                       msg['imageBase64'] != null && msg['imageBase64'].toString().isNotEmpty
-                                        ? Image.memory(base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), '')), fit: BoxFit.cover)
+                                        ? Image.memory(base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), '')), fit: BoxFit.cover, gaplessPlayback: true)
                                         : msg['imagePath'] != null && msg['imagePath'].toString().startsWith('http') 
                                           ? Image.network(msg['imagePath'], fit: BoxFit.cover)
                                           : Text('🖼️ File ảnh: ${msg['imagePath']}', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.blue)),
@@ -807,15 +824,13 @@ class _ChatScreenState extends State<ChatScreen> {
                       if (mounted) {
                         setState(() {
                           _isListening = true;
-                          _lastRecognizedWords = '';
                         });
+                        _recognizedWordsNotifier.value = '';
                       }
                       _speech.listen(
                         onResult: (result) {
                           if (mounted) {
-                            setState(() {
-                              _lastRecognizedWords = result.recognizedWords;
-                            });
+                            _recognizedWordsNotifier.value = result.recognizedWords;
                           }
                         },
                         localeId: 'vi_VN',
@@ -830,8 +845,8 @@ class _ChatScreenState extends State<ChatScreen> {
                       _isListening = false;
                     });
                     await _speech.stop();
-                    if (_lastRecognizedWords.isNotEmpty) {
-                      _controller.text = _lastRecognizedWords;
+                    if (_recognizedWordsNotifier.value.isNotEmpty) {
+                      _controller.text = _recognizedWordsNotifier.value;
                       _sendMessage();
                     }
                   }

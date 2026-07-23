@@ -544,6 +544,10 @@ export class GenaiService {
             throw new Error("Plugin AI Agent chưa được bật.");
         }
         
+        const settings = this.multiAccountService.getItem('settings') || {};
+        formData.append('tts_voice', settings.ttsVoice || 'vi-VN-HoaiMyNeural');
+        formData.append('tts_rate', settings.ttsRate || '+0%');
+        
         try {
             // Audio queue để phát lần lượt các luồng TTS streaming
             const audioQueue = {
@@ -558,7 +562,7 @@ export class GenaiService {
                     this.isPlaying = true;
                     const b64 = this.queue.shift();
                     const audio = new Audio('data:audio/mp3;base64,' + b64);
-                    audio.playbackRate = 1.25;
+                    // Do not hardcode playbackRate, let the backend TTS rate handle it
                     audio.onended = () => {
                         this.isPlaying = false;
                         this.playNext();

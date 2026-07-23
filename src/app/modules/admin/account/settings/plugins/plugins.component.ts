@@ -13,6 +13,8 @@ export class SettingsPluginsComponent implements OnInit {
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
     aiAgentApiKey: string = 'type-vn-local-agent-2026';
+    ttsVoice: string = 'vi-VN-HoaiMyNeural';
+    ttsRate: string = '+0%';
 
     constructor(
         private _fuseConfirmationService: FuseConfirmationService,
@@ -59,6 +61,8 @@ export class SettingsPluginsComponent implements OnInit {
             
             this.zaloPluginMode = settings.zaloPluginMode || 'tool';
             this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
+            this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
+            this.ttsRate = settings.ttsRate || '+0%';
             this.cd.detectChanges();
             return;
         }
@@ -76,6 +80,10 @@ export class SettingsPluginsComponent implements OnInit {
             } else {
                 this.aiAgentApiKey = 'type-vn-local-agent-2026';
             }
+            
+            const settings = this.multiAccountService.getItem('settings') || {};
+            this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
+            this.ttsRate = settings.ttsRate || '+0%';
         } catch (err) {
             this.toastr.error('Lỗi khi lấy trạng thái plugin: ' + err.message);
         }
@@ -191,16 +199,23 @@ export class SettingsPluginsComponent implements OnInit {
         if (!(window as any).electronAPI) {
             const settings = this.multiAccountService.getItem('settings') || {};
             settings.aiAgentApiKey = this.aiAgentApiKey;
+            settings.ttsVoice = this.ttsVoice;
+            settings.ttsRate = this.ttsRate;
             this.multiAccountService.setItem('settings', settings);
-            this.toastr.success('Đã lưu Secret Key trên trình duyệt/mobile.');
+            this.toastr.success('Đã lưu cấu hình AI Agent trên trình duyệt/mobile.');
             return;
         }
         try {
+            const settings = this.multiAccountService.getItem('settings') || {};
+            settings.ttsVoice = this.ttsVoice;
+            settings.ttsRate = this.ttsRate;
+            this.multiAccountService.setItem('settings', settings);
+
             const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey);
             if (res && res.success) {
-                this.toastr.success('Đã lưu Secret Key. Hệ thống sẽ khởi động lại AI Agent nếu đang bật.');
+                this.toastr.success('Đã lưu cấu hình. Hệ thống sẽ khởi động lại AI Agent nếu đang bật.');
             } else {
-                this.toastr.error(res?.error || 'Lỗi lưu key.');
+                this.toastr.error(res?.error || 'Lỗi lưu cấu hình.');
             }
         } catch (err) {
             this.toastr.error('Lỗi: ' + err.message);
