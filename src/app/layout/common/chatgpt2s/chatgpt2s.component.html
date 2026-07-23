@@ -253,9 +253,9 @@
                                 <div *ngIf="msg.inlineData" class="mt-2 pt-2 flex flex-col items-start w-full">
                                     <div class="relative inline-block group/img" *ngIf="msg.inlineData.mimeType?.startsWith('image/')">
                                         <img [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain max-h-96 shadow-sm" />
-                                        <a [href]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [download]="'sontinh_' + (msg.path ? msg.path.split('/').pop() : 'image.png')" class="absolute top-2 right-2 bg-white/80 hover:bg-white text-gray-800 shadow-md backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-all duration-200" title="Tải xuống ảnh này">
-                                            <mat-icon class="icon-size-5" svgIcon="heroicons_outline:arrow-down-tray"></mat-icon>
-                                        </a>
+                                        <button (click)="downloadImage(msg)" class="absolute top-2 right-2 bg-white/80 hover:bg-white text-gray-800 shadow-md backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-all duration-200" title="Tải xuống ảnh này">
+                                            <mat-icon class="icon-size-5">download</mat-icon>
+                                        </button>
                                     </div>
                                     <video *ngIf="msg.inlineData.mimeType?.startsWith('video/')" controls class="rounded-lg object-contain max-h-96 w-full mt-2">
                                         <source [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [type]="msg.inlineData.mimeType" />

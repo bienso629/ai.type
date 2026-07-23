@@ -315,16 +315,19 @@ class ApiService {
 
           try {
             var jsonData = json.decode(jsonStr);
-            if (jsonData['success'] == true) {
-              if (jsonData['content'] != null) {
-                fullResult += jsonData['content'];
-              }
-              if (onChunk != null) {
-                onChunk(jsonData);
-              }
-            } else if (jsonData['result'] != null) {
-              // fallback for non-streaming payload
+            if (jsonData['text'] != null) {
+              fullResult += jsonData['text'];
+            } else if (jsonData['content'] != null) { // Fallback for old format
+              fullResult += jsonData['content'];
+            } else if (jsonData['result'] != null && jsonData['success'] != null) { // Fallback for old non-streaming format
               return jsonData['result'];
+            }
+            if (onChunk != null) {
+              print('DEBUG chunk: $jsonStr');
+              onChunk(jsonData);
+            }
+            if (jsonData['status'] == 'DONE') {
+              break;
             }
           } catch (e) {
             print('DEBUG parse error chunk: $e');

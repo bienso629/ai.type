@@ -186,8 +186,23 @@ class _ChatScreenState extends State<ChatScreen> {
         answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: chatId, onChunk: (chunk) {
           if (mounted && newMessage['cancelled'] != true) {
             setState(() {
-              if (chunk['content'] != null) {
+              if (chunk['text'] != null) {
+                newMessage['answer'] = (newMessage['answer'] as String) + chunk['text'];
+              } else if (chunk['content'] != null) {
                 newMessage['answer'] = (newMessage['answer'] as String) + chunk['content'];
+              }
+              
+              if (chunk['image_path'] != null) {
+                newMessage['imagePath'] = chunk['image_path'];
+              }
+              if (chunk['image_base64'] != null) {
+                newMessage['imageBase64'] = chunk['image_base64'];
+              }
+              if (chunk['video_path'] != null) {
+                newMessage['videoPath'] = chunk['video_path'];
+              }
+              if (chunk['file_path'] != null) {
+                newMessage['filePath'] = chunk['file_path'];
               }
             });
             if (chunk['audio_base64'] != null) {
@@ -586,15 +601,79 @@ class _ChatScreenState extends State<ChatScreen> {
                             ],
                           ),
                         )
-                      : MarkdownBody(
-                          data: msg['answer'] ?? '',
-                          styleSheet: MarkdownStyleSheet(
-                            p: const TextStyle(fontSize: 15.0, height: 1.5, color: AppColors.textPrimary),
-                            h1: const TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold),
-                            h2: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
-                            h3: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
-                          ),
-                          selectable: true,
+                      : Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (msg['imagePath'] != null || msg['imageBase64'] != null) ...[
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(8),
+                                  border: Border.all(color: Colors.grey.shade300),
+                                ),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(8),
+                                  child: msg['imageBase64'] != null && msg['imageBase64'].toString().isNotEmpty
+                                    ? Image.memory(base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), '')), fit: BoxFit.cover)
+                                    : msg['imagePath'] != null && msg['imagePath'].toString().startsWith('http') 
+                                      ? Image.network(msg['imagePath'], fit: BoxFit.cover)
+                                      : Text('🖼️ File ảnh: ${msg['imagePath']}', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.blue)),
+                                ),
+                              ),
+                            ],
+                            if (msg['videoPath'] != null) ...[
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.black87,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.play_circle_fill, color: Colors.white, size: 32),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text('Video: ${msg['videoPath']}', style: const TextStyle(color: Colors.white, fontSize: 12))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if (msg['filePath'] != null) ...[
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 8),
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey.shade200,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    const Icon(Icons.insert_drive_file, color: Colors.grey),
+                                    const SizedBox(width: 8),
+                                    Expanded(child: Text('Tệp đính kèm: ${msg['filePath']}', style: const TextStyle(color: Colors.black87, fontSize: 12))),
+                                  ],
+                                ),
+                              ),
+                            ],
+                            if ((msg['answer'] ?? '').isNotEmpty)
+                              MarkdownBody(
+                                data: msg['answer'] ?? '',
+                                styleSheet: MarkdownStyleSheet(
+                                  p: const TextStyle(fontSize: 15.0, height: 1.5, color: AppColors.textPrimary),
+                                  h1: const TextStyle(fontSize: 22.0, fontWeight: FontWeight.bold),
+                                  h2: const TextStyle(fontSize: 20.0, fontWeight: FontWeight.bold),
+                                  h3: const TextStyle(fontSize: 18.0, fontWeight: FontWeight.bold),
+                                ),
+                                selectable: true,
+                                imageBuilder: (uri, title, alt) {
+                                  if (uri.scheme == 'data') {
+                                    final String encoded = uri.toString().split(',').last;
+                                    return Image.memory(base64Decode(encoded), fit: BoxFit.cover);
+                                  }
+                                  return Image.network(uri.toString(), fit: BoxFit.cover);
+                                },
+                              ),
+                          ],
                         ),
                 ),
               ),

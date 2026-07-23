@@ -1235,6 +1235,34 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         this._overlayRef.detach();
     }
 
+    downloadImage(msg: any) {
+        if (!msg.inlineData || !msg.inlineData.data) return;
+        try {
+            const byteString = atob(msg.inlineData.data);
+            const ab = new ArrayBuffer(byteString.length);
+            const ia = new Uint8Array(ab);
+            for (let i = 0; i < byteString.length; i++) {
+                ia[i] = byteString.charCodeAt(i);
+            }
+            const blob = new Blob([ab], { type: msg.inlineData.mimeType || 'image/png' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = 'sontinh_' + (msg.path ? msg.path.split('/').pop() : 'image_' + new Date().getTime() + '.png');
+            document.body.appendChild(a);
+            a.click();
+            
+            setTimeout(() => {
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 100);
+        } catch(e) {
+            console.error('Lỗi khi tải ảnh:', e);
+        }
+    }
+
     postChatToForum(content: string, row: any) {
         let title = 'Chia sẻ ảnh nghệ thuật';
         if (row.question) {
