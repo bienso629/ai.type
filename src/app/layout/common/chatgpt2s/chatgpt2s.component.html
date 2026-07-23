@@ -257,6 +257,10 @@
                                         <source [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [type]="msg.inlineData.mimeType" />
                                     </video>
                                 </div>
+                                
+                                <div *ngIf="msg.audioData" class="mt-2 pt-2 flex flex-col items-start w-full">
+                                    <audio controls [src]="'data:' + msg.audioData.mimeType + ';base64,' + msg.audioData.data" class="w-full max-w-md"></audio>
+                                </div>
                             </div>
                             <!-- Action button for sharing -->
                             <div *ngIf="activeChatRow?.question?.startsWith('Chia sẻ ảnh')" class="ml-4 mt-1 flex items-center">
