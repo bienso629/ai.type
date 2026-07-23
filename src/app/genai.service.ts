@@ -518,14 +518,14 @@ export class GenaiService {
                 }
                 if (aiAgent && aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
             } catch(e) {}
-            // Desktop App default points to local, unless secretApiKey looks like a URL config (for advanced users testing external endpoints)
+            // Desktop App default points to sontinh.type.vn, unless secretApiKey looks like a URL config (for advanced users testing external endpoints)
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
                 // Giả định cú pháp setting là: URL|API_KEY (VD: https://sontinh.type.vn|my-secret)
                 const parts = secretApiKey.split('|');
                 apiUrl = parts[0] + (parts[0].endsWith('/api/chat') ? '' : '/api/chat');
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                apiUrl = 'http://127.0.0.1:54321/api/chat';
+                apiUrl = 'https://sontinh.type.vn/api/chat';
             }
         } else {
             // Web / Mobile / Another Account fallback logic
