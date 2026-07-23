@@ -651,7 +651,7 @@ class _ChatScreenState extends State<ChatScreen> {
                               Container(
                                 margin: const EdgeInsets.only(bottom: 8),
                                 child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(12),
                                   child: Stack(
                                     children: [
                                       msg['imageBase64'] != null && msg['imageBase64'].toString().isNotEmpty
@@ -748,37 +748,40 @@ class _ChatScreenState extends State<ChatScreen> {
                                   } else {
                                     imageWidget = Image.network(uri.toString(), fit: BoxFit.cover);
                                   }
-                                  return Stack(
-                                    children: [
-                                      imageWidget,
-                                      if (uri.scheme == 'data')
-                                        Positioned(
-                                          top: 8,
-                                          right: 8,
-                                          child: InkWell(
-                                            onTap: () async {
-                                              try {
-                                                final String encoded = uri.toString().split(',').last;
-                                                final bytes = base64Decode(encoded);
-                                                final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
-                                                
-                                                await Gal.putImageBytes(bytes, name: name);
-                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
-                                              } catch (e) {
-                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
-                                              }
-                                            },
-                                            child: Container(
-                                              padding: const EdgeInsets.all(6),
-                                              decoration: BoxDecoration(
-                                                color: Colors.black.withOpacity(0.6),
-                                                shape: BoxShape.circle,
+                                  return ClipRRect(
+                                    borderRadius: BorderRadius.circular(12),
+                                    child: Stack(
+                                      children: [
+                                        imageWidget,
+                                        if (uri.scheme == 'data')
+                                          Positioned(
+                                            top: 8,
+                                            right: 8,
+                                            child: InkWell(
+                                              onTap: () async {
+                                                try {
+                                                  final String encoded = uri.toString().split(',').last;
+                                                  final bytes = base64Decode(encoded);
+                                                  final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
+                                                  
+                                                  await Gal.putImageBytes(bytes, name: name);
+                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
+                                                } catch (e) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
+                                                }
+                                              },
+                                              child: Container(
+                                                padding: const EdgeInsets.all(6),
+                                                decoration: BoxDecoration(
+                                                  color: Colors.black.withOpacity(0.6),
+                                                  shape: BoxShape.circle,
+                                                ),
+                                                child: const Icon(Icons.download, color: Colors.white, size: 18),
                                               ),
-                                              child: const Icon(Icons.download, color: Colors.white, size: 20),
                                             ),
                                           ),
-                                        ),
-                                    ],
+                                      ],
+                                    ),
                                   );
                                 },
                               ),
