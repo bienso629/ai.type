@@ -128,14 +128,23 @@ class _ChatScreenState extends State<ChatScreen> {
             String a = '';
             if (i + 1 < rawMsgs.length && rawMsgs[i + 1]['role'] == 'model') {
               a = rawMsgs[i + 1]['text'] ?? '';
+              String? base64 = rawMsgs[i + 1]['imageBase64'];
+              pairs.add({
+                'id': msg['id'],
+                'question': q,
+                'answer': a,
+                if (base64 != null) 'imageBase64': base64,
+                'loading': false,
+              });
               i++;
+            } else {
+              pairs.add({
+                'id': msg['id'],
+                'question': q,
+                'answer': a,
+                'loading': false,
+              });
             }
-            pairs.add({
-              'id': msg['id'],
-              'question': q,
-              'answer': a,
-              'loading': false,
-            });
           }
         }
         _messages.addAll(pairs.reversed);
@@ -178,10 +187,14 @@ class _ChatScreenState extends State<ChatScreen> {
           });
         }
         if (_messages[i]['answer'] != null && _messages[i]['answer'].toString().isNotEmpty) {
-          historyArray.add({
+          Map<String, dynamic> modelData = {
             "role": "model",
             "parts": [{"text": _messages[i]['answer']}]
-          });
+          };
+          if (_messages[i]['imageBase64'] != null) {
+            modelData['imageBase64'] = _messages[i]['imageBase64'];
+          }
+          historyArray.add(modelData);
         }
       }
       String historyJson = jsonEncode(historyArray);
@@ -280,13 +293,22 @@ class _ChatScreenState extends State<ChatScreen> {
       if (answerText.isNotEmpty && answerText != 'Xin lỗi, không có AI nào khả dụng lúc này hoặc có lỗi kết nối.') {
         List<dynamic> allMessages = [];
         for (var h in historyArray) {
-          allMessages.add({
+          Map<String, dynamic> msgMap = {
             'role': h['role'],
             'text': h['parts'][0]['text']
-          });
+          };
+          if (h['imageBase64'] != null) {
+            msgMap['imageBase64'] = h['imageBase64'];
+          }
+          allMessages.add(msgMap);
         }
         allMessages.add({'role': 'user', 'text': text});
-        allMessages.add({'role': 'model', 'text': answerText});
+        
+        Map<String, dynamic> currentModelMap = {'role': 'model', 'text': answerText};
+        if (newMessage['imageBase64'] != null) {
+          currentModelMap['imageBase64'] = newMessage['imageBase64'];
+        }
+        allMessages.add(currentModelMap);
 
         final saveRes = await ApiService.saveChatGpt(text, answerText, id: chatId, messages: allMessages);
         if (saveRes != null && saveRes['success'] == true && saveRes['data'] != null) {
