@@ -425,7 +425,7 @@ class ApiService {
     final server = activeInfo['user']['server'];
     final username = activeInfo['user']['name'];
     final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
-    final url = Uri.parse('$baseUrl/blog/chatgpt/store');
+    final url = Uri.parse('$baseUrl/blog/chatgpt');
 
     final dataForm = {
       'year': 2023,
@@ -449,10 +449,8 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      print('DEBUG saveChatGpt success: ${response.body}');
       return jsonDecode(response.body);
     }
-    print('DEBUG saveChatGpt error: ${response.statusCode} ${response.body}');
     return null;
   }
 
