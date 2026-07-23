@@ -690,16 +690,11 @@ export class GenaiService {
                 }
             }
 
-            const parts: any[] = [{ text: replyText }];
-            
             if (imageBase64) {
-                parts.push({
-                    inlineData: {
-                        mimeType: 'image/png',
-                        data: imageBase64
-                    }
-                });
+                replyText += `\n\n![Generated Image](data:image/jpeg;base64,${imageBase64})\n`;
             }
+
+            const parts: any[] = [{ text: replyText }];
             if (videoBase64) {
                 parts.push({
                     inlineData: {
