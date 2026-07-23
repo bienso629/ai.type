@@ -774,6 +774,13 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             const mediaPart = parts.find((p: any) => p.inlineData && !p.inlineData.mimeType.startsWith('audio/'));
                             if (mediaPart) {
                                 modelMsg.inlineData = mediaPart.inlineData;
+                            }
+                            const audioPart = parts.find((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('audio/'));
+                            if (audioPart) {
+                                modelMsg.audioData = audioPart.inlineData;
+                            }
+                            
+                            if (mediaPart || audioPart) {
                                 // Clone modelMsg and messages to trigger Angular change detection
                                 newRow.messages[1] = { ...modelMsg };
                                 newRow.messages = [...newRow.messages];
