@@ -86,13 +86,16 @@ class _ChatScreenState extends State<ChatScreen> {
         if (mounted) {
           setState(() {
             _historyList.clear();
-            _historyList.addAll(history.map((e) => <String, dynamic>{
-              'id': e['_id'],
-              'question': e['question']?.toString() ?? '',
-              'answer': (e['html'] ?? e['answer'])?.toString() ?? '',
-              'updatedAt': e['updatedAt'] ?? e['createdAt'] ?? '',
-              'messages': e['messages'] ?? [],
-              'loading': false,
+            _historyList.addAll(history.map((e) {
+              print('DEBUG HISTORY DOC: ${jsonEncode(e)}');
+              return <String, dynamic>{
+                'id': e['_id'],
+                'question': e['question']?.toString() ?? '',
+                'answer': (e['html'] ?? e['answer'])?.toString() ?? '',
+                'updatedAt': e['updatedAt'] ?? e['createdAt'] ?? '',
+                'messages': e['messages'] ?? [],
+                'loading': false,
+              };
             }).toList());
             print('DEBUG CHAT LOADED: ${_historyList.length} history items');
             _isLoading = false;
