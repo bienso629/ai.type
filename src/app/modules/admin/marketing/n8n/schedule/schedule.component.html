@@ -102,14 +102,13 @@
             
             <!-- Chat Input -->
             <div class="p-4 bg-white shrink-0">
-                <div class="flex items-end bg-white rounded-xl border border-gray-300 focus-within:border-primary overflow-hidden p-1.5 transition-all">
+                <div class="relative flex items-end bg-white rounded-xl border border-gray-300 focus-within:border-primary overflow-visible p-1.5 transition-all">
                     <!-- Attach button -->
                     <input type="file" #fileInput (change)="onFileSelected($event)" style="display: none;" multiple>
                     <button mat-icon-button class="shrink-0 mb-0.5 text-gray-500 hover:text-gray-700" (click)="fileInput.click()">
                         <mat-icon class="icon-size-5" [svgIcon]="'feather:paperclip'"></mat-icon>
                     </button>
                     
-                    <!-- Textarea -->
                     <textarea 
                         class="flex-auto bg-transparent border-0 focus:ring-0 resize-none py-3 px-2 text-sm text-gray-800 placeholder-gray-400"
                         cdkTextareaAutosize
@@ -118,8 +117,22 @@
                         placeholder="Hỏi tiếp từ prompt này..." 
                         [(ngModel)]="chatPrompt"
                         [ngModelOptions]="{ standalone: true }"
-                        (keydown.enter)="sendChat($event)"
+                        (input)="onChatInput($event, chatInput)"
+                        (keydown)="onChatKeyDown($event, chatInput)"
+                        (keydown.enter)="!ignoreNextEnter && !showMentions && sendChat($event)"
                         #chatInput></textarea>
+                        
+                    <!-- Suggestions Dropdown -->
+                    <div *ngIf="showMentions && filteredMentionOptions.length > 0" 
+                         class="absolute bottom-[110%] left-10 z-50 w-64 bg-white shadow-lg rounded-lg border border-gray-200 py-1 overflow-hidden">
+                        <div *ngFor="let option of filteredMentionOptions; let i = index" 
+                             (click)="selectMention(option, chatInput)"
+                             class="flex items-center px-4 py-2 cursor-pointer transition-colors duration-150"
+                             [ngClass]="{'bg-blue-50 text-blue-700': i === mentionIndex, 'text-gray-700 hover:bg-gray-100': i !== mentionIndex}">
+                            <mat-icon class="icon-size-4 mr-3 text-current" [svgIcon]="option.icon"></mat-icon>
+                            <span class="font-medium text-sm">{{ option.id }}</span>
+                        </div>
+                    </div>
                         
                     <!-- Send/Stop button -->
                     <ng-container *ngIf="!isChatting">

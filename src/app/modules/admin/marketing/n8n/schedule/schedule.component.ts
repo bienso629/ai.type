@@ -176,6 +176,17 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     isAllSelected: boolean = false;
     totalSelected: number = 0;
     customPromptInput: string = '';
+    
+    // --- VARIABLES FOR MENTIONS ---
+    showMentions: boolean = false;
+    mentionIndex: number = 0;
+    ignoreNextEnter: boolean = false;
+    mentionOptions = [
+        { id: 'Lịch làm việc', icon: 'heroicons_outline:calendar', url: '/amxh', panel: 'schedule' },
+        { id: 'Quản lý bài viết', icon: 'heroicons_outline:document-text', url: '/admin/marketing/clone-product' },
+        { id: 'SEO Links', icon: 'heroicons_outline:link', url: '/admin/marketing/seo-links' }
+    ];
+    filteredMentionOptions: any[] = [];
 
     // [NEW] Biến tùy chọn active
     autoActivateWorkflows: boolean = true;
@@ -1902,6 +1913,58 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         return [{ id: parentId + "-child", name: 'Công việc', streamItems: tasks }];
     }
 
+    onChatInput(event: any, inputEl: any) {
+        const val = inputEl.value || '';
+        const lastAt = val.lastIndexOf('@');
+        
+        if (lastAt !== -1) {
+            const query = val.substring(lastAt + 1).toLowerCase();
+            this.filteredMentionOptions = this.mentionOptions.filter(m => m.id.toLowerCase().includes(query));
+            this.showMentions = this.filteredMentionOptions.length > 0;
+            this.mentionIndex = 0;
+        } else {
+            this.showMentions = false;
+        }
+        this.cd.detectChanges();
+    }
+
+    onChatKeyDown(event: KeyboardEvent, inputEl: any) {
+        if (this.showMentions) {
+            if (event.key === 'ArrowDown') {
+                event.preventDefault();
+                this.mentionIndex = (this.mentionIndex + 1) % this.filteredMentionOptions.length;
+            } else if (event.key === 'ArrowUp') {
+                event.preventDefault();
+                this.mentionIndex = (this.mentionIndex - 1 + this.filteredMentionOptions.length) % this.filteredMentionOptions.length;
+            } else if (event.key === 'Enter') {
+                event.preventDefault();
+                event.stopPropagation();
+                if (this.filteredMentionOptions.length > 0) {
+                    this.ignoreNextEnter = true;
+                    this.selectMention(this.filteredMentionOptions[this.mentionIndex], inputEl);
+                    setTimeout(() => this.ignoreNextEnter = false, 100);
+                }
+            } else if (event.key === 'Escape') {
+                this.showMentions = false;
+                this.cd.detectChanges();
+            }
+        }
+    }
+
+    selectMention(option: any, inputEl: any) {
+        const val = inputEl.value || '';
+        const lastAt = val.lastIndexOf('@');
+        if (lastAt !== -1) {
+            const newVal = val.substring(0, lastAt) + '@' + option.id + ' ';
+            this.chatPrompt = newVal;
+            inputEl.value = newVal;
+            inputEl.dispatchEvent(new Event('input'));
+        }
+        inputEl.focus();
+        this.showMentions = false;
+        this.cd.detectChanges();
+    }
+
     onFileSelected(event: any) {
         const files = event.target.files;
         if (files && files.length > 0) {
@@ -1916,8 +1979,38 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         }
         if (!this.chatPrompt || !this.chatPrompt.trim() || this.isChatting) return;
 
-        const userMessage = this.chatPrompt.trim();
+        let userMessage = this.chatPrompt.trim();
         this.chatPrompt = '';
+
+        // Check for @mentions navigation
+        const matchedMention = this.mentionOptions.find(m => userMessage.includes('@' + m.id));
+        if (matchedMention) {
+            userMessage = userMessage.replace('@' + matchedMention.id, '').trim();
+            const currentContext = this._globalAgentService.getContext();
+            const isAlreadyOnTarget = currentContext && currentContext.sourcePage && currentContext.sourcePage.toLowerCase().includes(matchedMention.id.toLowerCase());
+            
+            if (!isAlreadyOnTarget) {
+                if (matchedMention.panel) {
+                    this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
+                        this.router.navigate([matchedMention.url], { state: { panel: matchedMention.panel } });
+                    });
+                } else {
+                    this.router.navigateByUrl('/', { skipLocationChange: true }).then(() => {
+                        this.router.navigate([matchedMention.url]);
+                    });
+                }
+                
+                if (userMessage) {
+                    // Send to global agent instead
+                    // Wait for navigation, but for simplicity, we just skip it here
+                    // because the global chatgpt2s component will handle global states.
+                    // To keep it simple, we just navigate.
+                }
+                return;
+            }
+        }
+
+        if (!userMessage) return;
 
         this.chatHistory.push({ role: 'user', content: userMessage });
         this.scrollToBottom();
@@ -2370,7 +2463,23 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         const response = await this._genaiService.generateContent({
                             model: 'gemini-3.5-flash',
                             contents: dayContents,
-                            tools: [] // No tools to make it fast
+                            tools: [], // No tools to make it fast
+                            config: {
+                                onStream: (chunk: string, isFull: boolean) => {
+                                    const prefix = `⏳ Đang xử lý ngày ${vDateStrLocal} (${i + 1}/${validDates.length})...\n`;
+                                    if (isFull) {
+                                        this.chatHistory[progressMsgIndex].content = prefix + chunk;
+                                    } else {
+                                        if (this.chatHistory[progressMsgIndex].content.length <= prefix.length) {
+                                            this.chatHistory[progressMsgIndex].content = prefix + chunk;
+                                        } else {
+                                            this.chatHistory[progressMsgIndex].content += chunk;
+                                        }
+                                    }
+                                    this.cd.detectChanges();
+                                    this.scrollToBottom();
+                                }
+                            }
                         } as any);
                         
                         const aiMsg = response.text || (response as any).response?.text() || '';
@@ -2425,10 +2534,28 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 parsed = allParsedTasks; // Keep it for the diagnostic message
                 
             } else {
+                this.chatHistory.push({ role: 'model', content: '⏳ Đang phân tích...' });
+                const streamIndex = this.chatHistory.length - 1;
+                
                 const response = await this._genaiService.generateContent({
                     model: 'gemini-3.5-flash',
                     contents: contents,
-                    tools: toolsList
+                    tools: toolsList,
+                    config: {
+                        onStream: (chunk: string, isFull: boolean) => {
+                            if (isFull) {
+                                this.chatHistory[streamIndex].content = chunk;
+                            } else {
+                                if (this.chatHistory[streamIndex].content === '⏳ Đang phân tích...') {
+                                    this.chatHistory[streamIndex].content = chunk;
+                                } else {
+                                    this.chatHistory[streamIndex].content += chunk;
+                                }
+                            }
+                            this.cd.detectChanges();
+                            this.scrollToBottom();
+                        }
+                    }
                 } as any);
                 
                 aiMessageForChat = response.text || (response as any).response?.text() || '';
@@ -2436,6 +2563,9 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 if (Array.isArray(parsed) && !isMonth) {
                     this.applyParsedTasks(parsed);
                 }
+                // Remove the raw streamed message (it contains raw JSON), 
+                // the cleaned message will be pushed at the end.
+                this.chatHistory.splice(streamIndex, 1);
             }
             
             if (parsed) {

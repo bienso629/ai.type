@@ -282,18 +282,44 @@ class ApiService {
 
   static Future<String?> askSonTinhAgent(String question, String historyJson, {String? conversationId, Function(Map<String, dynamic> chunk)? onChunk}) async {
     final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString('ai_agent_api_key') ?? 'type-vn-local-agent-2026';
+    String apiKey = prefs.getString('ai_agent_api_key') ?? '';
+    if (apiKey.trim().isEmpty) {
+      apiKey = 'type-vn-local-agent-2026';
+    }
 
     var uri = Uri.parse('https://sontinh.type.vn/api/chat');
+    if (apiKey.startsWith('http://') || apiKey.startsWith('https://')) {
+      final parts = apiKey.split('|');
+      String urlStr = parts[0];
+      if (!urlStr.endsWith('/api/chat')) {
+        urlStr += '/api/chat';
+      }
+      uri = Uri.parse(urlStr);
+      apiKey = parts.length > 1 ? parts[1] : 'type-vn-local-agent-2026';
+    }
+
     var request = http.MultipartRequest('POST', uri);
     
     request.headers.addAll({
       'x-api-key': apiKey,
     });
+    print('DEBUG askSonTinhAgent: headers=${request.headers}');
     
     request.fields['prompt'] = question;
     if (historyJson.isNotEmpty && historyJson != '[]') {
       request.fields['system_instructions'] = 'Dưới đây là lịch sử trò chuyện từ trước đến nay để bạn tham khảo:\n' + historyJson;
+    }
+    
+    final ttsVoice = prefs.getString('ai_agent_tts_voice') ?? 'google';
+    if (ttsVoice == 'local') {
+      request.fields['tts_voice'] = 'none';
+    } else if (ttsVoice.isNotEmpty) {
+      request.fields['tts_voice'] = ttsVoice;
+    }
+    
+    final ttsRate = prefs.getString('ai_agent_tts_rate') ?? '+0%';
+    if (ttsRate.isNotEmpty) {
+      request.fields['tts_rate'] = ttsRate;
     }
     if (conversationId != null && conversationId.isNotEmpty) {
       request.fields['conversation_id'] = conversationId;
@@ -419,7 +445,7 @@ class ApiService {
     return null;
   }
 
-  static Future<dynamic> saveChatGpt(String question, String answer, {String? id, List<dynamic>? messages}) async {
+  static Future<dynamic> saveChatGpt(String question, String answer, {String? id, String? conversationId, List<dynamic>? messages}) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
     if (activeInfoStr == null) throw Exception('No active session');
@@ -439,6 +465,7 @@ class ApiService {
       'answer': answer,
     };
     if (id != null) dataForm['_id'] = id;
+    if (conversationId != null) dataForm['conversation_id'] = conversationId;
     if (messages != null) dataForm['messages'] = messages;
 
     final encryptedParams = encryptAES(dataForm);

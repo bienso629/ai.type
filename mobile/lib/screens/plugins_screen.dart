@@ -12,6 +12,8 @@ class PluginsScreen extends StatefulWidget {
 class _PluginsScreenState extends State<PluginsScreen> {
   String _aiAgentApiKey = 'type-vn-local-agent-2026';
   final TextEditingController _apiKeyCtrl = TextEditingController(text: 'type-vn-local-agent-2026');
+  String _ttsVoice = 'google';
+  String _ttsRate = '+0%';
 
   @override
   void initState() {
@@ -28,6 +30,15 @@ class _PluginsScreenState extends State<PluginsScreen> {
         _aiAgentApiKey = savedKey;
         _apiKeyCtrl.text = savedKey;
       });
+    }
+    
+    final savedVoice = prefs.getString('ai_agent_tts_voice');
+    final savedRate = prefs.getString('ai_agent_tts_rate');
+    if (savedVoice != null) {
+      setState(() => _ttsVoice = savedVoice);
+    }
+    if (savedRate != null) {
+      setState(() => _ttsRate = savedRate);
     }
     setState(() {
       _plugins.firstWhere((p) => p['id'] == 'ai_agent')['enabled'] = aiAgentEnabled;
@@ -66,6 +77,8 @@ class _PluginsScreenState extends State<PluginsScreen> {
   void _saveAiAgentKey() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('ai_agent_api_key', _apiKeyCtrl.text.trim());
+    await prefs.setString('ai_agent_tts_voice', _ttsVoice);
+    await prefs.setString('ai_agent_tts_rate', _ttsRate);
     _aiAgentApiKey = _apiKeyCtrl.text.trim();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -184,6 +197,65 @@ class _PluginsScreenState extends State<PluginsScreen> {
             const Text(
               'Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.',
               style: TextStyle(fontSize: 12, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
+            const Text('Giọng nói (TTS)', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _ttsVoice,
+                  items: const [
+                    DropdownMenuItem(value: 'vi-VN-HoaiMyNeural', child: Text('Hoài My (Nữ, Miền Nam)')),
+                    DropdownMenuItem(value: 'vi-VN-NamMinhNeural', child: Text('Nam Minh (Nam, Miền Bắc)')),
+                    DropdownMenuItem(value: 'google', child: Text('Chị Google (Miễn phí, Nữ)')),
+                    DropdownMenuItem(value: 'local', child: Text('Giọng cục bộ (Trình duyệt, tức thì)')),
+                    DropdownMenuItem(value: 'none', child: Text('Tắt giọng đọc')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _ttsVoice = val);
+                      _saveAiAgentKey();
+                    }
+                  },
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Text('Tốc độ đọc', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.grey.shade50,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.grey.shade300),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<String>(
+                  isExpanded: true,
+                  value: _ttsRate,
+                  items: const [
+                    DropdownMenuItem(value: '-10%', child: Text('Chậm (-10%)')),
+                    DropdownMenuItem(value: '+0%', child: Text('Bình thường')),
+                    DropdownMenuItem(value: '+10%', child: Text('Nhanh (+10%)')),
+                    DropdownMenuItem(value: '+25%', child: Text('Rất nhanh (+25%)')),
+                  ],
+                  onChanged: (val) {
+                    if (val != null) {
+                      setState(() => _ttsRate = val);
+                      _saveAiAgentKey();
+                    }
+                  },
+                ),
+              ),
             ),
           ],
           
