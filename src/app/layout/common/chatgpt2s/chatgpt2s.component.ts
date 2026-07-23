@@ -110,6 +110,32 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     private _overlayRef: OverlayRef;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    private audioQueue: { mimeType: string, base64Data: string }[] = [];
+    private isPlayingAudio: boolean = false;
+    private currentAudio: HTMLAudioElement = null;
+
+    private playNextAudio() {
+        if (this.audioQueue.length === 0) {
+            this.isPlayingAudio = false;
+            this.currentAudio = null;
+            return;
+        }
+        this.isPlayingAudio = true;
+        const audioData = this.audioQueue.shift();
+        this.currentAudio = new Audio('data:' + audioData.mimeType + ';base64,' + audioData.base64Data);
+        this.currentAudio.playbackRate = 1.25;
+        this.currentAudio.onended = () => {
+            this.playNextAudio();
+        };
+        this.currentAudio.onerror = () => {
+            this.playNextAudio();
+        };
+        this.currentAudio.play().catch(e => {
+            console.log('Autoplay prevented:', e);
+            this.playNextAudio();
+        });
+    }
+
     toggleExpandRow(row: any) {
         this.activeChatRow = this.activeChatRow === row ? null : row;
         this.cdref.detectChanges();
@@ -159,6 +185,13 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             row['chatLoading'] = false;
         }
         this.isLoading = false;
+
+        this.audioQueue = [];
+        this.isPlayingAudio = false;
+        if (this.currentAudio) {
+            this.currentAudio.pause();
+            this.currentAudio = null;
+        }
         
         const isAiAgentEnabled = this.settings?.enableAiAgent === true;
         if (isAiAgentEnabled) {
@@ -176,7 +209,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             event.stopPropagation();
         }
 
-        if (!row || !row._id) return;
+        if (!row) return;
+        
+        // Cả khi không có _id (tin nhắn tạm/lỗi mạng) vẫn cho phép xóa cục bộ
+        if (!row._id && !row.conversation_id) return;
 
         const dialogRef = this._fuseConfirmationService.open({
             title: 'Xóa cuộc hội thoại',
@@ -196,32 +232,42 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                this._chatGPTService.destroy(row._id, this.user.name).subscribe({
-                    next: (res) => {
-                        if (res && res.success) {
-                            this.chatgpt2s = this.chatgpt2s.filter(r => r._id !== row._id);
-                            this.chatgpt2s = [...this.chatgpt2s];
-                            
-                            this.totalElements = Math.max(0, this.totalElements - 1);
-                            
-                            let statistics = localStorage.getItem('statistics');
-                            if (statistics) {
-                                let statObj = JSON.parse(statistics);
-                                statObj['chatgpt'] = this.totalElements;
-                                localStorage.setItem('statistics', JSON.stringify(statObj));
-                            }
-                            
-                            if (this.activeChatRow === row) {
-                                this.activeChatRow = null;
-                            }
-                            
-                            this.cdref.detectChanges();
-                        }
-                    },
-                    error: (err) => {
-                        console.error('Lỗi khi xóa cuộc hội thoại:', err);
+                const removeLocal = () => {
+                    this.chatgpt2s = this.chatgpt2s.filter(r => r !== row);
+                    this.chatgpt2s = [...this.chatgpt2s];
+                    
+                    this.totalElements = Math.max(0, this.totalElements - 1);
+                    
+                    let statistics = localStorage.getItem('statistics');
+                    if (statistics) {
+                        let statObj = JSON.parse(statistics);
+                        statObj['chatgpt'] = this.totalElements;
+                        localStorage.setItem('statistics', JSON.stringify(statObj));
                     }
-                });
+                    
+                    if (this.activeChatRow === row) {
+                        this.activeChatRow = null;
+                    }
+                    
+                    this.cdref.detectChanges();
+                };
+
+                if (row._id) {
+                    this._chatGPTService.destroy(row._id, this.user.name).subscribe({
+                        next: (res) => {
+                            if (res && res.success) {
+                                removeLocal();
+                            }
+                        },
+                        error: (err) => {
+                            console.error('Lỗi khi xóa cuộc hội thoại:', err);
+                            // Vẫn xóa cục bộ nếu lỗi mạng
+                            removeLocal();
+                        }
+                    });
+                } else {
+                    removeLocal();
+                }
             }
         });
     }
@@ -630,6 +676,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                 // 1. Khởi tạo dòng chat mới và chuyển sang giao diện chat ngay lập tức
                 const newRow: any = {
+                    conversation_id: 'local_' + Date.now().toString() + '_' + Math.random().toString(36).substr(2, 5),
                     question: question,
                     answer: '',
                     updatedAt: new Date(),
@@ -675,7 +722,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         model: 'gemini-3.5-flash',
                         contents: [{ role: 'user', parts: parts }],
                         config: genConfig
-                    });
+                    }, newRow.conversation_id || newRow._id);
 
                     if (result && result.text) {
                         (result as any).q = question;
@@ -714,9 +761,13 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             // Phát audio ngay và luôn (không lưu vào thẻ hiển thị/msg)
                             const audioPart = parts.find((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('audio/'));
                             if (audioPart) {
-                                const audio = new Audio('data:' + audioPart.inlineData.mimeType + ';base64,' + audioPart.inlineData.data);
-                                audio.playbackRate = 1.25; // Tăng tốc độ đọc lên 1.25x
-                                audio.play().catch(e => console.log('Autoplay prevented:', e));
+                                this.audioQueue.push({
+                                    mimeType: audioPart.inlineData.mimeType,
+                                    base64Data: audioPart.inlineData.data
+                                });
+                                if (!this.isPlayingAudio) {
+                                    this.playNextAudio();
+                                }
                             }
                             
                             // Chỉ lưu ảnh/video vào inlineData
@@ -1042,7 +1093,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 model: 'gemini-3.5-flash',
                 contents: contents,
                 config: genConfig
-            }, row._id);
+            }, row.conversation_id || row._id);
             
             if (result) {
                 if (!modelMsgRef) {
