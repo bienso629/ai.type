@@ -280,7 +280,7 @@ class ApiService {
     return null;
   }
 
-  static Future<String?> askSonTinhAgent(String question, String historyJson, {String? conversationId}) async {
+  static Future<String?> askSonTinhAgent(String question, String historyJson, {String? conversationId, Function(Map<String, dynamic> chunk)? onChunk}) async {
     final prefs = await SharedPreferences.getInstance();
     final apiKey = prefs.getString('ai_agent_api_key') ?? 'type-vn-local-agent-2026';
 
@@ -303,12 +303,34 @@ class ApiService {
       var response = await request.send();
       print('DEBUG askSonTinhAgent: statusCode=${response.statusCode}');
       if (response.statusCode == 200) {
-        String responseBody = await response.stream.bytesToString();
-        print('DEBUG askSonTinhAgent: body=$responseBody');
-        var jsonData = json.decode(responseBody);
-        if (jsonData['success'] == true) {
-          return jsonData['result'];
+        String fullResult = '';
+        await for (var line in response.stream.transform(utf8.decoder).transform(const LineSplitter())) {
+          if (line.trim().isEmpty) continue;
+          
+          String jsonStr = line.trim();
+          if (jsonStr.startsWith('data: ')) {
+            jsonStr = jsonStr.substring(6).trim();
+          }
+          if (jsonStr == '[DONE]' || jsonStr.isEmpty) continue;
+
+          try {
+            var jsonData = json.decode(jsonStr);
+            if (jsonData['success'] == true) {
+              if (jsonData['content'] != null) {
+                fullResult += jsonData['content'];
+              }
+              if (onChunk != null) {
+                onChunk(jsonData);
+              }
+            } else if (jsonData['result'] != null) {
+              // fallback for non-streaming payload
+              return jsonData['result'];
+            }
+          } catch (e) {
+            print('DEBUG parse error chunk: $e');
+          }
         }
+        return fullResult;
       } else {
         String responseBody = await response.stream.bytesToString();
         print('DEBUG askSonTinhAgent error body: $responseBody');
