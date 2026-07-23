@@ -209,13 +209,12 @@ angular-tag-cloud {
     position: relative;
     text-wrap: auto;
 
-    .chatgpt-imgs {
-        p {
-            .chatgpt-img {
-                max-width: 400px;
-                border-radius: 8px;
-            }
-        }
+    .chatgpt-imgs p .chatgpt-img,
+    img {
+        max-width: 400px;
+        border-radius: 12px;
+        box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+        margin-top: 8px;
     }
 
     p {
