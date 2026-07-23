@@ -748,12 +748,23 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         // Cập nhật câu trả lời từ AI
                         newRow.answer = finalDisplayText;
                         
+                        let displayText = finalDisplayText;
+                        let extractedInlineData: any = null;
+                        const match = displayText.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+                        if (match) {
+                            extractedInlineData = { mimeType: match[2], data: match[3] };
+                            displayText = displayText.replace(match[0], '').trim();
+                        }
+                        
                         if (newRow.messages.length === 1) {
-                             newRow.messages.push({ role: 'model', text: finalDisplayText });
+                             newRow.messages.push({ role: 'model', text: displayText });
                         } else {
-                             newRow.messages[1].text = finalDisplayText;
+                             newRow.messages[1].text = displayText;
                         }
                         const modelMsg = newRow.messages[1];
+                        if (extractedInlineData) {
+                            modelMsg.inlineData = extractedInlineData;
+                        }
 
                         if (result.candidates && result.candidates[0]?.content?.parts) {
                             const parts = result.candidates[0].content.parts;
@@ -770,14 +781,17 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                                 }
                             }
                             
-                            // Chỉ lưu ảnh/video vào inlineData
+                            // Chỉ lưu ảnh/video vào inlineData (từ parts nếu có)
                             const mediaPart = parts.find((p: any) => p.inlineData && !p.inlineData.mimeType.startsWith('audio/'));
                             if (mediaPart) {
                                 modelMsg.inlineData = mediaPart.inlineData;
-                                // Clone modelMsg and messages to trigger Angular change detection
-                                newRow.messages[1] = { ...modelMsg };
-                                newRow.messages = [...newRow.messages];
                             }
+                        }
+                        
+                        if (modelMsg.inlineData) {
+                            // Clone modelMsg and messages to trigger Angular change detection
+                            newRow.messages[1] = { ...modelMsg };
+                            newRow.messages = [...newRow.messages];
                         }
                         
                         newRow.updatedAt = new Date();
@@ -987,9 +1001,17 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
     getMessages(row: any): any[] {
         if (!row) return [];
         if (!row.messages) {
+            let ans = row.answer || '';
+            let inlineData: any = null;
+            const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+            if (match) {
+                inlineData = { mimeType: match[2], data: match[3] };
+                ans = ans.replace(match[0], '').trim();
+            }
+
             row.messages = [
                 { role: 'user', text: row.question || '' },
-                { role: 'model', text: row.answer || '' }
+                { role: 'model', text: ans, inlineData: inlineData }
             ];
         }
         return row.messages;

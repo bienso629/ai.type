@@ -233,11 +233,11 @@
                     <ng-container *ngFor="let msg of getMessages(activeChatRow)">
                         <!-- User message -->
                         <div class="flex justify-end" *ngIf="msg.role === 'user'">
-                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none px-4 py-2.5 text-base whitespace-pre-wrap break-words flex flex-col">
+                            <div class="max-w-[85%] bg-blue-50 dark:bg-blue-950 text-blue-900 dark:text-blue-100 rounded-2xl rounded-tr-none p-3.5 text-base whitespace-pre-wrap break-words flex flex-col">
                                 <div>{{ msg.text }}</div>
                                 <!-- File attachment rendering inside bubble -->
                                 <div *ngIf="msg.inlineData" class="mt-2 pt-2 border-t border-blue-100/30 dark:border-blue-900/30 flex flex-col items-start w-full">
-                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain self-start" />
+                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-xl object-contain self-start" />
                                     <div *ngIf="!msg.inlineData.mimeType?.startsWith('image/')" class="flex items-center space-x-1 text-xs opacity-75">
                                         <mat-icon class="icon-size-3.5" [svgIcon]="'heroicons_solid:document'"></mat-icon>
                                         <span class="truncate max-w-40 font-medium">{{ msg.path ? (msg.path.split('/').pop()) : 'Tệp đính kèm' }}</span>
@@ -247,12 +247,12 @@
                         </div>
                         <!-- Model message -->
                         <div class="flex justify-start flex-col items-start gap-1" *ngIf="msg.role === 'model'">
-                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none px-4 py-2.5 text-base break-words overflow-x-auto chatgpt-result">
+                            <div class="max-w-[85%] bg-gray-100 dark:bg-gray-800 text-gray-855 dark:text-gray-200 rounded-2xl rounded-tl-none p-3.5 text-base break-words overflow-x-auto chatgpt-result">
                                 <div [innerHTML]="msg.text | markdown"></div>
                                 
                                 <div *ngIf="msg.inlineData" class="mt-2 pt-2 flex flex-col items-start w-full">
                                     <div class="relative inline-block group/img" *ngIf="msg.inlineData.mimeType?.startsWith('image/')">
-                                        <img [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain max-h-96 shadow-sm" />
+                                        <img [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-xl object-contain max-h-96 shadow-sm" />
                                         <button (click)="downloadImage(msg)" class="absolute top-2 right-2 bg-white/80 hover:bg-white text-gray-800 shadow-md backdrop-blur-sm rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-all duration-200" title="Tải xuống ảnh này">
                                             <mat-icon class="icon-size-5">download</mat-icon>
                                         </button>
