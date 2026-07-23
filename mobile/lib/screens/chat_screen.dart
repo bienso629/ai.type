@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
