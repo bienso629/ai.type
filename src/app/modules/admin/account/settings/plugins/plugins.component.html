@@ -12,12 +12,32 @@
                 </div>
                 <p class="text-base text-secondary mb-4 leading-relaxed">{{ plugin.description }}</p>
                 <div *ngIf="plugin.id === 'ai_agent'" class="mt-2">
-                    <div class="flex items-end space-x-3">
+                    <div class="flex items-end space-x-3 mb-3">
                         <mat-form-field class="flex-auto fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                             <mat-label>Secret API Key (Mobile App)</mat-label>
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
                             <input matInput [(ngModel)]="aiAgentApiKey" type="password" placeholder="Nhập mã bảo mật">
                         </mat-form-field>
+                    </div>
+                    <div class="flex items-end space-x-3">
+                        <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                            <mat-label>Giọng nói (TTS)</mat-label>
+                            <mat-select [(ngModel)]="ttsVoice">
+                                <mat-option value="vi-VN-HoaiMyNeural">Hoài My (Nữ, Miền Nam)</mat-option>
+                                <mat-option value="vi-VN-NamMinhNeural">Nam Minh (Nam, Miền Bắc)</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                        
+                        <mat-form-field class="w-1/3 fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                            <mat-label>Tốc độ đọc</mat-label>
+                            <mat-select [(ngModel)]="ttsRate">
+                                <mat-option value="-10%">Chậm (-10%)</mat-option>
+                                <mat-option value="+0%">Bình thường</mat-option>
+                                <mat-option value="+10%">Nhanh (+10%)</mat-option>
+                                <mat-option value="+25%">Rất nhanh (+25%)</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+
                         <button mat-flat-button color="primary" (click)="saveAiAgentKey(plugin)">
                             <mat-icon [svgIcon]="'heroicons_outline:check'"></mat-icon>
                             <span class="ml-2">Lưu</span>
