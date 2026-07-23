@@ -3,12 +3,12 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
+import 'package:image_gallery_saver/image_gallery_saver.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'dart:convert';
 import 'dart:typed_data';
 import 'dashboard_screen.dart';
 
@@ -579,7 +579,7 @@ class _ChatScreenState extends State<ChatScreen> {
               Expanded(
                 child: Container(
                   margin: const EdgeInsets.only(bottom: 24, right: 20),
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
                   decoration: const BoxDecoration(
                     color: AppColors.background,
                     borderRadius: BorderRadius.only(
@@ -610,17 +610,43 @@ class _ChatScreenState extends State<ChatScreen> {
                             if (msg['imagePath'] != null || msg['imageBase64'] != null) ...[
                               Container(
                                 margin: const EdgeInsets.only(bottom: 8),
-                                decoration: BoxDecoration(
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(color: Colors.grey.shade300),
-                                ),
                                 child: ClipRRect(
                                   borderRadius: BorderRadius.circular(8),
-                                  child: msg['imageBase64'] != null && msg['imageBase64'].toString().isNotEmpty
-                                    ? Image.memory(base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), '')), fit: BoxFit.cover)
-                                    : msg['imagePath'] != null && msg['imagePath'].toString().startsWith('http') 
-                                      ? Image.network(msg['imagePath'], fit: BoxFit.cover)
-                                      : Text('🖼️ File ảnh: ${msg['imagePath']}', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.blue)),
+                                  child: Stack(
+                                    children: [
+                                      msg['imageBase64'] != null && msg['imageBase64'].toString().isNotEmpty
+                                        ? Image.memory(base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), '')), fit: BoxFit.cover)
+                                        : msg['imagePath'] != null && msg['imagePath'].toString().startsWith('http') 
+                                          ? Image.network(msg['imagePath'], fit: BoxFit.cover)
+                                          : Text('🖼️ File ảnh: ${msg['imagePath']}', style: const TextStyle(fontStyle: FontStyle.italic, color: Colors.blue)),
+                                      if (msg['imageBase64'] != null && msg['imageBase64'].toString().isNotEmpty)
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: InkWell(
+                                            onTap: () async {
+                                              try {
+                                                final bytes = base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), ''));
+                                                final result = await ImageGallerySaver.saveImage(bytes);
+                                                if (result['isSuccess'] == true) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
+                                                }
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể lưu ảnh')));
+                                              }
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.6),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.download, color: Colors.white, size: 20),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  ),
                                 ),
                               ),
                             ],
@@ -669,11 +695,45 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                                 selectable: true,
                                 imageBuilder: (uri, title, alt) {
+                                  Widget imageWidget;
                                   if (uri.scheme == 'data') {
                                     final String encoded = uri.toString().split(',').last;
-                                    return Image.memory(base64Decode(encoded), fit: BoxFit.cover);
+                                    imageWidget = Image.memory(base64Decode(encoded), fit: BoxFit.cover);
+                                  } else {
+                                    imageWidget = Image.network(uri.toString(), fit: BoxFit.cover);
                                   }
-                                  return Image.network(uri.toString(), fit: BoxFit.cover);
+                                  return Stack(
+                                    children: [
+                                      imageWidget,
+                                      if (uri.scheme == 'data')
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: InkWell(
+                                            onTap: () async {
+                                              try {
+                                                final String encoded = uri.toString().split(',').last;
+                                                final bytes = base64Decode(encoded);
+                                                final result = await ImageGallerySaver.saveImage(bytes);
+                                                if (result['isSuccess'] == true) {
+                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
+                                                }
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể lưu ảnh')));
+                                              }
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.6),
+                                                shape: BoxShape.circle,
+                                              ),
+                                              child: const Icon(Icons.download, color: Colors.white, size: 20),
+                                            ),
+                                          ),
+                                        ),
+                                    ],
+                                  );
                                 },
                               ),
                           ],

@@ -293,7 +293,7 @@ class ApiService {
     
     request.fields['prompt'] = question;
     if (historyJson.isNotEmpty && historyJson != '[]') {
-      request.fields['history'] = historyJson;
+      request.fields['system_instructions'] = 'Dưới đây là lịch sử trò chuyện từ trước đến nay để bạn tham khảo:\n' + historyJson;
     }
     if (conversationId != null && conversationId.isNotEmpty) {
       request.fields['conversation_id'] = conversationId;
@@ -428,9 +428,9 @@ class ApiService {
     final server = activeInfo['user']['server'];
     final username = activeInfo['user']['name'];
     final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
-    final url = Uri.parse('$baseUrl/blog/chatgpt');
+    final url = Uri.parse('$baseUrl/blog/chatgpt/store');
 
-    final dataForm = {
+    final Map<String, dynamic> dataForm = {
       'year': 2023,
       'appId': 'ai.typing',
       'username': username,
