@@ -770,12 +770,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                                 }
                             }
                             
-                            // Chỉ lưu ảnh/video vào inlineData
                             const mediaPart = parts.find((p: any) => p.inlineData && !p.inlineData.mimeType.startsWith('audio/'));
                             if (mediaPart) {
                                 modelMsg.inlineData = mediaPart.inlineData;
                             }
-                            const audioPart = parts.find((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('audio/'));
                             if (audioPart) {
                                 modelMsg.audioData = audioPart.inlineData;
                             }
