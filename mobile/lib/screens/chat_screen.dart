@@ -96,9 +96,6 @@ class _ChatScreenState extends State<ChatScreen> {
             }).toList());
             print('DEBUG CHAT LOADED: ${_historyList.length} history items');
             _isLoading = false;
-            if (_messages.isEmpty && _historyList.isNotEmpty) {
-              _loadConversation(_historyList.first);
-            }
           });
         }
       } else {
@@ -108,37 +105,6 @@ class _ChatScreenState extends State<ChatScreen> {
       print('DEBUG CHAT ERROR: $e');
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  void _loadConversation(Map<String, dynamic> msg) {
-    setState(() {
-      _messages.clear();
-      _cancelCurrentRequest();
-      
-      if (msg['messages'] != null && (msg['messages'] as List).isNotEmpty) {
-        final rawMsgs = msg['messages'] as List;
-        final List<Map<String, dynamic>> pairs = [];
-        for (int i = 0; i < rawMsgs.length; i++) {
-          if (rawMsgs[i]['role'] == 'user') {
-            String q = rawMsgs[i]['text'] ?? '';
-            String a = '';
-            if (i + 1 < rawMsgs.length && rawMsgs[i + 1]['role'] == 'model') {
-              a = rawMsgs[i + 1]['text'] ?? '';
-              i++;
-            }
-            pairs.add({
-              'id': msg['id'],
-              'question': q,
-              'answer': a,
-              'loading': false,
-            });
-          }
-        }
-        _messages.addAll(pairs.reversed);
-      } else {
-        _messages.add(Map<String, dynamic>.from(msg));
-      }
-    });
   }
 
   Future<void> _sendMessage() async {
@@ -331,16 +297,6 @@ class _ChatScreenState extends State<ChatScreen> {
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
-            icon: const Icon(Icons.add_circle_outline),
-            tooltip: 'Hội thoại mới',
-            onPressed: () {
-              setState(() {
-                _messages.clear();
-              });
-              _cancelCurrentRequest();
-            },
-          ),
-          IconButton(
             icon: const Icon(Icons.history),
             tooltip: 'Lịch sử hội thoại',
             onPressed: () {
@@ -440,7 +396,33 @@ class _ChatScreenState extends State<ChatScreen> {
                                 ),
                                 onTap: () {
                                   Navigator.pop(context);
-                                  _loadConversation(msg);
+                                  setState(() {
+                                    _messages.clear();
+                                    if (msg['messages'] != null && (msg['messages'] as List).isNotEmpty) {
+                                      final rawMsgs = msg['messages'] as List;
+                                      final List<Map<String, dynamic>> pairs = [];
+                                      // group them into pairs
+                                      for (int i = 0; i < rawMsgs.length; i++) {
+                                        if (rawMsgs[i]['role'] == 'user') {
+                                          String q = rawMsgs[i]['text'] ?? '';
+                                          String a = '';
+                                          if (i + 1 < rawMsgs.length && rawMsgs[i + 1]['role'] == 'model') {
+                                            a = rawMsgs[i + 1]['text'] ?? '';
+                                            i++; // Skip the next item as it's the answer
+                                          }
+                                          pairs.add({
+                                            'id': msg['id'],
+                                            'question': q,
+                                            'answer': a,
+                                            'loading': false,
+                                          });
+                                        }
+                                      }
+                                      _messages.addAll(pairs.reversed);
+                                    } else {
+                                      _messages.add(Map<String, dynamic>.from(msg));
+                                    }
+                                  });
                                 },
                               );
                             },

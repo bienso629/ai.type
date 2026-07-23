@@ -574,7 +574,6 @@ export class GenaiService {
             let imageBase64: string | undefined;
             let videoBase64: string | undefined;
             let audioBase64: string | undefined;
-            const audioChunks: string[] = [];
             
             if (response.body) {
                 const reader = response.body.getReader();
@@ -619,7 +618,6 @@ export class GenaiService {
                             if (chunk.video_base64) videoBase64 = chunk.video_base64;
                             if (chunk.audio_base64) {
                                 audioQueue.add(chunk.audio_base64);
-                                audioChunks.push(chunk.audio_base64);
                             }
                         } catch (e) {
                             // Bỏ qua lỗi parse JSON nếu chunk chưa hoàn thiện
@@ -642,10 +640,7 @@ export class GenaiService {
                         if (chunk.result !== undefined && !chunk.content) replyText = chunk.result;
                         if (chunk.image_base64) imageBase64 = chunk.image_base64;
                         if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                        if (chunk.audio_base64) {
-                            audioQueue.add(chunk.audio_base64);
-                            audioChunks.push(chunk.audio_base64);
-                        }
+                        if (chunk.audio_base64) audioQueue.add(chunk.audio_base64);
                     } catch (e) {}
                 }
             } else {
@@ -655,7 +650,6 @@ export class GenaiService {
                 imageBase64 = data.image_base64;
                 videoBase64 = data.video_base64;
                 audioBase64 = data.audio_base64;
-                if (audioBase64) audioChunks.push(audioBase64);
             }
 
             // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về tag [LOCAL_IMAGE: /path/to/file]
@@ -698,37 +692,14 @@ export class GenaiService {
                     videoUrl: 'data:video/mp4;base64,' + videoBase64
                 });
             }
-            if (audioChunks.length > 0) {
-                try {
-                    const blobs = audioChunks.map(b64 => {
-                        const byteString = atob(b64);
-                        const ab = new ArrayBuffer(byteString.length);
-                        const ia = new Uint8Array(ab);
-                        for (let i = 0; i < byteString.length; i++) {
-                            ia[i] = byteString.charCodeAt(i);
-                        }
-                        return new Blob([ab], { type: 'audio/mp3' });
-                    });
-                    const combinedBlob = new Blob(blobs, { type: 'audio/mp3' });
-                    const combinedBase64 = await new Promise<string>((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const result = reader.result as string;
-                            resolve(result.split(',')[1]);
-                        };
-                        reader.readAsDataURL(combinedBlob);
-                    });
-                    
-                    parts.push({
-                        inlineData: {
-                            mimeType: 'audio/mp3',
-                            data: combinedBase64
-                        },
-                        audioUrl: 'data:audio/mp3;base64,' + combinedBase64
-                    });
-                } catch (e) {
-                    console.error('Error combining audio chunks', e);
-                }
+            if (audioBase64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'audio/mp3',
+                        data: audioBase64
+                    },
+                    audioUrl: 'data:audio/mp3;base64,' + audioBase64
+                });
             }
 
             return {
