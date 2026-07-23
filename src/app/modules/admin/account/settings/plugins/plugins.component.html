@@ -12,13 +12,14 @@
                 </div>
                 <p class="text-base text-secondary mb-4 leading-relaxed">{{ plugin.description }}</p>
                 <div *ngIf="plugin.id === 'ai_agent'" class="mt-2">
-                    <div class="flex items-end space-x-3 mb-3">
+                    <div class="flex items-end space-x-3 mb-1">
                         <mat-form-field class="flex-auto fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                             <mat-label>Secret API Key (Mobile App)</mat-label>
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_outline:key'" matPrefix></mat-icon>
                             <input matInput [(ngModel)]="aiAgentApiKey" type="password" placeholder="Nhập mã bảo mật">
                         </mat-form-field>
                     </div>
+                    <p class="text-sm text-gray-500 mb-3">Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.</p>
                     <div class="flex items-end space-x-3">
                         <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
                             <mat-label>Giọng nói (TTS)</mat-label>
@@ -43,7 +44,6 @@
                             <span class="ml-2">Lưu</span>
                         </button>
                     </div>
-                    <p class="text-sm text-gray-500 mt-3">Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.</p>
                 </div>
             </div>
             

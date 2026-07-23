@@ -643,13 +643,23 @@ class _ChatScreenState extends State<ChatScreen> {
                                           child: InkWell(
                                             onTap: () async {
                                               try {
+                                                // Try to request permissions just in case
+                                                await Permission.storage.request();
+                                                await Permission.photos.request();
+                                                
                                                 final bytes = base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), ''));
-                                                final result = await ImageGallerySaver.saveImage(bytes);
-                                                if (result['isSuccess'] == true) {
+                                                final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
+                                                final result = await ImageGallerySaver.saveImage(bytes, name: name);
+                                                print('DEBUG saveImage result: $result');
+                                                
+                                                if (result != null && result['isSuccess'] == true) {
                                                   ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
+                                                } else {
+                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: ${result != null ? result['errorMessage'] : 'Unknown'}')));
                                                 }
                                               } catch (e) {
-                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể lưu ảnh')));
+                                                print('DEBUG saveImage exception: $e');
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
                                               }
                                             },
                                             child: Container(
