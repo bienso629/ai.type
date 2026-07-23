@@ -251,8 +251,12 @@
                                 <div [innerHTML]="msg.text | markdown"></div>
                                 
                                 <div *ngIf="msg.inlineData" class="mt-2 pt-2 flex flex-col items-start w-full">
-                                    <img *ngIf="msg.inlineData.mimeType?.startsWith('image/')" [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain max-h-96" />
-                                    
+                                    <div class="relative inline-block group/img" *ngIf="msg.inlineData.mimeType?.startsWith('image/')">
+                                        <img [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" class="rounded-lg object-contain max-h-96" />
+                                        <a [href]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [download]="'sontinh_' + (msg.path ? msg.path.split('/').pop() : 'image.png')" class="absolute top-2 right-2 bg-black/50 hover:bg-black/70 text-white rounded-full w-8 h-8 flex items-center justify-center opacity-0 group-hover/img:opacity-100 transition-opacity" title="Tải xuống ảnh này">
+                                            <mat-icon class="icon-size-5" svgIcon="heroicons_outline:arrow-down-tray"></mat-icon>
+                                        </a>
+                                    </div>
                                     <video *ngIf="msg.inlineData.mimeType?.startsWith('video/')" controls class="rounded-lg object-contain max-h-96 w-full mt-2">
                                         <source [src]="'data:' + msg.inlineData.mimeType + ';base64,' + msg.inlineData.data" [type]="msg.inlineData.mimeType" />
                                     </video>
