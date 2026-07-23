@@ -724,7 +724,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         config: genConfig
                     }, newRow.conversation_id || newRow._id);
 
-                    if (result && result.text) {
+                    if (result && (result.text || (result.candidates && result.candidates[0]?.content?.parts?.some((p: any) => p.inlineData)))) {
                         (result as any).q = question;
 
                         if ((result as any).imgs && (result as any).imgs.length > 0) {
@@ -735,12 +735,12 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             (result as any).html = `${(result as any).html}<div class="chatgpt-imgs">${divImgs}</div>`;
                         }
 
-                        let finalDisplayText = result.text;
+                        let finalDisplayText = result.text || '';
                         if (agentContext && agentContext.action) {
-                            this.globalAgentService.sendActionResult(result.text);
+                            this.globalAgentService.sendActionResult(finalDisplayText);
                             
-                            const match = result.text.match(/```(?:json)?\s*([\s\S]*?)```/i);
-                            if (match || result.text.trim().startsWith('[')) {
+                            const match = result.text?.match(/```(?:json)?\s*([\s\S]*?)```/i);
+                            if (match || result.text?.trim().startsWith('[')) {
                                 finalDisplayText = `Đã gửi lệnh điều khiển tự động lên màn hình **${agentContext.sourcePage || 'hiện tại'}** thành công! ✅\n\n*(Dữ liệu JSON đã được hệ thống tiếp nhận và cập nhật vào giao diện)*`;
                             }
                         }
@@ -774,6 +774,9 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             const mediaPart = parts.find((p: any) => p.inlineData && !p.inlineData.mimeType.startsWith('audio/'));
                             if (mediaPart) {
                                 modelMsg.inlineData = mediaPart.inlineData;
+                                // Clone modelMsg and messages to trigger Angular change detection
+                                newRow.messages[1] = { ...modelMsg };
+                                newRow.messages = [...newRow.messages];
                             }
                         }
                         

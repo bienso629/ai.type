@@ -7,6 +7,9 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
+import 'package:audioplayers/audioplayers.dart';
+import 'dart:convert';
+import 'dart:typed_data';
 import 'dashboard_screen.dart';
 
 class ChatScreen extends StatefulWidget {
@@ -28,11 +31,51 @@ class _ChatScreenState extends State<ChatScreen> {
   Timer? _recordTimer;
   String _lastRecognizedWords = '';
 
+  final AudioPlayer _audioPlayer = AudioPlayer();
+  final List<Uint8List> _audioQueue = [];
+  bool _isPlaying = false;
+
   @override
   void initState() {
     super.initState();
     _speech = stt.SpeechToText();
+    _audioPlayer.onPlayerComplete.listen((_) {
+      _isPlaying = false;
+      _playNextAudio();
+    });
     _loadHistory();
+  }
+
+  void _enqueueAudio(String base64Str) {
+    try {
+      if (base64Str.isEmpty) return;
+      print('DEBUG _enqueueAudio: adding audio length=${base64Str.length}');
+      final bytes = base64Decode(base64Str);
+      _audioQueue.add(bytes);
+      if (!_isPlaying) {
+        _playNextAudio();
+      }
+    } catch (e) {
+      print('DEBUG base64 decode error: $e');
+    }
+  }
+
+  Future<void> _playNextAudio() async {
+    if (_audioQueue.isEmpty) {
+      print('DEBUG _playNextAudio: queue is empty');
+      _isPlaying = false;
+      return;
+    }
+    _isPlaying = true;
+    final bytes = _audioQueue.removeAt(0);
+    print('DEBUG _playNextAudio: playing audio bytes length=${bytes.length}');
+    try {
+      await _audioPlayer.play(BytesSource(bytes, mimeType: 'audio/mpeg'));
+    } catch (e) {
+      print('DEBUG _playNextAudio error: $e');
+      _isPlaying = false;
+      _playNextAudio(); // try next
+    }
   }
 
   Future<void> _loadHistory() async {
@@ -103,10 +146,21 @@ class _ChatScreenState extends State<ChatScreen> {
         chatId = _messages[1]['id'];
       }
       
-      String? answerText;
+      String? answerText = '';
       
       if (aiAgentEnabled) {
-        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: chatId);
+        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: chatId, onChunk: (chunk) {
+          if (mounted && newMessage['cancelled'] != true) {
+            setState(() {
+              if (chunk['content'] != null) {
+                newMessage['answer'] = (newMessage['answer'] as String) + chunk['content'];
+              }
+            });
+            if (chunk['audio_base64'] != null) {
+              _enqueueAudio(chunk['audio_base64']);
+            }
+          }
+        });
         print('DEBUG _sendMessage: askSonTinhAgent res="$answerText"');
       }
       
@@ -205,12 +259,25 @@ class _ChatScreenState extends State<ChatScreen> {
         _isSending = false;
       });
     }
+    _audioQueue.clear();
+    _audioPlayer.stop();
+    _isPlaying = false;
   }
 
   void _cancelCurrentRequest() {
     if (_messages.isNotEmpty && _messages[0]['loading'] == true) {
       _cancelRequest(_messages[0]);
+    } else {
+      _audioQueue.clear();
+      _audioPlayer.stop();
+      _isPlaying = false;
     }
+  }
+
+  @override
+  void dispose() {
+    _audioPlayer.dispose();
+    super.dispose();
   }
 
   @override

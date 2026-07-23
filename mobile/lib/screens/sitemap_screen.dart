@@ -22,6 +22,7 @@ class _SitemapScreenState extends State<SitemapScreen> {
   static bool _cachedHasMore = true;
   static int _cachedPage = 1;
   static Map<String, int> _cachedCategoryIds = {};
+  static Map<String, int> _cachedTagIds = {};
   static String _cachedSelectedCategory = 'Tất cả';
   static String _cachedSelectedDomain = 'Đang tải...';
   static List<String> _cachedCategories = ['Tất cả'];
@@ -38,6 +39,7 @@ class _SitemapScreenState extends State<SitemapScreen> {
   int _page = 1;
   late ScrollController _scrollController;
   Map<String, int> _categoryIds = {};
+  Map<String, int> _tagIds = {};
 
   int get _selectedCount => _posts.where((p) => p['selected'] as bool).length;
   bool _selectAll = false;
@@ -57,6 +59,7 @@ class _SitemapScreenState extends State<SitemapScreen> {
       _hasMore = _cachedHasMore;
       _page = _cachedPage;
       _categoryIds = _cachedCategoryIds;
+      _tagIds = _cachedTagIds;
       _selectedCategory = _cachedSelectedCategory;
       _selectedDomain = _cachedSelectedDomain;
       _categories = _cachedCategories;
@@ -82,6 +85,7 @@ class _SitemapScreenState extends State<SitemapScreen> {
     _cachedHasMore = _hasMore;
     _cachedPage = _page;
     _cachedCategoryIds = _categoryIds;
+    _cachedTagIds = _tagIds;
     _cachedSelectedCategory = _selectedCategory;
     _cachedSelectedDomain = _selectedDomain;
     _cachedCategories = _categories;
@@ -347,6 +351,20 @@ class _SitemapScreenState extends State<SitemapScreen> {
     return names.join(', ');
   }
 
+  String _getTagNames(List<dynamic>? tagIds) {
+    if (tagIds == null || tagIds.isEmpty) return 'Không có';
+    final names = <String>[];
+    for (var id in tagIds) {
+      final entry = _tagIds.entries.where((e) => e.value == id).toList();
+      if (entry.isNotEmpty) {
+        names.add(entry.first.key);
+      } else {
+        names.add('ID: $id');
+      }
+    }
+    return names.join(', ');
+  }
+
   Future<void> _updateSinglePostStatus(BuildContext ctx, Map<String, dynamic> post, String targetStatus) async {
     Navigator.pop(ctx); // Close bottom sheet
     setState(() => _isUpdatingPosts = true);
@@ -454,7 +472,7 @@ class _SitemapScreenState extends State<SitemapScreen> {
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
-                                'Tags: ${(post['tags'] as List).join(', ')}',
+                                'Tags: ${_getTagNames(post['tags'])}',
                                 style: TextStyle(color: Colors.grey.shade600, fontSize: 13),
                               ),
                             ),
@@ -562,6 +580,20 @@ class _SitemapScreenState extends State<SitemapScreen> {
           _categoryIds[c['name'].toString()] = c['id'] as int;
         }
         final cats = data.map((c) => c['name'].toString()).toList();
+        
+        try {
+          final resTags = await http.get(Uri.parse('$domainUrl/wp-json/wp/v2/tags?per_page=100'));
+          if (resTags.statusCode == 200) {
+            final List<dynamic> tagData = jsonDecode(resTags.body);
+            _tagIds.clear();
+            for (var t in tagData) {
+              _tagIds[t['name'].toString()] = t['id'] as int;
+            }
+          }
+        } catch (e) {
+          print('Fetch tags error: $e');
+        }
+
         if (mounted) {
           setState(() {
             _categories = ['Tất cả', ...cats];
