@@ -393,54 +393,67 @@ export class GenaiService {
             formData.append('conversation_id', String(scope));
         }
 
-        if (params.contents) {
-            if (typeof params.contents === 'string') {
-                promptText += params.contents + '\n';
-            } else {
-                let contentsArr: any[] = Array.isArray(params.contents) ? params.contents : [params.contents];
-                // Nếu có conversation_id (scope), chỉ gửi tin nhắn cuối cùng (user gửi mới nhất) sang Agent
-                // để Agent tự kết hợp với lịch sử lưu trên máy của nó, tránh bị trùng lặp lịch sử gửi lên
-                if (scope && contentsArr.length > 0) {
-                    contentsArr = [contentsArr[contentsArr.length - 1]];
-                }
-                for (const content of contentsArr) {
-                    if (typeof content === 'string') {
-                        promptText += content + '\n';
-                    } else {
-                        const parts = (content as any).parts;
-                        if (parts) {
-                            for (let i = 0; i < parts.length; i++) {
-                                const p = parts[i];
-                                if (typeof p === 'string') {
-                                    promptText += p + '\n';
-                                } else if (p.text) {
-                                    promptText += p.text + '\n';
-                                }
-                                if (p.inlineData) {
-                                    const mimeType = p.inlineData.mimeType || 'image/jpeg';
-                                    const b64Data = p.inlineData.data;
-                                    
-                                    // Chuyển base64 -> Blob -> File
-                                    const byteChars = atob(b64Data);
-                                    const byteArray = new Uint8Array(byteChars.length);
-                                    for (let j = 0; j < byteChars.length; j++) {
-                                        byteArray[j] = byteChars.charCodeAt(j);
-                                    }
-                                    const blob = new Blob([byteArray], { type: mimeType });
-                                    
-                                    let ext = 'jpg';
-                                    if (mimeType.includes('png')) ext = 'png';
-                                    else if (mimeType.includes('mp4')) ext = 'mp4';
-                                    else if (mimeType.includes('wav')) ext = 'wav';
-                                    else if (mimeType.includes('mp3')) ext = 'mp3';
+        const isFirstMessage = !Array.isArray(params.contents) || params.contents.length === 1;
+        formData.append('is_first_message', isFirstMessage ? 'true' : 'false');
 
-                                    const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
-                                    formData.append('files', file);
+        if (params.contents) {
+            let contentsArr: any[] = Array.isArray(params.contents) ? params.contents : [params.contents];
+            let historyText = '';
+            let latestText = '';
+
+            for (let index = 0; index < contentsArr.length; index++) {
+                const content = contentsArr[index];
+                const isLast = (index === contentsArr.length - 1);
+                const role = (content.role === 'model' || content.role === 'assistant') ? 'AI Agent' : 'User';
+                
+                let textParts = '';
+                if (typeof content === 'string') {
+                    textParts = content;
+                } else {
+                    const parts = (content as any).parts;
+                    if (parts) {
+                        for (let i = 0; i < parts.length; i++) {
+                            const p = parts[i];
+                            if (typeof p === 'string') {
+                                textParts += p + '\n';
+                            } else if (p.text) {
+                                textParts += p.text + '\n';
+                            }
+                            
+                            if (isLast && p.inlineData) {
+                                const mimeType = p.inlineData.mimeType || 'image/jpeg';
+                                const b64Data = p.inlineData.data;
+                                const byteChars = atob(b64Data);
+                                const byteArray = new Uint8Array(byteChars.length);
+                                for (let j = 0; j < byteChars.length; j++) {
+                                    byteArray[j] = byteChars.charCodeAt(j);
                                 }
+                                const blob = new Blob([byteArray], { type: mimeType });
+                                let ext = 'jpg';
+                                if (mimeType.includes('png')) ext = 'png';
+                                else if (mimeType.includes('mp4')) ext = 'mp4';
+                                else if (mimeType.includes('wav')) ext = 'wav';
+                                else if (mimeType.includes('mp3')) ext = 'mp3';
+                                const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
+                                formData.append('files', file);
                             }
                         }
                     }
                 }
+                
+                if (textParts.trim()) {
+                    if (isLast) {
+                        latestText = textParts.trim();
+                    } else {
+                        historyText += `${role}: ${textParts.trim()}\n\n`;
+                    }
+                }
+            }
+            
+            if (historyText) {
+                promptText = `Lịch sử cuộc trò chuyện (chỉ để tham khảo ngữ cảnh):\n\n${historyText}\n---\nYêu cầu mới nhất của User cần được trả lời:\n${latestText}\n\n(Lưu ý: Chỉ đưa ra câu trả lời trực tiếp cho yêu cầu mới nhất. Tuyệt đối không lặp lại lịch sử, không xuất ra các tiền tố như "AI Agent:", không giả lập hội thoại)`;
+            } else {
+                promptText = latestText;
             }
         }
 
@@ -519,6 +532,31 @@ export class GenaiService {
         }
         
         try {
+            // Audio queue để phát lần lượt các luồng TTS streaming
+            const audioQueue = {
+                queue: [] as string[],
+                isPlaying: false,
+                add: function(base64: string) {
+                    this.queue.push(base64);
+                    this.playNext();
+                },
+                playNext: function() {
+                    if (this.isPlaying || this.queue.length === 0) return;
+                    this.isPlaying = true;
+                    const b64 = this.queue.shift();
+                    const audio = new Audio('data:audio/mp3;base64,' + b64);
+                    audio.playbackRate = 1.25;
+                    audio.onended = () => {
+                        this.isPlaying = false;
+                        this.playNext();
+                    };
+                    audio.play().catch(e => {
+                        this.isPlaying = false;
+                        this.playNext();
+                    });
+                }
+            };
+
             const response = await fetch(apiUrl, {
                 method: 'POST',
                 headers: {
@@ -578,7 +616,9 @@ export class GenaiService {
                             
                             if (chunk.image_base64) imageBase64 = chunk.image_base64;
                             if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                            if (chunk.audio_base64) audioBase64 = chunk.audio_base64;
+                            if (chunk.audio_base64) {
+                                audioQueue.add(chunk.audio_base64);
+                            }
                         } catch (e) {
                             // Bỏ qua lỗi parse JSON nếu chunk chưa hoàn thiện
                         }
@@ -600,7 +640,7 @@ export class GenaiService {
                         if (chunk.result !== undefined && !chunk.content) replyText = chunk.result;
                         if (chunk.image_base64) imageBase64 = chunk.image_base64;
                         if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                        if (chunk.audio_base64) audioBase64 = chunk.audio_base64;
+                        if (chunk.audio_base64) audioQueue.add(chunk.audio_base64);
                     } catch (e) {}
                 }
             } else {
