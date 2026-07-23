@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
-import 'package:image_gallery_saver/image_gallery_saver.dart';
+import 'package:gal/gal.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
@@ -650,14 +650,10 @@ class _ChatScreenState extends State<ChatScreen> {
                                                 
                                                 final bytes = base64Decode(msg['imageBase64'].toString().replaceAll(RegExp(r'data:image/[^;]+;base64,'), ''));
                                                 final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
-                                                final result = await ImageGallerySaver.saveImage(bytes, name: name);
-                                                print('DEBUG saveImage result: $result');
                                                 
-                                                if (result != null && result['isSuccess'] == true) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
-                                                } else {
-                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: ${result != null ? result['errorMessage'] : 'Unknown'}')));
-                                                }
+                                                await Gal.putImageBytes(bytes, name: name);
+                                                
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
                                               } catch (e) {
                                                 print('DEBUG saveImage exception: $e');
                                                 ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
@@ -742,12 +738,12 @@ class _ChatScreenState extends State<ChatScreen> {
                                               try {
                                                 final String encoded = uri.toString().split(',').last;
                                                 final bytes = base64Decode(encoded);
-                                                final result = await ImageGallerySaver.saveImage(bytes);
-                                                if (result['isSuccess'] == true) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
-                                                }
+                                                final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
+                                                
+                                                await Gal.putImageBytes(bytes, name: name);
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
                                               } catch (e) {
-                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể lưu ảnh')));
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
                                               }
                                             },
                                             child: Container(
