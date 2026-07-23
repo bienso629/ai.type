@@ -710,7 +710,17 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                         if (result.candidates && result.candidates[0]?.content?.parts) {
                             const parts = result.candidates[0].content.parts;
-                            const mediaPart = parts.find((p: any) => p.inlineData);
+                            
+                            // Phát audio ngay và luôn (không lưu vào thẻ hiển thị/msg)
+                            const audioPart = parts.find((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('audio/'));
+                            if (audioPart) {
+                                const audio = new Audio('data:' + audioPart.inlineData.mimeType + ';base64,' + audioPart.inlineData.data);
+                                audio.playbackRate = 1.25; // Tăng tốc độ đọc lên 1.25x
+                                audio.play().catch(e => console.log('Autoplay prevented:', e));
+                            }
+                            
+                            // Chỉ lưu ảnh/video vào inlineData
+                            const mediaPart = parts.find((p: any) => p.inlineData && !p.inlineData.mimeType.startsWith('audio/'));
                             if (mediaPart) {
                                 modelMsg.inlineData = mediaPart.inlineData;
                             }

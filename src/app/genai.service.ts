@@ -549,6 +549,7 @@ export class GenaiService {
                     buffer += decoder.decode(value, { stream: true });
                     const lines = buffer.split('\n');
                     buffer = lines.pop() || '';
+                    let batchStreamedContent = '';
                     
                     for (let line of lines) {
                         line = line.trim();
@@ -567,7 +568,7 @@ export class GenaiService {
                             // Streaming chunk
                             if (chunk.content) {
                                 replyText += chunk.content;
-                                if ((params.config as any)?.onStream) (params.config as any).onStream(chunk.content, false);
+                                batchStreamedContent += chunk.content;
                             }
                             // Fallback cho luồng cũ (trả 1 lần)
                             if (chunk.result !== undefined && !chunk.content) {
@@ -581,6 +582,10 @@ export class GenaiService {
                         } catch (e) {
                             // Bỏ qua lỗi parse JSON nếu chunk chưa hoàn thiện
                         }
+                    }
+                    
+                    if (batchStreamedContent && (params.config as any)?.onStream) {
+                        (params.config as any).onStream(batchStreamedContent, false);
                     }
                 }
                 
