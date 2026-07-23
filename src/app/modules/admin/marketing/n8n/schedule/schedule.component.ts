@@ -48,6 +48,7 @@ import { MultiAccountService } from 'app/modules/_services/multi-account.service
 import { CrawlService } from 'app/modules/_services/crawl';
 import { GlobalAgentService } from 'app/modules/_services/global-agent.service';
 import { HelperService } from 'app/helper.service';
+import { ForumService } from 'app/modules/_services/forum';
 registerLocaleData(localeVi);
 
 export interface ICustomTimelineItem extends ITimelineItem {
@@ -219,7 +220,8 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         private _tasksService: TasksService,
         private _crawlService: CrawlService,
         private _globalAgentService: GlobalAgentService,
-        private _h: HelperService
+        private _h: HelperService,
+        private _forumService: ForumService
     ) {
         this.titleService.setTitle(`lên kịch bản | ai.type - công cụ tạo content`);
 
@@ -1973,6 +1975,38 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         }
     }
 
+    // -----------------------------------------------------------------------------------------------------
+    // @ NEW: Tự động lưu vào Soạn bài
+    // -----------------------------------------------------------------------------------------------------
+    saveDraftsToAiWriter(drafts: any[]) {
+        if (!drafts || drafts.length === 0) return;
+        this.toastr.info(`Đang lưu ${drafts.length} bài viết vào Soạn bài...`, 'Đang xử lý');
+        let savedCount = 0;
+        
+        drafts.forEach(draft => {
+            this._forumService.createTopic({
+                _uid: this.user.id,
+                cid: 1, // Mặc định danh mục chưa phân loại
+                title: draft.title || 'Bài viết mới',
+                content: draft.content || '',
+                tags: draft.tags || ['ai-generated']
+            }).subscribe({
+                next: (res) => {
+                    savedCount++;
+                    if (savedCount === drafts.length) {
+                        this.toastr.success(`Đã lưu thành công ${savedCount} bài viết vào kho Soạn bài!`);
+                        this.chatHistory.push({ role: 'model', content: `✅ Dạ Sếp ơi, em đã tự động lưu thành công **${savedCount} bài viết** vào kho **Soạn bài** (Dàn ý) rồi nhé!` });
+                        this.cd.detectChanges();
+                        this.scrollToBottom();
+                    }
+                },
+                error: (e) => {
+                    this.toastr.error('Lỗi khi lưu bài: ' + draft.title);
+                }
+            });
+        });
+    }
+
     async sendChat(event?: Event) {
         if (event) {
             event.preventDefault();
@@ -2317,6 +2351,20 @@ ${generateInstruction}
 - BẮT BUỘC ĐỌC kỹ trường "aiAnalysis" (nếu có) của từng tên miền. Hãy nghĩ ra tiêu đề (name) và mô tả (meta) thật CỤ THỂ, ĐA DẠNG và ĐÚNG CHUYÊN MÔN / NGÁCH của tên miền đó.
 - TUYỆT ĐỐI KHÔNG dùng các tên chung chung như "Công việc 1", "Tạo bài viết SEO", "Viết bài mới". 
 
+ĐẶC BIỆT: Nếu người dùng yêu cầu "viết blog", "lên dàn ý" và "lưu vào Soạn bài" (hoặc lưu nháp), BẠN KHÔNG TRẢ VỀ MẢNG LỊCH LÀM VIỆC NHƯ BÌNH THƯỜNG. Thay vào đó, bạn PHẢI trả về ĐÚNG định dạng JSON Object sau bên trong block code JSON:
+\`\`\`json
+{
+  "action": "save_to_outline",
+  "drafts": [
+    {
+      "title": "Tiêu đề bài viết 1",
+      "content": "Nội dung bài viết 1 (dùng Markdown/HTML tùy ý)...",
+      "tags": ["tag1", "tag2"]
+    }
+  ]
+}
+\`\`\`
+
 LƯU Ý VỀ CÁC NGÀY BỊ VÔ HIỆU HÓA (DISABLED DATES):
 - Người dùng đã đánh dấu BỎ QUA các ngày sau: ${disabledStr ? disabledStr : 'Không có'}. 
 - TUYỆT ĐỐI KHÔNG lên lịch hoặc tạo bất kỳ task nào vào các ngày này. Nếu công thức rơi vào ngày bị bỏ qua, hãy dời sang ngày làm việc tiếp theo gần nhất.
@@ -2559,6 +2607,27 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 } as any);
                 
                 aiMessageForChat = response.text || (response as any).response?.text() || '';
+                
+                // --- BẮT ĐẦU CHÈN LOGIC INTERCEPT DÀN Ý ---
+                try {
+                    let textToParse = aiMessageForChat;
+                    const jsonMatch = aiMessageForChat.match(/```json([\s\S]*?)```/);
+                    if (jsonMatch && jsonMatch[1]) {
+                        textToParse = jsonMatch[1].trim();
+                    }
+                    if (textToParse.includes('save_to_outline')) {
+                        const parsedObj = JSON.parse(textToParse);
+                        if (parsedObj && parsedObj.action === 'save_to_outline' && Array.isArray(parsedObj.drafts)) {
+                            this.saveDraftsToAiWriter(parsedObj.drafts);
+                            this.chatHistory.splice(streamIndex, 1);
+                            this.isChatting = false;
+                            this.saveScriptState();
+                            return;
+                        }
+                    }
+                } catch(e) {}
+                // --- KẾT THÚC ---
+
                 parsed = this.getParsedAiTask(aiMessageForChat);
                 if (Array.isArray(parsed) && !isMonth) {
                     this.applyParsedTasks(parsed);
