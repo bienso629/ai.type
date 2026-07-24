@@ -698,6 +698,7 @@ export class GenaiService {
                             
                             // Streaming chunk
                             let shouldIgnoreTTS = false;
+                            const isSplitTask = replyText.includes('===SPLIT===') || finalPrompt.includes('===SPLIT===') || (params.config as any)?.skipTTS === true || finalPrompt.toLowerCase().includes('tách đoạn');
                             if (chunk.content) {
                                 replyText += chunk.content;
                                 batchStreamedContent += chunk.content;
@@ -705,7 +706,6 @@ export class GenaiService {
                                 const backticksCount = (replyText.match(/```/g) || []).length;
                                 const isInsideMarkdownCode = (backticksCount % 2 !== 0);
                                 const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
-                                const isSplitTask = replyText.includes('===SPLIT===') || finalPrompt.includes('===SPLIT===');
                                 shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData || isSplitTask;
                                 
                                 if (!shouldIgnoreTTS) {
