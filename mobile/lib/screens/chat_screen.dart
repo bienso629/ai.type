@@ -6,6 +6,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:gal/gal.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
+import 'package:file_selector/file_selector.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_styles.dart';
@@ -36,6 +37,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final List<Uint8List> _audioQueue = [];
   bool _isPlaying = false;
 
+  String? _attachedFilePath;
+  String? _attachedFileName;
+
   @override
   void initState() {
     super.initState();
@@ -45,6 +49,20 @@ class _ChatScreenState extends State<ChatScreen> {
       _playNextAudio();
     });
     _loadHistory();
+  }
+
+  Future<void> _pickFile() async {
+    try {
+      final XFile? file = await openFile();
+      if (file != null) {
+        setState(() {
+          _attachedFilePath = file.path;
+          _attachedFileName = file.name;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+    }
   }
 
   void _enqueueAudio(String base64Str) {
@@ -88,17 +106,32 @@ class _ChatScreenState extends State<ChatScreen> {
           setState(() {
             _historyList.clear();
             _historyList.addAll(history.map((e) {
-              print('DEBUG HISTORY DOC: ${jsonEncode(e)}');
+              // AUTO-CLEANUP: delete duplicate glitch conversations
+              String q = e['question']?.toString().trim() ?? '';
+              if (q.isEmpty && e['messages'] != null && (e['messages'] as List).isNotEmpty) {
+                final firstMsg = e['messages'][0];
+                if (firstMsg['role'] == 'user' && firstMsg['text'] != null) {
+                  q = firstMsg['text'].toString().trim();
+                }
+              }
+              String rev = e['_rev']?.toString() ?? '';
+              if (q == 'Hôm nay là thứ mấy?' && rev.startsWith('1-')) {
+                print('DEBUG: Auto-deleting duplicate glitch conversation ${e['_id']}');
+                ApiService.deleteChatGpt(e['_id']);
+                return null;
+              }
+              
               return <String, dynamic>{
                 'id': e['_id'],
+                'rev': e['_rev'],
                 'conversation_id': e['conversation_id'],
-                'question': e['question']?.toString() ?? '',
+                'question': q,
                 'answer': (e['html'] ?? e['answer'])?.toString() ?? '',
                 'updatedAt': e['updatedAt'] ?? e['createdAt'] ?? '',
                 'messages': e['messages'] ?? [],
                 'loading': false,
               };
-            }).toList());
+            }).where((e) => e != null).cast<Map<String, dynamic>>().toList());
             print('DEBUG CHAT LOADED: ${_historyList.length} history items');
             _isLoading = false;
             if (_messages.isEmpty && _historyList.isNotEmpty) {
@@ -132,6 +165,7 @@ class _ChatScreenState extends State<ChatScreen> {
               String? base64 = rawMsgs[i + 1]['imageBase64'];
               pairs.add({
                 'id': msg['id'],
+                'rev': msg['rev'],
                 'conversation_id': msg['conversation_id'],
                 'question': q,
                 'answer': a,
@@ -142,6 +176,7 @@ class _ChatScreenState extends State<ChatScreen> {
             } else {
               pairs.add({
                 'id': msg['id'],
+                'rev': msg['rev'],
                 'conversation_id': msg['conversation_id'],
                 'question': q,
                 'answer': a,
@@ -160,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     print('DEBUG _sendMessage: text="$text"');
-    if (text.isEmpty) return;
+    if (text.isEmpty && _attachedFilePath == null) return;
 
     final Map<String, dynamic> newMessage = {
       'question': text, 
@@ -171,20 +206,23 @@ class _ChatScreenState extends State<ChatScreen> {
       'imagePath': null,
       'imageBase64': null,
       'videoPath': null,
-      'filePath': null,
+      'filePath': _attachedFilePath,
       'id': null,
     };
+    final String? fileToSend = _attachedFilePath;
     setState(() {
       _messages.insert(0, newMessage);
       _isSending = true;
       _controller.clear();
+      _attachedFilePath = null;
+      _attachedFileName = null;
     });
 
     try {
       final List<Map<String, dynamic>> historyArray = [];
       
       for (int i = _messages.length - 1; i >= 1; i--) {
-        if (_messages[i]['question'] != null && _messages[i]['question'].toString().isNotEmpty) {
+        if (_messages[i]['question'] != null) {
           historyArray.add({
             "role": "user",
             "parts": [{"text": _messages[i]['question']}]
@@ -201,17 +239,19 @@ class _ChatScreenState extends State<ChatScreen> {
           historyArray.add(modelData);
         }
       }
-      String historyJson = "";
+      String historyJson = historyArray.isNotEmpty ? jsonEncode(historyArray) : "";
 
       final prefs = await SharedPreferences.getInstance();
       final aiAgentEnabled = prefs.getBool('ai_agent_enabled') ?? true;
       print('DEBUG _sendMessage: aiAgentEnabled=$aiAgentEnabled');
       
       String? dbId;
+      String? dbRev;
       String? agentConversationId;
-      for (int i = 1; i < _messages.length; i++) {
+      for (int i = 0; i < _messages.length; i++) {
         if (_messages[i]['id'] != null) {
           dbId = _messages[i]['id'];
+          dbRev = _messages[i]['rev'];
           agentConversationId = _messages[i]['conversation_id'];
           break;
         }
@@ -224,7 +264,7 @@ class _ChatScreenState extends State<ChatScreen> {
       
       print('DEBUG _sendMessage: dbId=$dbId, agentConversationId=$agentConversationId');
       if (aiAgentEnabled) {
-        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: agentConversationId, onChunk: (chunk) {
+        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: agentConversationId, filePath: fileToSend, onChunk: (chunk) {
           if (mounted && newMessage['cancelled'] != true) {
             if (agentConversationId == null && chunk['conversation_id'] != null && chunk['conversation_id'].toString().isNotEmpty) {
               agentConversationId = chunk['conversation_id'];
@@ -354,13 +394,27 @@ class _ChatScreenState extends State<ChatScreen> {
         }
         allMessages.add(currentModelMap);
 
-        final saveRes = await ApiService.saveChatGpt(text, answerText, id: dbId, conversationId: agentConversationId, messages: allMessages);
+        String originalQuestion = text;
+        if (_messages.isNotEmpty) {
+          final lastMsg = _messages.last;
+          if (lastMsg['question'] != null && lastMsg['question'].toString().isNotEmpty) {
+            originalQuestion = lastMsg['question'].toString();
+          }
+        }
+        final saveRes = await ApiService.saveChatGpt(originalQuestion, answerText, id: dbId, rev: dbRev, conversationId: agentConversationId, messages: allMessages);
         if (saveRes != null && saveRes['success'] == true && saveRes['data'] != null) {
-          newMessage['id'] = saveRes['data']['_id'];
-          newMessage['conversation_id'] = agentConversationId;
-          for (var i = 0; i < _messages.length; i++) {
-             _messages[i]['id'] = saveRes['data']['_id'];
-             _messages[i]['conversation_id'] = agentConversationId;
+          final newId = saveRes['data']['_id'] ?? saveRes['data']['id'];
+          final newRev = saveRes['data']['_rev'] ?? saveRes['data']['rev'];
+          if (newId != null) {
+            newMessage['id'] = newId;
+            newMessage['rev'] = newRev;
+            final actualConversationId = saveRes['data']['conversation_id'] ?? agentConversationId;
+            newMessage['conversation_id'] = actualConversationId;
+            for (var i = 0; i < _messages.length; i++) {
+               _messages[i]['id'] = newId;
+               _messages[i]['rev'] = newRev;
+               _messages[i]['conversation_id'] = actualConversationId;
+            }
           }
         }
       }
@@ -484,11 +538,13 @@ class _ChatScreenState extends State<ChatScreen> {
                                 } catch (_) {}
                               }
                               
-                              return ListTile(
-                                leading: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
-                                title: Text(msg['question'] ?? '', maxLines: 2, overflow: TextOverflow.ellipsis),
-                                subtitle: timeStr.isNotEmpty ? Text(timeStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)) : null,
-                                trailing: IconButton(
+                              return Material(
+                                color: Colors.transparent,
+                                child: ListTile(
+                                  leading: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
+                                  title: Text(msg['question']?.isNotEmpty == true ? msg['question'] : 'Global AI Agent', maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  subtitle: timeStr.isNotEmpty ? Text(timeStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)) : null,
+                                  trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
                                   onPressed: () {
                                     // Confirm delete
@@ -534,6 +590,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                   Navigator.pop(context);
                                   _loadConversation(msg);
                                 },
+                              ),
                               );
                             },
                           ),
@@ -846,17 +903,54 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Widget _buildInputArea() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
-      ),
-      child: SafeArea(
-        child: Row(
-          children: [
-            Expanded(
-              child: TextField(
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (_attachedFileName != null)
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            color: Colors.grey.shade100,
+            child: Row(
+              children: [
+                const Icon(Icons.attach_file, size: 16, color: Colors.grey),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _attachedFileName!,
+                    style: TextStyle(color: Colors.grey.shade700, fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                InkWell(
+                  onTap: () {
+                    setState(() {
+                      _attachedFilePath = null;
+                      _attachedFileName = null;
+                    });
+                  },
+                  child: const Icon(Icons.close, size: 16, color: Colors.grey),
+                ),
+              ],
+            ),
+          ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: Colors.grey.shade200, width: 1)),
+          ),
+          child: SafeArea(
+            child: Row(
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.attach_file, color: Colors.grey),
+                  onPressed: _isSending ? null : _pickFile,
+                  constraints: const BoxConstraints(),
+                  padding: const EdgeInsets.only(right: 8),
+                ),
+                Expanded(
+                  child: TextField(
                 controller: _controller,
                 maxLines: 3,
                 minLines: 1,
@@ -961,6 +1055,8 @@ class _ChatScreenState extends State<ChatScreen> {
           ],
         ),
       ),
+    ),
+      ],
     );
   }
 }
