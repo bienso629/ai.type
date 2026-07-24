@@ -62,6 +62,23 @@ Thay vì AI Agent dùng Auto-GUI để click vào màn hình (Rất dễ gãy la
 ### Ví dụ 2: Thao tác với GoLogin & Marketing
 - Khi người dùng ra lệnh "Mở profile số 1 và nuôi nick Facebook": AI Agent không tự bật trình duyệt. Nó sẽ gửi một JSON command (ví dụ: `{"action": "open_profile", "id": "1", "script": "fb_farming"}`) cho Electron backend. Electron sẽ dùng Playwright/Puppeteer nội bộ để thực thi.
 
+### Ví dụ 3: Thao tác với AI Writer (Soạn bài / Dàn ý)
+- Khi người dùng ra lệnh "Viết bài", "Tạo blog" hoặc "Lưu vào dàn ý", AI Agent không chỉ trả lời bằng văn bản mà **CẦN PHẢI** xuất ra một JSON command để phần mềm tự động lưu bài viết đó vào màn hình **Soạn bài (AI Writer)**.
+- **Cấu trúc lệnh JSON cần trả về (phải nằm độc lập hoặc trong markdown ` ```json `):**
+  ```json
+  {
+    "action": "save_to_outline",
+    "drafts": [
+      {
+        "title": "Tiêu đề bài viết",
+        "content": "Nội dung bài viết (hỗ trợ Markdown)",
+        "domain": "ai.type.vn"
+      }
+    ]
+  }
+  ```
+- **Quy trình:** Khi AI Agent trả về JSON này, hệ thống UI (như Màn hình Lịch làm việc) sẽ tự động đánh chặn (intercept), bóc tách JSON và lưu thẳng vào kho dữ liệu Dàn ý của màn hình `/ai-writer`. Người dùng sau đó chỉ cần qua màn hình Soạn bài là thấy ngay.
+
 ---
 
 ## 4. Các lưu ý quan trọng cho AI Agent (Quy tắc Ứng xử)
