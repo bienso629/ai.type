@@ -322,8 +322,9 @@ export class GenaiService {
                     }
                     
                     return agentRes; // Success!
-                } catch (agentErr) {
+                } catch (agentErr: any) {
                     console.warn(`[Fallback] AI Agent lỗi hoặc không hỗ trợ: ${agentErr}. Đang chuyển sang tầng Mì Tôm AI...`);
+                    this.toastr.warning(`[AI Agent Error] ${agentErr?.message || agentErr}`);
                     lastError = agentErr;
                 }
             }

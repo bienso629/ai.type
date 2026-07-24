@@ -183,6 +183,7 @@ export class SettingsPluginsComponent implements OnInit {
                     const settings = this.multiAccountService.getItem('settings') || {};
                     settings.enableAiAgent = event.checked;
                     this.multiAccountService.setItem('settings', settings);
+                    try { localStorage.setItem('settings', JSON.stringify(settings)); } catch(e){}
                     
                     this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
                 } else {
