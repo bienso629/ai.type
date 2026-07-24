@@ -1149,7 +1149,6 @@ ${content}`;
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                config: { bypassUModelverse: true, bypassModelOverride: true } as any
             });
 
             let text = response.text || '';
