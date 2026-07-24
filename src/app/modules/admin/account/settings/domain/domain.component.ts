@@ -191,9 +191,11 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         
         if (cell === 'monthlyTarget') {
             this.saveTarget(this.rows[rowIndex].domain, Number(event.target.value));
+            this.edit(rowIndex);
         }
         if (cell === 'writingStyle') {
             this.saveWritingStyle(this.rows[rowIndex].domain, event.target.value);
+            this.edit(rowIndex);
         }
     }
 
