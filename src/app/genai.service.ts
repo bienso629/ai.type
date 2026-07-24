@@ -283,8 +283,10 @@ export class GenaiService {
         }
 
         if (!bypassModelOverride) {
-            if (params.model === 'gemini-3.5-flash') {
-                params.model = this._umodelverseChatModel || 'gemini-3.5-flash';
+            if (params.model === 'gemini-3.5-flash' || params.model === 'gemini-3.6-flash' || params.model === 'gemini-1.5-flash') {
+                if (this._umodelverseChatModel) {
+                    params.model = this._umodelverseChatModel;
+                }
             } else if (
                 params.model === 'imagen-3.0-generate-001' ||
                 params.model === 'gemini-3-pro-image-preview' ||
@@ -544,6 +546,9 @@ export class GenaiService {
                     if (aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
                 }
             } catch(e) {}
+            if (settings.aiAgentApiKey && secretApiKey === 'type-vn-local-agent-2026') {
+                secretApiKey = settings.aiAgentApiKey;
+            }
             // Desktop App default points to sontinh.type.vn, unless secretApiKey looks like a URL config (for advanced users testing external endpoints)
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
                 // Giả định cú pháp setting là: URL|API_KEY (VD: https://sontinh.type.vn|my-secret)
