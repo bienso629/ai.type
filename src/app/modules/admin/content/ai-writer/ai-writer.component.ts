@@ -1140,16 +1140,8 @@ Tôi có một khối văn bản dài (có thể chứa mã HTML). Hãy phân t�
 Yêu cầu: 
 - Giữ nguyên tất cả các thẻ HTML (đặc biệt là <ul>, <ol>, <li>, <img>, <iframe>, <a>, <strong>, <em>, ...). 
 - KHÔNG làm mất bất kỳ thẻ HTML nào, KHÔNG làm mất chữ nào, KHÔNG tự ý bịa thêm nội dung, chỉ là chia nhỏ đoạn văn đó ra cho hợp lý.
-- Trả về dữ liệu dưới định dạng JSON với key là "paragraphs" có value là mảng các chuỗi (Array of Strings). Mỗi phần tử trong mảng là 1 đoạn văn sau khi tách.
-Ví dụ:
-{
-    "paragraphs": [
-        "Đoạn 1...",
-        "Đoạn 2..."
-    ]
-}
-Hãy trả về JSON **hợp lệ tuyệt đối** (valid JSON), không thiếu dấu phẩy, không có bình luận, không có Markdown (\`\`\`json), không có giải thích.
-Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.
+- Ngăn cách mỗi đoạn văn (sau khi tách) bằng ĐÚNG một chuỗi ký tự "===SPLIT===". 
+- CHỈ trả về nội dung đã tách, tuyệt đối KHÔNG có lời mở đầu, KHÔNG có kết luận, KHÔNG dùng markdown.
 
 Nội dung cần tách:
 ${content}`;
@@ -1159,22 +1151,19 @@ ${content}`;
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
-            const jsonText = response.text;
-            if (jsonText) {
-                // Đôi khi AI vẫn trả về chuỗi bọc trong markdown code block
-                const cleanedJsonText = jsonText.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
-                const result = JSON.parse(cleanedJsonText);
-                let parts = result.paragraphs;
+            let text = response.text || '';
+            text = text.replace(/^```[\s\S]*?\n/, '').replace(/```$/, '').trim(); // Remove markdown block if any
+            
+            let parts = text.split('===SPLIT===').map(p => p.trim()).filter(p => p.length > 0);
 
-                if (parts && parts.length > 0) {
-                    data.splice(index, 1, ...parts);
-                    this.toastr.success(`Đã dùng AI tách thành ${parts.length} đoạn.`);
-                    this.cd.markForCheck();
-                } else {
-                    this.toastr.warning(`Không thể tách đoạn.`);
-                }
+            if (parts && parts.length > 0) {
+                // Đôi khi AI có thể sinh ra phần giới thiệu trước dấu split đầu tiên (nếu quên)
+                // Chúng ta loại bỏ những đoạn rác nếu thấy không hợp lý, nhưng ở đây cứ lấy hết.
+                data.splice(index, 1, ...parts);
+                this.toastr.success(`Đã dùng AI tách thành ${parts.length} đoạn.`);
+                this.cd.markForCheck();
             } else {
-                this.toastr.warning(`Không nhận được phản hồi từ AI.`);
+                this.toastr.warning(`Không thể tách đoạn.`);
             }
         } catch (error) {
             console.error(error);
