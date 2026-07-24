@@ -2534,6 +2534,35 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         if (i === validDates.length - 1) {
                             aiMessageForChat = aiMsg;
                         }
+                        
+                        // --- INTERCEPT DÀN Ý TRONG VÒNG LẶP ---
+                        let handledAsDraft = false;
+                        try {
+                            let textToParse = aiMsg;
+                            const jsonMatch = aiMsg.match(/```json([\s\S]*?)```/);
+                            if (jsonMatch && jsonMatch[1]) {
+                                textToParse = jsonMatch[1].trim();
+                            }
+                            if (textToParse.includes('save_to_outline')) {
+                                const actionIndex = textToParse.indexOf('"action"');
+                                if (actionIndex !== -1) {
+                                    const firstBrace = textToParse.lastIndexOf('{', actionIndex);
+                                    const lastBrace = textToParse.lastIndexOf('}');
+                                    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                                        textToParse = textToParse.substring(firstBrace, lastBrace + 1);
+                                    }
+                                }
+                                
+                                const parsedObj = JSON.parse(textToParse);
+                                if (parsedObj && parsedObj.action === 'save_to_outline' && Array.isArray(parsedObj.drafts)) {
+                                    this.saveDraftsToAiWriter(parsedObj.drafts);
+                                    handledAsDraft = true;
+                                }
+                            }
+                        } catch(e) {}
+                        if (handledAsDraft) continue;
+                        // --- KẾT THÚC ---
+
                         let dayParsed = this.getParsedAiTask(aiMsg);
                         if (dayParsed) {
                             if (!Array.isArray(dayParsed)) {
@@ -2616,6 +2645,15 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         textToParse = jsonMatch[1].trim();
                     }
                     if (textToParse.includes('save_to_outline')) {
+                        const actionIndex = textToParse.indexOf('"action"');
+                        if (actionIndex !== -1) {
+                            const firstBrace = textToParse.lastIndexOf('{', actionIndex);
+                            const lastBrace = textToParse.lastIndexOf('}');
+                            if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+                                textToParse = textToParse.substring(firstBrace, lastBrace + 1);
+                            }
+                        }
+                        
                         const parsedObj = JSON.parse(textToParse);
                         if (parsedObj && parsedObj.action === 'save_to_outline' && Array.isArray(parsedObj.drafts)) {
                             this.saveDraftsToAiWriter(parsedObj.drafts);
