@@ -280,7 +280,7 @@ class ApiService {
     return null;
   }
 
-  static Future<String?> askSonTinhAgent(String question, String historyJson, {String? conversationId, Function(Map<String, dynamic> chunk)? onChunk}) async {
+  static Future<String?> askSonTinhAgent(String question, String historyJson, {String? conversationId, String? filePath, Function(Map<String, dynamic> chunk)? onChunk}) async {
     final prefs = await SharedPreferences.getInstance();
     String apiKey = prefs.getString('ai_agent_api_key') ?? '';
     if (apiKey.trim().isEmpty) {
@@ -324,6 +324,11 @@ class ApiService {
     if (conversationId != null && conversationId.isNotEmpty) {
       request.fields['conversation_id'] = conversationId;
     }
+    if (filePath != null && filePath.isNotEmpty) {
+      request.files.add(await http.MultipartFile.fromPath('file', filePath));
+    }
+    
+    print('DEBUG askSonTinhAgent: request.fields=${request.fields}');
 
     try {
       var response = await request.send();
@@ -445,7 +450,7 @@ class ApiService {
     return null;
   }
 
-  static Future<dynamic> saveChatGpt(String question, String answer, {String? id, String? conversationId, List<dynamic>? messages}) async {
+  static Future<dynamic> saveChatGpt(String question, String answer, {String? id, String? rev, String? conversationId, List<dynamic>? messages}) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
     if (activeInfoStr == null) throw Exception('No active session');
@@ -465,6 +470,7 @@ class ApiService {
       'answer': answer,
     };
     if (id != null) dataForm['_id'] = id;
+    if (rev != null) dataForm['_rev'] = rev;
     if (conversationId != null) dataForm['conversation_id'] = conversationId;
     if (messages != null) dataForm['messages'] = messages;
 

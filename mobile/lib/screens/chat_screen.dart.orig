@@ -195,7 +195,7 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _sendMessage() async {
     final text = _controller.text.trim();
     print('DEBUG _sendMessage: text="$text"');
-    if (text.isEmpty && _attachedFilePath == null) return;
+    if (text.isEmpty) return;
 
     final Map<String, dynamic> newMessage = {
       'question': text, 
@@ -222,7 +222,7 @@ class _ChatScreenState extends State<ChatScreen> {
       final List<Map<String, dynamic>> historyArray = [];
       
       for (int i = _messages.length - 1; i >= 1; i--) {
-        if (_messages[i]['question'] != null) {
+        if (_messages[i]['question'] != null && _messages[i]['question'].toString().isNotEmpty) {
           historyArray.add({
             "role": "user",
             "parts": [{"text": _messages[i]['question']}]
@@ -239,7 +239,7 @@ class _ChatScreenState extends State<ChatScreen> {
           historyArray.add(modelData);
         }
       }
-      String historyJson = historyArray.isNotEmpty ? jsonEncode(historyArray) : "";
+      String historyJson = "";
 
       final prefs = await SharedPreferences.getInstance();
       final aiAgentEnabled = prefs.getBool('ai_agent_enabled') ?? true;
@@ -248,7 +248,7 @@ class _ChatScreenState extends State<ChatScreen> {
       String? dbId;
       String? dbRev;
       String? agentConversationId;
-      for (int i = 0; i < _messages.length; i++) {
+      for (int i = 1; i < _messages.length; i++) {
         if (_messages[i]['id'] != null) {
           dbId = _messages[i]['id'];
           dbRev = _messages[i]['rev'];
@@ -394,27 +394,16 @@ class _ChatScreenState extends State<ChatScreen> {
         }
         allMessages.add(currentModelMap);
 
-        String originalQuestion = text;
-        if (_messages.isNotEmpty) {
-          final lastMsg = _messages.last;
-          if (lastMsg['question'] != null && lastMsg['question'].toString().isNotEmpty) {
-            originalQuestion = lastMsg['question'].toString();
-          }
-        }
-        final saveRes = await ApiService.saveChatGpt(originalQuestion, answerText, id: dbId, rev: dbRev, conversationId: agentConversationId, messages: allMessages);
+        final saveRes = await ApiService.saveChatGpt(text, answerText, id: dbId, rev: dbRev, conversationId: agentConversationId, messages: allMessages);
         if (saveRes != null && saveRes['success'] == true && saveRes['data'] != null) {
-          final newId = saveRes['data']['_id'] ?? saveRes['data']['id'];
-          final newRev = saveRes['data']['_rev'] ?? saveRes['data']['rev'];
-          if (newId != null) {
-            newMessage['id'] = newId;
-            newMessage['rev'] = newRev;
-            final actualConversationId = saveRes['data']['conversation_id'] ?? agentConversationId;
-            newMessage['conversation_id'] = actualConversationId;
-            for (var i = 0; i < _messages.length; i++) {
-               _messages[i]['id'] = newId;
-               _messages[i]['rev'] = newRev;
-               _messages[i]['conversation_id'] = actualConversationId;
-            }
+          newMessage['id'] = saveRes['data']['_id'];
+          newMessage['rev'] = saveRes['data']['_rev'];
+          final actualConversationId = saveRes['data']['conversation_id'] ?? agentConversationId;
+          newMessage['conversation_id'] = actualConversationId;
+          for (var i = 0; i < _messages.length; i++) {
+             _messages[i]['id'] = saveRes['data']['_id'];
+             _messages[i]['rev'] = saveRes['data']['_rev'];
+             _messages[i]['conversation_id'] = actualConversationId;
           }
         }
       }
@@ -542,7 +531,7 @@ class _ChatScreenState extends State<ChatScreen> {
                                 color: Colors.transparent,
                                 child: ListTile(
                                   leading: const Icon(Icons.chat_bubble_outline, color: AppColors.primary),
-                                  title: Text(msg['question']?.isNotEmpty == true ? msg['question'] : 'Global AI Agent', maxLines: 1, overflow: TextOverflow.ellipsis),
+                                  title: Text(msg['question'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
                                   subtitle: timeStr.isNotEmpty ? Text(timeStr, style: TextStyle(fontSize: 12, color: Colors.grey.shade500)) : null,
                                   trailing: IconButton(
                                   icon: const Icon(Icons.delete_outline, color: Colors.redAccent),
