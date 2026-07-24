@@ -1124,11 +1124,6 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Tự động tách đoạn
      */
     async split(data: any, index: number) {
-        // Tắt ngay chế độ đọc audio nếu đang đọc dở để hiển thị kết quả tách đoạn ngay lập tức
-        if (window && window.speechSynthesis) {
-            window.speechSynthesis.cancel();
-        }
-
         let content = data[index];
 
         if (!content || typeof content !== 'string') {
@@ -1163,6 +1158,12 @@ ${content}`;
 
             if (parts && parts.length > 0) {
                 data.splice(index, 1, ...parts);
+                if (data === this.done) {
+                    this.done = [...this.done];
+                }
+                if (this.source) {
+                    this.source = { ...this.source };
+                }
                 this.toastr.success(`Đã dùng AI tách thành ${parts.length} đoạn.`);
                 this.cd.detectChanges();
             } else {
