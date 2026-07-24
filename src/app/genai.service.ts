@@ -264,7 +264,7 @@ export class GenaiService {
             if (params.model === 'gemini-3.5-flash') {
                 params.model = this._umodelverseChatModel || 'gemini-3.5-flash';
             } else if (
-                params.model === 'gemini-3.1-flash-image-preview' ||
+                params.model === 'gemini-1.5-flash' ||
                 params.model === 'imagen-3.0-generate-001' ||
                 params.model === 'gemini-3-pro-image-preview' ||
                 params.model?.includes('image') ||
@@ -434,6 +434,8 @@ export class GenaiService {
                                 else if (mimeType.includes('mp4')) ext = 'mp4';
                                 else if (mimeType.includes('wav')) ext = 'wav';
                                 else if (mimeType.includes('mp3')) ext = 'mp3';
+                                else if (mimeType.includes('markdown') || mimeType.includes('md')) ext = 'md';
+                                else if (mimeType.includes('plain')) ext = 'txt';
                                 const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
                                 formData.append('files', file);
                             }
@@ -542,7 +544,10 @@ export class GenaiService {
         }
         
         const settings = this.multiAccountService.getItem('settings') || {};
-        const ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
+        let ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
+        if (params.config && (params.config as any).ttsVoice !== undefined) {
+            ttsVoice = (params.config as any).ttsVoice;
+        }
         const ttsRate = settings.ttsRate || '+0%';
         formData.append('tts_voice', ttsVoice === 'local' ? 'none' : ttsVoice);
         formData.append('tts_rate', ttsRate);
