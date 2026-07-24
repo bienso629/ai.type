@@ -663,11 +663,20 @@ export class GenaiService {
                             }
                             
                             // Streaming chunk
+                            let shouldIgnoreTTS = false;
                             if (chunk.content) {
                                 replyText += chunk.content;
                                 batchStreamedContent += chunk.content;
-                                localTTSQueue.buffer += chunk.content;
-                                localTTSQueue.play();
+                                
+                                const backticksCount = (replyText.match(/```/g) || []).length;
+                                const isInsideMarkdownCode = (backticksCount % 2 !== 0);
+                                const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
+                                shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData;
+                                
+                                if (!shouldIgnoreTTS) {
+                                    localTTSQueue.buffer += chunk.content;
+                                    localTTSQueue.play();
+                                }
                             }
                             // Fallback cho luồng cũ (trả 1 lần)
                             if (chunk.result !== undefined && !chunk.content) {
@@ -677,7 +686,7 @@ export class GenaiService {
                             
                             if (chunk.image_base64) imageBase64 = chunk.image_base64;
                             if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                            if (chunk.audio_base64) {
+                            if (chunk.audio_base64 && !shouldIgnoreTTS) {
                                 audioQueue.add(chunk.audio_base64);
                             }
                             if (chunk.conversation_id) {
@@ -700,14 +709,22 @@ export class GenaiService {
                         if (line.startsWith('data: ')) line = line.slice(6).trim();
                         const chunk = JSON.parse(line);
                         if (chunk.success === false) throw new Error(chunk.error);
+                        let shouldIgnoreTTS = false;
                         if (chunk.content) {
                             replyText += chunk.content;
-                            localTTSQueue.buffer += chunk.content;
+                            const backticksCount = (replyText.match(/```/g) || []).length;
+                            const isInsideMarkdownCode = (backticksCount % 2 !== 0);
+                            const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
+                            shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData;
+                            
+                            if (!shouldIgnoreTTS) {
+                                localTTSQueue.buffer += chunk.content;
+                            }
                         }
                         if (chunk.result !== undefined && !chunk.content) replyText = chunk.result;
                         if (chunk.image_base64) imageBase64 = chunk.image_base64;
                         if (chunk.video_base64) videoBase64 = chunk.video_base64;
-                        if (chunk.audio_base64) audioQueue.add(chunk.audio_base64);
+                        if (chunk.audio_base64 && !shouldIgnoreTTS) audioQueue.add(chunk.audio_base64);
                         if (chunk.conversation_id) conversationId = chunk.conversation_id;
                     } catch (e) {}
                 }
