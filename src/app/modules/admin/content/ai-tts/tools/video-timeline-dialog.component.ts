@@ -1228,7 +1228,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.projectData?.aspectRatio || '16:9',
@@ -2426,7 +2426,7 @@ export class VideoTimelineDialogComponent implements OnInit, OnDestroy, AfterVie
                             
                             // Gọi Tầng AI cao nhất đang được cấu hình
                             const response = await this._genaiService.generateContent({
-                                model: 'gemini-1.5-flash', // Tự động fallback trong service
+                                model: 'gemini-3.6-flash', // Tự động fallback trong service
                                 contents: [{ role: 'user', parts: parts }],
                                 config: {
                                     responseModalities: ['IMAGE']

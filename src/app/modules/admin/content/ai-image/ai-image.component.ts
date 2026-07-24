@@ -724,7 +724,7 @@ export class AIImageComponent
             prompt: [''],
             resolution: ['512px'], // Mặc định 512px cho rẻ
             aspectRatio: ['9:16'], // Mặc định dọc cho đa dụng
-            modelId: ['gemini-1.5-flash'], // Mặc định Flash cho nhẹ
+            modelId: ['gemini-3.6-flash'], // Mặc định Flash cho nhẹ
             // ... các field cũ của bạn ...
         });
     }

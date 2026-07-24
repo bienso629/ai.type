@@ -235,7 +235,7 @@ Focus ONLY on:
 Do NOT describe colors, clothing style, facial features, or lighting.`;
 
             const visionResponse = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ 
                     role: 'user', 
                     parts: [
@@ -258,7 +258,7 @@ Do NOT describe colors, clothing style, facial features, or lighting.`;
 [MANDATORY: Make it a clear, high-quality storyboard sketch in grayscale or black-and-white. It MUST accurately reflect the environment and specific character poses described above. CRITICAL: Do NOT draw specific clothing, outfits, or detailed facial features for the characters. Draw all characters as simple 3D mannequins, wooden dummies, or blank base meshes. This is to ensure it only captures the POSE and STRUCTURAL COMPOSITION.]`;
 
             const aiResponse = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: aiPrompt }] }],
                 config: { aspectRatio: this.selectedAspectRatio || '16:9', responseModalities: ['IMAGE'] } as any
             });
@@ -356,7 +356,7 @@ Do NOT describe colors, clothing style, facial features, or lighting.`;
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: requestParts }],
                 config: { aspectRatio: this.selectedAspectRatio || '16:9', responseModalities: ['IMAGE'] } as any
             });
