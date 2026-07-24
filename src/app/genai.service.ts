@@ -264,7 +264,6 @@ export class GenaiService {
             if (params.model === 'gemini-3.5-flash') {
                 params.model = this._umodelverseChatModel || 'gemini-3.5-flash';
             } else if (
-                params.model === 'gemini-3.6-flash' ||
                 params.model === 'imagen-3.0-generate-001' ||
                 params.model === 'gemini-3-pro-image-preview' ||
                 params.model?.includes('image') ||
