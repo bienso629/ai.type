@@ -310,10 +310,24 @@ export class GenaiService {
             let lastError: any = null;
 
             // 1. Tầng 1: AI Agent (sontinh.type.vn)
-            // AI Agent hiện tại chỉ xử lý Text/Chat, KHÔNG hỗ trợ generate IMAGE/VIDEO nên ta bỏ qua luôn
-            if (isAiAgentActive && !isVideoRequest && !isImageRequest) {
+            if (isAiAgentActive && !isVideoRequest) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
+                    
+                    // Validate if it's an image request but AI Agent didn't return an image
+                    let hasImage = false;
+                    if (isImageRequest && agentRes.candidates && agentRes.candidates.length > 0) {
+                        for (const part of agentRes.candidates[0].content.parts) {
+                            if (part.inlineData) {
+                                hasImage = true;
+                                break;
+                            }
+                        }
+                        if (!hasImage) {
+                            throw new Error("AI Agent không hỗ trợ tạo hoặc chỉnh sửa ảnh (không trả về inlineData).");
+                        }
+                    }
+                    
                     return agentRes; // Success!
                 } catch (agentErr: any) {
                     console.warn(`[GenaiService] AI Agent lỗi hoặc không phản hồi (${agentErr?.message || agentErr}). Đang chuyển sang tầng 2 (Mì Tôm AI / UModelverse)...`);
