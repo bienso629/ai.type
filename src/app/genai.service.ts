@@ -6,6 +6,7 @@ import {
 } from '@google/genai';
 import { MultiAccountService } from './modules/_services/multi-account.service';
 import { getModelverseConfig, getTextModelConfig } from './modelverse.config';
+import { ToastrService } from 'ngx-toastr';
 
 type Scope = string | number;
 
@@ -46,7 +47,8 @@ export class GenaiService {
     }
 
     constructor(
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private toastr: ToastrService
     ) { }
 
     /**
