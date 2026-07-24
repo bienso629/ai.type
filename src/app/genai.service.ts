@@ -507,14 +507,19 @@ export class GenaiService {
         let secretApiKey = 'type-vn-local-agent-2026';
         let apiUrl = 'https://sontinh.type.vn/api/chat'; // Fallback for Web/Mobile
 
+        const settings = this.multiAccountService.getItem('settings') || {};
+        if (settings.enableAiAgent) {
+            isAiAgentActive = true;
+        }
+
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find(p => p.id === 'ai_agent');
-                if (aiAgent && aiAgent.enabled) {
-                    isAiAgentActive = true;
+                if (aiAgent) {
+                    if (aiAgent.enabled) isAiAgentActive = true;
+                    if (aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
                 }
-                if (aiAgent && aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
             } catch(e) {}
             // Desktop App default points to sontinh.type.vn, unless secretApiKey looks like a URL config (for advanced users testing external endpoints)
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
@@ -527,8 +532,6 @@ export class GenaiService {
             }
         } else {
             // Web / Mobile / Another Account fallback logic
-            const settings = this.multiAccountService.getItem('settings') || {};
-            if (settings.enableAiAgent) isAiAgentActive = true;
             if (settings.aiAgentApiKey) secretApiKey = settings.aiAgentApiKey;
             
             if (secretApiKey && (secretApiKey.startsWith('http://') || secretApiKey.startsWith('https://'))) {
