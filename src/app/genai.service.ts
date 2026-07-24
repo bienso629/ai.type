@@ -675,7 +675,8 @@ export class GenaiService {
                                 const backticksCount = (replyText.match(/```/g) || []).length;
                                 const isInsideMarkdownCode = (backticksCount % 2 !== 0);
                                 const isRawJsonData = replyText.includes('"action": "save_to_outline"') || replyText.includes('"action":"save_to_outline"');
-                                shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData;
+                                const isSplitTask = replyText.includes('===SPLIT===') || finalPrompt.includes('===SPLIT===');
+                                shouldIgnoreTTS = isInsideMarkdownCode || isRawJsonData || isSplitTask;
                                 
                                 if (!shouldIgnoreTTS) {
                                     localTTSQueue.buffer += chunk.content;
