@@ -803,6 +803,15 @@ export class GenaiService {
             }
 
             const parts: any[] = [{ text: replyText }];
+            if (imageBase64) {
+                parts.push({
+                    inlineData: {
+                        mimeType: 'image/png',
+                        data: imageBase64
+                    },
+                    imageUrl: 'data:image/png;base64,' + imageBase64
+                });
+            }
             if (videoBase64) {
                 parts.push({
                     inlineData: {
