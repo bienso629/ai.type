@@ -271,19 +271,21 @@ export class GenaiService {
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.getSettingsFromStorage();
-        let isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
+        // Mặc định bật AI Agent ngoại trừ khi người dùng chủ động tắt (enableAiAgent === false)
+        let isAiAgentEnabled = settingsRaw?.enableAiAgent !== false;
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
-                if (aiAgent && aiAgent.enabled) {
-                    isAiAgentEnabled = true;
+                if (aiAgent && aiAgent.enabled !== undefined) {
+                    // Nếu ở Electron có plugin ai_agent, tuân thủ cờ plugin hoặc settings
+                    isAiAgentEnabled = aiAgent.enabled || settingsRaw?.enableAiAgent === true;
                 }
             } catch(e) {}
         }
 
         if (!bypassModelOverride) {
-            if (params.model === 'gemini-3.6-flash' || params.model === 'gemini-3.6-flash' || params.model === 'gemini-3.6-flash') {
+            if (params.model === 'gemini-3.6-flash') {
                 if (this._umodelverseChatModel) {
                     params.model = this._umodelverseChatModel;
                 }
@@ -327,9 +329,14 @@ export class GenaiService {
                     
                     return agentRes; // Success!
                 } catch (agentErr: any) {
-                    console.warn(`[Fallback] AI Agent lỗi hoặc không hỗ trợ: ${agentErr}. Đang chuyển sang tầng Mì Tôm AI...`);
-                    this.toastr.warning(`[AI Agent Error] ${agentErr?.message || agentErr}`);
-                    lastError = agentErr;
+                    console.warn(`[GenaiService] AI Agent lỗi:`, agentErr);
+                    this.toastr.error(`[AI Agent Error] ${agentErr?.message || agentErr}`);
+                    // Nếu có Mì Tôm AI thì thử chuyển sang Mì Tôm AI, nếu không có thì ném lỗi luôn không rớt xuống Google Gemini API
+                    if (this.isUModelverseEnabled()) {
+                        lastError = agentErr;
+                    } else {
+                        throw agentErr;
+                    }
                 }
             }
 
