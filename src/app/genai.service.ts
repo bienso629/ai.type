@@ -258,7 +258,16 @@ export class GenaiService {
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.multiAccountService.getItem('settings');
-        const isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
+        let isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
+        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                if (aiAgent && aiAgent.enabled) {
+                    isAiAgentEnabled = true;
+                }
+            } catch(e) {}
+        }
 
         if (!bypassModelOverride) {
             if (params.model === 'gemini-3.5-flash') {
