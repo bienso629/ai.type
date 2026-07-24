@@ -271,13 +271,14 @@ export class GenaiService {
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.getSettingsFromStorage();
-        let isAiAgentActive = settingsRaw?.enableAiAgent === true;
+        // Mặc định luôn ưu tiên AI Agent (Tầng 1) ngoại trừ khi người dùng chủ động tắt (enableAiAgent === false)
+        let isAiAgentActive = settingsRaw?.enableAiAgent !== false;
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
-                if (aiAgent && aiAgent.enabled) {
-                    isAiAgentActive = true;
+                if (aiAgent && aiAgent.enabled !== undefined) {
+                    isAiAgentActive = aiAgent.enabled || settingsRaw?.enableAiAgent === true;
                 }
             } catch(e) {}
         }
