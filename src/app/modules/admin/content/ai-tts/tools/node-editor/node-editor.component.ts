@@ -1392,7 +1392,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           }
           
           const response = await this.genaiService.generateContent({
-              model: this.selectedModel || 'gemini-1.5-flash',
+              model: this.selectedModel || 'gemini-3.6-flash',
               contents: [{ role: 'user', parts: [{text: finalPrompt}] }],
               config: {
                   aspectRatio: '1:1',

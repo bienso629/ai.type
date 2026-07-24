@@ -769,7 +769,7 @@ Instructions:
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash', // Thay thế bằng model phù hợp của Gemini
+                model: 'gemini-3.6-flash', // Thay thế bằng model phù hợp của Gemini
                 contents: [{ role: 'user', parts: requestParts }],
                 config: {
                     aspectRatio: this.selectedAspectRatio,

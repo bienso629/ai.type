@@ -709,7 +709,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -1124,6 +1124,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
      * Tự động tách đoạn
      */
     async split(data: any, index: number) {
+        // Tắt ngay chế độ đọc audio nếu đang đọc dở để hiển thị kết quả tách đoạn ngay lập tức
+        if (window && window.speechSynthesis) {
+            window.speechSynthesis.cancel();
+        }
+
         let content = data[index];
 
         if (!content || typeof content !== 'string') {
@@ -1132,7 +1137,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
         }
 
         this.loading = true;
-        this.cd.markForCheck();
+        this.cd.detectChanges();
 
         try {
             const prompt = `Bạn là một chuyên gia chỉnh sửa và cấu trúc văn bản.
@@ -1147,7 +1152,7 @@ Nội dung cần tách:
 ${content}`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -1157,11 +1162,9 @@ ${content}`;
             let parts = text.split('===SPLIT===').map(p => p.trim()).filter(p => p.length > 0);
 
             if (parts && parts.length > 0) {
-                // Đôi khi AI có thể sinh ra phần giới thiệu trước dấu split đầu tiên (nếu quên)
-                // Chúng ta loại bỏ những đoạn rác nếu thấy không hợp lý, nhưng ở đây cứ lấy hết.
                 data.splice(index, 1, ...parts);
                 this.toastr.success(`Đã dùng AI tách thành ${parts.length} đoạn.`);
-                this.cd.markForCheck();
+                this.cd.detectChanges();
             } else {
                 this.toastr.warning(`Không thể tách đoạn.`);
             }
@@ -1170,7 +1173,7 @@ ${content}`;
             this.toastr.error(`Lỗi khi dùng AI tách đoạn.`);
         } finally {
             this.loading = false;
-            this.cd.markForCheck();
+            this.cd.detectChanges();
         }
     }
 
@@ -1235,7 +1238,7 @@ ${content}`;
 
                                 // Call AI to generate content
                                 const response = await this._genaiService.generateContent({
-                                    model: 'gemini-1.5-flash',
+                                    model: 'gemini-3.6-flash',
                                     contents: [{ role: 'user', parts: parts }],
                                 });
 
@@ -1337,7 +1340,7 @@ ${content}`;
                     }
                 } else {
                     const response = await this._genaiService.generateContent({
-                        model: 'gemini-1.5-flash',
+                        model: 'gemini-3.6-flash',
                         contents: [{ role: 'user', parts: [{ text: promptText }] }],
                         config: { responseModalities: ['IMAGE'] }
                     } as any);
@@ -1516,7 +1519,7 @@ ${content}`;
 
                 // Call AI to generate content
                 const response = await this._genaiService.generateContent({
-                    model: 'gemini-1.5-flash',
+                    model: 'gemini-3.6-flash',
                     contents: [{ role: 'user', parts: parts }],
                 });
 
@@ -1705,7 +1708,7 @@ ${content}`;
             parts.unshift({ text: promptTextAccumulator });
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: parts }],
             });
 
@@ -2057,7 +2060,7 @@ ${content}`;
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: parts }]
             });
 
@@ -2175,7 +2178,7 @@ ${content}`;
             Chỉ trả về JSON thuần túy, bắt đầu từ dấu '{' và kết thúc bằng '}'.`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
@@ -2679,7 +2682,7 @@ HƯỚNG DẪN ĐẦU RA:
             this.cd.markForCheck();
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
             });
 
@@ -2752,7 +2755,7 @@ Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong c
 Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
 
             const promptResponse = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
             });
 
@@ -2765,7 +2768,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
             // 2. Tạo hình ảnh bằng Gemini
             const imageResponse = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
                 config: { responseModalities: ['IMAGE'] }
             } as any);
@@ -2840,7 +2843,7 @@ Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong c
 Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
 
             const promptResponse = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
             });
 
@@ -2849,7 +2852,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
             // 2. Tạo hình ảnh bằng Gemini
             const imageResponse = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
                 config: { responseModalities: ['IMAGE'] }
             } as any);
@@ -2965,7 +2968,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         try {
             const prompt = `Hãy viết lại nội dung của đoạn HTML sau bằng tiếng Việt một cách tự nhiên để tránh trùng lặp nội dung, nhưng vẫn giữ nguyên ý nghĩa và TẤT CẢ các thẻ HTML (như <a>, <b>, <i>, <span>, <img>). Chỉ trả về mã HTML đã viết lại, không giải thích gì thêm, không dùng markdown:\n${originalHtml}`;
             const response = await this._genaiService.generateContent({
-                model: 'gemini-1.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
 
