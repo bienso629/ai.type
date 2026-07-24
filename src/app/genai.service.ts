@@ -283,7 +283,13 @@ export class GenaiService {
             } catch(e) {}
         }
 
-        if (!bypassModelOverride) {
+        const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
+        const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
+
+        // Bắt buộc đổi sang Image Model nếu request là IMAGE (bảo vệ khỏi lỗi khi caller truyền gemini-3.5-flash cho tác vụ ảnh)
+        if (isImageRequest && (!params.model || params.model.includes('gemini') || params.model.includes('claude'))) {
+            params.model = (this.isUModelverseEnabled() || isAiAgentActive) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+        } else if (!bypassModelOverride) {
             if (params.model === 'gemini-3.6-flash') {
                 if (this._umodelverseChatModel) {
                     params.model = this._umodelverseChatModel;
@@ -294,7 +300,6 @@ export class GenaiService {
                 params.model?.includes('image') ||
                 params.model?.includes('imagen')
             ) {
-                // Nếu dùng UModelverse hoặc AI Agent thì chuyển đổi sang Image Model tuỳ chọn của họ
                 params.model = (this.isUModelverseEnabled() || isAiAgentActive) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
             }
         }
@@ -302,30 +307,13 @@ export class GenaiService {
         this._start(scope);
         try {
             const bypassUModelverse = (params.config as any)?.bypassUModelverse === true;
-            const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
-            const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
-
             let lastError: any = null;
 
             // 1. Tầng 1: AI Agent (sontinh.type.vn)
-            if (isAiAgentActive && !isVideoRequest) {
+            // AI Agent hiện tại chỉ xử lý Text/Chat, KHÔNG hỗ trợ generate IMAGE/VIDEO nên ta bỏ qua luôn
+            if (isAiAgentActive && !isVideoRequest && !isImageRequest) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
-                    
-                    // Validate if it's an image request but AI Agent didn't return an image
-                    let hasImage = false;
-                    if (isImageRequest && agentRes.candidates && agentRes.candidates.length > 0) {
-                        for (const part of agentRes.candidates[0].content.parts) {
-                            if (part.inlineData) {
-                                hasImage = true;
-                                break;
-                            }
-                        }
-                        if (!hasImage) {
-                            throw new Error("AI Agent không hỗ trợ tạo hoặc chỉnh sửa ảnh (không trả về inlineData).");
-                        }
-                    }
-                    
                     return agentRes; // Success!
                 } catch (agentErr: any) {
                     console.warn(`[GenaiService] AI Agent lỗi hoặc không phản hồi (${agentErr?.message || agentErr}). Đang chuyển sang tầng 2 (Mì Tôm AI / UModelverse)...`);
