@@ -308,7 +308,7 @@ export class GenaiService {
             let lastError: any = null;
 
             // 1. Tầng 1: AI Agent (sontinh.type.vn)
-            if (isAiAgentActive && !isVideoRequest && !bypassUModelverse) {
+            if (isAiAgentActive && !isVideoRequest) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
                     
