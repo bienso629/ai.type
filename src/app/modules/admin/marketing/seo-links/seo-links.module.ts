@@ -192,7 +192,7 @@ export class DialogContentComponent implements OnInit {
             }));
 
             const response = await this.ai.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: contents
             }, this.data.itemId);
 

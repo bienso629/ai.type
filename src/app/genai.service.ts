@@ -283,7 +283,7 @@ export class GenaiService {
         }
 
         if (!bypassModelOverride) {
-            if (params.model === 'gemini-3.5-flash' || params.model === 'gemini-3.6-flash' || params.model === 'gemini-1.5-flash') {
+            if (params.model === 'gemini-3.6-flash' || params.model === 'gemini-3.6-flash' || params.model === 'gemini-3.6-flash') {
                 if (this._umodelverseChatModel) {
                     params.model = this._umodelverseChatModel;
                 }
@@ -912,7 +912,7 @@ export class GenaiService {
     }
 
     private async generateChatUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
-        const overrideModel = params.model === 'gemini-3.5-flash' ? null : params.model;
+        const overrideModel = params.model === 'gemini-3.6-flash' ? null : params.model;
         let targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
         if (targetModel === 'agent') {
             targetModel = this._umodelverseChatModel || 'gpt-4o';

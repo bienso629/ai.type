@@ -298,7 +298,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         }
 
                         const aiResponse = await this._genaiService.generateContent({
-                            model: 'gemini-3.5-flash',
+                            model: 'gemini-3.6-flash',
                             contents: [{ role: 'user', parts: parts }],
                         });
 

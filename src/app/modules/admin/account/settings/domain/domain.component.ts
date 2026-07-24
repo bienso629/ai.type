@@ -331,7 +331,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             const prompt = `Phân tích ngắn gọn (tối đa 2 câu) về chủ đề, nội dung và chức năng của các tên miền sau dựa vào tên miền (không cần lướt web nếu không thể). Trả về ĐÚNG định dạng JSON mảng các object: [{"domain": "tên miền", "analysis": "nội dung phân tích"}]. Danh sách tên miền: ${domains}`;
             
             const response: any = await this._genaiService.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }]
             });
             

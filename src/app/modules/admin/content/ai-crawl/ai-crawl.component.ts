@@ -403,7 +403,7 @@ meta,content:property|html > head
 Hãy tạo ra một chuỗi "request" tương tự, giữ nguyên cấu trúc lấy đầy đủ các thẻ h1->h5, p, span, table, img, iframe, a, li, title, meta... NHƯNG BẠN PHẢI TỰ TÌM CSS Selector chính xác của THẺ BAO BỌC NỘI DUNG BÀI VIẾT (article content container) của trang web ${url} dựa trên mã HTML thực tế ở trên để điền vào sau dấu | (Thay cho .post-detail-content trong ví dụ mẫu).`;
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{
                     role: 'user',
                     parts: [{ text: prompt }]

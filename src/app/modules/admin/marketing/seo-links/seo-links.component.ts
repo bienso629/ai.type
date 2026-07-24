@@ -409,7 +409,7 @@ export class LinksComponent implements OnInit, OnDestroy {
             const prompt = `Dựa vào kết quả SEO của mình: "${JSON.stringify(result)}" hãy phân tích và đánh giá kết quả SEO này một cách chi tiết, cụ thể và dễ hiểu nhất. Sau đó, bạn hãy đưa ra giải pháp và các ví dụ tốt nhất, chính xác và đầy đủ nhất để giúp mình chỉnh sửa lại website sao cho kết quả SEO càng ngày càng tốt hơn. Lưu ý: hãy sử dụng icon để thể hiện hay chính xác hơn các đánh giá và giải pháp của bạn.`;
 
             const response = await this.ai.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: prompt,
             }, item._id);
 

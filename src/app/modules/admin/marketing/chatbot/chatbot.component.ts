@@ -454,7 +454,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             ip_address: "192.168.1.1",
             sender_info: "Chrome on Windows",
             google_api_key: geminiKey,
-            llm_model: "gemini-3.5-flash",
+            llm_model: "gemini-3.6-flash",
             simple_chatbot_data_source: this.selectedDataSource || 'documents',
             index_dir: `faiss_pdf_index`
         };
@@ -593,7 +593,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
             const payload = {
                 username: this.user.name,
                 google_api_key: geminiKey,
-                llm_model: "gemini-3.5-flash",
+                llm_model: "gemini-3.6-flash",
                 index_dir: `faiss_pdf_index`,
                 filename: filename,
                 doc_type: this.currentDocType
@@ -756,7 +756,7 @@ export class ChatBotComponent implements OnInit, OnDestroy {
                                 rows: result.files,
                                 username: this.user.name,
                                 google_api_key: geminiKey,
-                                llm_model: "gemini-3.5-flash",
+                                llm_model: "gemini-3.6-flash",
                                 index_dir: `faiss_pdf_index`,
                             }
                         });
