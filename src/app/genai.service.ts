@@ -271,15 +271,13 @@ export class GenaiService {
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
         const settingsRaw = this.getSettingsFromStorage();
-        // Mặc định bật AI Agent ngoại trừ khi người dùng chủ động tắt (enableAiAgent === false)
-        let isAiAgentEnabled = settingsRaw?.enableAiAgent !== false;
+        let isAiAgentActive = settingsRaw?.enableAiAgent === true;
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
-                if (aiAgent && aiAgent.enabled !== undefined) {
-                    // Nếu ở Electron có plugin ai_agent, tuân thủ cờ plugin hoặc settings
-                    isAiAgentEnabled = aiAgent.enabled || settingsRaw?.enableAiAgent === true;
+                if (aiAgent && aiAgent.enabled) {
+                    isAiAgentActive = true;
                 }
             } catch(e) {}
         }
@@ -296,7 +294,7 @@ export class GenaiService {
                 params.model?.includes('imagen')
             ) {
                 // Nếu dùng UModelverse hoặc AI Agent thì chuyển đổi sang Image Model tuỳ chọn của họ
-                params.model = (this.isUModelverseEnabled() || isAiAgentEnabled) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+                params.model = (this.isUModelverseEnabled() || isAiAgentActive) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
             }
         }
 
@@ -308,8 +306,8 @@ export class GenaiService {
 
             let lastError: any = null;
 
-            // 1. Tầng 1: AI Agent (Local Standalone Agent)
-            if (isAiAgentEnabled && !isVideoRequest && !bypassUModelverse) {
+            // 1. Tầng 1: AI Agent (sontinh.type.vn)
+            if (isAiAgentActive && !isVideoRequest && !bypassUModelverse) {
                 try {
                     const agentRes = await this.generateWithAiAgent(params, scope);
                     
@@ -329,23 +327,17 @@ export class GenaiService {
                     
                     return agentRes; // Success!
                 } catch (agentErr: any) {
-                    console.warn(`[GenaiService] AI Agent lỗi:`, agentErr);
-                    this.toastr.error(`[AI Agent Error] ${agentErr?.message || agentErr}`);
-                    // Nếu có Mì Tôm AI thì thử chuyển sang Mì Tôm AI, nếu không có thì ném lỗi luôn không rớt xuống Google Gemini API
-                    if (this.isUModelverseEnabled()) {
-                        lastError = agentErr;
-                    } else {
-                        throw agentErr;
-                    }
+                    console.warn(`[GenaiService] AI Agent lỗi hoặc không phản hồi (${agentErr?.message || agentErr}). Đang chuyển sang tầng 2 (Mì Tôm AI / UModelverse)...`);
+                    lastError = agentErr;
                 }
             }
 
-            // 2. Tầng 2: Mì Tôm AI (Proxy)
+            // 2. Tầng 2: Mì Tôm AI / UModelverse (nếu được bật)
             if (this.isUModelverseEnabled() && !bypassUModelverse) {
                 try {
                     return await this.generateWithUModelverse(params); // Success!
-                } catch (uErr) {
-                    console.warn(`[Fallback] Mì Tôm AI lỗi: ${uErr}. Đang chuyển sang tầng Gemini API...`);
+                } catch (uErr: any) {
+                    console.warn(`[GenaiService] Mì Tôm AI lỗi (${uErr?.message || uErr}). Đang chuyển sang tầng 3 (Gemini API Key)...`);
                     lastError = uErr;
                 }
             }
