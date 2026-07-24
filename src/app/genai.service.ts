@@ -134,18 +134,29 @@ export class GenaiService {
         return this._aiInstance || null;
     }
 
-    private syncConfigFromStorage() {
+    private getSettingsFromStorage(): any {
         try {
-            const settingsRaw = this.multiAccountService.getItem('settings');
-            if (!settingsRaw) {
-                this._currentKey = '';
-                this._enableUmodelverse = false;
-                this._umodelverseUrl = '';
-                this._umodelverseKey = '';
-                return;
+            const settings = this.multiAccountService.getItem('settings');
+            if (settings && Object.keys(settings).length > 0) return settings;
+            
+            const localSettings = localStorage.getItem('settings');
+            if (localSettings) {
+                const parsed = JSON.parse(localSettings);
+                if (parsed && typeof parsed === 'object') return parsed;
             }
 
-            const settings = settingsRaw;
+            const sessionData = localStorage.getItem('sessionData');
+            if (sessionData) {
+                const parsed = JSON.parse(sessionData);
+                if (parsed && parsed.settings) return parsed.settings;
+            }
+        } catch (e) {}
+        return {};
+    }
+
+    private syncConfigFromStorage() {
+        try {
+            const settings = this.getSettingsFromStorage();
 
             // Cập nhật cấu hình Mì Tôm AI
             this._enableUmodelverse = settings.enableUmodelverse === true;
@@ -257,7 +268,7 @@ export class GenaiService {
 
         // Restore model compatibility with existing UModelverse config
         const bypassModelOverride = (params.config as any)?.bypassModelOverride === true;
-        const settingsRaw = this.multiAccountService.getItem('settings');
+        const settingsRaw = this.getSettingsFromStorage();
         let isAiAgentEnabled = settingsRaw?.enableAiAgent === true;
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
@@ -516,7 +527,7 @@ export class GenaiService {
         let secretApiKey = 'type-vn-local-agent-2026';
         let apiUrl = 'https://sontinh.type.vn/api/chat'; // Fallback for Web/Mobile
 
-        const settings = this.multiAccountService.getItem('settings') || {};
+        const settings = this.getSettingsFromStorage();
         if (settings.enableAiAgent) {
             isAiAgentActive = true;
         }
