@@ -165,7 +165,7 @@ export class AddSceneComponent {
 
         try {
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: promptText }] }],
             });
 

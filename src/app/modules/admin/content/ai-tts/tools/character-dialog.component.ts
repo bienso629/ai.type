@@ -424,7 +424,7 @@ Lưu ý: Chỉ trả về object JSON thuần túy.`;
             }
 
             const response = await this._genaiService.generateContent({
-                model: 'gemini-3.5-flash', // Use a model capable of reading images
+                model: 'gemini-3.6-flash', // Use a model capable of reading images
                 contents: [{ role: 'user', parts: requestParts }],
                 config: { temperature: 0.7 }
             });

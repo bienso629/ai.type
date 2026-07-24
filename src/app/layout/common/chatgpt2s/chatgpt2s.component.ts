@@ -721,7 +721,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     };
 
                     const result = await this._genaiService.generateContent({
-                        model: 'gemini-3.5-flash',
+                        model: 'gemini-3.6-flash',
                         contents: [{ role: 'user', parts: parts }],
                         config: genConfig
                     }, newRow.conversation_id || newRow._id);
@@ -1144,7 +1144,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             };
 
             const result = await this._genaiService.generateContent({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: contents,
                 config: genConfig
             }, row.conversation_id || row._id);

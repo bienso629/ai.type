@@ -615,7 +615,7 @@ Instructions:
 
         try {
             let result = await this._genaiService.generateText({
-                model: 'gemini-3.5-flash',
+                model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: parts }],
                 config: {
                     temperature: 0.7
