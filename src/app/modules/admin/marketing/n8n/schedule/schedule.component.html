@@ -27,14 +27,24 @@
 
                 <ng-template #customItemTemplate let-item let-locale="locale">
                     <div (click)="!item.isLoading && changeEvent(item)" 
-                         class="flex flex-row cursor-pointer items-center w-full h-full px-2 overflow-hidden" 
-                         [ngClass]="{'animate-pulse opacity-75 cursor-wait': item.isLoading}"
+                         class="flex flex-row cursor-pointer items-center w-full h-full px-2 py-1 overflow-hidden transition-colors rounded-md hover:brightness-110" 
+                         [ngClass]="{
+                            'animate-pulse opacity-75 cursor-wait': item.isLoading, 
+                            'bg-emerald-600': item.done,
+                            'bg-red-500': !item.done && item.priority === 'high',
+                            'bg-amber-400': !item.done && item.priority !== 'high'
+                         }"
                          [matTooltip]="item.isLoading ? 'Đang chờ AI phân tích...' : item.name + (item.meta && item.meta.length ? '\n' + item.meta : '')">
-                        <div class="flex-1 text-sm font-medium text-white flex items-center min-w-0">
-                            <mat-icon *ngIf="item.isLoading" class="icon-size-4 mr-1 animate-spin text-white shrink-0" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                        <div class="flex-1 text-sm font-medium flex items-center min-w-0" 
+                             [class.line-through]="item.done"
+                             [ngClass]="{'text-white': item.done || item.priority === 'high', 'text-slate-900': !item.done && item.priority !== 'high'}">
+                            <mat-icon *ngIf="item.isLoading" class="icon-size-4 mr-1 animate-spin shrink-0" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                            <mat-icon *ngIf="item.done" class="icon-size-4 mr-1 shrink-0 text-white" [svgIcon]="'heroicons_outline:check'"></mat-icon>
                             <span class="truncate block">{{ item.name }}</span>
                         </div>
-                        <div class="flex-0 ml-1 text-xs text-blue-100 whitespace-nowrap shrink-0" *ngIf="item.meta && item.meta.length && !item.meta.substring">
+                        <div class="flex-0 ml-1 text-xs whitespace-nowrap shrink-0" 
+                             [ngClass]="{'text-blue-100': item.done || item.priority === 'high', 'text-slate-700': !item.done && item.priority !== 'high'}"
+                             *ngIf="item.meta && item.meta.length && !item.meta.substring">
                             <span>({{ item.meta.length }})</span>
                         </div>
                     </div>
@@ -78,10 +88,10 @@
                     <!-- Chat Messages -->
                     <ng-container *ngFor="let msg of chatHistory">
                         <div class="flex flex-col w-full mb-2" [ngClass]="msg.role === 'user' ? 'items-end' : 'items-start'">
-                            <div class="max-w-[85%] rounded-2xl px-4 py-2 text-sm overflow-x-auto"
+                            <div class="max-w-[85%] rounded-2xl px-4 py-2 text-sm overflow-hidden break-words"
                                  [ngClass]="msg.role === 'user' ? 'bg-primary text-white rounded-br-none' : 'bg-gray-100 text-gray-800 rounded-bl-none'">
                                 
-                                <div *ngIf="msg.role === 'model'" class="whitespace-normal break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 markdown-content" [innerHTML]="msg.content | markdown"></div>
+                                <div *ngIf="msg.role === 'model'" class="whitespace-normal break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 markdown-content overflow-x-auto" [innerHTML]="msg.content | markdown"></div>
                                 <div *ngIf="msg.role === 'user'" class="whitespace-pre-wrap break-words">{{msg.content}}</div>
                             </div>
                         </div>

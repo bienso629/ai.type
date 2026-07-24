@@ -116,20 +116,14 @@
         }
 
         .timeline-item {
-            background: #2ac226;
-            color: #fff;
-            padding: 5px 16px;
-            border-radius: 3px;
-            line-height: 20px;
-            font-size: 12px;
-            margin: 0 6px;
-            cursor: pointer;
-
+            background: transparent !important;
+            padding: 0 !important;
+            margin: 0 4px !important;
+            border-radius: 4px !important;
+            overflow: hidden;
+            
             &:hover {
-                background: var(--fuse-primary-500);
-                ;
-                color: #ffffff;
-                // border: 1px solid #85b9f8;
+                background: transparent !important;
             }
         }
     }

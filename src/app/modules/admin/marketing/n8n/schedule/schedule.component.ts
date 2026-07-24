@@ -896,7 +896,8 @@ Không dùng markdown \`\`\`json.`;
                 const response: any = await this._genaiService.generateContent({
                     model: 'gemini-3.5-flash',
                     contents: [{ role: 'user', parts: [{ text: prompt }] }],
-                    tools: []
+                    tools: [],
+                    config: { ttsVoice: 'none' } as any
                 } as any);
                 
                 let resultText = response.text || '';
@@ -1100,7 +1101,8 @@ Không dùng markdown \`\`\`json.`;
 
             const result = await this._genaiService.generateContent({
                 model: 'gemini-3.5-flash',
-                contents: this.chatHistory
+                contents: this.chatHistory,
+                config: { ttsVoice: 'none' } as any
             });
             const jsonMatch = result.text;
             if (jsonMatch) {
@@ -1967,12 +1969,24 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         this.cd.detectChanges();
     }
 
+    attachedFile: any = null;
+
     onFileSelected(event: any) {
-        const files = event.target.files;
-        if (files && files.length > 0) {
-            this.toastr.success(`Đã chọn ${files.length} tệp đính kèm. Xử lý tệp sẽ được cập nhật sớm!`);
-            event.target.value = '';
+        const file: File = event.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = () => {
+                const base64 = (reader.result as string).split(',')[1];
+                this.attachedFile = {
+                    name: file.name,
+                    type: file.type || 'text/plain',
+                    base64: base64
+                };
+                this.toastr.success(`Đã đính kèm tệp: ${file.name}`);
+            };
+            reader.readAsDataURL(file);
         }
+        event.target.value = '';
     }
 
     // -----------------------------------------------------------------------------------------------------
@@ -1983,27 +1997,85 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         this.toastr.info(`Đang lưu ${drafts.length} bài viết vào Soạn bài...`, 'Đang xử lý');
         let savedCount = 0;
         
-        drafts.forEach(draft => {
-            this._forumService.createTopic({
-                _uid: this.user.id,
-                cid: 1, // Mặc định danh mục chưa phân loại
+        drafts.forEach(async draft => {
+            let domainData = this.items?.find((i: any) => i.name === draft.domain)?.domainData || { domain: draft.domain || '' };
+            let archivePayload = {
                 title: draft.title || 'Bài viết mới',
-                content: draft.content || '',
-                tags: draft.tags || ['ai-generated']
-            }).subscribe({
-                next: (res) => {
+                url: 'draft_' + Date.now() + Math.floor(Math.random() * 1000),
+                source: {
+                    title: [], description: [], url: [], domain: [],
+                    img: [], h: [], a: [], p: [], source: [],
+                    iframe: [], pre: [ draft.image_prompt || '' ], type: 'html', prompt: [ draft.title ],
+                    synonyms: [], keyword: '', wp_post_id: null,
+                    wp_domain: domainData.domain, wpPosts: [],
+                    nodes: [], totalNodes: 1, wp_task_id: null
+                },
+                done: [ draft.content || '' ],
+                trash: [],
+                seo: {
+                    description: { length: 0, text: draft.description || '' },
+                    title: { length: 0, text: draft.title || '' },
+                    links: 0, words: { basic: 0, total: 0 },
+                    images: { total: 0, alt: 0 },
+                    heading: {
+                        h1: { total: 0, keys: [] }, h2: { total: 0, keys: [] },
+                        h3: { total: 0, keys: [] }, h4: { total: 0, keys: [] }
+                    }
+                },
+                arr_keyword: draft.tags || [],
+                domain: domainData,
+                username: this.user.name,
+                thumbnail: draft.image_prompt || ''
+            };
+
+            try {
+                const res: any = await firstValueFrom(this._crawlService.storeArchive(archivePayload));
+                if (res && res.success) {
                     savedCount++;
+                    
+                    // Mark task as done if task_id is provided
+                    if (draft.task_id && domainData.plan) {
+                        let targetTask = domainData.plan.find((t: any) => t.id == draft.task_id);
+                        if (targetTask) {
+                            targetTask.done = true;
+                            // Trigger view update
+                            const itemIndex = this.items.findIndex(it => it.name === draft.domain);
+                            if (itemIndex > -1) {
+                                this.items[itemIndex].childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
+                                    ...task,
+                                    startDate: new Date(task.startDate),
+                                    endDate: new Date(task.endDate || new Date(task.startDate).setHours(17, 0, 0, 0))
+                                })), this.items[itemIndex].id);
+                                this.items = [...this.items];
+                                this.cd.detectChanges();
+                            }
+                            // Save task to database
+                            this._tasksService.edit({
+                                username: this.user.name,
+                                task: targetTask
+                            }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                        }
+                    }
+
                     if (savedCount === drafts.length) {
                         this.toastr.success(`Đã lưu thành công ${savedCount} bài viết vào kho Soạn bài!`);
-                        this.chatHistory.push({ role: 'model', content: `✅ Dạ Sếp ơi, em đã tự động lưu thành công **${savedCount} bài viết** vào kho **Soạn bài** (Dàn ý) rồi nhé!` });
+                        const successMsg = `Dạ Sếp ơi, em đã tự động lưu thành công ${savedCount} bài viết vào kho Soạn bài rồi nhé!`;
+                        this.chatHistory.push({ role: 'model', content: `✅ ${successMsg.replace('vào kho Soạn bài', 'vào kho **Soạn bài** (Dàn ý)')}` });
+                        if (window.speechSynthesis) {
+                            const utterance = new SpeechSynthesisUtterance(successMsg);
+                            utterance.lang = 'vi-VN';
+                            utterance.rate = 1.25;
+                            window.speechSynthesis.speak(utterance);
+                        }
                         this.cd.detectChanges();
                         this.scrollToBottom();
                     }
-                },
-                error: (e) => {
+                } else {
                     this.toastr.error('Lỗi khi lưu bài: ' + draft.title);
                 }
-            });
+            } catch (e) {
+                this.toastr.error('Lỗi khi gọi API lưu bài: ' + draft.title);
+            }
         });
     }
 
@@ -2098,9 +2170,28 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     this.cd.detectChanges();
                     this.scrollToBottom();
 
+                    let domainData = this.items?.find((i: any) => i.name === task.domain)?.domainData || { domain: task.domain };
+                    let styleInstructions = '';
+                    if (domainData.note) {
+                        styleInstructions += `\n- Phân tích chuyên môn (bám sát): ${domainData.note}`;
+                    }
+                    
+                    let domainWritingStyle = domainData.writingStyle;
+                    if (!domainWritingStyle && this.settings?.domainStyles) {
+                        domainWritingStyle = this.settings.domainStyles[task.domain];
+                    }
+                    
+                    if (domainWritingStyle && this.settings?.styles) {
+                        const styleObj = this.settings.styles.find((s: any) => s.name === domainWritingStyle || s.id === domainWritingStyle);
+                        if (styleObj) {
+                            styleInstructions += `\n- Phong cách viết (BẮT BUỘC): ${styleObj.name} (${styleObj.desc})`;
+                        }
+                    }
+
                     try {
                         const prompt = `Bạn là chuyên gia Content SEO. Hãy viết một bài blog chi tiết cho website ${task.domain} với chủ đề/nhiệm vụ: "${task.name}".
-Yêu cầu: Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ giải thích nào khác:
+Yêu cầu:${styleInstructions}
+- Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ giải thích nào khác:
 {
   "title": "Tiêu đề bài viết",
   "content": "Nội dung bài viết (HTML, có thẻ h2, h3)",
@@ -2110,6 +2201,7 @@ Yêu cầu: Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ gi
                         const response = await this._genaiService.generateContent({
                             model: 'gemini-3.5-flash',
                             contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            config: { ttsVoice: 'none' } as any
                         });
                         
                         let jsonText = response.text;
@@ -2123,8 +2215,6 @@ Yêu cầu: Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ gi
                                 articleData = { title: task.name, content: jsonText };
                             }
                         }
-
-                        let domainData = this.settings?.domains?.find((d: any) => d.name === task.domain) || { domain: task.domain };
                         let archivePayload = {
                             title: articleData?.title || task.name,
                             url: task.id,
@@ -2164,18 +2254,33 @@ Yêu cầu: Trả về ĐÚNG định dạng JSON sau, không kèm bất kỳ gi
                         } catch (e: any) {
                             this.chatHistory.push({ role: 'model', content: `❌ Lỗi khi gọi API lưu bài: ${e.message}` });
                         }
-                        if (!task.originalTask.name.startsWith('✅')) {
-                            task.originalTask.name = '✅ ' + task.originalTask.name;
-                        }
-                        task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta + ' ' : '') + '✅ Done';
+                        task.originalTask.meta = (task.originalTask.meta ? task.originalTask.meta + ' ' : '') + 'Done';
+                        task.originalTask.done = true;
                         successCount++;
                         
-                        // Force Angular Calendar Timeline to detect changes deeply
-                        this.items.forEach((domain: any) => {
-                            if (domain.childrenItems && domain.childrenItems[0] && domain.childrenItems[0].streamItems) {
-                                domain.childrenItems[0].streamItems = [...domain.childrenItems[0].streamItems];
+                        // Save to database by updating the real plan reference
+                        let currentDomainData = this.items?.find((i: any) => i.name === task.domain)?.domainData;
+                        if (currentDomainData && currentDomainData.plan) {
+                            let planTask = currentDomainData.plan.find((t: any) => t.id === task.originalTask.id);
+                            if (planTask) {
+                                planTask.done = true;
+                                planTask.meta = task.originalTask.meta;
                             }
-                        });
+                            this._tasksService.edit({
+                                username: this.user.name,
+                                task: planTask
+                            }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+                        }
+                        
+                        // Force Angular Calendar Timeline to detect changes deeply by rebuilding from plan
+                        let itemIndex = this.items.findIndex(it => it.name === task.domain);
+                        if (itemIndex > -1 && currentDomainData && currentDomainData.plan) {
+                            this.items[itemIndex].childrenItems = this.packTasks(currentDomainData.plan.map((t: any) => ({
+                                ...t,
+                                startDate: new Date(t.startDate),
+                                endDate: new Date(t.endDate || new Date(t.startDate).setHours(17, 0, 0, 0))
+                            })), this.items[itemIndex].id);
+                        }
                         this.items = [...this.items];
                         this.cd.detectChanges();
                     } catch (err: any) {
@@ -2293,6 +2398,19 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             const missing = finalMonthlyTarget - currentResult;
                             const dailyTarget = finalMonthlyTarget > 0 ? (finalRemainingDays > 0 ? Math.ceil(missing / finalRemainingDays) : missing) : 0;
 
+                            let writingStyleInfo = 'Phong cách tự do';
+                            let domainWritingStyle = d.domainData?.writingStyle;
+                            if (!domainWritingStyle && this.settings?.domainStyles) {
+                                domainWritingStyle = this.settings.domainStyles[d.domainData?.domain || d.name];
+                            }
+                            
+                            if (domainWritingStyle && this.settings?.styles) {
+                                const style = this.settings.styles.find((s: any) => s.name === domainWritingStyle || s.id === domainWritingStyle);
+                                if (style) {
+                                    writingStyleInfo = `${style.name}: ${style.desc}`;
+                                }
+                            }
+
                             return {
                                 domain: d.name,
                                 monthlyTarget: finalMonthlyTarget,
@@ -2301,6 +2419,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 remainingDays: finalRemainingDays,
                                 dailyTarget: dailyTarget,
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
+                                writingStyle: writingStyleInfo,
                                 tasks: streamItems.map((t: any) => {
                                     const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
                                     return {
@@ -2317,7 +2436,8 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                         const tzOffset = -(new Date().getTimezoneOffset() / 60);
                         const tzString = tzOffset >= 0 ? '+' + tzOffset : tzOffset;
                         const todayStr = new Date().toLocaleDateString('vi-VN');
-                        const disabledStr = Array.from(this.disabledDates).join(', ');
+                        const todayIso = new Date().toISOString().slice(0, 10);
+                        const disabledStr = Array.from(this.disabledDates).filter(d => d >= todayIso).join(', ');
 
                         // Tạo instruction động dựa trên yêu cầu của sếp
                         let generateInstruction = '';
@@ -2348,7 +2468,7 @@ LƯU Ý QUAN TRỌNG VỀ SỐ LƯỢNG TÁC VỤ:
 - Hệ thống ĐÃ TỰ ĐỘNG TÍNH TOÁN số lượng tác vụ cần tạo MỖI NGÀY và truyền vào trường "dailyTarget" cho từng tên miền, đồng thời tính số ngày làm việc còn lại trong tháng vào trường "remainingDays".
 - Nếu dailyTarget <= 0: Tuyệt đối không tạo thêm task cho domain đó.
 ${generateInstruction}
-- BẮT BUỘC ĐỌC kỹ trường "aiAnalysis" (nếu có) của từng tên miền. Hãy nghĩ ra tiêu đề (name) và mô tả (meta) thật CỤ THỂ, ĐA DẠNG và ĐÚNG CHUYÊN MÔN / NGÁCH của tên miền đó.
+- BẮT BUỘC ĐỌC kỹ trường "writingStyle" và "aiAnalysis" (nếu có) của từng tên miền. Bạn PHẢI áp dụng "writingStyle" (phong cách viết) vào nội dung và cách diễn đạt. Hãy nghĩ ra tiêu đề (name) và mô tả (meta) thật CỤ THỂ, ĐA DẠNG và ĐÚNG CHUYÊN MÔN / NGÁCH của tên miền đó.
 - TUYỆT ĐỐI KHÔNG dùng các tên chung chung như "Công việc 1", "Tạo bài viết SEO", "Viết bài mới". 
 
 ĐẶC BIỆT: Nếu người dùng yêu cầu "viết blog", "lên dàn ý" và "lưu vào Soạn bài" (hoặc lưu nháp), BẠN KHÔNG TRẢ VỀ MẢNG LỊCH LÀM VIỆC NHƯ BÌNH THƯỜNG. Thay vào đó, bạn PHẢI trả về ĐÚNG định dạng JSON Object sau bên trong block code JSON:
@@ -2358,8 +2478,12 @@ ${generateInstruction}
   "drafts": [
     {
       "title": "Tiêu đề bài viết 1",
-      "content": "Nội dung bài viết 1 (dùng Markdown/HTML tùy ý)...",
-      "tags": ["tag1", "tag2"]
+      "content": "Nội dung bài viết 1. ĐÂY PHẢI LÀ MỘT BÀI VIẾT BLOG HOÀN CHỈNH, DÀI VÀ CHI TIẾT (Ít nhất 800 - 1000 từ). KHÔNG được viết kiểu gạch đầu dòng. BẮT BUỘC tuân thủ cấu trúc HTML sau: Mở đầu bằng 1 thẻ <p> chứa đoạn văn Sapo giới thiệu thật hấp dẫn (BẮT BUỘC phải chứa từ khóa chính rút ra từ tiêu đề). Sau đó mới đến các thẻ <h2>, <h3>, <p>, <ul>, <li>. TUYỆT ĐỐI KHÔNG DÙNG MARKDOWN. Hãy viết theo ĐÚNG PHONG CÁCH được yêu cầu trong trường 'writingStyle' và bám sát 'aiAnalysis'.",
+      "description": "Mô tả ngắn gọn về công việc/bài viết",
+      "image_prompt": "Gợi ý prompt tiếng Anh để tạo ảnh minh họa",
+      "tags": ["tag1", "tag2"],
+      "domain": "tên miền (bắt buộc, ví dụ: tadu.cloud)",
+      "task_id": "BẮT BUỘC lấy chính xác 'id' của task tương ứng trong dữ liệu đầu vào để điền vào đây. Không được để trống nếu đây là bài viết cho một task có sẵn!"
     }
   ]
 }
@@ -2513,6 +2637,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             contents: dayContents,
                             tools: [], // No tools to make it fast
                             config: {
+                                ttsVoice: 'none',
                                 onStream: (chunk: string, isFull: boolean) => {
                                     const prefix = `⏳ Đang xử lý ngày ${vDateStrLocal} (${i + 1}/${validDates.length})...\n`;
                                     if (isFull) {
@@ -2619,6 +2744,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     contents: contents,
                     tools: toolsList,
                     config: {
+                        ttsVoice: 'none',
                         onStream: (chunk: string, isFull: boolean) => {
                             if (isFull) {
                                 this.chatHistory[streamIndex].content = chunk;
