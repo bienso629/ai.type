@@ -545,7 +545,6 @@ export class GenaiService {
             throw new Error("Plugin AI Agent chưa được bật.");
         }
         
-        const settings = this.multiAccountService.getItem('settings') || {};
         let ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
         if (params.config && (params.config as any).ttsVoice !== undefined) {
             ttsVoice = (params.config as any).ttsVoice;
