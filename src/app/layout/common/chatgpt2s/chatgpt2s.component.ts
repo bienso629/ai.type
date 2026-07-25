@@ -807,18 +807,14 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                                 let ext = 'png';
                                 if (modelMsg.inlineData.mimeType.includes('jpeg') || modelMsg.inlineData.mimeType.includes('jpg')) ext = 'jpg';
                                 
-                                const thumbnail = await Promise.all([
-                                    this._blogService.uploadThumbnailPromise({
-                                        imageData: modelMsg.inlineData.data,
-                                        folder: 'chat_images',
-                                        username: this.user.name,
-                                        ext: ext,
-                                        mimeType: modelMsg.inlineData.mimeType
-                                    }),
-                                ]);
+                                const cdnUrl = await this._genaiService.uploadBase64ToCdn(
+                                    modelMsg.inlineData.data,
+                                    `chatgpt_${Date.now()}.${ext}`,
+                                    this.user.name
+                                );
                                 
-                                if (thumbnail && thumbnail[0] && thumbnail[0]['img']) {
-                                    finalDisplayText += `\n\n![Generated Image](${thumbnail[0]['img']})`;
+                                if (cdnUrl) {
+                                    finalDisplayText += `\n\n![Generated Image](${cdnUrl})`;
                                     newRow.answer = finalDisplayText;
                                 }
                             } catch(e) {
