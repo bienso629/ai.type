@@ -577,12 +577,14 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                         // get writing style
                         let styleId = d.domainData?.writingStyle;
                         if (!styleId && this.settings?.domainStyles) {
-                            styleId = this.settings.domainStyles[d.name];
+                            styleId = this.settings.domainStyles[d.domainData?.domain || d.name];
                         }
-                        if (styleId && this.settings?.styles) {
-                            const styleObj = this.settings.styles.find((s:any) => s.id === styleId || s.name === styleId);
-                            if (styleObj) this.editingItemWritingStyle = `${styleObj.name}: ${styleObj.desc}`;
-                            else this.editingItemWritingStyle = styleId;
+                        if (styleId) {
+                            this.editingItemWritingStyle = styleId;
+                            if (this.settings?.styles) {
+                                const styleObj = this.settings.styles.find((s:any) => s.id === styleId || s.name === styleId);
+                                if (styleObj) this.editingItemWritingStyle = `${styleObj.name}: ${styleObj.desc}`;
+                            }
                         }
                         break;
                     }
