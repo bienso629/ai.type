@@ -1914,6 +1914,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
     packTasks(tasks: any[], parentId: string | number) {
         if (!tasks || !tasks.length) return [];
+        tasks.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
         tasks.forEach((task, index) => {
             task.taskIndex = index + 1;
         });
@@ -2452,7 +2453,7 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
 - NẾU NGƯỜI DÙNG YÊU CẦU SỬA/TẠO MỚI/LÊN LỊCH CHO 1 NGÀY CỤ THỂ: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày đó (không tạo cho ngày khác). BẮT BUỘC phải trả về TOÀN BỘ các task CŨ của ngày đó kèm theo thuộc tính "_deleted": true (để dọn sạch lịch ngày đó trước khi đè task mới lên).`;
                         } else {
                             generateInstruction = `- NẾU NGƯỜI DÙNG CHỈ MUỐN HỎI/XEM LỊCH (VD: "có lịch gì", "làm gì"): Đọc dữ liệu JSON bên trên và liệt kê công việc. Tuyệt đối KHÔNG TẠO task mới và KHÔNG XÓA task cũ. Trả về JSON rỗng \`\`\`json\n[]\n\`\`\`.
-- NẾU NGƯỜI DÙNG YÊU CẦU TẠO/SỬA/LÊN LỊCH CHO THÁNG: Bạn BẮT BUỘC phải tạo [dailyTarget] task CHO TỪNG NGÀY LÀM VIỆC CÒN LẠI (từ startDate đến cuối tháng). TỔNG SỐ TASK PHẢI TẠO = dailyTarget * remainingDays. Đừng lười biếng, hãy tạo đủ toàn bộ số lượng task cho tất cả các ngày! BẮT BUỘC phải trả về TOÀN BỘ các task CŨ (từ hôm nay trở đi) kèm theo thuộc tính "_deleted": true (để dọn sạch tương lai trước khi đè plan mới lên).`;
+- NẾU NGƯỜI DÙNG YÊU CẦU TẠO/SỬA/LÊN LỊCH CHO THÁNG: Bạn BẮT BUỘC phải tạo CHÍNH XÁC tổng cộng [missingTasks] task (phân bổ đều cho [remainingDays] ngày làm việc còn lại, mỗi ngày khoảng [dailyTarget] task). TỔNG SỐ TASK PHẢI TẠO TUYỆT ĐỐI BẰNG [missingTasks]! BẮT BUỘC phải trả về TOÀN BỘ các task CŨ (từ hôm nay trở đi) kèm theo thuộc tính "_deleted": true (để dọn sạch tương lai trước khi đè plan mới lên).`;
                         }
 
                         lastMsg.parts[0].text = `DỮ LIỆU JSON CÁC TÊN MIỀN HIỆN TẠI (Hôm nay là: ${todayStr}):
