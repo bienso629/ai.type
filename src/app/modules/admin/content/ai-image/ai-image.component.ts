@@ -542,13 +542,49 @@ export class AIImageComponent
         );
     }
 
+    private convertToJpg(base64: string, mimeType: string): Promise<string> {
+        return new Promise((resolve) => {
+            if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+                resolve(base64);
+                return;
+            }
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (ctx) {
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                    ctx.drawImage(img, 0, 0);
+                    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    resolve(dataUrl.split(',')[1]);
+                } else {
+                    resolve(base64);
+                }
+            };
+            img.onerror = () => resolve(base64);
+            img.src = `data:${mimeType};base64,${base64}`;
+        });
+    }
+
     // Hàm phụ để xử lý upload giúp code sạch hơn
     async processAndUploadImage(rawBase64: string, mimeType: string) {
+        let finalBase64 = rawBase64;
+        try {
+            finalBase64 = await this.convertToJpg(rawBase64, mimeType);
+        } catch (e) {
+            console.warn('Failed to convert to JPG', e);
+        }
+
         const thumbnail = await Promise.all([
             this._blogService.uploadThumbnailPromise({
-                imageData: rawBase64,
+                imageData: finalBase64,
                 folder: 'thumbnails',
                 username: this.user.name,
+                ext: 'jpg',
+                mimeType: 'image/jpeg'
             }),
         ]);
 
@@ -558,7 +594,7 @@ export class AIImageComponent
                 if (image && image['img']) {
                     this.imageUrls.unshift(image['img']);
                     this.rebuildRows();
-                    this.form.get('prompt').enable();
+                    this.form.get('prompt')?.enable();
                     this.loading = false;
                     this.toastr.success('Tạo hình ảnh thành công!');
                     this.cd.markForCheck();
