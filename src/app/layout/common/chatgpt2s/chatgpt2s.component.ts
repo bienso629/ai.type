@@ -679,7 +679,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 // 1. Khởi tạo dòng chat mới và chuyển sang giao diện chat ngay lập tức
                 const newRow: any = {
                     conversation_id: '',
-                    question: question,
+                    question: question || (this.attachedFileMain ? 'File đính kèm' : 'AI Agent Chat'),
                     answer: '',
                     updatedAt: new Date(),
                     chatLoading: true,
@@ -747,17 +747,18 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             }
                         }
 
-                        // Cập nhật câu trả lời từ AI
-                        newRow.answer = finalDisplayText;
-                        
                         let displayText = finalDisplayText;
                         let extractedInlineData: any = null;
                         const match = displayText.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
                         if (match) {
                             extractedInlineData = { mimeType: match[2], data: match[3] };
                             displayText = displayText.replace(match[0], '').trim();
+                            finalDisplayText = displayText; // Xóa base64 khổng lồ khỏi chuỗi lưu DB
                         }
                         
+                        // Cập nhật câu trả lời hiển thị ban đầu
+                        newRow.answer = displayText;
+
                         if (newRow.messages.length === 1) {
                              newRow.messages.push({ role: 'model', text: displayText });
                         } else {
@@ -800,6 +801,31 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             newRow.conversation_id = (result as any).conversation_id;
                         }
 
+                        // Tự động upload ảnh lên server nếu có để lưu vào CSDL
+                        if (modelMsg.inlineData && modelMsg.inlineData.mimeType && modelMsg.inlineData.mimeType.startsWith('image/')) {
+                            try {
+                                let ext = 'png';
+                                if (modelMsg.inlineData.mimeType.includes('jpeg') || modelMsg.inlineData.mimeType.includes('jpg')) ext = 'jpg';
+                                
+                                const thumbnail = await Promise.all([
+                                    this._blogService.uploadThumbnailPromise({
+                                        imageData: modelMsg.inlineData.data,
+                                        folder: 'chat_images',
+                                        username: this.user.name,
+                                        ext: ext,
+                                        mimeType: modelMsg.inlineData.mimeType
+                                    }),
+                                ]);
+                                
+                                if (thumbnail && thumbnail[0] && thumbnail[0]['img']) {
+                                    finalDisplayText += `\n\n![Generated Image](${thumbnail[0]['img']})`;
+                                    newRow.answer = finalDisplayText;
+                                }
+                            } catch(e) {
+                                console.warn('Lỗi khi upload ảnh từ chat lên server', e);
+                            }
+                        }
+
                         this.chatgptStore(finalDisplayText, question, newRow);
                     } else {
                         this.toastr.warning('Gemini của bạn chưa hoạt động.');
@@ -831,7 +857,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
     chatgptStore(answer: string, question: string, row: any) {
         this._chatGPTService.store({
-            content: question,
+            question: question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
+            content: question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
             answer: answer,
             conversation_id: row?.conversation_id,
             username: this.user.name
@@ -1178,7 +1205,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 
                 this._chatGPTService.store({
                     _id: row._id,
-                    content: row.question,
+                    question: row.question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
+                    content: row.question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
                     answer: result.text,
                     messages: row.messages,
                     conversation_id: row.conversation_id,
