@@ -339,7 +339,15 @@ export class AIImageComponent
             title: 'Thông báo',
             message: `Chương trình sẽ xóa tấm hình này khỏi danh sách hiển thị?`,
             confirm: 'Xóa ngay',
-            cb: () => {
+            cb: async () => {
+                if ((window as any).electron) {
+                    try {
+                        await (window as any).electron.invoke('delete-local-file', filePath);
+                    } catch (e) {
+                        console.error('Failed to delete file via electron', e);
+                    }
+                }
+                
                 this.imageUrls.splice(index, 1);
                 this.rebuildRows();
                 this.toastr.success('Xóa hình ảnh khỏi danh sách thành công!');
@@ -460,8 +468,7 @@ export class AIImageComponent
                 config: {
                     responseModalities: ['TEXT', 'IMAGE'],
                     imageConfig: {
-                        aspectRatio: selectedRatio,
-                        imageSize: selectedSize
+                        aspectRatio: selectedRatio
                     }
                 }
             };
@@ -788,24 +795,24 @@ export class AIImageComponent
 
     alert(alert?: any) {
         const dialogRef = this._fuseConfirmationService.open({
-            title: alert ? alert.title : 'Hoàn tất!',
-            message: alert
+            title: alert && alert.title ? alert.title : 'Hoàn tất!',
+            message: alert && alert.message
                 ? alert.message
                 : 'Chúng tôi thấy rằng bạn đã hoàn tất việc lấy dữ liệu.',
             icon: { show: true, name: 'feather:check', color: 'success' },
             actions: {
                 confirm: {
                     show: true,
-                    label: alert ? alert.confirm : 'Khởi động lại',
+                    label: alert && alert.confirm ? alert.confirm : 'Đồng ý',
                     color: 'primary',
                 },
-                cancel: { show: false, label: 'Đóng cửa sổ' },
+                cancel: { show: true, label: 'Đóng' },
             },
             dismissible: true,
         });
         dialogRef.afterClosed().subscribe((result) => {
             if (result === 'confirmed') {
-                if (alert.cb) alert.cb();
+                if (alert && alert.cb) alert.cb();
             }
         });
     }

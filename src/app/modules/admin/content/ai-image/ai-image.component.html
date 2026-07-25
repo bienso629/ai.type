@@ -67,27 +67,12 @@
                                         <mat-select formControlName="aspectRatio" class="w-16 text-sm border-l pl-2"
                                             [matTooltip]="'app.aspect_ratio' | transloco">
                                             <mat-option value="1:1">1:1</mat-option>
-                                            <mat-option value="1:4">1:4</mat-option>
-                                            <mat-option value="1:8">1:8</mat-option>
                                             <mat-option value="2:3">2:3</mat-option>
                                             <mat-option value="3:2">3:2</mat-option>
                                             <mat-option value="3:4">3:4</mat-option>
-                                            <mat-option value="4:1">4:1</mat-option>
                                             <mat-option value="4:3">4:3</mat-option>
-                                            <mat-option value="4:5">4:5</mat-option>
-                                            <mat-option value="5:4">5:4</mat-option>
-                                            <mat-option value="8:1">8:1</mat-option>
                                             <mat-option value="9:16">9:16</mat-option>
                                             <mat-option value="16:9">16:9</mat-option>
-                                            <mat-option value="21:9">21:9</mat-option>
-                                        </mat-select>
-
-                                        <mat-select formControlName="resolution" class="w-16 text-sm border-l pl-2"
-                                            [matTooltip]="'app.quality_1' | transloco">
-                                            <mat-option value="512px">512px</mat-option>
-                                            <mat-option value="1K">1K</mat-option>
-                                            <mat-option value="2K">2K</mat-option>
-                                            <mat-option value="4K">4K</mat-option>
                                         </mat-select>
 
                                         <button type="button" mat-icon-button color="primary" (click)="createImg()"
