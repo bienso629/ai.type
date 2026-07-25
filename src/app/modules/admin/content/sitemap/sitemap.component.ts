@@ -50,7 +50,10 @@ export class SitemapComponent implements OnInit, OnDestroy {
     selectedCategory: any = '';
 
     compareDomainFn(d1: any, d2: any): boolean {
-        return d1 && d2 ? d1.domain === d2.domain : d1 === d2;
+        if (!d1 || !d2) return d1 === d2;
+        const cleanD1 = ((typeof d1 === "string" ? d1 : d1.domain) || "").replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+        const cleanD2 = ((typeof d2 === "string" ? d2 : d2.domain) || "").replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+        return cleanD1 === cleanD2;
     }
 
     onDomainChange(event: any) {

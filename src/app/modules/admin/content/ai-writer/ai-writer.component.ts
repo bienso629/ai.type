@@ -408,7 +408,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     compareDomainFn = (o1: any, o2: any) => {
         if (!o1 || !o2) return o1 === o2;
-        return o1.domain === o2.domain;
+        const s1 = typeof o1 === 'string' ? o1 : o1.domain;
+        const s2 = typeof o2 === 'string' ? o2 : o2.domain;
+        const cleanO1 = (s1 || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+        const cleanO2 = (s2 || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+        return cleanO1 === cleanO2;
     };
 
     applyDomainStyle(domainObj: any) {
