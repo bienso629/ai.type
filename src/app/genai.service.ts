@@ -138,14 +138,17 @@ export class GenaiService {
 
     private getSettingsFromStorage(): any {
         try {
-            const settings = this.multiAccountService.getItem('settings');
-            if (settings && Object.keys(settings).length > 0) return settings;
+            let settings = this.multiAccountService.getItem('settings') || {};
             
             const localSettings = localStorage.getItem('settings');
             if (localSettings) {
                 const parsed = JSON.parse(localSettings);
-                if (parsed && typeof parsed === 'object') return parsed;
+                if (parsed && typeof parsed === 'object') {
+                    settings = { ...settings, ...parsed };
+                }
             }
+
+            if (settings && Object.keys(settings).length > 0) return settings;
 
             const sessionData = localStorage.getItem('sessionData');
             if (sessionData) {
@@ -287,8 +290,14 @@ export class GenaiService {
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
         // Bắt buộc đổi sang Image Model nếu request là IMAGE (bảo vệ khỏi lỗi khi caller truyền gemini-3.5-flash cho tác vụ ảnh)
-        if (isImageRequest && (!params.model || params.model.includes('gemini') || params.model.includes('claude'))) {
-            params.model = (this.isUModelverseEnabled() || isAiAgentActive) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+        if (isImageRequest && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
+            if (isAiAgentActive) {
+                params.model = 'gemini-3-pro-image';
+            } else if (this.isUModelverseEnabled()) {
+                params.model = this._umodelverseImageModel || 'dall-e-3';
+            } else {
+                params.model = 'imagen-3.0-generate-002';
+            }
         } else if (!bypassModelOverride) {
             if (params.model === 'gemini-3.6-flash') {
                 if (this._umodelverseChatModel) {
@@ -297,10 +306,21 @@ export class GenaiService {
             } else if (
                 params.model === 'imagen-3.0-generate-001' ||
                 params.model === 'gemini-3-pro-image-preview' ||
+                params.model === 'gemini-3-pro-image' ||
                 params.model?.includes('image') ||
                 params.model?.includes('imagen')
             ) {
-                params.model = (this.isUModelverseEnabled() || isAiAgentActive) ? (this._umodelverseImageModel || 'dall-e-3') : 'imagen-3.0-generate-002';
+                if (isAiAgentActive) {
+                    params.model = 'gemini-3-pro-image';
+                } else if (this.isUModelverseEnabled()) {
+                    params.model = this._umodelverseImageModel || 'dall-e-3';
+                } else {
+                    // Do not override if the original model is already an image model and we are using Gemini API, 
+                    // or force it to the user's selected model if it is an image model.
+                    // Actually, the user's selected model is params.model, we can just leave it as is if we fallback to Gemini API Key.
+                    // Wait, previous code forced it to 'imagen-3.0-generate-002'. Let's keep it flexible or force to params.model if valid.
+                    // If it's valid, let's keep it.
+                }
             }
         }
 
@@ -558,7 +578,7 @@ export class GenaiService {
                 apiUrl = parts[0] + (parts[0].endsWith('/api/chat') ? '' : '/api/chat');
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                apiUrl = 'https://sontinh.type.vn/api/chat';
+                apiUrl = 'http://127.0.0.1:54321/api/chat';
             }
         } else {
             // Web / Mobile / Another Account fallback logic
@@ -1158,7 +1178,7 @@ export class GenaiService {
         const configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
         let size = (params.config as any)?.imageConfig?.imageSize || '1024x1024';
 
-        let activeModel = params.model || 'dall-e-3';
+        let activeModel = model;
         
         let ratioStr = '16:9';
         if (configRatio) {
