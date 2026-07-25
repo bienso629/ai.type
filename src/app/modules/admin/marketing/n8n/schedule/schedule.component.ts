@@ -559,10 +559,36 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     trackByIndex = (_: number, c: { index: number }) => c.index;
     @ViewChild('taskDetailDialog') taskDetailDialog: any;
     editingItem: any = null;
+    editingItemDomain: string = '';
+    editingItemWritingStyle: string = '';
     changeEvent(item: any) { 
         if (this.editingItem !== item) {
             console.log('item selected for AI edit', item); 
             this.editingItem = item;
+            
+            // Find parent domain to get writing style
+            this.editingItemDomain = '';
+            this.editingItemWritingStyle = 'Không xác định / Tự do';
+            for (let d of this.items) {
+                if (d.childrenItems && d.childrenItems.length) {
+                    const streamItems = d.childrenItems[0].streamItems;
+                    if (streamItems && streamItems.find((t:any) => t.id === item.id)) {
+                        this.editingItemDomain = d.name;
+                        // get writing style
+                        let styleId = d.domainData?.writingStyle;
+                        if (!styleId && this.settings?.domainStyles) {
+                            styleId = this.settings.domainStyles[d.name];
+                        }
+                        if (styleId && this.settings?.styles) {
+                            const styleObj = this.settings.styles.find((s:any) => s.id === styleId || s.name === styleId);
+                            if (styleObj) this.editingItemWritingStyle = `${styleObj.name}: ${styleObj.desc}`;
+                            else this.editingItemWritingStyle = styleId;
+                        }
+                        break;
+                    }
+                }
+            }
+            
             // Xoá lịch sử chat cũ khi chọn task mới
             this.chatHistory = [];
             this.cd.markForCheck();
