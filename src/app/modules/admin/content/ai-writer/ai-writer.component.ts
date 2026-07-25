@@ -2253,7 +2253,7 @@ ${content}`;
                     let targetDomainStr = this.source?.wp_domain;
                     let selectedDomain = null;
                     if (targetDomainStr) {
-                        selectedDomain = this.domains.find(d => d.domain === targetDomainStr);
+                        selectedDomain = this.domains.find(d => d.domain.replace(/^(https?:\/\/)|(www\.)/g, "").split("\/")[0] === targetDomainStr.replace(/^(https?:\/\/)|(www\.)/g, "").split("\/")[0]);
                     }
 
                     if (selectedDomain) {
@@ -2263,7 +2263,8 @@ ${content}`;
                         this.domain = this.domains[0];
                     } else {
                         let cached = this.multiAccountService.getItem('domain');
-                        let found = this.domains.find(d => d.domain === cached.domain);
+                        const cleanCached = (cached?.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                        let found = this.domains.find(d => (d.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0] === cleanCached);
                         this.domain = found ? found : this.domains[0];
                     }
                     
@@ -3422,7 +3423,10 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 if (!username || !apppass) {
                     let selectedDomain: any = null;
                     if (this.domains && this.domains.length > 0) {
-                        selectedDomain = this.domains.find((d: any) => d.domain === postDomain);
+                        if (postDomain) {
+                            const cleanPost = (postDomain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                            selectedDomain = this.domains.find((d: any) => (d.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0] === cleanPost);
+                        }
                     }
                     
                     if (!selectedDomain && this.domain && this.domain['domain'] === postDomain) {
@@ -4212,7 +4216,8 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
     setdata(editor: any) {
         if (editor.domain) {
             if (typeof editor.domain === 'string' && this.domains) {
-                let found = this.domains.find(d => d.domain === editor.domain);
+                const cleanEditor = (editor.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                let found = this.domains.find(d => (d.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0] === cleanEditor);
                 if (found) {
                     this.domain = found;
                     this.multiAccountService.setItem('domain', this.domain);
