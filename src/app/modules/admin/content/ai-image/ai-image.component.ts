@@ -231,8 +231,15 @@ export class AIImageComponent
 
         dialogRef.afterClosed().subscribe(async (result) => {
             if (result && result.success) {
-                const base64Content = result.dataUrl.split(',')[1];
-                const ext = result.format.split('/')[1];
+                let base64Content = result.dataUrl.split(',')[1];
+                let ext = result.format.split('/')[1];
+                let mimeType = result.format;
+
+                if (ext !== 'jpg' && ext !== 'jpeg') {
+                     base64Content = await this.convertToJpg(base64Content, mimeType);
+                     ext = 'jpg';
+                }
+
                 const newFileName = `edited_${new Date().getTime()}.${ext}`;
 
                 if ((window as any).electron) {
@@ -295,8 +302,15 @@ export class AIImageComponent
     }
 
     async handleSaveEditedImage(base64Data: string, format: string) {
-        const base64Content = base64Data.split(',')[1];
-        const ext = format.split('/')[1];
+        let base64Content = base64Data.split(',')[1];
+        let ext = format.split('/')[1];
+
+        if (ext !== 'jpg' && ext !== 'jpeg') {
+             base64Content = await this.convertToJpg(base64Content, format);
+             ext = 'jpg';
+             base64Data = `data:image/jpeg;base64,${base64Content}`;
+        }
+
         const newFileName = `edited_${new Date().getTime()}.${ext}`;
         try {
             if ((window as any).electron) {
