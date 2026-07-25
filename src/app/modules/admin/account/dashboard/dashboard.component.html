@@ -10,6 +10,9 @@
             <div class="bg-card shadow-none border border-gray-200 rounded-xl flex flex-col relative">
                 <div class="flex justify-end px-6 pt-6 pb-0">
                     <div class="flex items-center z-10">
+                        <button mat-icon-button (click)="forceRefresh()" matTooltip="Làm mới dữ liệu" class="mr-2 text-gray-500 hover:text-gray-900">
+                            <mat-icon [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
+                        </button>
                         <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-28">
                             <mat-select [(value)]="selectedYear" (selectionChange)="onYearChange()">
                                 <mat-option *ngFor="let year of yearsList" [value]="year">{{year}}</mat-option>
@@ -75,25 +78,20 @@
                 </div>
 
                 <!-- Card 3 -->
-                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col" *ngIf="domainChartOptions">
+                <div class="bg-card shadow-none border border-gray-200 rounded-xl overflow-hidden flex flex-col">
                     <div class="p-6 pb-4">
-                        <div class="text-lg font-medium text-secondary">Trung bình bài tháng {{evalMonthToDisplay < 10 ? '0' + evalMonthToDisplay : evalMonthToDisplay}} / Domain</div>
-                        <div class="text-4xl font-bold mt-2">{{avgArticles}}</div>
-                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="avgArticlesStatus.color">
-                            <mat-icon class="icon-size-4 mr-1 text-current">{{avgArticlesStatus.icon}}</mat-icon> {{avgArticlesStatus.text}}
+                        <div class="text-lg font-medium text-secondary">Tiến độ bài tháng {{evalMonthToDisplay < 10 ? '0' + evalMonthToDisplay : evalMonthToDisplay}}</div>
+                        <div class="text-4xl font-bold mt-2">{{progressCurrent | number}} <span class="text-xl font-medium text-secondary ml-1">({{progressPercent}}%)</span> <span class="text-2xl text-secondary ml-2">/ {{progressTarget | number}}</span></div>
+                        <div class="text-sm font-medium mt-2 flex items-center" [ngClass]="progressStatus.color">
+                            <mat-icon class="icon-size-4 mr-1 text-current">{{progressStatus.icon}}</mat-icon> {{progressStatus.text}}
                         </div>
                     </div>
                     <div class="h-16 mt-auto">
-                        <apx-chart 
-                            [series]="domainChartOptions.series" 
-                            [chart]="domainChartOptions.chart" 
-                            [colors]="domainChartOptions.colors"
-                            [dataLabels]="domainChartOptions.dataLabels" 
-                            [stroke]="domainChartOptions.stroke"
-                            [xaxis]="domainChartOptions.xaxis" 
-                            [yaxis]="domainChartOptions.yaxis"
-                            [legend]="domainChartOptions.legend"
-                            [grid]="domainChartOptions.grid">
+                        <apx-chart *ngIf="sparkline3"
+                            [series]="sparkline3.series" [chart]="sparkline3.chart" [stroke]="sparkline3.stroke" 
+                            [fill]="sparkline3.fill" [colors]="sparkline3.colors" [tooltip]="sparkline3.tooltip"
+                            [grid]="sparkline3.grid" [xaxis]="sparkline3.xaxis" [yaxis]="sparkline3.yaxis"
+                            [dataLabels]="sparkline3.dataLabels" [markers]="sparkline3.markers">
                         </apx-chart>
                     </div>
                 </div>

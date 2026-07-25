@@ -58,6 +58,11 @@ export class DashboardComponent implements OnInit, OnDestroy {
     domainChartOptions: any;
     evalMonthToDisplay: number;
     
+    progressCurrent: number = 0;
+    progressTarget: number = 0;
+    progressPercent: number = 0;
+    progressStatus: { text: string, color: string, icon: string } = { text: '', color: '', icon: '' };
+    
     @ViewChild('targetDialogTemplate') targetDialogTemplate: TemplateRef<any>;
 
     getTargetFor(domain: string, month: number): number {
@@ -185,7 +190,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         if (result.data.settings) {
                              this.multiAccountService.setItem('settings', result.data.settings);
                              if (result.data.settings.domainTargets) {
-                                 this.domainTargets = result.data.settings.domainTargets;
+                                 const rawTargets = result.data.settings.domainTargets;
+                                 const normalizedTargets: any = {};
+                                 for (const rawDomain of Object.keys(rawTargets)) {
+                                     const normalized = this.normalizeDomain(rawDomain);
+                                     normalizedTargets[normalized] = rawTargets[rawDomain];
+                                 }
+                                 this.domainTargets = normalizedTargets;
                                  localStorage.setItem('domainTargets', JSON.stringify(this.domainTargets));
                                  this.updateChart();
                              }
@@ -195,6 +206,16 @@ export class DashboardComponent implements OnInit, OnDestroy {
                 error: () => { this.checkInitialLoad(); },
                 complete: () => { this.checkInitialLoad(); }
             });
+    }
+
+    private normalizeDomain(domain: string): string {
+        if (!domain) return '';
+        let normalized = domain.trim().toLowerCase();
+        if (normalized.startsWith('http://')) normalized = normalized.substring(7);
+        if (normalized.startsWith('https://')) normalized = normalized.substring(8);
+        if (normalized.startsWith('www.')) normalized = normalized.substring(4);
+        if (normalized.endsWith('/')) normalized = normalized.substring(0, normalized.length - 1);
+        return normalized;
     }
 
     fetchDomains() {
@@ -217,7 +238,17 @@ export class DashboardComponent implements OnInit, OnDestroy {
         .subscribe({
             next: (result) => {
                 if (result && result.success) {
-                    this.allDomains = result.data || [];
+                    const rawDomains = result.data || [];
+                    const uniqueDomains = new Map<string, any>();
+                    rawDomains.forEach((d: any) => {
+                        if (d && d.domain) {
+                            const norm = this.normalizeDomain(d.domain);
+                            if (!uniqueDomains.has(norm)) {
+                                uniqueDomains.set(norm, { ...d, domain: norm });
+                            }
+                        }
+                    });
+                    this.allDomains = Array.from(uniqueDomains.values());
                     this._changeDetectorRef.markForCheck();
                 }
             }
@@ -225,27 +256,55 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     /**
+     * Force refresh statistics by clearing local cache
+     */
+    forceRefresh() {
+        localStorage.removeItem('statistics');
+        (window as any)['dashboard_statistics_preloaded'] = false;
+        this.statistic(true);
+    }
+
+    /**
      * Lấy statistic
      */
-    statistic() {
+    statistic(forceRefresh: boolean = false) {
         if ((window as any)['dashboard_statistics_preloaded']) {
             (window as any)['dashboard_statistics_preloaded'] = false;
             try {
                 const cached = localStorage.getItem('statistics');
                 if (cached) {
                     this.statistics = JSON.parse(cached);
-                    this.availableDomains = Object.keys(this.statistics?.domainStats || {});
+                    const rawStats = this.statistics?.domainStats || {};
+                    const normalizedStats: any = {};
+                    for (const rawDomain of Object.keys(rawStats)) {
+                        const normalized = this.normalizeDomain(rawDomain);
+                        if (!normalizedStats[normalized]) {
+                            normalizedStats[normalized] = {};
+                        }
+                        for (const month of Object.keys(rawStats[rawDomain])) {
+                            if (!normalizedStats[normalized][month]) {
+                                normalizedStats[normalized][month] = 0;
+                            }
+                            normalizedStats[normalized][month] += rawStats[rawDomain][month];
+                        }
+                    }
+                    
+                    this.statistics.domainStats = normalizedStats;
+                    this.availableDomains = Object.keys(this.statistics.domainStats);
                     this.updateChart();
                 }
             } catch (e) {}
             return;
         }
 
+        let payload: any = {
+            username: this.user.name,
+            reportYear: this.selectedYear
+        };
+        if (forceRefresh) payload.refresh = true;
+
         this._crawlService
-            .statistics({
-                username: this.user.name,
-                reportYear: this.selectedYear
-            })
+            .statistics(payload)
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
                 next: async (result) => {
@@ -255,7 +314,21 @@ export class DashboardComponent implements OnInit, OnDestroy {
                         const moneyCount = nodes[0] ? nodes[0].reduce((total: number, obj: any) => (obj.amount || 0) + total, 0) : 0;
                         const writingData = nodes[1] || { total: 0 };
                         const archivesData = nodes[2] || { total: 0 };
-                        const domainStatsData = nodes[3] || {};
+                        const domainStatsDataRaw = nodes[3] || {};
+                        
+                        const domainStatsData: any = {};
+                        for (const rawDomain of Object.keys(domainStatsDataRaw)) {
+                            const normalized = this.normalizeDomain(rawDomain);
+                            if (!domainStatsData[normalized]) {
+                                domainStatsData[normalized] = {};
+                            }
+                            for (const month of Object.keys(domainStatsDataRaw[rawDomain])) {
+                                if (!domainStatsData[normalized][month]) {
+                                    domainStatsData[normalized][month] = 0;
+                                }
+                                domainStatsData[normalized][month] += domainStatsDataRaw[rawDomain][month];
+                            }
+                        }
 
                         this.statistics = this.statistics || {};
                         this.statistics.domainStats = domainStatsData;
@@ -380,6 +453,13 @@ export class DashboardComponent implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        const rawTargets = this.domainTargets;
+        const normalizedTargets: any = {};
+        for (const rawDomain of Object.keys(rawTargets)) {
+            const normalized = this.normalizeDomain(rawDomain);
+            normalizedTargets[normalized] = rawTargets[rawDomain];
+        }
+        this.domainTargets = normalizedTargets;
         this.updateChart();
     }
 
@@ -554,10 +634,10 @@ export class DashboardComponent implements OnInit, OnDestroy {
             
             let targetMonths = this.selectedMonth === 'all' ? [1,2,3,4,5,6,7,8,9,10,11,12] : [parseInt(this.selectedMonth, 10)];
             
-            for (let d in domainStatsData) {
+            for (let d of displayDomains) {
                 let hasArticlesInPeriod = false;
                 for (let m = 1; m <= 12; m++) {
-                    if (domainStatsData[d][m]) {
+                    if (domainStatsData[d] && domainStatsData[d][m]) {
                         monthlyTotals[m-1] += domainStatsData[d][m];
                         if (targetMonths.includes(m)) {
                             total += domainStatsData[d][m];
@@ -625,15 +705,9 @@ export class DashboardComponent implements OnInit, OnDestroy {
             }
 
             let totalTargetForAllDomains = 0;
-            if (this.allDomains && this.allDomains.length > 0) {
-                this.allDomains.forEach(d => {
-                     totalTargetForAllDomains += this.getTargetFor(d.domain, evalMonth);
-                });
-            } else {
-                activeDoms.forEach(d => {
-                     totalTargetForAllDomains += this.getTargetFor(d as string, evalMonth);
-                });
-            }
+            displayDomains.forEach(d => {
+                totalTargetForAllDomains += this.getTargetFor(d, evalMonth);
+            });
             
             totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
             let avgTargetPerMonth = totalTargetForAllDomains / totalDomainsCount;
@@ -645,6 +719,8 @@ export class DashboardComponent implements OnInit, OnDestroy {
             } else {
                  this.avgArticlesStatus = { text: 'Chưa đạt mục tiêu', color: 'text-red-600', icon: 'trending_down' };
             }
+            
+            this.progressTarget = totalTargetForAllDomains;
             
             // Calculate the first active month for each domain to estimate historical domain counts
             let currentMonthNum = new Date().getMonth() + 1;
@@ -668,24 +744,27 @@ export class DashboardComponent implements OnInit, OnDestroy {
 
             // Tính toán data thật cho các biểu đồ mini theo từng tháng
             let monthlyActiveDomains = new Array(12).fill(0);
-            let monthlyAvg = new Array(12).fill(0);
+            let monthlyTargets = new Array(12).fill(0);
+            let progressMonthlyTotals = new Array(12).fill(0);
             totalDomainsCount = this.allDomains.length > 0 ? this.allDomains.length : (this.activeDomains || 1);
             for (let m = 1; m <= 12; m++) {
                 let activeCount = 0;
-                for (let d in domainStatsData) {
-                    if (domainStatsData[d][m] > 0) activeCount++;
+                for (let d of displayDomains) {
+                    if (domainStatsData[d] && domainStatsData[d][m] > 0) activeCount++;
                 }
                 monthlyActiveDomains[m-1] = activeCount;
                 
-                // Đếm số domain đã tồn tại tính đến tháng m
-                let domainsExistedInMonth = 0;
-                this.allDomains.forEach(dom => {
-                     if (domainCreatedMonth[dom.domain] <= m) domainsExistedInMonth++;
+                let targetSum = 0;
+                let actualProgressSum = 0;
+                displayDomains.forEach(d => { 
+                    let t = this.getTargetFor(d, m);
+                    targetSum += t; 
+                    if (t > 0 && domainStatsData[d] && domainStatsData[d][m]) {
+                        actualProgressSum += domainStatsData[d][m];
+                    }
                 });
-                if (domainsExistedInMonth === 0) domainsExistedInMonth = 1;
-                
-                // Trung bình bài viết của TẤT CẢ domain đã tồn tại trong tháng m
-                monthlyAvg[m-1] = Math.round(monthlyTotals[m-1] / domainsExistedInMonth);
+                monthlyTargets[m-1] = targetSum;
+                progressMonthlyTotals[m-1] = actualProgressSum;
             }
             
             const commonSparklineConfig = {
@@ -713,10 +792,43 @@ export class DashboardComponent implements OnInit, OnDestroy {
             };
 
             this.sparkline3 = {
-                ...commonSparklineConfig,
-                series: [{ data: monthlyAvg }], // Data thật: Trung bình bài/domain theo tháng
-                colors: ['#10b981'] // Green
+                chart: { type: 'line', height: 60, sparkline: { enabled: true }, animations: { enabled: true } },
+                series: [
+                    { name: 'Chỉ tiêu', data: monthlyTargets },
+                    { name: 'Thực tế', data: progressMonthlyTotals }
+                ],
+                colors: ['#94a3b8', '#10b981'], // Gray for target, Green for actual
+                stroke: { curve: 'smooth', width: [2, 2], dashArray: [4, 0] },
+                yaxis: { min: 0, max: (max) => Math.max(5, Math.ceil(max * 1.3)) },
+                tooltip: { fixed: { enabled: false }, x: { show: false }, marker: { show: false } },
+                grid: { padding: { top: 15, bottom: 15, left: 5, right: 5 } }
             };
+
+            // Calculate progressCurrent from progressMonthlyTotals for Card 3
+            let currentProgressPeriodTotal = 0;
+            if (this.selectedMonth !== 'all') {
+                 let m = parseInt(this.selectedMonth, 10);
+                 currentProgressPeriodTotal = progressMonthlyTotals[m-1];
+            } else {
+                 let lastActiveMonth = 11;
+                 while(lastActiveMonth >= 0 && monthlyTotals[lastActiveMonth] === 0) lastActiveMonth--;
+                 if (lastActiveMonth >= 0) {
+                     currentProgressPeriodTotal = progressMonthlyTotals[lastActiveMonth];
+                 } else {
+                     currentProgressPeriodTotal = progressMonthlyTotals[0];
+                 }
+            }
+
+            this.progressCurrent = currentProgressPeriodTotal;
+            this.progressPercent = this.progressTarget > 0 ? Math.min(100, Math.round((this.progressCurrent / this.progressTarget) * 100)) : 0;
+            
+            if (this.progressPercent >= 100) {
+                 this.progressStatus = { text: 'Hoàn thành chỉ tiêu', color: 'text-green-600', icon: 'check_circle' };
+            } else if (this.progressPercent >= 50) {
+                 this.progressStatus = { text: 'Đang theo đúng tiến độ', color: 'text-blue-600', icon: 'trending_up' };
+            } else {
+                 this.progressStatus = { text: 'Cần đẩy nhanh tiến độ', color: 'text-orange-500', icon: 'warning' };
+            }
 
             // Build Domain Detailed Chart for evalMonth
             this.evalMonthToDisplay = evalMonth;

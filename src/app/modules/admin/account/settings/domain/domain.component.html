@@ -116,8 +116,8 @@
             <ngx-datatable-column name="Kết quả" headerClass="!text-base" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div class="flex items-center h-full">
-                        <span class="font-medium text-base" [ngClass]="{'text-green-600': (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum] >= (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0, 'text-red-600': (!domainStatsData[row.domain] || domainStatsData[row.domain][selectedMonthNum] < (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0}">
-                            {{ (domainStatsData[row.domain] && domainStatsData[row.domain][selectedMonthNum]) ? domainStatsData[row.domain][selectedMonthNum] : 0 }}
+                        <span class="font-medium text-base" [ngClass]="{'text-green-600': (getDomainStat(row.domain, selectedMonthNum) >= (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0, 'text-red-600': (getDomainStat(row.domain, selectedMonthNum) < (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0}">
+                            {{ getDomainStat(row.domain, selectedMonthNum) }}
                         </span>
                         <span class="text-gray-500 ml-1 text-base">bài</span>
                     </div>
