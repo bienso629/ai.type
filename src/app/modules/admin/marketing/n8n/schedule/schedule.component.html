@@ -40,7 +40,10 @@
                              [ngClass]="{'text-white': item.done || item.priority === 'high', 'text-slate-900': !item.done && item.priority !== 'high'}">
                             <mat-icon *ngIf="item.isLoading" class="icon-size-4 mr-1 animate-spin shrink-0" [svgIcon]="'heroicons_outline:refresh'"></mat-icon>
                             <mat-icon *ngIf="item.done" class="icon-size-4 mr-1 shrink-0 text-white" [svgIcon]="'heroicons_outline:check'"></mat-icon>
-                            <span class="truncate block">{{ item.name }}</span>
+                            <span class="truncate block">
+                                <span *ngIf="item.taskIndex" class="mr-1 opacity-80">{{ item.taskIndex }}.</span>
+                                {{ item.name }}
+                            </span>
                         </div>
                         <div class="flex-0 ml-1 text-xs whitespace-nowrap shrink-0" 
                              [ngClass]="{'text-blue-100': item.done || item.priority === 'high', 'text-slate-700': !item.done && item.priority !== 'high'}"

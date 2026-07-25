@@ -1914,6 +1914,9 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
     packTasks(tasks: any[], parentId: string | number) {
         if (!tasks || !tasks.length) return [];
+        tasks.forEach((task, index) => {
+            task.taskIndex = index + 1;
+        });
         return [{ id: parentId + "-child", name: 'Công việc', streamItems: tasks }];
     }
 
