@@ -557,6 +557,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
     addEvent(event: any) { console.log('event', event); }
     trackByIndex = (_: number, c: { index: number }) => c.index;
+    @ViewChild('taskDetailDialog') taskDetailDialog: any;
     editingItem: any = null;
     changeEvent(item: any) { 
         if (this.editingItem !== item) {
@@ -565,12 +566,16 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             // Xoá lịch sử chat cũ khi chọn task mới
             this.chatHistory = [];
             this.cd.markForCheck();
-            // Scroll to chat and show a notification
-            this.toastr.info(`Đã chọn: ${item.name}. Hãy yêu cầu AI chỉnh sửa.`);
+        }
+        
+        if (this.taskDetailDialog) {
+            this._matDialog.open(this.taskDetailDialog, {
+                width: '600px',
+                disableClose: false,
+                panelClass: 'custom-dialog-prompt'
+            });
         }
     }
-
-
 
     getRowHeight(row: any & { height: number }) { if (!row) return 50; if (row.height === undefined) return 50; return row.height; }
 
