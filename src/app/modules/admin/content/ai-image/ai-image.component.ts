@@ -563,9 +563,9 @@ export class AIImageComponent
         );
     }
 
-    private convertToJpg(base64: string, mimeType: string): Promise<string> {
+    private convertToPng(base64: string, mimeType: string): Promise<string> {
         return new Promise((resolve) => {
-            if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') {
+            if (mimeType === 'image/png') {
                 resolve(base64);
                 return;
             }
@@ -576,10 +576,8 @@ export class AIImageComponent
                 canvas.height = img.height;
                 const ctx = canvas.getContext('2d');
                 if (ctx) {
-                    ctx.fillStyle = '#FFFFFF';
-                    ctx.fillRect(0, 0, canvas.width, canvas.height);
                     ctx.drawImage(img, 0, 0);
-                    const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+                    const dataUrl = canvas.toDataURL('image/png');
                     resolve(dataUrl.split(',')[1]);
                 } else {
                     resolve(base64);
@@ -594,9 +592,9 @@ export class AIImageComponent
     async processAndUploadImage(rawBase64: string, mimeType: string) {
         let finalBase64 = rawBase64;
         try {
-            finalBase64 = await this.convertToJpg(rawBase64, mimeType);
+            finalBase64 = await this.convertToPng(rawBase64, mimeType);
         } catch (e) {
-            console.warn('Failed to convert to JPG', e);
+            console.warn('Failed to convert to PNG', e);
         }
 
         const thumbnail = await Promise.all([
@@ -604,8 +602,8 @@ export class AIImageComponent
                 imageData: finalBase64,
                 folder: 'thumbnails',
                 username: this.user.name,
-                ext: 'jpg',
-                mimeType: 'image/jpeg'
+                ext: 'png',
+                mimeType: 'image/png'
             }),
         ]);
 
