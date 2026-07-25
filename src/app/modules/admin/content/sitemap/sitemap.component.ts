@@ -522,7 +522,8 @@ export class SitemapComponent implements OnInit, OnDestroy {
                         
                         const savedDomain = localStorage.getItem('sitemap_selected_domain');
                         if (savedDomain) {
-                            const found = this.domains.find(d => d.domain === savedDomain);
+                            const cleanSaved = (savedDomain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0];
+                            const found = this.domains.find(d => (d.domain || '').replace(/^(https?:\/\/)?(www\.)?/, '').split('/')[0] === cleanSaved);
                             this.selectedDomain = found ? found : this.domains[0];
                         } else {
                             this.selectedDomain = this.domains[0];
