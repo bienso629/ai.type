@@ -779,9 +779,8 @@ export class AIImageComponent
     ngOnInit(): void {
         this.form = this._formBuilder.group({
             prompt: [''],
-            resolution: ['512px'], // Mặc định 512px cho rẻ
-            aspectRatio: ['9:16'], // Mặc định dọc cho đa dụng
-            modelId: ['gemini-3.6-flash'], // Mặc định Flash cho nhẹ
+            aspectRatio: ['16:9'],
+            modelId: ['imagen-3.0-generate-001'],
             // ... các field cũ của bạn ...
         });
     }
