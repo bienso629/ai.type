@@ -184,6 +184,25 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             });
     }
 
+    normalizeDomain(domain: string): string {
+        if (!domain) return '';
+        let normalized = domain.trim().toLowerCase();
+        if (normalized.startsWith('http://')) normalized = normalized.substring(7);
+        if (normalized.startsWith('https://')) normalized = normalized.substring(8);
+        if (normalized.startsWith('www.')) normalized = normalized.substring(4);
+        if (normalized.endsWith('/')) normalized = normalized.substring(0, normalized.length - 1);
+        return normalized;
+    }
+
+    getDomainStat(domain: string, month: number): number {
+        if (!this.domainStatsData || !domain) return 0;
+        const norm = this.normalizeDomain(domain);
+        if (this.domainStatsData[norm] && this.domainStatsData[norm][month]) {
+            return this.domainStatsData[norm][month];
+        }
+        return 0;
+    }
+
     updateValue(event, cell, rowIndex) {
         this.editing[rowIndex + '-' + cell] = false;
         this.rows[rowIndex][cell] = event.target.value;
