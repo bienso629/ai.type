@@ -56,7 +56,7 @@ export class GenaiService {
      * CDN server chạy ở localhost:3333, endpoint POST /upload, field name 'files'.
      * Dùng cho Kling API vì UModelverse proxy không hỗ trợ ConvertImageRequest.
      */
-    public async uploadBase64ToCdn(base64Data: string, filename?: string): Promise<string | null> {
+    public async uploadBase64ToCdn(base64Data: string, filename?: string, folder?: string): Promise<string | null> {
         try {
             // Chuyển base64 thành Blob
             let mimeType = 'image/jpeg';
@@ -86,6 +86,9 @@ export class GenaiService {
 
             const formData = new FormData();
             formData.append('files', file); // CDN server dùng multer.array('files')
+            if (folder) {
+                formData.append('folder', folder);
+            }
 
             // Upload lên CDN server (cdn1.type.vn)
             const uploadUrl = 'https://cdn1.type.vn/upload';
