@@ -505,7 +505,7 @@ export class GenaiService {
         let finalPrompt = promptText.trim() || 'Xin chào';
         if (params.config && params.config.responseModalities) {
             if (params.config.responseModalities.includes('IMAGE')) {
-                finalPrompt = 'Bắt buộc tạo hình ảnh: ' + finalPrompt;
+                finalPrompt = 'Bắt buộc tạo hình ảnh (Yêu cầu bắt buộc: Chất lượng Masterpiece, vô cùng sắc nét, chi tiết tinh xảo, hyperrealistic, high resolution): ' + finalPrompt;
             } else if (params.config.responseModalities.includes('VIDEO')) {
                 finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
             }
