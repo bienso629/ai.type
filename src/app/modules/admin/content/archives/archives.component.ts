@@ -82,6 +82,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     permissionText2Voice: boolean = false;
     permissionScriptCommentLike: boolean = false;
 
+
+
     /* END TWO OBJECTS */
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -147,7 +149,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 const newRows = [];
                 for (let i = 0; i < this.rows.length; i++) {
                     const row = this.rows[i];
-                    if (!row || !uuids.includes(row.uuid)) {
+                    if (!row || !row.uuid || !uuids.includes(row.uuid)) {
                         newRows.push(row);
                     }
                 }
@@ -608,8 +610,9 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     const start = this.page.pageNumber * this.page.size;
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
-                        if (!this.rows) {
-                            this.rows = new Array<any>(this.totalElements || 0);
+
+                        if (!this.rows || this.rows.length === 0) {
+                            this.rows = new Array(this.totalElements || 0);
                         }
 
                         let newTotal = this.totalElements || 0;
@@ -624,10 +627,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         // Resize rows if totalElements increased
                         if (this.rows.length !== this.totalElements) {
                             const oldRows = this.rows;
-                            this.rows = new Array<any>(this.totalElements);
-                            for (let i = 0; i < oldRows.length; i++) {
-                                this.rows[i] = oldRows[i];
-                            }
+                            this.rows = Array.from({ length: this.totalElements }, (_, i) => oldRows[i]);
                         }
 
                         const rows = [...this.rows];
@@ -735,10 +735,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
                             if (this.rows && this.rows.length !== this.totalElements) {
                                 const oldRows = this.rows;
-                                this.rows = new Array<any>(this.totalElements);
-                                for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
-                                    this.rows[i] = oldRows[i];
-                                }
+                                this.rows = Array.from({ length: this.totalElements }, (_, i) => oldRows[i]);
                                 this.rows = [...this.rows];
                                 this.cd.markForCheck();
                             }
@@ -910,10 +907,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                             // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
                             if (this.rows && this.rows.length !== this.totalElements) {
                                 const oldRows = this.rows;
-                                this.rows = new Array<any>(this.totalElements);
-                                for (let i = 0; i < Math.min(oldRows.length, this.totalElements); i++) {
-                                    this.rows[i] = oldRows[i];
-                                }
+                                this.rows = Array.from({ length: this.totalElements }, (_, i) => oldRows[i]);
                                 this.rows = [...this.rows];
                             }
                             
