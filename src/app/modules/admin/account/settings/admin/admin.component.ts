@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnIni
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
 import { Title } from '@angular/platform-browser';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { FuseConfigService } from '@fuse/services/config';
 import { EmailDialogComponent } from './dialogs/email-dialog/email-dialog.component';
@@ -74,6 +74,8 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
     // -------------------------------
+    
+    selectedTabIndex: number = 0;
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
@@ -81,6 +83,7 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         private titleService: Title,
         private _formBuilder: UntypedFormBuilder,
         private router: Router,
+        private route: ActivatedRoute,
         private _fuseConfirmationService: FuseConfirmationService, // Đã inject sẵn
         private _userService: UserService,
         private _userClientService: UserClientService,
@@ -107,6 +110,14 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
         const settings = this.multiAccountService.getItem('settings') || {};
         this.chatgptForm = this._formBuilder.group({
             'gradio_gologin': [settings.gradio_gologin || '', Validators.required],
+        });
+
+        // Sync tabIndex from URL
+        this.route.queryParams.pipe(takeUntil(this._unsubscribeAll)).subscribe(params => {
+            if (params['tabIndex']) {
+                this.selectedTabIndex = parseInt(params['tabIndex'], 10);
+                this.cd.markForCheck();
+            }
         });
 
         this._userService.user$
@@ -171,6 +182,13 @@ export class SettingsAdminComponent implements OnInit, OnDestroy {
     // @ Public methods
     // -----------------------------------------------------------------------------------------------------
     onTabChanged(event: any) {
+        this.selectedTabIndex = event.index;
+        this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tabIndex: event.index },
+            queryParamsHandling: 'merge'
+        });
+
         if (event.index === 0) { // Member
             if (!this.forumUsers || this.forumUsers.length === 0) {
                 this.getForumUsers();

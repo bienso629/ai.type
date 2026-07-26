@@ -4457,8 +4457,12 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         }, 1000);
     }
 
-    changetab(_e: any) {
-        // console.log('e', e);
+    changetab(e: any) {
+        this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tab: e.index },
+            queryParamsHandling: 'merge'
+        });
         this.showComments();
     }
 
@@ -4809,6 +4813,12 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             this.titleService.setTitle(
                 `${this.uuid ? 'cập nhật lưu trữ' : 'văn bản'} | ai.type - công cụ tạo content`,
             );
+        });
+
+        this.route.queryParams.subscribe((params: Params) => {
+            if (params['tab']) {
+                this.selectedIndex = parseInt(params['tab'], 10);
+            }
         });
 
         // lấy secretKey và searchAPIKey

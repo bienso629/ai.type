@@ -46,17 +46,6 @@ class ProfilePopup extends StatelessWidget {
                       _buildMenuItem(context, FontAwesomeIcons.circleUser, 'Hồ sơ', () {
                         Navigator.of(context).pop();
                       }),
-                      const SizedBox(height: 16),
-                      
-                      _buildMenuItem(context, FontAwesomeIcons.gear, 'Cài đặt', () {
-                        Navigator.of(context).pop();
-                        Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen()));
-                      }),
-                      const SizedBox(height: 16),
-                      
-                      _buildMenuItem(context, FontAwesomeIcons.circleNodes, 'Trạng thái', () {
-                        Navigator.of(context).pop();
-                      }, hasSubmenu: true),
                       const SizedBox(height: 12),
                       
                       const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),

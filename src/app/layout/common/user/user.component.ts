@@ -72,12 +72,21 @@ export class UserComponent implements OnInit, OnDestroy {
 
         this.multiAccountService.activeAccount$
             .pipe(takeUntil(this._unsubscribeAll))
-            .subscribe(sessionData => {
+            .subscribe(async sessionData => {
+                let isAiAgentActive = false;
                 if (sessionData && sessionData.settings) {
-                    this.isAiAgentEnabled = sessionData.settings.enableAiAgent === true;
-                } else {
-                    this.isAiAgentEnabled = false;
+                    isAiAgentActive = sessionData.settings.enableAiAgent === true;
                 }
+                if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+                    try {
+                        const list = await (window as any).electronAPI.getPluginsStatus();
+                        const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                        if (aiAgent && aiAgent.enabled !== undefined) {
+                            isAiAgentActive = aiAgent.enabled;
+                        }
+                    } catch(e) {}
+                }
+                this.isAiAgentEnabled = isAiAgentActive;
                 this._changeDetectorRef.markForCheck();
             });
     }

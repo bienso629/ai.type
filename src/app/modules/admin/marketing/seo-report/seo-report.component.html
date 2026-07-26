@@ -58,7 +58,7 @@
 
         <div class="w-full my-6 border-t border-gray-50"></div>
 
-        <mat-tab-group animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" class="w-full mt-2 custom-tabs-no-padding">
+        <mat-tab-group (selectedTabChange)="changetab($event)" [selectedIndex]="selectedIndex" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" class="w-full mt-2 custom-tabs-no-padding">
             <mat-tab [label]="('app.google_search_console_keyword' | transloco)">
                 <div class="flex flex-col gap-2 mt-8">
                     <h3 class="text-xl sm:text-2xl text-primary mb-2 hidden">

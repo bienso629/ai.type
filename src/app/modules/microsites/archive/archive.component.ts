@@ -4,7 +4,7 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 import { Title } from '@angular/platform-browser';
-import { ActivatedRoute, Params } from '@angular/router';
+import { ActivatedRoute, Params, Router } from '@angular/router';
 import { MatChipInputEvent } from '@angular/material/chips';
 import { FormControl } from '@angular/forms';
 import { MatDialog } from '@angular/material/dialog';
@@ -26,6 +26,7 @@ import { UserClientService } from 'app/modules/_services/user';
 })
 export class ArchiveComponent implements OnInit, OnDestroy, AfterViewInit {
     user: User;
+    selectedIndex = 0;
     uuid: string;
     name: string;
     linkDonate: string;
@@ -314,9 +315,18 @@ export class ArchiveComponent implements OnInit, OnDestroy, AfterViewInit {
         private _userClientService: UserClientService,
         private _fuseAlertService: FuseAlertService,
         private cd: ChangeDetectorRef,
-        private route: ActivatedRoute
+        private route: ActivatedRoute,
+        private router: Router
     ) {
         this.titleService.setTitle(`mua 1 ly cafe | ai.type - công cụ tạo content`);
+    }
+
+    changetab(e: any) {
+        this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tab: e.index },
+            queryParamsHandling: 'merge'
+        });
     }
 
     ngAfterViewInit(): void {
@@ -343,6 +353,12 @@ export class ArchiveComponent implements OnInit, OnDestroy, AfterViewInit {
             if (uuid) {
                 this.uuid = uuid;
                 this.name = name;
+            }
+        });
+
+        this.route.queryParams.subscribe((params: Params) => {
+            if (params['tab']) {
+                this.selectedIndex = parseInt(params['tab'], 10);
             }
         });
     }

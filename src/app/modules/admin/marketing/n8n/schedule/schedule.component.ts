@@ -1338,7 +1338,7 @@ Không dùng markdown \`\`\`json.`;
             let apiUrl: string;
 
             if (isLike) {
-                apiUrl = "https://tiktok.type.vn/v1/like/click";
+                apiUrl = `${this.config?.settings?.['tiktok'] || 'https://tiktok.type.vn'}/v1/like/click`;
                 payload = {
                     "site": "tiktok.com",
                     "like_selector": "div[data-e2e=\"live-chat-input-container\"]",
@@ -1360,7 +1360,7 @@ Không dùng markdown \`\`\`json.`;
                     "diagnose": false
                 };
             } else {
-                apiUrl = "https://tiktok.type.vn/v1/comment/click";
+                apiUrl = `${this.config?.settings?.['tiktok'] || 'https://tiktok.type.vn'}/v1/comment/click`;
                 payload = {
                     "site": "tiktok.com",
                     "comment_selector": "div[data-e2e=\"live-chat-input-container\"] div[contenteditable=\"plaintext-only\"]",
