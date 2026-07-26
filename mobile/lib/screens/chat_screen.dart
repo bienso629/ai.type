@@ -18,7 +18,8 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:http/http.dart' as http;
 
 class ChatScreen extends StatefulWidget {
-  const ChatScreen({super.key});
+  final String? contextData;
+  const ChatScreen({super.key, this.contextData});
 
   @override
   State<ChatScreen> createState() => _ChatScreenState();
@@ -267,9 +268,14 @@ class _ChatScreenState extends State<ChatScreen> {
       bool updatePending = false;
       Timer? textDoneTimer;
       
+      String finalText = text;
+      if (widget.contextData != null && _messages.length == 1) {
+        finalText = 'Dữ liệu ngữ cảnh hiện tại (System Context):\n${widget.contextData}\n\nYêu cầu của người dùng: $text';
+      }
+      
       print('DEBUG _sendMessage: dbId=$dbId, agentConversationId=$agentConversationId');
       if (aiAgentEnabled) {
-        answerText = await ApiService.askSonTinhAgent(text, historyJson, conversationId: agentConversationId, filePath: fileToSend, onChunk: (chunk) {
+        answerText = await ApiService.askSonTinhAgent(finalText, historyJson, conversationId: agentConversationId, filePath: fileToSend, onChunk: (chunk) {
           if (mounted && newMessage['cancelled'] != true) {
             if (agentConversationId == null && chunk['conversation_id'] != null && chunk['conversation_id'].toString().isNotEmpty) {
               agentConversationId = chunk['conversation_id'];

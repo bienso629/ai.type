@@ -43,6 +43,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
     rows = [];
     totalElements: number;
+    actualTotalElements: number = 0;
     apiFetchedCount: number = 0;
     pageNumber: number;
     isLoading: boolean = false;
@@ -540,25 +541,23 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         if (total === undefined) total = result?.data?.data?.total;
 
                         if (total !== undefined) {
-                            this.totalElements = total;
+                            this.actualTotalElements = total;
                         } else {
                             // Mặc định từ statistics (khi xóa keyword)
                             let temp = localStorage.getItem('statistics');
                             if (temp && temp !== 'undefined') {
                                 try {
                                     const stats = JSON.parse(temp);
-                                    this.totalElements = stats['archives'] || 0;
+                                    this.actualTotalElements = stats['archives'] || 0;
                                 } catch (e) {
-                                    this.totalElements = 0;
+                                    this.actualTotalElements = 0;
                                 }
                             } else {
-                                this.totalElements = 0;
+                                this.actualTotalElements = 0;
                             }
                         }
 
-                        if (this.totalElements > 0) {
-                            this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.totalElements });
-                        }
+                        this.setPage({ offset: 0, pageSize: this.page.size, limit: this.page.size, count: this.actualTotalElements });
                     },
                     complete: () => {
                         if (this.table) this.table.recalculatePages();
@@ -611,30 +610,20 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
 
-                        if (!this.rows || this.rows.length === 0) {
-                            this.rows = new Array(this.totalElements || 0);
+                        // Đổ vào mảng rows chính
+                        this.rows = [
+                            ...(this.rows || []),
+                            ...resData.docs,
+                        ];
+
+                        // Nếu số docs ít hơn size tức là đã đến trang cuối, không cần cộng thêm ảo
+                        if (resData.docs.length < this.page.size) {
+                            this.totalElements = this.rows.length;
+                        } else {
+                            // Cộng thêm một lượng pageSize ảo để ngx-datatable tạo thanh scrollbar cho phép kéo xuống load page tiếp theo
+                            this.totalElements = this.rows.length + this.page.size;
                         }
 
-                        let newTotal = this.totalElements || 0;
-                        if (start + resData.docs.length > newTotal) {
-                            newTotal = start + resData.docs.length;
-                        }
-
-                        if (this.totalElements !== newTotal) {
-                            this.totalElements = newTotal;
-                        }
-
-                        // Resize rows if totalElements increased
-                        if (this.rows.length !== this.totalElements) {
-                            const oldRows = this.rows;
-                            this.rows = Array.from({ length: this.totalElements }, (_, i) => oldRows[i]);
-                        }
-
-                        const rows = [...this.rows];
-
-                        // Nối dữ liệu vào đúng vị trí cuối cùng đã nạp từ API
-                        rows.splice(start, resData.docs.length, ...resData.docs);
-                        this.rows = rows;
                         this.apiFetchedCount += resData.docs.length;
 
                         // Lưu bookmark từ server để dùng cho request tiếp theo
@@ -649,13 +638,10 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         this.setPage(pageInfo);
                         return;
                     } else if (resData && resData.docs && resData.docs.length === 0) {
-                        // Hết dữ liệu
-                        if (this.totalElements !== start) {
-                            this.totalElements = start;
-                            if (this.rows && this.rows.length !== this.totalElements) {
-                                this.rows = this.rows.slice(0, this.totalElements);
-                                this.rows = [...this.rows];
-                            }
+                        // Hết dữ liệu thì chốt cứng totalElements bằng số row đang có
+                        if (this.rows) {
+                            this.totalElements = this.rows.length;
+                            this.rows = [...this.rows]; // Cập nhật lại mảng để ngx-datatable tính lại chiều cao virtual scroll
                         }
                     } else if (!resData || resData.success === false) {
                         // Nếu không lấy được dữ liệu do lỗi, gỡ cache để lần cuộn sau có thể gọi tiếp
@@ -730,32 +716,23 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         let total = res?.data?.total;
                         if (total === undefined) total = res?.data?.data?.total;
                         if (total !== undefined) {
-                            this.totalElements = total;
-                            
-                            // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
-                            if (this.rows && this.rows.length !== this.totalElements) {
-                                const oldRows = this.rows;
-                                this.rows = Array.from({ length: this.totalElements }, (_, i) => oldRows[i]);
-                                this.rows = [...this.rows];
-                                this.cd.markForCheck();
-                            }
+                            this.actualTotalElements = total;
+                            this.cd.markForCheck();
                         }
                     }
                 });
         } else {
             // Nếu chọn collection, tổng số chính là số lượng UUIDs đã trích xuất
-            this.totalElements = this.uuids.length;
+            this.actualTotalElements = this.uuids.length;
         }
 
         // 4. Kích hoạt lấy dữ liệu trang đầu tiên
-        if (this.totalElements > 0 || this.uuids.length === 0) {
-            this.setPage({
-                offset: 0,
-                pageSize: this.page.size,
-                limit: this.page.size,
-                count: this.totalElements,
-            });
-        }
+        this.setPage({
+            offset: 0,
+            pageSize: this.page.size,
+            limit: this.page.size,
+            count: this.actualTotalElements,
+        });
     }
 
     following() {
