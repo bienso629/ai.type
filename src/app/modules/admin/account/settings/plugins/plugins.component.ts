@@ -52,7 +52,16 @@ export class SettingsPluginsComponent implements OnInit {
                 }
             ];
             
-            const settings = this.multiAccountService.getItem('settings') || {};
+            let settings = this.multiAccountService.getItem('settings') || {};
+            
+            try {
+                const lsSettings = localStorage.getItem('settings');
+                if (lsSettings) {
+                    const parsed = JSON.parse(lsSettings);
+                    settings = { ...settings, ...parsed };
+                }
+            } catch(e) {}
+            
             const zaloPlugin = this.plugins.find(p => p.id === 'zalo_reply');
             if (zaloPlugin) zaloPlugin.enabled = settings.zaloPluginEnabled || false;
             
@@ -81,7 +90,17 @@ export class SettingsPluginsComponent implements OnInit {
                 this.aiAgentApiKey = 'type-vn-local-agent-2026';
             }
             
-            const settings = this.multiAccountService.getItem('settings') || {};
+            let settings = this.multiAccountService.getItem('settings') || {};
+            
+            try {
+                // Luôn ưu tiên đọc từ localStorage vì IndexedDB có thể chưa kịp lưu do debounce 500ms
+                const lsSettings = localStorage.getItem('settings');
+                if (lsSettings) {
+                    const parsed = JSON.parse(lsSettings);
+                    settings = { ...settings, ...parsed };
+                }
+            } catch(e) {}
+            
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
         } catch (err) {

@@ -280,6 +280,23 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.cd.detectChanges();
         }
     }
+
+    get canPublish(): boolean {
+        if (!this.selected || this.selected.length === 0) return false;
+        // Show publish if ANY selected item is draft or pending
+        return this.selected.some(post => post.status === 'draft' || post.status === 'pending');
+    }
+
+    get canUnpublish(): boolean {
+        if (!this.selected || this.selected.length === 0) return false;
+        // Show unpublish if ANY selected item is publish
+        return this.selected.some(post => post.status === 'publish');
+    }
+
+    get canDelete(): boolean {
+        return this.selected && this.selected.length > 0;
+    }
+
     async unpublishSelectedPosts() {
         if (!this.selected || this.selected.length === 0) return;
         
@@ -333,6 +350,78 @@ export class SitemapComponent implements OnInit, OnDestroy {
             this.loadingPosts = false;
             this.cd.detectChanges();
         }
+    }
+
+    async deleteSelectedPosts() {
+        if (!this.selected || this.selected.length === 0) return;
+        
+        const count = this.selected.length;
+
+        const dialogRef = this._fuseConfirmationService.open({
+            title: 'Xóa bài viết',
+            message: `Bạn đang chọn xóa <span class="font-semibold text-red-500">${count}</span> bài viết.<br>Hành động này sẽ đưa các bài viết vào thùng rác trên WordPress. Bạn có chắc chắn muốn tiếp tục không?`,
+            icon: {
+                show: true,
+                name: 'feather:trash-2',
+                color: 'warn'
+            },
+            actions: {
+                confirm: {
+                    show: true,
+                    label: 'Xóa ngay',
+                    color: 'warn'
+                },
+                cancel: {
+                    show: true,
+                    label: 'Hủy'
+                }
+            },
+            dismissible: true
+        });
+
+        dialogRef.afterClosed().subscribe(async (result) => {
+            if (result === 'confirmed') {
+                const postsToDelete = this.selected;
+
+                this.loadingPosts = true;
+                this.cd.detectChanges();
+
+                const username = this.selectedDomain.wp_username || this.selectedDomain.username;
+                const apppass = this.selectedDomain.wp_password || this.selectedDomain.password;
+
+                const deleteTasks = postsToDelete.map(post => {
+                    const dataForm = {
+                        id: post.id,
+                        domain: this.selectedDomain.domain,
+                        domain_id: this.selectedDomain._id,
+                        sys_username: this.selectedDomain.sys_username,
+                        year: this.selectedDomain.year,
+                        username: username,
+                        apppass: apppass
+                    };
+                    return firstValueFrom(this._wordpressService.delete_post(dataForm));
+                });
+
+                try {
+                    const results = await Promise.all(deleteTasks);
+                    const successCount = results.filter(r => r).length;
+                    this.toastr.success(`Đã xoá thành công ${successCount} bài viết!`);
+                    
+                    const deletedIds = postsToDelete.map(p => p.id);
+                    this.posts = this.posts.filter(p => !deletedIds.includes(p.id));
+                    this.posts = [...this.posts]; // trigger change detection
+
+                    this.selected = [];
+                    this.loadingPosts = false;
+                    this.cd.detectChanges();
+                } catch (err) {
+                    console.error(err);
+                    this.toastr.error('Có lỗi xảy ra khi xoá bài viết');
+                    this.loadingPosts = false;
+                    this.cd.detectChanges();
+                }
+            }
+        });
     }
 
     decodeHTMLEntities(text: string): string {

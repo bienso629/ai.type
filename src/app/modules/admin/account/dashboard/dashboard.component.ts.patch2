@@ -1,0 +1,19 @@
+--- dashboard.component.ts
++++ dashboard.component.ts
+@@ -279,6 +279,16 @@
+                             normalizedStats[normalized][month] = Math.max(normalizedStats[normalized][month], rawStats[rawDomain][month]);
+                         }
+                     }
++                    
++                    for (const normalized of Object.keys(normalizedStats)) {
++                        for (let m = 12; m >= 1; m--) {
++                            if (normalizedStats[normalized][m] !== undefined) {
++                                let prev = 0;
++                                for (let pm = m - 1; pm >= 1; pm--) { if (normalizedStats[normalized][pm] !== undefined) { prev = normalizedStats[normalized][pm]; break; } }
++                                normalizedStats[normalized][m] = Math.max(0, normalizedStats[normalized][m] - prev);
++                            }
++                        }
++                    }
+                     this.statistics.domainStats = normalizedStats;
+                     this.availableDomains = Object.keys(normalizedStats);
+                     this.updateChart();

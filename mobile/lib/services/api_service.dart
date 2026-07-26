@@ -166,7 +166,7 @@ class ApiService {
     throw Exception('Server error: ${response.statusCode}');
   }
 
-  static Future<dynamic> getStatistics(int reportYear) async {
+  static Future<dynamic> getStatistics(int reportYear, {bool refresh = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
     if (activeInfoStr == null) throw Exception('No active session');
@@ -183,6 +183,11 @@ class ApiService {
       'username': activeInfo['user']['name'],
       'appToken': activeInfo['user']['appToken'],
     };
+    
+    if (refresh) {
+      dataForm['refresh'] = true;
+    }
+    
     print('DEBUG dataForm: \$dataForm');
 
     final encryptedParams = encryptAES(dataForm);
@@ -466,6 +471,7 @@ class ApiService {
       'appId': 'ai.typing',
       'username': username,
       'appToken': activeInfo['user']['appToken'],
+      'content': question,
       'question': question,
       'answer': answer,
     };
@@ -566,7 +572,7 @@ class ApiService {
     return null;
   }
 
-  static Future<dynamic> getAllDomains() async {
+  static Future<dynamic> getAllDomains({bool refresh = false}) async {
     final prefs = await SharedPreferences.getInstance();
     final activeInfoStr = prefs.getString('active_info');
     if (activeInfoStr == null) throw Exception('No active session');
@@ -576,13 +582,14 @@ class ApiService {
     final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
     final url = Uri.parse('$baseUrl/domain/all');
 
-    final dataForm = {
+    Map<String, dynamic> dataForm = {
       'server': server,
       'year': 2023,
       'appId': 'ai.typing',
       'username': activeInfo['user']['name'],
       'appToken': activeInfo['user']['appToken']
     };
+    if (refresh) dataForm['refresh'] = true;
 
     final encryptedParams = encryptAES(dataForm);
 
@@ -597,6 +604,45 @@ class ApiService {
 
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
+    }
+    return null;
+  }
+
+  static Future<dynamic> getAllTasks(List<String> domains, {bool refresh = false}) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) throw Exception('No active session');
+      
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('$baseUrl/tasks/all');
+
+      Map<String, dynamic> dataForm = {
+        'server': server,
+        'year': 2023,
+        'appId': 'ai.typing',
+        'username': activeInfo['user']['name'],
+        'appToken': activeInfo['user']['appToken'],
+      };
+      if (refresh) dataForm['refresh'] = true;
+
+      final encryptedParams = encryptAES(dataForm);
+
+      final response = await http.post(
+        url,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+        },
+        body: jsonEncode({'params': encryptedParams}),
+      );
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e) {
+      print('getAllTasks error: $e');
     }
     return null;
   }

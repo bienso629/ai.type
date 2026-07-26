@@ -411,31 +411,134 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         event.preventDefault();
     }
 
+    private compressImageBase64(base64Str: string, maxWidth: number = 1200, maxHeight: number = 1200, quality: number = 0.8): Promise<string> {
+        return new Promise((resolve) => {
+            if (!base64Str || !base64Str.startsWith('data:image/')) {
+                resolve(base64Str);
+                return;
+            }
+            if (base64Str.includes('image/svg')) {
+                resolve(base64Str);
+                return;
+            }
+
+            const img = new Image();
+            img.onload = () => {
+                let width = img.width;
+                let height = img.height;
+
+                if (width > height) {
+                    if (width > maxWidth) {
+                        height = Math.round(height * maxWidth / width);
+                        width = maxWidth;
+                    }
+                } else {
+                    if (height > maxHeight) {
+                        width = Math.round(width * maxHeight / height);
+                        height = maxHeight;
+                    }
+                }
+
+                const canvas = document.createElement('canvas');
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                if (!ctx) {
+                    resolve(base64Str);
+                    return;
+                }
+                ctx.drawImage(img, 0, 0, width, height);
+                const dataUrl = canvas.toDataURL('image/jpeg', quality);
+                const resultStr = dataUrl.replace('data:image/jpeg;base64,', 'data:image/jpeg;name=thumbnail.jpg;base64,');
+                resolve(resultStr);
+            };
+            img.onerror = () => {
+                console.error('Lỗi khi load ảnh vào canvas để nén:', base64Str.substring(0, 50));
+                resolve(base64Str);
+            };
+            
+            // Xóa bỏ tham số name= (nếu có) trước khi set vào img.src để tránh trình duyệt báo lỗi
+            let safeBase64 = base64Str;
+            const nameMatch = base64Str.match(/^data:([^;]+);name=[^;]+;(base64,.*)$/);
+            if (nameMatch) {
+                safeBase64 = `data:${nameMatch[1]};${nameMatch[2]}`;
+            }
+            img.src = safeBase64;
+        });
+    }
+
     async processBase64ImagesBeforeSave(): Promise<boolean> {
         let content = this.editorForm.get('content').value;
         const uname = this.editorForm.get('username').value;
         const pass = this.editorForm.get('apppass').value;
         const domain = this.editorForm.get('domain').value;
 
-        // Tìm tất cả các thẻ img có src là data:image
-        const regex = /<img[^>]+src="([^">]+)"/gi;
+        // Tìm tất cả các thẻ img
+        const regex = /(<img[^>]+src=")([^">]+)("[^>]*>)/gi;
         let match;
-        const b64Images = [];
+        const imagesToUpload = [];
+        
         while ((match = regex.exec(content)) !== null) {
-            if (match[1].startsWith('data:image/')) {
-                b64Images.push(match[1]);
+            const src = match[2];
+            // Bỏ qua các ảnh đã là link http/https
+            if (!src.startsWith('http://') && !src.startsWith('https://')) {
+                imagesToUpload.push({
+                    fullTag: match[0],
+                    prefix: match[1],
+                    src: src,
+                    suffix: match[3]
+                });
             }
         }
 
-        if (b64Images.length > 0) {
+        if (imagesToUpload.length > 0) {
             this.loading = true;
             this.cdr.markForCheck();
-            this.toastr.info(`Đang tải lên ${b64Images.length} hình ảnh...`);
-            for (let i = 0; i < b64Images.length; i++) {
+            this.toastr.info(`Đang tải lên ${imagesToUpload.length} hình ảnh...`);
+            
+            for (let i = 0; i < imagesToUpload.length; i++) {
                 try {
-                    const result = await firstValueFrom(this._wordpressService.upload_media(domain, b64Images[i], uname, pass, this.domain));
-                    if (result && result.source_url) {
-                        content = content.replace(b64Images[i], result.source_url);
+                    const imgObj = imagesToUpload[i];
+                    let base64DataUrl = '';
+
+                    if (imgObj.src.startsWith('data:image/')) {
+                        base64DataUrl = imgObj.src;
+                    } else {
+                        // File local hoặc file://
+                        let localPath = imgObj.src;
+                        if (localPath.startsWith('file://')) {
+                            localPath = localPath.substring('file://'.length);
+                        }
+                        
+                        try {
+                            const res = await (window as any).electron.invoke('read-file-base64', { filePath: decodeURIComponent(localPath) });
+                            if (res && res.success && res.base64) {
+                                const fileName = localPath.split(/[\\/]/).pop() || `image_${i}.png`;
+                                const ext = fileName.split('.').pop()?.toLowerCase() || 'png';
+                                const mimeType = (ext === 'jpg' || ext === 'jpeg') ? 'image/jpeg' : `image/${ext}`;
+                                base64DataUrl = `data:${mimeType};name=${encodeURIComponent(fileName)};base64,${res.base64}`;
+                            }
+                        } catch (e) {
+                            console.error('Lỗi đọc file local cho nội dung bài viết:', e);
+                        }
+                    }
+
+                    if (base64DataUrl) {
+                        base64DataUrl = await this.compressImageBase64(base64DataUrl);
+                        const result: any = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass, this.domain));
+                        if (result && result.source_url) {
+                            let newTag = imgObj.fullTag.replace(imgObj.src, result.source_url);
+                            
+                            // Gắn ID media ngược lại vào thẻ img thông qua class wp-image-{id}
+                            if (result.id) {
+                                if (newTag.includes('class="')) {
+                                    newTag = newTag.replace('class="', `class="wp-image-${result.id} `);
+                                } else {
+                                    newTag = newTag.replace('<img ', `<img class="wp-image-${result.id}" `);
+                                }
+                            }
+                            content = content.replace(imgObj.fullTag, newTag);
+                        }
                     }
                 } catch (e) {
                     this.toastr.warning('Lỗi tải hình ảnh thứ ' + (i + 1));
@@ -449,22 +552,55 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         return true;
     }
 
-    async processThumbnailBeforeSave(): Promise<void> {
+    async processThumbnailBeforeSave(): Promise<boolean> {
         let thumbnailVal = this.editorForm.get('thumbnail').value;
-        if (!thumbnailVal) return;
+        if (!thumbnailVal) return true;
 
         // Lấy đường dẫn đầu tiên
         let thumb = thumbnailVal.split('\n').map((t: string) => t.trim()).find((t: string) => t);
-        if (!thumb) return;
-
-        // Nếu thumbnail đã là một link URL (http:// hoặc https://) thì không cần upload lại
-        if (thumb.startsWith('http://') || thumb.startsWith('https://')) {
-            return;
-        }
+        if (!thumb) return true;
 
         let base64DataUrl = '';
 
-        if (thumb.startsWith('data:image/')) {
+        if (thumb.startsWith('http://') || thumb.startsWith('https://')) {
+            try {
+                const response = await fetch(thumb);
+                if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                const blob = await response.blob();
+                base64DataUrl = await new Promise((resolve) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => resolve(reader.result as string);
+                    reader.readAsDataURL(blob);
+                }) as string;
+            } catch (e) {
+                console.error('Không thể tải URL ảnh thumbnail bằng fetch (CORS hoặc lỗi mạng), thử dùng IPC download-image:', e);
+                if ((window as any).electron) {
+                    try {
+                        const fileName = 'temp_thumb_' + Date.now() + '.jpg';
+                        const dlRes = await (window as any).electron.invoke('download-image', { url: thumb, fileName, customDir: 'temp_images' });
+                        if (dlRes && dlRes.success) {
+                            const readRes = await (window as any).electron.invoke('read-file-base64', { filePath: dlRes.filePath });
+                            if (readRes && readRes.success && readRes.base64) {
+                                base64DataUrl = `data:image/jpeg;name=${fileName};base64,${readRes.base64}`;
+                            } else {
+                                this.toastr.error('Lỗi không thể đọc file ảnh từ máy của bạn sau khi tải về!');
+                                return false;
+                            }
+                        } else {
+                            this.toastr.error('Lỗi không thể tải ảnh từ URL để làm thumbnail (IPC). Vui lòng thử ảnh khác!');
+                            return false;
+                        }
+                    } catch (ipcErr) {
+                        console.error('Lỗi tải ảnh qua IPC:', ipcErr);
+                        this.toastr.error('Lỗi hệ thống khi tải ảnh từ URL!');
+                        return false;
+                    }
+                } else {
+                    this.toastr.error('Lỗi không thể tải ảnh từ URL để làm thumbnail. Có thể do link hỏng hoặc bị chặn tải về (CORS). Vui lòng thử ảnh khác!');
+                    return false;
+                }
+            }
+        } else if (thumb.startsWith('data:image/')) {
             base64DataUrl = thumb;
         } else {
             // Đây là file local hoặc file://
@@ -474,7 +610,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             }
             // Đọc từ local qua IPC
             try {
-                const res = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                const res = await (window as any).electron.invoke('read-file-base64', { filePath: decodeURIComponent(localPath) });
                 if (res && res.success && res.base64) {
                     const fileName = localPath.split(/[\\/]/).pop() || 'thumbnail.png';
                     const ext = fileName.split('.').pop()?.toLowerCase() || 'png';
@@ -482,9 +618,13 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                     base64DataUrl = `data:${mimeType};name=${encodeURIComponent(fileName)};base64,${res.base64}`;
                 } else {
                     console.error('Không thể đọc file local làm thumbnail:', res?.error);
+                    this.toastr.error('Lỗi không thể đọc file ảnh từ máy của bạn!');
+                    return false;
                 }
             } catch (e) {
                 console.error('Lỗi IPC đọc file base64:', e);
+                this.toastr.error('Lỗi hệ thống khi đọc ảnh thumbnail!');
+                return false;
             }
         }
 
@@ -498,29 +638,43 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             this.toastr.info('Đang tải lên hình ảnh đại diện (thumbnail)...');
 
             try {
-                const result = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass, this.domain));
+                base64DataUrl = await this.compressImageBase64(base64DataUrl);
+                const result: any = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass, this.domain));
                 if (result && result.id) {
                     // Set featured_media ID cho bài viết mới
-                    this.editorForm.addControl('featured_media', this._formBuilder.control(result.id));
+                    if (this.editorForm.contains('featured_media')) {
+                        this.editorForm.get('featured_media').setValue(result.id);
+                    } else {
+                        this.editorForm.addControl('featured_media', this._formBuilder.control(result.id));
+                    }
                     // Cập nhật lại giá trị cho cả trường thumbnail
                     if (result.source_url) {
                         this.editorForm.get('thumbnail').setValue(result.source_url);
                     }
                     this.toastr.success('Đã tải lên và đính kèm thumbnail thành công!');
+                } else {
+                    this.toastr.error('Đã tải lên ảnh nhưng không nhận được ID từ WordPress!');
+                    return false;
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Lỗi tải thumbnail lên WordPress:', e);
-                this.toastr.warning('Không thể tải hình ảnh đại diện (thumbnail) lên trang web.');
+                const msg = e.error?.message || e.message || 'Không thể tải hình ảnh đại diện (thumbnail) lên WordPress.';
+                this.toastr.error(`Lỗi: ${msg}`);
+                return false;
             } finally {
                 this.loading = false;
                 this.cdr.markForCheck();
             }
         }
+
+        return true;
     }
 
     async share(event: MouseEvent): Promise<void> {
         event.preventDefault();
-        await this.processThumbnailBeforeSave();
+        const thumbOk = await this.processThumbnailBeforeSave();
+        if (!thumbOk) return; // Dừng lại nếu tải ảnh thất bại
+        
         await this.processBase64ImagesBeforeSave();
 
         let submitData = {
@@ -558,7 +712,9 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
 
     async update(event: MouseEvent): Promise<void> {
         event.preventDefault();
-        await this.processThumbnailBeforeSave();
+        const thumbOk = await this.processThumbnailBeforeSave();
+        if (!thumbOk) return; // Dừng lại nếu tải ảnh thất bại
+        
         await this.processBase64ImagesBeforeSave();
 
         let submitData = {
@@ -678,8 +834,8 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             categories: [this.data.categories || [], Validators.required],
             content: ['', Validators.required],
             excerpt: [this.data.description, Validators.required],
-            username: [this.data.wp_username || this.domain['username']],
-            apppass: [this.data.wp_password || this.domain['password']],
+            username: [this.data.wp_username || this.domain['wp_username'] || this.domain['username']],
+            apppass: [this.data.wp_password || this.domain['wp_password'] || this.domain['password']],
             status: ['pending', Validators.required],
             save: [true],
             domain: [this.domain['domain'], Validators.required],

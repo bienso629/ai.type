@@ -8,7 +8,7 @@ import { User } from 'app/core/user/user.types';
 import { HelperService } from 'app/helper.service';
 import { saveAs } from "file-saver";
 
-import { Observable, Subject, firstValueFrom, of } from 'rxjs';
+import { Observable, Subject, firstValueFrom, of, throwError } from 'rxjs';
 import { catchError, tap, map, takeUntil, switchMap } from 'rxjs/operators';
 import { MultiAccountService } from './multi-account.service';
 
@@ -107,6 +107,41 @@ export class WordpressService {
         );
     }
 
+    public delete_post(dataForm: any): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        dataForm.year = this.year;
+        dataForm.appId = 'ai.typing';
+        dataForm.appToken = activeInfo['user']['appToken'];
+        dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
+        dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
+
+        const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/delete`;
+
+        let options = {
+            headers: new HttpHeaders({
+                'content-type': 'application/json'
+            })
+        };
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(res => {
+                if (res && res.success !== undefined) {
+                    if (res.success && !res.data) {
+                        return { id: dataForm.id || 'deleted', ...res };
+                    }
+                    return res.data;
+                }
+                return res;
+            })
+        );
+    }
+
     public update_post(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -172,6 +207,10 @@ export class WordpressService {
              domain: domain,
              b64: b64,
              domain_id: domainObj ? (domainObj.domain_id || domainObj.id || domainObj._id) : null,
+             wp_username: uname,
+             wp_password: pass,
+             username: uname,
+             apppass: pass,
              year: this.year,
              appId: 'ai.typing',
              appToken: activeInfo['user']['appToken'],
@@ -190,7 +229,7 @@ export class WordpressService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(res => res && res.success !== undefined ? res.data : res),
-            catchError(this.handleError('upload_media', null))
+            catchError(err => throwError(() => err))
         );
     }
 

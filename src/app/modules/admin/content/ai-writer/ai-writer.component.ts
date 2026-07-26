@@ -30,6 +30,7 @@ import {
     switchMap,
     takeUntil,
     Observable,
+    firstValueFrom,
 } from 'rxjs';
 import { ActivatedRoute, Params } from '@angular/router';
 import { Router } from '@angular/router';
@@ -3840,9 +3841,40 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Kiểm duyệt để đăng bài
      * Xem trước bài đăng
      */
-    export() {
-        const isUpdate = this.source && this.source.wp_post_id;
+    async export() {
+        let isUpdate = this.source && this.source.wp_post_id;
         
+        if (isUpdate) {
+            // Check if post still exists on WordPress
+            try {
+                this.detectForm.disable();
+                const wpData = {
+                    domain: this.domain,
+                    domain_id: this.domain._id || this.domain.id,
+                    sys_username: this.domain.sys_username,
+                    year: this.domain.year,
+                    username: this.source.wp_username || this.user.name,
+                    apppass: this.source.wp_password,
+                    include: [this.source.wp_post_id]
+                };
+                
+                const wpPostsResponse = await firstValueFrom(this._wordpressService.posts(wpData));
+                const wpPosts = wpPostsResponse && wpPostsResponse.success !== undefined ? wpPostsResponse.data : wpPostsResponse;
+                
+                if (!wpPosts || !Array.isArray(wpPosts) || wpPosts.length === 0) {
+                    // Deleted on WP!
+                    isUpdate = false;
+                    this.source.wp_post_id = null;
+                    this.update(false); // save local
+                    this.toastr.warning('Bài viết này đã bị xoá trên WordPress. Tự động chuyển sang đăng mới!');
+                }
+            } catch (e) {
+                console.error('Check post error:', e);
+            } finally {
+                this.detectForm.enable();
+            }
+        }
+
         const bottomSheetRef = this._bottomSheet.open(EditBeforeExportSheet, {
             panelClass: 'edit2export',
             data: {

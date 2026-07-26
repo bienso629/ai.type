@@ -174,6 +174,7 @@ export class ChatGPTQuestionSheet implements OnInit, OnDestroy {
 
     chatgptStore(answer: string, question: string) {
         this._chatGPTService.store({
+            question: question,
             content: question,
             answer: answer,
             username: this.user.name

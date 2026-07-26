@@ -1398,6 +1398,19 @@ ipcMain.on('webview-audio-chunk', (event, buffer) => {
     audioRecordStream.write(buffer);
 });
 
+
+ipcMain.handle('delete-local-file', async (event, filePath) => {
+    try {
+        if (require('fs').existsSync(filePath)) {
+            require('fs').unlinkSync(filePath);
+            return { success: true };
+        }
+        return { success: false, error: 'File not found' };
+    } catch (e) {
+        return { success: false, error: e.message };
+    }
+});
+
 ipcMain.handle('init-system-audio', () => {
     // Không cần tạo stream nữa vì gửi 1 lần
     return true;

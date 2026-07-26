@@ -1,0 +1,305 @@
+--- lib/screens/auto_screen.dart
++++ lib/screens/auto_screen.dart
+@@ -2,3 +2,3 @@
+ import 'package:flutter/rendering.dart';
+-import 'package:table_calendar/table_calendar.dart';
++import 'package:calendar_view/calendar_view.dart';
+ import '../theme/app_colors.dart';
+@@ -95,20 +95,3 @@
+   bool _isLoading = true;
+-  
+-  final Map<DateTime, List<Map<String, dynamic>>> _events = {};
+-  CalendarFormat _calendarFormat = CalendarFormat.week;
+-  List<String> _loadedDomains = [];
+-
+-  List<Map<String, dynamic>> _getEventsForDay(DateTime day) {
+-    // Normalize the date to ignore time
+-    final normalizedDay = DateTime(day.year, day.month, day.day);
+-    for (var key in _events.keys) {
+-      if (key.year == normalizedDay.year && key.month == normalizedDay.month && key.day == normalizedDay.day) {
+-        return _events[key]!;
+-      }
+-    }
+-    return [];
+-  }
+-
+-  @override
+-  void initState() {
+-    super.initState();
+-    _selectedDay = _focusedDay;
++  final EventController<Map<String, dynamic>> _eventController = EventController<Map<String, dynamic>>();
++  List<String> _loadedDomains = [];
++
++  @override
++  void initState() {
++    super.initState();
+@@ -132,3 +115,3 @@
+         debugPrint('DEBUG: DOMAINS COUNT: ${domainsList.length}');
+-        _events.clear();
++        _eventController.removeWhere((e) => true); // Clear all
+         
+@@ -169,21 +152,14 @@
+                 final taskDate = now.add(Duration(days: i % 15));
+-                final dateKey = DateTime(taskDate.year, taskDate.month, taskDate.day);
+-                if (!_events.containsKey(dateKey)) {
+-                  _events[dateKey] = [];
+-                }
+-                _events[dateKey]!.add({
+-                  'domain': domainName,
+-                  'task': 'Đăng bài viết chuẩn SEO',
+-                  'time': '09:00 - 17:00',
+-                  'color': Colors.green, // done
+-                  'platform': 'web',
+-                  'status': 'done',
+-                });
++                
++                _eventController.add(CalendarEventData(
++                  date: taskDate,
++                  startTime: DateTime(taskDate.year, taskDate.month, taskDate.day, 9, 0),
++                  endTime: DateTime(taskDate.year, taskDate.month, taskDate.day, 17, 0),
++                  title: 'Đăng bài viết chuẩn SEO',
++                  description: domainName,
++                  color: Colors.green,
++                  event: {'platform': 'web'},
++                ));
+                 
+                 // Add a social share task
+-                _events[dateKey]!.add({
+-                  'domain': domainName,
+-                  'task': 'Share bài viết lên Facebook',
+-                  'time': '10:00 - 12:00',
+-                  'color': Colors.amber, // in_progress
+-                  'platform': 'facebook',
+-                  'status': 'in_progress',
+-                });
++                _eventController.add(CalendarEventData(
++                  date: taskDate,
++                  startTime: DateTime(taskDate.year, taskDate.month, taskDate.day, 10, 0),
++                  endTime: DateTime(taskDate.year, taskDate.month, taskDate.day, 12, 0),
++                  title: 'Share bài viết lên Facebook',
++                  description: domainName,
++                  color: Colors.amber,
++                  event: {'platform': 'facebook'},
++                ));
+                 allTasks.add({}); // just to increase count
+@@ -228,8 +204,2 @@
+             if (startDate != null) {
+-              final dateKey = DateTime(startDate.year, startDate.month, startDate.day);
+-              if (!_events.containsKey(dateKey)) {
+-                _events[dateKey] = [];
+-              }
+-              
+-              final startTimeStr = DateFormat('HH:mm').format(startDate);
+-              final endTimeStr = endDate != null ? DateFormat('HH:mm').format(endDate) : '17:00';
+-              final timeStr = '$startTimeStr - $endTimeStr';
+               
+@@ -244,9 +214,10 @@
+               
+-              _events[dateKey]!.add({
+-                'domain': domain,
+-                'task': taskObj['name'] ?? taskObj['title'] ?? 'Nhiệm vụ tự động',
+-                'time': timeStr,
+-                'color': taskColor,
+-                'platform': platform,
+-                'status': isDone ? 'done' : 'in_progress',
+-              });
++              _eventController.add(CalendarEventData(
++                date: startDate,
++                startTime: startDate,
++                endTime: endDate ?? startDate.add(const Duration(hours: 8)),
++                title: taskObj['name'] ?? taskObj['title'] ?? 'Nhiệm vụ tự động',
++                description: domain,
++                color: taskColor,
++                event: {'platform': platform, 'isDone': isDone},
++              ));
+             }
+@@ -272,130 +243,30 @@
+     
+-    final selectedEvents = _getEventsForDay(_selectedDay!);
+-
+-    return Column(
+-      children: [
+-        Container(
+-          margin: const EdgeInsets.all(12),
+-          decoration: BoxDecoration(
+-            color: Colors.white,
+-            borderRadius: BorderRadius.circular(16),
+-            border: Border.all(color: Colors.grey.shade200),
+-          ),
+-          child: TableCalendar(
+-            firstDay: DateTime.utc(2020, 10, 16),
+-            lastDay: DateTime.utc(2030, 3, 14),
+-            focusedDay: _focusedDay,
+-            selectedDayPredicate: (day) {
+-              return isSameDay(_selectedDay, day);
+-            },
+-            onDaySelected: (selectedDay, focusedDay) {
+-              setState(() {
+-                _selectedDay = selectedDay;
+-                _focusedDay = focusedDay;
+-              });
+-            },
+-            eventLoader: _getEventsForDay,
+-            calendarFormat: _calendarFormat,
+-            onFormatChanged: (format) {
+-              setState(() {
+-                _calendarFormat = format;
+-              });
+-            },
+-            calendarStyle: CalendarStyle(
+-              defaultDecoration: BoxDecoration(
+-                shape: BoxShape.rectangle,
+-                borderRadius: BorderRadius.circular(10),
+-              ),
+-              weekendDecoration: BoxDecoration(
+-                shape: BoxShape.rectangle,
+-                borderRadius: BorderRadius.circular(10),
+-              ),
+-              outsideDecoration: BoxDecoration(
+-                shape: BoxShape.rectangle,
+-                borderRadius: BorderRadius.circular(10),
+-              ),
+-              todayDecoration: BoxDecoration(
+-                color: AppColors.primary.withOpacity(0.2),
+-                shape: BoxShape.rectangle,
+-                borderRadius: BorderRadius.circular(10),
+-              ),
+-              selectedDecoration: BoxDecoration(
+-                color: AppColors.primary,
+-                shape: BoxShape.rectangle,
+-                borderRadius: BorderRadius.circular(10),
+-              ),
+-              markerDecoration: const BoxDecoration(
+-                color: Colors.orange,
+-                shape: BoxShape.circle,
+-              ),
+-              markersMaxCount: 3,
+-            ),
+-            headerStyle: HeaderStyle(
+-              formatButtonVisible: true,
+-              formatButtonDecoration: BoxDecoration(
+-                color: AppColors.primary.withOpacity(0.1),
+-                borderRadius: BorderRadius.circular(12),
+-              ),
+-              formatButtonTextStyle: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 13),
+-              titleCentered: true,
+-            ),
+-          ),
+-        ),
+-        Expanded(
+-          child: selectedEvents.isEmpty
+-              ? const Center(
+-                  child: Text(
+-                    'Không có lịch trình nào cho ngày này.',
+-                    style: TextStyle(color: AppColors.textSecondary),
+-                  ),
+-                )
+-              : ListView.builder(
+-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+-                  itemCount: selectedEvents.length,
+-                  itemBuilder: (context, index) {
+-                    final event = selectedEvents[index];
+-                    return Container(
+-                      margin: const EdgeInsets.only(bottom: 12),
+-                      decoration: BoxDecoration(
+-                        color: event['color'].withOpacity(0.05),
+-                        borderRadius: BorderRadius.circular(12),
+-                        border: Border.all(color: event['color'].withOpacity(0.3)),
+-                        boxShadow: [
+-                          BoxShadow(
+-                            color: Colors.black.withOpacity(0.02),
+-                            blurRadius: 5,
+-                            offset: const Offset(0, 2),
+-                          ),
+-                        ],
+-                      ),
+-                      child: ListTile(
+-                        leading: Container(
+-                          width: 40,
+-                          height: 40,
+-                          decoration: BoxDecoration(
+-                            color: event['color'].withOpacity(0.2),
+-                            shape: BoxShape.circle,
+-                          ),
+-                          child: Center(
+-                            child: Text(
+-                              '${index + 1}',
+-                              style: TextStyle(
+-                                color: event['color'] == Colors.amber ? Colors.orange.shade800 : event['color'],
+-                                fontWeight: FontWeight.bold,
+-                                fontSize: 16,
+-                              ),
+-                            ),
+-                          ),
+-                        ),
+-                        title: Text(
+-                          event['task'],
+-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+-                          maxLines: 2,
+-                          overflow: TextOverflow.ellipsis,
+-                        ),
+-                        subtitle: Padding(
+-                          padding: const EdgeInsets.only(top: 6.0),
+-                          child: Row(
+-                            children: [
+-                              const Icon(Icons.access_time, size: 12, color: Colors.grey),
+-                              const SizedBox(width: 4),
+-                              Text(
+-                                event['time'],
+-                                style: const TextStyle(color: Colors.grey, fontSize: 11, fontWeight: FontWeight.bold),
+-                              ),
+-                              const SizedBox(width: 8),
+-                              const Text('•', style: TextStyle(color: Colors.grey, fontSize: 11)),
+-                              const SizedBox(width: 8),
+-                              const Icon(Icons.language, size: 12, color: Colors.grey),
+-                              const SizedBox(width: 4),
+-                              Expanded(
+-                                child: Text(
+-                                  event['domain'],
+-                                  style: const TextStyle(color: Colors.grey, fontSize: 11),
+-                                  overflow: TextOverflow.ellipsis,
+-                                ),
+-                              ),
+-                            ],
+-                          ),
+-                        ),
+-                      ),
+-                    );
+-                  },
+-                ),
+-        ),
+-      ],
++    return CalendarControllerProvider<Map<String, dynamic>>(
++      controller: _eventController,
++      child: WeekView<Map<String, dynamic>>(
++        controller: _eventController,
++        eventTileBuilder: (date, events, boundry, start, end) {
++          if (events.isEmpty) return const SizedBox.shrink();
++          final event = events[0];
++          return Container(
++            decoration: BoxDecoration(
++              color: event.color,
++              borderRadius: BorderRadius.circular(4),
++            ),
++            padding: const EdgeInsets.all(4),
++            child: Column(
++              crossAxisAlignment: CrossAxisAlignment.start,
++              children: [
++                Text(
++                  event.title,
++                  style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
++                  maxLines: 2,
++                  overflow: TextOverflow.ellipsis,
++                ),
++                Text(
++                  event.description ?? '',
++                  style: const TextStyle(color: Colors.white, fontSize: 9),
++                  maxLines: 1,
++                  overflow: TextOverflow.ellipsis,
++                ),
++              ],
++            ),
++          );
++        },
++      ),
+     );

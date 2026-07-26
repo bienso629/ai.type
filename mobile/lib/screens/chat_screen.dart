@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'dart:convert';
 import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -13,6 +14,8 @@ import '../theme/app_styles.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'dart:typed_data';
 import 'dashboard_screen.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
+import 'package:http/http.dart' as http;
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key});
@@ -197,8 +200,10 @@ class _ChatScreenState extends State<ChatScreen> {
     print('DEBUG _sendMessage: text="$text"');
     if (text.isEmpty && _attachedFilePath == null) return;
 
+    final String questionText = text.isNotEmpty ? text : (_attachedFilePath != null ? 'File đính kèm' : 'AI Agent Chat');
+
     final Map<String, dynamic> newMessage = {
-      'question': text, 
+      'question': questionText, 
       'answer': '', 
       'loading': true, 
       'cancelled': false,
@@ -386,7 +391,7 @@ class _ChatScreenState extends State<ChatScreen> {
           }
           allMessages.add(msgMap);
         }
-        allMessages.add({'role': 'user', 'text': text});
+        allMessages.add({'role': 'user', 'text': text.isNotEmpty ? text : (fileToSend != null ? 'File đính kèm' : 'AI Agent Chat')});
         
         Map<String, dynamic> currentModelMap = {'role': 'model', 'text': answerText};
         if (newMessage['imageBase64'] != null) {
@@ -401,7 +406,10 @@ class _ChatScreenState extends State<ChatScreen> {
             originalQuestion = lastMsg['question'].toString();
           }
         }
-        final saveRes = await ApiService.saveChatGpt(originalQuestion, answerText, id: dbId, rev: dbRev, conversationId: agentConversationId, messages: allMessages);
+        if (originalQuestion.trim().isEmpty) {
+          originalQuestion = fileToSend != null ? 'File đính kèm' : 'AI Agent Chat';
+        }
+        final saveRes = await ApiService.saveChatGpt(originalQuestion, answerText, id: dbId, rev: dbRev, conversationId: agentConversationId, messages: dbId != null ? allMessages : null);
         if (saveRes != null && saveRes['success'] == true && saveRes['data'] != null) {
           final newId = saveRes['data']['_id'] ?? saveRes['data']['id'];
           final newRev = saveRes['data']['_rev'] ?? saveRes['data']['rev'];
@@ -487,11 +495,19 @@ class _ChatScreenState extends State<ChatScreen> {
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
-            icon: const Icon(Icons.history, color: Colors.orange),
+            icon: const FaIcon(FontAwesomeIcons.clockRotateLeft, color: Colors.orange, size: 20),
             tooltip: 'Lịch sử hội thoại',
             onPressed: () {
-    showModalBottomSheet(
-      context: context,
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (context) => const Center(child: CircularProgressIndicator()),
+              );
+              _loadHistory().then((_) {
+                if (!mounted) return;
+                Navigator.pop(context); // close dialog
+                showModalBottomSheet(
+                  context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
@@ -602,10 +618,11 @@ class _ChatScreenState extends State<ChatScreen> {
         );
       },
     );
-  }
+  });
+}
           ),
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: AppColors.primary),
+            icon: const FaIcon(FontAwesomeIcons.penToSquare, color: AppColors.primary, size: 20),
             tooltip: 'Hội thoại mới',
             onPressed: () {
               setState(() {
@@ -624,14 +641,18 @@ class _ChatScreenState extends State<ChatScreen> {
               Expanded(
                 child: _isLoading 
                     ? const Center(child: CircularProgressIndicator())
-                    : ListView.builder(
-                        reverse: true,
-                        padding: const EdgeInsets.all(16),
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _messages[index];
-                          return _buildMessagePair(msg);
-                        },
+                    : Align(
+                        alignment: Alignment.topCenter,
+                        child: ListView.builder(
+                          shrinkWrap: true,
+                          reverse: true,
+                          padding: const EdgeInsets.all(16),
+                          itemCount: _messages.length,
+                          itemBuilder: (context, index) {
+                            final msg = _messages[index];
+                            return _buildMessagePair(msg);
+                          },
+                        ),
                       ),
               ),
               _buildInputArea(),
@@ -692,22 +713,70 @@ class _ChatScreenState extends State<ChatScreen> {
         // Question bubble
         Align(
           alignment: Alignment.centerRight,
-          child: Container(
-            margin: const EdgeInsets.only(bottom: 12, left: 40),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: AppColors.primary,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Container(
+                margin: const EdgeInsets.only(bottom: 4, left: 40),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                decoration: const BoxDecoration(
+                  color: AppColors.primary,
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(16),
+                    topRight: Radius.circular(16),
+                    bottomLeft: Radius.circular(16),
+                    bottomRight: Radius.circular(4),
+                  ),
+                ),
+                child: Text(
+                  msg['question'] ?? '',
+                  style: const TextStyle(color: Colors.white, fontSize: 15),
+                ),
               ),
-            ),
-            child: Text(
-              msg['question'] ?? '',
-              style: const TextStyle(color: Colors.white, fontSize: 15),
-            ),
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12, right: 4),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    InkWell(
+                      onTap: () {
+                        Clipboard.setData(ClipboardData(text: msg['question'] ?? ''));
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã sao chép')));
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.copy, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text('Copy', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    InkWell(
+                      onTap: () {
+                        _controller.text = msg['question'] ?? '';
+                        _sendMessage();
+                      },
+                      child: Padding(
+                        padding: const EdgeInsets.all(4.0),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.refresh, size: 14, color: Colors.grey),
+                            const SizedBox(width: 4),
+                            Text('Hỏi lại', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
           ),
         ),
         // Answer bubble
@@ -859,33 +928,40 @@ class _ChatScreenState extends State<ChatScreen> {
                                     child: Stack(
                                       children: [
                                         imageWidget,
-                                        if (uri.scheme == 'data')
-                                          Positioned(
-                                            top: 8,
-                                            right: 8,
-                                            child: InkWell(
-                                              onTap: () async {
-                                                try {
+                                        Positioned(
+                                          top: 8,
+                                          right: 8,
+                                          child: InkWell(
+                                            onTap: () async {
+                                              try {
+                                                await Permission.storage.request();
+                                                await Permission.photos.request();
+                                                Uint8List bytes;
+                                                if (uri.scheme == 'data') {
                                                   final String encoded = uri.toString().split(',').last;
-                                                  final bytes = base64Decode(encoded);
-                                                  final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
-                                                  
-                                                  await Gal.putImageBytes(bytes, name: name);
-                                                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
-                                                } catch (e) {
-                                                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
+                                                  bytes = base64Decode(encoded);
+                                                } else {
+                                                  final response = await http.get(uri);
+                                                  bytes = response.bodyBytes;
                                                 }
-                                              },
-                                              child: Container(
-                                                padding: const EdgeInsets.all(6),
-                                                decoration: BoxDecoration(
-                                                  color: Colors.black.withOpacity(0.6),
-                                                  shape: BoxShape.circle,
-                                                ),
-                                                child: const Icon(Icons.download, color: Colors.white, size: 18),
+                                                final name = 'sontinh_agent_${DateTime.now().millisecondsSinceEpoch}';
+                                                
+                                                await Gal.putImageBytes(bytes, name: name);
+                                                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã lưu ảnh về máy!')));
+                                              } catch (e) {
+                                                ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Không thể lưu ảnh: $e')));
+                                              }
+                                            },
+                                            child: Container(
+                                              padding: const EdgeInsets.all(6),
+                                              decoration: BoxDecoration(
+                                                color: Colors.black.withOpacity(0.6),
+                                                shape: BoxShape.circle,
                                               ),
+                                              child: const Icon(Icons.download, color: Colors.white, size: 18),
                                             ),
                                           ),
+                                        ),
                                       ],
                                     ),
                                   );

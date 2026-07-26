@@ -7,6 +7,7 @@ import 'domain_screen.dart';
 import 'tasks_screen.dart';
 import 'sitemap_screen.dart';
 import 'dictionary_screen.dart';
+import 'auto_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -281,6 +282,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     description: 'Tương tác tự động để cải thiện độ phổ biến',
                     color: Colors.teal,
                     isActive: true,
+                    onTap: () {
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AutoScreen()));
+                    },
                   ),
               ],
             ),

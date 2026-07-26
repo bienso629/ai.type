@@ -84,7 +84,7 @@ class _DomainScreenState extends State<DomainScreen> {
         }
       }
 
-      final domainsResult = await ApiService.getAllDomains();
+      final domainsResult = await ApiService.getAllDomains(refresh: forceRefresh);
       if (domainsResult != null && domainsResult['success'] == true) {
         final List newDomains = List.from(domainsResult['data'] ?? []);
         _domains = newDomains.map((d) {
@@ -94,7 +94,7 @@ class _DomainScreenState extends State<DomainScreen> {
         }).toList();
       }
 
-      await _fetchStats();
+      await _fetchStats(refresh: forceRefresh);
     } catch (e) {
       print('Error loading domains: $e');
     } finally {
@@ -104,9 +104,9 @@ class _DomainScreenState extends State<DomainScreen> {
     }
   }
 
-  Future<void> _fetchStats() async {
+  Future<void> _fetchStats({bool refresh = false}) async {
     try {
-      final statsResult = await ApiService.getStatistics(_selectedYear);
+      final statsResult = await ApiService.getStatistics(_selectedYear, refresh: refresh);
       if (statsResult != null && statsResult['success'] == true) {
         final nodes = statsResult['data'] ?? [];
         if (nodes.length > 3) {
