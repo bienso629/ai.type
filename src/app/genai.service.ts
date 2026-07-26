@@ -292,6 +292,10 @@ export class GenaiService {
         const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
+        if (isAiAgentActive && !isVideoRequest) {
+            params.model = 'gemini-3.6-flash';
+        }
+
         if (isImageRequest && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
             if (!isAiAgentActive && this.isUModelverseEnabled()) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
@@ -497,9 +501,7 @@ export class GenaiService {
         let finalPrompt = promptText.trim() || 'Xin chào';
         
         if (params.config && params.config.responseModalities) {
-            if (params.config.responseModalities.includes('IMAGE')) {
-                finalPrompt = 'Bắt buộc tạo hình ảnh (Yêu cầu bắt buộc: Chất lượng Masterpiece, vô cùng sắc nét, chi tiết tinh xảo, hyperrealistic, high resolution): ' + finalPrompt;
-            } else if (params.config.responseModalities.includes('VIDEO')) {
+            if (params.config.responseModalities.includes('VIDEO')) {
                 finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
             }
         }
@@ -824,12 +826,14 @@ export class GenaiService {
                     }
                     
                     if (b64) {
-                        // Thay thế đường dẫn local bằng data URI để browser hiển thị được ngay lập tức
                         const ext = filePath.split('.').pop()?.toLowerCase() || 'jpeg';
                         const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
                         const dataUri = `data:${mime};base64,${b64}`;
                         replyText = replyText.replace(match[0], match[0].replace(match[1] + match[2], dataUri));
-                        if (!imageBase64) imageBase64 = b64; // Gán cho output parts
+                        
+                        if (!imageBase64) {
+                            imageBase64 = b64; // Gán cho output parts
+                        }
                         hasLocalImages = true;
                     }
                 } catch (e) {
@@ -862,10 +866,6 @@ export class GenaiService {
                 } catch (e) {
                     console.error('[AI Agent] Lỗi đọc file local cũ:', filePath, e);
                 }
-            }
-
-            if (imageBase64) {
-                replyText += `\n\n![Generated Image](data:image/jpeg;base64,${imageBase64})\n`;
             }
 
             const parts: any[] = [{ text: replyText }];
