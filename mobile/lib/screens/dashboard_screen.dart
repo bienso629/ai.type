@@ -219,10 +219,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
       ),
       floatingActionButton: Listener(
         onPointerDown: (_) {
-          _recordTimer = Timer(const Duration(seconds: 1), () {
-            setState(() {
-              _isRecording = true;
-            });
+          _recordTimer = Timer(const Duration(milliseconds: 500), () {
+            if (mounted) {
+              setState(() {
+                _isRecording = true;
+              });
+            }
           });
         },
         onPointerUp: (_) {
@@ -231,26 +233,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
             setState(() {
               _isRecording = false;
             });
-          }
-        },
-        onPointerCancel: (_) {
-          _recordTimer?.cancel();
-          if (_isRecording) {
-            setState(() {
-              _isRecording = false;
-            });
+            // Assume we'd go to ChatScreen with some recorded text or state if fully implemented
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
           }
         },
         child: FloatingActionButton(
-          backgroundColor: _isRecording ? Colors.red : AppColors.primary,
+          backgroundColor: AppColors.primary,
           onPressed: () {
-            if (!_isRecording) {
-              // Handle normal tap here
-            }
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
           },
           elevation: 4,
           shape: const CircleBorder(),
-          child: FaIcon(_isRecording ? FontAwesomeIcons.microphone : FontAwesomeIcons.plus, color: Colors.white, size: 20),
+          child: const Icon(Icons.add, color: Colors.white, size: 28),
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,

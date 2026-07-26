@@ -17,6 +17,7 @@ import { TranslocoCoreModule } from "app/core/transloco.module";
 import { ToastrModule, ToastNoAnimation, ToastNoAnimationModule } from 'ngx-toastr';
 import { AppComponent } from 'app/app.component';
 import { appRoutes } from 'app/app.routing';
+import { AiAgentFloatingButtonComponent } from './shared/ai-agent-floating-button/ai-agent-floating-button.component';
 
 // import function to register Swiper custom elements
 import { register } from 'swiper/element/bundle';
@@ -75,6 +76,7 @@ import { CustomRouteReuseStrategy } from './core/custom-route-reuse-strategy';
             progressBar: false,
             toastComponent: ToastNoAnimation,
         }),
+        AiAgentFloatingButtonComponent
     ],
     bootstrap: [
         AppComponent

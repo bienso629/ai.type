@@ -207,9 +207,11 @@ class _ActiveScreenState extends State<ActiveScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isActive = _activeInfo != null && _activeInfo!['user'] != null;
-    final String expirationDate = isActive ? _activeInfo!['user']['expirationDate'] ?? '' : '';
-    final String appToken = isActive ? _activeInfo!['user']['appToken'] ?? '' : '';
+    final String expirationDate = _activeInfo != null 
+        ? (_activeInfo!['user']?['expirationDate'] ?? _activeInfo!['expirationDate'] ?? '') 
+        : '';
+    final String appToken = _activeInfo != null && _activeInfo!['user'] != null ? _activeInfo!['user']['appToken'] ?? '' : '';
+    final bool isActive = appToken.isNotEmpty && appToken != 'default_app_token';
 
     String formattedExpiration = '';
     if (expirationDate.isNotEmpty) {

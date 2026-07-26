@@ -284,7 +284,7 @@ export class GenaiService {
                 const list = await (window as any).electronAPI.getPluginsStatus();
                 const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
                 if (aiAgent && aiAgent.enabled !== undefined) {
-                    isAiAgentActive = aiAgent.enabled || settingsRaw?.enableAiAgent === true;
+                    isAiAgentActive = aiAgent.enabled;
                 }
             } catch(e) {}
         }
@@ -292,18 +292,15 @@ export class GenaiService {
         const isVideoRequest = params.config?.responseModalities?.includes('VIDEO');
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
-        // Bắt buộc đổi sang Image Model nếu request là IMAGE (bảo vệ khỏi lỗi khi caller truyền gemini-3.5-flash cho tác vụ ảnh)
         if (isImageRequest && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
-            if (isAiAgentActive) {
-                params.model = 'gemini-3-pro-image';
-            } else if (this.isUModelverseEnabled()) {
+            if (!isAiAgentActive && this.isUModelverseEnabled()) {
                 params.model = this._umodelverseImageModel || 'dall-e-3';
-            } else {
+            } else if (!isAiAgentActive) {
                 params.model = 'imagen-3.0-generate-002';
             }
         } else if (!bypassModelOverride) {
             if (params.model === 'gemini-3.6-flash') {
-                if (this._umodelverseChatModel) {
+                if (!isAiAgentActive && this._umodelverseChatModel) {
                     params.model = this._umodelverseChatModel;
                 }
             } else if (
@@ -313,16 +310,8 @@ export class GenaiService {
                 params.model?.includes('image') ||
                 params.model?.includes('imagen')
             ) {
-                if (isAiAgentActive) {
-                    params.model = 'gemini-3-pro-image';
-                } else if (this.isUModelverseEnabled()) {
+                if (!isAiAgentActive && this.isUModelverseEnabled()) {
                     params.model = this._umodelverseImageModel || 'dall-e-3';
-                } else {
-                    // Do not override if the original model is already an image model and we are using Gemini API, 
-                    // or force it to the user's selected model if it is an image model.
-                    // Actually, the user's selected model is params.model, we can just leave it as is if we fallback to Gemini API Key.
-                    // Wait, previous code forced it to 'imagen-3.0-generate-002'. Let's keep it flexible or force to params.model if valid.
-                    // If it's valid, let's keep it.
                 }
             }
         }
@@ -341,13 +330,13 @@ export class GenaiService {
                     let hasImage = false;
                     if (isImageRequest && agentRes.candidates && agentRes.candidates.length > 0) {
                         for (const part of agentRes.candidates[0].content.parts) {
-                            if (part.inlineData) {
+                            if (part.inlineData || (part.text && (part.text.includes('![') || part.text.includes('<img') || part.text.includes('[LOCAL_IMAGE:')))) {
                                 hasImage = true;
                                 break;
                             }
                         }
                         if (!hasImage) {
-                            throw new Error("AI Agent không hỗ trợ tạo hoặc chỉnh sửa ảnh (không trả về inlineData).");
+                            console.warn("AI Agent không trả về ảnh trực tiếp (không có inlineData hoặc thẻ ảnh). Trả về text gốc.");
                         }
                     }
                     
@@ -506,6 +495,7 @@ export class GenaiService {
         }
 
         let finalPrompt = promptText.trim() || 'Xin chào';
+        
         if (params.config && params.config.responseModalities) {
             if (params.config.responseModalities.includes('IMAGE')) {
                 finalPrompt = 'Bắt buộc tạo hình ảnh (Yêu cầu bắt buộc: Chất lượng Masterpiece, vô cùng sắc nét, chi tiết tinh xảo, hyperrealistic, high resolution): ' + finalPrompt;
@@ -513,6 +503,7 @@ export class GenaiService {
                 finalPrompt = 'Bắt buộc tạo video: ' + finalPrompt;
             }
         }
+        
         let configRatio = (params.config as any)?.aspectRatio || (params.config as any)?.imageConfig?.aspectRatio;
         if (configRatio) {
             finalPrompt += `\n[Yêu cầu kỹ thuật: Tỉ lệ khung hình (Aspect Ratio) là ${configRatio}]`;
@@ -523,6 +514,7 @@ export class GenaiService {
                 finalPrompt += `\n[Yêu cầu kỹ thuật: Kích thước là ${imgConfig.imageSize}]`;
             }
         }
+        
         formData.append('prompt', finalPrompt);
         
         if (params.model) {
@@ -565,9 +557,9 @@ export class GenaiService {
         if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
             try {
                 const list = await (window as any).electronAPI.getPluginsStatus();
-                const aiAgent = list?.find(p => p.id === 'ai_agent');
-                if (aiAgent) {
-                    if (aiAgent.enabled) isAiAgentActive = true;
+                const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                if (aiAgent && aiAgent.enabled !== undefined) {
+                    isAiAgentActive = aiAgent.enabled;
                     if (aiAgent.apiKey) secretApiKey = aiAgent.apiKey;
                 }
             } catch(e) {}
@@ -581,7 +573,7 @@ export class GenaiService {
                 apiUrl = parts[0] + (parts[0].endsWith('/api/chat') ? '' : '/api/chat');
                 secretApiKey = parts[1] || 'type-vn-local-agent-2026';
             } else {
-                apiUrl = 'http://127.0.0.1:54321/api/chat';
+                apiUrl = 'https://sontinh.type.vn/api/chat';
             }
         } else {
             // Web / Mobile / Another Account fallback logic
@@ -800,24 +792,75 @@ export class GenaiService {
             
             localTTSQueue.play(true);
 
-            // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về tag [LOCAL_IMAGE: /path/to/file]
-            const match = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
-            if (match && match[1]) {
-                const filePath = match[1];
-                replyText = replyText.replace(match[0], '').trim(); // Xoá tag ra khỏi text
+            // Xử lý nạp ảnh từ Local Storage nếu AI Agent trả về thẻ ảnh markdown chứa đường dẫn local
+            // Phục vụ cho AGY CLI trả về ![caption](/absolute/path/to/file.jpg) hoặc file:///
+            const mdImageRegex = /!\[.*?\]\((file:\/\/\/|\/)([^\)]+)\)/g;
+            let match;
+            let hasLocalImages = false;
+            
+            while ((match = mdImageRegex.exec(replyText)) !== null) {
+                const prefix = match[1];
+                let filePath = match[2];
+                if (prefix === '/') filePath = '/' + filePath; // Khôi phục lại dấu / ở đầu nếu là absolute path
+                
                 try {
-                    const fileResp = await fetch('file://' + filePath);
-                    const blob = await fileResp.blob();
-                    imageBase64 = await new Promise((resolve) => {
-                        const reader = new FileReader();
-                        reader.onloadend = () => {
-                            const result = reader.result as string;
-                            resolve(result.split(',')[1]); // Lấy phần base64
-                        };
-                        reader.readAsDataURL(blob);
-                    });
+                    // Trong môi trường Web/Electron, fetch 'file://' có thể bị chặn.
+                    // Thử dùng API electron đọc file nếu có
+                    let b64 = '';
+                    if ((window as any).electronAPI && (window as any).electronAPI.readFileBase64) {
+                        b64 = await (window as any).electronAPI.readFileBase64(filePath);
+                    } else {
+                        // Fallback dùng fetch (chỉ chạy trong một số cấu hình Electron lỏng lẻo)
+                        const fileResp = await fetch('file://' + filePath);
+                        const blob = await fileResp.blob();
+                        b64 = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const result = reader.result as string;
+                                resolve(result.split(',')[1]); // Lấy phần base64
+                            };
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                    
+                    if (b64) {
+                        // Thay thế đường dẫn local bằng data URI để browser hiển thị được ngay lập tức
+                        const ext = filePath.split('.').pop()?.toLowerCase() || 'jpeg';
+                        const mime = ext === 'png' ? 'image/png' : 'image/jpeg';
+                        const dataUri = `data:${mime};base64,${b64}`;
+                        replyText = replyText.replace(match[0], match[0].replace(match[1] + match[2], dataUri));
+                        if (!imageBase64) imageBase64 = b64; // Gán cho output parts
+                        hasLocalImages = true;
+                    }
                 } catch (e) {
-                    console.error('[AI Agent] Lỗi đọc file local:', filePath, e);
+                    console.error('[AI Agent] Lỗi đọc file local từ thẻ markdown:', filePath, e);
+                }
+            }
+            
+            // Fallback tag cũ
+            const oldMatch = replyText.match(/\[LOCAL_IMAGE:\s*(.+?)\]/);
+            if (oldMatch && oldMatch[1]) {
+                const filePath = oldMatch[1];
+                replyText = replyText.replace(oldMatch[0], '').trim();
+                try {
+                    let b64 = '';
+                    if ((window as any).electronAPI && (window as any).electronAPI.readFileBase64) {
+                        b64 = await (window as any).electronAPI.readFileBase64(filePath);
+                    } else {
+                        const fileResp = await fetch('file://' + filePath);
+                        const blob = await fileResp.blob();
+                        b64 = await new Promise((resolve) => {
+                            const reader = new FileReader();
+                            reader.onloadend = () => {
+                                const result = reader.result as string;
+                                resolve(result.split(',')[1]);
+                            };
+                            reader.readAsDataURL(blob);
+                        });
+                    }
+                    if (b64) imageBase64 = b64;
+                } catch (e) {
+                    console.error('[AI Agent] Lỗi đọc file local cũ:', filePath, e);
                 }
             }
 
@@ -946,7 +989,10 @@ export class GenaiService {
     }
 
     private async generateChatUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
-        const overrideModel = params.model === 'gemini-3.6-flash' ? null : params.model;
+        let overrideModel = params.model;
+        if (overrideModel && (overrideModel.includes('gemini') || overrideModel === 'agent')) {
+            overrideModel = null;
+        }
         let targetModel = overrideModel || this._umodelverseChatModel || 'gpt-4o';
         if (targetModel === 'agent') {
             targetModel = this._umodelverseChatModel || 'gpt-4o';
@@ -1153,10 +1199,12 @@ export class GenaiService {
 
     private async generateImageUModelverse(url: string, headers: any, params: GenerateContentParameters): Promise<any> {
         let promptText = '';
-        let model = params.model || this._umodelverseImageModel || 'dall-e-3';
-        if (model === 'agent') {
-            model = this._umodelverseImageModel || 'dall-e-3';
+        
+        let overrideModel = params.model;
+        if (overrideModel === 'gemini-3-pro-image' || overrideModel === 'imagen-3.0-generate-002' || overrideModel === 'agent') {
+            overrideModel = null;
         }
+        let model = overrideModel || this._umodelverseImageModel || 'dall-e-3';
         let referenceBase64: string | null = null;
         if (params.contents && (params.contents as any).length > 0) {
             const firstContent = params.contents[0];
@@ -1528,10 +1576,11 @@ export class GenaiService {
 
         const url = this._umodelverseUrl;
         const key = this._umodelverseKey;
-        let model = overrideModel || this._umodelverseVideoModel || 'cogvideox-5b';
-        if (model === 'agent') {
-            model = this._umodelverseVideoModel || 'cogvideox-5b';
+        let model = overrideModel;
+        if (model && (model.includes('gemini') || model === 'agent')) {
+            model = null;
         }
+        model = model || this._umodelverseVideoModel || 'cogvideox-5b';
 
         // DEBUG: Hiển thị thông tin xác thực (che bớt key) để xác minh cấu hình
         const maskedKey = key ? `${key.substring(0, 8)}...${key.substring(key.length - 4)}` : '(EMPTY)';

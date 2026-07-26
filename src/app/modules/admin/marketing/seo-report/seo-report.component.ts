@@ -16,7 +16,7 @@ import { ColumnMode } from '@swimlane/ngx-datatable';
 import { WP2MDService } from 'app/modules/_services/wp2md';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute, Params } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 
 import { GenaiService } from 'app/genai.service';
@@ -111,6 +111,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     config: AppConfig;
     user: User;
     isLinear = false;
+    selectedIndex = 0;
 
     settings: any;
     secretKey: any;
@@ -1178,9 +1179,16 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         private router: Router,
         private _fuseConfigService: FuseConfigService,
         private multiAccountService: MultiAccountService,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private route: ActivatedRoute
     ) {
         this.titleService.setTitle(`báo cáo seo | ai.type - công cụ tạo content`);
+
+        this.route.queryParams.subscribe((params: Params) => {
+            if (params['tab']) {
+                this.selectedIndex = parseInt(params['tab'], 10);
+            }
+        });
 
         this._fuseConfigService.config$
             .pipe(takeUntil(this._unsubscribeAll))
@@ -1438,5 +1446,13 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(downloadUrl);
+    }
+
+    changetab(e: any) {
+        this.router.navigate([], {
+            relativeTo: this.route,
+            queryParams: { tab: e.index },
+            queryParamsHandling: 'merge'
+        });
     }
 }

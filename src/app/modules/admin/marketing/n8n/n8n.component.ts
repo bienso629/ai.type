@@ -95,6 +95,12 @@ export class AMXHComponent implements OnInit, OnDestroy {
     goToPanel(panel: string): void {
         this.selectedPanel = panel;
 
+        this.router.navigate([], {
+            relativeTo: this.activatedRoute,
+            queryParams: { panel: panel },
+            queryParamsHandling: 'merge'
+        });
+
         // Close the drawer on 'over' mode
         if (this.drawerMode === 'over') {
             this.drawer.close();
@@ -136,6 +142,8 @@ export class AMXHComponent implements OnInit, OnDestroy {
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.uuid && params.tab && params.user) {
                 this.detail(params.uuid, params.user, params.tab);
+            } else if (params && params.panel) {
+                this.selectedPanel = params.panel;
             }
         });
 

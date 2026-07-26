@@ -180,7 +180,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             });
     }
 
-    stopChatLoading(row: any) {
+    async stopChatLoading(row: any) {
         if (row) {
             row['chatLoading'] = false;
         }
@@ -193,7 +193,17 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             this.currentAudio = null;
         }
         
-        const isAiAgentEnabled = this.settings?.enableAiAgent === true;
+        let isAiAgentEnabled = this.settings?.enableAiAgent === true;
+        if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+            try {
+                const list = await (window as any).electronAPI.getPluginsStatus();
+                const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                if (aiAgent && aiAgent.enabled !== undefined) {
+                    isAiAgentEnabled = aiAgent.enabled;
+                }
+            } catch(e) {}
+        }
+        
         if (isAiAgentEnabled) {
             // Dừng tiến trình AI Agent cục bộ (port 54321)
             this._genaiService.cancelLocalAgent();
@@ -272,12 +282,21 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         });
     }
 
-    upload(e: any, isFollowUp: boolean = false, inputElement?: HTMLInputElement) {
+    async upload(e: any, isFollowUp: boolean = false, inputElement?: HTMLInputElement) {
         const file: File = e.target.files[0];
 
         if (file) {
             const settings = this.multiAccountService.getItem('settings');
-            const isAiAgentEnabled = settings?.enableAiAgent === true;
+            let isAiAgentEnabled = settings?.enableAiAgent === true;
+            if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+                try {
+                    const list = await (window as any).electronAPI.getPluginsStatus();
+                    const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                    if (aiAgent && aiAgent.enabled !== undefined) {
+                        isAiAgentEnabled = aiAgent.enabled;
+                    }
+                } catch(err) {}
+            }
 
             let filePath = (file as any).path;
             if ((window as any).electron && (window as any).electron.getPathForFile) {
@@ -620,7 +639,16 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             if (this.secretKey) {
                 // Đọc cài đặt
                 const settings = this.multiAccountService.getItem('settings');
-                const isAiAgentEnabled = settings?.enableAiAgent === true;
+                let isAiAgentEnabled = settings?.enableAiAgent === true;
+                if ((window as any).electronAPI && (window as any).electronAPI.getPluginsStatus) {
+                    try {
+                        const list = await (window as any).electronAPI.getPluginsStatus();
+                        const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
+                        if (aiAgent && aiAgent.enabled !== undefined) {
+                            isAiAgentEnabled = aiAgent.enabled;
+                        }
+                    } catch(err) {}
+                }
 
                 // Chuẩn bị tin nhắn của user
                 let systemContext = '';
@@ -1165,6 +1193,40 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 this.cdref.detectChanges();
                 this.scrollToBottom();
             };
+            // Intercept image generation requests
+            const lastMsgText = contents[contents.length - 1]?.parts?.[0]?.text?.toLowerCase() || '';
+            const isImageGen = lastMsgText.startsWith('tạo hình') || 
+                               lastMsgText.startsWith('vẽ') || 
+                               lastMsgText.startsWith('generate image') || 
+                               lastMsgText.startsWith('draw');
+                               
+            if (isImageGen) {
+                genConfig.responseModalities = ['IMAGE'];
+                
+                // Tiền xử lý prompt: Dịch sang tiếng Anh và thêm hướng dẫn như AI Writer
+                const promptForPrompt = `Dựa vào yêu cầu sau:
+"${contents[contents.length - 1].parts[0].text}"
+Hãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
+Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại.
+Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
+
+                try {
+                    const promptResponse = await this._genaiService.generateContent({
+                        model: 'gemini-3.6-flash',
+                        contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }],
+                        config: { bypassUModelverse: true } as any // Dùng bypass để lấy prompt nhanh bằng API thường
+                    });
+                    
+                    if (promptResponse && promptResponse.text) {
+                        let finalPrompt = promptResponse.text.trim();
+                        finalPrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
+                        // Ghi đè lại prompt cuối cùng để gửi đi
+                        contents[contents.length - 1].parts[0].text = finalPrompt;
+                    }
+                } catch(e) {
+                    console.error("Lỗi khi tạo prompt tiếng Anh cho ảnh:", e);
+                }
+            }
 
             const result = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',

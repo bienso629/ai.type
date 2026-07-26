@@ -423,7 +423,7 @@ class ApiService {
 
   static Future<String?> askGemini(String question, List<Map<String, dynamic>> history, String apiKey) async {
     try {
-      final apiUrl = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey');
+      final apiUrl = Uri.parse('https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent?key=$apiKey');
       
       final List<Map<String, dynamic>> contents = [];
       contents.addAll(history);
@@ -643,6 +643,61 @@ class ApiService {
       }
     } catch (e) {
       print('getAllTasks error: $e');
+    }
+    return null;
+  }
+
+  static Future<dynamic> addTask(Map<String, dynamic> taskData) async {
+    return _sendTaskRequest('/tasks/add', taskData);
+  }
+
+  static Future<dynamic> editTask(Map<String, dynamic> taskData) async {
+    return _sendTaskRequest('/tasks/edit', taskData);
+  }
+
+  static Future<dynamic> deleteTask(Map<String, dynamic> taskData) async {
+    return _sendTaskRequest('/tasks/delete', taskData);
+  }
+
+  static Future<dynamic> _sendTaskRequest(String endpoint, Map<String, dynamic> taskData) async {
+    final prefs = await SharedPreferences.getInstance();
+    final activeInfoStr = prefs.getString('active_info');
+    if (activeInfoStr == null) throw Exception('No active session');
+    
+    final activeInfo = jsonDecode(activeInfoStr);
+    final server = activeInfo['user']['server'];
+    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+    final url = Uri.parse('$baseUrl$endpoint');
+
+    Map<String, dynamic> dataForm = {
+      'username': activeInfo['user']['name'],
+      'task': taskData,
+      'year': 2023,
+      'appId': 'ai.typing',
+      'appToken': activeInfo['user']['appToken'],
+      'server': server,
+    };
+
+    final encryptedParams = encryptAES(dataForm);
+
+    try {
+      final response = await http.post(
+        url,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+        },
+        body: jsonEncode({'params': encryptedParams}),
+      );
+
+      if (response.statusCode == 200) {
+        print('DEBUG _sendTaskRequest success: ${response.body}');
+        return jsonDecode(response.body);
+      } else {
+        print('DEBUG _sendTaskRequest failed: ${response.statusCode} - ${response.body}');
+      }
+    } catch (e) {
+      print('Task request error: $e');
     }
     return null;
   }
@@ -926,9 +981,19 @@ class ApiService {
       if (response.statusCode == 200) {
         final jsonResponse = jsonDecode(response.body);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
-          // Kích hoạt thành công, update active_info với appToken
-          activeInfo['user']['appToken'] = jsonResponse['data']['appToken'];
-          // Cũng lưu thêm các field khác nếu cần
+          final data = jsonResponse['data'];
+          
+          // Merge all data from response into user object
+          if (data is Map) {
+            for (var key in data.keys) {
+              activeInfo['user'][key] = data[key];
+            }
+          }
+          
+          if (data['expirationDate'] != null) {
+            activeInfo['expirationDate'] = data['expirationDate'];
+          }
+          
           await prefs.setString('active_info', jsonEncode(activeInfo));
           return true;
         }

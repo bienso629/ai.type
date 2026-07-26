@@ -56,7 +56,7 @@
 		</fuse-alert>
 
 		<!-- CONTENT GOES HERE -->
-		<mat-tab-group class="mt-0" mat-stretch-tabs="false" mat-align-tabs="center" [animationDuration]="'0'">
+		<mat-tab-group (selectedTabChange)="changetab($event)" [selectedIndex]="selectedIndex" class="mt-0" mat-stretch-tabs="false" mat-align-tabs="center" [animationDuration]="'0'">
 			<mat-tab label="Dàn ý">
 				<div class="p-4 w-full">
 					<div class="flex items-center w-full bg-slate-50 hover:bg-slate-100 p-2 mb-2 rounded-md"

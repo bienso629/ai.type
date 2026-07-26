@@ -1,26 +1,34 @@
 import { Injectable, isDevMode } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { FuseConfigService } from '@fuse/services/config';
+import { AppConfig } from 'app/core/config/app.config';
 
 @Injectable({
     providedIn: 'root'
 })
 export class N8nService {
+    private config: AppConfig;
+
+    constructor(private http: HttpClient, private _fuseConfigService: FuseConfigService) {
+        this._fuseConfigService.config$.subscribe((config: AppConfig) => {
+            this.config = config;
+        });
+    }
+
     // URL API quản lý (Create/Delete/Activate Workflow)
     private get API_BASE_URL(): string {
-        return 'https://n8n.type.vn/api/v1';
+        return (this.config?.settings?.['n8n'] || 'https://n8n.type.vn') + '/api/v1';
     }
 
     // URL Webhook để kích hoạt luồng chạy (Trigger)
     private get WEBHOOK_BASE_URL(): string {
-        return 'https://n8n.type.vn/webhook';
+        return (this.config?.settings?.['n8n'] || 'https://n8n.type.vn') + '/webhook';
     }
 
     private get N8N_TOKEN(): string {
         return 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmYTEwNDEyZC00OGMxLTQ2ZjQtYTU0Yy0xODFjNzRhNjU2NWIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwianRpIjoiNGVlNDRhNjktMTFhYS00ODk1LWE4MWItM2RiNDllMDczZmQzIiwiaWF0IjoxNzc4MDc3Mzg0fQ.TUAw1E5_KveZOdAj_NDpJgoOkNmaHQrA2hew-BpkdT4'; // Production Token
     }
-
-    constructor(private http: HttpClient) { }
 
     // --- HELPER: Lấy headers xác thực cho API quản lý ---
     private getHeaders(): HttpHeaders {

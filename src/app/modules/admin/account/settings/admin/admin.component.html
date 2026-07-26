@@ -33,7 +33,7 @@
 }
 </style>
 <div class="w-full">
-    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" (selectedTabChange)="onTabChanged($event)">
+    <mat-tab-group class="border rounded-lg" animationDuration="0ms" mat-stretch-tabs="false" mat-align-tabs="start" [selectedIndex]="selectedTabIndex" (selectedTabChange)="onTabChanged($event)">
 <mat-tab [label]="'app.member' | transloco">
             <div class="w-full">
                 <div class="flex flex-row items-center justify-end">

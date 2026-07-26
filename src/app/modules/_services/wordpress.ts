@@ -53,6 +53,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -78,6 +81,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
@@ -112,6 +118,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
@@ -147,6 +156,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
@@ -203,6 +215,10 @@ export class WordpressService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
         
+        if (typeof domain === 'string' && !domain.startsWith('http')) {
+            domain = 'https://' + domain;
+        }
+
         let dataForm: any = {
              domain: domain,
              b64: b64,
@@ -238,6 +254,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
@@ -265,6 +284,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -290,6 +312,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
@@ -317,6 +342,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -330,6 +358,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
@@ -389,6 +420,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -414,6 +448,9 @@ export class WordpressService {
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
         dataForm.year = this.year;
+        if (dataForm.domain && typeof dataForm.domain === 'string' && !dataForm.domain.startsWith('http')) {
+            dataForm.domain = 'https://' + dataForm.domain;
+        }
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
