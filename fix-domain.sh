@@ -1,1 +1,0 @@
-sed -i 's/d.domain === targetDomainStr/d.domain.replace(\/^\(https?:\\\/\\\/\)\|\(www\\.\)\/g, "").split("\\\/")[0] === targetDomainStr.replace(\/^\(https?:\\\/\\\/\)\|\(www\\.\)\/g, "").split("\\\/")[0]/g' src/app/modules/admin/content/ai-writer/ai-writer.component.ts
