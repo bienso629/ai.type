@@ -75,15 +75,17 @@
             [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true" [externalSorting]="true"
             [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)" [headerHeight]="50"
             [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+
             <!-- Column Templates -->
             <ngx-datatable-column [width]="30" [sortable]="false" [canAutoResize]="false" [draggable]="false"
                 [resizeable]="false" [headerCheckboxable]="true" [checkboxable]="true"></ngx-datatable-column>
+
 
             <!-- Column Templates -->
             <ngx-datatable-column name="{{ 'app.task_id' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-self-stretch">
+                    <div *ngIf="row && row.uuid" class="flex items-center justify-self-stretch">
                         <mat-label matTooltipPosition="above" [matTooltip]="'app.continue_editing_content' | transloco"
                             [routerLink]="['/ai-writer', user.name, row.uuid]"
                             class="h-7 leading-7 items-center cursor-pointer px-3 rounded-full text-sm font-semibold bg-primary-300 hover:bg-primary-400 text-primary-800">
@@ -97,7 +99,7 @@
             <ngx-datatable-column name="{{ 'app.title' | transloco }}" [width]="300" [sortable]="false" [canAutoResize]="true"
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row">
+                    <ng-container *ngIf="row && row.uuid">
                         <div class="flex items-center w-full">
                             <p class="font-normal truncate flex-1" [matTooltip]="row.title">{{row.title}}</p>
                         </div>
@@ -109,7 +111,7 @@
             <ngx-datatable-column name="WordPress" [width]="200" [sortable]="false" [canAutoResize]="true"
                 [draggable]="false" [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center gap-1 w-full overflow-x-auto h-full"
+                    <div *ngIf="row && row.uuid" class="flex items-center gap-1 w-full overflow-x-auto h-full"
                         style="scrollbar-width: none; -ms-overflow-style: none; mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%); -webkit-mask-image: linear-gradient(to right, black calc(100% - 30px), transparent 100%);">
                         <ng-container *ngIf="row?.source?.wpPosts && row?.source?.wpPosts?.length > 0; else singleWP">
                             <span *ngFor="let wp of row?.source?.wpPosts; let i = index" matTooltipPosition="above"
@@ -145,7 +147,7 @@
             <ngx-datatable-column name="{{ 'app.usage' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-self-stretch">
+                    <div *ngIf="row && row.uuid" class="flex items-center justify-self-stretch">
                         <mat-label *ngIf="row.used < 0"
                             class="h-7 leading-7 items-center px-3 rounded-full text-sm font-semibold bg-yellow-300 hover:bg-yellow-400 text-white">{{ 'app.unconfirmed_1' | transloco }}</mat-label>
                         <mat-label *ngIf="row.used >= 0">{{row.used}} {{ 'app.times' | transloco }}</mat-label>
@@ -157,7 +159,7 @@
             <ngx-datatable-column name="{{ 'app.last_modified' | transloco }}" [width]="150" [sortable]="false" [canAutoResize]="false"
                 [draggable]="false" [resizeable]="false">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <ng-container *ngIf="row">
+                    <ng-container *ngIf="row && row.uuid">
                         {{row.updatedAt | timeago}}
                     </ng-container>
                 </ng-template>
@@ -168,7 +170,7 @@
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <!--Using ng-option and for loop-->
-                    <ng-select *ngIf="row" [(ngModel)]="row.authors" [multiple]="true" [closeOnSelect]="false"
+                    <ng-select *ngIf="row && row.uuid" [(ngModel)]="row.authors" [multiple]="true" [closeOnSelect]="false"
                         [searchable]="false" appendTo="body" bindLabel="username" bindValue="username"
                         [placeholder]="'app.invite_to_write' | transloco" class="w-full custom-select-archives">
                         <!-- <ng-template ng-header-tmp>
@@ -192,7 +194,7 @@
             <ngx-datatable-column name="" [sortable]="false" [canAutoResize]="true" [draggable]="false"
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
-                    <div *ngIf="row" class="flex items-center justify-end gap-1 w-full pr-2">
+                    <div *ngIf="row && row.uuid" class="flex items-center justify-end gap-1 w-full pr-2">
                         <button *ngIf="permissionScriptCommentLike" mat-icon-button [routerLink]="['/amxh']"
                             [routerLink]="['/amxh']" [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
                             class="transition-colors">
