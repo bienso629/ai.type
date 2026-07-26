@@ -738,6 +738,25 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         if (isFull) currentStreamedText = chunk;
                         else currentStreamedText += chunk;
                         
+                        let tempText = currentStreamedText;
+                        const mdMatches = [...tempText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/g)];
+                        if (mdMatches.length > 0) {
+                            newRow.inlineData = { mimeType: mdMatches[0][2], data: mdMatches[0][3] };
+                            for (const m of mdMatches) {
+                                tempText = tempText.replace(m[0], '').trim();
+                            }
+                        }
+                        const htmlMatches = [...tempText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gi)];
+                        if (htmlMatches.length > 0) {
+                            if (!newRow.inlineData) {
+                                newRow.inlineData = { mimeType: htmlMatches[0][2], data: htmlMatches[0][3] };
+                            }
+                            for (const m of htmlMatches) {
+                                tempText = tempText.replace(m[0], '').trim();
+                            }
+                        }
+                        currentStreamedText = tempText;
+
                         newRow.answer = currentStreamedText;
                         if (newRow.messages.length === 1) {
                             newRow.messages.push({ role: 'model', text: currentStreamedText });
@@ -777,20 +796,46 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
 
                         let displayText = finalDisplayText;
                         let extractedInlineData: any = null;
-                        const match = displayText.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
-                        if (match) {
-                            extractedInlineData = { mimeType: match[2], data: match[3] };
-                            displayText = displayText.replace(match[0], '').trim();
-                            finalDisplayText = displayText; // Xóa base64 khổng lồ khỏi chuỗi lưu DB
-                        }
                         
+                        // Extract and remove ALL dataUri markdown images
+                        const mdMatches = [...displayText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/g)];
+                        if (mdMatches.length > 0) {
+                            extractedInlineData = { mimeType: mdMatches[0][2], data: mdMatches[0][3] };
+                            for (const m of mdMatches) {
+                                displayText = displayText.replace(m[0], '').trim();
+                            }
+                        }
+
+                        // Extract and remove ALL dataUri HTML images (if any)
+                        const htmlMatches = [...displayText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gi)];
+                        if (htmlMatches.length > 0) {
+                            if (!extractedInlineData) {
+                                extractedInlineData = { mimeType: htmlMatches[0][2], data: htmlMatches[0][3] };
+                            }
+                            for (const m of htmlMatches) {
+                                displayText = displayText.replace(m[0], '').trim();
+                            }
+                        }
+
+                        finalDisplayText = displayText; // Xóa base64 khổng lồ khỏi chuỗi lưu DB
+                        
+                        // Kiểm tra xem text có chứa thẻ ảnh (Markdown url hoặc HTML) nào không
+                        const hasAnyImageTag = /!\[.*?\]\(.*?\)|<img[^>]+>/i.test(finalDisplayText);
+                        
+                        // Để tránh hiển thị đúp ảnh trên giao diện live (1 cái từ markdown, 1 cái từ inlineData),
+                        // ta sẽ ẩn thẻ ảnh trong text hiển thị live nếu đã có inlineData.
+                        let liveDisplayText = displayText;
+                        if (hasAnyImageTag && (extractedInlineData || (result.candidates && result.candidates[0]?.content?.parts?.some((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('image/'))))) {
+                             liveDisplayText = displayText.replace(/!\[.*?\]\(.*?\)/g, '').replace(/<img[^>]+>/gi, '').trim();
+                        }
+
                         // Cập nhật câu trả lời hiển thị ban đầu
-                        newRow.answer = displayText;
+                        newRow.answer = finalDisplayText;
 
                         if (newRow.messages.length === 1) {
-                             newRow.messages.push({ role: 'model', text: displayText });
+                             newRow.messages.push({ role: 'model', text: liveDisplayText });
                         } else {
-                             newRow.messages[1].text = displayText;
+                             newRow.messages[1].text = liveDisplayText;
                         }
                         const modelMsg = newRow.messages[1];
                         if (extractedInlineData) {
@@ -829,8 +874,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                             newRow.conversation_id = (result as any).conversation_id;
                         }
 
-                        // Tự động upload ảnh lên server nếu có để lưu vào CSDL
-                        if (modelMsg.inlineData && modelMsg.inlineData.mimeType && modelMsg.inlineData.mimeType.startsWith('image/')) {
+                        // Tự động upload ảnh lên server nếu có để lưu vào CSDL (CHỈ KHI CHƯA CÓ ẢNH NÀO TRONG TEXT)
+                        if (!hasAnyImageTag && modelMsg.inlineData && modelMsg.inlineData.mimeType && modelMsg.inlineData.mimeType.startsWith('image/')) {
                             try {
                                 let ext = 'png';
                                 if (modelMsg.inlineData.mimeType.includes('jpeg') || modelMsg.inlineData.mimeType.includes('jpg')) ext = 'jpg';

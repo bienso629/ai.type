@@ -157,11 +157,17 @@ class _LocalChatBottomSheetState extends State<_LocalChatBottomSheet> {
             final d = DateTime.parse(t['startDate']).toLocal();
             if (isExactDate && !isMonth) {
               if (d.year == targetYear && d.month == targetMonth && d.day == targetDay) {
-                deletionPayloads.add({ 'id': t['id'] ?? t['_id'], '_deleted': true, 'domain_id': t['domain_id'] ?? t['domain'] });
+                deletionPayloads.add({ 'id': t['id'] ?? t['_id'], '_id': t['_id'] ?? t['id'], '_deleted': true, 'domain_id': t['domain_id'] ?? t['domain'] });
               }
             } else {
-              if (d.year == targetYear && d.month == targetMonth && d.day >= DateTime.now().day) {
-                deletionPayloads.add({ 'id': t['id'] ?? t['_id'], '_deleted': true, 'domain_id': t['domain_id'] ?? t['domain'] });
+              if (d.year == targetYear && d.month == targetMonth) {
+                if (targetYear == DateTime.now().year && targetMonth == DateTime.now().month) {
+                  if (d.day >= DateTime.now().day) {
+                    deletionPayloads.add({ 'id': t['id'] ?? t['_id'], '_id': t['_id'] ?? t['id'], '_deleted': true, 'domain_id': t['domain_id'] ?? t['domain'] });
+                  }
+                } else {
+                  deletionPayloads.add({ 'id': t['id'] ?? t['_id'], '_id': t['_id'] ?? t['id'], '_deleted': true, 'domain_id': t['domain_id'] ?? t['domain'] });
+                }
               }
             }
           } catch(e) {}
@@ -170,7 +176,7 @@ class _LocalChatBottomSheetState extends State<_LocalChatBottomSheet> {
       
       if (isExactDate && !isMonth) {
           generateInstruction = '''- NẾU NGƯỜI DÙNG CHỈ MUỐN HỎI/XEM LỊCH (VD: "hôm nay làm gì", "xem lịch"): Đọc dữ liệu JSON bên trên và kể tên các công việc bằng chữ. Tuyệt đối KHÔNG TẠO task mới và KHÔNG XÓA task cũ. Phần block code JSON bắt buộc phải trả về mảng rỗng: ```json\n[]\n```.
-- NẾU NGƯỜI DÙNG YÊU CẦU SỬA/TẠO MỚI/LÊN LỊCH CHO 1 NGÀY CỤ THỂ: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày đó (không tạo cho ngày khác). KHÔNG CẦN trả về task cũ (không cần _deleted) vì hệ thống đã tự động dọn dẹp lịch.''';
+- NẾU NGƯỜI DÙNG YÊU CẦU SỬA/TẠO MỚI/LÊN LỊCH CHO 1 NGÀY CỤ THỂ: Bạn BẮT BUỘC chỉ tạo ĐÚNG [dailyTarget] task cho duy nhất ngày mục tiêu là ${targetYear}-${targetMonth.toString().padLeft(2, '0')}-${targetDay.toString().padLeft(2, '0')} (không tạo cho ngày khác). startDate và endDate BẮT BUỘC phải dùng ngày mục tiêu này. KHÔNG CẦN trả về task cũ (không cần _deleted) vì hệ thống đã tự động dọn dẹp lịch.''';
       } else {
           generateInstruction = '''- NẾU NGƯỜI DÙNG CHỈ MUỐN HỎI/XEM LỊCH (VD: "có lịch gì", "làm gì"): Đọc dữ liệu JSON bên trên và liệt kê công việc. Tuyệt đối KHÔNG TẠO task mới và KHÔNG XÓA task cũ. Trả về JSON rỗng ```json\n[]\n```.
 - NẾU NGƯỜI DÙNG YÊU CẦU TẠO/SỬA/LÊN LỊCH CHO THÁNG: Bạn BẮT BUỘC phải tạo CHÍNH XÁC tổng cộng [missingTasks] task (phân bổ đều cho [remainingDays] ngày làm việc còn lại, mỗi ngày khoảng [dailyTarget] task). TỔNG SỐ TASK PHẢI TẠO TUYỆT ĐỐI BẰNG [missingTasks]! KHÔNG CẦN trả về task cũ (không cần _deleted) vì hệ thống đã tự động dọn dẹp lịch.''';
@@ -1044,6 +1050,105 @@ class _ScheduleTabState extends State<_ScheduleTab> {
                         setState(() {
                           _focusedDay = date;
                         });
+                      },
+                      onCellTap: (events, date) {
+                        final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+                        showModalBottomSheet(
+                          context: context,
+                          backgroundColor: Colors.white,
+                          showDragHandle: true,
+                          isScrollControlled: true,
+                          shape: const RoundedRectangleBorder(
+                            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                          ),
+                          builder: (context) {
+                            return StatefulBuilder(
+                              builder: (BuildContext context, StateSetter setModalState) {
+                                final isDisabled = _disabledDateStrings.contains(dateStr);
+                                return Container(
+                                  constraints: BoxConstraints(
+                                    maxHeight: MediaQuery.of(context).size.height * 0.8,
+                                  ),
+                                  child: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Padding(
+                                        padding: const EdgeInsets.fromLTRB(16.0, 0.0, 16.0, 16.0),
+                                        child: Row(
+                                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                'Công việc ngày ${date.day}/${date.month}',
+                                                style: const TextStyle(
+                                                  fontSize: 18,
+                                                  fontWeight: FontWeight.bold,
+                                                  color: AppColors.textPrimary,
+                                                ),
+                                              ),
+                                            ),
+                                            Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                const Text('Bỏ qua', style: TextStyle(fontSize: 14, color: AppColors.textSecondary)),
+                                                Checkbox(
+                                                  value: isDisabled,
+                                                  onChanged: (val) {
+                                                    setModalState(() {
+                                                      if (val == true) {
+                                                        _disabledDateStrings.add(dateStr);
+                                                      } else {
+                                                        _disabledDateStrings.remove(dateStr);
+                                                      }
+                                                    });
+                                                    setState(() {});
+                                                    _saveDisabledDates();
+                                                  },
+                                                ),
+                                              ],
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      const Divider(height: 1),
+                                      Flexible(
+                                        child: events.isEmpty
+                                          ? const Padding(
+                                              padding: EdgeInsets.all(32.0),
+                                              child: Text('Không có công việc nào', style: TextStyle(color: Colors.grey)),
+                                            )
+                                          : ListView.separated(
+                                          shrinkWrap: true,
+                                          itemCount: events.length,
+                                          separatorBuilder: (_, __) => const Divider(height: 1),
+                                          itemBuilder: (context, index) {
+                                            final e = events[index];
+                                            return ListTile(
+                                              leading: Container(
+                                                width: 12,
+                                                height: 12,
+                                                decoration: BoxDecoration(
+                                                  color: e.color,
+                                                  shape: BoxShape.circle,
+                                                ),
+                                              ),
+                                              title: Text(e.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
+                                              subtitle: e.description != null && e.description!.isNotEmpty ? Text(e.description!, style: const TextStyle(fontSize: 12)) : null,
+                                              trailing: Text(
+                                                '${e.startTime?.hour.toString().padLeft(2, '0') ?? '00'}:${e.startTime?.minute.toString().padLeft(2, '0') ?? '00'} - ${e.endTime?.hour.toString().padLeft(2, '0') ?? '00'}:${e.endTime?.minute.toString().padLeft(2, '0') ?? '00'}',
+                                                style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                              ),
+                                            );
+                                          },
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                );
+                              }
+                            );
+                          },
+                        );
                       },
                       cellBuilder: (date, events, isToday, isInMonth, _) {
                         final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
