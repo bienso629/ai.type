@@ -2035,7 +2035,17 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         let savedCount = 0;
         
         drafts.forEach(async draft => {
-            let domainData = this.items?.find((i: any) => i.name === draft.domain)?.domainData || { domain: draft.domain || '' };
+            const draftDomainName = (draft.domain || '').toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
+            let matchedItem = this.items?.find((i: any) => {
+                const dName = (i.name || '').toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
+                return dName === draftDomainName;
+            });
+            if (!matchedItem && this.items && this.items.length > 0) {
+                matchedItem = this.items[0]; // Fallback to first domain if not found
+            }
+            
+            let domainData = matchedItem?.domainData || { domain: draft.domain || '' };
+            
             let archivePayload = {
                 title: draft.title || 'Bài viết mới',
                 url: 'draft_' + Date.now() + Math.floor(Math.random() * 1000),
@@ -2044,7 +2054,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                     img: [], h: [], a: [], p: [], source: [],
                     iframe: [], pre: [ draft.image_prompt || '' ], type: 'html', prompt: [ draft.title ],
                     synonyms: [], keyword: '', wp_post_id: null,
-                    wp_domain: domainData.domain, wpPosts: [],
+                    wp_domain: domainData.domain || draft.domain, wpPosts: [],
                     nodes: [], totalNodes: 1, wp_task_id: null
                 },
                 done: [ draft.content || '' ],
@@ -2070,19 +2080,31 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                 if (res && res.success) {
                     savedCount++;
                     
-                    // Mark task as done if task_id is provided
-                    if (draft.task_id && domainData.plan) {
-                        let targetTask = domainData.plan.find((t: any) => t.id == draft.task_id);
+                    // Mark task as done if task_id is provided or title matches
+                    if (domainData.plan) {
+                        let targetTask = null;
+                        if (draft.task_id) {
+                            targetTask = domainData.plan.find((t: any) => t.id == draft.task_id || t._id == draft.task_id);
+                        }
+                        
+                        if (!targetTask) {
+                            // Fallback matching by title
+                            const dTitle = (draft.title || '').toLowerCase().trim();
+                            targetTask = domainData.plan.find((t: any) => {
+                                const tName = (t.name || '').toLowerCase().trim();
+                                return tName && dTitle && (tName.includes(dTitle) || dTitle.includes(tName));
+                            });
+                        }
+                        
                         if (targetTask) {
                             targetTask.done = true;
                             // Trigger view update
-                            const itemIndex = this.items.findIndex(it => it.name === draft.domain);
-                            if (itemIndex > -1) {
-                                this.items[itemIndex].childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
+                            if (matchedItem) {
+                                matchedItem.childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
                                     ...task,
                                     startDate: new Date(task.startDate),
                                     endDate: new Date(task.endDate || new Date(task.startDate).setHours(17, 0, 0, 0))
-                                })), this.items[itemIndex].id);
+                                })), matchedItem.id);
                                 this.items = [...this.items];
                                 this.cd.detectChanges();
                             }
@@ -2534,6 +2556,7 @@ LƯU Ý VỀ CẬP NHẬT DỮ LIỆU:
 - Để tạo task mới (chèn thêm vào lịch hiện tại): TUYỆT ĐỐI KHÔNG trả về trường "id" (hệ thống sẽ tự cấp).
 - Nếu sửa task cụ thể: giữ nguyên trường "id" của task đó.
 - Nếu muốn xóa task cụ thể: trả về thuộc tính "_deleted": true kèm theo "id" của task đó.
+- Nếu muốn đánh dấu hoàn thành task cụ thể: trả về thuộc tính "done": true kèm theo "id" của task đó.
 QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
 - Hệ thống người dùng đang ở múi giờ: GMT${tzString}. Bạn phải quy đổi múi giờ nếu người dùng yêu cầu múi giờ khác.
 - TẤT CẢ các task trong cùng một ngày BẮT BUỘC phải TRÙNG GIỜ VỚI NHAU (đều có startDate là 08:00:00 và endDate là 17:00:00). TUYỆT ĐỐI KHÔNG ĐƯỢC rải rác giờ (ví dụ task 1 lúc 8h, task 2 lúc 9h là SAI). NẾU TẠO 10 TASK CHO 1 NGÀY THÌ CẢ 10 TASK ĐỀU PHẢI GHI ĐÚNG 08:00:00 ĐẾN 17:00:00.
@@ -3064,12 +3087,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 return dName === domainName;
             });
             
-            if (existingDomainIndex === -1) {
-                existingDomainIndex = this.items.findIndex(d => {
-                    const dName = d.name.toLowerCase().trim().replace(/https?:\/\//, '').replace(/\/$/, '');
-                    return dName.includes(domainName) || domainName.includes(dName);
-                });
-            }
+            // Đã xóa fallback dùng includes() để tránh nhầm lẫn subdomain (ví dụ: type.vn và ai.type.vn)
             
             // Fallback nếu không tìm thấy domain khớp
             if (existingDomainIndex === -1 && this.items.length > 0) {
@@ -3141,7 +3159,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             const eDate = this.getNextValidDate(parseDateStr(t.endDate));
                             eDate.setHours(17, 0, 0, 0);
 
-                            const mappedTask = {
+                            const mappedTask: any = {
                                 id: t.id || Math.random().toString(36).substring(7),
                                 name: t.name || t.title,
                                 meta: t.meta || '',
@@ -3152,6 +3170,10 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 canDragX: true,
                                 canDragY: true
                             };
+                            
+                            if (typeof t.done !== 'undefined') {
+                                mappedTask.done = t.done;
+                            }
                             
                             if (existingIndex > -1) {
                                 newTasks[existingIndex] = { ...newTasks[existingIndex], ...mappedTask };

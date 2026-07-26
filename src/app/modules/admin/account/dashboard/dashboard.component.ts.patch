@@ -1,0 +1,20 @@
+--- dashboard.component.ts
++++ dashboard.component.ts
+@@ -318,6 +318,17 @@
+                             }
+                         }
+ 
++                        // Convert cumulative to monthly delta
++                        for (const normalized of Object.keys(domainStatsData)) {
++                            for (let m = 12; m >= 1; m--) {
++                                if (domainStatsData[normalized][m] !== undefined) {
++                                    let prev = 0;
++                                    for (let pm = m - 1; pm >= 1; pm--) { if (domainStatsData[normalized][pm] !== undefined) { prev = domainStatsData[normalized][pm]; break; } }
++                                    domainStatsData[normalized][m] = Math.max(0, domainStatsData[normalized][m] - prev);
++                                }
++                            }
++                        }
++
+                         this.statistics = this.statistics || {};
+                         this.statistics.domainStats = domainStatsData;
+                         this.availableDomains = Object.keys(domainStatsData);

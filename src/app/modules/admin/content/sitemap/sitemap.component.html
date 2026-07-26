@@ -144,11 +144,15 @@
                             </div>
                         </div>
                         <div class="flex items-center ml-4 space-x-2">
-                            <button mat-flat-button class="bg-gray-200" *ngIf="selected && selected.length > 0" (click)="unpublishSelectedPosts()">
+                            <button mat-flat-button class="bg-yellow-500 text-white" *ngIf="canUnpublish" (click)="unpublishSelectedPosts()">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:archive'"></mat-icon>
                                 <span class="ml-2">Unpublish</span>
                             </button>
-                            <button mat-flat-button color="primary" *ngIf="selected && selected.length > 0" (click)="publishSelectedPosts()">
+                            <button mat-flat-button color="warn" *ngIf="canDelete" (click)="deleteSelectedPosts()">
+                                <mat-icon class="icon-size-4" [svgIcon]="'feather:trash-2'"></mat-icon>
+                                <span class="ml-2">Delete</span>
+                            </button>
+                            <button mat-flat-button color="primary" *ngIf="canPublish" (click)="publishSelectedPosts()">
                                 <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
                                 <span class="ml-2">Publish</span>
                             </button>

@@ -890,30 +890,46 @@ class _SitemapScreenState extends State<SitemapScreen> {
                       }
 
                       Widget imageWidget = post['imageUrl'] != null
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                post['imageUrl'] as String,
+                          ? Image.network(
+                              post['imageUrl'] as String,
+                              width: 48,
+                              height: 48,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) => Container(
                                 width: 48,
                                 height: 48,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) => Container(
-                                  width: 48,
-                                  height: 48,
-                                  color: Colors.grey[200],
-                                  child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
-                                ),
+                                color: Colors.grey[200],
+                                child: const Icon(Icons.image_not_supported, color: Colors.grey, size: 20),
                               ),
                             )
                           : Container(
                               width: 48,
                               height: 48,
-                              decoration: BoxDecoration(
-                                color: Colors.grey[200],
-                                borderRadius: BorderRadius.circular(6),
-                              ),
+                              color: Colors.grey[200],
                               child: const Icon(Icons.image, color: Colors.grey, size: 20),
                             );
+
+                      if (post['status'] == 'pending') {
+                        imageWidget = ColorFiltered(
+                          colorFilter: const ColorFilter.matrix(<double>[
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0.2126, 0.7152, 0.0722, 0, 0,
+                            0,      0,      0,      1, 0,
+                          ]),
+                          child: imageWidget,
+                        );
+                      } else if (post['status'] == 'draft') {
+                        imageWidget = ColorFiltered(
+                          colorFilter: ColorFilter.mode(Colors.amber.withOpacity(0.4), BlendMode.srcOver),
+                          child: imageWidget,
+                        );
+                      }
+
+                      imageWidget = ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: imageWidget,
+                      );
 
                       return InkWell(
                         onTap: () => _showPostDetail(post),

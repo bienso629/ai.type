@@ -21,22 +21,36 @@ class _HomeTabState extends State<HomeTab> {
   int totalArticles = 0;
   int activeDomains = 0;
   int allDomainsLength = 0;
-  int avgArticles = 0;
-  int _evalMonthToDisplay = 1;
+  int progressCurrent = 0;
+  int progressTarget = 0;
+  int progressPercent = 0;
   
   Map<String, dynamic> totalArticlesStatus = {'text': 'Tăng trưởng tốt', 'color': Colors.blue, 'icon': FontAwesomeIcons.arrowTrendUp};
   Map<String, dynamic> activeDomainsStatus = {'text': 'Cần tối ưu thêm', 'color': Colors.red, 'icon': FontAwesomeIcons.arrowTrendDown};
-  Map<String, dynamic> avgArticlesStatus = {'text': 'Đạt mục tiêu', 'color': Colors.green, 'icon': FontAwesomeIcons.arrowTrendUp};
+  Map<String, dynamic> progressStatus = {'text': 'Đang theo đúng tiến độ', 'color': Colors.blue, 'icon': FontAwesomeIcons.arrowTrendUp};
 
   int _selectedYear = DateTime.now().year;
   List<int> _yearsList = [DateTime.now().year - 3, DateTime.now().year - 2, DateTime.now().year - 1, DateTime.now().year];
 
   List<double> _monthlyTotals = List.filled(12, 0);
   List<double> _monthlyActiveDomains = List.filled(12, 0);
-  List<double> _monthlyAvg = List.filled(12, 0);
+  List<double> _monthlyProgress = List.filled(12, 0);
+  List<double> _monthlyTargets = List.filled(12, 0);
+  int _evalMonthToDisplay = 1;
   List<double> _domainActuals = [];
   List<double> _domainTargets = [];
   Map<String, List<double>> _domainMonthlyTotals = {};
+  Map<String, dynamic> _domainTargetsData = {};
+
+  String _normalizeDomain(String domain) {
+    if (domain.isEmpty) return '';
+    String normalized = domain.trim().toLowerCase();
+    if (normalized.startsWith('http://')) normalized = normalized.substring(7);
+    if (normalized.startsWith('https://')) normalized = normalized.substring(8);
+    if (normalized.contains('/')) normalized = normalized.split('/')[0];
+    if (normalized.startsWith('www.')) normalized = normalized.substring(4);
+    return normalized;
+  }
 
   @override
   void initState() {
@@ -53,6 +67,7 @@ class _HomeTabState extends State<HomeTab> {
       
       final activeInfo = jsonDecode(activeInfoStr);
       final uid = activeInfo['user']['id'] ?? activeInfo['user']['_id'] ?? 'default';
+      final username = activeInfo['user']['name'] ?? '';
       final cacheKey = 'dashboard_cache_${uid}_$_selectedYear';
 
       dynamic statsResult;
@@ -68,13 +83,27 @@ class _HomeTabState extends State<HomeTab> {
           statsResult = data['statsResult'];
           collectionsResult = data['collectionsResult'];
           domainsResult = data['domainsResult'];
+          if (data['domainTargetsData'] != null) {
+            _domainTargetsData = data['domainTargetsData'];
+          }
         }
       }
 
       if (statsResult == null) {
-        statsResult = await ApiService.getStatistics(_selectedYear);
+        statsResult = await ApiService.getStatistics(_selectedYear, refresh: forceRefresh);
         collectionsResult = await ApiService.getCollections();
-        domainsResult = await ApiService.getAllDomains();
+        domainsResult = await ApiService.getAllDomains(refresh: forceRefresh);
+        
+        if (username.isNotEmpty) {
+          final profileRes = await ApiService.getProfile(username);
+          if (profileRes != null && profileRes['success'] == true) {
+            final profile = profileRes['data'];
+            if (profile != null && profile['settings'] != null) {
+              _domainTargetsData = profile['settings']['domainTargets'] ?? {};
+            }
+          }
+        }
+        
         fetchedFromNetwork = true;
       }
 
@@ -83,9 +112,18 @@ class _HomeTabState extends State<HomeTab> {
           'statsResult': statsResult,
           'collectionsResult': collectionsResult,
           'domainsResult': domainsResult,
+          'domainTargetsData': _domainTargetsData,
         };
         await prefs.setString(cacheKey, jsonEncode(cacheData));
       }
+      
+      Map<String, dynamic> normalizedTargets = {};
+      for (var rawDomain in _domainTargetsData.keys) {
+        String normalized = _normalizeDomain(rawDomain);
+        normalizedTargets[normalized] = _domainTargetsData[rawDomain];
+      }
+      _domainTargetsData = normalizedTargets;
+
       if (collectionsResult != null && collectionsResult['success'] == true) {
         collections = collectionsResult['data']?.map((col) {
           int count = 0;
@@ -103,16 +141,42 @@ class _HomeTabState extends State<HomeTab> {
       }
 
       if (domainsResult != null && domainsResult['success'] == true) {
-        allDomainsLength = (domainsResult['data'] as List?)?.length ?? 0;
+        final rawDomainsList = domainsResult['data'] as List? ?? [];
+        Set<String> uniqueDomains = {};
+        for (var d in rawDomainsList) {
+          if (d != null && d['domain'] != null) {
+            uniqueDomains.add(_normalizeDomain(d['domain'].toString()));
+          }
+        }
+        allDomainsLength = uniqueDomains.length;
       }
 
       if (statsResult != null && statsResult['success'] == true) {
         final nodes = statsResult['data'] ?? [];
-        Map<String, dynamic> domainStats = nodes.length > 3 && nodes[3] != null ? nodes[3] : {};
+        Map<String, dynamic> rawDomainStats = nodes.length > 3 && nodes[3] != null ? nodes[3] : {};
+        
+        Map<String, dynamic> domainStats = {};
+        for (var rawDomain in rawDomainStats.keys) {
+          String normalized = _normalizeDomain(rawDomain);
+          if (!domainStats.containsKey(normalized)) {
+            domainStats[normalized] = {};
+          }
+          var rawData = rawDomainStats[rawDomain];
+          if (rawData is Map) {
+            for (var month in rawData.keys) {
+              if (domainStats[normalized][month] == null) {
+                domainStats[normalized][month] = 0;
+              }
+              int val = rawData[month] is int ? rawData[month] : (int.tryParse(rawData[month].toString()) ?? 0);
+              domainStats[normalized][month] = (domainStats[normalized][month] as int) + val;
+            }
+          }
+        }
         
         _monthlyTotals = List.filled(12, 0);
         _monthlyActiveDomains = List.filled(12, 0);
-        _monthlyAvg = List.filled(12, 0);
+        _monthlyProgress = List.filled(12, 0);
+        _monthlyTargets = List.filled(12, 0);
         _domainMonthlyTotals.clear();
         
         int total = 0;
@@ -175,28 +239,29 @@ class _HomeTabState extends State<HomeTab> {
           previousPeriodTotal = 0;
         }
 
-        for (int i = 0; i < 12; i++) {
-          int activeCount = _monthlyActiveDomains[i].toInt();
-          int mTotal = _monthlyTotals[i].toInt();
-          int mAvg = activeCount > 0 ? (mTotal / activeCount).round() : 0;
-          _monthlyAvg[i] = mAvg.toDouble();
-        }
+
 
         totalArticles = total;
         activeDomains = activeDoms.length;
-        
         int evalMonth = lastActiveMonth >= 0 ? lastActiveMonth + 1 : 1;
-        int totalDomainsCount = allDomainsLength > 0 ? allDomainsLength : (activeDomains > 0 ? activeDomains : 1);
-        avgArticles = (currentPeriodTotal / totalDomainsCount).round();
-
-        // Populate domain stats for the 3rd chart
+        int totalTargetForAllDomains = 0;
         List<String> domainsToChart = [];
         if (domainsResult != null && domainsResult['success'] == true) {
+          Set<String> uniqueDomains = {};
           for (var d in domainsResult['data']) {
-            domainsToChart.add(d['domain'] ?? d.toString());
+            if (d != null && d['domain'] != null) {
+              uniqueDomains.add(_normalizeDomain(d['domain'].toString()));
+            }
+          }
+          domainsToChart = uniqueDomains.toList();
+          for (var d in domainsToChart) {
+            totalTargetForAllDomains += _getResolvedTarget(d, evalMonth);
           }
         } else {
           domainsToChart = activeDoms.toList();
+          for (var d in domainsToChart) {
+            totalTargetForAllDomains += _getResolvedTarget(d, evalMonth);
+          }
         }
 
         _domainActuals.clear();
@@ -207,7 +272,7 @@ class _HomeTabState extends State<HomeTab> {
             actual = domainStats[dom][evalMonth.toString()] ?? domainStats[dom][evalMonth] ?? 0;
           }
           _domainActuals.add(actual.toDouble());
-          _domainTargets.add(20.0); // Hardcoded target
+          _domainTargets.add(_getResolvedTarget(dom, evalMonth).toDouble());
         }
 
         // Save evalMonth for UI
@@ -226,18 +291,67 @@ class _HomeTabState extends State<HomeTab> {
           activeDomainsStatus = {'text': 'Hoạt động yếu', 'color': Colors.red[600], 'icon': FontAwesomeIcons.arrowTrendDown};
         }
 
-        int avgTargetPerMonth = 20;
-        if (avgArticles >= avgTargetPerMonth) {
-          avgArticlesStatus = {'text': 'Đạt mục tiêu', 'color': Colors.green[600], 'icon': FontAwesomeIcons.arrowTrendUp};
+        for (int m = 1; m <= 12; m++) {
+          int targetSum = 0;
+          int actualProgressSum = 0;
+          for (var d in domainsToChart) {
+            int t = _getResolvedTarget(d, m);
+            targetSum += t;
+            if (t > 0 && domainStats.containsKey(d) && domainStats[d] is Map) {
+              int actual = domainStats[d][m.toString()] ?? domainStats[d][m] ?? 0;
+              actualProgressSum += actual;
+            }
+          }
+          _monthlyTargets[m - 1] = targetSum.toDouble();
+          _monthlyProgress[m - 1] = actualProgressSum.toDouble();
+        }
+
+        progressTarget = _monthlyTargets[evalMonth - 1].toInt();
+        progressCurrent = _monthlyProgress[evalMonth - 1].toInt();
+        progressPercent = progressTarget > 0 ? ((progressCurrent / progressTarget) * 100).round().clamp(0, 100) : 0;
+
+        if (progressPercent >= 100) {
+          progressStatus = {'text': 'Hoàn thành chỉ tiêu', 'color': Colors.green[600], 'icon': FontAwesomeIcons.circleCheck};
+        } else if (progressPercent >= 50) {
+          progressStatus = {'text': 'Đang theo đúng tiến độ', 'color': Colors.blue[600], 'icon': FontAwesomeIcons.arrowTrendUp};
         } else {
-          avgArticlesStatus = {'text': 'Chưa đạt mục tiêu', 'color': Colors.red[600], 'icon': FontAwesomeIcons.arrowTrendDown};
+          progressStatus = {'text': 'Cần đẩy nhanh tiến độ', 'color': Colors.orange[500], 'icon': FontAwesomeIcons.triangleExclamation};
         }
       }
     } catch (e) {
-      print('Error loading data: \$e');
+      print('Error loading data: $e');
     }
 
     setState(() => _isLoading = false);
+  }
+
+  int _getResolvedTarget(String domain, int month) {
+    if (_domainTargetsData[domain] == null) return 0;
+    
+    dynamic target = _domainTargetsData[domain];
+    if (target is int || target is double) return target.toInt();
+    
+    if (target is Map) {
+      final yearTarget = target[_selectedYear.toString()] ?? target[_selectedYear];
+      final legacyTarget = target[month.toString()] ?? target[month];
+      
+      if (yearTarget is Map && yearTarget[month.toString()] != null) {
+        return (yearTarget[month.toString()] as num).toInt();
+      } else if (legacyTarget != null && legacyTarget is num) {
+        return legacyTarget.toInt();
+      }
+
+      if (yearTarget is Map) {
+        for (int m = month - 1; m >= 1; m--) {
+          if (yearTarget[m.toString()] != null) return (yearTarget[m.toString()] as num).toInt();
+        }
+      }
+
+      for (int m = month - 1; m >= 1; m--) {
+        if (target[m.toString()] is num) return (target[m.toString()] as num).toInt();
+      }
+    }
+    return 0;
   }
 
   Widget _buildSparkline(List<double> data, Color color) {
@@ -395,8 +509,16 @@ class _HomeTabState extends State<HomeTab> {
   }
 
   Widget _buildMainChart() {
-    double maxY = _monthlyTotals.reduce((a, b) => a > b ? a : b);
-    if (maxY == 0) maxY = 10;
+    double maxY = 10;
+    if (_domainMonthlyTotals.isNotEmpty) {
+      double maxDomainVal = 0;
+      for (var totals in _domainMonthlyTotals.values) {
+        for (var val in totals) {
+          if (val > maxDomainVal) maxDomainVal = val;
+        }
+      }
+      if (maxDomainVal > 0) maxY = maxDomainVal;
+    }
 
     return Column(
       children: [
@@ -481,6 +603,59 @@ class _HomeTabState extends State<HomeTab> {
       ),
     );
   }
+
+  Widget _buildProgressCard(String title, int current, int target, int percent, Map<String, dynamic> status, Color chartColor) {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.withOpacity(0.2)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(title, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+            const SizedBox(height: 8),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Text(current.toString(), style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: AppColors.textPrimary)),
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Text('($percent%)', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppColors.textSecondary)),
+                ),
+                const SizedBox(width: 8),
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text('/ $target', style: const TextStyle(fontSize: 18, color: AppColors.textSecondary)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                FaIcon(status['icon'], size: 12, color: status['color']),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: Text(status['text'], style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: status['color']), overflow: TextOverflow.ellipsis),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            SizedBox(
+              height: 40,
+              width: double.infinity,
+              child: _buildDomainSparkline(_monthlyProgress, _monthlyTargets, chartColor, const Color(0xFF94A3B8)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
 
   Widget _buildCollectionCard(dynamic icon, String title, int count, String date, Color color) {
     return Container(
@@ -625,7 +800,7 @@ class _HomeTabState extends State<HomeTab> {
                   const SizedBox(height: 16),
                   _buildStatCard('Domain hoạt động', activeDomains, activeDomainsStatus, _monthlyActiveDomains, Colors.red),
                   const SizedBox(height: 16),
-                  _buildStatCard("Trung bình bài tháng ${_evalMonthToDisplay < 10 ? '0$_evalMonthToDisplay' : _evalMonthToDisplay} / Domain", avgArticles, avgArticlesStatus, _monthlyAvg, Colors.green, isDomainChart: true),
+                  _buildProgressCard("Tiến độ bài tháng ${_evalMonthToDisplay < 10 ? '0$_evalMonthToDisplay' : _evalMonthToDisplay}", progressCurrent, progressTarget, progressPercent, progressStatus, Colors.green),
                 ],
               ),
             ),
