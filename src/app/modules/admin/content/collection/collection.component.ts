@@ -10,6 +10,7 @@ import { ActivatedRoute } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 
 @Component({
     selector: 'app-collection',
@@ -59,7 +60,8 @@ export class CollectionComponent implements OnInit, OnDestroy {
         private cd: ChangeDetectorRef,
         private clipboard: Clipboard,
         private toastr: ToastrService,
-        private _fuseConfirmationService: FuseConfirmationService
+        private _fuseConfirmationService: FuseConfirmationService,
+        private multiAccountService: MultiAccountService
     ) {
         this.titleService.setTitle(`tập của bạn | ai.type - công cụ tạo content`);
 
@@ -360,5 +362,22 @@ export class CollectionComponent implements OnInit, OnDestroy {
                 });
             }
         });
+    }
+
+    hasVideoProject(uuid: string): boolean {
+        if (!uuid) return false;
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${uuid}`);
+        }
+        return false;
+    }
+
+    hasScriptProject(row: any): boolean {
+        if (!row || !row.uuid) return false;
+        if (row.has_script) return true;
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_script_data_${row.uuid}`);
+        }
+        return false;
     }
 }

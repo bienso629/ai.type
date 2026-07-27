@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
@@ -36,6 +37,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _thumbnailController = TextEditingController();
+  final TextEditingController _promptInputController = TextEditingController();
+  bool _isGeneratingAi = false;
 
   @override
   void dispose() {
@@ -43,6 +46,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     _descController.dispose();
     _urlController.dispose();
     _thumbnailController.dispose();
+    _promptInputController.dispose();
     super.dispose();
   }
 
@@ -568,17 +572,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                         separatorBuilder: (_, __) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final htmlStr = _done[index].toString();
-                          final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
                           return Padding(
                             padding: const EdgeInsets.all(12.0),
                             child: Row(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    text.isEmpty ? htmlStr : text,
-                                    style: const TextStyle(fontSize: 14),
-                                  ),
+                                  child: _buildRichText(htmlStr),
                                 ),
                                 PopupMenuButton<String>(
                                   icon: const Icon(Icons.more_horiz, color: Colors.grey),
@@ -734,15 +734,32 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           title: 'Prompt công việc (${(_source['prompt'] as List?)?.length ?? 0})',
           titleColor: Colors.teal,
           borderColor: Colors.teal,
+          initiallyExpanded: true,
           iconPrefix: const Text(
             '>_ ',
             style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
           ),
           actions: [
-            _buildIconBtn(Icons.link, Colors.teal),
-            _buildIconBtn(Icons.send, Colors.teal),
-            _buildIconBtn(Icons.add, Colors.amber),
+            _buildIconBtn(Icons.attach_file, Colors.teal, tooltip: 'Đính kèm tệp', onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tính năng đính kèm tệp đang được phát triển.')),
+              );
+            }),
+            _buildIconBtn(Icons.send, Colors.teal, tooltip: 'Gửi AI', onPressed: () {
+              final prompts = (_source['prompt'] as List?);
+              if (prompts != null && prompts.isNotEmpty) {
+                _sendPromptToAi();
+              } else {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Vui lòng tạo một Prompt trước!')),
+                );
+              }
+            }),
+            _buildIconBtn(Icons.add, Colors.teal, tooltip: 'Thêm mới Prompt', onPressed: () {
+              _editPrompt(null, '');
+            }),
           ],
+          contentWidgets: [_buildPromptBlockContent()],
         ),
         const SizedBox(height: 12),
         _buildActionCard(
@@ -941,13 +958,96 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     );
   }
 
+  String _cleanHtmlText(String htmlStr) {
+    String text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '');
+    text = text
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
+    return text.trim();
+  }
+
+  Widget _buildRichText(String htmlStr) {
+    final RegExp aTagRegExp = RegExp(r'<a[^>]*>(.*?)<\/a>', caseSensitive: false, dotAll: true);
+    
+    if (aTagRegExp.hasMatch(htmlStr)) {
+      List<InlineSpan> spans = [];
+      int lastEnd = 0;
+      
+      for (final Match match in aTagRegExp.allMatches(htmlStr)) {
+        if (match.start > lastEnd) {
+          String before = htmlStr.substring(lastEnd, match.start);
+          String cleanBefore = _cleanHtmlText(before);
+          if (cleanBefore.isNotEmpty) {
+            spans.add(TextSpan(text: cleanBefore));
+          }
+        }
+        
+        String linkContent = match.group(1) ?? '';
+        String cleanLink = _cleanHtmlText(linkContent);
+        if (cleanLink.isNotEmpty) {
+          spans.add(TextSpan(
+            text: cleanLink,
+            style: const TextStyle(
+              color: AppColors.primary,
+              fontWeight: FontWeight.w600,
+            ),
+          ));
+        }
+        
+        lastEnd = match.end;
+      }
+      
+      if (lastEnd < htmlStr.length) {
+        String remaining = htmlStr.substring(lastEnd);
+        String cleanRemaining = _cleanHtmlText(remaining);
+        if (cleanRemaining.isNotEmpty) {
+          spans.add(TextSpan(text: cleanRemaining));
+        }
+      }
+      
+      if (spans.isNotEmpty) {
+        return Text.rich(
+          TextSpan(style: const TextStyle(fontSize: 14, color: Colors.black87), children: spans),
+        );
+      }
+    }
+
+    String cleanText = _cleanHtmlText(htmlStr);
+    if (cleanText.toLowerCase().startsWith('xem thêm:')) {
+      return Text.rich(
+        TextSpan(
+          style: const TextStyle(fontSize: 14, color: Colors.black87),
+          children: [
+            const TextSpan(
+              text: 'Xem thêm: ',
+              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+            ),
+            TextSpan(
+              text: cleanText.substring('xem thêm:'.length).trimLeft(),
+              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Text(
+      cleanText.isEmpty ? htmlStr : cleanText,
+      style: const TextStyle(fontSize: 14, color: Colors.black87),
+    );
+  }
+
   List<Widget>? _buildHtmlList(dynamic sourceList) {
     if (sourceList == null || sourceList is! List || sourceList.isEmpty) {
       return null;
     }
     return sourceList.map((item) {
       final htmlStr = item.toString();
-      final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
+      final text = _cleanHtmlText(htmlStr);
       return Container(
         padding: const EdgeInsets.all(8.0),
         margin: const EdgeInsets.only(bottom: 4.0),
@@ -968,66 +1068,74 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       children: [
         Expanded(
           flex: 1,
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.coffee, size: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(4)),
-              ),
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            ),
-            value: (_styles.any((s) => s['name'] == _selectedStyle)
-                    ? _selectedStyle
-                    : (_styles.isNotEmpty ? _styles.first['name'] : null)),
-            items: _styles.map((s) {
-              final styleName = s['name'].toString();
-              return DropdownMenuItem(
-                value: styleName,
-                child: Text(
-                  styleName,
-                  style: const TextStyle(fontSize: 13),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          child: SizedBox(
+            height: 44,
+            child: DropdownButtonFormField<String>(
+              isExpanded: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.coffee, size: 16),
+                prefixIconConstraints: BoxConstraints(minWidth: 32, minHeight: 32),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
                 ),
-              );
-            }).toList(),
-            onChanged: (v) => setState(() => _selectedStyle = v),
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              ),
+              value: (_styles.any((s) => s['name'] == _selectedStyle)
+                      ? _selectedStyle
+                      : (_styles.isNotEmpty ? _styles.first['name'] : null)),
+              items: _styles.map((s) {
+                final styleName = s['name'].toString();
+                return DropdownMenuItem(
+                  value: styleName,
+                  child: Text(
+                    styleName,
+                    style: const TextStyle(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (v) => setState(() => _selectedStyle = v),
+            ),
           ),
         ),
         const SizedBox(width: 8),
         Expanded(
           flex: 1,
-          child: DropdownButtonFormField<String>(
-            isExpanded: true,
-            decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.language, size: 16),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.all(Radius.circular(4)),
-              ),
-              isDense: true,
-              contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
-            ),
-            value: (_domains.any((d) => d['domain'] == _selectedDomain)
-                    ? _selectedDomain
-                    : (_domains.isNotEmpty ? _domains.first['domain'] : null)),
-            items: _domains.map((d) {
-              final domainName = d['domain'].toString();
-              return DropdownMenuItem(
-                value: domainName,
-                child: Text(
-                  domainName.replaceFirst(RegExp(r'^https?://'), ''),
-                  style: const TextStyle(fontSize: 13),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+          child: SizedBox(
+            height: 44,
+            child: DropdownButtonFormField<String>(
+              isExpanded: true,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.language, size: 16),
+                prefixIconConstraints: BoxConstraints(minWidth: 32, minHeight: 32),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.all(Radius.circular(4)),
                 ),
-              );
-            }).toList(),
-            onChanged: (v) {
-              setState(() => _selectedDomain = v);
-              _applyDomainStyle(v);
-            },
+                isDense: true,
+                contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+              ),
+              value: (_domains.any((d) => d['domain'] == _selectedDomain)
+                      ? _selectedDomain
+                      : (_domains.isNotEmpty ? _domains.first['domain'] : null)),
+              items: _domains.map((d) {
+                final domainName = d['domain'].toString();
+                return DropdownMenuItem(
+                  value: domainName,
+                  child: Text(
+                    domainName.replaceFirst(RegExp(r'^https?://'), ''),
+                    style: const TextStyle(fontSize: 13),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                );
+              }).toList(),
+              onChanged: (v) {
+                setState(() => _selectedDomain = v);
+                _applyDomainStyle(v);
+              },
+            ),
           ),
         ),
       ],
@@ -1065,13 +1173,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           child: ExpansionTile(
             dense: true,
             initiallyExpanded: initiallyExpanded,
-            minTileHeight: 36,
+            minTileHeight: 44,
             tilePadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 0,
             ),
             title: SizedBox(
-              height: 36,
+              height: 44,
               child: Row(
                 children: [
                   iconPrefix,
@@ -1131,17 +1239,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final htmlStr = list[index].toString();
-        final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
         return Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  text.isEmpty ? htmlStr : text,
-                  style: const TextStyle(fontSize: 14),
-                ),
+                child: _buildRichText(htmlStr),
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz, color: Colors.grey),
@@ -1182,13 +1286,431 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     );
   }
 
-  Widget _buildIconBtn(IconData icon, Color color) {
+  void _addPrompt(String text) {
+    if (text.trim().isEmpty) return;
+    setState(() {
+      if (_source['prompt'] == null || _source['prompt'] is! List) {
+        _source['prompt'] = [];
+      }
+      (_source['prompt'] as List).add(text.trim());
+      _promptInputController.clear();
+    });
+  }
+
+  void _editPrompt(int? index, String currentText) {
+    final editController = TextEditingController(text: currentText);
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Padding(
+        padding: EdgeInsets.only(
+          bottom: MediaQuery.of(ctx).viewInsets.bottom,
+          left: 16,
+          right: 16,
+          top: 16,
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Center(
+              child: Text(
+                index == null ? 'Thêm mới Prompt' : 'Chỉnh sửa Prompt',
+                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: editController,
+              maxLines: 4,
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                hintText: 'Nhập nội dung prompt...',
+              ),
+            ),
+            const SizedBox(height: 8),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: Row(
+                children: [
+                  _buildVariableChipDialog(editController, '{title}', 'Tiêu đề'),
+                  const SizedBox(width: 4),
+                  _buildVariableChipDialog(editController, '{url}', 'URL'),
+                  const SizedBox(width: 4),
+                  _buildVariableChipDialog(editController, '{domain}', 'Tên miền'),
+                  const SizedBox(width: 4),
+                  _buildVariableChipDialog(editController, '{style}', 'Phong cách'),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx),
+                  child: const Text('Hủy'),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                  ),
+                  onPressed: () {
+                    final newText = editController.text.trim();
+                    if (newText.isNotEmpty) {
+                      setState(() {
+                        if (_source['prompt'] == null || _source['prompt'] is! List) {
+                          _source['prompt'] = [];
+                        }
+                        if (index != null) {
+                          (_source['prompt'] as List)[index] = newText;
+                        } else {
+                          (_source['prompt'] as List).add(newText);
+                        }
+                      });
+                    }
+                    Navigator.pop(ctx);
+                  },
+                  child: const Text('Lưu'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVariableChipDialog(TextEditingController controller, String tag, String label) {
+    return InkWell(
+      onTap: () {
+        final text = controller.text;
+        final selection = controller.selection;
+        if (selection.isValid && selection.start >= 0) {
+          final newText = text.replaceRange(selection.start, selection.end, tag);
+          controller.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: selection.start + tag.length),
+          );
+        } else {
+          controller.text = text + tag;
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Text(
+          tag,
+          style: TextStyle(fontSize: 11, color: Colors.teal.shade800),
+        ),
+      ),
+    );
+  }
+
+  String _evaluatePromptVariables(String text) {
+    String res = text;
+    if (_titleController.text.trim().isNotEmpty) {
+      res = res.replaceAll('{title}', _titleController.text.trim());
+    }
+    if (_urlController.text.trim().isNotEmpty) {
+      res = res.replaceAll('{url}', _urlController.text.trim());
+    }
+    if (_selectedDomain != null) {
+      res = res.replaceAll('{domain}', _selectedDomain!);
+    }
+    if (_selectedStyle != null) {
+      res = res.replaceAll('{style}', _selectedStyle!);
+    }
+    return res;
+  }
+
+  void _showPromptTemplateDialog() {
+    final templates = [
+      'Viết bài viết phân tích chuyên sâu chuẩn SEO cho tiêu đề: {title}',
+      'Lập dàn ý chi tiết gồm mở bài Sapo, các mục H2, H3 cho: {title}',
+      'Tóm tắt nội dung chính và trích xuất điểm nổi bật từ URL: {url}',
+      'Viết lại nội dung theo phong cách {style} đăng lên tên miền {domain}',
+      'Tạo 5 tiêu đề thu hút click và đoạn văn mô tả SEO cho chủ đề: {title}',
+    ];
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      ),
+      builder: (ctx) => Container(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.auto_awesome, color: Colors.teal),
+                const SizedBox(width: 8),
+                const Text(
+                  'Chọn Prompt mẫu (Angular AI.TYPE)',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...templates.map((tpl) => ListTile(
+                  dense: true,
+                  leading: const Icon(Icons.flash_on, color: Colors.amber, size: 20),
+                  title: Text(tpl, style: const TextStyle(fontSize: 13)),
+                  onTap: () {
+                    Navigator.pop(ctx);
+                    _addPrompt(tpl);
+                  },
+                )),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _sendPromptToAi() async {
+    if (_source['prompt'] == null || (_source['prompt'] as List).isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Vui lòng thêm ít nhất 1 Prompt trước khi gửi AI.')),
+      );
+      return;
+    }
+    
+    // Combine all prompts into one single prompt like Angular `processPromptWithFiles`
+    String promptText = (_source['prompt'] as List).map((e) => _cleanHtmlText(e.toString())).join('. ');
+    final evaluatedPrompt = _evaluatePromptVariables(promptText);
+    
+    setState(() {
+      _isGeneratingAi = true;
+    });
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+            ),
+            SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Đang gửi toàn bộ Prompt tới AI xử lý...',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        duration: Duration(seconds: 4),
+      ),
+    );
+    try {
+      String styleGuide = _selectedStyle != null ? ' Blog mang phong cách của $_selectedStyle.' : '';
+      String finalPrompt = evaluatedPrompt + styleGuide + '\nTrình bày câu trả lời của bạn dưới định dạng JSON với key là "contents", value là một mảng các đoạn văn (Array of strings). Không dùng markdown.';
+
+      final res = await ApiService.askChatGpt(finalPrompt);
+      if (res != null) {
+        String jsonText = '';
+        if (res['data'] != null && res['data']['answer'] != null) {
+          jsonText = res['data']['answer'].toString();
+        } else if (res['answer'] != null) {
+          jsonText = res['answer'].toString();
+        } else if (res['message'] != null) {
+          jsonText = res['message'].toString();
+        } else if (res['text'] != null) {
+          jsonText = res['text'].toString();
+        } else {
+          jsonText = res.toString();
+        }
+        
+        jsonText = jsonText.replaceAll('```json', '').replaceAll('```', '').trim();
+        
+        setState(() {
+          if (_source['text'] == null || _source['text'] is! List) {
+            _source['text'] = [];
+          }
+          try {
+            final data = jsonDecode(jsonText);
+            if (data['contents'] != null && data['contents'] is List) {
+              for (var text in data['contents']) {
+                (_source['text'] as List).add('<p id="source-p-${DateTime.now().millisecondsSinceEpoch}">$text</p>');
+              }
+            } else {
+              (_source['text'] as List).add('<p id="source-p-${DateTime.now().millisecondsSinceEpoch}">$jsonText</p>');
+            }
+          } catch (e) {
+            (_source['text'] as List).add('<p id="source-p-${DateTime.now().millisecondsSinceEpoch}">$jsonText</p>');
+          }
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('AI đã hoàn thành! (Kết quả ở "Nội dung sáng tạo")'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Lỗi: Không nhận được phản hồi từ AI'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi khi gửi Prompt: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGeneratingAi = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildPromptBlockContent() {
+    final promptList = (_source['prompt'] as List?) ?? [];
+    return Container(
+      padding: const EdgeInsets.all(12),
+      color: Colors.white,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (promptList.isEmpty)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 8.0),
+              child: Text(
+                'Chưa có Prompt công việc nào. Thêm prompt bên dưới hoặc bấm nút + / icon mẫu để chọn.',
+                style: TextStyle(color: Colors.grey, fontSize: 13, fontStyle: FontStyle.italic),
+              ),
+            )
+          else
+            ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: promptList.length,
+              separatorBuilder: (_, __) => const Divider(height: 1),
+              itemBuilder: (context, index) {
+                final promptStr = promptList[index].toString();
+                return Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: Colors.teal.shade50,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                'Prompt #${index + 1}',
+                                style: TextStyle(fontSize: 11, color: Colors.teal.shade800, fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            _buildRichText(promptStr),
+                          ],
+                        ),
+                      ),
+                      PopupMenuButton<String>(
+                        icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                        onSelected: (value) {
+                          if (value == 'copy') {
+                            Clipboard.setData(ClipboardData(text: _cleanHtmlText(promptStr)));
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Đã sao chép Prompt vào khay nhớ tạm!')),
+                            );
+                          } else if (value == 'edit') {
+                            _editPrompt(index, promptStr);
+                          } else if (value == 'delete') {
+                            setState(() {
+                              (promptList).removeAt(index);
+                            });
+                          }
+                        },
+                        itemBuilder: (context) => [
+                          const PopupMenuItem(
+                            value: 'copy',
+                            child: Row(children: [Icon(Icons.copy, size: 16), SizedBox(width: 8), Text('Sao chép')]),
+                          ),
+                          const PopupMenuItem(
+                            value: 'note',
+                            child: Row(children: [Icon(Icons.chat_bubble_outline, size: 16), SizedBox(width: 8), Text('Ghi chú')]),
+                          ),
+                          const PopupMenuItem(
+                            value: 'edit',
+                            child: Row(children: [Icon(Icons.edit_outlined, size: 16), SizedBox(width: 8), Text('Chỉnh sửa prompt')]),
+                          ),
+                          const PopupMenuItem(
+                            value: 'delete',
+                            child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xoá prompt', style: TextStyle(color: Colors.red))]),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+
+
+
+  Widget _buildIconBtn(IconData icon, Color color, {VoidCallback? onPressed, String? tooltip}) {
     return SizedBox(
       width: 28,
       height: 28,
       child: IconButton(
-        icon: Icon(icon, color: color, size: 16),
-        onPressed: () {},
+        iconSize: 16,
+        icon: Icon(icon, color: color),
+        tooltip: tooltip,
+        onPressed: onPressed ?? () {},
         padding: EdgeInsets.zero,
         splashRadius: 16,
       ),

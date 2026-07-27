@@ -424,6 +424,60 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
             });
     }
 
+    openWPPost(row: any, wpItem?: any) {
+        let link = '';
+        let domain = '';
+        let postId = '';
+
+        if (wpItem) {
+            link = wpItem.link || wpItem.url || wpItem.post_url || wpItem.wp_post_link || wpItem.guid || '';
+            domain = wpItem.domain || row?.source?.wp_domain || row?.domain || '';
+            postId = wpItem.id || wpItem.wp_post_id || '';
+        } else if (row && row.source) {
+            link = row.source.wp_post_link || row.source.wp_link || row.source.link || row.source.url || '';
+            domain = row.source.wp_domain || row.domain || '';
+            postId = row.source.wp_post_id || '';
+        }
+
+        if (!link && domain && postId) {
+            let formattedDomain = domain.trim();
+            if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
+                formattedDomain = 'https://' + formattedDomain;
+            }
+            if (formattedDomain.endsWith('/')) {
+                formattedDomain = formattedDomain.slice(0, -1);
+            }
+            link = `${formattedDomain}/?p=${postId}`;
+        } else if (!link && domain) {
+            let formattedDomain = domain.trim();
+            if (!formattedDomain.startsWith('http://') && !formattedDomain.startsWith('https://')) {
+                formattedDomain = 'https://' + formattedDomain;
+            }
+            link = formattedDomain;
+        }
+
+        if (link) {
+            window.open(link, '_blank');
+        }
+    }
+
+    hasVideoProject(uuid: string): boolean {
+        if (!uuid) return false;
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_audio_merger_data_${uuid}`);
+        }
+        return false;
+    }
+
+    hasScriptProject(row: any): boolean {
+        if (!row || !row.uuid) return false;
+        if (row.has_script) return true;
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_script_data_${row.uuid}`);
+        }
+        return false;
+    }
+
     disconnectWP(row: any, index: number) {
         if (!row || !row.source) return;
 

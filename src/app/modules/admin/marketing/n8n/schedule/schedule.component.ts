@@ -658,7 +658,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             this.ipcRenderer.send('tools-command', { command: 'open-chrome-app', url: url, width: 400, height: 800 });
             this.toastr.info("Đang mở cửa sổ STT...");
         } else {
-            window.open(url, '_blank', 'width=600,height=800');
+            window.open(url, '_blank', 'width=1024,height=800');
         }
     }
 

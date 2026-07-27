@@ -2975,6 +2975,8 @@ app.on("web-contents-created", (_event, contents) => {
         return { 
             action: "allow",
             overrideBrowserWindowOptions: {
+                width: 1024,
+                height: 800,
                 title: 'Loading...'
             }
         };
@@ -4315,7 +4317,13 @@ app.whenReady().then(async () => {
                     launchStealthLogin(url, contents);
                     return { action: 'deny' };
                 }
-                return { action: 'allow' };
+                return { 
+                    action: 'allow',
+                    overrideBrowserWindowOptions: {
+                        width: 1024,
+                        height: 800
+                    }
+                };
             });
 
             // Bắt sự kiện ngư�?i dùng tải xuống từ màn hình phụ

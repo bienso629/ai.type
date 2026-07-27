@@ -2629,6 +2629,7 @@ ${content}`;
             next: (checkRes: any) => {
                 const existingScript = (checkRes && checkRes.success && checkRes.data && checkRes.data.script) || (checkRes && checkRes.script);
                 if (existingScript) {
+                    this.multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
                     this.toastr.success('Kịch bản đã tồn tại! Đang chuyển hướng...');
                     this.isGeneratingScript = false;
                     this.cd.markForCheck();
@@ -2706,6 +2707,7 @@ HƯỚNG DẪN ĐẦU RA:
                     script: scriptText
                 }).subscribe({
                     next: (res) => {
+                        this.multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
                         this.toastr.success('Dựng kịch bản phim thành công và đã lưu vào database!');
                         this.isGeneratingScript = false;
                         this.cd.markForCheck();
@@ -3560,6 +3562,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             confirm: confirm,
             new_version: this.new_version,
             createdAt: this.version_value,
+            has_script: !!this.multiAccountService.getItem(`ai_type_script_data_${this.uuid}`),
         };
 
         this._crawlService
