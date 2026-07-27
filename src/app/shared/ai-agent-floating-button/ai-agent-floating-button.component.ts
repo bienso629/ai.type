@@ -40,7 +40,7 @@ export class AiAgentFloatingButtonComponent implements OnInit, OnDestroy {
       try {
         const list = await (window as any).electronAPI.getPluginsStatus();
         const aiAgent = list?.find((p: any) => p.id === 'ai_agent');
-        if (aiAgent && aiAgent.installed === true) {
+        if (aiAgent && aiAgent.installed === true && aiAgent.enabled === true) {
           this.isPluginInstalled = true;
           this.cd.detectChanges();
         }

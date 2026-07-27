@@ -8,6 +8,7 @@ import 'tasks_screen.dart';
 import 'sitemap_screen.dart';
 import 'dictionary_screen.dart';
 import 'auto_screen.dart';
+import 'chat_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -105,7 +106,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     color: Colors.blueAccent,
                     isActive: reputation >= 0,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const TasksScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
                     },
                   ),
                 if (reputation >= 0)

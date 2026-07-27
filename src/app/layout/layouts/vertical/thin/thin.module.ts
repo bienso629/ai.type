@@ -22,12 +22,14 @@ import { ThinLayoutComponent } from 'app/layout/layouts/vertical/thin/thin.compo
 import { EcoFabSpeedDialModule } from '@ecodev/fab-speed-dial';
 import { TranslocoModule } from '@ngneat/transloco';
 import { MatTooltipModule } from '@angular/material/tooltip';
+import { AiAgentFloatingButtonComponent } from 'app/shared/ai-agent-floating-button/ai-agent-floating-button.component';
 
 @NgModule({
     declarations: [
         ThinLayoutComponent,
     ],
     imports: [
+        AiAgentFloatingButtonComponent,
         TranslocoModule,
         MatTooltipModule,
         MatTooltipModule,
