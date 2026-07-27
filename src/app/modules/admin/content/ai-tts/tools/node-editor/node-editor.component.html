@@ -1,23 +1,11 @@
-<!-- Floating Top-Left Toolbar -->
-<div class="absolute top-4 left-4 z-50 flex items-center gap-3 w-max pointer-events-none">
-    <!-- Back Button -->
-    <a href="javascript:history.back()" [matTooltip]="'app.auto_go_back' | transloco" class="w-10 h-10 shrink-0 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-teal-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
-        <mat-icon class="icon-size-6">arrow_back</mat-icon>
-    </a>
 
-    <!-- Tools -->
-    <button (click)="openVideoEditorDialog()" class="h-10 px-4 shrink-0 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-700 hover:text-teal-600 font-medium pointer-events-auto transition-transform hover:scale-105 border border-gray-200" matTooltip="Mở lại cài đặt Dựng video">
-        <mat-icon class="icon-size-5 mr-2">edit_note</mat-icon>
-        <span class="whitespace-nowrap">Sửa lại kịch bản</span>
-    </button>
-</div>
 
-<div class="w-full h-full relative overflow-auto bg-white select-none" #workspace 
+<div class="w-full h-full relative overflow-auto bg-gray-50 select-none" #workspace 
      (mousedown)="onWorkspaceMouseDown($event)" 
      (wheel)="onWheel($event)"
      (scroll)="onWorkspaceScroll($event)"
      (contextmenu)="onWorkspaceContextMenu($event)"
-     [style.background-image]="'radial-gradient(circle, #e2e8f0 1px, transparent 1px)'"
+     [style.background-image]="'radial-gradient(circle, #cbd5e1 1px, transparent 1px)'"
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
      style="background-attachment: local;">
     
@@ -26,6 +14,13 @@
         <!-- Zoom Layer -->
         <div class="absolute inset-0 origin-top-left" [style.transform]="'scale(' + scale + ')'">
             
+            <!-- Toolbar in Canvas (Next to Title) -->
+            <div class="absolute z-50 flex items-center gap-3 w-max" style="top: 77px !important; left: 95px !important;">
+                <button (click)="openVideoEditorDialog()" class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-gray-700 hover:text-teal-600 transition-all hover:scale-105 border border-gray-200 hover:border-teal-200" matTooltip="Sửa lại kịch bản với AI Agent">
+                    <mat-icon class="icon-size-5">edit_note</mat-icon>
+                </button>
+            </div>
+
             <!-- Canvas Background Title -->
             <div class="absolute top-24 left-12 text-6xl font-black text-gray-200/50 pointer-events-none select-none tracking-tight z-0">
                 {{ projectData?.title || projectData?.projectName || 'Chưa có tiêu đề' }}

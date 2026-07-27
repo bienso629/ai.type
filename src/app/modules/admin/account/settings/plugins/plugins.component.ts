@@ -1,31 +1,69 @@
-import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, ViewEncapsulation } from '@angular/core';
+import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { UserClientService } from 'app/modules/_services/user';
+import { UserService } from 'app/core/user/user.service';
+import { User } from 'app/core/user/user.types';
+import { Subject, takeUntil } from 'rxjs';
 
 @Component({
     selector: 'settings-plugins',
     templateUrl: './plugins.component.html',
     encapsulation: ViewEncapsulation.None,
-    changeDetection: ChangeDetectionStrategy.OnPush
+    changeDetection: ChangeDetectionStrategy.OnPush,
+    providers: [UserClientService]
 })
-export class SettingsPluginsComponent implements OnInit {
+export class SettingsPluginsComponent implements OnInit, OnDestroy {
     plugins: any[] = [];
     zaloPluginMode: string = 'tool';
     aiAgentApiKey: string = 'type-vn-local-agent-2026';
     ttsVoice: string = 'vi-VN-HoaiMyNeural';
     ttsRate: string = '+0%';
+    aiAgentModel: string = 'gemini-3.6-flash';
+    aiAgentPrompt: string = '';
+
+    user: User;
+    private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     constructor(
         private _fuseConfirmationService: FuseConfirmationService,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        private multiAccountService: MultiAccountService
+        private multiAccountService: MultiAccountService,
+        private _userService: UserService,
+        private _userClientService: UserClientService
     ) {}
 
     ngOnInit(): void {
+        this._userService.user$
+            .pipe(takeUntil(this._unsubscribeAll))
+            .subscribe((user: User) => {
+                this.user = user;
+            });
         this.getPluginsStatus();
     }
+
+    ngOnDestroy(): void {
+        this._unsubscribeAll.next(null);
+        this._unsubscribeAll.complete();
+    }
+
+    syncSettingsToBackend(settings: any) {
+        if (!this.user || !this.user.name) return;
+        const editor = this.multiAccountService.getItem('editor');
+        const following_users = this.multiAccountService.getItem('following_users');
+        this._userClientService.updateProfile({
+            profile: {
+                settings: settings,
+                active_info: this.multiAccountService.getItem('active_info'),
+                editor: (editor && editor !== 'undefined') ? editor : {},
+                following_users: (following_users && following_users !== 'undefined') ? following_users : [],
+            },
+            username: this.user.name
+        }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+    }
+
 
     async getPluginsStatus() {
         if (!(window as any).electronAPI || !(window as any).electronAPI.getPluginsStatus) {
@@ -72,6 +110,8 @@ export class SettingsPluginsComponent implements OnInit {
             this.aiAgentApiKey = settings.aiAgentApiKey || 'type-vn-local-agent-2026';
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
+            this.aiAgentModel = settings.aiAgentModel || 'gemini-3.6-flash';
+            this.aiAgentPrompt = settings.aiAgentPrompt || '';
             this.cd.detectChanges();
             return;
         }
@@ -103,6 +143,8 @@ export class SettingsPluginsComponent implements OnInit {
             
             this.ttsVoice = settings.ttsVoice || 'vi-VN-HoaiMyNeural';
             this.ttsRate = settings.ttsRate || '+0%';
+            this.aiAgentModel = settings.aiAgentModel || 'gemini-3.6-flash';
+            this.aiAgentPrompt = settings.aiAgentPrompt || '';
         } catch (err) {
             this.toastr.error('Lỗi khi lấy trạng thái plugin: ' + err.message);
         }
@@ -169,12 +211,14 @@ export class SettingsPluginsComponent implements OnInit {
                 const settings = this.multiAccountService.getItem('settings') || {};
                 settings.enableAiAgent = event.checked;
                 this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
                 this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent trên trình duyệt/mobile.' : 'Đã tắt AI Agent.');
             } else if (plugin.id === 'zalo_reply') {
                 plugin.enabled = event.checked;
                 const settings = this.multiAccountService.getItem('settings') || {};
                 settings.zaloPluginEnabled = event.checked;
                 this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
                 this.toastr.success(event.checked ? 'Đã kích hoạt Zalo trên trình duyệt.' : 'Đã tắt Zalo.');
             }
             return;
@@ -189,6 +233,7 @@ export class SettingsPluginsComponent implements OnInit {
                     const settings = this.multiAccountService.getItem('settings') || {};
                     settings.zaloPluginEnabled = event.checked;
                     this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
                     
                     this.toastr.success(event.checked ? 'Đã kích hoạt Quản lý Zalo.' : 'Đã hủy kích hoạt Quản lý Zalo.');
                 } else {
@@ -202,6 +247,7 @@ export class SettingsPluginsComponent implements OnInit {
                     const settings = this.multiAccountService.getItem('settings') || {};
                     settings.enableAiAgent = event.checked;
                     this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
 
                     
                     this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
@@ -221,7 +267,10 @@ export class SettingsPluginsComponent implements OnInit {
             settings.aiAgentApiKey = this.aiAgentApiKey;
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
+            settings.aiAgentModel = this.aiAgentModel;
+            settings.aiAgentPrompt = this.aiAgentPrompt;
             this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
 
             this.toastr.success('Đã lưu cấu hình AI Agent trên trình duyệt/mobile.');
             return;
@@ -231,7 +280,10 @@ export class SettingsPluginsComponent implements OnInit {
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
             settings.aiAgentApiKey = this.aiAgentApiKey;
+            settings.aiAgentModel = this.aiAgentModel;
+            settings.aiAgentPrompt = this.aiAgentPrompt;
             this.multiAccountService.setItem('settings', settings);
+                    this.syncSettingsToBackend(settings);
 
 
             const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey);

@@ -1,8 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 
 class AiWriterScreen extends StatefulWidget {
-  const AiWriterScreen({super.key});
+  final String? uuid;
+
+  const AiWriterScreen({super.key, this.uuid});
 
   @override
   State<AiWriterScreen> createState() => _AiWriterScreenState();
@@ -14,8 +19,210 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   String? _selectedStyle = 'Nhà báo';
   String? _selectedDomain = 'https://tadu.cloud';
 
+  bool _isLoading = false;
+  Map<String, dynamic>? _taskData;
+  Map<String, dynamic> _source = {};
+  List<dynamic> _done = [];
+  List<dynamic> _domains = [];
+  List<dynamic> _styles = [];
+
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _descController = TextEditingController();
+  final TextEditingController _urlController = TextEditingController();
+  final TextEditingController _thumbnailController = TextEditingController();
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descController.dispose();
+    _urlController.dispose();
+    _thumbnailController.dispose();
+    super.dispose();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.uuid != null && widget.uuid!.isNotEmpty) {
+      _loadTaskData();
+    }
+  }
+
+  Future<void> _applyDomainStyle(String? domain) async {
+    if (domain == null) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final uid = activeInfo['user']['id'] ?? 'default';
+        final settingsStr = prefs.getString('user_settings_$uid');
+        if (settingsStr != null) {
+          final settings = jsonDecode(settingsStr);
+          if (settings['domainStyles'] != null) {
+            final mappedStyleName = settings['domainStyles'][domain];
+            if (mappedStyleName != null) {
+              setState(() {
+                if (_styles.any((s) => s['name'] == mappedStyleName)) {
+                  _selectedStyle = mappedStyleName;
+                }
+              });
+            }
+          }
+        }
+      }
+    } catch (e) {
+      print('Error applying domain style: $e');
+    }
+  }
+
+  Future<void> _loadTaskData() async {
+    setState(() {
+      _isLoading = true;
+    });
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final username = activeInfo['user']['name'];
+        final uuid = widget.uuid!;
+
+        // Fetch all APIs in parallel
+        final results = await Future.wait([
+          ApiService.getAllDomains(),
+          ApiService.getForumCategory(1),
+          ApiService.getTasksCollections(username),
+          ApiService.checkTogether(username, uuid),
+          ApiService.getTaskDetail(username, uuid),
+          ApiService.getCollectionNode(username, uuid),
+          ApiService.getArchiveComments(username, uuid),
+          ApiService.getProfile(username),
+        ]);
+
+        final domainsRes = results[0];
+        if (domainsRes != null && domainsRes['success'] == true) {
+          _domains = domainsRes['data'] ?? [];
+        }
+
+        final profileRes = results[7];
+        if (profileRes != null && profileRes['success'] == true) {
+          _styles = profileRes['data']?['config']?['styles'] ?? [];
+        }
+
+        final detailRes = results[4];
+        if (detailRes != null && detailRes['success'] == true) {
+          setState(() {
+            _taskData = detailRes['data'];
+            
+            if (_taskData != null) {
+              _titleController.text = _taskData!['title'] ?? '';
+              _descController.text = _taskData!['description'] ?? '';
+              _urlController.text = _taskData!['url'] ?? '';
+              _thumbnailController.text = _taskData!['thumbnail'] ?? '';
+              
+              if (_taskData!['domain'] != null) {
+                String? rawTaskDomain;
+                if (_taskData!['domain'] is Map) {
+                  rawTaskDomain = _taskData!['domain']['domain']?.toString();
+                } else {
+                  rawTaskDomain = _taskData!['domain'].toString();
+                }
+                if (rawTaskDomain == null && _taskData!['source'] != null) {
+                  rawTaskDomain = _taskData!['source']['wp_domain']?.toString();
+                }
+                
+                if (rawTaskDomain != null) {
+                  String cleanTaskDomain = rawTaskDomain.replaceAll(RegExp(r'^(https?://)?(www\.)?'), '').split('/')[0];
+                  
+                  bool found = false;
+                  for (var d in _domains) {
+                    String dDomain = d['domain']?.toString() ?? '';
+                    String cleanD = dDomain.replaceAll(RegExp(r'^(https?://)?(www\.)?'), '').split('/')[0];
+                    if (cleanD == cleanTaskDomain) {
+                      _selectedDomain = dDomain;
+                      found = true;
+                      break;
+                    }
+                  }
+                  
+                  if (!found) {
+                    _selectedDomain = rawTaskDomain;
+                    // Auto-select the first domain if the rawTaskDomain is invalid or not in _domains
+                    if (_domains.isNotEmpty && !_domains.any((d) => d['domain'] == _selectedDomain)) {
+                      _selectedDomain = _domains.first['domain']?.toString();
+                    }
+                  }
+                }
+              } else {
+                if (_domains.isNotEmpty) {
+                  _selectedDomain = _domains.first['domain']?.toString();
+                }
+              }
+
+              if (_taskData!['style'] != null) {
+                String? rawStyle;
+                if (_taskData!['style'] is Map) {
+                  rawStyle = _taskData!['style']['name']?.toString();
+                } else {
+                  rawStyle = _taskData!['style'].toString();
+                }
+                
+                if (rawStyle != null) {
+                  print('DEBUG STYLE FROM TASK: $rawStyle');
+                  String cleanStyle = rawStyle.trim().toLowerCase();
+                  bool found = false;
+                  for (var s in _styles) {
+                    String sName = s['name']?.toString() ?? '';
+                    if (sName.trim().toLowerCase() == cleanStyle) {
+                      _selectedStyle = sName;
+                      found = true;
+                      break;
+                    }
+                  }
+                  if (!found) {
+                    print('DEBUG STYLE NOT FOUND IN _styles, rawStyle: $rawStyle');
+                    _selectedStyle = rawStyle;
+                    _applyDomainStyle(_selectedDomain);
+                  } else {
+                    print('DEBUG STYLE MATCHED: $_selectedStyle');
+                  }
+                }
+              } else {
+                _applyDomainStyle(_selectedDomain);
+              }
+
+              if (_taskData!['source'] != null && _taskData!['source'] is Map) {
+                _source = Map<String, dynamic>.from(_taskData!['source']);
+              }
+              if (_taskData!['done'] != null && _taskData!['done'] is List) {
+                _done = List<dynamic>.from(_taskData!['done']);
+              }
+            }
+          });
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading task detail: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Scaffold(
+        body: Center(
+          child: CircularProgressIndicator(color: AppColors.primary),
+        ),
+      );
+    }
+
     return DefaultTabController(
       length: 2,
       child: Scaffold(
@@ -82,8 +289,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
             child: TabBarView(
               children: [
                 _buildParagraphsTab(),
-                const Center(child: Text('Chưa có tiêu đề nào')),
-                const Center(child: Text('Chưa có mã HTML nào')),
+                _buildHeadingTab(),
+                _buildHtmlTab(),
               ],
             ),
           ),
@@ -144,17 +351,19 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                     content: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const TextField(
-                          decoration: InputDecoration(
+                        TextField(
+                          controller: _titleController,
+                          decoration: const InputDecoration(
                             labelText: 'Tên công việc*',
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         const SizedBox(height: 16),
-                        const TextField(
+                        TextField(
+                          controller: _descController,
                           maxLines: 3,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             labelText: 'Mô tả về công việc',
                             border: OutlineInputBorder(),
                             isDense: true,
@@ -211,17 +420,123 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                   Step(
                     title: const Text('Viết lại từ bài khác'),
                     isActive: _currentStep >= 1,
-                    content: const Text('Nội dung bước 2...'),
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          controller: _urlController,
+                          decoration: const InputDecoration(
+                            labelText: 'Nhập Link/URL bài viết mẫu',
+                            hintText: 'https://type.vn/topic/45',
+                            prefixIcon: Icon(Icons.language, size: 20),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, bottom: 12),
+                          child: Text(
+                            'Dùng bài viết này làm nền tảng',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ),
+                        const TextField(
+                          maxLines: 3,
+                          decoration: InputDecoration(
+                            labelText: 'Yêu cầu phân tích',
+                            hintText: 'Code',
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, bottom: 12),
+                          child: Text(
+                            'Yêu cầu bạn phải biết sử dụng HTML',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ),
+                        ElevatedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.shuffle, size: 18),
+                          label: const Text('Viết lại'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Step(
                     title: const Text('Tìm kiếm ý tưởng trên internet'),
                     isActive: _currentStep >= 2,
-                    content: const Text('Nội dung bước 3...'),
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        TextField(
+                          decoration: InputDecoration(
+                            labelText: 'Từ khoá tìm kiếm',
+                            hintText: 'Dùng từ khoá của bạn để quét nội dung',
+                            suffixIcon: IconButton(
+                              icon: const Icon(
+                                Icons.search,
+                                color: AppColors.primary,
+                              ),
+                              onPressed: () {},
+                            ),
+                            border: const OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4),
+                          child: Text(
+                            'VD: iphone 15 pro max',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   Step(
                     title: const Text('Kiểm tra SEO'),
                     isActive: _currentStep >= 3,
-                    content: const Text('Nội dung bước 4...'),
+                    content: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const TextField(
+                          decoration: InputDecoration(
+                            labelText: 'Từ khoá trọng tâm',
+                            hintText: 'Từ khoá trọng tâm',
+                            prefixIcon: Icon(Icons.vpn_key, size: 20),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                        ),
+                        const Padding(
+                          padding: EdgeInsets.only(top: 4, bottom: 12),
+                          child: Text(
+                            'Nên có độ dài lớn hơn 3 chữ',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ),
+                        const Text(
+                          'Điểm đạt được: 0/100',
+                          style: TextStyle(fontSize: 14),
+                        ),
+                        const SizedBox(height: 16),
+                        ElevatedButton.icon(
+                          onPressed: () {},
+                          icon: const Icon(Icons.network_check, size: 18),
+                          label: const Text('Kiểm tra điểm SEO'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
@@ -236,9 +551,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     return Column(
       children: [
         // Tabs cho Dàn ý / Đã xoá
-        DefaultTabController(
-          length: 2,
-          child: Expanded(
+        Expanded(
+          child: DefaultTabController(
+            length: 2,
             child: Column(
               children: [
                 const TabBar(
@@ -254,25 +569,74 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                 Expanded(
                   child: TabBarView(
                     children: [
-                      Padding(
+                      ListView(
+                        key: UniqueKey(),
                         padding: const EdgeInsets.all(16.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
+                        children: [
                             Container(
-                              height: 100,
+                              constraints: const BoxConstraints(minHeight: 100),
                               decoration: BoxDecoration(
                                 border: Border.all(color: Colors.grey.shade300),
                                 borderRadius: BorderRadius.circular(4),
                               ),
+                              child: _done.isEmpty
+                                  ? const Center(
+                                      child: Padding(
+                                        padding: EdgeInsets.all(16.0),
+                                        child: Text('Chưa có nội dung dàn ý'),
+                                      ),
+                                    )
+                                  : ListView.separated(
+                                      shrinkWrap: true,
+                                      physics: const NeverScrollableScrollPhysics(),
+                                      itemCount: _done.length,
+                                      separatorBuilder: (_, __) => const Divider(height: 1),
+                                      itemBuilder: (context, index) {
+                                        final htmlStr = _done[index].toString();
+                                        final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
+                                        return Padding(
+                                          padding: const EdgeInsets.all(12.0),
+                                          child: Row(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Expanded(
+                                                child: Text(
+                                                  text.isEmpty ? htmlStr : text,
+                                                  style: const TextStyle(fontSize: 14),
+                                                ),
+                                              ),
+                                              PopupMenuButton<String>(
+                                                icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                                                onSelected: (value) {
+                                                  // TODO: Implement paragraph actions
+                                                },
+                                                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                                                  const PopupMenuItem<String>(value: 'copy', child: Text('Sao chép')),
+                                                  const PopupMenuItem<String>(value: 'mp3', child: Text('Đọc văn bản')),
+                                                  const PopupMenuItem<String>(value: 'comment', child: Text('Bình luận')),
+                                                  const PopupMenuItem<String>(value: 'image', child: Text('Tạo hình ảnh')),
+                                                  const PopupMenuItem<String>(value: 'keyword', child: Text('Từ khoá')),
+                                                  const PopupMenuItem<String>(value: 'edit', child: Text('Sửa đoạn văn')),
+                                                  const PopupMenuItem<String>(value: 'split', child: Text('Tách')),
+                                                ],
+                                              ),
+                                            ],
+                                          ),
+                                        );
+                                      },
+                                    ),
                             ),
                             const SizedBox(height: 16),
                             const Text(
                               'Tập của bạn',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
                             const SizedBox(height: 8),
                             DropdownButtonFormField<String>(
+                              isExpanded: true,
                               decoration: const InputDecoration(
                                 border: OutlineInputBorder(),
                                 isDense: true,
@@ -285,9 +649,53 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                               items: const [],
                               onChanged: (v) {},
                             ),
+                            const SizedBox(height: 16),
+                            const Text(
+                              'Chọn phiên bản',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            DropdownButtonFormField<String>(
+                              isExpanded: true,
+                              decoration: const InputDecoration(
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                                contentPadding: EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 12,
+                                ),
+                              ),
+                              hint: const Text('Tạo bản nháp mới'),
+                              items: const [],
+                              onChanged: (v) {},
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.center,
+                              children: [
+                                GestureDetector(
+                                  onTap: () {},
+                                  child: const Icon(Icons.delete, color: Colors.red, size: 18),
+                                ),
+                                const SizedBox(width: 8),
+                                const Expanded(
+                                  child: Text(
+                                    'Cần có 0/600 từ, 0/5 link, 0/3 Tiêu đề, 0/1 Hình ảnh',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      fontSize: 11,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ],
                         ),
-                      ),
                       const Center(child: Text('Chưa có nội dung đã xoá')),
                     ],
                   ),
@@ -297,17 +705,35 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           ),
         ),
         const Divider(height: 1),
-        Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: ElevatedButton.icon(
-            onPressed: () {},
-            icon: const Icon(Icons.save, size: 18),
-            label: const Text('Lưu công việc'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.teal,
-              foregroundColor: Colors.white,
-              minimumSize: const Size.fromHeight(48),
-            ),
+        Container(
+          color: Colors.white,
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.archive, size: 18),
+                  label: const Text('Lưu trữ'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: () {},
+                  icon: const Icon(Icons.more_horiz, size: 18),
+                  label: const Text('Công cụ'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -331,11 +757,16 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           actions: [
             _buildIconBtn(Icons.link, Colors.teal),
             _buildIconBtn(Icons.send, Colors.teal),
-            _buildIconBtn(Icons.add, Colors.teal),
+            _buildIconBtn(Icons.add, Colors.amber),
           ],
         ),
         const SizedBox(height: 12),
-        _buildContentCard(),
+        _buildActionCard(
+          title: 'Đoạn văn (${(_source['p'] as List?)?.length ?? 0})',
+          iconPrefix: const Icon(Icons.short_text, size: 20, color: Colors.blue),
+          titleColor: Colors.black87,
+          contentWidgets: _buildHtmlList(_source['p']),
+        ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'Phân tích Hình ảnh (0)',
@@ -410,8 +841,135 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
             _buildIconBtn(Icons.delete, Colors.red),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'Nguồn khác (0)',
+          iconPrefix: const Icon(Icons.public, size: 20, color: Colors.grey),
+          titleColor: Colors.black87,
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'Chèn backlink (0)',
+          iconPrefix: const Icon(Icons.link, size: 20, color: Colors.orange),
+          titleColor: Colors.black87,
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'Từ khoá (0)',
+          iconPrefix: const Icon(
+            Icons.local_offer,
+            size: 20,
+            color: Colors.grey,
+          ),
+          titleColor: Colors.black87,
+        ),
       ],
     );
+  }
+
+  Widget _buildHeadingTab() {
+    final h1Count = (_source['h1'] as List?)?.length ?? 0;
+    final h2Count = (_source['h2'] as List?)?.length ?? 0;
+    final h3Count = (_source['h3'] as List?)?.length ?? 0;
+    final h4Count = (_source['h4'] as List?)?.length ?? 0;
+    final h5Count = (_source['h5'] as List?)?.length ?? 0;
+    final h6Count = (_source['h6'] as List?)?.length ?? 0;
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildActionCard(
+          title: 'h1 ($h1Count)',
+          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          contentWidgets: _buildHtmlList(_source['h1']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'h2 ($h2Count)',
+          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          contentWidgets: _buildHtmlList(_source['h2']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'h3 ($h3Count)',
+          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          contentWidgets: _buildHtmlList(_source['h3']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'h4 ($h4Count)',
+          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          contentWidgets: _buildHtmlList(_source['h4']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'h5 ($h5Count)',
+          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          contentWidgets: _buildHtmlList(_source['h5']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'h6 ($h6Count)',
+          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          contentWidgets: _buildHtmlList(_source['h6']),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHtmlTab() {
+    final pCount = (_source['p'] as List?)?.length ?? 0;
+    final aCount = (_source['a'] as List?)?.length ?? 0;
+    final imgCount = (_source['img'] as List?)?.length ?? 0;
+    final tableCount = (_source['table'] as List?)?.length ?? 0;
+    final ulCount = (_source['ul'] as List?)?.length ?? 0;
+    final blockquoteCount = (_source['blockquote'] as List?)?.length ?? 0;
+    final figureCount = (_source['figure'] as List?)?.length ?? 0;
+
+    return ListView(
+      padding: const EdgeInsets.all(16.0),
+      children: [
+        _buildActionCard(
+          title: 'p ($pCount)',
+          iconPrefix: const Icon(Icons.code, size: 20, color: Colors.orange),
+          contentWidgets: _buildHtmlList(_source['p']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'a ($aCount)',
+          iconPrefix: const Icon(Icons.link, size: 20, color: Colors.orange),
+          contentWidgets: _buildHtmlList(_source['a']),
+        ),
+        const SizedBox(height: 12),
+        _buildActionCard(
+          title: 'img ($imgCount)',
+          iconPrefix: const Icon(Icons.image, size: 20, color: Colors.orange),
+          contentWidgets: _buildHtmlList(_source['img']),
+        ),
+      ],
+    );
+  }
+
+  List<Widget>? _buildHtmlList(dynamic sourceList) {
+    if (sourceList == null || sourceList is! List || sourceList.isEmpty) {
+      return null;
+    }
+    return sourceList.map((item) {
+      final htmlStr = item.toString();
+      final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
+      return Container(
+        padding: const EdgeInsets.all(8.0),
+        margin: const EdgeInsets.only(bottom: 4.0),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade50,
+          border: Border(bottom: BorderSide(color: Colors.grey.shade200)),
+        ),
+        child: Text(
+          text.isEmpty ? htmlStr : text,
+          style: const TextStyle(fontSize: 13),
+        ),
+      );
+    }).toList();
   }
 
   Widget _buildConfigHeader() {
@@ -420,6 +978,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         Expanded(
           flex: 1,
           child: DropdownButtonFormField<String>(
+            isExpanded: true,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.coffee, size: 20),
               border: OutlineInputBorder(
@@ -428,17 +987,21 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             ),
-            value: _selectedStyle,
-            items: const [
-              DropdownMenuItem(
-                value: 'Nhà báo',
-                child: Text('Nhà báo', style: TextStyle(fontSize: 13)),
-              ),
-              DropdownMenuItem(
-                value: 'Thân thiện',
-                child: Text('Thân thiện', style: TextStyle(fontSize: 13)),
-              ),
-            ],
+            value: (_styles.any((s) => s['name'] == _selectedStyle)
+                    ? _selectedStyle
+                    : (_styles.isNotEmpty ? _styles.first['name'] : null)),
+            items: _styles.map((s) {
+              final styleName = s['name'].toString();
+              return DropdownMenuItem(
+                value: styleName,
+                child: Text(
+                  styleName,
+                  style: const TextStyle(fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
             onChanged: (v) => setState(() => _selectedStyle = v),
           ),
         ),
@@ -446,6 +1009,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         Expanded(
           flex: 1,
           child: DropdownButtonFormField<String>(
+            isExpanded: true,
             decoration: const InputDecoration(
               prefixIcon: Icon(Icons.language, size: 20),
               border: OutlineInputBorder(
@@ -454,18 +1018,25 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
               isDense: true,
               contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 12),
             ),
-            value: _selectedDomain,
-            items: const [
-              DropdownMenuItem(
-                value: 'https://tadu.cloud',
-                child: Text('tadu.cloud', style: TextStyle(fontSize: 13)),
-              ),
-              DropdownMenuItem(
-                value: 'type.vn',
-                child: Text('type.vn', style: TextStyle(fontSize: 13)),
-              ),
-            ],
-            onChanged: (v) => setState(() => _selectedDomain = v),
+            value: (_domains.any((d) => d['domain'] == _selectedDomain)
+                    ? _selectedDomain
+                    : (_domains.isNotEmpty ? _domains.first['domain'] : null)),
+            items: _domains.map((d) {
+              final domainName = d['domain'].toString();
+              return DropdownMenuItem(
+                value: domainName,
+                child: Text(
+                  domainName.replaceFirst(RegExp(r'^https?://'), ''),
+                  style: const TextStyle(fontSize: 13),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              );
+            }).toList(),
+            onChanged: (v) {
+              setState(() => _selectedDomain = v);
+              _applyDomainStyle(v);
+            },
           ),
         ),
       ],
@@ -479,6 +1050,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     Color? borderColor,
     List<Widget>? actions,
     Widget? customMiddleWidget,
+    List<Widget>? contentWidgets,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -520,13 +1092,14 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                 if (actions != null) ...actions,
               ],
             ),
-            children: [
-              Container(
-                height: 100,
-                color: Colors.grey.shade50,
-                child: const Center(child: Text('Nội dung...')),
-              ),
-            ],
+            children: contentWidgets ??
+                [
+                  Container(
+                    height: 100,
+                    color: Colors.grey.shade50,
+                    child: const Center(child: Text('Nội dung...')),
+                  ),
+                ],
           ),
         ),
       ),
@@ -534,10 +1107,66 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   Widget _buildContentCard() {
+    return Column(
+      children: [
+        _buildPromptCard(),
+        const SizedBox(height: 12),
+        Container(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(4),
+            color: Colors.white,
+          ),
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              dividerColor: Colors.transparent,
+              visualDensity: const VisualDensity(vertical: -4),
+            ),
+            child: Material(
+              color: Colors.transparent,
+              child: ExpansionTile(
+                dense: true,
+                minTileHeight: 48,
+                initiallyExpanded: true,
+                tilePadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 0,
+                ),
+                title: Row(
+                  children: [
+                    const Icon(Icons.article, color: Colors.blue, size: 20),
+                    const SizedBox(width: 8),
+                    const Expanded(
+                      child: Text(
+                        'Nội dung sáng tạo',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                      ),
+                    ),
+                    _buildIconBtn(Icons.copy, Colors.orange),
+                    _buildIconBtn(Icons.add, Colors.teal),
+                    _buildIconBtn(Icons.menu, Colors.blue),
+                    _buildIconBtn(Icons.delete, Colors.red),
+                  ],
+                ),
+                children: [
+                  const Divider(height: 1),
+                  _buildParagraphList(),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPromptCard() {
     return Container(
       decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey.shade300),
-        borderRadius: BorderRadius.circular(4),
+        border: Border.all(color: Colors.blue.shade200, width: 2),
+        borderRadius: BorderRadius.circular(12),
         color: Colors.white,
       ),
       child: Theme(
@@ -550,44 +1179,92 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           child: ExpansionTile(
             dense: true,
             minTileHeight: 48,
-            initiallyExpanded: true,
+            initiallyExpanded: false,
             tilePadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 0,
             ),
             title: Row(
               children: [
-                const Icon(Icons.article, color: Colors.blue, size: 20),
+                const Icon(Icons.terminal, color: Colors.blue, size: 20),
                 const SizedBox(width: 8),
-                const Expanded(
+                Expanded(
                   child: Text(
-                    'Nội dung sáng tạo',
+                    'Tạo Prompt (${_source['prompt']?.length ?? 0})',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
                   ),
                 ),
-                _buildIconBtn(Icons.copy, Colors.orange),
-                _buildIconBtn(Icons.add, Colors.teal),
-                _buildIconBtn(Icons.menu, Colors.blue),
-                _buildIconBtn(Icons.delete, Colors.red),
+                _buildIconBtn(Icons.attach_file, Colors.blue),
+                _buildIconBtn(Icons.send, Colors.blue),
+                _buildIconBtn(Icons.add, Colors.amber.shade500),
               ],
             ),
-            children: [
-              const Divider(height: 1),
-              Container(
-                padding: const EdgeInsets.all(16),
-                height: 150,
-                alignment: Alignment.topLeft,
-                child: const Text(
-                  'Click 2 lần vào đoạn văn này để chỉnh sửa.',
-                  style: TextStyle(color: Colors.black87),
-                ),
-              ),
+            children: _buildHtmlList(_source['prompt']) ?? [
+              const Padding(
+                padding: EdgeInsets.all(16.0),
+                child: Text('Chưa có prompt nào'),
+              )
             ],
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildParagraphList() {
+    final list = _source['chatgpt'] ?? [];
+    if (list.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(16),
+        height: 150,
+        alignment: Alignment.topLeft,
+        child: const Text(
+          'Click 2 lần vào đoạn văn này để chỉnh sửa.',
+          style: TextStyle(color: Colors.black87),
+        ),
+      );
+    }
+    
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: list.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final htmlStr = list[index].toString();
+        final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
+        return Padding(
+          padding: const EdgeInsets.all(12.0),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: Text(
+                  text.isEmpty ? htmlStr : text,
+                  style: const TextStyle(fontSize: 14),
+                ),
+              ),
+              PopupMenuButton<String>(
+                icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                onSelected: (value) {
+                  // TODO: implement
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(value: 'copy', child: Text('Sao chép')),
+                  const PopupMenuItem<String>(value: 'mp3', child: Text('Đọc văn bản')),
+                  const PopupMenuItem<String>(value: 'comment', child: Text('Bình luận')),
+                  const PopupMenuItem<String>(value: 'image', child: Text('Tạo hình ảnh')),
+                  const PopupMenuItem<String>(value: 'keyword', child: Text('Từ khoá')),
+                  const PopupMenuItem<String>(value: 'edit', child: Text('Sửa đoạn văn')),
+                  const PopupMenuItem<String>(value: 'split', child: Text('Tách')),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
     );
   }
 

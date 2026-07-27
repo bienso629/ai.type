@@ -46,6 +46,11 @@ export class GenaiService {
         }
     }
 
+    public aiAgentCustomInstructions: string | null = null;
+    public updateAiAgentContext(instructions: string | null) {
+        this.aiAgentCustomInstructions = instructions;
+    }
+
     constructor(
         private multiAccountService: MultiAccountService,
         private toastr: ToastrService
@@ -290,7 +295,7 @@ export class GenaiService {
         const isImageRequest = params.config?.responseModalities?.includes('IMAGE');
 
         if (isAiAgentActive && !isVideoRequest) {
-            params.model = 'gemini-3.6-flash';
+            params.model = settingsRaw?.aiAgentModel || 'gemini-3.6-flash';
         }
 
         if (isImageRequest && (!params.model || params.model.includes('gemini-') && !params.model.includes('image') || params.model.includes('claude'))) {
@@ -545,6 +550,15 @@ export class GenaiService {
         //     }
         // }
         
+        if (this.aiAgentCustomInstructions) {
+            sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT TỪ MÀN HÌNH HIỆN TẠI) ---\n${this.aiAgentCustomInstructions}\n--- HẾT HƯỚNG DẪN ---`;
+        }
+
+        const settings = this.getSettingsFromStorage();
+        if (settings.aiAgentPrompt) {
+            sysContent += `\n\n--- HƯỚNG DẪN BỔ SUNG TỪ NGƯỜI DÙNG ---\n${settings.aiAgentPrompt}\n--- HẾT HƯỚNG DẪN BỔ SUNG ---`;
+        }
+
         formData.append('system_instructions', sysContent);
 
         this.localAgentAbortController = new AbortController();
@@ -552,7 +566,6 @@ export class GenaiService {
         let secretApiKey = 'type-vn-local-agent-2026';
         let apiUrl = 'https://sontinh.type.vn/api/chat'; // Fallback for Web/Mobile
 
-        const settings = this.getSettingsFromStorage();
         if (settings.enableAiAgent !== false) {
             isAiAgentActive = true;
         }
@@ -1065,6 +1078,10 @@ export class GenaiService {
             } else if ((params.config.systemInstruction as any).parts) {
                 sysContent = (params.config.systemInstruction as any).parts.map((p: any) => p.text).join('\n');
             }
+        }
+
+        if (this.aiAgentCustomInstructions) {
+            sysContent += `\n\n--- HƯỚNG DẪN DÀNH CHO AI AGENT (CONTEXT TỪ MÀN HÌNH HIỆN TẠI) ---\n${this.aiAgentCustomInstructions}\n--- HẾT HƯỚNG DẪN ---`;
         }
 
         if (config.apiFormat === 'gemini') {

@@ -3,7 +3,7 @@
         <p class="text-base text-gray-500">Danh sách các tiện ích mở rộng tích hợp với hệ thống AI Agent.</p>
     </div>
     
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
         <div *ngFor="let plugin of plugins" class="border border-gray-200 rounded-xl p-6 bg-white shadow-sm flex flex-col justify-between">
             <div>
                 <div class="flex items-center justify-between mb-2">
@@ -20,6 +20,25 @@
                         </mat-form-field>
                     </div>
                     <p class="text-sm text-gray-500 mb-3">Sử dụng key này trên Mobile App để bảo mật kết nối với AI Agent.</p>
+                    <div class="flex items-end space-x-3 mb-3">
+                        <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                            <mat-label>Model mặc định (Tốc độ & Chất lượng)</mat-label>
+                            <mat-select [(ngModel)]="aiAgentModel">
+                                <mat-option value="gemini-3.6-flash">Gemini 3.6 Flash (Khuyên dùng, rất nhanh)</mat-option>
+                                <mat-option value="gemini-3.5-flash">Gemini 3.5 Flash (Cũ, nhanh)</mat-option>
+                                <mat-option value="gemini-3.5-pro">Gemini 3.5 Pro (Cũ, chậm, chất lượng cao)</mat-option>
+                                <mat-option value="gemini-3.1-pro">Gemini 3.1 Pro (Cũ, chất lượng ổn định)</mat-option>
+                            </mat-select>
+                        </mat-form-field>
+                    </div>
+
+                    <div class="flex items-end space-x-3 mb-3">
+                        <mat-form-field class="flex-auto custom-textarea fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
+                            <mat-label>Custom Prompt (Ép AI Agent ưu tiên xử lý)</mat-label>
+                            <textarea class="px-2" matInput [(ngModel)]="aiAgentPrompt" placeholder="Ví dụ: Chỉ trả lời bằng tiếng Việt, luôn sử dụng format JSON..." cdkTextareaAutosize cdkAutosizeMinRows="3" cdkAutosizeMaxRows="5"></textarea>
+                        </mat-form-field>
+                    </div>
+
                     <div class="flex items-end space-x-3">
                         <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
                             <mat-label>Giọng nói (TTS)</mat-label>
