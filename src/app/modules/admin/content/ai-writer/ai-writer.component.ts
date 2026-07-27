@@ -3842,34 +3842,49 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Xem trước bài đăng
      */
     async export() {
-        let isUpdate = this.source && this.source.wp_post_id;
+        let isUpdate = this.source && (this.source.wp_post_id || (this.source.wpPosts && this.source.wpPosts.length > 0));
         
         if (isUpdate) {
             // Check if post still exists on WordPress
             try {
                 this.detectForm.disable();
-                const wpData = {
-                    domain: this.domain,
-                    domain_id: this.domain._id || this.domain.id,
-                    sys_username: this.domain.sys_username,
-                    year: this.domain.year,
-                    username: this.source.wp_username || this.user.name,
-                    apppass: this.source.wp_password,
-                    include: [this.source.wp_post_id]
-                };
                 
-                const wpPostsResponse = await firstValueFrom(this._wordpressService.posts(wpData));
-                const wpPosts = wpPostsResponse && wpPostsResponse.success !== undefined ? wpPostsResponse.data : wpPostsResponse;
+                let checkDomain = (this.domain && this.domain.domain) ? this.domain.domain : this.source.wp_domain;
+                let checkPostId = this.source.wp_post_id;
+                let checkUsername = this.source.wp_username || this.user.name;
+                let checkPassword = this.source.wp_password;
                 
-                if (!wpPosts || !Array.isArray(wpPosts) || wpPosts.length === 0) {
+                if (!checkPostId && this.source.wpPosts && this.source.wpPosts.length > 0) {
+                    checkDomain = this.source.wpPosts[0].wp_domain || this.source.wpPosts[0].domain;
+                    checkPostId = this.source.wpPosts[0].wp_post_id || this.source.wpPosts[0].id;
+                    checkUsername = this.source.wpPosts[0].wp_username || this.user.name;
+                    checkPassword = this.source.wpPosts[0].wp_password;
+                }
+                
+                console.log('--- START EXPORT API CHECK ---');
+                console.log('Export check_post_exists targetDomain:', checkDomain, 'ID:', checkPostId);
+                const wpPostsResponse = await firstValueFrom(
+                    this._wordpressService.check_post_exists(
+                        checkDomain, 
+                        checkPostId, 
+                        checkUsername, 
+                        checkPassword
+                    )
+                );
+                
+                if (!wpPostsResponse || !wpPostsResponse.id) {
                     // Deleted on WP!
                     isUpdate = false;
                     this.source.wp_post_id = null;
+                    if (this.source.wpPosts) this.source.wpPosts = [];
                     this.update(false); // save local
                     this.toastr.warning('Bài viết này đã bị xoá trên WordPress. Tự động chuyển sang đăng mới!');
                 }
-            } catch (e) {
+            } catch (e: any) {
                 console.error('Check post error:', e);
+                if (e && e.status === 0) {
+                     this.toastr.warning('Không thể kiểm tra API trực tiếp do bị chặn CORS. Vẫn tiếp tục mở Cập nhật.');
+                }
             } finally {
                 this.detectForm.enable();
             }

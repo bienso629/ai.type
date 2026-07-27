@@ -76,6 +76,48 @@ export class WordpressService {
         );
     }
 
+
+    public check_post_exists(domain: string, postId: number|string, username: string, apppass: string): Observable<any> {
+        let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
+        activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
+
+        if (domain && typeof domain === 'string' && !domain.startsWith('http')) {
+            domain = 'https://' + domain;
+        }
+
+        let dataForm: any = {
+            domain: domain,
+            id: postId,
+            wp_post_id: postId,
+            username: username,
+            apppass: apppass,
+            year: this.year,
+            appId: 'ai.typing',
+            appToken: activeInfo['user']['appToken'],
+            sys_username: this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name'])
+        };
+
+        let url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/get`;
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, {
+            headers: new HttpHeaders({
+                'content-type': 'application/json',
+            })
+        }).pipe(
+            map(res => {
+                return res && res.success !== undefined ? res.data : res;
+            }),
+            catchError(err => {
+                console.error('WP API CHECK FAILED:', err);
+                return of(null);
+            })
+        );
+    }
+
     public posts(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
