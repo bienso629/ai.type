@@ -143,18 +143,18 @@
                             [resizeable]="true">
                             <ng-template let-row="row" ngx-datatable-cell-template>
                                 <div *ngIf="row" class="flex items-center justify-end gap-1">
-                                    <button *ngIf="permissionScriptCommentLike" mat-icon-button
+                                    <button *ngIf="permissionScriptCommentLike && hasScriptProject(row)" mat-icon-button
                                         matTooltipPosition="above"
                                         matTooltip="Lên kịch bản comment, like hoặc share cho bài '{{ row.title }}'"
                                         [routerLink]="['/amxh']"
                                         [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
                                         class="transition-colors">
                                         <mat-icon class="icon-size-4 text-red-500"
-                                            [svgIcon]="'feather:code'"></mat-icon>
+                                            [svgIcon]="'feather:feather'"></mat-icon>
                                     </button>
 
-                                    <button *ngIf="permissionText2Voice" mat-icon-button matTooltipPosition="above"
-                                        matTooltip="Tạo video bằng chữ và hình ảnh cho bài '{{ row.title }}'"
+                                    <button *ngIf="permissionText2Voice || hasVideoProject(row.uuid)" mat-icon-button matTooltipPosition="above"
+                                        matTooltip="Tạo/Xem kịch bản video cho bài '{{ row.title }}'"
                                         [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'heroicons_outline:film'"></mat-icon>

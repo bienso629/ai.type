@@ -3,6 +3,7 @@ import { ActivatedRoute, Router, Params } from '@angular/router';
 import { BlogService } from 'app/modules/_services/blog';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
+import { MultiAccountService } from 'app/modules/_services/multi-account.service';
 import { Subject, takeUntil } from 'rxjs';
 import { GenaiService } from 'app/genai.service';
 
@@ -183,7 +184,8 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         private clipboard: Clipboard,
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
-        private _genaiService: GenaiService
+        private _genaiService: GenaiService,
+        private _multiAccountService: MultiAccountService
     ) { }
 
     ngOnInit(): void {
@@ -222,10 +224,12 @@ export class AIScriptComponent implements OnInit, OnDestroy {
                 if (res && res.success && res.data) {
                     this.scriptDoc = res.data;
                     this.scriptText = res.data.script || '';
+                    this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
                 } else if (res && res.script) {
                     // Cấu trúc fallback trực tiếp
                     this.scriptDoc = res;
                     this.scriptText = res.script;
+                    this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
                 }
                 this.parseScriptText();
                 this.isLoading = false;
@@ -476,7 +480,8 @@ HƯỚNG DẪN ĐẦU RA:
                     script: scriptText
                 }).subscribe({
                     next: (res) => {
-                        this.toastr.success('Tạo lại kịch bản phim thành công!');
+                        this._multiAccountService.setItem(`ai_type_script_data_${this.uuid}`, true);
+                        this.toastr.success('Dựng kịch bản phim thành công và đã lưu vào database!');
                         this.scriptText = scriptText;
                         if (this.scriptDoc) {
                             this.scriptDoc.script = scriptText;
