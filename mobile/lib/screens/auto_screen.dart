@@ -665,6 +665,7 @@ class _AutoScreenState extends State<AutoScreen> {
   Widget build(BuildContext context) {
     return DefaultTabController(
       length: 4,
+      initialIndex: 2,
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -974,7 +975,7 @@ class _ScheduleTabState extends State<_ScheduleTab> {
     return CalendarControllerProvider<Map<String, dynamic>>(
       controller: _eventController,
       child: Scaffold(
-        backgroundColor: Colors.white,
+        backgroundColor: Colors.grey.shade50,
         floatingActionButton: FloatingActionButton(
           backgroundColor: AppColors.primary,
           child: const Icon(Icons.chat, color: Colors.white),
@@ -987,6 +988,13 @@ class _ScheduleTabState extends State<_ScheduleTab> {
             Container(
               decoration: BoxDecoration(
                 color: Colors.white,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.05),
+                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                  )
+                ],
               ),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
               child: Row(
@@ -1013,8 +1021,24 @@ class _ScheduleTabState extends State<_ScheduleTab> {
             ),
           Expanded(
             child: Container(
-              color: Colors.white,
-              child: MonthView<Map<String, dynamic>>(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+              color: Colors.grey.shade50,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.grey.shade300, width: 0.5),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.08),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    )
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: MonthView<Map<String, dynamic>>(
                 monthViewThemeSettings: MonthViewThemeSettings(
                   weekDayBackgroundColor: Colors.grey.shade100,
                 ),
@@ -1241,9 +1265,10 @@ class _ScheduleTabState extends State<_ScheduleTab> {
                       },
                     ),
                   ),
+                ),
+              ),
             ),
-          ),
-        ],
+          ],
       ),
       ),
     );

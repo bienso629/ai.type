@@ -464,6 +464,18 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     const bookmark = isCouchDB ? resData.bookmark : null;
 
                     if (docs && docs.length > 0) {
+                        for (const doc of docs) {
+                            if (doc.messages && Array.isArray(doc.messages)) {
+                                for (const msg of doc.messages) {
+                                    if (msg.inlineData && msg.inlineData.mimeType && msg.inlineData.mimeType.startsWith('image/') && msg.text) {
+                                        msg.text = msg.text.replace(/!\[.*?\]\((data:image\/[^;]+;base64,[^\)]+)\)/gs, '')
+                                                           .replace(/<img[^>]*src=["']data:image\/[^;]+;base64,[^"']+["'][^>]*>/gis, '')
+                                                           .trim();
+                                    }
+                                }
+                            }
+                        }
+
                         if (!this.chatgpt2s) {
                             this.chatgpt2s = new Array<any>(this.totalElements || 0);
                         }
@@ -739,14 +751,14 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         else currentStreamedText += chunk;
                         
                         let tempText = currentStreamedText;
-                        const mdMatches = [...tempText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/g)];
+                        const mdMatches = [...tempText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/gs)];
                         if (mdMatches.length > 0) {
                             newRow.inlineData = { mimeType: mdMatches[0][2], data: mdMatches[0][3] };
                             for (const m of mdMatches) {
                                 tempText = tempText.replace(m[0], '').trim();
                             }
                         }
-                        const htmlMatches = [...tempText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gi)];
+                        const htmlMatches = [...tempText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gis)];
                         if (htmlMatches.length > 0) {
                             if (!newRow.inlineData) {
                                 newRow.inlineData = { mimeType: htmlMatches[0][2], data: htmlMatches[0][3] };
@@ -798,7 +810,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         let extractedInlineData: any = null;
                         
                         // Extract and remove ALL dataUri markdown images
-                        const mdMatches = [...displayText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/g)];
+                        const mdMatches = [...displayText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/gs)];
                         if (mdMatches.length > 0) {
                             extractedInlineData = { mimeType: mdMatches[0][2], data: mdMatches[0][3] };
                             for (const m of mdMatches) {
@@ -807,7 +819,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         }
 
                         // Extract and remove ALL dataUri HTML images (if any)
-                        const htmlMatches = [...displayText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gi)];
+                        const htmlMatches = [...displayText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gis)];
                         if (htmlMatches.length > 0) {
                             if (!extractedInlineData) {
                                 extractedInlineData = { mimeType: htmlMatches[0][2], data: htmlMatches[0][3] };
@@ -820,13 +832,13 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         finalDisplayText = displayText; // Xóa base64 khổng lồ khỏi chuỗi lưu DB
                         
                         // Kiểm tra xem text có chứa thẻ ảnh (Markdown url hoặc HTML) nào không
-                        const hasAnyImageTag = /!\[.*?\]\(.*?\)|<img[^>]+>/i.test(finalDisplayText);
+                        const hasAnyImageTag = /!\[.*?\]\(.*?\)|<img[^>]+>/is.test(finalDisplayText);
                         
                         // Để tránh hiển thị đúp ảnh trên giao diện live (1 cái từ markdown, 1 cái từ inlineData),
                         // ta sẽ ẩn thẻ ảnh trong text hiển thị live nếu đã có inlineData.
                         let liveDisplayText = displayText;
                         if (hasAnyImageTag && (extractedInlineData || (result.candidates && result.candidates[0]?.content?.parts?.some((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('image/'))))) {
-                             liveDisplayText = displayText.replace(/!\[.*?\]\(.*?\)/g, '').replace(/<img[^>]+>/gi, '').trim();
+                             liveDisplayText = displayText.replace(/!\[.*?\]\(.*?\)/gs, '').replace(/<img[^>]+>/gis, '').trim();
                         }
 
                         // Cập nhật câu trả lời hiển thị ban đầu
@@ -1056,7 +1068,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                     } else {
                         let ans = data.answer || '';
                         let extractedInlineData: any = null;
-                        const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+                        const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/s);
                         if (match) {
                             extractedInlineData = { mimeType: match[2], data: match[3] };
                             ans = ans.replace(match[0], '').trim();
@@ -1105,7 +1117,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                         
                         let ans = msg.content || '';
                         let extractedInlineData: any = null;
-                        const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+                        const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/s);
                         if (match) {
                             extractedInlineData = { mimeType: match[2], data: match[3] };
                             ans = ans.replace(match[0], '').trim();
@@ -1128,7 +1140,7 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
         if (!row.messages) {
             let ans = row.answer || '';
             let inlineData: any = null;
-            const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/);
+            const match = ans.match(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/s);
             if (match) {
                 inlineData = { mimeType: match[2], data: match[3] };
                 ans = ans.replace(match[0], '').trim();
@@ -1228,11 +1240,33 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 if (isFull) currentStreamedText = chunk;
                 else currentStreamedText += chunk;
                 
+                let tempText = currentStreamedText;
+                const mdMatches = [...tempText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/gs)];
+                if (mdMatches.length > 0) {
+                    if (!modelMsgRef) modelMsgRef = { role: 'model', text: '' };
+                    modelMsgRef.inlineData = { mimeType: mdMatches[0][2], data: mdMatches[0][3] };
+                    for (const m of mdMatches) {
+                        tempText = tempText.replace(m[0], '').trim();
+                    }
+                }
+                const htmlMatches = [...tempText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gis)];
+                if (htmlMatches.length > 0) {
+                    if (!modelMsgRef) modelMsgRef = { role: 'model', text: '' };
+                    if (!modelMsgRef.inlineData) {
+                        modelMsgRef.inlineData = { mimeType: htmlMatches[0][2], data: htmlMatches[0][3] };
+                    }
+                    for (const m of htmlMatches) {
+                        tempText = tempText.replace(m[0], '').trim();
+                    }
+                }
+                currentStreamedText = tempText;
+                
                 if (!modelMsgRef) {
                     modelMsgRef = { role: 'model', text: currentStreamedText };
                     row.messages.push(modelMsgRef);
                 } else {
                     modelMsgRef.text = currentStreamedText;
+                    if (!row.messages.includes(modelMsgRef)) row.messages.push(modelMsgRef);
                 }
                 row.answer = currentStreamedText;
                 this.cdref.detectChanges();
@@ -1280,37 +1314,92 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             }, row.conversation_id || row._id);
             
             if (result) {
+                let finalDisplayText = result.text || '';
+                let displayText = finalDisplayText;
+                let extractedInlineData: any = null;
+                
+                const mdMatches = [...displayText.matchAll(/!\[.*?\]\((data:(image\/[^;]+);base64,([^\)]+))\)/gs)];
+                if (mdMatches.length > 0) {
+                    extractedInlineData = { mimeType: mdMatches[0][2], data: mdMatches[0][3] };
+                    for (const m of mdMatches) {
+                        displayText = displayText.replace(m[0], '').trim();
+                    }
+                }
+
+                const htmlMatches = [...displayText.matchAll(/<img[^>]*src=["'](data:(image\/[^;]+);base64,([^"']+))["'][^>]*>/gis)];
+                if (htmlMatches.length > 0) {
+                    if (!extractedInlineData) {
+                        extractedInlineData = { mimeType: htmlMatches[0][2], data: htmlMatches[0][3] };
+                    }
+                    for (const m of htmlMatches) {
+                        displayText = displayText.replace(m[0], '').trim();
+                    }
+                }
+
+                finalDisplayText = displayText;
+                const hasAnyImageTag = /!\[.*?\]\(.*?\)|<img[^>]+>/is.test(finalDisplayText);
+                
+                let liveDisplayText = displayText;
+                if (hasAnyImageTag && (extractedInlineData || (result.candidates && result.candidates[0]?.content?.parts?.some((p: any) => p.inlineData && p.inlineData.mimeType.startsWith('image/'))))) {
+                     liveDisplayText = displayText.replace(/!\[.*?\]\(.*?\)/gs, '').replace(/<img[^>]+>/gis, '').trim();
+                }
+
                 if (!modelMsgRef) {
-                    modelMsgRef = { role: 'model', text: result.text || '' };
+                    modelMsgRef = { role: 'model', text: liveDisplayText };
                     row.messages.push(modelMsgRef);
                 } else {
-                    modelMsgRef.text = result.text || '';
+                    modelMsgRef.text = liveDisplayText;
+                }
+                
+                if (extractedInlineData) {
+                    modelMsgRef.inlineData = extractedInlineData;
                 }
                 
                 if (result.candidates && result.candidates[0]?.content?.parts) {
                     const parts = result.candidates[0].content.parts;
-                    const mediaPart = parts.find((p: any) => p.inlineData);
+                    const mediaPart = parts.find((p: any) => p.inlineData && !p.inlineData.mimeType.startsWith('audio/'));
                     if (mediaPart) {
                         modelMsgRef.inlineData = mediaPart.inlineData;
                     }
                 }
                 
-                row.answer = result.text || '';
+                row.answer = finalDisplayText;
                 row.updatedAt = new Date();
                 
                 // Nếu màn hình hiện tại có yêu cầu action, gửi kết quả về cho màn hình xử lý
                 if (agentContext && agentContext.action) {
-                    this.globalAgentService.sendActionResult(result.text);
+                    this.globalAgentService.sendActionResult(finalDisplayText);
                 }
                 if ((result as any).conversation_id) {
                     row.conversation_id = (result as any).conversation_id;
+                }
+                
+                // Tự động upload ảnh lên server nếu có để lưu vào CSDL
+                if (!hasAnyImageTag && modelMsgRef.inlineData && modelMsgRef.inlineData.mimeType && modelMsgRef.inlineData.mimeType.startsWith('image/')) {
+                    try {
+                        let ext = 'png';
+                        if (modelMsgRef.inlineData.mimeType.includes('jpeg') || modelMsgRef.inlineData.mimeType.includes('jpg')) ext = 'jpg';
+                        
+                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(
+                            modelMsgRef.inlineData.data,
+                            `chatgpt_${Date.now()}.${ext}`,
+                            this.user.name
+                        );
+                        
+                        if (cdnUrl) {
+                            finalDisplayText += `\n\n![Generated Image](${cdnUrl})`;
+                            row.answer = finalDisplayText;
+                        }
+                    } catch(e) {
+                        console.warn('Lỗi khi upload ảnh từ chat lên server', e);
+                    }
                 }
                 
                 this._chatGPTService.store({
                     _id: row._id,
                     question: row.question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
                     content: row.question || (row?.messages?.[0]?.path ? 'File đính kèm' : 'AI Agent Chat'),
-                    answer: result.text,
+                    answer: finalDisplayText,
                     messages: row.messages,
                     conversation_id: row.conversation_id,
                     username: this.user.name

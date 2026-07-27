@@ -20,7 +20,7 @@
     <div
         class="relative flex flex-0 items-center w-full h-16 px-4 md:px-6 z-49 shadow-none dark:shadow-none border-b dark:border-b bg-card dark:bg-transparent print:hidden">
         <!-- Navigation toggle button -->
-        <div class="space-x-1 sm:space-x-1">
+        <div class="flex items-center space-x-1 sm:space-x-1">
             <button mat-icon-button (click)="toggleNavigation('mainNavigation')" [title]="'app.auto_collapse_expand_menu' | transloco">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:sidebar'"></mat-icon>
             </button>
@@ -34,6 +34,8 @@
             <button mat-icon-button (click)="help()" [title]="'app.auto_help' | transloco">
                 <mat-icon class="icon-size-5" [svgIcon]="'feather:help-circle'"></mat-icon>
             </button>
+
+            <app-ai-agent-floating-button></app-ai-agent-floating-button>
 
             <!-- <input hidden type="file" class="file-input" (change)="readFile($event)" #fileUpload>
             <button mat-icon-button color="primary" (click)="fileUpload.click()">

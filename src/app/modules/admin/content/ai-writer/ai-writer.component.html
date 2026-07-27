@@ -165,7 +165,7 @@
                                         <button mat-icon-button (click)="generateImageFromOutline()" type="button"
                                             [color]="'primary'" matTooltip="Tự động tạo hình ảnh từ dàn ý"
                                             [disabled]="isGeneratingImage">
-                                            <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage" [svgIcon]="isGeneratingImage ? 'feather:loader' : 'feather:image'"></mat-icon>
+                                            <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage" [svgIcon]="isGeneratingImage ? 'feather:loader' : 'heroicons_outline:sparkles'"></mat-icon>
                                         </button>
                                         <button mat-icon-button (click)="fileInput.click()" type="button"
                                             [color]="'primary'" [matTooltip]="'app.add_media_file' | transloco">
@@ -208,12 +208,7 @@
                                             </span>
                                         </div>
                                         <div class="flex items-center gap-1">
-                                            <button (click)="replaceThumbnailIndex = i; replaceFileInput.click()"
-                                                class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-blue-50 text-blue-500 transition-colors focus:outline-none"
-                                                type="button" [matTooltip]="'app.replace_this_file' | transloco">
-                                                <mat-icon class="icon-size-4"
-                                                    [svgIcon]="'feather:refresh-cw'"></mat-icon>
-                                            </button>
+
                                             <button (click)="removeThumbnail(i)"
                                                 class="flex items-center justify-center w-8 h-8 rounded-full hover:bg-red-50 text-red-500 transition-colors focus:outline-none"
                                                 type="button" [matTooltip]="'app.auto_delete_this_file' | transloco">
@@ -977,7 +972,7 @@
                                                     (click)="insertVideo(); $event.stopPropagation()"
                                                     matTooltipPosition="above" [matTooltip]="'app.add_new_video' | transloco">
                                                     <mat-icon class="icon-size-4 text-primary"
-                                                        [svgIcon]="'feather:upload'"></mat-icon>
+                                                        [svgIcon]="'feather:file-plus'"></mat-icon>
                                                 </button>
                                             </mat-panel-title>
                                         </mat-expansion-panel-header>
@@ -2516,7 +2511,7 @@
                                                             <button mat-menu-item (click)="generateImageFromParagraph(item)"
                                                                 [color]="'primary'" [disabled]="isGeneratingImage">
                                                                 <mat-icon class="icon-size-4" [class.animate-spin]="isGeneratingImage"
-                                                                    [svgIcon]="isGeneratingImage ? 'feather:loader' : 'feather:image'"></mat-icon>
+                                                                    [svgIcon]="isGeneratingImage ? 'feather:loader' : 'heroicons_outline:sparkles'"></mat-icon>
                                                                 <span>Tạo hình ảnh</span>
                                                             </button>
                                                             <button mat-menu-item (click)="keyword(done, i)"

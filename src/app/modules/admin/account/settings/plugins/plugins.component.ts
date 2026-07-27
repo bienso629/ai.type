@@ -202,7 +202,7 @@ export class SettingsPluginsComponent implements OnInit {
                     const settings = this.multiAccountService.getItem('settings') || {};
                     settings.enableAiAgent = event.checked;
                     this.multiAccountService.setItem('settings', settings);
-                    try { localStorage.setItem('settings', JSON.stringify(settings)); } catch(e){}
+
                     
                     this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
                 } else {
@@ -222,7 +222,7 @@ export class SettingsPluginsComponent implements OnInit {
             settings.ttsVoice = this.ttsVoice;
             settings.ttsRate = this.ttsRate;
             this.multiAccountService.setItem('settings', settings);
-            try { localStorage.setItem('settings', JSON.stringify(settings)); } catch(e){}
+
             this.toastr.success('Đã lưu cấu hình AI Agent trên trình duyệt/mobile.');
             return;
         }
@@ -232,7 +232,7 @@ export class SettingsPluginsComponent implements OnInit {
             settings.ttsRate = this.ttsRate;
             settings.aiAgentApiKey = this.aiAgentApiKey;
             this.multiAccountService.setItem('settings', settings);
-            try { localStorage.setItem('settings', JSON.stringify(settings)); } catch(e){}
+
 
             const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey);
             if (res && res.success) {
