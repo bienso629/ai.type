@@ -3842,7 +3842,12 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
      * Xem trước bài đăng
      */
     async export() {
+        console.log('--- EXPORT BUTTON CLICKED ---');
+        console.log('source.wp_post_id:', this.source?.wp_post_id);
+        console.log('source.wpPosts:', this.source?.wpPosts);
+        
         let isUpdate = this.source && (this.source.wp_post_id || (this.source.wpPosts && this.source.wpPosts.length > 0));
+        console.log('isUpdate evaluated to:', isUpdate);
         
         if (isUpdate) {
             // Check if post still exists on WordPress

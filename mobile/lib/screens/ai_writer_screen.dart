@@ -417,7 +417,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                           decoration: const InputDecoration(
                             labelText: 'Nhập Link/URL bài viết mẫu',
                             hintText: 'https://type.vn/topic/45',
-                            prefixIcon: Icon(Icons.language, size: 20),
+                            prefixIcon: Icon(Icons.language, size: 16),
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -447,7 +447,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                         ),
                         ElevatedButton.icon(
                           onPressed: () {},
-                          icon: const Icon(Icons.shuffle, size: 18),
+                          icon: const Icon(Icons.shuffle, size: 16),
                           label: const Text('Viết lại'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -498,7 +498,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                           decoration: InputDecoration(
                             labelText: 'Từ khoá trọng tâm',
                             hintText: 'Từ khoá trọng tâm',
-                            prefixIcon: Icon(Icons.vpn_key, size: 20),
+                            prefixIcon: Icon(Icons.vpn_key, size: 16),
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -517,7 +517,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                         const SizedBox(height: 16),
                         ElevatedButton.icon(
                           onPressed: () {},
-                          icon: const Icon(Icons.network_check, size: 18),
+                          icon: const Icon(Icons.network_check, size: 16),
                           label: const Text('Kiểm tra điểm SEO'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
@@ -591,7 +591,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                                         value: val,
                                         child: Row(
                                           children: [
-                                            Icon(icon, size: 18, color: Colors.grey.shade700),
+                                            Icon(icon, size: 16, color: Colors.grey.shade700),
                                             const SizedBox(width: 12),
                                             Text(text, style: const TextStyle(fontSize: 14)),
                                           ],
@@ -669,7 +669,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                 children: [
                   GestureDetector(
                     onTap: () {},
-                    child: const Icon(Icons.delete, color: Colors.red, size: 18),
+                    child: const Icon(Icons.delete, color: Colors.red, size: 16),
                   ),
                   const SizedBox(width: 8),
                   const Expanded(
@@ -697,7 +697,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {},
-                  icon: const Icon(Icons.archive, size: 18),
+                  icon: const Icon(Icons.archive, size: 16),
                   label: const Text('Lưu trữ'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.primary,
@@ -709,7 +709,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
               Expanded(
                 child: ElevatedButton.icon(
                   onPressed: () {},
-                  icon: const Icon(Icons.more_horiz, size: 18),
+                  icon: const Icon(Icons.more_horiz, size: 16),
                   label: const Text('Công cụ'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Colors.green,
@@ -747,7 +747,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'Nội dung sáng tạo (${((_source['text'] as List?)?.length ?? 0) + ((_source['chatgpt'] as List?)?.length ?? 0)})',
-          iconPrefix: const Icon(Icons.article, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.article, size: 16, color: Colors.blue),
           titleColor: Colors.black87,
           initiallyExpanded: true,
           actions: [
@@ -761,7 +761,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'Phân tích Hình ảnh (${(_source['img'] as List?)?.length ?? 0})',
-          iconPrefix: const Icon(Icons.image, size: 20, color: Colors.green),
+          iconPrefix: const Icon(Icons.image, size: 16, color: Colors.green),
           titleColor: Colors.black87,
           actions: [
             _buildIconBtn(Icons.upload, Colors.teal),
@@ -773,7 +773,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           title: 'Phân tích Video (0)',
           iconPrefix: const Icon(
             Icons.videocam,
-            size: 20,
+            size: 16,
             color: Colors.redAccent,
           ),
           titleColor: Colors.black87,
@@ -813,7 +813,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           title: 'Gợi ý Prompt cho bạn (0)',
           iconPrefix: const Icon(
             Icons.format_list_bulleted,
-            size: 20,
+            size: 16,
             color: Colors.orange,
           ),
           titleColor: Colors.black87,
@@ -823,7 +823,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           title: 'Từ điển kiến thức',
           iconPrefix: const Icon(
             Icons.menu_book,
-            size: 20,
+            size: 16,
             color: Colors.amber,
           ),
           titleColor: Colors.black87,
@@ -835,13 +835,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'Nguồn khác (0)',
-          iconPrefix: const Icon(Icons.public, size: 20, color: Colors.grey),
+          iconPrefix: const Icon(Icons.public, size: 16, color: Colors.grey),
           titleColor: Colors.black87,
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'Chèn backlink (0)',
-          iconPrefix: const Icon(Icons.link, size: 20, color: Colors.orange),
+          iconPrefix: const Icon(Icons.link, size: 16, color: Colors.orange),
           titleColor: Colors.black87,
         ),
         const SizedBox(height: 12),
@@ -849,7 +849,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           title: 'Từ khoá (0)',
           iconPrefix: const Icon(
             Icons.local_offer,
-            size: 20,
+            size: 16,
             color: Colors.grey,
           ),
           titleColor: Colors.black87,
@@ -871,37 +871,37 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       children: [
         _buildActionCard(
           title: 'h1 ($h1Count)',
-          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.title, size: 16, color: Colors.blue),
           contentWidgets: _buildHtmlList(_source['h1']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'h2 ($h2Count)',
-          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.title, size: 16, color: Colors.blue),
           contentWidgets: _buildHtmlList(_source['h2']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'h3 ($h3Count)',
-          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.title, size: 16, color: Colors.blue),
           contentWidgets: _buildHtmlList(_source['h3']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'h4 ($h4Count)',
-          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.title, size: 16, color: Colors.blue),
           contentWidgets: _buildHtmlList(_source['h4']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'h5 ($h5Count)',
-          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.title, size: 16, color: Colors.blue),
           contentWidgets: _buildHtmlList(_source['h5']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'h6 ($h6Count)',
-          iconPrefix: const Icon(Icons.title, size: 20, color: Colors.blue),
+          iconPrefix: const Icon(Icons.title, size: 16, color: Colors.blue),
           contentWidgets: _buildHtmlList(_source['h6']),
         ),
       ],
@@ -922,19 +922,19 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       children: [
         _buildActionCard(
           title: 'p ($pCount)',
-          iconPrefix: const Icon(Icons.code, size: 20, color: Colors.orange),
+          iconPrefix: const Icon(Icons.code, size: 16, color: Colors.orange),
           contentWidgets: _buildHtmlList(_source['p']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'a ($aCount)',
-          iconPrefix: const Icon(Icons.link, size: 20, color: Colors.orange),
+          iconPrefix: const Icon(Icons.link, size: 16, color: Colors.orange),
           contentWidgets: _buildHtmlList(_source['a']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
           title: 'img ($imgCount)',
-          iconPrefix: const Icon(Icons.image, size: 20, color: Colors.orange),
+          iconPrefix: const Icon(Icons.image, size: 16, color: Colors.orange),
           contentWidgets: _buildHtmlList(_source['img']),
         ),
       ],
@@ -971,7 +971,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           child: DropdownButtonFormField<String>(
             isExpanded: true,
             decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.coffee, size: 20),
+              prefixIcon: Icon(Icons.coffee, size: 16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(4)),
               ),
@@ -1002,7 +1002,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           child: DropdownButtonFormField<String>(
             isExpanded: true,
             decoration: const InputDecoration(
-              prefixIcon: Icon(Icons.language, size: 20),
+              prefixIcon: Icon(Icons.language, size: 16),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.all(Radius.circular(4)),
               ),
@@ -1054,36 +1054,44 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         data: Theme.of(context).copyWith(
           dividerColor: Colors.transparent,
           visualDensity: const VisualDensity(vertical: -4),
+          listTileTheme: const ListTileThemeData(
+            dense: true,
+            minVerticalPadding: 0,
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 0),
+          ),
         ),
         child: Material(
           color: Colors.transparent,
           child: ExpansionTile(
             dense: true,
             initiallyExpanded: initiallyExpanded,
-            minTileHeight: 48,
+            minTileHeight: 36,
             tilePadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 0,
             ),
-            title: Row(
-              children: [
-                iconPrefix,
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: titleColor,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
+            title: SizedBox(
+              height: 36,
+              child: Row(
+                children: [
+                  iconPrefix,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: titleColor,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
-                ),
-                if (customMiddleWidget != null) customMiddleWidget,
-                if (actions != null) ...actions,
-              ],
+                  if (customMiddleWidget != null) customMiddleWidget,
+                  if (actions != null) ...actions,
+                ],
+              ),
             ),
             children: contentWidgets ??
                 [
@@ -1099,112 +1107,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     );
   }
 
-  Widget _buildContentCard() {
-    return Column(
-      children: [
-        _buildPromptCard(),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(4),
-            color: Colors.white,
-          ),
-          child: Theme(
-            data: Theme.of(context).copyWith(
-              dividerColor: Colors.transparent,
-              visualDensity: const VisualDensity(vertical: -4),
-            ),
-            child: Material(
-              color: Colors.transparent,
-              child: ExpansionTile(
-                dense: true,
-                minTileHeight: 48,
-                initiallyExpanded: true,
-                tilePadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 0,
-                ),
-                title: Row(
-                  children: [
-                    const Icon(Icons.article, color: Colors.blue, size: 20),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                      child: Text(
-                        'Nội dung sáng tạo',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                      ),
-                    ),
-                    _buildIconBtn(Icons.copy, Colors.orange),
-                    _buildIconBtn(Icons.add, Colors.teal),
-                    _buildIconBtn(Icons.menu, Colors.blue),
-                    _buildIconBtn(Icons.delete, Colors.red),
-                  ],
-                ),
-                children: [
-                  const Divider(height: 1),
-                  _buildParagraphList(),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildPromptCard() {
-    return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.blue.shade200, width: 2),
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.white,
-      ),
-      child: Theme(
-        data: Theme.of(context).copyWith(
-          dividerColor: Colors.transparent,
-          visualDensity: const VisualDensity(vertical: -4),
-        ),
-        child: Material(
-          color: Colors.transparent,
-          child: ExpansionTile(
-            dense: true,
-            minTileHeight: 48,
-            initiallyExpanded: false,
-            tilePadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 0,
-            ),
-            title: Row(
-              children: [
-                const Icon(Icons.terminal, color: Colors.blue, size: 20),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Tạo Prompt (${_source['prompt']?.length ?? 0})',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.blue),
-                  ),
-                ),
-                _buildIconBtn(Icons.attach_file, Colors.blue),
-                _buildIconBtn(Icons.send, Colors.blue),
-                _buildIconBtn(Icons.add, Colors.amber.shade500),
-              ],
-            ),
-            children: _buildHtmlList(_source['prompt']) ?? [
-              const Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Text('Chưa có prompt nào'),
-              )
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   Widget _buildParagraphList() {
     final textList = (_source['text'] as List?) ?? [];
@@ -1252,7 +1154,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                       value: val,
                       child: Row(
                         children: [
-                          Icon(icon, size: 18, color: Colors.grey.shade700),
+                          Icon(icon, size: 16, color: Colors.grey.shade700),
                           const SizedBox(width: 12),
                           Text(text, style: const TextStyle(fontSize: 14)),
                         ],
@@ -1281,11 +1183,14 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   Widget _buildIconBtn(IconData icon, Color color) {
-    return Padding(
-      padding: const EdgeInsets.only(left: 12.0),
-      child: InkWell(
-        onTap: () {},
-        child: Icon(icon, size: 20, color: color),
+    return SizedBox(
+      width: 28,
+      height: 28,
+      child: IconButton(
+        icon: Icon(icon, color: color, size: 16),
+        onPressed: () {},
+        padding: EdgeInsets.zero,
+        splashRadius: 16,
       ),
     );
   }
