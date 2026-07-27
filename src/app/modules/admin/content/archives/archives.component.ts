@@ -610,11 +610,9 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
 
-                        // Đổ vào mảng rows chính
-                        this.rows = [
-                            ...(this.rows || []),
-                            ...resData.docs,
-                        ];
+                        const rows = [...this.rows];
+                        rows.splice(start, resData.docs.length, ...resData.docs);
+                        this.rows = rows;
 
                         // Nếu số docs ít hơn size tức là đã đến trang cuối, không cần cộng thêm ảo
                         if (resData.docs.length < this.page.size) {
@@ -880,6 +878,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         if (total === undefined) total = res?.data?.data?.total;
                         if (total !== undefined) {
                             this.totalElements = total;
+                            this.actualTotalElements = total;
                             
                             // Bắt buộc resize lại mảng rows để virtual scroll nhận diện được tổng số bản ghi
                             if (this.rows && this.rows.length !== this.totalElements) {

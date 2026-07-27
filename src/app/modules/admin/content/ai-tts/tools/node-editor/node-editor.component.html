@@ -1,3 +1,17 @@
+<!-- Floating Top-Left Toolbar -->
+<div class="absolute top-4 left-4 z-50 flex items-center gap-3 w-max pointer-events-none">
+    <!-- Back Button -->
+    <a href="javascript:history.back()" [matTooltip]="'app.auto_go_back' | transloco" class="w-10 h-10 shrink-0 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-teal-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
+        <mat-icon class="icon-size-6">arrow_back</mat-icon>
+    </a>
+
+    <!-- Tools -->
+    <button (click)="openVideoEditorDialog()" class="h-10 px-4 shrink-0 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-700 hover:text-teal-600 font-medium pointer-events-auto transition-transform hover:scale-105 border border-gray-200" matTooltip="Mở lại cài đặt Dựng video">
+        <mat-icon class="icon-size-5 mr-2">edit_note</mat-icon>
+        <span class="whitespace-nowrap">Sửa lại kịch bản</span>
+    </button>
+</div>
+
 <div class="w-full h-full relative overflow-auto bg-white select-none" #workspace 
      (mousedown)="onWorkspaceMouseDown($event)" 
      (wheel)="onWheel($event)"
@@ -7,13 +21,6 @@
      [style.background-size]="(20 * scale) + 'px ' + (20 * scale) + 'px'"
      style="background-attachment: local;">
     
-    <!-- Back Button -->
-    <div class="sticky top-4 left-4 z-50 pointer-events-none" style="width: 0; height: 0; overflow: visible;">
-        <a href="javascript:history.back()" [matTooltip]="'app.auto_go_back' | transloco" class="w-10 h-10 bg-white/90 backdrop-blur rounded-full shadow-md flex items-center justify-center text-gray-600 hover:text-teal-600 pointer-events-auto transition-transform hover:scale-105 border border-gray-200">
-            <mat-icon class="icon-size-6">arrow_back</mat-icon>
-        </a>
-    </div>
-
     <!-- Huge canvas for native scrolling -->
     <div class="relative" [style.width.px]="canvasWidth" [style.height.px]="canvasHeight" [style.minWidth.px]="canvasWidth" [style.minHeight.px]="canvasHeight">
         <!-- Zoom Layer -->
