@@ -1014,14 +1014,34 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             }
         });
 
-        dialogRef.afterClosed().subscribe(result => {
+        dialogRef.afterClosed().subscribe(async result => {
             if (result) {
                 this.extraPrompt = result.extraPrompt;
                 this.videoFormat = result.videoFormat;
                 this.aspectRatio = result.aspectRatio;
                 this.maxDuration = result.maxDuration;
+                
                 if (result.attachedVideoFiles && result.attachedVideoFiles.length > 0) {
-                    this.attachedVideoFiles = result.attachedVideoFiles;
+                    this.attachedVideoFiles = [];
+                    for (const file of result.attachedVideoFiles) {
+                        // Check xem nó là File gốc hay object đã có base64
+                        if (file.base64) {
+                            this.attachedVideoFiles.push(file);
+                        } else {
+                            const base64String = await new Promise<string>((resolve) => {
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                    resolve((reader.result as string).split(',')[1]);
+                                };
+                                reader.readAsDataURL(file);
+                            });
+                            this.attachedVideoFiles.push({
+                                file: file,
+                                base64: base64String,
+                                mimeType: file.type
+                            });
+                        }
+                    }
                 }
 
                 // Lưu lại cấu hình (thay cho auto-save trước đây)
@@ -1628,7 +1648,10 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
             this.saveToLocal();
         }
 
-        this.router.navigate(['/voice2video', this.user?.name || 'anonymous', this.uuid, 'node']);
+        // Dùng setTimeout để đảm bảo việc chuyển trang được thực thi (đề phòng kẹt zone do fetch streaming)
+        setTimeout(() => {
+            this.router.navigate(['/voice2video', this.user?.name || 'anonymous', this.uuid, 'node']);
+        }, 100);
     }
 
     async exportMerge() {
@@ -2603,6 +2626,28 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
 
                 // 3. Load project video (scenes) nếu có
                 this.loadClipsFromLocal(this.uuid);
+
+                // Lắng nghe yêu cầu sửa kịch bản từ NodeEditorComponent
+                this.route.queryParams.pipe(takeUntil(this._unsubscribeAll)).subscribe(qParams => {
+                    if (qParams['action'] === 'edit-script') {
+                        setTimeout(() => {
+                            if (this.audioList && this.audioList.length > 0) {
+                                this.openVideoSettings();
+                            } else {
+                                // Thử lại sau nếu audioList chưa kịp load
+                                setTimeout(() => this.openVideoSettings(), 1000);
+                            }
+                            
+                            // Xóa query param để không bị lặp lại nếu f5
+                            this.router.navigate([], {
+                                queryParams: {
+                                  'action': null,
+                                },
+                                queryParamsHandling: 'merge'
+                              });
+                        }, 500);
+                    }
+                });
 
             } else {
                 this.router.navigate(['/tools']);

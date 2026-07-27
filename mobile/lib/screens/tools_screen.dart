@@ -8,7 +8,7 @@ import 'tasks_screen.dart';
 import 'sitemap_screen.dart';
 import 'dictionary_screen.dart';
 import 'auto_screen.dart';
-import 'chat_screen.dart';
+import 'ai_writer_screen.dart';
 
 class ToolsScreen extends StatefulWidget {
   const ToolsScreen({super.key});
@@ -57,20 +57,20 @@ class _ToolsScreenState extends State<ToolsScreen> {
     }
 
     int reputation = _user!['reputation'] ?? 0;
-    
+
     int cn2 = 0, cn3 = 0;
-    if (_groups.contains('nhóm-tạo-hình-ảnh') || 
-        _groups.contains('nhóm-thu-thập-dữ-liệu') || 
-        _groups.contains('nhóm-txt2voice') || 
+    if (_groups.contains('nhóm-tạo-hình-ảnh') ||
+        _groups.contains('nhóm-thu-thập-dữ-liệu') ||
+        _groups.contains('nhóm-txt2voice') ||
         _groups.contains('nhóm-big-data') ||
         _groups.contains('nhóm-download-video')) {
       cn2++;
     }
 
-    if (_groups.contains('nhóm-đã-mua-chatbot') || 
-        _groups.contains('nhóm-seo-và-phân-tích') || 
-        _groups.contains('nhóm-tự-động-hóa') || 
-        _groups.contains('nhóm-x-cms') || 
+    if (_groups.contains('nhóm-đã-mua-chatbot') ||
+        _groups.contains('nhóm-seo-và-phân-tích') ||
+        _groups.contains('nhóm-tự-động-hóa') ||
+        _groups.contains('nhóm-x-cms') ||
         _groups.contains('nhóm-chạy-traffic')) {
       cn3++;
     }
@@ -102,11 +102,17 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   _buildToolCard(
                     icon: FontAwesomeIcons.penToSquare,
                     title: 'Tác vụ',
-                    description: 'Lên kịch bản, viết bài nhanh, tóm tắt nội dung...',
+                    description:
+                        'Lên kịch bản, viết bài nhanh, tóm tắt nội dung...',
                     color: Colors.blueAccent,
                     isActive: reputation >= 0,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const ChatScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const AiWriterScreen(),
+                        ),
+                      );
                     },
                   ),
                 if (reputation >= 0)
@@ -117,7 +123,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     color: Colors.orangeAccent,
                     isActive: reputation >= 0,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DomainScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DomainScreen()),
+                      );
                     },
                   ),
                 if (_groups.contains('nhóm-quét-sitemap'))
@@ -128,7 +137,12 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     color: Colors.purpleAccent,
                     isActive: reputation >= 0,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const SitemapScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const SitemapScreen(),
+                        ),
+                      );
                     },
                   ),
                 if (reputation >= 0)
@@ -139,7 +153,12 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     color: Colors.green,
                     isActive: reputation >= 0,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const DictionaryScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const DictionaryScreen(),
+                        ),
+                      );
                     },
                   ),
               ],
@@ -177,7 +196,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   _buildToolCard(
                     icon: FontAwesomeIcons.youtube,
                     title: 'Tải xuống',
-                    description: 'Tải xuống tất cả video từ Facebook, Youtube, Tiktok',
+                    description:
+                        'Tải xuống tất cả video từ Facebook, Youtube, Tiktok',
                     color: Colors.redAccent,
                     isActive: true,
                   ),
@@ -248,7 +268,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   _buildToolCard(
                     icon: FontAwesomeIcons.commentDots,
                     title: 'Quản lý Zalo',
-                    description: 'Quản lý danh bạ, xem lịch sử và trả lời tin nhắn Zalo',
+                    description:
+                        'Quản lý danh bạ, xem lịch sử và trả lời tin nhắn Zalo',
                     color: Colors.blue,
                     isActive: true,
                   ),
@@ -256,7 +277,8 @@ class _ToolsScreenState extends State<ToolsScreen> {
                   _buildToolCard(
                     icon: FontAwesomeIcons.arrowTrendUp,
                     title: 'Tăng Traffic',
-                    description: 'Cải thiện chất lượng từ khóa và đẩy mạnh truy cập',
+                    description:
+                        'Cải thiện chất lượng từ khóa và đẩy mạnh truy cập',
                     color: Colors.green,
                     isActive: true,
                   ),
@@ -284,7 +306,10 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     color: Colors.teal,
                     isActive: true,
                     onTap: () {
-                      Navigator.push(context, MaterialPageRoute(builder: (_) => const AutoScreen()));
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const AutoScreen()),
+                      );
                     },
                   ),
               ],
@@ -326,11 +351,7 @@ class _ToolsScreenState extends State<ToolsScreen> {
                     color: color.withOpacity(0.1),
                     shape: BoxShape.circle,
                   ),
-                  child: FaIcon(
-                    icon,
-                    size: 24,
-                    color: color,
-                  ),
+                  child: FaIcon(icon, size: 24, color: color),
                 ),
                 const Spacer(),
                 Text(

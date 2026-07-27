@@ -139,6 +139,16 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     private _userClientService: UserClientService
   ) { }
 
+  openVideoEditorDialog() {
+    const username = this.projectData?.username || 'anonymous';
+    const uuid = this.uuid || '';
+    if (uuid) {
+        this.router.navigate(['/voice2video', username, uuid], { queryParams: { action: 'edit-script' } });
+    } else {
+        this.toastr.warning('Lỗi không xác định được dự án.');
+    }
+  }
+
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {

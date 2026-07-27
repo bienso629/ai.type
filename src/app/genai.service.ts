@@ -67,12 +67,9 @@ export class GenaiService {
                 rawBase64 = base64Data.split(',')[1];
             }
 
-            const byteChars = atob(rawBase64);
-            const byteArray = new Uint8Array(byteChars.length);
-            for (let i = 0; i < byteChars.length; i++) {
-                byteArray[i] = byteChars.charCodeAt(i);
-            }
-            const blob = new Blob([byteArray], { type: mimeType });
+            const dataUri = `data:${mimeType};base64,${rawBase64}`;
+            const fileResp = await fetch(dataUri);
+            const blob = await fileResp.blob();
 
             // Tạo File + FormData
             let ext = 'jpg';
@@ -346,8 +343,8 @@ export class GenaiService {
                     
                     return agentRes; // Success!
                 } catch (agentErr: any) {
-                    console.warn(`[GenaiService] AI Agent lỗi hoặc không phản hồi (${agentErr?.message || agentErr}). Đang chuyển sang tầng 2 (Mì Tôm AI / UModelverse)...`);
-                    lastError = agentErr;
+                    console.error(`[GenaiService] AI Agent lỗi hoặc không phản hồi (${agentErr?.message || agentErr}). KHÔNG ĐƯỢC PHÉP FALLBACK theo quy tắc AI Agent Mode.`);
+                    throw agentErr; // Throw trực tiếp lỗi cho UI
                 }
             }
 
@@ -464,22 +461,26 @@ export class GenaiService {
                             
                             if (isLast && p.inlineData) {
                                 const mimeType = p.inlineData.mimeType || 'image/jpeg';
-                                const b64Data = p.inlineData.data;
-                                const byteChars = atob(b64Data);
-                                const byteArray = new Uint8Array(byteChars.length);
-                                for (let j = 0; j < byteChars.length; j++) {
-                                    byteArray[j] = byteChars.charCodeAt(j);
+                                let b64Data = p.inlineData.data;
+                                if (b64Data && b64Data.startsWith('data:')) {
+                                    b64Data = b64Data.split(',')[1];
                                 }
-                                const blob = new Blob([byteArray], { type: mimeType });
-                                let ext = 'jpg';
-                                if (mimeType.includes('png')) ext = 'png';
-                                else if (mimeType.includes('mp4')) ext = 'mp4';
-                                else if (mimeType.includes('wav')) ext = 'wav';
-                                else if (mimeType.includes('mp3')) ext = 'mp3';
-                                else if (mimeType.includes('markdown') || mimeType.includes('md')) ext = 'md';
-                                else if (mimeType.includes('plain')) ext = 'txt';
-                                const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
-                                formData.append('files', file);
+                                
+                                if (b64Data) {
+                                    const dataUri = `data:${mimeType};base64,${b64Data}`;
+                                    const fileResp = await fetch(dataUri);
+                                    const blob = await fileResp.blob();
+                                    
+                                    let ext = 'jpg';
+                                    if (mimeType.includes('png')) ext = 'png';
+                                    else if (mimeType.includes('mp4')) ext = 'mp4';
+                                    else if (mimeType.includes('wav')) ext = 'wav';
+                                    else if (mimeType.includes('mp3')) ext = 'mp3';
+                                    else if (mimeType.includes('markdown') || mimeType.includes('md')) ext = 'md';
+                                    else if (mimeType.includes('plain')) ext = 'txt';
+                                    const file = new File([blob], `media_${Date.now()}_${i}.${ext}`, { type: mimeType });
+                                    formData.append('files', file);
+                                }
                             }
                         }
                     }
@@ -552,7 +553,7 @@ export class GenaiService {
         let apiUrl = 'https://sontinh.type.vn/api/chat'; // Fallback for Web/Mobile
 
         const settings = this.getSettingsFromStorage();
-        if (settings.enableAiAgent) {
+        if (settings.enableAiAgent !== false) {
             isAiAgentActive = true;
         }
 

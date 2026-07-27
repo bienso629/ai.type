@@ -89,7 +89,8 @@
                         [selectionType]="SelectionType.checkbox" [selectAllRowsOnPage]="false"
                         [displayCheck]="displayCheck" (select)="onSelect($event)" [externalPaging]="true"
                         [externalSorting]="true" [count]="totalElements" [offset]="pageNumber" (page)="setPage($event)"
-                        [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows">
+                        [headerHeight]="50" [footerHeight]="50" [rowHeight]="50" [scrollbarV]="true" [rows]="rows"
+                        [messages]="{emptyMessage: 'Không có dữ liệu', totalMessage: 'công việc'}">
 
                         <ngx-datatable-column [width]="40" [sortable]="false" [canAutoResize]="false"
                             [draggable]="false" [resizeable]="false" [headerCheckboxable]="true"
