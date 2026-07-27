@@ -145,9 +145,8 @@
                                 <div *ngIf="row" class="flex items-center justify-end gap-1">
                                     <button *ngIf="permissionScriptCommentLike && hasScriptProject(row)" mat-icon-button
                                         matTooltipPosition="above"
-                                        matTooltip="Lên kịch bản comment, like hoặc share cho bài '{{ row.title }}'"
-                                        [routerLink]="['/amxh']"
-                                        [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
+                                        matTooltip="Xem kịch bản"
+                                        [routerLink]="['/ai-writer', user.name, row.uuid, 'script']"
                                         class="transition-colors">
                                         <mat-icon class="icon-size-4 text-red-500"
                                             [svgIcon]="'feather:feather'"></mat-icon>
