@@ -23,8 +23,14 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   Map<String, dynamic>? _taskData;
   Map<String, dynamic> _source = {};
   List<dynamic> _done = [];
-  List<dynamic> _domains = [];
-  List<dynamic> _styles = [];
+  List<dynamic> _domains = [
+    {'domain': 'https://tadu.cloud'},
+    {'domain': 'type.vn'}
+  ];
+  List<dynamic> _styles = [
+    {'name': 'Nhà báo'},
+    {'name': 'Thân thiện'}
+  ];
 
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
@@ -101,13 +107,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         ]);
 
         final domainsRes = results[0];
-        if (domainsRes != null && domainsRes['success'] == true) {
-          _domains = domainsRes['data'] ?? [];
+        if (domainsRes != null && domainsRes['success'] == true && domainsRes['data'] != null && (domainsRes['data'] as List).isNotEmpty) {
+          _domains = domainsRes['data'];
         }
 
         final profileRes = results[7];
-        if (profileRes != null && profileRes['success'] == true) {
-          _styles = profileRes['data']?['config']?['styles'] ?? [];
+        if (profileRes != null && profileRes['success'] == true && profileRes['data']?['config']?['styles'] != null && (profileRes['data']?['config']?['styles'] as List).isNotEmpty) {
+          _styles = profileRes['data']['config']['styles'];
         }
 
         final detailRes = results[4];
@@ -224,7 +230,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     }
 
     return DefaultTabController(
-      length: 2,
+      length: 5,
       child: Scaffold(
         key: _scaffoldKey,
         appBar: AppBar(
@@ -252,49 +258,32 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
               onPressed: () {},
             ),
           ],
-          bottom: const TabBar(
+          bottom: TabBar(
+            isScrollable: true,
+            tabAlignment: TabAlignment.start,
             dividerColor: Colors.transparent,
             labelColor: Colors.white,
             unselectedLabelColor: Colors.white70,
             indicatorColor: Colors.white,
             tabs: [
-              Tab(text: 'Soạn bài'),
-              Tab(text: 'Dàn ý'),
+              Tab(text: 'Đoạn văn (${((_source['text'] as List?)?.length ?? 0) + ((_source['chatgpt'] as List?)?.length ?? 0)})'),
+              Tab(text: 'Tiêu đề (${((_source['h1'] as List?)?.length ?? 0) + ((_source['h2'] as List?)?.length ?? 0) + ((_source['h3'] as List?)?.length ?? 0) + ((_source['h4'] as List?)?.length ?? 0) + ((_source['h5'] as List?)?.length ?? 0) + ((_source['h6'] as List?)?.length ?? 0)})'),
+              Tab(text: 'HTML (${(_source['p'] as List?)?.length ?? 0})'),
+              const Tab(text: 'Dàn ý'),
+              const Tab(text: 'Đã xoá (0)'),
             ],
           ),
         ),
         drawer: _buildLeftDrawer(),
-        body: TabBarView(children: [_buildMainWriterTab(), _buildOutlineTab()]),
-      ),
-    );
-  }
-
-  Widget _buildMainWriterTab() {
-    return DefaultTabController(
-      length: 3,
-      child: Column(
-        children: [
-          const TabBar(
-            dividerColor: Colors.transparent,
-            labelColor: AppColors.primary,
-            unselectedLabelColor: Colors.grey,
-            indicatorColor: AppColors.primary,
-            tabs: [
-              Tab(text: 'Đoạn văn (1)'),
-              Tab(text: 'Tiêu đề (0)'),
-              Tab(text: 'HTML (0)'),
-            ],
-          ),
-          Expanded(
-            child: TabBarView(
-              children: [
-                _buildParagraphsTab(),
-                _buildHeadingTab(),
-                _buildHtmlTab(),
-              ],
-            ),
-          ),
-        ],
+        body: TabBarView(
+          children: [
+            _buildParagraphsTab(),
+            _buildHeadingTab(),
+            _buildHtmlTab(),
+            _buildOutlineTab(),
+            _buildDeletedTab(),
+          ],
+        ),
       ),
     );
   }
@@ -547,161 +536,156 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     );
   }
 
+  Widget _buildDeletedTab() {
+    return const Center(child: Text('Chưa có nội dung đã xoá'));
+  }
+
   Widget _buildOutlineTab() {
     return Column(
       children: [
-        // Tabs cho Dàn ý / Đã xoá
         Expanded(
-          child: DefaultTabController(
-            length: 2,
-            child: Column(
-              children: [
-                const TabBar(
-                  dividerColor: Colors.transparent,
-                  labelColor: AppColors.primary,
-                  unselectedLabelColor: Colors.grey,
-                  indicatorColor: AppColors.primary,
-                  tabs: [
-                    Tab(text: 'Dàn ý'),
-                    Tab(text: 'Đã xoá (0)'),
-                  ],
+          child: ListView(
+            key: UniqueKey(),
+            padding: const EdgeInsets.all(16.0),
+            children: [
+              Container(
+                constraints: const BoxConstraints(minHeight: 100),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(4),
                 ),
-                Expanded(
-                  child: TabBarView(
-                    children: [
-                      ListView(
-                        key: UniqueKey(),
-                        padding: const EdgeInsets.all(16.0),
-                        children: [
-                            Container(
-                              constraints: const BoxConstraints(minHeight: 100),
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.grey.shade300),
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: _done.isEmpty
-                                  ? const Center(
-                                      child: Padding(
-                                        padding: EdgeInsets.all(16.0),
-                                        child: Text('Chưa có nội dung dàn ý'),
-                                      ),
-                                    )
-                                  : ListView.separated(
-                                      shrinkWrap: true,
-                                      physics: const NeverScrollableScrollPhysics(),
-                                      itemCount: _done.length,
-                                      separatorBuilder: (_, __) => const Divider(height: 1),
-                                      itemBuilder: (context, index) {
-                                        final htmlStr = _done[index].toString();
-                                        final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
-                                        return Padding(
-                                          padding: const EdgeInsets.all(12.0),
-                                          child: Row(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Expanded(
-                                                child: Text(
-                                                  text.isEmpty ? htmlStr : text,
-                                                  style: const TextStyle(fontSize: 14),
-                                                ),
-                                              ),
-                                              PopupMenuButton<String>(
-                                                icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                                                onSelected: (value) {
-                                                  // TODO: Implement paragraph actions
-                                                },
-                                                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                                                  const PopupMenuItem<String>(value: 'copy', child: Text('Sao chép')),
-                                                  const PopupMenuItem<String>(value: 'mp3', child: Text('Đọc văn bản')),
-                                                  const PopupMenuItem<String>(value: 'comment', child: Text('Bình luận')),
-                                                  const PopupMenuItem<String>(value: 'image', child: Text('Tạo hình ảnh')),
-                                                  const PopupMenuItem<String>(value: 'keyword', child: Text('Từ khoá')),
-                                                  const PopupMenuItem<String>(value: 'edit', child: Text('Sửa đoạn văn')),
-                                                  const PopupMenuItem<String>(value: 'split', child: Text('Tách')),
-                                                ],
-                                              ),
-                                            ],
-                                          ),
-                                        );
-                                      },
-                                    ),
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Tập của bạn',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                              ),
-                              hint: const Text('Chọn tập'),
-                              items: const [],
-                              onChanged: (v) {},
-                            ),
-                            const SizedBox(height: 16),
-                            const Text(
-                              'Chọn phiên bản',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            DropdownButtonFormField<String>(
-                              isExpanded: true,
-                              decoration: const InputDecoration(
-                                border: OutlineInputBorder(),
-                                isDense: true,
-                                contentPadding: EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 12,
-                                ),
-                              ),
-                              hint: const Text('Tạo bản nháp mới'),
-                              items: const [],
-                              onChanged: (v) {},
-                            ),
-                            const SizedBox(height: 16),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
+                child: _done.isEmpty
+                    ? const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(16.0),
+                          child: Text('Chưa có nội dung dàn ý'),
+                        ),
+                      )
+                    : ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _done.length,
+                        separatorBuilder: (_, __) => const Divider(height: 1),
+                        itemBuilder: (context, index) {
+                          final htmlStr = _done[index].toString();
+                          final text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '').trim();
+                          return Padding(
+                            padding: const EdgeInsets.all(12.0),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
-                                GestureDetector(
-                                  onTap: () {},
-                                  child: const Icon(Icons.delete, color: Colors.red, size: 18),
-                                ),
-                                const SizedBox(width: 8),
-                                const Expanded(
+                                Expanded(
                                   child: Text(
-                                    'Cần có 0/600 từ, 0/5 link, 0/3 Tiêu đề, 0/1 Hình ảnh',
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      color: Colors.black87,
-                                    ),
+                                    text.isEmpty ? htmlStr : text,
+                                    style: const TextStyle(fontSize: 14),
                                   ),
+                                ),
+                                PopupMenuButton<String>(
+                                  icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                                  onSelected: (value) {
+                                    // TODO: Implement paragraph actions
+                                  },
+                                  itemBuilder: (BuildContext context) {
+                                    PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
+                                      return PopupMenuItem<String>(
+                                        value: val,
+                                        child: Row(
+                                          children: [
+                                            Icon(icon, size: 18, color: Colors.grey.shade700),
+                                            const SizedBox(width: 12),
+                                            Text(text, style: const TextStyle(fontSize: 14)),
+                                          ],
+                                        ),
+                                      );
+                                    }
+
+                                    return <PopupMenuEntry<String>>[
+                                      buildItem('copy', Icons.copy, 'Sao chép'),
+                                      buildItem('mp3', Icons.volume_up, 'Đọc văn bản'),
+                                      buildItem('comment', Icons.chat_bubble_outline, 'Bình luận'),
+                                      buildItem('image', Icons.auto_awesome, 'Tạo hình ảnh'),
+                                      buildItem('keyword', Icons.local_offer, 'Từ khoá'),
+                                      buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
+                                      buildItem('split', Icons.format_align_left, 'Tách đoạn văn'),
+                                      buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
+                                    ];
+                                  },
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                      const Center(child: Text('Chưa có nội dung đã xoá')),
-                    ],
+                          );
+                        },
+                      ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Tập của bạn',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
                   ),
                 ),
-              ],
-            ),
+                hint: const Text('Chọn tập'),
+                items: const [],
+                onChanged: (v) {},
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Chọn phiên bản',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 14,
+                ),
+              ),
+              const SizedBox(height: 8),
+              DropdownButtonFormField<String>(
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 12,
+                  ),
+                ),
+                hint: const Text('Tạo bản nháp mới'),
+                items: const [],
+                onChanged: (v) {},
+              ),
+              const SizedBox(height: 16),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  GestureDetector(
+                    onTap: () {},
+                    child: const Icon(Icons.delete, color: Colors.red, size: 18),
+                  ),
+                  const SizedBox(width: 8),
+                  const Expanded(
+                    child: Text(
+                      'Cần có 0/600 từ, 0/5 link, 0/3 Tiêu đề, 0/1 Hình ảnh',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.black87,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
         const Divider(height: 1),
@@ -747,7 +731,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         _buildConfigHeader(),
         const SizedBox(height: 16),
         _buildActionCard(
-          title: 'Prompt công việc (0)',
+          title: 'Prompt công việc (${(_source['prompt'] as List?)?.length ?? 0})',
           titleColor: Colors.teal,
           borderColor: Colors.teal,
           iconPrefix: const Text(
@@ -762,14 +746,21 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         ),
         const SizedBox(height: 12),
         _buildActionCard(
-          title: 'Đoạn văn (${(_source['p'] as List?)?.length ?? 0})',
-          iconPrefix: const Icon(Icons.short_text, size: 20, color: Colors.blue),
+          title: 'Nội dung sáng tạo (${((_source['text'] as List?)?.length ?? 0) + ((_source['chatgpt'] as List?)?.length ?? 0)})',
+          iconPrefix: const Icon(Icons.article, size: 20, color: Colors.blue),
           titleColor: Colors.black87,
-          contentWidgets: _buildHtmlList(_source['p']),
+          initiallyExpanded: true,
+          actions: [
+            _buildIconBtn(Icons.copy, Colors.orange),
+            _buildIconBtn(Icons.add, Colors.teal),
+            _buildIconBtn(Icons.menu, Colors.blue),
+            _buildIconBtn(Icons.delete, Colors.red),
+          ],
+          contentWidgets: [_buildParagraphList()],
         ),
         const SizedBox(height: 12),
         _buildActionCard(
-          title: 'Phân tích Hình ảnh (0)',
+          title: 'Phân tích Hình ảnh (${(_source['img'] as List?)?.length ?? 0})',
           iconPrefix: const Icon(Icons.image, size: 20, color: Colors.green),
           titleColor: Colors.black87,
           actions: [
@@ -1051,6 +1042,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     List<Widget>? actions,
     Widget? customMiddleWidget,
     List<Widget>? contentWidgets,
+    bool initiallyExpanded = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -1067,6 +1059,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           color: Colors.transparent,
           child: ExpansionTile(
             dense: true,
+            initiallyExpanded: initiallyExpanded,
             minTileHeight: 48,
             tilePadding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -1214,7 +1207,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   Widget _buildParagraphList() {
-    final list = _source['chatgpt'] ?? [];
+    final textList = (_source['text'] as List?) ?? [];
+    final chatgptList = (_source['chatgpt'] as List?) ?? [];
+    final list = [...textList, ...chatgptList];
     if (list.isEmpty) {
       return Container(
         padding: const EdgeInsets.all(16),
@@ -1251,15 +1246,32 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                 onSelected: (value) {
                   // TODO: implement
                 },
-                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
-                  const PopupMenuItem<String>(value: 'copy', child: Text('Sao chép')),
-                  const PopupMenuItem<String>(value: 'mp3', child: Text('Đọc văn bản')),
-                  const PopupMenuItem<String>(value: 'comment', child: Text('Bình luận')),
-                  const PopupMenuItem<String>(value: 'image', child: Text('Tạo hình ảnh')),
-                  const PopupMenuItem<String>(value: 'keyword', child: Text('Từ khoá')),
-                  const PopupMenuItem<String>(value: 'edit', child: Text('Sửa đoạn văn')),
-                  const PopupMenuItem<String>(value: 'split', child: Text('Tách')),
-                ],
+                itemBuilder: (BuildContext context) {
+                  PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
+                    return PopupMenuItem<String>(
+                      value: val,
+                      child: Row(
+                        children: [
+                          Icon(icon, size: 18, color: Colors.grey.shade700),
+                          const SizedBox(width: 12),
+                          Text(text, style: const TextStyle(fontSize: 14)),
+                        ],
+                      ),
+                    );
+                  }
+
+                  return <PopupMenuEntry<String>>[
+                    buildItem('copy', Icons.copy, 'Sao chép'),
+                    buildItem('html', Icons.code, 'HTML code'),
+                    buildItem('mp3', Icons.volume_up, 'Chuyển sang mp3'),
+                    buildItem('outline', Icons.keyboard_double_arrow_right, 'Chuyển xuống dàn ý'),
+                    buildItem('split', Icons.format_align_left, 'Tách đoạn văn'),
+                    buildItem('comment', Icons.chat_bubble_outline, 'Bình luận'),
+                    buildItem('keyword', Icons.local_offer, 'Từ khoá'),
+                    buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
+                    buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
+                  ];
+                },
               ),
             ],
           ),
