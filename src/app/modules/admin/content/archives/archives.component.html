@@ -202,7 +202,7 @@
                             <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:feather'"></mat-icon>
                         </button>
 
-                        <button *ngIf="permissionText2Voice" mat-icon-button
+                        <button *ngIf="permissionText2Voice && row.done && row.done.length > 0" mat-icon-button
                             [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors">
                             <mat-icon class="icon-size-4 text-blue-500" [svgIcon]="'heroicons_outline:film'"></mat-icon>
                         </button>

@@ -3190,7 +3190,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
 
   openMagicPromptDialog() {
     const dialogRef = this.dialog.open(MagicPromptDialogComponent, {
-        width: '600px',
+        width: '500px',
         maxWidth: '95vw',
         maxHeight: '95vh',
         data: {

@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
 import 'package:flutter_slidable/flutter_slidable.dart';
+import 'ai_writer_screen.dart';
 
 class TasksScreen extends StatefulWidget {
   const TasksScreen({super.key});
@@ -28,21 +29,23 @@ class _TasksScreenState extends State<TasksScreen> {
   bool _isLoading = false;
   List<dynamic> _collections = [];
   Map<String, dynamic>? _selectedCollection;
-  
+
   List<dynamic> _tasks = [];
   bool _selectAll = false;
   String? _bookmark;
   bool _hasMore = true;
   int _pageNumber = 0;
   String _searchKeyword = '';
-  
+
   String _username = '';
   late ScrollController _scrollController;
 
   @override
   void initState() {
     super.initState();
-    _scrollController = ScrollController(initialScrollOffset: _cachedScrollOffset);
+    _scrollController = ScrollController(
+      initialScrollOffset: _cachedScrollOffset,
+    );
     if (_hasLoadedOnce) {
       _collections = _cachedCollections;
       _selectedCollection = _cachedSelectedCollection;
@@ -58,7 +61,6 @@ class _TasksScreenState extends State<TasksScreen> {
     _scrollController.addListener(_onScroll);
   }
 
-
   @override
   void dispose() {
     _cachedCollections = _collections;
@@ -73,13 +75,14 @@ class _TasksScreenState extends State<TasksScreen> {
       _cachedScrollOffset = _scrollController.offset;
     }
     _hasLoadedOnce = true;
-    
+
     _scrollController.dispose();
     super.dispose();
   }
 
   void _onScroll() {
-    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200) {
+    if (_scrollController.position.pixels >=
+        _scrollController.position.maxScrollExtent - 200) {
       if (!_isLoading && _hasMore) {
         _fetchTasks(loadMore: true);
       }
@@ -101,12 +104,8 @@ class _TasksScreenState extends State<TasksScreen> {
         print('DEBUG COLLECTIONS: $res');
         if (res != null && res['success'] == true && res['data'] != null) {
           _collections = List<dynamic>.from(res['data']);
-          _collections.insert(0, {
-            '_id': 'all',
-            'title': 'Tất cả',
-            'uuid': [],
-          });
-          
+          _collections.insert(0, {'_id': 'all', 'title': 'Tất cả', 'uuid': []});
+
           if (_collections.isNotEmpty) {
             _selectedCollection = _collections[0];
             await _fetchTasks();
@@ -128,13 +127,13 @@ class _TasksScreenState extends State<TasksScreen> {
 
   Future<void> _fetchTasks({bool loadMore = false}) async {
     if (_selectedCollection == null) return;
-    
+
     setState(() => _isLoading = true);
     try {
       if (!loadMore) {
         _pageNumber = 0;
       }
-      
+
       List<String> uuids = [];
       if (_selectedCollection!['uuid'] != null) {
         if (_selectedCollection!['uuid'] is List) {
@@ -144,7 +143,9 @@ class _TasksScreenState extends State<TasksScreen> {
         }
       }
 
-      print('DEBUG FETCH: page=$_pageNumber, loadMore=$loadMore, bookmark=$_bookmark, uuids=$uuids');
+      print(
+        'DEBUG FETCH: page=$_pageNumber, loadMore=$loadMore, bookmark=$_bookmark, uuids=$uuids',
+      );
       final res = await ApiService.getTasksArchive(
         username: _username,
         uuids: uuids,
@@ -158,7 +159,9 @@ class _TasksScreenState extends State<TasksScreen> {
         final data = res['data'];
         final List newDocs = data['docs'] ?? [];
         final newBookmark = data['bookmark'];
-        print('DEBUG RES: docs=${newDocs.length}, newBookmark=$newBookmark, oldBookmark=$_bookmark');
+        print(
+          'DEBUG RES: docs=${newDocs.length}, newBookmark=$newBookmark, oldBookmark=$_bookmark',
+        );
 
         if (!loadMore) {
           _tasks = newDocs.map((d) {
@@ -179,13 +182,18 @@ class _TasksScreenState extends State<TasksScreen> {
 
         _pageNumber++;
 
-        if (newBookmark == null || newBookmark == 'nil' || newBookmark == '' || (newDocs.isEmpty && newBookmark == _bookmark)) {
+        if (newBookmark == null ||
+            newBookmark == 'nil' ||
+            newBookmark == '' ||
+            (newDocs.isEmpty && newBookmark == _bookmark)) {
           _hasMore = false;
         } else if (newBookmark == _bookmark && newDocs.isNotEmpty) {
           _hasMore = false;
         } else if (newDocs.isNotEmpty && newDocs.length < 10) {
           _hasMore = false;
-        } else if (_searchKeyword.isEmpty && uuids.isNotEmpty && _tasks.length >= uuids.length) {
+        } else if (_searchKeyword.isEmpty &&
+            uuids.isNotEmpty &&
+            _tasks.length >= uuids.length) {
           _hasMore = false;
         } else {
           _hasMore = true;
@@ -209,7 +217,8 @@ class _TasksScreenState extends State<TasksScreen> {
   }
 
   void _onCollectionChanged(Map<String, dynamic>? collection) {
-    if (collection == null || collection['_id'] == _selectedCollection?['_id']) return;
+    if (collection == null || collection['_id'] == _selectedCollection?['_id'])
+      return;
     setState(() {
       _selectedCollection = collection;
       _tasks.clear();
@@ -231,7 +240,6 @@ class _TasksScreenState extends State<TasksScreen> {
     });
     _fetchTasks();
   }
-
 
   String _formatTimeAgo(dynamic timeData) {
     if (timeData == null) return '';
@@ -276,7 +284,7 @@ class _TasksScreenState extends State<TasksScreen> {
     final uid = task['uuid']?.toString() ?? task['_id']?.toString() ?? '';
     final timestamp = task['createdAt'] ?? task['updatedAt'] ?? task['time'];
     final dateStr = _formatTimeAgo(timestamp);
-    
+
     // WordPress pill
     Widget? wpPill;
     String? domainStr;
@@ -285,22 +293,28 @@ class _TasksScreenState extends State<TasksScreen> {
     final sourceData = task['source'];
     if (sourceData != null && sourceData is Map) {
       if (sourceData['domain'] != null) {
-        if (sourceData['domain'] is String && sourceData['domain'].toString().isNotEmpty) {
+        if (sourceData['domain'] is String &&
+            sourceData['domain'].toString().isNotEmpty) {
           domainStr = sourceData['domain'].toString();
         }
       }
-      if (sourceData['wp_domain'] != null && sourceData['wp_domain'].toString().isNotEmpty) {
+      if (sourceData['wp_domain'] != null &&
+          sourceData['wp_domain'].toString().isNotEmpty) {
         domainStr = sourceData['wp_domain'].toString();
       }
-      if (sourceData['wp_post_id'] != null && sourceData['wp_post_id'].toString().isNotEmpty) {
+      if (sourceData['wp_post_id'] != null &&
+          sourceData['wp_post_id'].toString().isNotEmpty) {
         wpIdStr = sourceData['wp_post_id'].toString();
       }
 
-      if (sourceData['wpPosts'] != null && sourceData['wpPosts'] is List && sourceData['wpPosts'].isNotEmpty) {
+      if (sourceData['wpPosts'] != null &&
+          sourceData['wpPosts'] is List &&
+          sourceData['wpPosts'].isNotEmpty) {
         final firstWp = sourceData['wpPosts'][0];
         if (firstWp is Map) {
           domainStr ??= firstWp['domain']?.toString();
-          wpIdStr ??= firstWp['id']?.toString() ?? firstWp['wp_post_id']?.toString();
+          wpIdStr ??=
+              firstWp['id']?.toString() ?? firstWp['wp_post_id']?.toString();
         }
       }
     }
@@ -308,7 +322,7 @@ class _TasksScreenState extends State<TasksScreen> {
     if (domainStr != null || wpIdStr != null) {
       final wpText = [
         if (domainStr != null) domainStr,
-        if (wpIdStr != null) 'ID: $wpIdStr'
+        if (wpIdStr != null) 'ID: $wpIdStr',
       ].join(' - ');
 
       wpPill = Container(
@@ -318,7 +332,14 @@ class _TasksScreenState extends State<TasksScreen> {
           borderRadius: BorderRadius.circular(4),
           border: Border.all(color: Colors.blue),
         ),
-        child: Text(wpText, style: const TextStyle(color: Colors.blue, fontSize: 11, fontWeight: FontWeight.bold)),
+        child: Text(
+          wpText,
+          style: const TextStyle(
+            color: Colors.blue,
+            fontSize: 11,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
       );
     }
 
@@ -331,13 +352,23 @@ class _TasksScreenState extends State<TasksScreen> {
             extentRatio: 240 / MediaQuery.of(context).size.width,
             children: [
               CustomSlidableAction(
-                onPressed: (context) {},
+                onPressed: (context) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => AiWriterScreen(uuid: uid),
+                    ),
+                  );
+                },
                 backgroundColor: Colors.transparent,
                 padding: EdgeInsets.zero,
                 child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF3B82F6).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -347,7 +378,14 @@ class _TasksScreenState extends State<TasksScreen> {
                     children: [
                       Icon(Icons.edit, color: Color(0xFF3B82F6), size: 20),
                       SizedBox(height: 4),
-                      Text('Sửa', style: TextStyle(color: Color(0xFF3B82F6), fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Sửa',
+                        style: TextStyle(
+                          color: Color(0xFF3B82F6),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -359,7 +397,10 @@ class _TasksScreenState extends State<TasksScreen> {
                 child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF8B5CF6).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -369,7 +410,14 @@ class _TasksScreenState extends State<TasksScreen> {
                     children: [
                       Icon(Icons.movie, color: Color(0xFF8B5CF6), size: 20),
                       SizedBox(height: 4),
-                      Text('Movie', style: TextStyle(color: Color(0xFF8B5CF6), fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Movie',
+                        style: TextStyle(
+                          color: Color(0xFF8B5CF6),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -381,7 +429,10 @@ class _TasksScreenState extends State<TasksScreen> {
                 child: Container(
                   width: double.infinity,
                   height: double.infinity,
-                  margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
+                  margin: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
                   decoration: BoxDecoration(
                     color: const Color(0xFF10B981).withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
@@ -391,7 +442,14 @@ class _TasksScreenState extends State<TasksScreen> {
                     children: [
                       Icon(Icons.share, color: Color(0xFF10B981), size: 20),
                       SizedBox(height: 4),
-                      Text('Chia sẻ', style: TextStyle(color: Color(0xFF10B981), fontSize: 11, fontWeight: FontWeight.bold)),
+                      Text(
+                        'Chia sẻ',
+                        style: TextStyle(
+                          color: Color(0xFF10B981),
+                          fontSize: 11,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -411,10 +469,14 @@ class _TasksScreenState extends State<TasksScreen> {
                     onChanged: (val) {
                       _toggleSelect(index, val);
                       ScaffoldMessenger.of(context).hideCurrentSnackBar();
-                      final count = _tasks.where((t) => t['selected'] == true).length;
+                      final count = _tasks
+                          .where((t) => t['selected'] == true)
+                          .length;
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
-                          content: Text('Đã chọn $count trong ${_tasks.length} công việc'),
+                          content: Text(
+                            'Đã chọn $count trong ${_tasks.length} công việc',
+                          ),
                           duration: const Duration(seconds: 1),
                         ),
                       );
@@ -427,7 +489,15 @@ class _TasksScreenState extends State<TasksScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(title, style: const TextStyle(fontSize: 14, color: Colors.black87), maxLines: 2, overflow: TextOverflow.ellipsis),
+                      Text(
+                        title,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          color: Colors.black87,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(height: 6),
                       Wrap(
                         spacing: 8,
@@ -436,7 +506,10 @@ class _TasksScreenState extends State<TasksScreen> {
                         children: [
                           if (dateStr.isNotEmpty)
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
                               decoration: BoxDecoration(
                                 color: Colors.grey.shade300.withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(4),
@@ -445,9 +518,20 @@ class _TasksScreenState extends State<TasksScreen> {
                               child: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  Icon(Icons.access_time, size: 10, color: Colors.grey.shade700),
+                                  Icon(
+                                    Icons.access_time,
+                                    size: 10,
+                                    color: Colors.grey.shade700,
+                                  ),
                                   const SizedBox(width: 4),
-                                  Text(dateStr, style: TextStyle(color: Colors.grey.shade700, fontSize: 11, fontWeight: FontWeight.bold)),
+                                  Text(
+                                    dateStr,
+                                    style: TextStyle(
+                                      color: Colors.grey.shade700,
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),
@@ -471,21 +555,33 @@ class _TasksScreenState extends State<TasksScreen> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Tác vụ đang làm', style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold, fontSize: 18)),
+        title: const Text(
+          'Tác vụ đang làm',
+          style: TextStyle(
+            color: Colors.black87,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
         backgroundColor: Colors.white,
         elevation: 0,
         surfaceTintColor: Colors.transparent,
         iconTheme: const IconThemeData(color: Colors.black87),
         actions: [
           IconButton(
-            icon: Icon(_selectAll ? Icons.done_all : Icons.checklist, color: AppColors.primary),
+            icon: Icon(
+              _selectAll ? Icons.done_all : Icons.checklist,
+              color: AppColors.primary,
+            ),
             onPressed: () {
               _toggleSelectAll(!_selectAll);
               ScaffoldMessenger.of(context).hideCurrentSnackBar();
               final count = _tasks.where((t) => t['selected'] == true).length;
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Đã chọn $count trong ${_tasks.length} công việc'),
+                  content: Text(
+                    'Đã chọn $count trong ${_tasks.length} công việc',
+                  ),
                   duration: const Duration(seconds: 1),
                 ),
               );
@@ -533,37 +629,54 @@ class _TasksScreenState extends State<TasksScreen> {
                       style: const TextStyle(fontSize: 15),
                     ),
                   ),
-                  if (_collections.isNotEmpty) Expanded(
-                    flex: 2,
-                    child: Padding(
-                      padding: const EdgeInsets.only(right: 12),
-                      child: PopupMenuButton<Map<String, dynamic>>(
-                        initialValue: _selectedCollection,
-                        position: PopupMenuPosition.under,
-                        color: Colors.white,
-                        constraints: const BoxConstraints(minWidth: 180, maxWidth: 280),
-                        onSelected: _onCollectionChanged,
-                        itemBuilder: (context) {
-                          return _collections.map((c) => PopupMenuItem<Map<String, dynamic>>(
-                            value: c,
-                            child: Text(c['title'] ?? 'Chưa đặt tên', style: const TextStyle(fontSize: 15)),
-                          )).toList();
-                        },
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _selectedCollection?['title'] ?? 'Tất cả', 
-                                overflow: TextOverflow.ellipsis, 
-                                style: const TextStyle(color: Colors.black87, fontSize: 15)
+                  if (_collections.isNotEmpty)
+                    Expanded(
+                      flex: 2,
+                      child: Padding(
+                        padding: const EdgeInsets.only(right: 12),
+                        child: PopupMenuButton<Map<String, dynamic>>(
+                          initialValue: _selectedCollection,
+                          position: PopupMenuPosition.under,
+                          color: Colors.white,
+                          constraints: const BoxConstraints(
+                            minWidth: 180,
+                            maxWidth: 280,
+                          ),
+                          onSelected: _onCollectionChanged,
+                          itemBuilder: (context) {
+                            return _collections
+                                .map(
+                                  (c) => PopupMenuItem<Map<String, dynamic>>(
+                                    value: c,
+                                    child: Text(
+                                      c['title'] ?? 'Chưa đặt tên',
+                                      style: const TextStyle(fontSize: 15),
+                                    ),
+                                  ),
+                                )
+                                .toList();
+                          },
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _selectedCollection?['title'] ?? 'Tất cả',
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Colors.black87,
+                                    fontSize: 15,
+                                  ),
+                                ),
                               ),
-                            ),
-                            const Icon(Icons.arrow_drop_down, color: Colors.grey),
-                          ],
+                              const Icon(
+                                Icons.arrow_drop_down,
+                                color: Colors.grey,
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
                 ],
               ),
             ),

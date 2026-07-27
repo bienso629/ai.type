@@ -263,8 +263,7 @@ ${JSON.stringify(recentAPIs, null, 2)}`;
    */
   private injectIntoAgentContext(knowledge: ScreenKnowledge) {
     console.log('[AI Agent] Injecting context for route:', knowledge.screenRoute);
-    // Here we would call the GenAI Service to update system prompt.
-    // e.g. this.genAiService.updateContext(knowledge);
+    this.genaiService.updateAiAgentContext(knowledge.customInstructions);
   }
 
   /**

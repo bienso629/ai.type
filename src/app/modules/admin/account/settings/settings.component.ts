@@ -83,6 +83,12 @@ export class SettingsComponent implements OnInit, OnDestroy {
     goToPanel(panel: string): void {
         this.selectedPanel = panel;
 
+        this.router.navigate([], {
+            relativeTo: this.activatedRoute,
+            queryParams: { tab: panel },
+            queryParamsHandling: 'merge'
+        });
+
         // Close the drawer on 'over' mode
         if (this.drawerMode === 'over') {
             this.drawer.close();
@@ -122,7 +128,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
     ) {
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.tab) {
-                this.goToPanel(params.tab);
+                this.selectedPanel = params.tab;
             }
         });
 
