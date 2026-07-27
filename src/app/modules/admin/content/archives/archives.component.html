@@ -199,9 +199,9 @@
                 [resizeable]="true">
                 <ng-template let-row="row" ngx-datatable-cell-template>
                     <div *ngIf="row && row.uuid" class="flex items-center justify-end gap-1 w-full pr-2">
-                        <button *ngIf="permissionScriptCommentLike && hasScriptProject(row)" mat-icon-button [routerLink]="['/amxh']"
-                            [routerLink]="['/amxh']" [queryParams]="{ tab: 'script', uuid: row.uuid, user: user.name }"
-                            class="transition-colors">
+                        <button *ngIf="permissionScriptCommentLike && hasScriptProject(row)" mat-icon-button
+                            [routerLink]="['/ai-writer', user.name, row.uuid, 'script']"
+                            class="transition-colors" [matTooltip]="'Xem kịch bản'">
                             <mat-icon class="icon-size-4 text-red-500" [svgIcon]="'feather:feather'"></mat-icon>
                         </button>
 
