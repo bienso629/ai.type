@@ -100,7 +100,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         ipcRenderer.on('send-email-progress', listener);
         return () => ipcRenderer.removeListener('send-email-progress', listener);
     },
-    toggleAiAgent: (enable, apiKey) => ipcRenderer.invoke('toggle-ai-agent', enable, apiKey),
+    toggleAiAgent: (enable, apiKey, extra) => ipcRenderer.invoke('toggle-ai-agent', enable, apiKey, extra),
     toggleZaloPlugin: (enable, mode) => ipcRenderer.invoke('toggle-zalo-plugin', enable, mode),
     getPluginsStatus: () => ipcRenderer.invoke('get-plugins-status'),
     installPlugin: (pluginId) => ipcRenderer.invoke('install-plugin', pluginId),

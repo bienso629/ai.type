@@ -223,33 +223,35 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
             }
             return;
         }
-        
+
         try {
             if (plugin.id === 'zalo_reply') {
                 const res = await (window as any).electronAPI.toggleZaloPlugin(event.checked, this.zaloPluginMode);
                 if (res && res.success) {
                     plugin.enabled = event.checked;
-                    
+
                     const settings = this.multiAccountService.getItem('settings') || {};
                     settings.zaloPluginEnabled = event.checked;
                     this.multiAccountService.setItem('settings', settings);
                     this.syncSettingsToBackend(settings);
-                    
+
                     this.toastr.success(event.checked ? 'Đã kích hoạt Quản lý Zalo.' : 'Đã hủy kích hoạt Quản lý Zalo.');
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
                 }
             } else if (plugin.id === 'ai_agent') {
-                const res = await (window as any).electronAPI.toggleAiAgent(event.checked, this.aiAgentApiKey);
+                const settings = this.multiAccountService.getItem('settings') || {};
+                const res = await (window as any).electronAPI.toggleAiAgent(event.checked, this.aiAgentApiKey, {
+                    umodelverseUrl: settings.umodelverseUrl,
+                    umodelverseKey: settings.umodelverseKey
+                });
                 if (res && res.success) {
                     plugin.enabled = event.checked;
-                    
-                    const settings = this.multiAccountService.getItem('settings') || {};
                     settings.enableAiAgent = event.checked;
                     this.multiAccountService.setItem('settings', settings);
                     this.syncSettingsToBackend(settings);
 
-                    
+
                     this.toastr.success(event.checked ? 'Đã kích hoạt AI Agent.' : 'Đã hủy kích hoạt AI Agent.');
                 } else {
                     this.toastr.error(res?.error || 'Không thể thay đổi trạng thái plugin.');
@@ -286,7 +288,10 @@ export class SettingsPluginsComponent implements OnInit, OnDestroy {
                     this.syncSettingsToBackend(settings);
 
 
-            const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey);
+            const res = await (window as any).electronAPI.toggleAiAgent(plugin.enabled, this.aiAgentApiKey, {
+                umodelverseUrl: settings.umodelverseUrl,
+                umodelverseKey: settings.umodelverseKey
+            });
             if (res && res.success) {
                 this.toastr.success('Đã lưu cấu hình. Hệ thống sẽ khởi động lại AI Agent nếu đang bật.');
             } else {

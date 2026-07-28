@@ -10,7 +10,8 @@ const {
     dialog, // <--- Thêm cái này vào
     Notification,
     desktopCapturer,
-    net
+    net,
+    safeStorage
 } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const { registerExportImportHandlers } = require("./export-import-project");
@@ -3213,12 +3214,43 @@ function startSttServer() {
 let aiAgentProcess = null;
 const aiAgentConfigPath = path.join(app.getPath('userData'), 'ai_agent_config.json');
 
+// Config này chứa Secret API Key + token proxy Anthropic/Umodelverse, nên phải mã hóa
+// trước khi ghi ra đĩa (safeStorage dùng keychain/DPAPI/libsecret của OS, không phải mã hóa tự chế).
+// File cũ (chưa có "encrypted") vẫn đọc được để không phá cấu hình có sẵn của user.
+function readAiAgentConfig() {
+    try {
+        if (!fs.existsSync(aiAgentConfigPath)) return {};
+        const raw = fs.readFileSync(aiAgentConfigPath, 'utf8');
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed.encrypted === 'string') {
+            if (!safeStorage.isEncryptionAvailable()) {
+                console.error('[AI Agent] Không thể giải mã config: safeStorage không khả dụng trên hệ thống này.');
+                return {};
+            }
+            const decrypted = safeStorage.decryptString(Buffer.from(parsed.encrypted, 'base64'));
+            return JSON.parse(decrypted);
+        }
+        return parsed;
+    } catch (e) {
+        console.error('[AI Agent] Lỗi đọc config:', e);
+        return {};
+    }
+}
+
+function writeAiAgentConfig(data) {
+    if (safeStorage.isEncryptionAvailable()) {
+        const encrypted = safeStorage.encryptString(JSON.stringify(data)).toString('base64');
+        fs.writeFileSync(aiAgentConfigPath, JSON.stringify({ encrypted }), 'utf8');
+    } else {
+        console.warn('[AI Agent] safeStorage không khả dụng, lưu config dạng plaintext (không mã hóa được).');
+        fs.writeFileSync(aiAgentConfigPath, JSON.stringify(data), 'utf8');
+    }
+}
+
 function isAiAgentEnabled() {
     try {
-        if (fs.existsSync(aiAgentConfigPath)) {
-            const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
-            return data.enable === true;
-        }
+        const data = readAiAgentConfig();
+        return data.enable === true;
     } catch (err) { }
     return false;
 }
@@ -3230,14 +3262,21 @@ function startAiAgent() {
         const agentPath = path.join(userPluginsDir, 'ai_agent_linux');
         if (fs.existsSync(agentPath)) {
             let args = [];
+            const agentEnv = { ...process.env };
             try {
-                if (fs.existsSync(aiAgentConfigPath)) {
-                    const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
-                    if (data.apiKey) args.push('--api-key', data.apiKey);
+                const data = readAiAgentConfig();
+                // Truyền secret qua biến môi trường của subprocess, KHÔNG qua argv, để tránh
+                // hiện trong `ps`/`/proc/<pid>/cmdline` (ai đọc được cmdline trên máy là lấy được token).
+                if (data.apiKey) agentEnv.AI_AGENT_API_KEY = data.apiKey;
+                // Umodelverse (Mì Tôm AI) proxy: lấy từ settings tài khoản (API /user/profile),
+                // dùng để `claude` CLI xác thực qua proxy khi model được chọn là Claude.
+                if (data.umodelverseKey) agentEnv.ANTHROPIC_AUTH_TOKEN = data.umodelverseKey;
+                if (data.umodelverseUrl) {
+                    agentEnv.ANTHROPIC_BASE_URL = data.umodelverseUrl.replace(/\/v1\/?$/, '');
                 }
             } catch(e) {}
             // Using inherit or pipe to see errors in Electron console
-            aiAgentProcess = spawn(agentPath, args, { stdio: 'pipe' });
+            aiAgentProcess = spawn(agentPath, args, { stdio: 'pipe', env: agentEnv });
             
             aiAgentProcess.stdout.on('data', (data) => console.log(`[AI Agent] ${data}`));
             aiAgentProcess.stderr.on('data', (data) => console.error(`[AI Agent] ${data}`));
@@ -3299,13 +3338,20 @@ function stopAiAgent() {
     console.log('[AI Agent] Đã tắt');
 }
 
-ipcMain.handle('toggle-ai-agent', (event, enable, apiKey) => {
+ipcMain.handle('toggle-ai-agent', (event, enable, apiKey, extra) => {
     try {
         const configData = { enable };
         if (apiKey) configData.apiKey = apiKey;
-        fs.writeFileSync(aiAgentConfigPath, JSON.stringify(configData), 'utf8');
+        if (extra && extra.umodelverseUrl) configData.umodelverseUrl = extra.umodelverseUrl;
+        if (extra && extra.umodelverseKey) configData.umodelverseKey = extra.umodelverseKey;
+        writeAiAgentConfig(configData);
         if (enable) {
-            startAiAgent();
+            if (aiAgentProcess) {
+                stopAiAgent();
+                setTimeout(startAiAgent, 300);
+            } else {
+                startAiAgent();
+            }
         } else {
             stopAiAgent();
         }
@@ -3323,10 +3369,8 @@ ipcMain.handle('is-ai-agent-active', async () => {
         const enabled = isAiAgentEnabled();
         let apiKey = 'type-vn-local-agent-2026';
         try {
-            if (fs.existsSync(aiAgentConfigPath)) {
-                const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
-                if (data.apiKey) apiKey = data.apiKey;
-            }
+            const data = readAiAgentConfig();
+            if (data.apiKey) apiKey = data.apiKey;
         } catch(e) {}
         return { exists, enabled, active: exists && enabled, apiKey };
     } catch (e) {
@@ -3475,12 +3519,10 @@ ipcMain.handle('get-plugins-status', async (event) => {
         const agentEnabled = isAiAgentEnabled();
         let agentApiKey = 'type-vn-local-agent-2026';
         try {
-            if (fs.existsSync(aiAgentConfigPath)) {
-                const data = JSON.parse(fs.readFileSync(aiAgentConfigPath, 'utf8'));
-                if (data.apiKey) agentApiKey = data.apiKey;
-            }
+            const data = readAiAgentConfig();
+            if (data.apiKey) agentApiKey = data.apiKey;
         } catch(e) {}
-        
+
         return [
             {
                 id: 'zalo_reply',
@@ -3563,7 +3605,7 @@ ipcMain.handle('uninstall-plugin', async (event, pluginId) => {
             if (fs.existsSync(userAgentPath)) {
                 fs.unlinkSync(userAgentPath);
             }
-            fs.writeFileSync(aiAgentConfigPath, JSON.stringify({ enable: false }), 'utf8');
+            writeAiAgentConfig({ enable: false });
             return { success: true, message: 'Đã gỡ cài đặt plugin thành công!' };
         }
         return { success: false, error: 'Plugin không xác định.' };

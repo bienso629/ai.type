@@ -41,7 +41,7 @@
                 [headerCheckboxable]="true"
                 [checkboxable]="true">
             </ngx-datatable-column>
-            <ngx-datatable-column name="{{ 'app.domain' | transloco }}" headerClass="!text-base" [width]="180" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+            <ngx-datatable-column name="{{ 'app.domain' | transloco }}" headerClass="!text-base" [width]="110" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                     <span *ngIf="!rows[rowIndex].addnew" class="relative flex items-center text-base">
                         {{ cleanDomain(row.domain) }}
@@ -157,9 +157,9 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="" headerClass="!text-base" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="" headerClass="!text-base" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                    <div class="flex items-center justify-end pr-4">
+                    <div class="flex items-center justify-center">
                         <button *ngIf="!row.addnew"
                             mat-icon-button color="primary"
                             (click)="edit(rowIndex)" matTooltip="Lưu lại">

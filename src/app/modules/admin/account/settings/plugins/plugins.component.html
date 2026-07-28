@@ -24,10 +24,18 @@
                         <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
                             <mat-label>Model mặc định (Tốc độ & Chất lượng)</mat-label>
                             <mat-select [(ngModel)]="aiAgentModel">
-                                <mat-option value="gemini-3.6-flash">Gemini 3.6 Flash (Khuyên dùng, rất nhanh)</mat-option>
-                                <mat-option value="gemini-3.5-flash">Gemini 3.5 Flash (Cũ, nhanh)</mat-option>
-                                <mat-option value="gemini-3.5-pro">Gemini 3.5 Pro (Cũ, chậm, chất lượng cao)</mat-option>
-                                <mat-option value="gemini-3.1-pro">Gemini 3.1 Pro (Cũ, chất lượng ổn định)</mat-option>
+                                <mat-optgroup label="Gemini (Google)">
+                                    <mat-option value="gemini-3.6-flash">Gemini 3.6 Flash (Khuyên dùng, rất nhanh)</mat-option>
+                                    <mat-option value="gemini-3.5-flash">Gemini 3.5 Flash (Cũ, nhanh)</mat-option>
+                                    <mat-option value="gemini-3.5-pro">Gemini 3.5 Pro (Cũ, chậm, chất lượng cao)</mat-option>
+                                    <mat-option value="gemini-3.1-pro">Gemini 3.1 Pro (Cũ, chất lượng ổn định)</mat-option>
+                                </mat-optgroup>
+                                <mat-optgroup label="Claude (Anthropic)">
+                                    <mat-option value="fable">Claude Fable 5 (Mạnh nhất, sáng tạo cao)</mat-option>
+                                    <mat-option value="opus">Claude Opus 5 (Chất lượng cao, suy luận sâu)</mat-option>
+                                    <mat-option value="sonnet">Claude Sonnet 5 (Cân bằng tốc độ & chất lượng)</mat-option>
+                                    <mat-option value="haiku">Claude Haiku 4.5 (Nhanh, tiết kiệm)</mat-option>
+                                </mat-optgroup>
                             </mat-select>
                         </mat-form-field>
                     </div>
