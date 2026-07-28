@@ -12,6 +12,11 @@ import { Subject } from 'rxjs';
 export class SettingsDomainLoginComponent implements OnInit, OnDestroy {
   loginForm: UntypedFormGroup;
   /* END TWO OBJECTS */
+  cleanDomain(domain: string): string {
+    if (!domain) return '';
+    return domain.replace(/^https?:\/\//i, '');
+  }
+
   private _unsubscribeAll: Subject<any> = new Subject<any>();
 
   /**

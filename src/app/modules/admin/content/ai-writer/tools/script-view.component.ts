@@ -17,8 +17,8 @@ interface ScreenplayLine {
     template: `
     <div class="absolute inset-0 flex flex-col bg-[#f0f2f5] min-w-0 overflow-hidden">
         <!-- Header -->
-        <div class="flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-white border-b dark:bg-transparent">
-            <div class="flex-1 min-w-0">
+        <div class="absolute top-0 inset-x-0 z-10 flex flex-col sm:flex-row flex-0 sm:items-center sm:justify-between p-4 pb-4 sm:pt-4 sm:pb-4 sm:px-10 bg-transparent dark:bg-transparent pointer-events-none">
+            <div class="flex-1 min-w-0 pointer-events-auto">
                 <!-- Breadcrumbs -->
                 <div class="hidden sm:flex flex-wrap items-center font-medium">
                     <div class="flex items-center whitespace-nowrap">
@@ -42,7 +42,7 @@ interface ScreenplayLine {
             </div>
 
             <!-- Actions -->
-            <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4">
+            <div class="flex shrink-0 items-center mt-6 sm:mt-0 sm:ml-4 pointer-events-auto">
                 <button mat-flat-button color="primary" class="flex items-center justify-center gap-2 select-none" (click)="regenerateScript()" [disabled]="isRegenerating || isLoading">
                     <mat-icon class="icon-size-4" [class.animate-spin]="isRegenerating" svgIcon="heroicons_outline:refresh"></mat-icon>
                     <span>{{ isRegenerating ? 'Đang tạo lại kịch bản...' : 'Tạo lại kịch bản' }}</span>
@@ -51,7 +51,7 @@ interface ScreenplayLine {
         </div>
 
         <!-- Main Content -->
-        <div class="flex-auto p-6 sm:p-10 bg-[#f0f2f5] overflow-auto flex flex-col gap-8">
+        <div class="flex-auto pt-4 sm:pt-6 pb-6 px-6 sm:pb-10 sm:px-10 bg-[#f0f2f5] overflow-auto flex flex-col gap-8">
             <!-- Loading State -->
             <div class="flex flex-col items-center justify-center py-20 animate-pulse" *ngIf="isLoading">
                 <mat-progress-spinner mode="indeterminate" diameter="48" color="primary"></mat-progress-spinner>

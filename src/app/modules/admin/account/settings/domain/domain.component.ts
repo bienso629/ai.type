@@ -45,6 +45,11 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
 
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
+    cleanDomain(domain: string): string {
+        if (!domain) return '';
+        return domain.replace(/^https?:\/\//i, '');
+    }
+
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
         this.selected.push(...selected);
@@ -214,6 +219,9 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
         }
         if (cell === 'writingStyle') {
             this.saveWritingStyle(this.rows[rowIndex].domain, event.target.value);
+            this.edit(rowIndex);
+        }
+        if (cell === 'note') {
             this.edit(rowIndex);
         }
     }

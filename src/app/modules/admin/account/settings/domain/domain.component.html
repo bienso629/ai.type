@@ -41,11 +41,10 @@
                 [headerCheckboxable]="true"
                 [checkboxable]="true">
             </ngx-datatable-column>
-            <ngx-datatable-column name="{{ 'app.domain' | transloco }}" headerClass="!text-base" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column name="{{ 'app.domain' | transloco }}" headerClass="!text-base" [width]="180" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-value="value" let-row="row">
                     <span *ngIf="!rows[rowIndex].addnew" class="relative flex items-center text-base">
-                        {{ row.domain }}
+                        {{ cleanDomain(row.domain) }}
 
                         <div *ngIf="rowIndex === 0" class="ml-2 flex items-center text-primary-500" matTooltip="Mặc định">
                             <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
@@ -53,13 +52,12 @@
                     </span>
 
                     <input [placeholder]="'app.your_domain_placeholder' | transloco" *ngIf="rows[rowIndex].addnew"
-                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-40"
+                        (blur)="updateValue($event, 'domain', rowIndex)" class="text-green-700 border rounded py-1 px-2 text-base w-full"
                         type="text" [value]="row.domain" />
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="{{ 'app.username' | transloco }}" headerClass="!text-base" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column name="{{ 'app.username' | transloco }}" headerClass="!text-base" [width]="130" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
                         (dblclick)="editing[rowIndex + '-username'] = true"
@@ -78,8 +76,7 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="{{ 'app.secondary_password' | transloco }}" headerClass="!text-base" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column name="{{ 'app.secondary_password' | transloco }}" headerClass="!text-base" [width]="130" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
                         (dblclick)="editing[rowIndex + '-password'] = true"
@@ -99,7 +96,7 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Chỉ tiêu (bài/tháng)" headerClass="!text-base" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Chỉ tiêu" headerClass="!text-base" [width]="90" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
                         (dblclick)="editing[rowIndex + '-monthlyTarget'] = true"
@@ -113,7 +110,7 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Kết quả" headerClass="!text-base" [width]="100" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Kết quả" headerClass="!text-base" [width]="80" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <div class="flex items-center h-full">
                         <span class="font-medium text-base" [ngClass]="{'text-green-600': (getDomainStat(row.domain, selectedMonthNum) >= (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0, 'text-red-600': (getDomainStat(row.domain, selectedMonthNum) < (row.monthlyTarget || 0)) && (row.monthlyTarget || 0) > 0}">
@@ -124,7 +121,7 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Phong cách" headerClass="!text-base" [width]="180" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
+            <ngx-datatable-column name="Phong cách" headerClass="!text-base" [width]="150" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <mat-form-field appearance="fill" class="fuse-mat-dense field-hidden-subscript w-full" *ngIf="styles && styles.length > 0">
                         <mat-select [(value)]="row.writingStyle" placeholder="Chọn phong cách" (selectionChange)="updateValue({target: {value: $event.value}}, 'writingStyle', rowIndex)">
@@ -136,21 +133,33 @@
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="Phân tích AI" headerClass="!text-base" [width]="250" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
+            <ngx-datatable-column name="Phân tích AI" headerClass="!text-base" [width]="240" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                    <div *ngIf="row.note" class="truncate text-base" [matTooltip]="row.note" matTooltipClass="max-w-md">
-                        {{ row.note }}
-                    </div>
-                    <div *ngIf="!row.note" class="text-base text-gray-500 italic">
-                        Chưa phân tích
-                    </div>
+                    <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
+                        (dblclick)="editing[rowIndex + '-note'] = true"
+                        *ngIf="!editing[rowIndex + '-note'] && !rows[rowIndex].addnew"
+                        class="text-base truncate block cursor-pointer">
+                        <ng-container *ngIf="row.note; else noNote">
+                            {{ row.note }}
+                        </ng-container>
+                        <ng-template #noNote>
+                            <span class="text-gray-400 italic">Chưa phân tích</span>
+                        </ng-template>
+                    </span>
+
+                    <input placeholder="Ghi chú / Phân tích" *ngIf="editing[rowIndex + '-note'] && !rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'note', rowIndex)" class="text-gray-800 border rounded py-1 px-2 text-base w-full outline-none focus:ring-1 ring-blue-400"
+                        type="text" [value]="row.note || ''" />
+
+                    <input placeholder="Ghi chú / Phân tích" *ngIf="rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'note', rowIndex)" class="text-gray-800 border rounded py-1 px-2 text-base w-full outline-none focus:ring-1 ring-blue-400"
+                        type="text" [value]="row.note || ''" />
                 </ng-template>
             </ngx-datatable-column>
 
-            <ngx-datatable-column name="" headerClass="!text-base" [width]="100" [sortable]="false" [canAutoResize]="true" [draggable]="false"
-                [resizeable]="true">
+            <ngx-datatable-column name="" headerClass="!text-base" [width]="70" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="false">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
-                    <div class="flex items-center justify-self-stretch">
+                    <div class="flex items-center justify-end pr-4">
                         <button *ngIf="!row.addnew"
                             mat-icon-button color="primary"
                             (click)="edit(rowIndex)" matTooltip="Lưu lại">
