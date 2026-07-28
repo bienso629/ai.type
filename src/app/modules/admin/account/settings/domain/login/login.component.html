@@ -1,7 +1,7 @@
 <form [formGroup]="loginForm" (ngSubmit)="signIn()">
   <div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
     <mat-icon class="self-center mr-2 icon-size-4" [svgIcon]="'feather:user-check'"></mat-icon>
-    <mat-label class="self-center">Kết nối tới {{data.domain}}</mat-label>
+    <mat-label class="self-center">Kết nối tới {{cleanDomain(data.domain)}}</mat-label>
   </div>
 
   <div mat-dialog-content class="mt-4 p-0">
