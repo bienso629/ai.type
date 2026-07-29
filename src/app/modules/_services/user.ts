@@ -72,6 +72,19 @@ export class UserClientService {
         );
     }
 
+    /**
+     * Backend mã hóa response bằng AES (config.gen) khi settings.bcrypt = true
+     * (xem HandleSuccess ở _core/helper/success.js). Response lúc đó có dạng
+     * { params: "<ciphertext>" } thay vì { success, status, message, data }.
+     * Cả hai bên PHẢI dùng cùng secretKey (settings.gen) mới giải mã được.
+     */
+    private decodeIfEncrypted(data: any): any {
+        if (this.config?.settings?.bcrypt && data && data.params) {
+            return this._h.decrypt(data.params, this.config.settings.gen);
+        }
+        return data;
+    }
+
     public updateProfile(dataForm: any): Observable<any> {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -88,7 +101,7 @@ export class UserClientService {
 
         return this.http.put<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return this.decodeIfEncrypted(data);
             }),
             tap(_ => {
                 // this.log('login');
@@ -113,10 +126,33 @@ export class UserClientService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return this.decodeIfEncrypted(data);
             }),
             tap(_ => {
                 // this.log('login');
+            }),
+            catchError(this.handleError('server', []))
+        );
+    }
+
+    /**
+     * Lấy dữ liệu công khai của một username khác (VD: link donate hiển thị trên
+     * trang blog/microsite). Không cần appToken khớp username vì đây là dữ liệu
+     * công khai — backend chỉ trả field không nhạy cảm (không có settings đầy đủ).
+     */
+    public publicProfile(dataForm: any): Observable<any> {
+        dataForm.year = dataForm.year || this.year;
+        dataForm.appId = 'ai.typing';
+
+        const url = `${this.config.settings.api[this.user.server]}/user/profile/public/${dataForm.name}`;
+
+        let data = {
+            params: this._h.encrypt(dataForm, this.config.settings.gen)
+        };
+
+        return this.http.post<any>(url, data, options).pipe(
+            map(data => {
+                return this.decodeIfEncrypted(data);
             }),
             catchError(this.handleError('server', []))
         );

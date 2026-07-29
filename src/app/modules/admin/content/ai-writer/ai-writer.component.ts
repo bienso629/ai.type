@@ -195,6 +195,20 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     styles: any = [];
 
     removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
+
+    /**
+     * AI hay tra ve khoang trang dang &nbsp; hoac ky tu U+00A0 (va cac unicode
+     * space khac) lan trong text thuong. Chuan hoa ve khoang trang thuong
+     * truoc khi luu vao source, tranh hien thi dung nhung HTML ngam chua
+     * &nbsp; sai ban chat (giong cach script-view.component.ts xu ly).
+     */
+    private sanitizeAIText(text: string): string {
+        if (typeof text !== 'string') return text;
+        return text
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
+    }
+
     @ViewChild('stepper') stepper: any;
 
     source: any = {
@@ -1255,7 +1269,7 @@ ${content}`;
 
                                     data.contents.map((text: string) => {
                                         this.source.text.push(
-                                            `<p id="source-p-${uuid.v4()}">${text}</p>`,
+                                            `<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`,
                                         );
                                     });
 
@@ -1536,7 +1550,7 @@ ${content}`;
 
                     data.contents.map((text: string) => {
                         this.source.text.push(
-                            `<p id="source-p-${uuid.v4()}">${text}</p>`,
+                            `<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`,
                         );
                     });
 
@@ -1725,20 +1739,20 @@ ${content}`;
                     const data = JSON.parse(jsonText);
                     if (data.contents && Array.isArray(data.contents)) {
                         data.contents.forEach((text: string) => {
-                            this.source.text.push(`<p id="source-p-${uuid.v4()}">${text}</p>`);
+                            this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(text)}</p>`);
                         });
                         this.toastr.success('AI đã hoàn thành công việc!');
                         this.attachedFiles = [];
                         this.cd.markForCheck();
                     } else {
                         // Fallback if no contents array
-                        this.source.text.push(`<p id="source-p-${uuid.v4()}">${jsonText}</p>`);
+                        this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(jsonText)}</p>`);
                         this.toastr.success('AI đã hoàn thành công việc!');
                         this.attachedFiles = [];
                         this.cd.markForCheck();
                     }
                 } catch(e) {
-                    this.source.text.push(`<p id="source-p-${uuid.v4()}">${jsonText}</p>`);
+                    this.source.text.push(`<p id="source-p-${uuid.v4()}">${this.sanitizeAIText(jsonText)}</p>`);
                     this.toastr.success('AI đã hoàn thành công việc!');
                     this.attachedFiles = [];
                     this.cd.markForCheck();

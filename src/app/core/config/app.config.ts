@@ -70,7 +70,7 @@ export const appConfig: AppConfig = {
         }
     ],
     settings: {
-        bcrypt: false,
+        bcrypt: true,
         domain: 'https://ai.type.vn',
         puppeteer: 'http://localhost:12345',
         chatbot: 'http://localhost:404',

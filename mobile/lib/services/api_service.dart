@@ -50,6 +50,40 @@ class ApiService {
     return base64.encode(bytes);
   }
 
+  /// Giải mã response backend trả về dạng OpenSSL "Salted__" (tương thích
+  /// crypto-js AES.decrypt) khi settings.bcrypt = true (xem HandleSuccess ở
+  /// backend _core/helper/success.js). Response lúc đó có dạng
+  /// {"params": "<base64 ciphertext>"} thay vì {success, status, data...}.
+  static Map<String, dynamic> decryptAES(String base64Ciphertext) {
+    final bytes = base64.decode(base64Ciphertext);
+    final prefix = utf8.decode(bytes.sublist(0, 8));
+    if (prefix != 'Salted__') {
+      throw Exception('Không đúng định dạng mã hóa (thiếu "Salted__" header)');
+    }
+    final salt = bytes.sublist(8, 16);
+    final cipherBytes = bytes.sublist(16);
+
+    final keyAndIv = _deriveKeyAndIV(genKey, salt);
+    final key = enc.Key(Uint8List.fromList(keyAndIv.sublist(0, 32)));
+    final iv = enc.IV(Uint8List.fromList(keyAndIv.sublist(32, 48)));
+
+    final encrypter = enc.Encrypter(
+      enc.AES(key, mode: enc.AESMode.cbc, padding: 'PKCS7'),
+    );
+    final decrypted = encrypter.decrypt(enc.Encrypted(Uint8List.fromList(cipherBytes)), iv: iv);
+    return jsonDecode(decrypted) as Map<String, dynamic>;
+  }
+
+  /// Nếu response có field "params" (nghĩa là backend đã mã hóa vì bcrypt=true),
+  /// tự giải mã và trả về object gốc {success, status, message, data}. Nếu
+  /// không phải dạng mã hóa (bcrypt=false), trả nguyên response.
+  static Map<String, dynamic> decodeIfEncrypted(Map<String, dynamic> res) {
+    if (res.containsKey('params') && res['params'] is String) {
+      return decryptAES(res['params'] as String);
+    }
+    return res;
+  }
+
   static String generateJWTToken(Map<String, dynamic> user) {
     final header = {'alg': 'HS256', 'typ': 'JWT'};
     final date = DateTime.now();
@@ -864,7 +898,7 @@ class ApiService {
     );
 
     if (response.statusCode == 200) {
-      final res = jsonDecode(response.body);
+      final res = decodeIfEncrypted(jsonDecode(response.body) as Map<String, dynamic>);
       if (res != null && res['success'] == true && res['data'] != null) {
         final profile = res['data'];
         if (profile['settings'] != null) {
@@ -912,7 +946,9 @@ class ApiService {
       body: jsonEncode({'params': encryptedParams}),
     );
 
-    if (response.statusCode == 200) return jsonDecode(response.body);
+    if (response.statusCode == 200) {
+      return decodeIfEncrypted(jsonDecode(response.body) as Map<String, dynamic>);
+    }
     return null;
   }
 
@@ -1043,7 +1079,7 @@ class ApiService {
 
       print('DEBUG ACTIVATE: \${response.statusCode} \${response.body}');
       if (response.statusCode == 200) {
-        final jsonResponse = jsonDecode(response.body);
+        final jsonResponse = decodeIfEncrypted(jsonDecode(response.body) as Map<String, dynamic>);
         if (jsonResponse['success'] == true && jsonResponse['data'] != null) {
           final data = jsonResponse['data'];
 
