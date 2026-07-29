@@ -345,26 +345,43 @@
                                     <div class="text-base text-blue-600">{{ 'app.auto_user' | transloco }}</div>
                                     <div class="text-xl font-semibold text-blue-800">{{ gaSummary.totalUsers | number
                                         }}</div>
+                                    <apx-chart *ngIf="chartOptionsGaUsersTrend" [series]="chartOptionsGaUsersTrend.series"
+                                        [chart]="chartOptionsGaUsersTrend.chart" [colors]="chartOptionsGaUsersTrend['colors']"
+                                        [xaxis]="chartOptionsGaUsersTrend.xaxis" [dataLabels]="chartOptionsGaUsersTrend.dataLabels">
+                                    </apx-chart>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-green-50 border-green-100">
                                     <div class="text-base text-green-600">{{ 'app.auto_session' | transloco }}</div>
                                     <div class="text-xl font-semibold text-green-800">{{ gaSummary.sessions | number }}
                                     </div>
+                                    <apx-chart *ngIf="chartOptionsGaSessionsTrend" [series]="chartOptionsGaSessionsTrend.series"
+                                        [chart]="chartOptionsGaSessionsTrend.chart" [colors]="chartOptionsGaSessionsTrend['colors']"
+                                        [xaxis]="chartOptionsGaSessionsTrend.xaxis" [dataLabels]="chartOptionsGaSessionsTrend.dataLabels">
+                                    </apx-chart>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-purple-50 border-purple-100">
                                     <div class="text-base text-purple-600">{{ 'app.auto_page_views' | transloco }}</div>
                                     <div class="text-xl font-semibold text-purple-800">{{ gaSummary.screenPageViews |
                                         number }}</div>
+                                    <apx-chart *ngIf="chartOptionsGaPageViewsTrend" [series]="chartOptionsGaPageViewsTrend.series"
+                                        [chart]="chartOptionsGaPageViewsTrend.chart" [colors]="chartOptionsGaPageViewsTrend['colors']"
+                                        [xaxis]="chartOptionsGaPageViewsTrend.xaxis" [dataLabels]="chartOptionsGaPageViewsTrend.dataLabels">
+                                    </apx-chart>
                                 </div>
                                 <div class="p-4 border rounded-lg bg-orange-50 border-orange-100">
                                     <div class="text-base text-orange-600">{{ 'app.auto_engagement_rate' | transloco }}</div>
                                     <div class="text-xl font-semibold text-orange-800">{{ gaSummary.engagementRate * 100
                                         | number:'1.1-2' }}%</div>
+                                    <apx-chart *ngIf="chartOptionsGaEngagementTrend" [series]="chartOptionsGaEngagementTrend.series"
+                                        [chart]="chartOptionsGaEngagementTrend.chart" [colors]="chartOptionsGaEngagementTrend['colors']"
+                                        [xaxis]="chartOptionsGaEngagementTrend.xaxis" [dataLabels]="chartOptionsGaEngagementTrend.dataLabels"
+                                        [yaxis]="chartOptionsGaEngagementTrend.yaxis">
+                                    </apx-chart>
                                 </div>
                             </div>
 
                             <div class="border rounded-lg p-0 mb-6 overflow-hidden">
-                                <div class="bg-gray-100 p-3 flex justify-between items-center">
+                                <div class="bg-gray-100 p-3 flex justify-between items-center h-[50px] border-b border-gray-200">
                                     <div class="font-semibold text-sm text-gray-700">
                                         {{ 'app.category_leaderboard_all_users' | transloco }}
                                     </div>
@@ -535,7 +552,7 @@
                     </div>
                 </div>
 
-                <div *ngIf="pageSpeedError" class="w-full p-4 bg-red-50 text-red-600 rounded-lg mb-6 border-l-4 border-red-500 font-semibold">
+                <div *ngIf="pageSpeedError" class="w-full p-4 bg-red-50 text-red-600 text-base rounded-lg mb-6 border-l-4 border-red-500 font-semibold">
                     {{ pageSpeedError }}
                 </div>
 

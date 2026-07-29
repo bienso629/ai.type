@@ -4797,16 +4797,49 @@ app.whenReady().then(async () => {
                 requestBody.rowLimit = rowLimit || 25000;
             }
 
-            const res = await webmasters.searchanalytics.query({
-                siteUrl: site,
-                requestBody,
-            });
+            // GSC coi http:// và https:// là hai property khác nhau (trừ Domain property
+            // sc-domain:). Nếu domain lưu thiếu scheme hoặc sai scheme so với property đã
+            // verify trong Search Console, tự động thử các dạng còn lại trước khi báo lỗi.
+            let candidateSites;
+            if (/^https:\/\//i.test(site)) {
+                candidateSites = [site, site.replace(/^https:\/\//i, "http://")];
+            } else if (/^http:\/\//i.test(site)) {
+                candidateSites = [site, site.replace(/^http:\/\//i, "https://")];
+            } else {
+                // Domain trần không có scheme (VD: "nguoitroly.com") -> ưu tiên https trước
+                const bare = site.replace(/\/+$/, "");
+                candidateSites = [`https://${bare}/`, `http://${bare}/`, bare];
+            }
+
+            let res = null;
+            let lastErr = null;
+            let usedSite = site;
+
+            for (const candidate of candidateSites) {
+                try {
+                    res = await webmasters.searchanalytics.query({
+                        siteUrl: candidate,
+                        requestBody,
+                    });
+                    usedSite = candidate;
+                    break;
+                } catch (err) {
+                    lastErr = err;
+                    const isPermissionErr = /sufficient permission/i.test(
+                        (err && err.message) || "",
+                    );
+                    if (!isPermissionErr) throw err;
+                    // Thử scheme kế tiếp nếu là lỗi thiếu quyền do sai scheme
+                }
+            }
+
+            if (!res) throw lastErr;
 
             const rows = res.data.rows || [];
 
             sendToRenderer(
                 "tools-log",
-                `[GSC] Query OK (mode=${mode || "detail"}), rows=${rows.length}`,
+                `[GSC] Query OK (site=${usedSite}, mode=${mode || "detail"}), rows=${rows.length}`,
             );
 
             return {
