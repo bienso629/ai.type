@@ -405,10 +405,23 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         this._bottomSheetRef.dismiss({
             title: this.editorForm.get('title').value,
             description: this.editorForm.get('description').value,
-            content: this.editorForm.get('content').value
+            content: this.sanitizeQuillContent(this.editorForm.get('content').value)
         });
 
         event.preventDefault();
+    }
+
+    /**
+     * Quill (contenteditable) tự chèn &nbsp; khi gõ khoảng trắng liên tiếp
+     * hoặc ở đầu/cuối dòng để trình duyệt không collapse khoảng trắng khi
+     * hiển thị. Đây là hành vi HTML chuẩn nhưng làm nội dung lưu trữ lẫn
+     * &nbsp; thay vì khoảng trắng thật mà người dùng đã gõ.
+     */
+    private sanitizeQuillContent(content: string): string {
+        if (typeof content !== 'string') return content;
+        return content
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
     }
 
     private compressImageBase64(base64Str: string, maxWidth: number = 1200, maxHeight: number = 1200, quality: number = 0.8): Promise<string> {

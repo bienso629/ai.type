@@ -97,6 +97,18 @@ export class LicenseKeyService {
         );
     }
 
+    /**
+     * Backend mã hóa response bằng AES (config.gen) khi settings.bcrypt = true
+     * (xem HandleSuccess ở _core/helper/success.js). Response lúc đó có dạng
+     * { params: "<ciphertext>" } thay vì { success, status, message, data }.
+     */
+    private decodeIfEncrypted(data: any): any {
+        if (this.config?.settings?.bcrypt && data && data.params) {
+            return this._h.decrypt(data.params, this.config.settings.gen);
+        }
+        return data;
+    }
+
     public activate(dataForm: any): Observable<any> {
         // let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         // activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
@@ -113,7 +125,7 @@ export class LicenseKeyService {
 
         return this.http.post<any>(url, data, options).pipe(
             map(data => {
-                return data;
+                return this.decodeIfEncrypted(data);
             }),
             tap(_ => {
                 // this.log('login');

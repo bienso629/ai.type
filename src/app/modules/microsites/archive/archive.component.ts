@@ -283,9 +283,8 @@ export class ArchiveComponent implements OnInit, OnDestroy, AfterViewInit {
      * Lấy thông tin người viết
      */
     getLinkDonate(): void {
-        this._userClientService.profile({
-            name: this.name,
-            username: this.user.name
+        this._userClientService.publicProfile({
+            name: this.name
         })
             .pipe(takeUntil(this._unsubscribeAll))
             .subscribe({
