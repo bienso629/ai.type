@@ -309,8 +309,10 @@
                                         {{ id }}
                                     </mat-option>
                                 </mat-autocomplete>
-                                <mat-hint>Số liệu từ {{ startDate }} → {{ endDate }}. Lấy Property ID trong GA4
-                                    Admin.</mat-hint>
+                                <mat-hint>Số liệu từ {{ startDate }} → {{ endDate }}. Cách lấy Property ID: Vào
+                                    analytics.google.com → chọn website → bấm biểu tượng bánh răng (Admin) ở góc dưới
+                                    trái → cột "Property" chọn "Property details" → Property ID là dãy số hiển thị ở
+                                    đầu trang (VD: 123456789).</mat-hint>
                             </mat-form-field>
                         </div>
 
@@ -333,7 +335,7 @@
                             {{ 'app.wait_a_moment' | transloco }}
                         </div>
 
-                        <div *ngIf="gaError" class="mb-4 text-red-500">
+                        <div *ngIf="gaError" class="mb-4 text-base text-red-500 whitespace-pre-line">
                             {{ gaError }}
                         </div>
 

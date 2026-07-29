@@ -5323,6 +5323,21 @@ function resolveGaKeyFile() {
 }
 
 let gaAuth = null;
+let gaServiceAccountEmail = null;
+
+function getGaServiceAccountEmail() {
+    if (gaServiceAccountEmail) return gaServiceAccountEmail;
+    const keyFile = resolveGaKeyFile();
+    if (!keyFile) return null;
+    try {
+        const raw = fs.readFileSync(keyFile, "utf8");
+        const json = JSON.parse(raw);
+        gaServiceAccountEmail = json.client_email || null;
+        return gaServiceAccountEmail;
+    } catch (e) {
+        return null;
+    }
+}
 
 async function getGaAccessToken() {
     const keyFile = resolveGaKeyFile();
@@ -5465,13 +5480,29 @@ ipcMain.handle("ga:report", async (_event, args) => {
             result,
         };
     } catch (err) {
-        sendToRenderer(
-            "tools-log",
-            `[GA4] Lỗi: ${(err && err.message) || String(err)}`,
-        );
+        let errorMsg = (err && err.message) || String(err);
+
+        if (errorMsg.includes("sufficient permissions")) {
+            const saEmail = getGaServiceAccountEmail();
+            if (saEmail) {
+                errorMsg +=
+                    `\n\nNguyên nhân: App dùng Service Account ${saEmail} để gọi GA4 Data API (không phải tài khoản Google của bạn). ` +
+                    `Service Account này chưa được thêm vào property GA4 này nên bị chặn quyền.\n\n` +
+                    `Cách khắc phục:\n` +
+                    `1. Vào Google Analytics (analytics.google.com) → chọn đúng property.\n` +
+                    `2. Vào Admin (biểu tượng bánh răng) → Property Access Management (Quản lý quyền truy cập property).\n` +
+                    `3. Bấm + → Add users.\n` +
+                    `4. Dán email: ${saEmail}\n` +
+                    `5. Chọn quyền Viewer (Người xem) là đủ để đọc báo cáo.\n` +
+                    `6. Lưu, rồi quay lại app bấm "Lấy dữ liệu & Phân tích đa chiều" lại.\n\n` +
+                    `Nếu bạn quản lý nhiều domain/property khác nhau, mỗi property mới cũng cần add lại email Service Account này một lần.`;
+            }
+        }
+
+        sendToRenderer("tools-log", `[GA4] Lỗi: ${errorMsg}`);
         return {
             success: false,
-            error: err.message || String(err),
+            error: errorMsg,
         };
     }
 });
