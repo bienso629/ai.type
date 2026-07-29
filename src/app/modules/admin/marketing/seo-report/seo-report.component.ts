@@ -191,6 +191,12 @@ export class GSCReportComponent implements OnInit, OnDestroy {
         engagementRate: number;
     } | null = null;
 
+    // Biểu đồ xu hướng theo tháng (từ 01/01 năm hiện tại đến hôm nay), độc lập với khoảng ngày Từ/Đến ở Bước 1
+    chartOptionsGaUsersTrend?: ChartOptions;
+    chartOptionsGaSessionsTrend?: ChartOptions;
+    chartOptionsGaPageViewsTrend?: ChartOptions;
+    chartOptionsGaEngagementTrend?: ChartOptions;
+
     // Dữ liệu tham chiếu
     gaByCountry: { dimension: string; totalUsers: number }[] = [];
     gaByDevice: { dimension: string; totalUsers: number }[] = [];
@@ -997,6 +1003,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         dimensions?: string[];
         dimensionFilter?: any;
         limit?: number;
+        startDate?: string;
+        endDate?: string;
     }): Promise<any | null> {
         if (!window.electron?.analyticsReport) {
             this.toastr.error('Chưa cấu hình bridge analyticsReport trong Electron');
@@ -1063,6 +1071,9 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 engagementRate: summaryMetrics['engagementRate'] || 0,
             };
 
+            // A2. Biểu đồ xu hướng theo tháng (từ 01/01 năm hiện tại đến hôm nay)
+            await this.buildGaMonthlyTrendCharts();
+
             // B. Load Lists (Country, Device, Age)
             const byCountry = await this.callGaReport({ metrics: ['totalUsers'], dimensions: ['country'], limit: 15 });
             this.gaByCountry = (byCountry?.rows || []).map((r: any) => ({ dimension: r.dimensionValues?.[0]?.value, totalUsers: Number(r.metricValues?.[0]?.value) }));
@@ -1127,6 +1138,60 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
             this.gaLoading = false;
             this.cd.markForCheck();
         }
+    }
+
+    /**
+     * Xây 4 biểu đồ sparkline xu hướng theo tháng (Người dùng, Phiên, Lượt xem, Tỷ lệ tương tác)
+     * Luôn lấy dữ liệu từ 01/01 năm hiện tại đến hôm nay, độc lập với khoảng ngày Từ/Đến ở Bước 1.
+     */
+    private async buildGaMonthlyTrendCharts(): Promise<void> {
+        const today = new Date();
+        const yearStart = `${today.getFullYear()}-01-01`;
+        const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+        const monthly = await this.callGaReport({
+            metrics: ['totalUsers', 'sessions', 'screenPageViews', 'engagementRate'],
+            dimensions: ['yearMonth'],
+            startDate: yearStart,
+            endDate: todayStr,
+            limit: 12,
+        });
+
+        const rows = (monthly?.rows || []).slice().sort((a: any, b: any) => {
+            return (a.dimensionValues?.[0]?.value || '').localeCompare(b.dimensionValues?.[0]?.value || '');
+        });
+
+        const metricHeaders = (monthly?.metricHeaders || []).map((m: any) => m.name);
+        const idxUsers = metricHeaders.indexOf('totalUsers');
+        const idxSessions = metricHeaders.indexOf('sessions');
+        const idxPageViews = metricHeaders.indexOf('screenPageViews');
+        const idxEngagement = metricHeaders.indexOf('engagementRate');
+
+        const categories = rows.map((r: any) => {
+            const ym = r.dimensionValues?.[0]?.value || ''; // VD: "202607"
+            return ym.length === 6 ? `${ym.slice(4, 6)}/${ym.slice(0, 4)}` : ym;
+        });
+
+        const buildSeriesData = (idx: number, isPercent = false) => rows.map((r: any) => {
+            const val = Number(r.metricValues?.[idx]?.value || 0);
+            return isPercent ? Math.round(val * 10000) / 100 : val;
+        });
+
+        const makeSparkline = (name: string, data: number[], color: string, isPercent = false): ChartOptions => ({
+            series: [{ name, data }],
+            chart: { type: 'area', height: 80, sparkline: { enabled: true } } as any,
+            colors: [color],
+            xaxis: { categories },
+            dataLabels: { enabled: false },
+            yaxis: isPercent ? { labels: { formatter: (val: number) => `${val.toFixed(1)}%` } } : undefined,
+            plotOptions: undefined,
+            legend: undefined,
+        } as any);
+
+        this.chartOptionsGaUsersTrend = makeSparkline('Người dùng', buildSeriesData(idxUsers), '#2563eb');
+        this.chartOptionsGaSessionsTrend = makeSparkline('Phiên truy cập', buildSeriesData(idxSessions), '#16a34a');
+        this.chartOptionsGaPageViewsTrend = makeSparkline('Lượt xem trang', buildSeriesData(idxPageViews), '#9333ea');
+        this.chartOptionsGaEngagementTrend = makeSparkline('Tỷ lệ tương tác', buildSeriesData(idxEngagement, true), '#ea580c', true);
     }
 
     // Logic Map Pages -> Categories (Trả về mảng mới để không đè dữ liệu cũ)
@@ -1288,7 +1353,8 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         this.cd.markForCheck();
 
         const API_KEY = 'AIzaSyD8CKrKLMTByra9kiAZFcTRYgoarpVixXA';
-        const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(this.siteUrl)}&strategy=desktop&key=${API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo`;
+        const normalizedUrl = /^https?:\/\//i.test(this.siteUrl) ? this.siteUrl : `https://${this.siteUrl}`;
+        const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=desktop&key=${API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo`;
 
         try {
             const response = await fetch(apiEndpoint);
