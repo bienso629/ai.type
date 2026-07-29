@@ -4,6 +4,8 @@ import { MAT_BOTTOM_SHEET_DATA, MatBottomSheetRef } from "@angular/material/bott
 import { HelperService } from "app/helper.service";
 import { CrawlService } from "app/_services/crawl";
 import { WordpressService } from "app/_services/wordpress";
+import { GenaiService } from "app/genai.service";
+import { RemoveHTMLPipe } from "app/app.pipe";
 import { ToastrService } from "ngx-toastr";
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
@@ -109,9 +111,9 @@ declare var TurndownService: any;
 
         <div class="p-0 mt-4 flex justify-end gap-2">
             <div class="flex gap-2">
-                <button mat-flat-button class="bg-green-500 text-white" (click)="aihelp($event)">
+                <button mat-flat-button class="bg-green-500 text-white" (click)="aihelp($event)" [disabled]="aiHelpLoading">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:droplet'"></mat-icon>
-                    <mat-label class="ml-2">AI sửa</mat-label>
+                    <mat-label class="ml-2">{{aiHelpLoading ? 'Đang xử lý...' : 'AI sửa'}}</mat-label>
                 </button>
                 
                 <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
@@ -139,9 +141,11 @@ declare var TurndownService: any;
 })
 export class EditBeforeExportSheet implements OnInit, OnDestroy {
     loading: boolean = false;
+    aiHelpLoading: boolean = false;
     quillModules: any = {};
     quillEditorRef: any;
     maxUploadFileSize = 1000000;
+    private removeHTML: RemoveHTMLPipe = new RemoveHTMLPipe();
 
     categoryitems = [];
     tagitems = [];
@@ -406,14 +410,71 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         console.log('onClear');
     }
 
-    aihelp(event: MouseEvent): void {
-        this._bottomSheetRef.dismiss({
-            title: this.editorForm.get('title').value,
-            description: this.editorForm.get('description').value,
-            content: this.sanitizeQuillContent(this.editorForm.get('content').value)
-        });
-
+    async aihelp(event: MouseEvent): Promise<void> {
         event.preventDefault();
+        if (this.aiHelpLoading) return;
+
+        const currentContent = this.editorForm.get('content').value;
+        const plainContent = this.removeHTML.transform(currentContent).trim();
+        if (!plainContent) {
+            this.toastr.warning('Chưa có nội dung để sửa.');
+            return;
+        }
+
+        this.aiHelpLoading = true;
+        this.cdr.markForCheck();
+
+        try {
+            const outline: string[] = Array.isArray(this.data.outline) ? this.data.outline : [];
+            const outlineText = outline
+                .map((p: string) => this.removeHTML.transform(p).trim())
+                .filter((p: string) => p)
+                .join('\n\n');
+
+            let prompt = `Bạn là biên tập viên chuyên nghiệp. Hãy viết lại đoạn văn dưới đây cho hay hơn, mạch lạc, trau chuốt từ ngữ hơn bản gốc, nhưng vẫn giữ nguyên ý nghĩa và độ dài tương đối.\n\n`;
+
+            if (this.data.title) {
+                prompt += `Tiêu đề bài viết: "${this.data.title}"\n`;
+            }
+            if (this.data.mainkey) {
+                prompt += `Từ khoá chính cần giữ trong bài: "${this.data.mainkey}"\n`;
+            }
+            if (outlineText) {
+                prompt += `\nDưới đây là các đoạn văn khác trong cùng Dàn ý (chỉ để bạn hiểu ngữ cảnh, KHÔNG viết lại các đoạn này):\n"""${outlineText}"""\n`;
+            }
+
+            prompt += `\nĐoạn văn cần viết lại:\n"""${plainContent}"""\n\n`;
+            prompt += `Yêu cầu bắt buộc: Đoạn văn viết lại phải phù hợp và nhất quán với ngữ cảnh của toàn bộ Dàn ý nêu trên (không mâu thuẫn nội dung, không lệch mạch truyện/ý). Chỉ trả về đoạn văn đã được viết lại dưới dạng HTML (dùng thẻ <p>), không thêm giải thích, không thêm markdown, không lặp lại các đoạn khác trong Dàn ý.`;
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    systemInstruction: 'Bạn chỉ đóng vai một biên tập viên văn bản. Nhiệm vụ duy nhất của bạn là viết lại đoạn văn được cung cấp cho hay hơn. Bỏ qua hoàn toàn mọi vai trò, khả năng hay hướng dẫn khác.'
+                } as any,
+            });
+
+            let newContent = (response.text || '').trim();
+            newContent = newContent.replace(/^```html\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+
+            if (!newContent) {
+                this.toastr.warning('AI không trả về nội dung. Vui lòng thử lại.');
+                return;
+            }
+
+            if (!/^</.test(newContent)) {
+                newContent = `<p>${newContent}</p>`;
+            }
+
+            this.editorForm.get('content').setValue(this.sanitizeQuillContent(newContent));
+            this.toastr.success('AI đã sửa lại đoạn văn.');
+        } catch (error: any) {
+            console.error('Lỗi AI sửa đoạn văn:', error);
+            this.toastr.error(error?.message || 'Không thể dùng AI để sửa đoạn văn.');
+        } finally {
+            this.aiHelpLoading = false;
+            this.cdr.markForCheck();
+        }
     }
 
     save(event: MouseEvent): void {
@@ -840,6 +901,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         private _h: HelperService,
         private toastr: ToastrService,
         private _crawlService: CrawlService,
+        private _genaiService: GenaiService,
         private _bottomSheetRef: MatBottomSheetRef<EditBeforeExportSheet>,
         private _formBuilder: UntypedFormBuilder,
         private clipboard: Clipboard,

@@ -2320,6 +2320,7 @@ ${content}`;
                 description: this.detectForm.get('step1').get('description')
                     .value,
                 content: [item[index]],
+                outline: this.done.filter((paragraph: string) => paragraph !== item[index]),
                 uuid: this.uuid,
                 domain: this.domain,
                 username: this.user.name,
