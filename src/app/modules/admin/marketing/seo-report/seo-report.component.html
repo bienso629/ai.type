@@ -28,7 +28,7 @@
             <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
                 [subscriptSizing]="'dynamic'">
                 <mat-label>Domain</mat-label>
-                <mat-select class="w-full" (selectionChange)="getCategories()" [(ngModel)]="siteUrl">
+                <mat-select class="w-full" (selectionChange)="onDomainChange()" [(ngModel)]="siteUrl">
                     <ng-container *ngFor="let d of domainOptions; let i = index">
                         <mat-option [value]="d.domain">{{d.domain}}</mat-option>
                     </ng-container>
@@ -302,9 +302,9 @@
                             <mat-form-field class="w-full sm:w-80 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
                                 <mat-label>GA4 property ID</mat-label>
-                                <input matInput [(ngModel)]="gaPropertyId" placeholder="vd: 123456789"
+                                <input matInput [(ngModel)]="gaPropertyId" (change)="onGaPropertyIdChange()" (blur)="onGaPropertyIdChange()" placeholder="vd: 123456789"
                                     [matAutocomplete]="gaPropertyAuto">
-                                <mat-autocomplete #gaPropertyAuto="matAutocomplete">
+                                <mat-autocomplete #gaPropertyAuto="matAutocomplete" (optionSelected)="onGaPropertyIdChange()">
                                     <mat-option *ngFor="let id of gaPropertyIds" [value]="id">
                                         {{ id }}
                                     </mat-option>
