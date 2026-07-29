@@ -138,7 +138,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
 
     // Danh sách Category Gốc (từ WP)
     categoryItems: any[] = [];
-    domainOptions: string[] = [];
+    domainOptions: any[] = [];
 
     @ViewChild('stepper') stepper: any;
 
@@ -230,8 +230,7 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                         this.domainOptions = [{ domain: 'https://type.vn' }] as any;
                     }
                     this.siteUrl = this.domainOptions[0]['domain'];
-                    // Lấy danh mục ngay khi có domain
-                    this.getCategories();
+                    this.onDomainChange();
 
                     this.cd.markForCheck();
                 },
@@ -240,6 +239,50 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 complete: () => {
                 }
             });
+    }
+
+    normalizeDomainUrl(domain: string): string {
+        if (!domain) return '';
+        let normalized = domain.trim().toLowerCase();
+        if (normalized.startsWith('http://')) normalized = normalized.substring(7);
+        if (normalized.startsWith('https://')) normalized = normalized.substring(8);
+        if (normalized.startsWith('www.')) normalized = normalized.substring(4);
+        if (normalized.endsWith('/')) normalized = normalized.substring(0, normalized.length - 1);
+        return normalized;
+    }
+
+    onDomainChange() {
+        this.getCategories();
+        const norm = this.normalizeDomainUrl(this.siteUrl);
+        const current = this.domainOptions.find(d => this.normalizeDomainUrl(d.domain) === norm);
+        if (current && current['ga4PropertyId']) {
+            this.gaPropertyId = current['ga4PropertyId'];
+        } else if (this.gaPropertyIds && this.gaPropertyIds.length > 0) {
+            this.gaPropertyId = this.gaPropertyIds[0];
+        } else {
+            this.gaPropertyId = '';
+        }
+        this.cd.markForCheck();
+    }
+
+    onGaPropertyIdChange() {
+        if (this.gaPropertyId === undefined || this.gaPropertyId === null) return;
+        const trimmed = this.gaPropertyId.trim();
+        const norm = this.normalizeDomainUrl(this.siteUrl);
+        const current = this.domainOptions.find(d => this.normalizeDomainUrl(d.domain) === norm);
+        if (current && current['ga4PropertyId'] !== trimmed) {
+            current['ga4PropertyId'] = trimmed;
+            this._domainService.edit({
+                username: this.user.name,
+                domain: current
+            }).subscribe({
+                next: (result: any) => {
+                    if (result && result.success && result.data && result.data._rev) {
+                        current._rev = result.data._rev;
+                    }
+                }
+            });
+        }
     }
 
     /**
@@ -1036,6 +1079,21 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
                 this.gaPropertyIds.unshift(trimmed);
                 if (this.gaPropertyIds.length > 20) this.gaPropertyIds.pop();
                 this.multiAccountService.setItem('gaPropertyIds', this.gaPropertyIds);
+            }
+            const norm = this.normalizeDomainUrl(this.siteUrl);
+            const current = this.domainOptions.find(d => this.normalizeDomainUrl(d.domain) === norm);
+            if (current && current['ga4PropertyId'] !== trimmed) {
+                current['ga4PropertyId'] = trimmed;
+                this._domainService.edit({
+                    username: this.user.name,
+                    domain: current
+                }).subscribe({
+                    next: (result: any) => {
+                        if (result && result.success && result.data && result.data._rev) {
+                            current._rev = result.data._rev;
+                        }
+                    }
+                });
             }
         }
 

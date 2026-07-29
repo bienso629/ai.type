@@ -155,6 +155,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             "username": "",
             "password": "",
             "monthlyTarget": 0,
+            "ga4PropertyId": "",
             "addnew": true
         });
 
@@ -221,7 +222,7 @@ export class SettingsDomainComponent implements OnInit, OnDestroy {
             this.saveWritingStyle(this.rows[rowIndex].domain, event.target.value);
             this.edit(rowIndex);
         }
-        if (cell === 'note') {
+        if (cell === 'note' || cell === 'ga4PropertyId') {
             this.edit(rowIndex);
         }
     }

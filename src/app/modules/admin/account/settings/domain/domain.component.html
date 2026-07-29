@@ -133,6 +133,21 @@
                 </ng-template>
             </ngx-datatable-column>
 
+            <ngx-datatable-column name="GA4 Property ID" headerClass="!text-base" [width]="140" [sortable]="false" [canAutoResize]="false" [draggable]="false" [resizeable]="true">
+                <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
+                    <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
+                        (dblclick)="editing[rowIndex + '-ga4PropertyId'] = true"
+                        *ngIf="!editing[rowIndex + '-ga4PropertyId'] && !rows[rowIndex].addnew"
+                        class="text-base text-gray-700 cursor-pointer">
+                        {{ row.ga4PropertyId || 'Chưa nhập' }}
+                    </span>
+
+                    <input placeholder="VD: 511393426" *ngIf="editing[rowIndex + '-ga4PropertyId'] || rows[rowIndex].addnew"
+                        (blur)="updateValue($event, 'ga4PropertyId', rowIndex)" class="text-gray-800 border rounded py-1 px-2 text-base w-full outline-none focus:ring-1 ring-blue-400"
+                        type="text" [value]="row.ga4PropertyId || ''" />
+                </ng-template>
+            </ngx-datatable-column>
+
             <ngx-datatable-column name="Phân tích AI" headerClass="!text-base" [width]="240" [sortable]="false" [canAutoResize]="true" [draggable]="false" [resizeable]="true">
                 <ng-template ngx-datatable-cell-template let-rowIndex="rowIndex" let-row="row" let-value="value">
                     <span matTooltipPosition="above" [matTooltip]="'app.double_click_to_edit_tooltip' | transloco"
