@@ -15,18 +15,18 @@ import {
 } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Subject, takeUntil } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
-import { ForumService } from 'app/modules/_services/forum';
+import { ForumService } from 'app/_services/forum';
 import { FormControl } from '@angular/forms';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MatDialog } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
 

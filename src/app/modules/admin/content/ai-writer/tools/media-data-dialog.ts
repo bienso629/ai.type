@@ -8,7 +8,7 @@ import {
     ViewChild,
     ViewEncapsulation
 } from '@angular/core';
-import { ChatGPTService } from 'app/modules/_services/chatgpt';
+import { ChatGPTService } from 'app/_services/chatgpt';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
@@ -18,8 +18,8 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 
-import { BlogService } from 'app/modules/_services/blog';
-import { DomainService } from 'app/modules/_services/domain';
+import { BlogService } from 'app/_services/blog';
+import { DomainService } from 'app/_services/domain';
 import { MatDialogRef } from '@angular/material/dialog';
 
 @Component({

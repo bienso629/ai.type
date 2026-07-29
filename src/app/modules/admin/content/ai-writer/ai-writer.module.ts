@@ -50,7 +50,7 @@ import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools
 import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-dialog';
 import { AIScriptComponent } from 'app/modules/admin/content/ai-writer/tools/script-view.component';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
-import { WordpressService } from 'app/modules/_services/wordpress';
+import { WordpressService } from 'app/_services/wordpress';
 
 const Routes: Route[] = [{
     path: ':name/:uuid/script',

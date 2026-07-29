@@ -10,7 +10,7 @@ import { MatInputModule } from '@angular/material/input';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { ToastrService } from 'ngx-toastr';
 import { DirectorModeComponent } from './director-mode.component';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GoogleGenAI } from '@google/genai';
 import { GenaiService } from 'app/genai.service';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';

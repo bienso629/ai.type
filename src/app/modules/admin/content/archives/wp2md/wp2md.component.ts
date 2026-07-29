@@ -10,10 +10,10 @@ import { Clipboard } from '@angular/cdk/clipboard';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogRef } from '@angular/material/dialog';
-import { WP2MDService } from 'app/modules/_services/wp2md';
+import { WP2MDService } from 'app/_services/wp2md';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 
 @Component({

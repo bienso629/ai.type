@@ -22,11 +22,11 @@ import { AiAgentFloatingButtonComponent } from './shared/ai-agent-floating-butto
 // import function to register Swiper custom elements
 import { register } from 'swiper/element/bundle';
 import { MatIconRegistry } from '@angular/material/icon';
-import { MultiAccountService } from './modules/_services/multi-account.service';
-import { UserClientService } from 'app/modules/_services/user';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { DomainService } from 'app/modules/_services/domain';
-import { TasksService } from 'app/modules/_services/tasks';
+import { MultiAccountService } from './_services/multi-account.service';
+import { UserClientService } from 'app/_services/user';
+import { CrawlService } from 'app/_services/crawl';
+import { DomainService } from 'app/_services/domain';
+import { TasksService } from 'app/_services/tasks';
 
 // register Swiper custom elements
 register();

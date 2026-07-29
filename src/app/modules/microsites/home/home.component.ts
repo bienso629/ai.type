@@ -2,18 +2,18 @@ import { AfterViewInit, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChi
 import { A11y, Mousewheel, Navigation, Pagination, SwiperOptions } from 'swiper';
 import { Title } from '@angular/platform-browser';
 import { Subject, takeUntil } from 'rxjs';
-import { ChatGPTService } from 'app/modules/_services/chatgpt';
+import { ChatGPTService } from 'app/_services/chatgpt';
 import { ToastrService } from 'ngx-toastr';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 import { AIText2SpeechComponent } from 'app/modules/admin/content/ai-text2speech/ai-text2speech.component';
-import { BlogService } from 'app/modules/_services/blog';
+import { BlogService } from 'app/_services/blog';
 import { MatDialog } from '@angular/material/dialog';
 import { MatSelectionList } from '@angular/material/list';
 import { TranslocoService } from '@ngneat/transloco';
 // import { CloudData, CloudOptions, ZoomOnHoverOptions } from 'angular-tag-cloud-module';
 
 import Typewriter from 't-writer.js';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'landing-app',

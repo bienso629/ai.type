@@ -4,7 +4,7 @@ import { Component, OnInit, ViewChild, ElementRef, HostListener, AfterViewChecke
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { ActivatedRoute, Router, RouterModule } from '@angular/router';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { TextFieldModule } from '@angular/cdk/text-field';
 import { FormsModule } from '@angular/forms';
 import { MatButtonModule } from '@angular/material/button';
@@ -21,7 +21,7 @@ import { GenaiService } from 'app/genai.service';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { MODEL_HINTS } from './model-hints.constant';
-import { UserClientService } from 'app/modules/_services/user';
+import { UserClientService } from 'app/_services/user';
 
 interface NodeItem {
   id: string;

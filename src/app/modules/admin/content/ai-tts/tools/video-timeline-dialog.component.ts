@@ -45,7 +45,7 @@ import { MatFormFieldModule } from '@angular/material/form-field';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { EditScenePromptDialogComponent } from './edit-scene-prompt-dialog.component';
 import { GenaiService } from 'app/genai.service';
 import { VideoProjectConfigDialogComponent } from './video-project-config-dialog.component';

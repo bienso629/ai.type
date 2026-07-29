@@ -5,21 +5,21 @@ import { MatButton } from '@angular/material/button';
 import { Subject, takeUntil } from 'rxjs';
 import { Notification } from 'app/layout/common/notifications/notifications.types';
 import { NotificationsService } from 'app/layout/common/notifications/notifications.service';
-import { ForumService } from 'app/modules/_services/forum';
+import { ForumService } from 'app/_services/forum';
 import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 import { SharedService } from 'app/shared.service';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { BlogService } from 'app/modules/_services/blog';
+import { CrawlService } from 'app/_services/crawl';
+import { BlogService } from 'app/_services/blog';
 import { ToastrService } from 'ngx-toastr';
-import { DomainService } from 'app/modules/_services/domain';
-import { WordpressService } from 'app/modules/_services/wordpress';
+import { DomainService } from 'app/_services/domain';
+import { WordpressService } from 'app/_services/wordpress';
 import { GenaiService } from 'app/genai.service';
 
 import * as _ from 'lodash';
 import { Router } from '@angular/router';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'notifications',

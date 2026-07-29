@@ -10,11 +10,11 @@ import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { User } from 'app/core/user/user.types';
-import { LicenseKeyService } from 'app/modules/_services/licensekey';
+import { LicenseKeyService } from 'app/_services/licensekey';
 import { DeviceUUID } from "device-uuid";
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { TranslocoService } from '@ngneat/transloco';
 
 @Component({

@@ -15,8 +15,8 @@ import { MatInputModule } from '@angular/material/input';
 import { FormsModule } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
-import { MyKeysService } from 'app/modules/_services/mykey';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MyKeysService } from 'app/_services/mykey';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'app-video-generation',

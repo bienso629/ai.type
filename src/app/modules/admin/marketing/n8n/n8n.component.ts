@@ -9,7 +9,7 @@ import { UserService } from 'app/core/user/user.service';
 import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
 import { RemoveHTMLPipe } from "app/app.pipe";
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 
 @Component({
     selector: 'n8n',

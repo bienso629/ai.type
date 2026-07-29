@@ -15,7 +15,7 @@ import {
 } from '@angular/forms';
 import { ActivatedRoute, Params, Router } from '@angular/router';
 import { Subject, takeUntil } from 'rxjs';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import {
     ColumnMode,
     DatatableComponent,
@@ -30,20 +30,20 @@ import { User } from 'app/core/user/user.types';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config';
 import { HttpClient } from '@angular/common/http';
-import { YoutubeService } from 'app/modules/_services/youtube';
-import { DomainService } from 'app/modules/_services/domain';
-import { WordpressService } from 'app/modules/_services/wordpress';
+import { YoutubeService } from 'app/_services/youtube';
+import { DomainService } from 'app/_services/domain';
+import { WordpressService } from 'app/_services/wordpress';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { SharedService } from 'app/shared.service';
-import { BlogService } from 'app/modules/_services/blog';
-import { UserClientService } from 'app/modules/_services/user';
+import { BlogService } from 'app/_services/blog';
+import { UserClientService } from 'app/_services/user';
 
 import * as _ from 'lodash';
 import * as uuid from 'uuid';
 import moment from 'moment';
 import { HelperService } from 'app/helper.service';
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'trend',

@@ -13,7 +13,7 @@ import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 
 import { ColumnMode } from '@swimlane/ngx-datatable';
-import { WP2MDService } from 'app/modules/_services/wp2md';
+import { WP2MDService } from 'app/_services/wp2md';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router, ActivatedRoute, Params } from '@angular/router';
@@ -30,9 +30,9 @@ import {
     ApexLegend,
     ApexYAxis
 } from 'ng-apexcharts';
-import { DomainService } from 'app/modules/_services/domain';
-import { WordpressService } from 'app/modules/_services/wordpress';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { DomainService } from 'app/_services/domain';
+import { WordpressService } from 'app/_services/wordpress';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 export type ChartOptions = {
     series: ApexAxisChartSeries;

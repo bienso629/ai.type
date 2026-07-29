@@ -2,8 +2,8 @@ import { Component, Inject, OnDestroy, OnInit, ChangeDetectorRef } from "@angula
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MAT_BOTTOM_SHEET_DATA, MatBottomSheetRef } from "@angular/material/bottom-sheet";
 import { HelperService } from "app/helper.service";
-import { CrawlService } from "app/modules/_services/crawl";
-import { WordpressService } from "app/modules/_services/wordpress";
+import { CrawlService } from "app/_services/crawl";
+import { WordpressService } from "app/_services/wordpress";
 import { ToastrService } from "ngx-toastr";
 import { Clipboard } from '@angular/cdk/clipboard';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
@@ -109,6 +109,11 @@ declare var TurndownService: any;
 
         <div class="p-0 mt-4 flex justify-end gap-2">
             <div class="flex gap-2">
+                <button mat-flat-button class="bg-green-500 text-white" (click)="aihelp($event)">
+                    <mat-icon class="icon-size-4" [svgIcon]="'feather:droplet'"></mat-icon>
+                    <mat-label class="ml-2">AI sửa</mat-label>
+                </button>
+                
                 <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">
                     <mat-icon class="icon-size-4" [svgIcon]="'feather:send'"></mat-icon>
                     <mat-label class="ml-2">Đăng bài</mat-label>
@@ -401,6 +406,16 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         console.log('onClear');
     }
 
+    aihelp(event: MouseEvent): void {
+        this._bottomSheetRef.dismiss({
+            title: this.editorForm.get('title').value,
+            description: this.editorForm.get('description').value,
+            content: this.sanitizeQuillContent(this.editorForm.get('content').value)
+        });
+
+        event.preventDefault();
+    }
+
     save(event: MouseEvent): void {
         this._bottomSheetRef.dismiss({
             title: this.editorForm.get('title').value,
@@ -469,7 +484,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 console.error('Lỗi khi load ảnh vào canvas để nén:', base64Str.substring(0, 50));
                 resolve(base64Str);
             };
-            
+
             // Xóa bỏ tham số name= (nếu có) trước khi set vào img.src để tránh trình duyệt báo lỗi
             let safeBase64 = base64Str;
             const nameMatch = base64Str.match(/^data:([^;]+);name=[^;]+;(base64,.*)$/);
@@ -490,7 +505,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         const regex = /(<img[^>]+src=")([^">]+)("[^>]*>)/gi;
         let match;
         const imagesToUpload = [];
-        
+
         while ((match = regex.exec(content)) !== null) {
             const src = match[2];
             // Bỏ qua các ảnh đã là link http/https
@@ -508,7 +523,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             this.loading = true;
             this.cdr.markForCheck();
             this.toastr.info(`Đang tải lên ${imagesToUpload.length} hình ảnh...`);
-            
+
             for (let i = 0; i < imagesToUpload.length; i++) {
                 try {
                     const imgObj = imagesToUpload[i];
@@ -522,7 +537,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                         if (localPath.startsWith('file://')) {
                             localPath = localPath.substring('file://'.length);
                         }
-                        
+
                         try {
                             const res = await (window as any).electron.invoke('read-file-base64', { filePath: decodeURIComponent(localPath) });
                             if (res && res.success && res.base64) {
@@ -541,7 +556,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                         const result: any = await firstValueFrom(this._wordpressService.upload_media(domain, base64DataUrl, uname, pass, this.domain));
                         if (result && result.source_url) {
                             let newTag = imgObj.fullTag.replace(imgObj.src, result.source_url);
-                            
+
                             // Gắn ID media ngược lại vào thẻ img thông qua class wp-image-{id}
                             if (result.id) {
                                 if (newTag.includes('class="')) {
@@ -687,7 +702,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         event.preventDefault();
         const thumbOk = await this.processThumbnailBeforeSave();
         if (!thumbOk) return; // Dừng lại nếu tải ảnh thất bại
-        
+
         await this.processBase64ImagesBeforeSave();
 
         let submitData = {
@@ -727,7 +742,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
         event.preventDefault();
         const thumbOk = await this.processThumbnailBeforeSave();
         if (!thumbOk) return; // Dừng lại nếu tải ảnh thất bại
-        
+
         await this.processBase64ImagesBeforeSave();
 
         let submitData = {
@@ -862,7 +877,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                 // Dọn dẹp các thẻ xuống dòng trống trước thẻ table
                 formattedItem = formattedItem.replace(/(?:<p><br><\/p>\s*)+<table/gi, '<table');
                 formattedItem = formattedItem.replace(/(?:<br\s*\/?>\s*)+<table/gi, '<table');
-                
+
                 formattedItem = formattedItem.replace(/<th/gi, '<td').replace(/<\/th>/gi, '</td>');
                 formattedItem = formattedItem.replace(/<thead/gi, '<tbody').replace(/<\/thead>/gi, '</tbody>');
                 formattedItem = formattedItem.replace(/<\/p>\s*<table/gi, '</p><table');

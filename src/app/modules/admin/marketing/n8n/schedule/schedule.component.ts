@@ -1,8 +1,8 @@
 import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ElementRef, NgZone, ChangeDetectionStrategy, TemplateRef, Input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
-import { DomainService } from 'app/modules/_services/domain';
-import { TasksService } from 'app/modules/_services/tasks';
+import { DomainService } from 'app/_services/domain';
+import { TasksService } from 'app/_services/tasks';
 import { User } from 'app/core/user/user.types';
 import {
     catchError,
@@ -24,7 +24,7 @@ import { FuseConfigService } from '@fuse/services/config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
-import { BlogService } from 'app/modules/_services/blog';
+import { BlogService } from 'app/_services/blog';
 import { ToastrService } from 'ngx-toastr';
 import {
     ITimelineItem,
@@ -34,7 +34,7 @@ import {
 } from "angular-calendar-timeline";
 import localeVi from "@angular/common/locales/vi";
 import { registerLocaleData } from '@angular/common';
-import { MXHAutoService } from 'app/modules/_services/mxhauto';
+import { MXHAutoService } from 'app/_services/mxhauto';
 import { MatSelectionList } from "@angular/material/list";
 import { MatSlideToggleChange } from '@angular/material/slide-toggle';
 import { ColumnMode, SelectionType, DatatableComponent } from '@swimlane/ngx-datatable';
@@ -43,12 +43,12 @@ import { MatDialog } from '@angular/material/dialog';
 import { HttpClient } from '@angular/common/http';
 import Hls from 'hls.js';
 
-import { N8nService } from 'app/modules/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { GlobalAgentService } from 'app/modules/_services/global-agent.service';
+import { N8nService } from 'app/_services/n8n.service'; // Bạn kiểm tra lại đường dẫn này nhé
+import { MultiAccountService } from 'app/_services/multi-account.service';
+import { CrawlService } from 'app/_services/crawl';
+import { GlobalAgentService } from 'app/_services/global-agent.service';
 import { HelperService } from 'app/helper.service';
-import { ForumService } from 'app/modules/_services/forum';
+import { ForumService } from 'app/_services/forum';
 registerLocaleData(localeVi);
 
 export interface ICustomTimelineItem extends ITimelineItem {

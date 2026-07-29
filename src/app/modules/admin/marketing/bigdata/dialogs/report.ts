@@ -1,7 +1,7 @@
 import { Component, Inject, OnInit, ViewChild } from "@angular/core";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { User } from "app/core/user/user.types";
-import { BigDataService } from "app/modules/_services/bigdata";
+import { BigDataService } from "app/_services/bigdata";
 import { Subject, takeUntil } from "rxjs";
 import { ChartComponent } from 'ng-apexcharts';
 import type { ApexOptions } from 'apexcharts';

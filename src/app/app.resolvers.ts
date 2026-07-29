@@ -9,10 +9,10 @@ import { QuickChatService } from 'app/layout/common/quick-chat/quick-chat.servic
 import { ShortcutsService } from 'app/layout/common/shortcuts/shortcuts.service';
 
 import { UserService } from 'app/core/user/user.service';
-import { UserClientService } from 'app/modules/_services/user';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { DomainService } from 'app/modules/_services/domain';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { UserClientService } from 'app/_services/user';
+import { CrawlService } from 'app/_services/crawl';
+import { DomainService } from 'app/_services/domain';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Injectable({
     providedIn: 'root'

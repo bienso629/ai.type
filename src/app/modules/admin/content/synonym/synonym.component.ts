@@ -4,7 +4,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
-import { BlogService } from 'app/modules/_services/blog';
+import { BlogService } from 'app/_services/blog';
 import { ToastrService } from 'ngx-toastr';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config';

@@ -1,8 +1,8 @@
 import { ChangeDetectionStrategy, ChangeDetectorRef, Component, OnInit, OnDestroy, ViewEncapsulation } from '@angular/core';
 import { FuseConfirmationService } from '@fuse/services/confirmation/confirmation.service';
 import { ToastrService } from 'ngx-toastr';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { UserClientService } from 'app/modules/_services/user';
+import { MultiAccountService } from 'app/_services/multi-account.service';
+import { UserClientService } from 'app/_services/user';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';

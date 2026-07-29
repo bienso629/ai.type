@@ -1,7 +1,7 @@
 import { Component, Inject, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { CustomerService } from "app/modules/_services/customer";
+import { CustomerService } from "app/_services/customer";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
 

@@ -2,7 +2,7 @@ declare var require: any;
 import { ChangeDetectionStrategy, Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { MAT_DIALOG_DATA } from '@angular/material/dialog';
-import { LicenseKeyService } from 'app/modules/_services/licensekey';
+import { LicenseKeyService } from 'app/_services/licensekey';
 import { License, Licensekey } from 'licensekey';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';

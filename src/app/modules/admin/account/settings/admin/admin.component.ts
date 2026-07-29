@@ -9,16 +9,16 @@ import { EmailDialogComponent } from './dialogs/email-dialog/email-dialog.compon
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { BlogService } from 'app/modules/_services/blog';
-import { ChatGPTService } from 'app/modules/_services/chatgpt';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { UserClientService } from 'app/modules/_services/user';
-import { WP2MDService } from 'app/modules/_services/wp2md';
-import { N8nService } from 'app/modules/_services/n8n.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { BlogService } from 'app/_services/blog';
+import { ChatGPTService } from 'app/_services/chatgpt';
+import { CrawlService } from 'app/_services/crawl';
+import { UserClientService } from 'app/_services/user';
+import { WP2MDService } from 'app/_services/wp2md';
+import { N8nService } from 'app/_services/n8n.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
 import { forkJoin, Subject, takeUntil } from 'rxjs';
-import { ForumService } from 'app/modules/_services/forum';
+import { ForumService } from 'app/_services/forum';
 
 import moment from 'moment';
 

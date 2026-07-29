@@ -16,10 +16,10 @@ import {
 } from '@angular/forms';
 import { Title, DomSanitizer, SafeUrl } from '@angular/platform-browser';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { BlogService } from 'app/modules/_services/blog';
+import { CrawlService } from 'app/_services/crawl';
+import { BlogService } from 'app/_services/blog';
 import { UserService } from 'app/core/user/user.service';
-import { ForumService } from 'app/modules/_services/forum';
+import { ForumService } from 'app/_services/forum';
 import { User } from 'app/core/user/user.types';
 import { ToastrService } from 'ngx-toastr';
 import { SEOScorePipe, RemoveHTMLPipe, SlugifyPipe } from 'app/app.pipe';
@@ -57,9 +57,9 @@ import { EditBeforeExportSheet } from 'app/modules/admin/content/ai-writer/tools
 import { ScriptDialog } from 'app/modules/admin/content/ai-writer/tools/script-dialog';
 
 import { forkJoin } from 'rxjs'; // RxJS 6 syntax
-import { DomainService } from 'app/modules/_services/domain';
-import { WordpressService } from 'app/modules/_services/wordpress';
-import { GlobalAgentService } from 'app/modules/_services/global-agent.service';
+import { DomainService } from 'app/_services/domain';
+import { WordpressService } from 'app/_services/wordpress';
+import { GlobalAgentService } from 'app/_services/global-agent.service';
 import { Clipboard } from '@angular/cdk/clipboard';
 
 import * as _ from 'lodash';
@@ -70,10 +70,10 @@ import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 
 import { marked } from 'marked';
-import { YoutubeService } from 'app/modules/_services/youtube';
-import { LogService } from 'app/modules/_services/link';
+import { YoutubeService } from 'app/_services/youtube';
+import { LogService } from 'app/_services/link';
 import { HelperService } from 'app/helper.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 declare var require: any;
 declare var LeaderLine: any;

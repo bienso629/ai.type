@@ -7,10 +7,10 @@ import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { Clipboard } from '@angular/cdk/clipboard';
 
 import { ColumnMode } from '@swimlane/ngx-datatable';
-import { WP2MDService } from 'app/modules/_services/wp2md';
-import { DomainService } from 'app/modules/_services/domain';
-import { WordpressService } from 'app/modules/_services/wordpress';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { WP2MDService } from 'app/_services/wp2md';
+import { DomainService } from 'app/_services/domain';
+import { WordpressService } from 'app/_services/wordpress';
+import { CrawlService } from 'app/_services/crawl';
 import { ToastrService } from 'ngx-toastr';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';

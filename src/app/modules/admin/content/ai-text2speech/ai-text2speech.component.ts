@@ -6,7 +6,7 @@ import { FuseConfigService } from '@fuse/services/config';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { BlogService } from 'app/modules/_services/blog';
+import { BlogService } from 'app/_services/blog';
 import { filter, interval, Subject, switchMap, take, takeUntil } from 'rxjs';
 import WaveSurfer from 'wavesurfer.js';
 import { RemoveHTMLPipe } from 'app/app.pipe';

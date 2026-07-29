@@ -4,8 +4,8 @@ import { catchError, from, map, Observable, of, switchMap, tap, throwError } fro
 import { AuthUtils } from 'app/core/auth/auth.utils';
 import { UserService } from 'app/core/user/user.service';
 
-import { ForumService } from 'app/modules/_services/forum';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { ForumService } from 'app/_services/forum';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Injectable()
 export class AuthService {

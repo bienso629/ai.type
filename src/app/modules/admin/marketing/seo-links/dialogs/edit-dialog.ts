@@ -1,7 +1,7 @@
 import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { LogService } from "app/modules/_services/link";
+import { LogService } from "app/_services/link";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
 import { TranslocoService } from "@ngneat/transloco";

@@ -7,7 +7,7 @@ import { Subject, takeUntil } from 'rxjs';
 import jsonToCsvExport from 'json-to-csv-export';
 
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
-import { WordpressService } from 'app/modules/_services/wordpress';
+import { WordpressService } from 'app/_services/wordpress';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({
