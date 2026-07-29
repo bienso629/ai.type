@@ -12,7 +12,10 @@ export class StopPropagationDirective implements AfterViewInit {
 	public ngAfterViewInit() {
 		fromEvent<MouseEvent>(this.elementRef.nativeElement, 'click', { capture: true })
 			.subscribe((event: any) => {
-				const offsetParent = event.target.offsetParent;
+				const offsetParent = event.target?.offsetParent;
+				if (!offsetParent || !offsetParent.classList) {
+					return;
+				}
 
 				if (offsetParent.classList.contains('btn-reset')) {
 					event.stopPropagation();

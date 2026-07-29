@@ -30,8 +30,8 @@ export class FuseLoadingInterceptor implements HttpInterceptor
      */
     intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>>
     {
-        // If the Auto mode is turned off, do nothing
-        if ( !this.handleRequestsAutomatically )
+        // If the Auto mode is turned off or request contains skipLoadingBar header, do nothing
+        if ( !this.handleRequestsAutomatically || req.headers.has('skipLoadingBar') || req.url.includes('/analytics') || req.url.includes('/ping') )
         {
             return next.handle(req);
         }

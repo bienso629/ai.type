@@ -55,6 +55,7 @@ contextBridge.exposeInMainWorld('electron', {
     gscQuery: (payload) => ipcRenderer.invoke('gsc:query', payload),
     googleAdsKeyword: (payload) => ipcRenderer.invoke('ads:keywordIdeas', payload),
     exportGscPdf: (payload) => ipcRenderer.invoke('export-gsc-pdf', payload),
+    exportGscImage: (payload) => ipcRenderer.invoke('export-gsc-image', payload),
     analyticsReport: (payload) => ipcRenderer.invoke('ga:report', payload),
     saveBase64: (data) => ipcRenderer.invoke('save-base64', data),
     overwriteFileBase64: (data) => ipcRenderer.invoke('overwrite-file-base64', data),

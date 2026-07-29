@@ -6407,6 +6407,48 @@ ipcMain.handle('export-gsc-pdf', async (event, payload) => {
 });
 
 // =====================================================================
+// XUẤT BÁO CÁO ẢNH (PNG) BẰNG IPC
+// =====================================================================
+ipcMain.handle('export-gsc-image', async (event, payload) => {
+    try {
+        const { siteUrl, startDate, endDate, base64Image } = payload || {};
+        let safeDomain = "SEO_Report";
+        if (siteUrl) safeDomain = siteUrl.replace(/https?:\/\//, '').replace(/[\/\\]/g, '_');
+
+        const defaultName = `[AI.TYPE] Báo Cáo Tổng Hợp AI - ${safeDomain} (${startDate || '2026'} to ${endDate || '2026'}).png`;
+        const defaultPath = path.join(app.getPath('downloads'), defaultName);
+
+        const { filePath } = await dialog.showSaveDialog({
+            title: 'Lưu Báo Cáo Ảnh (PNG)',
+            defaultPath: defaultPath,
+            filters: [
+                { name: 'PNG Image', extensions: ['png'] }
+            ]
+        });
+
+        if (filePath) {
+            if (base64Image) {
+                const cleanBase64 = base64Image.replace(/^data:image\/\w+;base64,/, '');
+                const buffer = Buffer.from(cleanBase64, 'base64');
+                fs.writeFileSync(filePath, buffer);
+            } else {
+                const win = BrowserWindow.fromWebContents(event.sender);
+                const image = await win.webContents.capturePage();
+                fs.writeFileSync(filePath, image.toPNG());
+            }
+            sendToRenderer("tools-log", `✅ Đã lưu Báo Cáo Ảnh thành công tại: ${filePath}`);
+            sendNotification("Báo cáo SEO bằng ảnh", "Xuất Báo Cáo Ảnh thành công!");
+            return { success: true, filePath };
+        } else {
+            return { success: false, error: "Đã hủy lưu file" };
+        }
+    } catch (err) {
+        console.error("Lỗi xuất Báo cáo Ảnh:", err);
+        return { success: false, error: err.message };
+    }
+});
+
+// =====================================================================
 // IPC HANDLER: CHỌN FILE VIDEO CỤC BỘ QUA HỘP THOẠI HỆ THỐNG
 // =====================================================================
 ipcMain.handle('select-video-file', async (event) => {

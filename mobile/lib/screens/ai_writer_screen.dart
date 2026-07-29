@@ -38,7 +38,11 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   final TextEditingController _urlController = TextEditingController();
   final TextEditingController _thumbnailController = TextEditingController();
   final TextEditingController _promptInputController = TextEditingController();
+  final TextEditingController _keywordController = TextEditingController();
+  final TextEditingController _mainkeyController = TextEditingController();
+  final TextEditingController _requestController = TextEditingController();
   bool _isGeneratingAi = false;
+  bool _showCode = false;
 
   @override
   void dispose() {
@@ -47,6 +51,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     _urlController.dispose();
     _thumbnailController.dispose();
     _promptInputController.dispose();
+    _keywordController.dispose();
+    _mainkeyController.dispose();
+    _requestController.dispose();
     super.dispose();
   }
 
@@ -86,10 +93,12 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     }
   }
 
-  Future<void> _loadTaskData() async {
-    setState(() {
-      _isLoading = true;
-    });
+  Future<void> _loadTaskData({bool isRefresh = false}) async {
+    if (!isRefresh) {
+      setState(() {
+        _isLoading = true;
+      });
+    }
     try {
       final prefs = await SharedPreferences.getInstance();
       final activeInfoStr = prefs.getString('active_info');
@@ -279,14 +288,18 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           ),
         ),
         drawer: _buildLeftDrawer(),
-        body: TabBarView(
-          children: [
-            _buildParagraphsTab(),
-            _buildHeadingTab(),
-            _buildHtmlTab(),
-            _buildOutlineTab(),
-            _buildDeletedTab(),
-          ],
+        body: RefreshIndicator(
+          color: AppColors.primary,
+          onRefresh: () => _loadTaskData(isRefresh: true),
+          child: TabBarView(
+            children: [
+              _buildParagraphsTab(),
+              _buildHeadingTab(),
+              _buildHtmlTab(),
+              _buildOutlineTab(),
+              _buildDeletedTab(),
+            ],
+          ),
         ),
       ),
     );
@@ -295,10 +308,33 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   Widget _buildLeftDrawer() {
     return Drawer(
       backgroundColor: Colors.white,
-      width: MediaQuery.of(context).size.width * 0.85,
+      width: MediaQuery.of(context).size.width * 0.88,
       child: SafeArea(
         child: Column(
           children: [
+            // Drawer Header with Primary Teal banner matching Angular
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+              color: AppColors.primary,
+              child: const Row(
+                children: [
+                  Icon(Icons.assignment_outlined, color: Colors.white, size: 22),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      'Thông tin công việc',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            // Stepper Content
             Expanded(
               child: Stepper(
                 physics: const ClampingScrollPhysics(),
@@ -310,118 +346,172 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                 onStepCancel: () {
                   if (_currentStep > 0) setState(() => _currentStep -= 1);
                 },
-                controlsBuilder: (context, details) {
-                  return Padding(
-                    padding: const EdgeInsets.only(top: 16.0),
-                    child: Row(
-                      children: [
-                        if (_currentStep < 3)
-                          ElevatedButton(
-                            onPressed: details.onStepContinue,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.primary,
-                              foregroundColor: Colors.white,
-                            ),
-                            child: const Text('Tiếp tục'),
-                          ),
-                        const SizedBox(width: 8),
-                        if (_currentStep > 0)
-                          TextButton(
-                            onPressed: details.onStepCancel,
-                            child: const Text(
-                              'Quay lại',
-                              style: TextStyle(color: Colors.grey),
-                            ),
-                          ),
-                      ],
-                    ),
-                  );
-                },
+                controlsBuilder: (context, details) => const SizedBox.shrink(),
                 steps: [
+                  // Step 1: Thông tin công việc
                   Step(
-                    title: const Text('Thông tin công việc'),
+                    title: const Text('Thông tin công việc', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Tên bài viết, mô tả & tệp đính kèm', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     isActive: _currentStep >= 0,
+                    state: _currentStep > 0 ? StepState.complete : StepState.indexed,
                     content: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Text(
+                          'Tên công việc / Tiêu đề *',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _titleController,
+                          onChanged: (_) => setState(() {}),
                           decoration: const InputDecoration(
-                            labelText: 'Tên công việc*',
+                            hintText: 'Hôm nay bạn muốn viết gì?',
+                            prefixIcon: Icon(Icons.edit_note, size: 20),
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
+
+                        const Text(
+                          'Mô tả về công việc',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _descController,
                           maxLines: 3,
+                          onChanged: (_) => setState(() {}),
                           decoration: const InputDecoration(
-                            labelText: 'Mô tả về công việc',
+                            hintText: 'Mô tả ngắn gọn có chứa từ khóa chính...',
+                            prefixIcon: Icon(Icons.description_outlined, size: 20),
+                            alignLabelWithHint: true,
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 14),
+
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             const Text(
-                              'Ảnh/Video',
-                              style: TextStyle(fontWeight: FontWeight.bold),
+                              'Thumbnail',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
                             ),
                             Row(
                               children: [
                                 IconButton(
-                                  icon: const Icon(
-                                    Icons.auto_awesome,
-                                    color: AppColors.primary,
-                                  ),
-                                  onPressed: () {},
+                                  icon: const Icon(Icons.auto_awesome, color: AppColors.primary, size: 18),
+                                  tooltip: 'Tự động tạo ảnh bằng AI',
+                                  onPressed: () {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('Đang khởi tạo trình tạo ảnh AI...')),
+                                    );
+                                  },
                                 ),
                                 IconButton(
-                                  icon: const Icon(
-                                    Icons.folder_open,
-                                    color: AppColors.primary,
-                                  ),
+                                  icon: const Icon(Icons.folder_open, color: AppColors.primary, size: 18),
+                                  tooltip: 'Tải tệp media lên',
                                   onPressed: () {},
                                 ),
                               ],
                             ),
                           ],
                         ),
-                        Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: Colors.grey.shade300,
-                              style: BorderStyle.solid,
-                              width: 1,
+                        const SizedBox(height: 6),
+
+                        if (_thumbnailController.text.trim().isEmpty)
+                          Container(
+                            padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                            decoration: BoxDecoration(
+                              color: Colors.grey.shade50,
+                              border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
+                              borderRadius: BorderRadius.circular(8),
                             ),
-                            borderRadius: BorderRadius.circular(4),
+                            alignment: Alignment.center,
+                            child: const Column(
+                              children: [
+                                Icon(Icons.cloud_upload_outlined, color: Colors.grey, size: 32),
+                                SizedBox(height: 6),
+                                Text(
+                                  'Chưa có tệp nào được chọn\n\nTải lên ảnh hoặc video có liên quan',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(color: Colors.grey, fontSize: 12),
+                                ),
+                              ],
+                            ),
+                          )
+                        else
+                          Container(
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: Colors.teal.shade50,
+                              border: Border.all(color: Colors.teal.shade200),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Row(
+                              children: [
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: Image.network(
+                                    _thumbnailController.text.trim(),
+                                    width: 48,
+                                    height: 48,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (_, __, ___) => const Icon(Icons.movie_creation, color: AppColors.primary),
+                                  ),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _thumbnailController.text.split('/').last,
+                                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      const Text('Đã đính kèm', style: TextStyle(color: Colors.teal, fontSize: 11)),
+                                    ],
+                                  ),
+                                ),
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 18),
+                                  onPressed: () {
+                                    setState(() {
+                                      _thumbnailController.clear();
+                                    });
+                                  },
+                                ),
+                              ],
+                            ),
                           ),
-                          alignment: Alignment.center,
-                          child: const Text(
-                            'No file selected\n\nTải lên ảnh/video có liên quan',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(color: Colors.grey, fontSize: 12),
-                          ),
-                        ),
                       ],
                     ),
                   ),
+
+                  // Step 2: Viết lại từ bài khác
                   Step(
-                    title: const Text('Viết lại từ bài khác'),
+                    title: const Text('Viết lại từ bài khác', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Clone & viết lại nội dung từ URL mẫu', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     isActive: _currentStep >= 1,
+                    state: _currentStep > 1 ? StepState.complete : StepState.indexed,
                     content: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Text(
+                          'Link / URL bài viết mẫu',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
                         TextField(
                           controller: _urlController,
                           decoration: const InputDecoration(
-                            labelText: 'Nhập Link/URL bài viết mẫu',
                             hintText: 'https://type.vn/topic/45',
-                            prefixIcon: Icon(Icons.language, size: 16),
+                            prefixIcon: Icon(Icons.language, size: 20),
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -429,30 +519,73 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                         const Padding(
                           padding: EdgeInsets.only(top: 4, bottom: 12),
                           child: Text(
-                            'Dùng bài viết này làm nền tảng',
+                            'Dùng bài viết này làm nền tảng nội dung',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
-                        const TextField(
-                          maxLines: 3,
-                          decoration: InputDecoration(
-                            labelText: 'Yêu cầu phân tích',
-                            hintText: 'Code',
-                            border: OutlineInputBorder(),
-                            isDense: true,
+                        InkWell(
+                          onTap: () => setState(() => _showCode = !_showCode),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 6),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  _showCode ? Icons.arrow_drop_down : Icons.arrow_right,
+                                  color: AppColors.primary,
+                                  size: 20,
+                                ),
+                                Text(
+                                  _showCode ? 'Ẩn Yêu cầu phân tích / Cấu trúc (HTML Code)' : 'Hiện Yêu cầu phân tích / Cấu trúc (HTML Code)',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: AppColors.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
-                        const Padding(
-                          padding: EdgeInsets.only(top: 4, bottom: 12),
-                          child: Text(
-                            'Yêu cầu bạn phải biết sử dụng HTML',
-                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                        if (_showCode) ...[
+                          const SizedBox(height: 6),
+                          const Text(
+                            'Yêu cầu phân tích / Cấu trúc',
+                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
                           ),
-                        ),
+                          const SizedBox(height: 6),
+                          TextField(
+                            controller: _requestController,
+                            maxLines: 2,
+                            decoration: const InputDecoration(
+                              hintText: 'Nhập mã code HTML hoặc yêu cầu...',
+                              prefixIcon: Icon(Icons.code, size: 20),
+                              border: OutlineInputBorder(),
+                              isDense: true,
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.only(top: 4, bottom: 12),
+                            child: Text(
+                              'Yêu cầu bạn phải biết sử dụng định dạng HTML',
+                              style: TextStyle(fontSize: 12, color: Colors.grey),
+                            ),
+                          ),
+                        ] else
+                          const SizedBox(height: 12),
                         ElevatedButton.icon(
-                          onPressed: () {},
+                          onPressed: () {
+                            if (_urlController.text.trim().isEmpty) {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(content: Text('Vui lòng nhập URL bài viết mẫu!')),
+                              );
+                              return;
+                            }
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Đang phân tích bài viết mẫu...')),
+                            );
+                          },
                           icon: const Icon(Icons.shuffle, size: 16),
-                          label: const Text('Viết lại'),
+                          label: const Text('Viết lại bài mẫu'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.primary,
                             foregroundColor: Colors.white,
@@ -461,48 +594,69 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                       ],
                     ),
                   ),
+
+                  // Step 3: Tìm kiếm ý tưởng trên internet
                   Step(
-                    title: const Text('Tìm kiếm ý tưởng trên internet'),
+                    title: const Text('Tìm kiếm ý tưởng trên mạng', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Quét ý tưởng từ Google & MXH', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     isActive: _currentStep >= 2,
+                    state: _currentStep > 2 ? StepState.complete : StepState.indexed,
                     content: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Text(
+                          'Từ khoá tìm kiếm',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
                         TextField(
+                          controller: _keywordController,
                           decoration: InputDecoration(
-                            labelText: 'Từ khoá tìm kiếm',
-                            hintText: 'Dùng từ khoá của bạn để quét nội dung',
+                            hintText: 'Dùng từ khoá để quét nội dung...',
+                            prefixIcon: const Icon(Icons.search, size: 20),
                             suffixIcon: IconButton(
-                              icon: const Icon(
-                                Icons.search,
-                                color: AppColors.primary,
-                              ),
-                              onPressed: () {},
+                              icon: const Icon(Icons.arrow_forward, color: AppColors.primary),
+                              onPressed: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Đang quét dữ liệu ý tưởng...')),
+                                );
+                              },
                             ),
                             border: const OutlineInputBorder(),
                             isDense: true,
                           ),
                         ),
                         const Padding(
-                          padding: EdgeInsets.only(top: 4),
+                          padding: EdgeInsets.only(top: 6),
                           child: Text(
-                            'VD: iphone 15 pro max',
+                            'VD: iphone 15 pro max, mẹo thiết kế website...',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
                       ],
                     ),
                   ),
+
+                  // Step 4: Kiểm tra SEO
                   Step(
-                    title: const Text('Kiểm tra SEO'),
+                    title: const Text('Kiểm tra SEO', style: TextStyle(fontWeight: FontWeight.bold)),
+                    subtitle: const Text('Đánh giá tiêu chuẩn SEO toàn diện', style: TextStyle(fontSize: 11, color: Colors.grey)),
                     isActive: _currentStep >= 3,
+                    state: StepState.indexed,
                     content: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const TextField(
-                          decoration: InputDecoration(
-                            labelText: 'Từ khoá trọng tâm',
-                            hintText: 'Từ khoá trọng tâm',
-                            prefixIcon: Icon(Icons.vpn_key, size: 16),
+                        const Text(
+                          'Từ khoá trọng tâm (Main Keyword)',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
+                        TextField(
+                          controller: _mainkeyController,
+                          onChanged: (_) => setState(() {}),
+                          decoration: const InputDecoration(
+                            hintText: 'Từ khoá trọng tâm...',
+                            prefixIcon: Icon(Icons.key, size: 20),
                             border: OutlineInputBorder(),
                             isDense: true,
                           ),
@@ -514,20 +668,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
-                        const Text(
-                          'Điểm đạt được: 0/100',
-                          style: TextStyle(fontSize: 14),
-                        ),
-                        const SizedBox(height: 16),
-                        ElevatedButton.icon(
-                          onPressed: () {},
-                          icon: const Icon(Icons.network_check, size: 16),
-                          label: const Text('Kiểm tra điểm SEO'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.primary,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
+                        _buildSeoDetailedAudit(),
                       ],
                     ),
                   ),
@@ -540,8 +681,333 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     );
   }
 
+  Widget _buildSeoDetailedAudit() {
+    final title = _titleController.text.trim();
+    final desc = _descController.text.trim();
+    final mainKey = _mainkeyController.text.trim().toLowerCase();
+    
+    final h1List = (_source['h1'] as List?) ?? [];
+    final pList = (_source['p'] as List?) ?? [];
+    final textList = (_source['text'] as List?) ?? [];
+
+    List<String> allParagraphs = [];
+    for (var item in [...pList, ...textList]) {
+      if (item != null) {
+        String cleaned = _cleanHtmlText(item.toString()).trim();
+        if (cleaned.isNotEmpty) {
+          allParagraphs.add(cleaned);
+        }
+      }
+    }
+    String fullContentText = allParagraphs.join(' ');
+    List<String> words = fullContentText.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).toList();
+    int totalWords = words.length;
+
+    String firstParagraph = allParagraphs.isNotEmpty ? allParagraphs.first.toLowerCase() : '';
+    bool mainKeyInFirstParagraph = mainKey.isNotEmpty && firstParagraph.contains(mainKey);
+
+    int keyCountInContent = 0;
+    if (mainKey.isNotEmpty && totalWords > 0) {
+      RegExp reg = RegExp(RegExp.escape(mainKey), caseSensitive: false);
+      keyCountInContent = reg.allMatches(fullContentText).length;
+    }
+    double keyPercent = totalWords > 0 ? (keyCountInContent * 100.0 / totalWords) : 0.0;
+
+    int h1Count = h1List.length;
+    String h1Text = h1Count > 0 ? (h1List[0]?.toString() ?? '') : '';
+    if (h1Count == 0 && title.isNotEmpty) {
+      h1Count = 1;
+      h1Text = title;
+    }
+
+    int imageCount = _thumbnailController.text.trim().isNotEmpty ? 1 : 0;
+    int linkCount = fullContentText.contains('http') || _urlController.text.trim().isNotEmpty ? 1 : 0;
+
+    int score = 0;
+    
+    // Title score
+    int titleLen = title.length;
+    int titleKeyPos = mainKey.isNotEmpty ? title.toLowerCase().indexOf(mainKey) : -1;
+    if (titleLen >= 30 && titleLen <= 60) {
+      score += 20;
+    } else if (titleLen > 0) {
+      score += 10;
+    }
+    if (titleKeyPos == 0) {
+      score += 15;
+    } else if (titleKeyPos > 0) {
+      score += 10;
+    }
+
+    // Desc score
+    int descLen = desc.length;
+    int descKeyPos = mainKey.isNotEmpty ? desc.toLowerCase().indexOf(mainKey) : -1;
+    if (descLen >= 100 && descLen <= 160) {
+      score += 20;
+    } else if (descLen > 0) {
+      score += 10;
+    }
+    if (descKeyPos >= 0) {
+      score += 15;
+    }
+
+    // H1 score
+    int h1KeyPos = mainKey.isNotEmpty ? h1Text.toLowerCase().indexOf(mainKey) : -1;
+    if (h1Count == 1) {
+      score += 5;
+    }
+    if (h1KeyPos >= 0) {
+      score += 5;
+    }
+
+    // Body content score
+    if (totalWords >= 300) {
+      score += 5;
+    }
+    if (mainKeyInFirstParagraph) {
+      score += 5;
+    }
+
+    // Media & Links score
+    if (imageCount >= 1) {
+      score += 5;
+    }
+    if (linkCount >= 1) {
+      score += 5;
+    }
+
+    if (score > 100) {
+      score = 100;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Score Header
+        Container(
+          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
+          margin: const EdgeInsets.only(bottom: 14),
+          decoration: BoxDecoration(
+            color: score >= 70 ? Colors.green.shade50 : (score >= 40 ? Colors.amber.shade50 : Colors.red.shade50),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: score >= 70 ? Colors.green.shade300 : (score >= 40 ? Colors.amber.shade300 : Colors.red.shade300),
+            ),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Điểm đạt được: $score/100',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: score >= 70 ? Colors.green.shade800 : (score >= 40 ? Colors.amber.shade900 : Colors.red.shade800),
+                    ),
+                  ),
+                  Icon(
+                    score >= 70 ? Icons.check_circle : (score >= 40 ? Icons.warning : Icons.error),
+                    color: score >= 70 ? Colors.green : (score >= 40 ? Colors.amber : Colors.red),
+                    size: 20,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: score / 100,
+                  minHeight: 6,
+                  backgroundColor: Colors.grey.shade200,
+                  color: score >= 70 ? Colors.green : (score >= 40 ? Colors.amber : Colors.red),
+                ),
+              ),
+            ],
+          ),
+        ),
+
+        // Section 1: Tiêu đề
+        _buildSeoSectionHeader('Tiêu đề'),
+        if (titleLen > 60)
+          _buildSeoAuditItem('Tiêu đề quá dài ($titleLen/60 ký tự)', 1)
+        else if (titleLen < 30 && titleLen > 0)
+          _buildSeoAuditItem('Tiêu đề quá ngắn ($titleLen/60 ký tự)', 1)
+        else if (titleLen == 0)
+          _buildSeoAuditItem('Chưa nhập tiêu đề bài viết', 2),
+
+        if (mainKey.isNotEmpty) ...[
+          if (titleKeyPos < 0)
+            _buildSeoAuditItem('Tiêu đề thiếu từ khóa trọng tâm', 2)
+          else if (titleKeyPos > 0)
+            _buildSeoAuditItem('Từ khóa trọng tâm nên nằm ở đầu tiêu đề', 1)
+          else
+            _buildSeoAuditItem('Từ khóa trọng tâm nằm ở đầu tiêu đề', 0),
+        ],
+        if (titleLen >= 30 && titleLen <= 60)
+          _buildSeoAuditItem('Đã đạt độ dài tiêu đề chuẩn $titleLen/60 ký tự', 0),
+
+        const Divider(height: 20),
+
+        // Section 2: Mô tả
+        _buildSeoSectionHeader('Mô tả'),
+        if (mainKey.isNotEmpty && descKeyPos < 0)
+          _buildSeoAuditItem('Mô tả thiếu từ khóa trọng tâm', 2),
+
+        if (descLen > 160)
+          _buildSeoAuditItem('Mô tả quá dài ($descLen/160 ký tự)', 1)
+        else if (descLen < 100 && descLen > 0)
+          _buildSeoAuditItem('Mô tả quá ngắn ($descLen/160 ký tự)', 1)
+        else if (descLen == 0)
+          _buildSeoAuditItem('Chưa nhập mô tả bài viết', 2),
+
+        if (mainKey.isNotEmpty && descKeyPos >= 0)
+          _buildSeoAuditItem('Mô tả có chứa từ khóa trọng tâm', 0),
+
+        if (descLen >= 100 && descLen <= 160)
+          _buildSeoAuditItem('Đạt độ dài mô tả chuẩn ($descLen/160 ký tự)', 0),
+
+        const Divider(height: 20),
+
+        // Section 3: Thẻ H1
+        _buildSeoSectionHeader('H1'),
+        if (h1Count < 1)
+          _buildSeoAuditItem('Nội dung không có thẻ H1', 2)
+        else if (h1Count > 1)
+          _buildSeoAuditItem('Nội dung chứa quá nhiều thẻ H1', 2)
+        else
+          _buildSeoAuditItem('Nội dung có thẻ H1', 0),
+
+        if (h1Text.length > 75)
+          _buildSeoAuditItem('Thẻ H1 không được vượt quá 75 ký tự', 1),
+
+        if (mainKey.isNotEmpty) ...[
+          if (h1Count >= 1 && h1KeyPos < 0)
+            _buildSeoAuditItem('Thẻ H1 thiếu từ khóa trọng tâm', 2)
+          else if (h1KeyPos >= 0)
+            _buildSeoAuditItem('Tìm thấy từ khóa trọng tâm trong thẻ H1', 0),
+        ],
+
+        const Divider(height: 20),
+
+        // Section 4: Nội dung (Body)
+        _buildSeoSectionHeader('Nội dung'),
+        if (totalWords < 1)
+          _buildSeoAuditItem('Nội dung chưa có', 2)
+        else if (totalWords < 300)
+          _buildSeoAuditItem('Nội dung quá ngắn ($totalWords/600 từ)', 1)
+        else
+          _buildSeoAuditItem('Content đang phát triển ($totalWords/1000 từ)', 0),
+
+        if (mainKey.isNotEmpty) ...[
+          if (!mainKeyInFirstParagraph)
+            _buildSeoAuditItem('Thiếu từ khóa trọng tâm ở dòng đầu', 2)
+          else
+            _buildSeoAuditItem('Từ khóa trọng tâm xuất hiện ở dòng đầu', 0),
+
+          if (keyPercent < 1.0)
+            _buildSeoAuditItem('Từ khóa xuất hiện $keyCountInContent lần (${keyPercent.toStringAsFixed(0)}%)', 1)
+          else if (keyPercent > 8.0)
+            _buildSeoAuditItem('Từ khóa xuất hiện $keyCountInContent lần vượt quá 8% (${keyPercent.toStringAsFixed(0)}%)', 2)
+          else
+            _buildSeoAuditItem('Từ khóa xuất hiện $keyCountInContent lần (${keyPercent.toStringAsFixed(0)}%)', 0),
+        ],
+
+        const Divider(height: 20),
+
+        // Section 5: Hình ảnh (Image)
+        _buildSeoSectionHeader('Hình ảnh'),
+        if (imageCount < 1)
+          _buildSeoAuditItem('Chưa có hình ảnh nào', 2)
+        else
+          _buildSeoAuditItem('Có $imageCount hình ảnh', 0),
+
+        if (imageCount >= 1 && mainKey.isNotEmpty)
+          _buildSeoAuditItem('Thẻ Alt hình ảnh có từ khóa trọng tâm', 0),
+
+        const Divider(height: 20),
+
+        // Section 6: Liên kết (Link)
+        _buildSeoSectionHeader('Liên kết'),
+        if (linkCount >= 1)
+          _buildSeoAuditItem('Có $linkCount liên kết', 0)
+        else
+          _buildSeoAuditItem('Thêm liên kết để tăng điểm SEO', 2),
+
+        const SizedBox(height: 16),
+
+        // Action Button: Kiểm tra điểm SEO
+        ElevatedButton.icon(
+          onPressed: () {
+            setState(() {});
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Đã cập nhật điểm SEO: $score/100')),
+            );
+          },
+          icon: const Icon(Icons.insights, size: 18),
+          label: const Text('Kiểm tra điểm SEO'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            foregroundColor: Colors.white,
+            minimumSize: const Size.fromHeight(42),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSeoSectionHeader(String title) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 4, bottom: 4),
+      child: Text(
+        title,
+        style: const TextStyle(
+          fontWeight: FontWeight.bold,
+          fontSize: 13,
+          color: AppColors.textPrimary,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSeoAuditItem(String text, int statusType) {
+    Color color;
+    if (statusType == 0) color = Colors.green.shade600;
+    else if (statusType == 1) color = Colors.amber.shade800;
+    else color = Colors.red.shade600;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.check_box_outlined, size: 16, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(
+                fontSize: 12,
+                color: color,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDeletedTab() {
-    return const Center(child: Text('Chưa có nội dung đã xoá'));
+    return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
+      children: const [
+        SizedBox(height: 120),
+        Center(child: Text('Chưa có nội dung đã xoá')),
+      ],
+    );
   }
 
   Widget _buildOutlineTab() {
@@ -959,7 +1425,10 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   String _cleanHtmlText(String htmlStr) {
-    String text = htmlStr.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '');
+    String text = htmlStr.replaceAll(RegExp(r'<br\s*/?>', caseSensitive: false), '\n');
+    text = text.replaceAll(RegExp(r'</p\s*>', caseSensitive: false), '\n');
+    text = text.replaceAll(RegExp(r'</div\s*>', caseSensitive: false), '\n');
+    text = text.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '');
     text = text
         .replaceAll('&nbsp;', ' ')
         .replaceAll('&amp;', '&')
@@ -967,6 +1436,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         .replaceAll('&#39;', "'")
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>');
+    text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
     return text.trim();
   }
 
@@ -1287,117 +1757,151 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   void _addPrompt(String text) {
-    if (text.trim().isEmpty) return;
+    final cleanText = _cleanHtmlText(text);
+    if (cleanText.isEmpty) return;
     setState(() {
       if (_source['prompt'] == null || _source['prompt'] is! List) {
         _source['prompt'] = [];
       }
-      (_source['prompt'] as List).add(text.trim());
+      (_source['prompt'] as List).add(cleanText);
       _promptInputController.clear();
     });
   }
 
   void _editPrompt(int? index, String currentText) {
-    final editController = TextEditingController(text: currentText);
+    final cleanInitialText = _cleanHtmlText(currentText);
+    final editController = TextEditingController(text: cleanInitialText);
+
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      useSafeArea: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(
-          bottom: MediaQuery.of(ctx).viewInsets.bottom,
-          left: 16,
-          right: 16,
-          top: 16,
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Center(
-              child: Container(
-                width: 40,
-                height: 4,
-                margin: const EdgeInsets.only(bottom: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade300,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+      builder: (ctx) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        minChildSize: 0.3,
+        maxChildSize: 1.0,
+        expand: false,
+        builder: (context, scrollController) {
+          return Container(
+            padding: EdgeInsets.only(
+              bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+              left: 16,
+              right: 16,
+              top: 12,
             ),
-            Center(
-              child: Text(
-                index == null ? 'Thêm mới Prompt' : 'Chỉnh sửa Prompt',
-                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-              ),
-            ),
-            const SizedBox(height: 16),
-            TextField(
-              controller: editController,
-              maxLines: 4,
-              decoration: const InputDecoration(
-                border: OutlineInputBorder(),
-                hintText: 'Nhập nội dung prompt...',
-              ),
-            ),
-            const SizedBox(height: 8),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildVariableChipDialog(editController, '{title}', 'Tiêu đề'),
-                  const SizedBox(width: 4),
-                  _buildVariableChipDialog(editController, '{url}', 'URL'),
-                  const SizedBox(width: 4),
-                  _buildVariableChipDialog(editController, '{domain}', 'Tên miền'),
-                  const SizedBox(width: 4),
-                  _buildVariableChipDialog(editController, '{style}', 'Phong cách'),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            const Divider(height: 1),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                TextButton(
-                  onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Hủy'),
-                ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                // 1. Header Drag Handle & Title (connected to scrollController for drag gestures)
+                SingleChildScrollView(
+                  controller: scrollController,
+                  physics: const ClampingScrollPhysics(),
+                  child: Column(
+                    children: [
+                      Center(
+                        child: Container(
+                          width: 44,
+                          height: 5,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          decoration: BoxDecoration(
+                            color: Colors.grey.shade400,
+                            borderRadius: BorderRadius.circular(2.5),
+                          ),
+                        ),
+                      ),
+                      Center(
+                        child: Text(
+                          index == null ? 'Thêm mới Prompt' : 'Chỉnh sửa Prompt',
+                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
                   ),
-                  onPressed: () {
-                    final newText = editController.text.trim();
-                    if (newText.isNotEmpty) {
-                      setState(() {
-                        if (_source['prompt'] == null || _source['prompt'] is! List) {
-                          _source['prompt'] = [];
+                ),
+
+                // 2. Middle Body (TextField & Tags) - Expands to fill available sheet height
+                Expanded(
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: editController,
+                          maxLines: null,
+                          minLines: 6,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            hintText: 'Nhập nội dung prompt...',
+                            alignLabelWithHint: true,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              _buildVariableChipDialog(editController, '{title}', 'Tiêu đề'),
+                              const SizedBox(width: 4),
+                              _buildVariableChipDialog(editController, '{url}', 'URL'),
+                              const SizedBox(width: 4),
+                              _buildVariableChipDialog(editController, '{domain}', 'Tên miền'),
+                              const SizedBox(width: 4),
+                              _buildVariableChipDialog(editController, '{style}', 'Phong cách'),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // 3. Fixed Footer Buttons (Always visible at the bottom)
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: const Text('Hủy'),
+                    ),
+                    const SizedBox(width: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(horizontal: 24),
+                      ),
+                      onPressed: () {
+                        final newText = _cleanHtmlText(editController.text);
+                        if (newText.isNotEmpty) {
+                          setState(() {
+                            if (_source['prompt'] == null || _source['prompt'] is! List) {
+                              _source['prompt'] = [];
+                            }
+                            if (index != null) {
+                              (_source['prompt'] as List)[index] = newText;
+                            } else {
+                              (_source['prompt'] as List).add(newText);
+                            }
+                          });
                         }
-                        if (index != null) {
-                          (_source['prompt'] as List)[index] = newText;
-                        } else {
-                          (_source['prompt'] as List).add(newText);
-                        }
-                      });
-                    }
-                    Navigator.pop(ctx);
-                  },
-                  child: const Text('Lưu'),
+                        Navigator.pop(ctx);
+                      },
+                      child: const Text('Lưu'),
+                    ),
+                  ],
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-          ],
-        ),
+          );
+        },
       ),
     );
   }

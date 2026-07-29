@@ -625,10 +625,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
      * setPage: Xử lý dữ liệu bọc trong result.data.docs và result.data.bookmark
      */
     setPage(pageInfo: PageInfo) {
-        if (this.isLoading) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
+        const targetPage = Math.floor(rowOffset / pageInfo.pageSize);
+
+        if (this.isLoading && this.page.pageNumber === targetPage) return;
 
         this.page = {
             pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
@@ -682,12 +684,12 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                         this.currentBookmark = resData.bookmark;
                         this.cd.detectChanges();
                     } else if (resData && resData.docs && resData.docs.length === 0 && resData.bookmark && resData.bookmark !== this.currentBookmark) {
-                        // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi đệ quy (do PouchDB in-memory filter skip)
+                        // Nếu mảng rỗng nhưng bookmark thay đổi, tiếp tục gọi ngầm bất đồng bộ (tránh block UI thread)
                         this.currentBookmark = resData.bookmark;
                         this.isLoading = false;
                         delete this.cache[this.page.pageNumber];
                         this.cd.detectChanges();
-                        this.setPage(pageInfo);
+                        setTimeout(() => { this.setPage(pageInfo); }, 50);
                         return;
                     } else if (resData && resData.docs && resData.docs.length === 0) {
                         // Hết dữ liệu thì chốt cứng totalElements bằng số row đang có

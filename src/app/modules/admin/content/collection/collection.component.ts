@@ -151,10 +151,12 @@ export class CollectionComponent implements OnInit, OnDestroy {
 
     setPage(pageInfo: PageInfo) {
         if (!this.selectedCollection) return;
-        if (this.isLoading) return;
         if (!pageInfo.pageSize) pageInfo.pageSize = this.page.size;
         this.pageNumber = pageInfo.offset;
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
+        const targetPage = Math.floor(rowOffset / pageInfo.pageSize);
+
+        if (this.isLoading && this.page.pageNumber === targetPage) return;
 
         this.page = {
             pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
@@ -222,7 +224,7 @@ export class CollectionComponent implements OnInit, OnDestroy {
                         this.isLoading = false;
                         delete this.cache[this.page.pageNumber];
                         this.cd.detectChanges();
-                        this.setPage(pageInfo);
+                        setTimeout(() => { this.setPage(pageInfo); }, 50);
                         return;
                     } else if (resData && resData.docs && resData.docs.length === 0) {
                         if (this.totalElements !== start) {
