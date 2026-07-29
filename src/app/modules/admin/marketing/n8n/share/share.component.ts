@@ -2,10 +2,10 @@ import { ChangeDetectionStrategy, ChangeDetectorRef, Component, Input, OnChanges
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { RemoveHTMLPipe } from "app/app.pipe";
-import { N8nService } from 'app/modules/_services/n8n.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { N8nService } from 'app/_services/n8n.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { DomSanitizer, SafeUrl } from '@angular/platform-browser';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 
 import { HttpClient } from '@angular/common/http';
 import { UserService } from 'app/core/user/user.service';

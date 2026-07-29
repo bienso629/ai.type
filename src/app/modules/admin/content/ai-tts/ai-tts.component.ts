@@ -17,7 +17,7 @@ import { ActivatedRoute, Params, Router } from '@angular/router';
 import { FuseConfigService } from '@fuse/services/config';
 import { AppConfig } from 'app/core/config/app.config';
 import { User } from 'app/core/user/user.types';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { RemoveHTMLPipe } from 'app/app.pipe';
 import { Clipboard } from '@angular/cdk/clipboard';
 
@@ -25,9 +25,9 @@ import { HttpClient } from '@angular/common/http';
 import WaveSurfer from 'wavesurfer.js';
 import { MatDialog } from '@angular/material/dialog';
 import { VideoTimelineDialogComponent } from './tools/video-timeline-dialog.component';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { GenaiService } from 'app/genai.service';
-import { MyKeysService } from 'app/modules/_services/mykey';
+import { MyKeysService } from 'app/_services/mykey';
 import { SharedService } from 'app/shared.service';
 import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
 

@@ -6,12 +6,12 @@ import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
-import { YoutubeService } from 'app/modules/_services/youtube';
+import { YoutubeService } from 'app/_services/youtube';
 import { ToastrService } from 'ngx-toastr';
-import { LogService } from 'app/modules/_services/link';
+import { LogService } from 'app/_services/link';
 
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'scanvideolinkform',

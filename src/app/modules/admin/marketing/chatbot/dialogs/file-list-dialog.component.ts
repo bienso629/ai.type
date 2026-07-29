@@ -4,10 +4,10 @@ import { DatatableComponent } from '@swimlane/ngx-datatable';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { ChatbotService } from 'app/modules/_services/chatbot';
+import { ChatbotService } from 'app/_services/chatbot';
 import { ToastrService } from 'ngx-toastr';
 import { catchError, interval, of, Subject, Subscription, switchMap, takeUntil, takeWhile } from 'rxjs';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'app-file-list-dialog',

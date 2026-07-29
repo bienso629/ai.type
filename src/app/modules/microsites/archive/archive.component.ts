@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
@@ -14,7 +14,7 @@ import { ToastrService } from 'ngx-toastr';
 import { FuseAlertService } from '@fuse/components/alert';
 
 import * as _ from 'lodash';
-import { UserClientService } from 'app/modules/_services/user';
+import { UserClientService } from 'app/_services/user';
 
 @Component({
     selector: 'archive',

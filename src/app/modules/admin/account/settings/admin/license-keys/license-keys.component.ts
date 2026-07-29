@@ -3,7 +3,7 @@ import { Title } from '@angular/platform-browser';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { LicenseKeyService } from 'app/modules/_services/licensekey';
+import { LicenseKeyService } from 'app/_services/licensekey';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
 import { Subject, takeUntil } from 'rxjs';
@@ -15,7 +15,7 @@ import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { EmailDialogComponent } from 'app/modules/admin/account/settings/admin/dialogs/email-dialog/email-dialog.component';
 
 @Component({

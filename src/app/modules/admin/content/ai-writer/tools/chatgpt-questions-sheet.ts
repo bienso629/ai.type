@@ -5,13 +5,13 @@ import { MatDialog } from "@angular/material/dialog";
 import { ChatGPTDataDialog } from 'app/modules/admin/content/ai-writer/tools/chatgpt-data-dialog';
 import { UserService } from "app/core/user/user.service";
 import { User } from "app/core/user/user.types";
-import { ChatGPTService } from "app/modules/_services/chatgpt";
+import { ChatGPTService } from "app/_services/chatgpt";
 import { Subject, takeUntil } from "rxjs";
 
 import * as uuid from 'uuid';
 import { ToastrService } from "ngx-toastr";
 import { GenaiService } from 'app/genai.service';
-import { MultiAccountService } from "app/modules/_services/multi-account.service";
+import { MultiAccountService } from "app/_services/multi-account.service";
 
 @Component({
     selector: 'chatgpt-questions-sheet',

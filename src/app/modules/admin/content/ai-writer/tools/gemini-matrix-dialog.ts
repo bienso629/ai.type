@@ -1,6 +1,6 @@
 import { Component, Inject, ViewChild } from "@angular/core";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { BlogService } from "app/modules/_services/blog";
+import { BlogService } from "app/_services/blog";
 import { Subject, takeUntil } from "rxjs";
 
 import { GenaiService } from 'app/genai.service';
@@ -8,14 +8,14 @@ import { UserService } from "app/core/user/user.service";
 import { FuseConfigService } from "@fuse/services/config";
 import { User } from "app/core/user/user.types";
 import { AppConfig } from "app/core/config/app.config";
-import { WordpressService } from "app/modules/_services/wordpress";
+import { WordpressService } from "app/_services/wordpress";
 import { ToastrService } from "ngx-toastr";
 
 import * as $ from 'jquery';
 import { FuseConfirmationService } from "@fuse/services/confirmation/confirmation.service";
 import { Router } from "@angular/router";
 import { MatSelectionList } from "@angular/material/list";
-import { MultiAccountService } from "app/modules/_services/multi-account.service";
+import { MultiAccountService } from "app/_services/multi-account.service";
 
 @Component({
     selector: 'gemini-matrix-dialog',

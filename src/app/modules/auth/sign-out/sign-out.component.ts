@@ -2,7 +2,7 @@ import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Router } from '@angular/router';
 import { finalize, Subject, takeUntil, takeWhile, tap, timer } from 'rxjs';
 import { AuthService } from 'app/core/auth/auth.service';
-import { UserClientService } from 'app/modules/_services/user';
+import { UserClientService } from 'app/_services/user';
 import { User } from 'app/core/user/user.types';
 import { UserService } from 'app/core/user/user.service';
 

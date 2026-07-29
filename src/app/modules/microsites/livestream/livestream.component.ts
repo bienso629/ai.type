@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, ViewEncapsulatio
 import { Title } from '@angular/platform-browser';
 import { MatDialog } from '@angular/material/dialog';
 import { ActivatedRoute, Params, Router } from '@angular/router';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
 
 @Component({

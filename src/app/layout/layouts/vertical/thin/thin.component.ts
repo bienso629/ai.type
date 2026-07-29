@@ -19,10 +19,10 @@ import { NgIf } from '@angular/common';
 import { ToastrService } from 'ngx-toastr';
 import { DomSanitizer, SafeResourceUrl } from '@angular/platform-browser';
 import { ChangeDetectorRef } from '@angular/core';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
 
-import { UserClientService } from 'app/modules/_services/user';
+import { UserClientService } from 'app/_services/user';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { TranslocoModule } from '@ngneat/transloco';

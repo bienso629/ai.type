@@ -1,7 +1,7 @@
 import { Component, Inject, OnDestroy, OnInit, ViewEncapsulation } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
-import { MXHAutoService } from "app/modules/_services/mxhauto";
+import { MXHAutoService } from "app/_services/mxhauto";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
 

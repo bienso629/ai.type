@@ -1,7 +1,7 @@
 import { Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { Router } from '@angular/router';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { UserService } from 'app/core/user/user.service';
 import { ApexOptions } from 'ng-apexcharts';
 import { User } from 'app/core/user/user.types';

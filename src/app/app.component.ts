@@ -8,9 +8,9 @@ import { UserService } from './core/user/user.service';
 import { Subject, takeUntil, take } from 'rxjs';
 import { User } from './core/user/user.types';
 import { MatDialog } from '@angular/material/dialog';
-import { MultiAccountService } from './modules/_services/multi-account.service';
+import { MultiAccountService } from './_services/multi-account.service';
 import { ToastrService } from 'ngx-toastr';
-import { LicenseKeyService } from 'app/modules/_services/licensekey';
+import { LicenseKeyService } from 'app/_services/licensekey';
 
 @Component({
     selector: 'app-root',

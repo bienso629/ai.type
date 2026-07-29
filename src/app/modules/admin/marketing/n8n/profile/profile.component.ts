@@ -8,7 +8,7 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 import { ToastrService } from 'ngx-toastr';
-import { MXHAutoService } from 'app/modules/_services/mxhauto';
+import { MXHAutoService } from 'app/_services/mxhauto';
 import { ColumnMode, DatatableComponent, SelectionType } from '@swimlane/ngx-datatable';
 import _ from 'lodash';
 import { MatDialog } from '@angular/material/dialog';

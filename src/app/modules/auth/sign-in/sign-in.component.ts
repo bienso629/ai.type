@@ -19,12 +19,12 @@ import { FuseAlertType } from '@fuse/components/alert';
 import { AuthService } from 'app/core/auth/auth.service';
 import { Subject, takeUntil } from 'rxjs';
 
-import { ForumService } from 'app/modules/_services/forum';
+import { ForumService } from 'app/_services/forum';
 import { UserService } from 'app/core/user/user.service';
 import { AuthUtils } from 'app/core/auth/auth.utils';
-import { UserClientService } from 'app/modules/_services/user';
+import { UserClientService } from 'app/_services/user';
 import { User } from 'app/core/user/user.types';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'auth-sign-in',

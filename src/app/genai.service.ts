@@ -4,7 +4,7 @@ import {
     type GenerateContentParameters,
     type GenerateContentResponse,
 } from '@google/genai';
-import { MultiAccountService } from './modules/_services/multi-account.service';
+import { MultiAccountService } from './_services/multi-account.service';
 import { getModelverseConfig, getTextModelConfig } from './modelverse.config';
 import { ToastrService } from 'ngx-toastr';
 

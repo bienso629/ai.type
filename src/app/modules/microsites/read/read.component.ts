@@ -1,5 +1,5 @@
 import { AfterViewInit, ChangeDetectionStrategy, ChangeDetectorRef, Component, OnDestroy, OnInit, ViewEncapsulation } from '@angular/core';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { User } from 'app/core/user/user.types';
 import { Subject, takeUntil } from 'rxjs';
 import { Title } from '@angular/platform-browser';

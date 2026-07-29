@@ -5,7 +5,7 @@ import { Subject, takeUntil } from 'rxjs';
 
 // import { FuseMediaWatcherService } from '@fuse/services/media-watcher';
 import { ToastrService } from 'ngx-toastr';
-import { LogService } from 'app/modules/_services/link';
+import { LogService } from 'app/_services/link';
 import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
@@ -18,7 +18,7 @@ import { Router } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 import { MatDialog } from '@angular/material/dialog';
 import { EditDialog } from './dialogs/edit-dialog';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { CrawlService } from 'app/_services/crawl';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
 import { DialogContentComponent } from 'app/modules/admin/marketing/seo-links/seo-links.module';
 

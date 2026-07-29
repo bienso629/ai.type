@@ -6,14 +6,14 @@ import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { AppConfig } from 'app/core/config/app.config';
 import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
-import { UserClientService } from 'app/modules/_services/user';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
-import { CrawlService } from 'app/modules/_services/crawl';
+import { UserClientService } from 'app/_services/user';
+import { MultiAccountService } from 'app/_services/multi-account.service';
+import { CrawlService } from 'app/_services/crawl';
 import { Subject, takeUntil } from 'rxjs';
 import { TranslocoService } from '@ngneat/transloco';
 import { FuseSplashScreenService } from '@fuse/services/splash-screen/splash-screen.service';
 import { MatDialog } from '@angular/material/dialog';
-import { DomainService } from 'app/modules/_services/domain';
+import { DomainService } from 'app/_services/domain';
 
 @Component({
     selector: 'dashboard',

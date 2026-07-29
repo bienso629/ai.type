@@ -13,7 +13,7 @@ import { UntypedFormBuilder, UntypedFormGroup } from '@angular/forms';
 import { ToastrService } from 'ngx-toastr';
 import { HelperService } from 'app/helper.service';
 import { marked } from 'marked';
-import { ChatbotService } from 'app/modules/_services/chatbot';
+import { ChatbotService } from 'app/_services/chatbot';
 
 import { MatDialog } from '@angular/material/dialog';
 import { FileListDialogComponent } from 'app/modules/admin/marketing/chatbot/dialogs/file-list-dialog.component';
@@ -23,10 +23,10 @@ import { SettingChatbotDialogComponent } from 'app/modules/admin/marketing/chatb
 import { TaskProgressService } from 'app/layout/common/task-progress/task-progress.service';
 
 import DOMPurify from 'dompurify';
-import { DomainService } from 'app/modules/_services/domain';
+import { DomainService } from 'app/_services/domain';
 import { ColumnMode, SelectionType } from '@swimlane/ngx-datatable';
-import { LogService } from 'app/modules/_services/link';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { LogService } from 'app/_services/link';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 
 @Component({
     selector: 'chatbot',

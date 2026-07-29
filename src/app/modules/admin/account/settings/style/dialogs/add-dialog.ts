@@ -3,10 +3,10 @@ import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { UserService } from "app/core/user/user.service";
 import { User } from "app/core/user/user.types";
-import { UserClientService } from "app/modules/_services/user";
+import { UserClientService } from "app/_services/user";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
-import { MultiAccountService } from "app/modules/_services/multi-account.service";
+import { MultiAccountService } from "app/_services/multi-account.service";
 
 @Component({
     selector: 'styles-addmore-dialog',

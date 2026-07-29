@@ -4,9 +4,9 @@ import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { MatSelectionList } from "@angular/material/list";
 import { UserService } from "app/core/user/user.service";
 import { User } from "app/core/user/user.types";
-import { BlogService } from "app/modules/_services/blog";
-import { CrawlService } from "app/modules/_services/crawl";
-import { MultiAccountService } from "app/modules/_services/multi-account.service";
+import { BlogService } from "app/_services/blog";
+import { CrawlService } from "app/_services/crawl";
+import { MultiAccountService } from "app/_services/multi-account.service";
 import { Subject, takeUntil } from "rxjs";
 
 import * as uuid from 'uuid';

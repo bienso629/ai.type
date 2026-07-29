@@ -2,8 +2,8 @@ import { ChangeDetectorRef, Component, Inject, OnInit, ViewChild } from "@angula
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { ColumnMode, DatatableComponent } from "@swimlane/ngx-datatable";
 import { User } from "app/core/user/user.types";
-import { BigDataService } from "app/modules/_services/bigdata";
-import { LogStreamService } from "app/modules/_services/log-stream.service";
+import { BigDataService } from "app/_services/bigdata";
+import { LogStreamService } from "app/_services/log-stream.service";
 import { ToastrService } from "ngx-toastr";
 import { auditTime, Subject, Subscription, takeUntil } from "rxjs";
 

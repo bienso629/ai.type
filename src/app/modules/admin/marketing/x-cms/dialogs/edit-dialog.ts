@@ -2,8 +2,8 @@ import { Component, Inject, OnDestroy, OnInit } from "@angular/core";
 import { UntypedFormBuilder, UntypedFormGroup, Validators } from "@angular/forms";
 import { MAT_DIALOG_DATA, MatDialogRef } from "@angular/material/dialog";
 import { User } from "app/core/user/user.types";
-import { CustomerService } from "app/modules/_services/customer";
-import { LogService } from "app/modules/_services/link";
+import { CustomerService } from "app/_services/customer";
+import { LogService } from "app/_services/link";
 import { ToastrService } from "ngx-toastr";
 import { Subject, takeUntil } from "rxjs";
 

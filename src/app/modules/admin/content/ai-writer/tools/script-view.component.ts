@@ -1,9 +1,9 @@
 import { Component, OnInit, OnDestroy, ChangeDetectorRef } from '@angular/core';
 import { ActivatedRoute, Router, Params } from '@angular/router';
-import { BlogService } from 'app/modules/_services/blog';
+import { BlogService } from 'app/_services/blog';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { Subject, takeUntil } from 'rxjs';
 import { GenaiService } from 'app/genai.service';
 

@@ -1,6 +1,6 @@
 import { Component } from "@angular/core";
 import { MatDialogRef } from "@angular/material/dialog";
-import { BlogService } from "app/modules/_services/blog";
+import { BlogService } from "app/_services/blog";
 
 @Component({
     selector: 'gemini-image-dialog',

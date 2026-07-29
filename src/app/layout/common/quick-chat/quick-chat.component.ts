@@ -2,7 +2,7 @@ import { AfterViewInit, Component, ElementRef, HostBinding, HostListener, Inject
 import { DOCUMENT } from '@angular/common';
 import { ScrollStrategy, ScrollStrategyOptions } from '@angular/cdk/overlay';
 import { Subject } from 'rxjs';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { CdkDragDrop, moveItemInArray } from '@angular/cdk/drag-drop';
 

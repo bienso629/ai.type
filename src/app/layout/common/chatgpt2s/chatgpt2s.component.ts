@@ -7,23 +7,23 @@ import { User } from 'app/core/user/user.types';
 import { ColumnMode } from '@swimlane/ngx-datatable';
 import { UserService } from 'app/core/user/user.service';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { ChatGPTService } from 'app/modules/_services/chatgpt';
+import { ChatGPTService } from 'app/_services/chatgpt';
 import { HTML2Paragraph } from 'app/app.pipe';
 import { ToastrService } from 'ngx-toastr';
-import { CrawlService } from 'app/modules/_services/crawl';
-import { UserClientService } from 'app/modules/_services/user';
-import { WP2MDService } from 'app/modules/_services/wp2md';
+import { CrawlService } from 'app/_services/crawl';
+import { UserClientService } from 'app/_services/user';
+import { WP2MDService } from 'app/_services/wp2md';
 import { Page, PageInfo } from 'app/core/navigation/navigation.types';
-import { LogService } from 'app/modules/_services/link';
-import { BlogService } from 'app/modules/_services/blog';
-import { ForumService } from 'app/modules/_services/forum';
+import { LogService } from 'app/_services/link';
+import { BlogService } from 'app/_services/blog';
+import { ForumService } from 'app/_services/forum';
 
 import moment from 'moment';
 import { GenaiService } from 'app/genai.service';
 import { HelperService } from 'app/helper.service';
-import { MultiAccountService } from 'app/modules/_services/multi-account.service';
+import { MultiAccountService } from 'app/_services/multi-account.service';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
-import { GlobalAgentService } from '../../../modules/_services/global-agent.service';
+import { GlobalAgentService } from '../../../_services/global-agent.service';
 import { Router } from '@angular/router';
 
 @Component({
