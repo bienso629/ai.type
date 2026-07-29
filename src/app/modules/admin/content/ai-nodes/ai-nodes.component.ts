@@ -158,22 +158,17 @@ export class AINodesComponent implements OnInit, OnDestroy {
      * @param page The page to select
      */
     setPage(pageInfo: PageInfo) {
-        if (this.isLoading) return;
         if (!pageInfo.pageSize)
             pageInfo.pageSize = this.page.size;
 
-        // Current page number is determined by last call to setPage
-        // This is the page the UI is currently displaying
-        // The current page is based on the UI pagesize and scroll position
-        // Pagesize can change depending on browser size
         this.pageNumber = pageInfo.offset;
-
-        // Calculate row offset in the UI using pageInfo
-        // This is the scroll position in rows
         const rowOffset = pageInfo.offset * pageInfo.pageSize;
+        const targetPage = Math.floor(rowOffset / pageInfo.pageSize);
+
+        if (this.isLoading && this.page.pageNumber === targetPage) return;
 
         this.page = {
-            pageNumber: Math.floor(rowOffset / pageInfo.pageSize),
+            pageNumber: targetPage,
             size: pageInfo.pageSize,
             totalElements: 0,
             totalPages: 0

@@ -650,7 +650,7 @@
     "app.delete_paragraph": "Xoá đoạn văn",
     "app.delete_outline": "Xóa dàn ý",
     "app.task_description": "Mô tả về công việc",
-    "app.image_video": "Ảnh/Video",
+    "app.image_video": "Thumbnail",
     "app.no_file_selected": "No file selected",
     "app.upload_related_media": "Upload related image/video",
     "app.rewrite_from_article": "Viết lại từ bài khác",

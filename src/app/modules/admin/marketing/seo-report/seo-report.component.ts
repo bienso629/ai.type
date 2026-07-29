@@ -20,6 +20,7 @@ import { Router, ActivatedRoute, Params } from '@angular/router';
 import { AppConfig } from 'app/core/config/app.config';
 
 import { GenaiService } from 'app/genai.service';
+import html2canvas from 'html2canvas';
 
 import {
     ApexAxisChartSeries,
@@ -153,8 +154,8 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     dailyStatsAll: QueryDailyStat[] = [];
 
     // biểu đồ tổng quan
-    public chartOptionsTopQueries!: Partial<ChartOptions>;
-    public chartOptionsCtr!: Partial<ChartOptions>;
+    public chartOptionsTopQueries: any;
+    public chartOptionsCtr: any;
 
     // biểu đồ theo ngày
     public chartOptionsKeywordCompare!: Partial<ChartOptions> | undefined; // CTR theo ngày
@@ -197,6 +198,12 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     chartOptionsGaPageViewsTrend?: ChartOptions;
     chartOptionsGaEngagementTrend?: ChartOptions;
 
+    // Biểu đồ xu hướng GSC theo tháng của năm hiện tại
+    chartOptionsGscClicksTrend?: ChartOptions;
+    chartOptionsGscImpressionsTrend?: ChartOptions;
+    chartOptionsGscCtrTrend?: ChartOptions;
+    chartOptionsGscPositionTrend?: ChartOptions;
+
     // Dữ liệu tham chiếu
     gaByCountry: { dimension: string; totalUsers: number }[] = [];
     gaByDevice: { dimension: string; totalUsers: number }[] = [];
@@ -209,6 +216,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
     // ------------------------------------------------
 
     // ------------------------------------------------
+
+    get isAnyLoading(): boolean {
+        return !!(this.gscLoading || this.gaLoading || this.isPageSpeedLoading || this.aiLoading || this.isExportingPdf || this.isExportingImage);
+    }
 
     getRowHeight(row?: any): number {
         return 50;
@@ -394,6 +405,11 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             this.gscLoading = true;
             this.cd.markForCheck();
 
+            const today = new Date();
+            const currentYear = today.getFullYear();
+            const yearStart = `${currentYear}-01-01`;
+            const todayStr = `${currentYear}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
             const detailPromise = window.electron.gscQuery({
                 startDate: this.startDate,
                 endDate: this.endDate,
@@ -410,7 +426,16 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 mode: 'totals'
             });
 
-            const [detailRes, totalsRes] = await Promise.all([detailPromise, totalsPromise]);
+            const trendPromise = window.electron.gscQuery({
+                startDate: yearStart,
+                endDate: todayStr,
+                siteUrl: this.siteUrl,
+                mode: 'detail',
+                dimensions: ['date'],
+                rowLimit: 5000
+            }).catch(() => null);
+
+            const [detailRes, totalsRes, trendRes] = await Promise.all([detailPromise, totalsPromise, trendPromise]);
 
             if (!detailRes.success) {
                 this.toastr.error(`Lỗi GSC (detail): ${detailRes.error}`);
@@ -419,6 +444,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             if (!totalsRes.success) {
                 this.toastr.error(`Lỗi GSC (totals): ${totalsRes.error}`);
                 return;
+            }
+
+            if (trendRes && trendRes.success && Array.isArray(trendRes.rows)) {
+                this.buildGscYearTrendCharts(trendRes.rows);
             }
 
             this.dailyStatsAll = (detailRes.rows || []).map(r => ({
@@ -489,32 +518,54 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 { name: 'Lượt nhấp', data: topByClicks.map(r => r.clicks) },
                 { name: 'Lượt hiển thị', data: topByClicks.map(r => r.impressions) }
             ],
+            colors: ['#2563eb', '#16a34a'],
             chart: {
                 type: 'bar',
-                height: 400
+                height: 380,
+                toolbar: { show: false }
             },
             xaxis: {
                 categories,
-                labels: { rotate: -45, trim: false }
+                labels: { rotate: -45, trim: false, style: { fontSize: '12px' } }
             },
+            grid: { borderColor: '#f1f5f9' },
             dataLabels: { enabled: false },
             plotOptions: {
-                bar: { horizontal: false }
+                bar: { horizontal: false, columnWidth: '50%', borderRadius: 4 }
             },
-            legend: { position: 'top' }
+            legend: { position: 'top', horizontalAlign: 'right' }
         };
 
         this.chartOptionsCtr = {
             series: [
                 { name: 'CTR (%)', data: topByClicks.map(r => r.ctr) }
             ],
+            colors: ['#9333ea'],
             chart: {
-                type: 'line',
-                height: 350
+                type: 'area',
+                height: 380,
+                toolbar: { show: false }
             },
+            stroke: { curve: 'smooth', width: 3 } as any,
+            fill: {
+                type: 'gradient',
+                gradient: {
+                    shadeIntensity: 1,
+                    opacityFrom: 0.45,
+                    opacityTo: 0.05,
+                    stops: [0, 95, 100]
+                }
+            } as any,
+            markers: {
+                size: 5,
+                colors: ['#9333ea'],
+                strokeColors: '#ffffff',
+                strokeWidth: 2
+            } as any,
+            grid: { borderColor: '#f1f5f9' },
             xaxis: {
                 categories,
-                labels: { rotate: -45, trim: false }
+                labels: { rotate: -45, trim: false, style: { fontSize: '12px' } }
             },
             yaxis: {
                 labels: {
@@ -523,9 +574,64 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             },
             dataLabels: {
                 enabled: true,
-                formatter: (val: number) => `${val.toFixed(1)}%`
+                formatter: (val: number) => `${val.toFixed(1)}%`,
+                style: { fontSize: '11px', colors: ['#9333ea'] },
+                background: { enabled: true, foreColor: '#ffffff', borderRadius: 4, padding: 4 }
             }
         };
+    }
+
+    private buildGscYearTrendCharts(rows: any[]): void {
+        const monthlyMap = new Map<string, { clicks: number; impressions: number; posImpSum: number }>();
+
+        rows.forEach(r => {
+            const dateStr = r.keys?.[0] || '';
+            if (!dateStr) return;
+            const monthKey = dateStr.slice(0, 7); // "YYYY-MM"
+            if (!monthlyMap.has(monthKey)) {
+                monthlyMap.set(monthKey, { clicks: 0, impressions: 0, posImpSum: 0 });
+            }
+            const m = monthlyMap.get(monthKey)!;
+            const c = r.clicks || 0;
+            const imp = r.impressions || 0;
+            const pos = r.position || 0;
+            m.clicks += c;
+            m.impressions += imp;
+            m.posImpSum += pos * imp;
+        });
+
+        const sortedMonths = Array.from(monthlyMap.keys()).sort();
+        const categories = sortedMonths.map(m => {
+            const parts = m.split('-');
+            return `${parts[1]}/${parts[0]}`;
+        });
+
+        const clicksData = sortedMonths.map(m => monthlyMap.get(m)!.clicks);
+        const impressionsData = sortedMonths.map(m => monthlyMap.get(m)!.impressions);
+        const ctrData = sortedMonths.map(m => {
+            const item = monthlyMap.get(m)!;
+            return item.impressions > 0 ? Math.round((item.clicks / item.impressions) * 10000) / 100 : 0;
+        });
+        const positionData = sortedMonths.map(m => {
+            const item = monthlyMap.get(m)!;
+            return item.impressions > 0 ? Math.round((item.posImpSum / item.impressions) * 100) / 100 : 0;
+        });
+
+        const makeSparkline = (name: string, data: number[], color: string, isPercent = false): ChartOptions => ({
+            series: [{ name, data }],
+            chart: { type: 'area', height: 80, sparkline: { enabled: true } } as any,
+            colors: [color],
+            xaxis: { categories },
+            dataLabels: { enabled: false },
+            yaxis: isPercent ? { labels: { formatter: (val: number) => `${val.toFixed(1)}%` } } : undefined,
+            plotOptions: undefined,
+            legend: undefined,
+        } as any);
+
+        this.chartOptionsGscClicksTrend = makeSparkline('Lượt nhấp', clicksData, '#2563eb');
+        this.chartOptionsGscImpressionsTrend = makeSparkline('Lượt hiển thị', impressionsData, '#16a34a');
+        this.chartOptionsGscCtrTrend = makeSparkline('CTR trung bình', ctrData, '#9333ea', true);
+        this.chartOptionsGscPositionTrend = makeSparkline('Vị trí trung bình', positionData, '#ea580c');
     }
 
     applyFilter(): void {
@@ -708,36 +814,80 @@ export class GSCReportComponent implements OnInit, OnDestroy {
 `;
             }
 
+            let pageSpeedContext = '';
+            if (this.pageSpeedData) {
+                const perf = this.getPageSpeedScore('performance');
+                const acc = this.getPageSpeedScore('accessibility');
+                const bp = this.getPageSpeedScore('best-practices');
+                const seo = this.getPageSpeedScore('seo');
+                const fcp = this.pageSpeedData.lighthouseResult?.audits['first-contentful-paint']?.displayValue || 'N/A';
+                const lcp = this.pageSpeedData.lighthouseResult?.audits['largest-contentful-paint']?.displayValue || 'N/A';
+                const cls = this.pageSpeedData.lighthouseResult?.audits['cumulative-layout-shift']?.displayValue || 'N/A';
+                const tbt = this.pageSpeedData.lighthouseResult?.audits['total-blocking-time']?.displayValue || 'N/A';
+
+                pageSpeedContext = `
+Đồng thời, trang web đang có kết quả phân tích tốc độ & trải nghiệm người dùng từ PageSpeed Insights:
+- Điểm Hiệu năng (Performance Score): ${perf}/100
+- Điểm Khả năng truy cập (Accessibility Score): ${acc}/100
+- Điểm Khuyến nghị tối ưu (Best Practices): ${bp}/100
+- Điểm SEO kỹ thuật (SEO Score): ${seo}/100
+- Chỉ số Core Web Vitals: First Contentful Paint (FCP): ${fcp}, Largest Contentful Paint (LCP): ${lcp}, Cumulative Layout Shift (CLS): ${cls}, Total Blocking Time (TBT): ${tbt}.
+`;
+            }
+
             const prompt = `
-Bạn là một chuyên gia SEO hàng đầu với 10 năm kinh nghiệm phân tích dữ liệu đa kênh (Google Search Console & Google Analytics 4). 
-Dưới đây là số liệu 50 từ khóa hàng đầu của website tôi hiện tại (từ GSC):
+Bạn là một chuyên gia SEO & Tối ưu Trải nghiệm người dùng (UX/UI & PageSpeed) hàng đầu với 10 năm kinh nghiệm phân tích dữ liệu đa kênh (Google Search Console, Google Analytics 4, và PageSpeed Insights). 
 
+Dưới đây là bức tranh dữ liệu tổng thể của website tôi (${this.siteUrl}):
+
+1. DỮ LIỆU TỪ KHÓA TỪ GOOGLE SEARCH CONSOLE (GSC - 50 từ khóa hàng đầu):
 ${dataString}
-${gaContext}
-Hãy phân tích và trình bày cấu trúc kết quả theo trình tự sau:
 
-PHẦN 1: TỔNG QUAN HIỆU SUẤT VÀ TRẢI NGHIỆM NGƯỜI DÙNG
-- Những điểm sáng đã làm tốt: Ghi nhận thành quả của những từ khóa top, hoặc tỷ lệ tương tác (nếu có).
-- Trọng tâm cần cải thiện: Tóm tắt ngắn gọn các nguyên nhân kìm hãm lượng truy cập (CTR kém, hoặc nếu có GA4 thì nhận xét xem Tỷ lệ tương tác/Page views có tương xứng với Lượt nhấp không). Mức tương tác dưới 50% thường được xem là thấp.
+${gaContext ? `2. DỮ LIỆU HÀNH VI NGƯỜI DÙNG TỪ GOOGLE ANALYTICS 4 (GA4):${gaContext}` : ''}
 
-PHẦN 2: CHI TIẾT TỪNG TIÊU CHÍ (Kết hợp dữ liệu nếu có)
-1. Low-hanging fruit (Trái ngọt dễ hái): Từ khóa rơi vị trí 11-20 nhưng Impressions rất cao (Hãy kể tên từ khóa và đề xuất gắn thêm liên kết nội bộ).
-2. Tối ưu tiêu đề (Title): Từ khóa có vị trí Top 1 đến Top 5 rất tốt, có Impressions cao nhưng CTR lại quá thấp (< 4%).
-3. Tăng trưởng đột ngột: Từ khóa có Impressions lớn một cách bất thường, có thể là do trend (đề xuất viết thêm bài chuyên sâu).
-4. Phễu lưu giữ người dùng: Từ những từ khóa mang lại Lượt nhấp nhiều nhất so với Tỷ lệ tương tác tổng quan, hãy đề xuất 2-3 cách điều hướng UI/UX hoặc bổ sung Media/Video để giữ chân người dùng ở lại trang lâu hơn.
-5. Đề xuất nhóm Long-tail keyword: Những từ khoá có đuôi dài mang tính hỏi đáp để viết mới.
+${pageSpeedContext ? `3. DỮ LIỆU TỐC ĐỘ TRANG TỪ PAGESPEED INSIGHTS:${pageSpeedContext}` : ''}
 
-Trả về kết quả bằng ĐỊNH DẠNG BẢNG HTML (dùng chuỗi thẻ <table>, <thead>, <tbody>, <tr>, <th>, <td>).
-VƠI MỖI TIÊU CHÍ TRÊN, HÃY TẠO RIÊNG MỘT BẢNG VÀ CHÈN SẴN style="margin-top: 1.5rem; margin-bottom: 2rem;" VÀO THẺ &lt;table&gt; ĐỂ CÁCH ĐỀU. Các cột khuyên dùng: "Từ khóa", "Vị trí", "Lượt hiển thị", "CTR", "Đề xuất tối ưu". 
-KHÔNG DÙNG danh sách <ul> <li> để liệt kê từ khóa nữa. Có thể dùng <h3> cho tiêu đề từng tiêu chí.
-KHÔNG DÙNG MARKDOWN. KHÔNG ĐÓNG DẤU \`\`\`html hoặc \`\`\` quanh bài viết. Nếu một tiêu chí nào không có số liệu thỏa mãn thì có thể bỏ qua.
-Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạn".`;
+Hãy kết hợp và đối chiếu toàn bộ dữ liệu có ở trên (Search Console + Analytics 4 + PageSpeed Insights) để phân tích bức tranh tổng thể và đề xuất danh sách "Những việc cần làm" cụ thể, thực chiến cho website của tôi.
 
+Hãy trình bày cấu trúc kết quả theo trình tự sau:
+
+PHẦN 1: TỔNG QUAN HIỆU SUẤT & ĐÁNH GIÁ ĐA KÊNH (SEARCH CONSOLE + GA4 + PAGESPEED)
+- Những điểm sáng làm tốt: Ghi nhận các từ khóa vị trí cao, tỷ lệ tương tác GA4 hoặc điểm số PageSpeed tốt.
+- Những điểm nghẽn kìm hãm website: Đánh giá mối liên hệ giữa CTR (GSC), Tỷ lệ giữ chân (GA4) và Tốc độ tải trang / Core Web Vitals (PageSpeed). (Ví dụ: Nếu tốc độ chậm làm tăng tỷ lệ thoát, hoặc vị trí GSC tốt nhưng CTR kém do thiếu CTA/Title).
+
+PHẦN 2: DANH SÁCH CÁC HÀNH ĐỘNG CẦN LÀM (ACTIONABLE RECOMMENDATIONS)
+Trả về kết quả bằng ĐỊNH DẠNG BẢNG HTML (dùng các thẻ <table>, <thead>, <tbody>, <tr>, <th>, <td>).
+TẠO RIÊNG MỘT BẢNG CHO MỖI NHÓM NHIỆM VỤ DƯỚI ĐÂY (Và thêm style="margin-top: 1.5rem; margin-bottom: 2rem; width: 100%; border-collapse: collapse;" vào mỗi thẻ <table>):
+
+1. Tối ưu kỹ thuật & Tốc độ trang (Core Web Vitals): Đề xuất việc cần làm dựa trên số liệu PageSpeed (nếu có dữ liệu) hoặc giải pháp tăng tốc trang.
+2. Low-hanging fruit & Tối ưu Title/CTR: Đề xuất các bài viết/từ khóa vị trí 11-20 hoặc CTR kém để chỉnh sửa gấp.
+3. Phễu lưu giữ người dùng (UX/UI & Navigation): Đề xuất dựa trên dữ liệu GA4 + GSC để tăng thời gian ở lại trang và điều hướng chuyển đổi.
+4. Đề xuất nhóm bài viết mới (Long-tail keywords & Content Trends): Nhóm từ khóa tiềm năng để sáng tạo nội dung mới.
+
+Quy định định dạng:
+- Dùng thẻ <h3> cho tiêu đề từng nhóm nhiệm vụ. Các bảng HTML có tiêu đề cột rõ ràng ("Tác vụ / Mục tiêu", "Chi tiết số liệu đối chiếu", "Mức độ ưu tiên", "Giải pháp hành động cụ thể").
+- KHÔNG DÙNG MARKDOWN. KHÔNG BỌC \`\`\`html.
+- Trình bày chuyên nghiệp, thực chiến, xưng "hệ thống" với "bạn".`;
+
+            let currentStreamedText = '';
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
-                contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: {
+                    skipTTS: true,
+                    onStream: (chunk: string, isFull: boolean) => {
+                        if (isFull) {
+                            currentStreamedText = chunk;
+                        } else {
+                            currentStreamedText += chunk;
+                        }
+                        let cleanText = currentStreamedText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
+                        this.aiSuggestions = cleanText;
+                        this.cd.markForCheck();
+                    }
+                } as any
             });
-            let responseText = response.text || '';
+            let responseText = response?.text || currentStreamedText;
 
             // Loại bỏ bọc markdown nếu có bị dính
             responseText = responseText.replace(/^```html\s*/i, '').replace(/```\s*$/i, '').trim();
@@ -915,6 +1065,245 @@ Trình bày chuyên nghiệp trực diện, xưng hô "hệ thống" với "bạ
         } finally {
             this.isExportingPdf = false;
             this.cd.detectChanges();
+        }
+    }
+
+    isExportingImage: boolean = false;
+
+    async exportImageReport(): Promise<void> {
+        this.isExportingImage = true;
+        this.cd.markForCheck();
+        this.toastr.info('Đang tổng hợp dữ liệu từ 3 tab (GSC, GA4, PageSpeed) & tạo Báo cáo bằng ảnh AI...');
+
+        try {
+            // 1. Thu thập dữ liệu từ cả 3 tab
+            const gscClicks = this.totalClicks || 0;
+            const gscImpressions = this.totalImpressions || 0;
+            const gscCtr = (this.avgCtr || 0).toFixed(2);
+            const gscPos = (this.avgPosition || 0).toFixed(2);
+            const topKeywords = (this.rows || []).slice(0, 5).map((r: any) => r.query).join(', ') || 'N/A';
+
+            const gaUsers = this.gaSummary?.totalUsers || 0;
+            const gaSessions = this.gaSummary?.sessions || 0;
+            const gaViews = this.gaSummary?.screenPageViews || 0;
+            const gaEngage = ((this.gaSummary?.engagementRate || 0) * 100).toFixed(1);
+
+            const perfScore = this.getPageSpeedScore('performance');
+            const accScore = this.getPageSpeedScore('accessibility');
+            const bpScore = this.getPageSpeedScore('best-practices');
+            const seoScore = this.getPageSpeedScore('seo');
+
+            // 2. Tạo Đánh giá Tổng quan bằng AI
+            let aiSummaryText = '';
+            if (this._genaiService) {
+                try {
+                    const prompt = `Bạn là Chuyên gia SEO & Performance hàng đầu. Hãy phân tích ngắn gọn trong 3 dòng (tối đa 120 từ) các số liệu sau của website ${this.siteUrl} (${this.startDate} đến ${this.endDate}):
+1. Search Console: ${gscClicks} lượt nhấp, ${gscImpressions} hiển thị, CTR ${gscCtr}%, Vị trí trung bình ${gscPos}. Từ khóa: ${topKeywords}.
+2. GA4: ${gaUsers} người dùng, ${gaSessions} phiên, ${gaViews} lượt xem trang, Tỷ lệ tương tác ${gaEngage}%.
+3. PageSpeed: Điểm Hiệu năng ${perfScore}/100, Trải nghiệm ${accScore}/100, Chuẩn ${bpScore}/100, SEO ${seoScore}/100.
+Đưa ra nhận xét tổng thể về sức khỏe website và 2 hành động cần làm ưu tiên nhất. Viết bằng tiếng Việt chuyên nghiệp, súc tích.`;
+
+                    const response = await this._genaiService.generateContent({
+                        model: 'gemini-3.6-flash',
+                        contents: [{ role: 'user', parts: [{ text: prompt }] }]
+                    });
+                    if (response && response.text) {
+                        aiSummaryText = response.text;
+                    }
+                } catch (err) {
+                    console.warn("AI generation fallback for Image Report:", err);
+                }
+            }
+
+            if (!aiSummaryText) {
+                aiSummaryText = `📊 **Đánh giá tổng thể từ AI Agent**: Website **${this.siteUrl}** ghi nhận tổng cộng **${gscClicks.toLocaleString()}** lượt nhấp từ tìm kiếm tự nhiên và **${gaUsers.toLocaleString()}** người dùng truy cập trong kỳ báo cáo. Điểm số tối ưu tốc độ đạt **${perfScore}/100** (Hiệu năng) và **${seoScore}/100** (Chuẩn SEO).\n💡 **Hành động ưu tiên**: Tiếp tục tối ưu tốc độ tải trang, tập trung đẩy mạnh bài viết cho các từ khóa đạt vị trí cao để gia tăng lượng truy cập tự nhiên.`;
+            }
+
+            const getScoreBadgeStyle = (score: any) => {
+                const val = Number(score);
+                if (isNaN(val)) return 'background: #f1f5f9; color: #475569; border: 1px solid #cbd5e1;';
+                if (val >= 90) return 'background: #10b981; color: #ffffff;';
+                if (val >= 50) return 'background: #f59e0b; color: #ffffff;';
+                return 'background: #ef4444; color: #ffffff;';
+            };
+
+            // 3. Khung Infographic DOM siêu nét (1200px wide card)
+            const reportContainer = document.createElement('div');
+            reportContainer.id = 'ai-image-report-card';
+            reportContainer.style.position = 'fixed';
+            reportContainer.style.left = '-9999px';
+            reportContainer.style.top = '-9999px';
+            reportContainer.style.width = '1200px';
+            reportContainer.style.padding = '40px';
+            reportContainer.style.backgroundColor = '#f8fafc';
+            reportContainer.style.fontFamily = 'Inter, Roboto, system-ui, -apple-system, sans-serif';
+            reportContainer.style.boxSizing = 'border-box';
+            reportContainer.style.color = '#0f172a';
+
+            reportContainer.innerHTML = `
+                <div style="background: white; border-radius: 20px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1), 0 8px 10px -6px rgba(0,0,0,0.05); overflow: hidden; border: 1px solid #e2e8f0;">
+                    <!-- HEADER -->
+                    <div style="background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%); padding: 32px 40px; color: white; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <div style="display: inline-flex; align-items: center; background: rgba(255,255,255,0.15); backdrop-filter: blur(10px); padding: 6px 14px; border-radius: 9999px; font-size: 13px; font-weight: 600; letter-spacing: 0.5px; margin-bottom: 12px; border: 1px solid rgba(255,255,255,0.2);">
+                                    ✨ BÁO CÁO TỔNG HỢP EXECUTIVE (AI POWERED)
+                                </div>
+                                <h1 style="font-size: 32px; font-weight: 800; margin: 0; letter-spacing: -0.5px; color: white;">
+                                    ${this.siteUrl}
+                                </h1>
+                            </div>
+                            <div style="text-align: right;">
+                                <div style="font-size: 14px; color: #c7d2fe; font-weight: 500;">Khoảng thời gian</div>
+                                <div style="font-size: 18px; font-weight: 700; color: white; margin-top: 4px;">${this.startDate} → ${this.endDate}</div>
+                                <div style="font-size: 12px; color: #a5b4fc; margin-top: 6px;">Xuất báo cáo: ${new Date().toLocaleDateString('vi-VN')}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div style="padding: 36px 40px;">
+                        <!-- GRID 3 TABS -->
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; margin-bottom: 32px;">
+                            
+                            <!-- TAB 1: GSC -->
+                            <div style="background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #3b82f6;">
+                                    <div style="width: 12px; height: 12px; border-radius: 9999px; background: #3b82f6;"></div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">1. Google Search Console</h3>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #2563eb; font-weight: 600;">Lượt nhấp</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #1e40af; margin-top: 4px;">${gscClicks.toLocaleString()}</div>
+                                    </div>
+                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #16a34a; font-weight: 600;">Lượt hiển thị</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #166534; margin-top: 4px;">${gscImpressions.toLocaleString()}</div>
+                                    </div>
+                                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #9333ea; font-weight: 600;">CTR trung bình</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #6b21a8; margin-top: 4px;">${gscCtr}%</div>
+                                    </div>
+                                    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #ea580c; font-weight: 600;">Vị trí trung bình</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #9a3412; margin-top: 4px;">${gscPos}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB 2: GA4 -->
+                            <div style="background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #10b981;">
+                                    <div style="width: 12px; height: 12px; border-radius: 9999px; background: #10b981;"></div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">2. Google Analytics 4</h3>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #2563eb; font-weight: 600;">Người dùng</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #1e40af; margin-top: 4px;">${gaUsers.toLocaleString()}</div>
+                                    </div>
+                                    <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #16a34a; font-weight: 600;">Phiên truy cập</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #166534; margin-top: 4px;">${gaSessions.toLocaleString()}</div>
+                                    </div>
+                                    <div style="background: #faf5ff; border: 1px solid #e9d5ff; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #9333ea; font-weight: 600;">Lượt xem trang</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #6b21a8; margin-top: 4px;">${gaViews.toLocaleString()}</div>
+                                    </div>
+                                    <div style="background: #fff7ed; border: 1px solid #fed7aa; border-radius: 12px; padding: 12px;">
+                                        <div style="font-size: 12px; color: #ea580c; font-weight: 600;">Tỷ lệ tương tác</div>
+                                        <div style="font-size: 22px; font-weight: 800; color: #9a3412; margin-top: 4px;">${gaEngage}%</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- TAB 3: PAGESPEED -->
+                            <div style="background: #f8fafc; border-radius: 16px; border: 1px solid #e2e8f0; padding: 24px;">
+                                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 18px; padding-bottom: 12px; border-bottom: 2px solid #8b5cf6;">
+                                    <div style="width: 12px; height: 12px; border-radius: 9999px; background: #8b5cf6;"></div>
+                                    <h3 style="margin: 0; font-size: 16px; font-weight: 700; color: #1e293b;">3. PageSpeed Insights</h3>
+                                </div>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
+                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Hiệu năng</div>
+                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(perfScore)}">${perfScore}</div>
+                                    </div>
+                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
+                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Trải nghiệm</div>
+                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(accScore)}">${accScore}</div>
+                                    </div>
+                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
+                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Chuẩn hóa</div>
+                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(bpScore)}">${bpScore}</div>
+                                    </div>
+                                    <div style="background: white; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center;">
+                                        <div style="font-size: 11px; color: #64748b; font-weight: 600;">Chuẩn SEO</div>
+                                        <div style="display: inline-block; padding: 4px 12px; border-radius: 9999px; font-size: 18px; font-weight: 800; margin-top: 6px; ${getScoreBadgeStyle(seoScore)}">${seoScore}</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                        </div>
+
+                        <!-- AI STRATEGIC ANALYSIS -->
+                        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border: 1.5px solid #a7f3d0; border-radius: 16px; padding: 24px; margin-bottom: 24px;">
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 12px;">
+                                <span style="font-size: 20px;">🤖</span>
+                                <h3 style="margin: 0; font-size: 18px; font-weight: 800; color: #065f46;">ĐÁNH GIÁ CHUYÊN SÂU & HÀNH ĐỘNG TỪ AI AGENT</h3>
+                            </div>
+                            <div style="font-size: 14px; line-height: 1.7; color: #047857; font-weight: 500; whitespace-pre-line;">
+                                ${aiSummaryText}
+                            </div>
+                        </div>
+
+                        <!-- FOOTER -->
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 16px; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8;">
+                            <div>Nền tảng Tự động hóa & Sáng tạo Nội dung AI - <strong>ai.type</strong></div>
+                            <div>Báo cáo được kết xuất tự động ở độ phân giải Ultra-HD</div>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.appendChild(reportContainer);
+
+            await new Promise(resolve => setTimeout(resolve, 200));
+
+            const canvas = await html2canvas(reportContainer, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#f8fafc'
+            });
+
+            const base64Image = canvas.toDataURL('image/png');
+            document.body.removeChild(reportContainer);
+
+            if ((window as any).electron && (window as any).electron.exportGscImage) {
+                const res = await (window as any).electron.exportGscImage({
+                    siteUrl: this.siteUrl,
+                    startDate: this.startDate,
+                    endDate: this.endDate,
+                    base64Image: base64Image
+                });
+                if (res && res.success) {
+                    this.toastr.success('✅ Đã kết xuất Báo Cáo Ảnh AI thành công!');
+                } else if (res && res.error) {
+                    this.toastr.info(res.error);
+                }
+            } else {
+                const link = document.createElement('a');
+                link.download = `[AI.TYPE] Báo Cáo Tổng Hợp AI - ${this.siteUrl.replace(/https?:\/\//, '')}.png`;
+                link.href = base64Image;
+                link.click();
+                this.toastr.success('✅ Đã tải Báo Cáo Ảnh thành công!');
+            }
+
+        } catch (e: any) {
+            console.error("Lỗi tạo Báo cáo bằng ảnh:", e);
+            this.toastr.error(e.message || 'Lỗi khi tạo Báo cáo bằng ảnh');
+        } finally {
+            this.isExportingImage = false;
+            this.cd.markForCheck();
         }
     }
 
@@ -1415,6 +1804,7 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
         const apiEndpoint = `https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url=${encodeURIComponent(normalizedUrl)}&strategy=desktop&key=${API_KEY}&category=performance&category=accessibility&category=best-practices&category=seo`;
 
         try {
+            this.toastr.info("⚡ Đang gửi yêu cầu phân tích PageSpeed Insights ngầm... Bạn có thể tiếp tục xem & thao tác các tab khác bình thường!");
             const response = await fetch(apiEndpoint);
             if (!response.ok) {
                 const errData = await response.json();
@@ -1423,9 +1813,11 @@ Trả lời ngắn gọn, dạng gạch đầu dòng, tiếng Việt, dễ hiể
 
             this.pageSpeedData = await response.json();
             this.pageSpeedActiveTab = 'performance';
+            this.toastr.success("✅ Đã hoàn tất phân tích PageSpeed Insights!");
         } catch (error: any) {
             console.error(error);
             this.pageSpeedError = `Đã xảy ra lỗi: ${error.message}`;
+            this.toastr.error(`Lỗi PageSpeed: ${error.message}`);
         } finally {
             this.isPageSpeedLoading = false;
             this.cd.markForCheck();

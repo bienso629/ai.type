@@ -1377,6 +1377,13 @@ ${content}`;
 
                     if (base64Str) {
                         const fileName = `umodelverse_image_${Date.now()}.png`;
+                        let cdnUrl: string | null = null;
+                        try {
+                            cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Str, fileName, 'thumbnails');
+                        } catch (e) {
+                            console.warn('Upload CDN thất bại, fallback lưu local:', e);
+                        }
+
                         const res = await (window as any).electron.invoke('save-base64', {
                             base64: base64Str,
                             fileName: fileName,
@@ -1384,11 +1391,13 @@ ${content}`;
                             username: this.user.name
                         });
 
-                        if (res && res.success) {
+                        const finalImgSrc = cdnUrl || (res && res.success ? `file://${res.path}` : '');
+
+                        if (finalImgSrc) {
                             this.source.img.unshift(
-                                `<p id="source-img-${uuid.v4()}"><img src="file://${res.path}" /></p>`
+                                `<p id="source-img-${uuid.v4()}"><img src="${finalImgSrc}" /></p>`
                             );
-                            this.toastr.success('Hình ảnh đã tạo thành công và lưu vào ổ cứng.');
+                            this.toastr.success(cdnUrl ? 'Hình ảnh đã tạo và tải lên CDN thành công!' : 'Hình ảnh đã tạo thành công và lưu vào ổ cứng.');
                             this.cd.markForCheck();
                         } else {
                             this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Unknown error'));
@@ -2808,28 +2817,39 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             }
 
             if (base64Str) {
-                // 3. Lưu ảnh base64 thành file local qua IPC
                 const fileName = `outline_image_${Date.now()}.png`;
+                let cdnUrl: string | null = null;
+                try {
+                    cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Str, fileName, 'thumbnails');
+                } catch (e) {
+                    console.warn('Upload CDN thất bại, fallback lưu local:', e);
+                }
+
+                let localPath = '';
                 const res = await (window as any).electron.invoke('save-base64', {
                     base64: base64Str,
                     fileName: fileName,
                     folder: 'thumbnails',
                     username: this.user.name
                 });
-
                 if (res && res.success) {
-                    // 4. Thêm đường dẫn file vào danh sách thumbnail của form
+                    localPath = res.path;
+                }
+
+                const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : '');
+                const thumbValue = cdnUrl || localPath;
+
+                if (finalImgSrc) {
                     const existingValue = this.detectForm.get('step1').get('thumbnail').value || '';
-                    const newValue = existingValue.trim() ? existingValue.trim() + '\n' + res.path : res.path;
+                    const newValue = existingValue.trim() ? existingValue.trim() + '\n' + thumbValue : thumbValue;
                     this.detectForm.get('step1').get('thumbnail').setValue(newValue);
                     
                     (this as any).isThumbnailChanged = true;
                     this.update(false); // Lưu lại ngay lập tức
 
-                    // Thêm luôn vào editor content của bài viết để người dùng sử dụng được luôn!
-                    this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="file://${res.path}" /></p>`);
+                    this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${finalImgSrc}" /></p>`);
 
-                    this.toastr.success('Ảnh minh họa đã được tạo từ dàn ý và thêm vào bài viết thành công!');
+                    this.toastr.success(cdnUrl ? 'Ảnh minh họa đã tạo và tải lên CDN thành công!' : 'Ảnh minh họa đã tạo và lưu vào ổ cứng.');
                     this.cd.markForCheck();
                 } else {
                     this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Lỗi không xác định'));
@@ -2892,21 +2912,32 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             }
 
             if (base64Str) {
-                // 3. Lưu ảnh base64 thành file local qua IPC
                 const fileName = `paragraph_image_${Date.now()}.png`;
+                let cdnUrl: string | null = null;
+                try {
+                    cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Str, fileName, 'thumbnails');
+                } catch (e) {
+                    console.warn('Upload CDN thất bại, fallback lưu local:', e);
+                }
+
+                let localPath = '';
                 const res = await (window as any).electron.invoke('save-base64', {
                     base64: base64Str,
                     fileName: fileName,
                     folder: 'thumbnails',
                     username: this.user.name
                 });
-
                 if (res && res.success) {
-                    // 4. Thêm đường dẫn file vào Phân tích Hình ảnh (source.img)
-                    this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="file://${res.path}" /></p>`);
+                    localPath = res.path;
+                }
+
+                const finalImgSrc = cdnUrl || (localPath ? `file://${localPath}` : '');
+
+                if (finalImgSrc) {
+                    this.source.img.push(`<p id="source-img-${uuid.v4()}"><img src="${finalImgSrc}" /></p>`);
                     this.update(false); // Lưu lại ngay lập tức
 
-                    this.toastr.success('Ảnh minh họa đã được tạo từ đoạn văn và thêm vào mục Phân tích Hình ảnh!');
+                    this.toastr.success(cdnUrl ? 'Ảnh minh họa đã tạo và tải lên CDN thành công!' : 'Ảnh minh họa đã tạo và lưu vào ổ cứng.');
                     this.cd.markForCheck();
                 } else {
                     this.toastr.error('Lưu ảnh thất bại: ' + (res?.error || 'Lỗi không xác định'));
@@ -2919,6 +2950,149 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             this.toastr.error('Có lỗi xảy ra khi tạo ảnh từ đoạn văn!');
         } finally {
             this.isGeneratingImage = false;
+            this.cd.markForCheck();
+        }
+    }
+
+    /**
+     * Tiến trình tự động kiểm tra tất cả ảnh nội bộ/local/file/base64 trong bài viết,
+     * tự động đẩy lên CDN (cdn1.type.vn) và cập nhật đường dẫn HTTPS mới vào lại giao diện & dữ liệu.
+     */
+    async autoUploadLocalImagesToCDN() {
+        let uploadCount = 0;
+        const replacements: { [oldUrl: string]: string } = {};
+
+        // 1. Kiểm tra danh sách Thumbnail trong form
+        const thumbValue = this.detectForm?.get('step1')?.get('thumbnail')?.value || '';
+        if (thumbValue) {
+            const lines = thumbValue.split('\n');
+            const updatedLines: string[] = [];
+
+            for (let line of lines) {
+                const cleanLine = line.trim();
+                if (!cleanLine) continue;
+
+                // Bỏ qua nếu đã là URL online HTTPS/HTTP
+                if (cleanLine.startsWith('http://') || cleanLine.startsWith('https://')) {
+                    updatedLines.push(cleanLine);
+                    continue;
+                }
+
+                try {
+                    let base64Data = '';
+                    let ext = 'png';
+                    let localPath = cleanLine.startsWith('file://') ? cleanLine.substring(7) : cleanLine;
+
+                    if (cleanLine.startsWith('data:image/')) {
+                        const parts = cleanLine.split(',');
+                        base64Data = parts[1] || '';
+                        if (cleanLine.includes('image/jpeg') || cleanLine.includes('image/jpg')) ext = 'jpg';
+                    } else if ((window as any).electron && localPath) {
+                        const readRes = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                        if (readRes && readRes.success && readRes.base64) {
+                            base64Data = readRes.base64;
+                            if (localPath.endsWith('.jpg') || localPath.endsWith('.jpeg')) ext = 'jpg';
+                        }
+                    }
+
+                    if (base64Data) {
+                        const fileName = `auto_cdn_${Date.now()}.${ext}`;
+                        const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'thumbnails');
+                        if (cdnUrl) {
+                            updatedLines.push(cdnUrl);
+                            replacements[cleanLine] = cdnUrl;
+                            if (localPath && localPath !== cleanLine) {
+                                replacements[localPath] = cdnUrl;
+                                replacements['file://' + localPath] = cdnUrl;
+                            }
+                            uploadCount++;
+                            console.log(`[Auto CDN] Đã chuyển thumbnail local lên CDN: ${cleanLine} -> ${cdnUrl}`);
+                        } else {
+                            updatedLines.push(cleanLine);
+                        }
+                    } else {
+                        updatedLines.push(cleanLine);
+                    }
+                } catch (e) {
+                    console.warn('[Auto CDN] Lỗi upload thumbnail local:', e);
+                    updatedLines.push(cleanLine);
+                }
+            }
+
+            if (uploadCount > 0) {
+                this.detectForm.get('step1').get('thumbnail').setValue(updatedLines.join('\n'));
+                (this as any).isThumbnailChanged = true;
+            }
+        }
+
+        // 2. Kiểm tra danh sách Phân tích hình ảnh (source.img)
+        if (this.source && Array.isArray(this.source.img)) {
+            for (let i = 0; i < this.source.img.length; i++) {
+                const item = this.source.img[i];
+                if (typeof item !== 'string') continue;
+
+                const match = item.match(/src=["']([^"']+)["']/);
+                if (match && match[1]) {
+                    const imgSrc = match[1].trim();
+                    if (imgSrc.startsWith('http://') || imgSrc.startsWith('https://')) {
+                        continue;
+                    }
+
+                    try {
+                        let base64Data = '';
+                        let ext = 'png';
+                        let localPath = imgSrc.startsWith('file://') ? imgSrc.substring(7) : imgSrc;
+
+                        if (imgSrc.startsWith('data:image/')) {
+                            const parts = imgSrc.split(',');
+                            base64Data = parts[1] || '';
+                            if (imgSrc.includes('image/jpeg') || imgSrc.includes('image/jpg')) ext = 'jpg';
+                        } else if ((window as any).electron && localPath) {
+                            const readRes = await (window as any).electron.invoke('read-file-base64', { filePath: localPath });
+                            if (readRes && readRes.success && readRes.base64) {
+                                base64Data = readRes.base64;
+                                if (localPath.endsWith('.jpg') || localPath.endsWith('.jpeg')) ext = 'jpg';
+                            }
+                        }
+
+                        if (base64Data) {
+                            const fileName = `auto_cdn_${Date.now()}_${i}.${ext}`;
+                            const cdnUrl = await this._genaiService.uploadBase64ToCdn(base64Data, fileName, 'thumbnails');
+                            if (cdnUrl) {
+                                this.source.img[i] = item.replace(/src="[^"]+"/, `src="${cdnUrl}"`).replace(/src='[^']+'/, `src='${cdnUrl}'`);
+                                replacements[imgSrc] = cdnUrl;
+                                if (localPath && localPath !== imgSrc) {
+                                    replacements[localPath] = cdnUrl;
+                                    replacements['file://' + localPath] = cdnUrl;
+                                }
+                                uploadCount++;
+                                console.log(`[Auto CDN] Đã chuyển source.img local lên CDN: ${imgSrc} -> ${cdnUrl}`);
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('[Auto CDN] Lỗi upload source.img local:', e);
+                    }
+                }
+            }
+        }
+
+        // 3. Cập nhật các đường dẫn vừa upload trong mục nội dung dàn ý / bài viết (done)
+        if (this.done && Array.isArray(this.done)) {
+            for (let d = 0; d < this.done.length; d++) {
+                if (typeof this.done[d] === 'string') {
+                    for (const [oldUrl, newUrl] of Object.entries(replacements)) {
+                        if (this.done[d].includes(oldUrl)) {
+                            this.done[d] = this.done[d].split(oldUrl).join(newUrl);
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4. Nếu có ảnh nào được đẩy lên CDN thành công -> tự động lưu lại bài viết và thông báo
+        if (uploadCount > 0) {
+            this.update(false); // Lưu lại dữ liệu bài viết
+            this.toastr.success(`Đã tự động đẩy ${uploadCount} hình ảnh nội bộ lên CDN thành công!`);
             this.cd.markForCheck();
         }
     }
@@ -4398,6 +4572,11 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
         this.showComments();
         this.checkseo();
+
+        // Tự động kiểm tra và đẩy các ảnh local/file:// chưa lên CDN
+        setTimeout(() => {
+            this.autoUploadLocalImagesToCDN();
+        }, 800);
 
         // lam moi lai giao dien
         this.cd.markForCheck();

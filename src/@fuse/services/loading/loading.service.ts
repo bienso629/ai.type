@@ -130,7 +130,10 @@ export class FuseLoadingService
         if ( status === true )
         {
             this._urlMap.set(url, status);
-            this._show$.next(true);
+            if ( !this._show$.value )
+            {
+                this._show$.next(true);
+            }
         }
         else if ( status === false && this._urlMap.has(url) )
         {
@@ -138,7 +141,7 @@ export class FuseLoadingService
         }
 
         // Only set the status to 'false' if all outgoing requests are completed
-        if ( this._urlMap.size === 0 )
+        if ( this._urlMap.size === 0 && this._show$.value )
         {
             this._show$.next(false);
         }

@@ -650,7 +650,7 @@
     "app.delete_paragraph": "Delete paragraph",
     "app.delete_outline": "Delete outline",
     "app.task_description": "Task description",
-    "app.image_video": "Image/Video",
+    "app.image_video": "Thumbnail",
     "app.no_file_selected": "No file selected",
     "app.upload_related_media": "Upload related image/video",
     "app.rewrite_from_article": "Rewrite from another article",

@@ -75,11 +75,15 @@ class _ToolsScreenState extends State<ToolsScreen> {
       cn3++;
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RefreshIndicator(
+      color: AppColors.primary,
+      onRefresh: _loadUser,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(20.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           if (reputation >= 0) ...[
             const Text(
               'Cơ bản',
@@ -318,8 +322,9 @@ class _ToolsScreenState extends State<ToolsScreen> {
           ],
         ],
       ),
-    );
-  }
+    ),
+  );
+}
 
   Widget _buildToolCard({
     required dynamic icon,
