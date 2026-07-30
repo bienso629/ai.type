@@ -120,7 +120,7 @@
                             <ng-template matStepLabel>{{ 'app.task_information' | transloco }}</ng-template>
 
                             <div class="flex flex-col gt-sm:flex-row mb-3" *ngIf="articlesInCollection && articlesInCollection.length > 0">
-                                <mat-form-field class="flex-auto fuse-mat-dense" [subscriptSizing]="'dynamic'">
+                                <mat-form-field class="flex-auto mt-2 mb-3 fuse-mat-dense fuse-mat-emphasized-affix" [subscriptSizing]="'dynamic'">
                                     <mat-label>Các bài viết cùng bộ (Collection)</mat-label>
                                     <mat-select hideSingleSelectionIndicator="true" [(ngModel)]="selectedArticleInCollection" [ngModelOptions]="{standalone: true}" (selectionChange)="goToArticle($event.value)">
                                         <mat-option *ngFor="let article of articlesInCollection" [value]="article.uuid">
@@ -130,6 +130,10 @@
                                             </div>
                                         </mat-option>
                                     </mat-select>
+                                    <button mat-icon-button matSuffix [color]="'primary'" matTooltipPosition="above" [disabled]="isGeneratingNextChapter" [matTooltip]="'AI tạo phần tiếp theo dựa vào các phần trước'" (click)="generateNextChapterInCollection(); $event.stopPropagation()">
+                                        <mat-icon class="icon-size-4" [svgIcon]="'feather:corner-down-right'" *ngIf="!isGeneratingNextChapter"></mat-icon>
+                                        <mat-icon class="icon-size-4 animate-spin" [svgIcon]="'feather:refresh-cw'" *ngIf="isGeneratingNextChapter"></mat-icon>
+                                    </button>
                                 </mat-form-field>
                             </div>
 
