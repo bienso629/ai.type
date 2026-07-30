@@ -111,9 +111,9 @@ declare var TurndownService: any;
 
         <div class="p-0 mt-4 flex justify-end gap-2">
             <div class="flex gap-2">
-                <button mat-flat-button class="bg-green-500 text-white" (click)="aihelp($event)" [disabled]="aiHelpLoading">
-                    <mat-icon class="icon-size-4" [svgIcon]="'feather:droplet'"></mat-icon>
-                    <mat-label class="ml-2">{{aiHelpLoading ? 'Đang xử lý...' : 'AI sửa'}}</mat-label>
+                <button mat-flat-button class="!bg-emerald-600 !text-white disabled:!bg-emerald-600 disabled:!text-white disabled:!opacity-100" (click)="aihelp($event)" [disabled]="aiHelpLoading">
+                    <mat-icon class="icon-size-4 !text-white" [svgIcon]="'feather:droplet'"></mat-icon>
+                    <mat-label class="ml-2 !text-white">{{aiHelpLoading ? 'Đang xử lý...' : 'AI sửa'}}</mat-label>
                 </button>
                 
                 <button mat-flat-button *ngIf="data.function === 'share'" [color]="'primary'" (click)="share($event)" [disabled]="categoryitems.length == 0">

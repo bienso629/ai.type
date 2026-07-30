@@ -310,34 +310,40 @@ class ApiService {
   }
 
   static Future<dynamic> askChatGpt(String prompt) async {
-    final prefs = await SharedPreferences.getInstance();
-    final activeInfoStr = prefs.getString('active_info');
-    if (activeInfoStr == null) throw Exception('No active session');
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr == null) throw Exception('No active session');
 
-    final activeInfo = jsonDecode(activeInfoStr);
-    final server = activeInfo['user']['server'];
-    final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
-    final url = Uri.parse('$baseUrl/blog/chatgpt/2025/answear');
+      final activeInfo = jsonDecode(activeInfoStr);
+      final server = activeInfo['user']['server'];
+      final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+      final url = Uri.parse('$baseUrl/blog/chatgpt/2025/answear');
 
-    final dataForm = {
-      'year': 2023,
-      'appId': 'ai.typing',
-      'prompt': prompt,
-      'appToken': activeInfo['user']['appToken'],
-    };
+      final dataForm = {
+        'year': 2023,
+        'appId': 'ai.typing',
+        'prompt': prompt,
+        'appToken': activeInfo['user']['appToken'],
+      };
 
-    final encryptedParams = encryptAES(dataForm);
-    final response = await http.post(
-      url,
-      headers: {
-        'content-type': 'application/json',
-        'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
-      },
-      body: jsonEncode({'params': encryptedParams}),
-    );
+      final encryptedParams = encryptAES(dataForm);
+      final response = await http.post(
+        url,
+        headers: {
+          'content-type': 'application/json',
+          'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+        },
+        body: jsonEncode({'params': encryptedParams}),
+      );
 
-    if (response.statusCode == 200) {
-      return jsonDecode(response.body);
+      print('askChatGpt StatusCode: ${response.statusCode}, Body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      }
+    } catch (e, stack) {
+      print('askChatGpt Exception: $e\n$stack');
     }
     return null;
   }

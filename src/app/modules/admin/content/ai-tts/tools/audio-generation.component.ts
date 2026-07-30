@@ -38,7 +38,7 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
             <div class="flex items-start justify-between mb-4">
                 <div class="flex items-center text-primary mt-1">
                     <mat-icon class="mr-2 icon-size-5 text-primary">bolt</mat-icon>
-                    <span class="text-xl font-semibold tracking-tight">Cấu hình tạo âm thanh</span>
+                    <span class="text-xl font-semibold tracking-tight">Tạo giọng đọc</span>
                 </div>
                 <button (click)="cancel()" class="w-8 h-8 rounded-full hover:bg-gray-100 flex items-center justify-center text-gray-500 hover:text-gray-800 transition-colors">
                     <mat-icon class="icon-size-5">close</mat-icon>

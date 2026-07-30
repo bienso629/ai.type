@@ -3746,6 +3746,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             seo: this.seo,
             arr_keyword: this.arr_keyword,
             domain: this.domain,
+            style: this.style,
             username: this.user.name,
             thumbnail: this.detectForm.get('step1').get('thumbnail').value,
             confirm: confirm,
@@ -4475,6 +4476,26 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 this.multiAccountService.setItem('domain', this.domain);
             }
         }
+
+        if (editor.style) {
+            if (typeof editor.style === 'string' && this.styles) {
+                let foundStyle = this.styles.find(s => s.name === editor.style || s._id === editor.style);
+                if (foundStyle) {
+                    this.style = foundStyle;
+                    localStorage.setItem('style', JSON.stringify(this.style));
+                }
+            } else if (typeof editor.style === 'object') {
+                if (this.styles && this.styles.length > 0) {
+                    let foundStyle = this.styles.find(s => s.name === editor.style.name || s._id === editor.style._id);
+                    this.style = foundStyle || editor.style;
+                } else {
+                    this.style = editor.style;
+                }
+                localStorage.setItem('style', JSON.stringify(this.style));
+            }
+        } else if (this.domain) {
+            this.applyDomainStyle(this.domain);
+        }
         // kiểm tra nếu used là -1 có nghĩa là nó được convert từ node sang
         // như vậy phải update lần đầu tiên cho nó ngay
         if (editor.used === -1) {
@@ -4675,11 +4696,9 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
     }
 
     changetab(e: any) {
-        this.router.navigate([], {
-            relativeTo: this.route,
-            queryParams: { tab: e.index },
-            queryParamsHandling: 'merge'
-        });
+        if (e && e.index !== undefined) {
+            this.selectedIndex = e.index;
+        }
         this.showComments();
     }
 
