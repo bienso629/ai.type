@@ -1,9 +1,80 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_quill/flutter_quill.dart' as quill;
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../services/api_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/app_styles.dart';
+class HtmlTextEditingController extends TextEditingController {
+  HtmlTextEditingController({String? text}) : super(text: text);
+
+  @override
+  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+    final htmlStr = text;
+    if (htmlStr.isEmpty) {
+      return TextSpan(style: style);
+    }
+
+    final List<InlineSpan> spans = [];
+    final tagRegExp = RegExp(r'</?(?:b|strong|i|em|u|h[1-6]|p|a)[^>]*>|[^<]+', caseSensitive: false);
+    final matches = tagRegExp.allMatches(htmlStr);
+
+    bool isBold = false;
+    bool isItalic = false;
+    bool isUnderline = false;
+    bool isHeading = false;
+
+    for (final match in matches) {
+      final token = match.group(0) ?? '';
+      final lower = token.toLowerCase();
+
+      if (lower == '<b>' || lower == '<strong>') {
+        isBold = true;
+      } else if (lower == '</b>' || lower == '</strong>') {
+        isBold = false;
+      } else if (lower == '<i>' || lower == '<em>') {
+        isItalic = true;
+      } else if (lower == '</i>' || lower == '</em>') {
+        isItalic = false;
+      } else if (lower == '<u>') {
+        isUnderline = true;
+      } else if (lower == '</u>') {
+        isUnderline = false;
+      } else if (lower.startsWith('<h')) {
+        isHeading = true;
+      } else if (lower.startsWith('</h')) {
+        isHeading = false;
+      } else if (lower == '<p>' || lower == '</p>') {
+        // paragraph
+      } else if (token.startsWith('<') && token.endsWith('>')) {
+        // tag
+      } else {
+        spans.add(
+          TextSpan(
+            text: token,
+            style: TextStyle(
+              fontSize: isHeading ? 17 : 14,
+              fontWeight: (isBold || isHeading) ? FontWeight.bold : FontWeight.normal,
+              fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+              decoration: isUnderline ? TextDecoration.underline : TextDecoration.none,
+              color: isHeading ? Colors.teal.shade900 : Colors.black87,
+              height: 1.4,
+            ),
+          ),
+        );
+      }
+    }
+
+    if (spans.isEmpty) {
+      return TextSpan(text: text, style: style);
+    }
+
+    return TextSpan(style: style, children: spans);
+  }
+}
 
 class AiWriterScreen extends StatefulWidget {
   final String? uuid;
@@ -14,25 +85,22 @@ class AiWriterScreen extends StatefulWidget {
   State<AiWriterScreen> createState() => _AiWriterScreenState();
 }
 
-class _AiWriterScreenState extends State<AiWriterScreen> {
-  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
-  int _currentStep = 0;
-  String? _selectedStyle = 'Nhà báo';
-  String? _selectedDomain = 'https://tadu.cloud';
-
-  bool _isLoading = false;
+class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProviderStateMixin {
+  TabController? _tabController;
   Map<String, dynamic>? _taskData;
   Map<String, dynamic> _source = {};
   List<dynamic> _done = [];
-  List<dynamic> _domains = [
-    {'domain': 'https://tadu.cloud'},
-    {'domain': 'type.vn'}
-  ];
-  List<dynamic> _styles = [
-    {'name': 'Nhà báo'},
-    {'name': 'Thân thiện'}
-  ];
 
+  final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
+  bool _isLoading = true;
+
+  List<dynamic> _domains = [];
+  String? _selectedDomain;
+
+  List<dynamic> _styles = [];
+  String? _selectedStyle;
+
+  int _currentStep = 0;
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
   final TextEditingController _urlController = TextEditingController();
@@ -43,9 +111,30 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   final TextEditingController _requestController = TextEditingController();
   bool _isGeneratingAi = false;
   bool _showCode = false;
+  List<dynamic> _articlesInCollection = [];
+  String? _selectedArticleInCollection;
+
+  @override
+  void initState() {
+    super.initState();
+    _initTabController();
+    _loadTaskData();
+  }
+
+  void _initTabController() {
+    _tabController ??= TabController(length: 5, vsync: this);
+    _tabController!.removeListener(_onTabChanged);
+    _tabController!.addListener(_onTabChanged);
+  }
+
+  void _onTabChanged() {
+    if (mounted) setState(() {});
+  }
 
   @override
   void dispose() {
+    _tabController?.removeListener(_onTabChanged);
+    _tabController?.dispose();
     _titleController.dispose();
     _descController.dispose();
     _urlController.dispose();
@@ -55,14 +144,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     _mainkeyController.dispose();
     _requestController.dispose();
     super.dispose();
-  }
-
-  @override
-  void initState() {
-    super.initState();
-    if (widget.uuid != null && widget.uuid!.isNotEmpty) {
-      _loadTaskData();
-    }
   }
 
   Future<void> _applyDomainStyle(String? domain) async {
@@ -105,34 +186,62 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       if (activeInfoStr != null) {
         final activeInfo = jsonDecode(activeInfoStr);
         final username = activeInfo['user']['name'];
-        final uuid = widget.uuid!;
+        final uuid = widget.uuid;
+        final hasUuid = uuid != null && uuid.isNotEmpty;
 
-        // Fetch all APIs in parallel
-        final results = await Future.wait([
-          ApiService.getAllDomains(),
-          ApiService.getForumCategory(1),
-          ApiService.getTasksCollections(username),
-          ApiService.checkTogether(username, uuid),
-          ApiService.getTaskDetail(username, uuid),
-          ApiService.getCollectionNode(username, uuid),
-          ApiService.getArchiveComments(username, uuid),
-          ApiService.getProfile(username),
-        ]);
+        dynamic domainsRes;
+        dynamic profileRes;
+        dynamic tasksCollectionsRes;
+        dynamic nodeInCollectionRes;
 
-        final domainsRes = results[0];
+        if (hasUuid) {
+          final results = await Future.wait([
+            ApiService.getAllDomains(),
+            ApiService.getForumCategory(1),
+            ApiService.getTasksCollections(username),
+            ApiService.checkTogether(username, uuid),
+            ApiService.getTaskDetail(username, uuid),
+            ApiService.getCollectionNode(username, uuid),
+            ApiService.getArchiveComments(username, uuid),
+            ApiService.getProfile(username),
+          ]);
+          domainsRes = results[0];
+          tasksCollectionsRes = results[2];
+          nodeInCollectionRes = results[5];
+          profileRes = results[7];
+
+          final detailRes = results[4];
+          if (detailRes != null && detailRes['success'] == true) {
+            _taskData = detailRes['data'];
+          }
+        } else {
+          final results = await Future.wait([
+            ApiService.getAllDomains(),
+            ApiService.getTasksCollections(username),
+            ApiService.getProfile(username),
+          ]);
+          domainsRes = results[0];
+          tasksCollectionsRes = results[1];
+          profileRes = results[2];
+        }
+
         if (domainsRes != null && domainsRes['success'] == true && domainsRes['data'] != null && (domainsRes['data'] as List).isNotEmpty) {
           _domains = domainsRes['data'];
         }
 
-        final profileRes = results[7];
-        if (profileRes != null && profileRes['success'] == true && profileRes['data']?['config']?['styles'] != null && (profileRes['data']?['config']?['styles'] as List).isNotEmpty) {
-          _styles = profileRes['data']['config']['styles'];
+        if (profileRes != null && profileRes['success'] == true && profileRes['data'] != null) {
+          final pData = profileRes['data'];
+          if (pData['styles'] != null && pData['styles'] is List && (pData['styles'] as List).isNotEmpty) {
+            _styles = List.from(pData['styles']);
+          } else if (pData['config']?['styles'] != null && pData['config']['styles'] is List && (pData['config']['styles'] as List).isNotEmpty) {
+            _styles = List.from(pData['config']['styles']);
+          }
         }
 
-        final detailRes = results[4];
-        if (detailRes != null && detailRes['success'] == true) {
+        _loadCollectionArticles(username, nodeInCollectionRes, tasksCollectionsRes);
+
+        if (_taskData != null) {
           setState(() {
-            _taskData = detailRes['data'];
             
             if (_taskData != null) {
               _titleController.text = _taskData!['title'] ?? '';
@@ -232,6 +341,69 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     }
   }
 
+  Future<void> _loadCollectionArticles(String username, dynamic selectedCollectionsData, dynamic collectionsData) async {
+    try {
+      List<String> uuids = [];
+      List selectedCols = [];
+      if (selectedCollectionsData != null && selectedCollectionsData['success'] == true && selectedCollectionsData['data'] != null) {
+        if (selectedCollectionsData['data'] is List) {
+          selectedCols = selectedCollectionsData['data'];
+        }
+      }
+      List cols = [];
+      if (collectionsData != null && collectionsData['success'] == true && collectionsData['data'] != null) {
+        if (collectionsData['data'] is List) {
+          cols = collectionsData['data'];
+        }
+      }
+
+      for (var col in selectedCols) {
+        dynamic targetCol = col;
+        if (cols.isNotEmpty) {
+          final found = cols.firstWhere(
+            (c) => c['_id'] == col['_id'] || c['id'] == col['id'],
+            orElse: () => null,
+          );
+          if (found != null) targetCol = found;
+        }
+
+        if (targetCol['uuid'] != null) {
+          if (targetCol['uuid'] is List) {
+            for (var u in targetCol['uuid']) {
+              if (u != null && u.toString().isNotEmpty) {
+                uuids.add(u.toString());
+              }
+            }
+          } else {
+            uuids.add(targetCol['uuid'].toString());
+          }
+        }
+      }
+
+      // Remove duplicates
+      uuids = uuids.toSet().toList();
+
+      if (uuids.isNotEmpty) {
+        final archiveRes = await ApiService.getTasksArchive(
+          username: username,
+          uuids: uuids,
+          pageNumber: 0,
+          size: 200,
+        );
+        if (archiveRes != null && archiveRes['data'] != null && archiveRes['data']['docs'] != null && archiveRes['data']['docs'] is List) {
+          if (mounted) {
+            setState(() {
+              _articlesInCollection = List<dynamic>.from(archiveRes['data']['docs']);
+              _selectedArticleInCollection = widget.uuid;
+            });
+          }
+        }
+      }
+    } catch (e) {
+      debugPrint('Error loading articles in collection: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -242,14 +414,16 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       );
     }
 
+    _initTabController();
+
     return DefaultTabController(
       length: 5,
       child: Scaffold(
         key: _scaffoldKey,
         appBar: AppBar(
           leading: IconButton(
-            icon: const Icon(Icons.settings),
-            tooltip: 'Cài đặt tác vụ',
+            icon: const Icon(Icons.assignment_outlined),
+            tooltip: 'Thông tin công việc',
             onPressed: () {
               _scaffoldKey.currentState?.openDrawer();
             },
@@ -264,14 +438,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           ),
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: Colors.white),
-          actions: [
-            IconButton(
-              icon: const Icon(Icons.save),
-              tooltip: 'Lưu công việc',
-              onPressed: () {},
-            ),
-          ],
           bottom: TabBar(
+            controller: _tabController,
             isScrollable: true,
             tabAlignment: TabAlignment.start,
             dividerColor: Colors.transparent,
@@ -288,18 +456,36 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           ),
         ),
         drawer: _buildLeftDrawer(),
-        body: RefreshIndicator(
-          color: AppColors.primary,
-          onRefresh: () => _loadTaskData(isRefresh: true),
-          child: TabBarView(
-            children: [
-              _buildParagraphsTab(),
-              _buildHeadingTab(),
-              _buildHtmlTab(),
-              _buildOutlineTab(),
-              _buildDeletedTab(),
-            ],
-          ),
+        bottomNavigationBar: _buildTabSaveFooter(),
+        body: TabBarView(
+          controller: _tabController,
+          children: [
+            RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () => _loadTaskData(isRefresh: true),
+              child: _buildParagraphsTab(),
+            ),
+            RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () => _loadTaskData(isRefresh: true),
+              child: _buildHeadingTab(),
+            ),
+            RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () => _loadTaskData(isRefresh: true),
+              child: _buildHtmlTab(),
+            ),
+            RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () => _loadTaskData(isRefresh: true),
+              child: _buildOutlineTab(),
+            ),
+            RefreshIndicator(
+              color: AppColors.primary,
+              onRefresh: () => _loadTaskData(isRefresh: true),
+              child: _buildDeletedTab(),
+            ),
+          ],
         ),
       ),
     );
@@ -312,28 +498,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       child: SafeArea(
         child: Column(
           children: [
-            // Drawer Header with Primary Teal banner matching Angular
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-              color: AppColors.primary,
-              child: const Row(
-                children: [
-                  Icon(Icons.assignment_outlined, color: Colors.white, size: 22),
-                  SizedBox(width: 10),
-                  Expanded(
-                    child: Text(
-                      'Thông tin công việc',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
             // Stepper Content
             Expanded(
               child: Stepper(
@@ -357,6 +521,50 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                     content: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
+                        const Text(
+                          'Các bài viết cùng bộ (Collection)',
+                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        ),
+                        const SizedBox(height: 6),
+                        DropdownButtonFormField<String>(
+                          value: _articlesInCollection.any((a) => a['uuid'] == (_selectedArticleInCollection ?? widget.uuid))
+                              ? (_selectedArticleInCollection ?? widget.uuid)
+                              : null,
+                          isExpanded: true,
+                          hint: Text(
+                            _articlesInCollection.isEmpty ? '-- Chưa có bài viết cùng bộ --' : '-- Chọn bài viết cùng bộ --',
+                            style: const TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.folder_special_outlined, size: 20, color: Colors.blue),
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                          ),
+                          items: _articlesInCollection.map<DropdownMenuItem<String>>((article) {
+                            final String artUuid = article['uuid']?.toString() ?? '';
+                            final String artTitle = article['title']?.toString() ?? 'Bài viết không tên';
+                            return DropdownMenuItem<String>(
+                              value: artUuid,
+                              child: Text(
+                                artTitle,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(fontSize: 13, color: Colors.blue, fontWeight: FontWeight.w500),
+                              ),
+                            );
+                          }).toList(),
+                          onChanged: _articlesInCollection.isEmpty ? null : (val) {
+                            if (val != null && val != widget.uuid) {
+                              setState(() => _selectedArticleInCollection = val);
+                              Navigator.of(context).pushReplacement(
+                                MaterialPageRoute(
+                                  builder: (_) => AiWriterScreen(uuid: val),
+                                ),
+                              );
+                            }
+                          },
+                        ),
+                        const SizedBox(height: 14),
                         const Text(
                           'Tên công việc / Tiêu đề *',
                           style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
@@ -523,55 +731,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
-                        InkWell(
-                          onTap: () => setState(() => _showCode = !_showCode),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 6),
-                            child: Row(
-                              children: [
-                                Icon(
-                                  _showCode ? Icons.arrow_drop_down : Icons.arrow_right,
-                                  color: AppColors.primary,
-                                  size: 20,
-                                ),
-                                Text(
-                                  _showCode ? 'Ẩn Yêu cầu phân tích / Cấu trúc (HTML Code)' : 'Hiện Yêu cầu phân tích / Cấu trúc (HTML Code)',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w500,
-                                    color: AppColors.primary,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
-                        if (_showCode) ...[
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Yêu cầu phân tích / Cấu trúc',
-                            style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
-                          ),
-                          const SizedBox(height: 6),
-                          TextField(
-                            controller: _requestController,
-                            maxLines: 2,
-                            decoration: const InputDecoration(
-                              hintText: 'Nhập mã code HTML hoặc yêu cầu...',
-                              prefixIcon: Icon(Icons.code, size: 20),
-                              border: OutlineInputBorder(),
-                              isDense: true,
-                            ),
-                          ),
-                          const Padding(
-                            padding: EdgeInsets.only(top: 4, bottom: 12),
-                            child: Text(
-                              'Yêu cầu bạn phải biết sử dụng định dạng HTML',
-                              style: TextStyle(fontSize: 12, color: Colors.grey),
-                            ),
-                          ),
-                        ] else
-                          const SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         ElevatedButton.icon(
                           onPressed: () {
                             if (_urlController.text.trim().isEmpty) {
@@ -646,25 +806,42 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                     content: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        const Text(
-                          'Từ khoá trọng tâm (Main Keyword)',
-                          style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: AppColors.textPrimary),
+                        Row(
+                          children: [
+                            const Text(
+                              'Khoá chính',
+                              style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF1E293B)),
+                            ),
+                            Text(
+                              '*',
+                              style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: Colors.red.shade600),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 6),
                         TextField(
                           controller: _mainkeyController,
                           onChanged: (_) => setState(() {}),
-                          decoration: const InputDecoration(
-                            hintText: 'Từ khoá trọng tâm...',
-                            prefixIcon: Icon(Icons.key, size: 20),
-                            border: OutlineInputBorder(),
+                          decoration: InputDecoration(
+                            prefixIcon: Container(
+                              width: 44,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                border: Border(right: BorderSide(color: Colors.grey.shade300)),
+                              ),
+                              child: Icon(Icons.vpn_key_outlined, color: Colors.grey.shade500, size: 18),
+                            ),
+                            prefixIconConstraints: const BoxConstraints(minWidth: 44, minHeight: 40),
+                            border: const OutlineInputBorder(),
                             isDense: true,
+                            contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
                           ),
                         ),
                         const Padding(
-                          padding: EdgeInsets.only(top: 4, bottom: 12),
+                          padding: EdgeInsets.only(top: 4, bottom: 8),
                           child: Text(
-                            'Nên có độ dài lớn hơn 3 chữ',
+                            'Từ khoá mạnh xuyên suốt bài viết của bạn',
                             style: TextStyle(fontSize: 12, color: Colors.grey),
                           ),
                         ),
@@ -715,10 +892,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
 
     int h1Count = h1List.length;
     String h1Text = h1Count > 0 ? (h1List[0]?.toString() ?? '') : '';
-    if (h1Count == 0 && title.isNotEmpty) {
-      h1Count = 1;
-      h1Text = title;
-    }
 
     int imageCount = _thumbnailController.text.trim().isNotEmpty ? 1 : 0;
     int linkCount = fullContentText.contains('http') || _urlController.text.trim().isNotEmpty ? 1 : 0;
@@ -783,49 +956,15 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Score Header
-        Container(
-          padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 14),
-          margin: const EdgeInsets.only(bottom: 14),
-          decoration: BoxDecoration(
-            color: score >= 70 ? Colors.green.shade50 : (score >= 40 ? Colors.amber.shade50 : Colors.red.shade50),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: score >= 70 ? Colors.green.shade300 : (score >= 40 ? Colors.amber.shade300 : Colors.red.shade300),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Text(
+            'Điểm đạt được $score/100',
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w500,
+              color: Color(0xFF1E293B),
             ),
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Điểm đạt được: $score/100',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: score >= 70 ? Colors.green.shade800 : (score >= 40 ? Colors.amber.shade900 : Colors.red.shade800),
-                    ),
-                  ),
-                  Icon(
-                    score >= 70 ? Icons.check_circle : (score >= 40 ? Icons.warning : Icons.error),
-                    color: score >= 70 ? Colors.green : (score >= 40 ? Colors.amber : Colors.red),
-                    size: 20,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  value: score / 100,
-                  minHeight: 6,
-                  backgroundColor: Colors.grey.shade200,
-                  color: score >= 70 ? Colors.green : (score >= 40 ? Colors.amber : Colors.red),
-                ),
-              ),
-            ],
           ),
         ),
 
@@ -836,122 +975,121 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
         else if (titleLen < 30 && titleLen > 0)
           _buildSeoAuditItem('Tiêu đề quá ngắn ($titleLen/60 ký tự)', 1)
         else if (titleLen == 0)
-          _buildSeoAuditItem('Chưa nhập tiêu đề bài viết', 2),
+          _buildSeoAuditItem('Tiêu đề thiếu khoá chính', 2),
 
         if (mainKey.isNotEmpty) ...[
           if (titleKeyPos < 0)
-            _buildSeoAuditItem('Tiêu đề thiếu từ khóa trọng tâm', 2)
+            _buildSeoAuditItem('Tiêu đề thiếu khoá chính', 2)
           else if (titleKeyPos > 0)
-            _buildSeoAuditItem('Từ khóa trọng tâm nên nằm ở đầu tiêu đề', 1)
+            _buildSeoAuditItem('Khoá chính xuất hiện trong tiêu đề', 1)
           else
-            _buildSeoAuditItem('Từ khóa trọng tâm nằm ở đầu tiêu đề', 0),
+            _buildSeoAuditItem('Khoá chính xuất hiện đầu tiêu đề', 0),
+        ] else if (titleLen >= 30 && titleLen <= 60) ...[
+          _buildSeoAuditItem('Tiêu đề tuyệt vời ($titleLen/60 ký tự)', 0),
         ],
-        if (titleLen >= 30 && titleLen <= 60)
-          _buildSeoAuditItem('Đã đạt độ dài tiêu đề chuẩn $titleLen/60 ký tự', 0),
-
-        const Divider(height: 20),
 
         // Section 2: Mô tả
         _buildSeoSectionHeader('Mô tả'),
-        if (mainKey.isNotEmpty && descKeyPos < 0)
-          _buildSeoAuditItem('Mô tả thiếu từ khóa trọng tâm', 2),
+        if (mainKey.isNotEmpty) ...[
+          if (descKeyPos >= 0)
+            _buildSeoAuditItem('Mô tả đã có khoá chính', 0)
+          else
+            _buildSeoAuditItem('Mô tả thiếu khoá chính', 2),
+        ],
 
         if (descLen > 160)
           _buildSeoAuditItem('Mô tả quá dài ($descLen/160 ký tự)', 1)
         else if (descLen < 100 && descLen > 0)
           _buildSeoAuditItem('Mô tả quá ngắn ($descLen/160 ký tự)', 1)
         else if (descLen == 0)
-          _buildSeoAuditItem('Chưa nhập mô tả bài viết', 2),
+          _buildSeoAuditItem('Mô tả thiếu khoá chính', 2)
+        else
+          _buildSeoAuditItem('Mô tả tuyệt vời ($descLen/160 ký tự)', 0),
 
-        if (mainKey.isNotEmpty && descKeyPos >= 0)
-          _buildSeoAuditItem('Mô tả có chứa từ khóa trọng tâm', 0),
-
-        if (descLen >= 100 && descLen <= 160)
-          _buildSeoAuditItem('Đạt độ dài mô tả chuẩn ($descLen/160 ký tự)', 0),
-
-        const Divider(height: 20),
-
-        // Section 3: Thẻ H1
+        // Section 3: H1
         _buildSeoSectionHeader('H1'),
         if (h1Count < 1)
-          _buildSeoAuditItem('Nội dung không có thẻ H1', 2)
+          _buildSeoAuditItem('Content chưa có H1', 2)
         else if (h1Count > 1)
-          _buildSeoAuditItem('Nội dung chứa quá nhiều thẻ H1', 2)
+          _buildSeoAuditItem('Content chứa quá nhiều H1', 2)
         else
-          _buildSeoAuditItem('Nội dung có thẻ H1', 0),
+          _buildSeoAuditItem('Content đã có H1', 0),
 
-        if (h1Text.length > 75)
-          _buildSeoAuditItem('Thẻ H1 không được vượt quá 75 ký tự', 1),
-
-        if (mainKey.isNotEmpty) ...[
-          if (h1Count >= 1 && h1KeyPos < 0)
-            _buildSeoAuditItem('Thẻ H1 thiếu từ khóa trọng tâm', 2)
-          else if (h1KeyPos >= 0)
-            _buildSeoAuditItem('Tìm thấy từ khóa trọng tâm trong thẻ H1', 0),
-        ],
-
-        const Divider(height: 20),
-
-        // Section 4: Nội dung (Body)
+        // Section 4: Nội dung
         _buildSeoSectionHeader('Nội dung'),
         if (totalWords < 1)
-          _buildSeoAuditItem('Nội dung chưa có', 2)
+          _buildSeoAuditItem('Content chưa có nội dung', 2)
         else if (totalWords < 300)
-          _buildSeoAuditItem('Nội dung quá ngắn ($totalWords/600 từ)', 1)
+          _buildSeoAuditItem('Content quá ngắn ($totalWords/600 từ)', 1)
         else
           _buildSeoAuditItem('Content đang phát triển ($totalWords/1000 từ)', 0),
 
         if (mainKey.isNotEmpty) ...[
-          if (!mainKeyInFirstParagraph)
-            _buildSeoAuditItem('Thiếu từ khóa trọng tâm ở dòng đầu', 2)
+          if (mainKeyInFirstParagraph)
+            _buildSeoAuditItem('Khoá chính xuất hiện ở đầu dòng', 0)
           else
-            _buildSeoAuditItem('Từ khóa trọng tâm xuất hiện ở dòng đầu', 0),
+            _buildSeoAuditItem('Thiếu khoá chính ở đầu dòng', 2),
 
-          if (keyPercent < 1.0)
-            _buildSeoAuditItem('Từ khóa xuất hiện $keyCountInContent lần (${keyPercent.toStringAsFixed(0)}%)', 1)
-          else if (keyPercent > 8.0)
-            _buildSeoAuditItem('Từ khóa xuất hiện $keyCountInContent lần vượt quá 8% (${keyPercent.toStringAsFixed(0)}%)', 2)
+          if (keyPercent > 8.0)
+            _buildSeoAuditItem('Khoá chính xuất hiện $keyCountInContent lần trên ${keyPercent.toStringAsFixed(0)}%', 2)
+          else if (keyPercent < 1.0 && keyCountInContent > 0)
+            _buildSeoAuditItem('Khoá chính xuất hiện $keyCountInContent lần trên ${keyPercent.toStringAsFixed(0)}%', 1)
+          else if (keyCountInContent > 0)
+            _buildSeoAuditItem('Khoá chính xuất hiện $keyCountInContent lần trên ${keyPercent.toStringAsFixed(0)}%', 0)
           else
-            _buildSeoAuditItem('Từ khóa xuất hiện $keyCountInContent lần (${keyPercent.toStringAsFixed(0)}%)', 0),
+            _buildSeoAuditItem('Khoá chính chưa xuất hiện trong nội dung', 2),
         ],
 
-        const Divider(height: 20),
-
-        // Section 5: Hình ảnh (Image)
+        // Section 5: Hình ảnh
         _buildSeoSectionHeader('Hình ảnh'),
-        if (imageCount < 1)
-          _buildSeoAuditItem('Chưa có hình ảnh nào', 2)
-        else
-          _buildSeoAuditItem('Có $imageCount hình ảnh', 0),
+        if (imageCount < 1) ...[
+          _buildSeoAuditItem('Chưa có hình ảnh', 2),
+          _buildSeoAuditItem('Alt không có khoá chính', 1),
+        ] else ...[
+          _buildSeoAuditItem('Đã có hình ảnh', 0),
+          if (mainKey.isNotEmpty)
+            _buildSeoAuditItem('Thẻ Alt có khoá chính', 0),
+        ],
 
-        if (imageCount >= 1 && mainKey.isNotEmpty)
-          _buildSeoAuditItem('Thẻ Alt hình ảnh có từ khóa trọng tâm', 0),
-
-        const Divider(height: 20),
-
-        // Section 6: Liên kết (Link)
+        // Section 6: Liên kết
         _buildSeoSectionHeader('Liên kết'),
         if (linkCount >= 1)
-          _buildSeoAuditItem('Có $linkCount liên kết', 0)
+          _buildSeoAuditItem('Đã có liên kết', 0)
         else
-          _buildSeoAuditItem('Thêm liên kết để tăng điểm SEO', 2),
+          _buildSeoAuditItem('Thêm liên kết để cải thiện trải nghiệm', 2),
 
-        const SizedBox(height: 16),
+        const SizedBox(height: 20),
 
-        // Action Button: Kiểm tra điểm SEO
-        ElevatedButton.icon(
+        // Action Button matching screenshot: Teal flat button with "| Kiểm tra điểm SEO"
+        ElevatedButton(
           onPressed: () {
             setState(() {});
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Đã cập nhật điểm SEO: $score/100')),
             );
           },
-          icon: const Icon(Icons.insights, size: 18),
-          label: const Text('Kiểm tra điểm SEO'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.primary,
             foregroundColor: Colors.white,
-            minimumSize: const Size.fromHeight(42),
+            minimumSize: const Size.fromHeight(44),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(6),
+            ),
+            elevation: 0,
+          ),
+          child: const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.show_chart, size: 18),
+              SizedBox(width: 8),
+              Text(
+                '|  Kiểm tra điểm SEO',
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ),
       ],
@@ -959,14 +1097,21 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   Widget _buildSeoSectionHeader(String title) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 4, bottom: 4),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(bottom: 6, top: 12),
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: Colors.grey.shade200, width: 1.0),
+        ),
+      ),
       child: Text(
         title,
         style: const TextStyle(
-          fontWeight: FontWeight.bold,
-          fontSize: 13,
-          color: AppColors.textPrimary,
+          fontWeight: FontWeight.w600,
+          fontSize: 14,
+          color: Color(0xFF334155),
         ),
       ),
     );
@@ -974,24 +1119,28 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
 
   Widget _buildSeoAuditItem(String text, int statusType) {
     Color color;
-    if (statusType == 0) color = Colors.green.shade600;
-    else if (statusType == 1) color = Colors.amber.shade800;
-    else color = Colors.red.shade600;
+    if (statusType == 0) {
+      color = const Color(0xFF059669);
+    } else if (statusType == 1) {
+      color = const Color(0xFFD97706);
+    } else {
+      color = const Color(0xFFEF4444);
+    }
 
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 3),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.check_box_outlined, size: 16, color: color),
+          Icon(Icons.check_box_outlined, size: 18, color: color),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               text,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 color: color,
-                fontWeight: FontWeight.w500,
+                fontWeight: FontWeight.w400,
               ),
             ),
           ),
@@ -1011,193 +1160,232 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   Widget _buildOutlineTab() {
-    return Column(
+    return ListView(
+      key: UniqueKey(),
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: const EdgeInsets.all(16.0),
       children: [
-        Expanded(
-          child: ListView(
-            key: UniqueKey(),
-            padding: const EdgeInsets.all(16.0),
-            children: [
-              Container(
-                constraints: const BoxConstraints(minHeight: 100),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: _done.isEmpty
-                    ? const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(16.0),
-                          child: Text('Chưa có nội dung dàn ý'),
-                        ),
-                      )
-                    : ListView.separated(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _done.length,
-                        separatorBuilder: (_, __) => const Divider(height: 1),
-                        itemBuilder: (context, index) {
-                          final htmlStr = _done[index].toString();
-                          return Padding(
-                            padding: const EdgeInsets.all(12.0),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Expanded(
-                                  child: _buildRichText(htmlStr),
-                                ),
-                                PopupMenuButton<String>(
-                                  icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                                  onSelected: (value) {
-                                    // TODO: Implement paragraph actions
-                                  },
-                                  itemBuilder: (BuildContext context) {
-                                    PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
-                                      return PopupMenuItem<String>(
-                                        value: val,
-                                        child: Row(
-                                          children: [
-                                            Icon(icon, size: 16, color: Colors.grey.shade700),
-                                            const SizedBox(width: 12),
-                                            Text(text, style: const TextStyle(fontSize: 14)),
-                                          ],
-                                        ),
-                                      );
-                                    }
+        Container(
+          constraints: const BoxConstraints(minHeight: 100),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(4),
+          ),
+          child: _done.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(16.0),
+                    child: Text('Chưa có nội dung dàn ý'),
+                  ),
+                )
+              : ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: _done.length,
+                  separatorBuilder: (_, __) => const Divider(height: 1),
+                  itemBuilder: (context, index) {
+                    final htmlStr = _done[index].toString();
+                    return Padding(
+                      padding: const EdgeInsets.all(12.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            child: _buildRichText(htmlStr),
+                          ),
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                            onSelected: (value) {
+                              // TODO: Implement paragraph actions
+                            },
+                            itemBuilder: (BuildContext context) {
+                              PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
+                                return PopupMenuItem<String>(
+                                  value: val,
+                                  child: Row(
+                                    children: [
+                                      Icon(icon, size: 16, color: Colors.grey.shade700),
+                                      const SizedBox(width: 12),
+                                      Text(text, style: const TextStyle(fontSize: 14)),
+                                    ],
+                                  ),
+                                );
+                              }
 
-                                    return <PopupMenuEntry<String>>[
-                                      buildItem('copy', Icons.copy, 'Sao chép'),
-                                      buildItem('mp3', Icons.volume_up, 'Đọc văn bản'),
-                                      buildItem('comment', Icons.chat_bubble_outline, 'Bình luận'),
-                                      buildItem('image', Icons.auto_awesome, 'Tạo hình ảnh'),
-                                      buildItem('keyword', Icons.local_offer, 'Từ khoá'),
-                                      buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
-                                      buildItem('split', Icons.format_align_left, 'Tách đoạn văn'),
-                                      buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
-                                    ];
-                                  },
-                                ),
-                              ],
-                            ),
-                          );
-                        },
+                              return <PopupMenuEntry<String>>[
+                                buildItem('copy', Icons.copy, 'Sao chép'),
+                                buildItem('mp3', Icons.volume_up, 'Đọc văn bản'),
+                                buildItem('comment', Icons.chat_bubble_outline, 'Bình luận'),
+                                buildItem('image', Icons.auto_awesome, 'Tạo hình ảnh'),
+                                buildItem('keyword', Icons.local_offer, 'Từ khoá'),
+                                buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
+                                buildItem('split', Icons.format_align_left, 'Tách đoạn văn'),
+                                buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
+                              ];
+                            },
+                          ),
+                        ],
                       ),
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Tập của bạn',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
+                    );
+                  },
                 ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                ),
-                hint: const Text('Chọn tập'),
-                items: const [],
-                onChanged: (v) {},
-              ),
-              const SizedBox(height: 16),
-              const Text(
-                'Chọn phiên bản',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 8),
-              DropdownButtonFormField<String>(
-                isExpanded: true,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                  contentPadding: EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
-                  ),
-                ),
-                hint: const Text('Tạo bản nháp mới'),
-                items: const [],
-                onChanged: (v) {},
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  GestureDetector(
-                    onTap: () {},
-                    child: const Icon(Icons.delete, color: Colors.red, size: 16),
-                  ),
-                  const SizedBox(width: 8),
-                  const Expanded(
-                    child: Text(
-                      'Cần có 0/600 từ, 0/5 link, 0/3 Tiêu đề, 0/1 Hình ảnh',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: Colors.black87,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Tập của bạn',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
           ),
         ),
-        const Divider(height: 1),
-        Container(
-          color: Colors.white,
-          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-          child: Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.archive, size: 16),
-                  label: const Text('Lưu trữ'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.primary,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: () {},
-                  icon: const Icon(Icons.more_horiz, size: 16),
-                  label: const Text('Công cụ'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ),
-            ],
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
           ),
+          hint: const Text('Chọn tập'),
+          items: const [],
+          onChanged: (v) {},
+        ),
+        const SizedBox(height: 16),
+        const Text(
+          'Chọn phiên bản',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 14,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          isExpanded: true,
+          decoration: const InputDecoration(
+            border: OutlineInputBorder(),
+            isDense: true,
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 12,
+            ),
+          ),
+          hint: const Text('Tạo bản nháp mới'),
+          items: const [],
+          onChanged: (v) {},
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            GestureDetector(
+              onTap: () {},
+              child: const Icon(Icons.delete, color: Colors.red, size: 16),
+            ),
+            const SizedBox(width: 8),
+            const Expanded(
+              child: Text(
+                'Cần có 0/600 từ, 0/5 link, 0/3 Tiêu đề, 0/1 Hình ảnh',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 11,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ],
         ),
       ],
     );
   }
 
+  Widget _buildTabSaveFooter() {
+    final hasUuid = widget.uuid != null && widget.uuid!.isNotEmpty;
+
+    return Container(
+      color: Colors.white,
+      child: SafeArea(
+        top: false,
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            border: Border(top: BorderSide(color: AppColors.accent)),
+          ),
+          child: Row(
+            children: [
+              if (!hasUuid) ...[
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã lưu dữ liệu công việc!')),
+                      );
+                    },
+                    icon: const Icon(Icons.archive_outlined, size: 20, color: Colors.white),
+                    label: const Text('Lưu trữ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: AppStyles.primaryButton,
+                  ),
+                ),
+              ] else ...[
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đang thực hiện xuất bản...')),
+                      );
+                    },
+                    icon: const Icon(Icons.desktop_windows_outlined, size: 20, color: Colors.white),
+                    label: const Text('Xuất bản', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: AppStyles.primaryButton,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Mở danh mục công cụ...')),
+                      );
+                    },
+                    icon: const Icon(Icons.more_horiz, size: 20, color: Colors.white),
+                    label: const Text('Công cụ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    style: AppStyles.primaryButton.copyWith(
+                      backgroundColor: WidgetStateProperty.all(const Color(0xFF22C55E)),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildParagraphsTab() {
+    final promptCount = (_source['prompt'] as List?)?.length ?? 0;
+    final textCount = ((_source['text'] as List?)?.length ?? 0) + ((_source['chatgpt'] as List?)?.length ?? 0);
+    final imgCount = (_source['img'] as List?)?.length ?? (_thumbnailController.text.trim().isNotEmpty ? 1 : 0);
+    final videoCount = (_source['playlist']?[0]?['youtube'] as List?)?.length ?? 0;
+    final preCount = (_source['pre'] as List?)?.length ?? 0;
+    final wordCount = (_source['word'] as List?)?.length ?? 0;
+    final sourceCount = (_source['source'] as List?)?.length ?? 0;
+    final backlinkCount = (_source['a'] as List?)?.length ?? 0;
+
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       children: [
         _buildConfigHeader(),
         const SizedBox(height: 16),
+        // 1. Prompt công việc
         _buildActionCard(
-          title: 'Prompt công việc (${(_source['prompt'] as List?)?.length ?? 0})',
+          title: 'Prompt công việc ($promptCount)',
           titleColor: Colors.teal,
           borderColor: Colors.teal,
           initiallyExpanded: true,
@@ -1228,32 +1416,62 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
           contentWidgets: [_buildPromptBlockContent()],
         ),
         const SizedBox(height: 12),
+        // 2. Nội dung sáng tạo
         _buildActionCard(
-          title: 'Nội dung sáng tạo (${((_source['text'] as List?)?.length ?? 0) + ((_source['chatgpt'] as List?)?.length ?? 0)})',
+          title: 'Nội dung sáng tạo ($textCount)',
           iconPrefix: const Icon(Icons.article, size: 16, color: Colors.blue),
           titleColor: Colors.black87,
           initiallyExpanded: true,
           actions: [
-            _buildIconBtn(Icons.copy, Colors.orange),
-            _buildIconBtn(Icons.add, Colors.teal),
-            _buildIconBtn(Icons.menu, Colors.blue),
-            _buildIconBtn(Icons.delete, Colors.red),
+            _buildIconBtn(Icons.copy, Colors.orange, tooltip: 'Sao chép tất cả', onPressed: () {
+              final textList = (_source['text'] as List?) ?? [];
+              final fullText = textList.map((e) => _cleanHtmlText(e.toString())).join('\n\n');
+              if (fullText.isNotEmpty) {
+                Clipboard.setData(ClipboardData(text: fullText));
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Đã sao chép tất cả nội dung sáng tạo!')),
+                );
+              }
+            }),
+            _buildIconBtn(Icons.add, Colors.teal, tooltip: 'Thêm mới đoạn văn', onPressed: () {
+              _editPrompt(null, '', targetKey: 'text');
+            }),
+            _buildIconBtn(Icons.delete, Colors.red, tooltip: 'Xoá tất cả', onPressed: () {
+              setState(() {
+                _source['text'] = [];
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã xoá tất cả nội dung sáng tạo!')),
+              );
+            }),
           ],
           contentWidgets: [_buildParagraphList()],
         ),
         const SizedBox(height: 12),
+        // 3. Hình ảnh sang bài viết
         _buildActionCard(
-          title: 'Phân tích Hình ảnh (${(_source['img'] as List?)?.length ?? 0})',
+          title: 'Hình ảnh sang bài viết ($imgCount)',
           iconPrefix: const Icon(Icons.image, size: 16, color: Colors.green),
           titleColor: Colors.black87,
+          initiallyExpanded: true,
           actions: [
-            _buildIconBtn(Icons.upload, Colors.teal),
-            _buildIconBtn(Icons.cloud_queue, Colors.blue),
+            _buildIconBtn(Icons.upload, Colors.teal, tooltip: 'Tải ảnh lên', onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Tính năng tải hình ảnh đang phát triển.')),
+              );
+            }),
+            _buildIconBtn(Icons.cloud_queue, Colors.blue, tooltip: 'Phân tích AI', onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đang phân tích hình ảnh bằng AI...')),
+              );
+            }),
           ],
+          contentWidgets: [_buildImageList()],
         ),
         const SizedBox(height: 12),
+        // 4. Video sang bài viết
         _buildActionCard(
-          title: 'Phân tích Video (0)',
+          title: 'Video sang bài viết ($videoCount)',
           iconPrefix: const Icon(
             Icons.videocam,
             size: 16,
@@ -1280,62 +1498,65 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                   style: TextStyle(fontSize: 13),
                 ),
               ),
-              const Text(
-                's/f',
-                style: TextStyle(fontSize: 12, color: Colors.grey),
-              ),
+              const Text('Phút'),
             ],
           ),
           actions: [
-            _buildIconBtn(Icons.link, Colors.blue),
-            _buildIconBtn(Icons.note_add, Colors.green),
+            _buildIconBtn(Icons.link, Colors.blue, tooltip: 'Thêm link Video', onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Nhập link Youtube/Facebook để phân tích video.')),
+              );
+            }),
+            _buildIconBtn(Icons.add, Colors.teal, tooltip: 'Thêm video mới', onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Thêm video mới.')),
+              );
+            }),
           ],
         ),
         const SizedBox(height: 12),
+        // 5. Gợi ý Prompt
         _buildActionCard(
-          title: 'Gợi ý Prompt cho bạn (0)',
-          iconPrefix: const Icon(
-            Icons.format_list_bulleted,
-            size: 16,
-            color: Colors.orange,
-          ),
+          title: 'Gợi ý Prompt ($preCount)',
+          iconPrefix: const Icon(Icons.list_alt, size: 16, color: Colors.orange),
           titleColor: Colors.black87,
+          contentWidgets: _buildHtmlList(_source['pre']),
         ),
         const SizedBox(height: 12),
+        // 6. Từ điển tri thức
         _buildActionCard(
-          title: 'Từ điển kiến thức',
-          iconPrefix: const Icon(
-            Icons.menu_book,
-            size: 16,
-            color: Colors.amber,
-          ),
+          title: 'Từ điển tri thức ($wordCount)',
+          iconPrefix: const Icon(Icons.menu_book, size: 16, color: Colors.amber),
           titleColor: Colors.black87,
           actions: [
-            _buildIconBtn(Icons.menu, Colors.blue),
-            _buildIconBtn(Icons.delete, Colors.red),
+            _buildIconBtn(Icons.format_align_left, Colors.blue, tooltip: 'Chuyển xuống dàn ý', onPressed: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text('Đã chuyển xuống dàn ý.')),
+              );
+            }),
+            _buildIconBtn(Icons.delete, Colors.red, tooltip: 'Xoá từ điển', onPressed: () {
+              setState(() {
+                _source['word'] = [];
+              });
+            }),
           ],
+          contentWidgets: _buildHtmlList(_source['word']),
         ),
         const SizedBox(height: 12),
+        // 7. Nguồn khác
         _buildActionCard(
-          title: 'Nguồn khác (0)',
+          title: 'Nguồn khác ($sourceCount)',
           iconPrefix: const Icon(Icons.public, size: 16, color: Colors.grey),
           titleColor: Colors.black87,
+          contentWidgets: _buildHtmlList(_source['source']),
         ),
         const SizedBox(height: 12),
+        // 8. Thêm Backlink
         _buildActionCard(
-          title: 'Chèn backlink (0)',
+          title: 'Thêm Backlink ($backlinkCount)',
           iconPrefix: const Icon(Icons.link, size: 16, color: Colors.orange),
           titleColor: Colors.black87,
-        ),
-        const SizedBox(height: 12),
-        _buildActionCard(
-          title: 'Từ khoá (0)',
-          iconPrefix: const Icon(
-            Icons.local_offer,
-            size: 16,
-            color: Colors.grey,
-          ),
-          titleColor: Colors.black87,
+          contentWidgets: _buildHtmlList(_source['a']),
         ),
       ],
     );
@@ -1350,6 +1571,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     final h6Count = (_source['h6'] as List?)?.length ?? 0;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       children: [
         _buildActionCard(
@@ -1395,12 +1617,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     final pCount = (_source['p'] as List?)?.length ?? 0;
     final aCount = (_source['a'] as List?)?.length ?? 0;
     final imgCount = (_source['img'] as List?)?.length ?? 0;
-    final tableCount = (_source['table'] as List?)?.length ?? 0;
-    final ulCount = (_source['ul'] as List?)?.length ?? 0;
-    final blockquoteCount = (_source['blockquote'] as List?)?.length ?? 0;
-    final figureCount = (_source['figure'] as List?)?.length ?? 0;
 
     return ListView(
+      physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       children: [
         _buildActionCard(
@@ -1441,74 +1660,66 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   }
 
   Widget _buildRichText(String htmlStr) {
-    final RegExp aTagRegExp = RegExp(r'<a[^>]*>(.*?)<\/a>', caseSensitive: false, dotAll: true);
-    
-    if (aTagRegExp.hasMatch(htmlStr)) {
-      List<InlineSpan> spans = [];
-      int lastEnd = 0;
-      
-      for (final Match match in aTagRegExp.allMatches(htmlStr)) {
-        if (match.start > lastEnd) {
-          String before = htmlStr.substring(lastEnd, match.start);
-          String cleanBefore = _cleanHtmlText(before);
-          if (cleanBefore.isNotEmpty) {
-            spans.add(TextSpan(text: cleanBefore));
-          }
-        }
-        
-        String linkContent = match.group(1) ?? '';
-        String cleanLink = _cleanHtmlText(linkContent);
-        if (cleanLink.isNotEmpty) {
-          spans.add(TextSpan(
-            text: cleanLink,
-            style: const TextStyle(
-              color: AppColors.primary,
-              fontWeight: FontWeight.w600,
+    if (htmlStr.isEmpty) return const SizedBox.shrink();
+
+    final List<InlineSpan> spans = [];
+    final tagRegExp = RegExp(r'</?(?:b|strong|i|em|u|h[1-6]|p|a)[^>]*>|[^<]+', caseSensitive: false);
+    final matches = tagRegExp.allMatches(htmlStr);
+
+    bool isBold = false;
+    bool isItalic = false;
+    bool isUnderline = false;
+    bool isHeading = false;
+
+    for (final match in matches) {
+      final text = match.group(0) ?? '';
+      final lower = text.toLowerCase();
+
+      if (lower == '<b>' || lower == '<strong>') {
+        isBold = true;
+      } else if (lower == '</b>' || lower == '</strong>') {
+        isBold = false;
+      } else if (lower == '<i>' || lower == '<em>') {
+        isItalic = true;
+      } else if (lower == '</i>' || lower == '</em>') {
+        isItalic = false;
+      } else if (lower == '<u>') {
+        isUnderline = true;
+      } else if (lower == '</u>') {
+        isUnderline = false;
+      } else if (lower.startsWith('<h')) {
+        isHeading = true;
+      } else if (lower.startsWith('</h')) {
+        isHeading = false;
+        spans.add(const TextSpan(text: '\n'));
+      } else if (lower == '<p>') {
+        // paragraph start
+      } else if (lower == '</p>') {
+        spans.add(const TextSpan(text: '\n'));
+      } else if (text.startsWith('<') && text.endsWith('>')) {
+        // ignore other tags
+      } else {
+        spans.add(
+          TextSpan(
+            text: text,
+            style: TextStyle(
+              fontSize: isHeading ? 17 : 14,
+              fontWeight: (isBold || isHeading) ? FontWeight.bold : FontWeight.normal,
+              fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
+              decoration: isUnderline ? TextDecoration.underline : TextDecoration.none,
+              color: isHeading ? Colors.teal.shade900 : Colors.black87,
+              height: 1.4,
             ),
-          ));
-        }
-        
-        lastEnd = match.end;
-      }
-      
-      if (lastEnd < htmlStr.length) {
-        String remaining = htmlStr.substring(lastEnd);
-        String cleanRemaining = _cleanHtmlText(remaining);
-        if (cleanRemaining.isNotEmpty) {
-          spans.add(TextSpan(text: cleanRemaining));
-        }
-      }
-      
-      if (spans.isNotEmpty) {
-        return Text.rich(
-          TextSpan(style: const TextStyle(fontSize: 14, color: Colors.black87), children: spans),
+          ),
         );
       }
     }
 
-    String cleanText = _cleanHtmlText(htmlStr);
-    if (cleanText.toLowerCase().startsWith('xem thêm:')) {
-      return Text.rich(
-        TextSpan(
-          style: const TextStyle(fontSize: 14, color: Colors.black87),
-          children: [
-            const TextSpan(
-              text: 'Xem thêm: ',
-              style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-            ),
-            TextSpan(
-              text: cleanText.substring('xem thêm:'.length).trimLeft(),
-              style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w500),
-            ),
-          ],
-        ),
-      );
+    if (spans.isEmpty) {
+      return Text(htmlStr, style: const TextStyle(fontSize: 14, color: Colors.black87));
     }
 
-    return Text(
-      cleanText.isEmpty ? htmlStr : cleanText,
-      style: const TextStyle(fontSize: 14, color: Colors.black87),
-    );
+    return Text.rich(TextSpan(children: spans));
   }
 
   List<Widget>? _buildHtmlList(dynamic sourceList) {
@@ -1551,11 +1762,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                 isDense: true,
                 contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 10),
               ),
-              value: (_styles.any((s) => s['name'] == _selectedStyle)
-                      ? _selectedStyle
-                      : (_styles.isNotEmpty ? _styles.first['name'] : null)),
+              value: (() {
+                final names = _styles.map((s) => (s is Map && s['name'] != null) ? s['name'].toString() : s.toString()).toList();
+                if (names.contains(_selectedStyle)) return _selectedStyle;
+                return names.isNotEmpty ? names.first : null;
+              })(),
               items: _styles.map((s) {
-                final styleName = s['name'].toString();
+                final styleName = (s is Map && s['name'] != null) ? s['name'].toString() : s.toString();
                 return DropdownMenuItem(
                   value: styleName,
                   child: Text(
@@ -1644,6 +1857,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
             dense: true,
             initiallyExpanded: initiallyExpanded,
             minTileHeight: 44,
+            childrenPadding: EdgeInsets.zero,
             tilePadding: const EdgeInsets.symmetric(
               horizontal: 16,
               vertical: 0,
@@ -1691,17 +1905,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
     final chatgptList = (_source['chatgpt'] as List?) ?? [];
     final list = [...textList, ...chatgptList];
     if (list.isEmpty) {
-      return Container(
-        padding: const EdgeInsets.all(16),
-        height: 150,
-        alignment: Alignment.topLeft,
-        child: const Text(
-          'Click 2 lần vào đoạn văn này để chỉnh sửa.',
-          style: TextStyle(color: Colors.black87),
-        ),
-      );
+      return const SizedBox.shrink();
     }
-    
+
     return ListView.separated(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -1709,45 +1915,171 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final htmlStr = list[index].toString();
+        return InkWell(
+          onDoubleTap: () => _editPrompt(index, htmlStr, targetKey: 'text'),
+          child: Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: _buildRichText(htmlStr),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                  onSelected: (value) {
+                    if (value == 'edit') {
+                      _editPrompt(index, htmlStr, targetKey: 'text');
+                    } else if (value == 'copy') {
+                      final textOnly = _cleanHtmlText(htmlStr);
+                      Clipboard.setData(ClipboardData(text: textOnly));
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã sao chép đoạn văn!')),
+                      );
+                    } else if (value == 'delete') {
+                      setState(() {
+                        if (_source['text'] != null && _source['text'] is List && index < (_source['text'] as List).length) {
+                          (_source['text'] as List).removeAt(index);
+                        }
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Đã xoá đoạn văn!')),
+                      );
+                    }
+                  },
+                  itemBuilder: (BuildContext context) {
+                    PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
+                      return PopupMenuItem<String>(
+                        value: val,
+                        child: Row(
+                          children: [
+                            Icon(icon, size: 16, color: Colors.grey.shade700),
+                            const SizedBox(width: 12),
+                            Text(text, style: const TextStyle(fontSize: 14)),
+                          ],
+                        ),
+                      );
+                    }
+
+                    return <PopupMenuEntry<String>>[
+                      buildItem('copy', Icons.copy, 'Sao chép'),
+                      buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
+                      buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
+                    ];
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildImageList() {
+    final List<String> imageUrls = [];
+
+    final thumb = _thumbnailController.text.trim();
+    if (thumb.isNotEmpty) {
+      imageUrls.add(thumb);
+    }
+
+    final imgList = (_source['img'] as List?) ?? (_source['image'] as List?) ?? [];
+    for (var item in imgList) {
+      final str = item.toString();
+      final match = RegExp('src="([^"]+)"', caseSensitive: false).firstMatch(str) ??
+          RegExp("src='([^']+)'", caseSensitive: false).firstMatch(str);
+      if (match != null && match.group(1) != null) {
+        final url = match.group(1)!;
+        if (!imageUrls.contains(url)) imageUrls.add(url);
+      } else if (str.startsWith('http://') || str.startsWith('https://')) {
+        if (!imageUrls.contains(str)) imageUrls.add(str);
+      }
+    }
+
+    if (imageUrls.isEmpty) {
+      return const SizedBox.shrink();
+    }
+
+    return ListView.separated(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: imageUrls.length,
+      separatorBuilder: (_, __) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final url = imageUrls[index];
+        final isThumb = index == 0 && thumb.isNotEmpty && url == thumb;
+
         return Padding(
           padding: const EdgeInsets.all(12.0),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: _buildRichText(htmlStr),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 240),
+                    decoration: BoxDecoration(
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: Colors.grey.shade200),
+                    ),
+                    child: Image.network(
+                      url,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 140,
+                        color: Colors.grey.shade200,
+                        child: const Center(
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.broken_image, color: Colors.grey, size: 28),
+                              SizedBox(height: 4),
+                              Text('Không thể tải hình ảnh', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               ),
               PopupMenuButton<String>(
                 icon: const Icon(Icons.more_horiz, color: Colors.grey),
                 onSelected: (value) {
-                  // TODO: implement
-                },
-                itemBuilder: (BuildContext context) {
-                  PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
-                    return PopupMenuItem<String>(
-                      value: val,
-                      child: Row(
-                        children: [
-                          Icon(icon, size: 16, color: Colors.grey.shade700),
-                          const SizedBox(width: 12),
-                          Text(text, style: const TextStyle(fontSize: 14)),
-                        ],
-                      ),
+                  if (value == 'copy') {
+                    Clipboard.setData(ClipboardData(text: url));
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã sao chép liên kết hình ảnh vào khay nhớ tạm!')),
+                    );
+                  } else if (value == 'delete') {
+                    setState(() {
+                      if (isThumb) {
+                        _thumbnailController.clear();
+                      }
+                      if (_source['img'] != null && _source['img'] is List) {
+                        (_source['img'] as List).removeWhere((e) => e.toString().contains(url));
+                      }
+                    });
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Đã xoá hình ảnh!')),
                     );
                   }
-
-                  return <PopupMenuEntry<String>>[
-                    buildItem('copy', Icons.copy, 'Sao chép'),
-                    buildItem('html', Icons.code, 'HTML code'),
-                    buildItem('mp3', Icons.volume_up, 'Chuyển sang mp3'),
-                    buildItem('outline', Icons.keyboard_double_arrow_right, 'Chuyển xuống dàn ý'),
-                    buildItem('split', Icons.format_align_left, 'Tách đoạn văn'),
-                    buildItem('comment', Icons.chat_bubble_outline, 'Bình luận'),
-                    buildItem('keyword', Icons.local_offer, 'Từ khoá'),
-                    buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
-                    buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
-                  ];
                 },
+                itemBuilder: (context) => [
+                  const PopupMenuItem(
+                    value: 'copy',
+                    child: Row(children: [Icon(Icons.copy, size: 16), SizedBox(width: 8), Text('Sao chép liên kết')]),
+                  ),
+                  const PopupMenuItem(
+                    value: 'delete',
+                    child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xoá hình ảnh', style: TextStyle(color: Colors.red))]),
+                  ),
+                ],
               ),
             ],
           ),
@@ -1755,146 +2087,419 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
       },
     );
   }
-
   void _addPrompt(String text) {
-    final cleanText = _cleanHtmlText(text);
-    if (cleanText.isEmpty) return;
+    final promptStr = text.trim();
+    if (promptStr.isEmpty) return;
     setState(() {
       if (_source['prompt'] == null || _source['prompt'] is! List) {
         _source['prompt'] = [];
       }
-      (_source['prompt'] as List).add(cleanText);
+      (_source['prompt'] as List).add(promptStr);
       _promptInputController.clear();
     });
   }
 
-  void _editPrompt(int? index, String currentText) {
-    final cleanInitialText = _cleanHtmlText(currentText);
-    final editController = TextEditingController(text: cleanInitialText);
+  void _editPrompt(int? index, String currentText, {String targetKey = 'prompt', String? customTitle}) {
+    late final quill.QuillController quillController;
+    try {
+      final cleanText = currentText.replaceAll(RegExp(r'<[^>]*>'), '');
+      final textToInsert = cleanText.isEmpty ? '\n' : (cleanText.endsWith('\n') ? cleanText : '$cleanText\n');
+      quillController = quill.QuillController(
+        document: quill.Document()..insert(0, textToInsert),
+        selection: const TextSelection.collapsed(offset: 0),
+      );
+    } catch (_) {
+      quillController = quill.QuillController.basic();
+    }
+
+    bool isVoiceRecording = false;
+    bool isAiProcessing = false;
+    String recordedVoicePrompt = '';
+    final stt.SpeechToText voiceSpeech = stt.SpeechToText();
+    Timer? voiceTimer;
 
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       useSafeArea: true,
+      enableDrag: false,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.5,
-        minChildSize: 0.3,
-        maxChildSize: 1.0,
-        expand: false,
-        builder: (context, scrollController) {
-          return Container(
-            padding: EdgeInsets.only(
-              bottom: MediaQuery.of(context).viewInsets.bottom + 12,
-              left: 16,
-              right: 16,
-              top: 12,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. Header Drag Handle & Title (connected to scrollController for drag gestures)
-                SingleChildScrollView(
-                  controller: scrollController,
-                  physics: const ClampingScrollPhysics(),
-                  child: Column(
-                    children: [
-                      Center(
-                        child: Container(
-                          width: 44,
-                          height: 5,
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.grey.shade400,
-                            borderRadius: BorderRadius.circular(2.5),
-                          ),
-                        ),
-                      ),
-                      Center(
-                        child: Text(
-                          index == null ? 'Thêm mới Prompt' : 'Chỉnh sửa Prompt',
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                    ],
-                  ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (modalCtx, setModalState) {
+          return DraggableScrollableSheet(
+            initialChildSize: 0.65,
+            minChildSize: 0.4,
+            maxChildSize: 1.0,
+            expand: false,
+            builder: (context, scrollController) {
+              return Container(
+                padding: EdgeInsets.only(
+                  bottom: MediaQuery.of(context).viewInsets.bottom + 12,
+                  left: 16,
+                  right: 16,
+                  top: 12,
                 ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // 1. Header Drag Handle & Title
+                    SingleChildScrollView(
+                      controller: scrollController,
+                      physics: const ClampingScrollPhysics(),
+                      child: Column(
+                        children: [
+                          Center(
+                            child: Container(
+                              width: 44,
+                              height: 5,
+                              margin: const EdgeInsets.only(bottom: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade400,
+                                borderRadius: BorderRadius.circular(2.5),
+                              ),
+                            ),
+                          ),
+                          Center(
+                            child: Text(
+                              customTitle ??
+                                  (index == null
+                                      ? (targetKey == 'prompt' ? 'Thêm mới Prompt' : 'Thêm mới Đoạn văn')
+                                      : (targetKey == 'prompt' ? 'Chỉnh sửa Prompt' : 'Chỉnh sửa Đoạn văn')),
+                              style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                        ],
+                      ),
+                    ),
 
-                // 2. Middle Body (TextField & Tags) - Expands to fill available sheet height
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        TextField(
-                          controller: editController,
-                          maxLines: null,
-                          minLines: 6,
-                          decoration: const InputDecoration(
-                            border: OutlineInputBorder(),
-                            hintText: 'Nhập nội dung prompt...',
-                            alignLabelWithHint: true,
+                    // 2. Official Quill Editor Container
+                    Expanded(
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: Colors.grey.shade300),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: quill.QuillEditor.basic(
+                          controller: quillController,
+                          config: quill.QuillEditorConfig(
+                            customStyles: quill.DefaultStyles(
+                              paragraph: quill.DefaultTextBlockStyle(
+                                const TextStyle(fontSize: 15, color: Colors.black87, height: 1.4),
+                                const quill.HorizontalSpacing(0, 0),
+                                const quill.VerticalSpacing(0, 0),
+                                const quill.VerticalSpacing(0, 0),
+                                null,
+                              ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        SingleChildScrollView(
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+
+                    // 3. Compact Quill Toolbar with Heading Selector, Dividers & Optimal Icon Size
+                    (() {
+                      final style = quillController.getSelectionStyle();
+                      final isBold = style.containsKey(quill.Attribute.bold.key);
+                      final isItalic = style.containsKey(quill.Attribute.italic.key);
+                      final isUnderline = style.containsKey(quill.Attribute.underline.key);
+                      final isLink = style.containsKey(quill.Attribute.link.key);
+
+                      final headerAttr = style.attributes[quill.Attribute.header.key];
+                      int headerLevel = 0;
+                      if (headerAttr != null && headerAttr.value is int) {
+                        headerLevel = headerAttr.value as int;
+                      }
+
+                      Widget buildDivider() {
+                        return Container(
+                          width: 1,
+                          height: 18,
+                          margin: const EdgeInsets.symmetric(horizontal: 4),
+                          color: Colors.grey.shade300,
+                        );
+                      }
+
+                      Widget buildBtn({required IconData icon, required bool isActive, required VoidCallback onTap}) {
+                        return InkWell(
+                          onTap: onTap,
+                          borderRadius: BorderRadius.circular(6),
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isActive ? AppColors.primary.withOpacity(0.12) : Colors.transparent,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Icon(
+                              icon,
+                              size: 20,
+                              color: isActive ? AppColors.primary : const Color(0xFF475569),
+                            ),
+                          ),
+                        );
+                      }
+
+                      return Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Colors.grey.shade300),
+                        ),
+                        child: SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
+                            mainAxisSize: MainAxisSize.min,
                             children: [
-                              _buildVariableChipDialog(editController, '{title}', 'Tiêu đề'),
-                              const SizedBox(width: 4),
-                              _buildVariableChipDialog(editController, '{url}', 'URL'),
-                              const SizedBox(width: 4),
-                              _buildVariableChipDialog(editController, '{domain}', 'Tên miền'),
-                              const SizedBox(width: 4),
-                              _buildVariableChipDialog(editController, '{style}', 'Phong cách'),
+                              // Heading Selector Dropdown
+                              DropdownButtonHideUnderline(
+                                child: DropdownButton<int>(
+                                  value: headerLevel,
+                                  isDense: true,
+                                  icon: const Icon(Icons.arrow_drop_down, size: 18, color: Color(0xFF475569)),
+                                  style: const TextStyle(fontSize: 13, color: Color(0xFF334155), fontWeight: FontWeight.w600),
+                                  onChanged: (newLevel) {
+                                    if (newLevel == null) return;
+                                    if (newLevel == 0) {
+                                      quillController.formatSelection(quill.Attribute.clone(quill.Attribute.header, null));
+                                    } else if (newLevel == 1) {
+                                      quillController.formatSelection(quill.Attribute.h1);
+                                    } else if (newLevel == 2) {
+                                      quillController.formatSelection(quill.Attribute.h2);
+                                    } else if (newLevel == 3) {
+                                      quillController.formatSelection(quill.Attribute.h3);
+                                    }
+                                    setModalState(() {});
+                                  },
+                                  items: const [
+                                    DropdownMenuItem(value: 0, child: Text('Normal')),
+                                    DropdownMenuItem(value: 1, child: Text('Heading 1')),
+                                    DropdownMenuItem(value: 2, child: Text('Heading 2')),
+                                    DropdownMenuItem(value: 3, child: Text('Heading 3')),
+                                  ],
+                                ),
+                              ),
+                              buildDivider(),
+                              buildBtn(
+                                icon: Icons.format_bold_rounded,
+                                isActive: isBold,
+                                onTap: () {
+                                  quillController.formatSelection(
+                                    isBold ? quill.Attribute.clone(quill.Attribute.bold, null) : quill.Attribute.bold,
+                                  );
+                                  setModalState(() {});
+                                },
+                              ),
+                              buildDivider(),
+                              buildBtn(
+                                icon: Icons.format_italic_rounded,
+                                isActive: isItalic,
+                                onTap: () {
+                                  quillController.formatSelection(
+                                    isItalic ? quill.Attribute.clone(quill.Attribute.italic, null) : quill.Attribute.italic,
+                                  );
+                                  setModalState(() {});
+                                },
+                              ),
+                              buildDivider(),
+                              buildBtn(
+                                icon: Icons.format_underlined_rounded,
+                                isActive: isUnderline,
+                                onTap: () {
+                                  quillController.formatSelection(
+                                    isUnderline ? quill.Attribute.clone(quill.Attribute.underline, null) : quill.Attribute.underline,
+                                  );
+                                  setModalState(() {});
+                                },
+                              ),
+                              buildDivider(),
+                              buildBtn(
+                                icon: Icons.link_rounded,
+                                isActive: isLink,
+                                onTap: () {
+                                  final selection = quillController.selection;
+                                  if (selection.isValid && !selection.isCollapsed) {
+                                    quillController.formatSelection(
+                                      isLink ? quill.Attribute.clone(quill.Attribute.link, null) : quill.LinkAttribute('https://'),
+                                    );
+                                  } else {
+                                    quillController.formatSelection(quill.LinkAttribute('https://'));
+                                  }
+                                  setModalState(() {});
+                                },
+                              ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 8),
-                      ],
-                    ),
-                  ),
-                ),
+                      );
+                    })(),
+                    const SizedBox(height: 8),
 
-                // 3. Fixed Footer Buttons (Always visible at the bottom)
-                const Divider(height: 1),
-                const SizedBox(height: 8),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
-                  children: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx),
-                      child: const Text('Hủy'),
-                    ),
+                    // 4. Fixed Footer Buttons (Hold-to-speak Voice logic like AI Agent Chat)
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Listener(
+                          onPointerDown: (_) {
+                            if (isAiProcessing) return;
+                            recordedVoicePrompt = '';
+                            voiceTimer = Timer(const Duration(milliseconds: 200), () async {
+                              bool available = await voiceSpeech.initialize(
+                                onStatus: (status) {
+                                  if (status == 'done' || status == 'notListening') {
+                                    setModalState(() => isVoiceRecording = false);
+                                  }
+                                },
+                                onError: (err) {
+                                  debugPrint('Speech STT Error: $err');
+                                  setModalState(() => isVoiceRecording = false);
+                                },
+                              );
+                              if (available) {
+                                setModalState(() => isVoiceRecording = true);
+                                voiceSpeech.listen(
+                                  onResult: (result) {
+                                    recordedVoicePrompt = result.recognizedWords;
+                                    debugPrint('Speech STT Result: ${result.recognizedWords}');
+                                  },
+                                  listenOptions: stt.SpeechListenOptions(
+                                    localeId: 'vi_VN',
+                                  ),
+                                );
+                              }
+                            });
+                          },
+                          onPointerUp: (_) async {
+                            voiceTimer?.cancel();
+                            bool wasRecording = isVoiceRecording;
+                            setModalState(() {
+                              isVoiceRecording = false;
+                              isAiProcessing = true;
+                            });
+
+                            try {
+                              if (wasRecording) {
+                                await voiceSpeech.stop();
+                                await Future.delayed(const Duration(milliseconds: 200));
+                              }
+
+                              final voicePrompt = recordedVoicePrompt.trim();
+                              final currentEditorText = quillController.document.toPlainText().trim();
+
+                              debugPrint('PointerUp - voicePrompt: "$voicePrompt", editorText: "$currentEditorText"');
+
+                              if (voicePrompt.isNotEmpty || currentEditorText.isNotEmpty) {
+                                String aiPrompt;
+                                if (voicePrompt.isNotEmpty && currentEditorText.isNotEmpty) {
+                                  aiPrompt = 'Nội dung hiện tại:\n$currentEditorText\n\nYêu cầu chỉnh sửa: $voicePrompt\n\nHãy chỉnh sửa hoặc viết lại nội dung trên theo đúng yêu cầu. Chỉ trả về văn bản kết quả đã hoàn thiện, không kèm thêm lời giải thích hay ký tự markdown/JSON.';
+                                } else if (voicePrompt.isNotEmpty) {
+                                  aiPrompt = 'Yêu cầu: $voicePrompt\n\nHãy viết nội dung theo yêu cầu trên. Chỉ trả về văn bản kết quả, không kèm lời giải thích hay ký tự markdown/JSON.';
+                                } else {
+                                  aiPrompt = 'Nội dung hiện tại:\n$currentEditorText\n\nHãy chỉnh sửa, tối ưu và viết lại nội dung trên cho mượt mà, chuyên nghiệp hơn. Chỉ trả về văn bản kết quả, không kèm lời giải thích hay ký tự markdown/JSON.';
+                                }
+
+                                debugPrint('--- SENDING AI PROMPT: $aiPrompt ---');
+                                String aiResult = '';
+                                final res = await ApiService.askChatGpt(aiPrompt);
+                                debugPrint('--- askChatGpt RESPONSE: $res ---');
+
+                                if (res != null) {
+                                  if (res['data'] != null && res['data']['answer'] != null) {
+                                    aiResult = res['data']['answer'].toString();
+                                  } else if (res['answer'] != null) {
+                                    aiResult = res['answer'].toString();
+                                  } else if (res['message'] != null) {
+                                    aiResult = res['message'].toString();
+                                  } else if (res['text'] != null) {
+                                    aiResult = res['text'].toString();
+                                  } else {
+                                    aiResult = res.toString();
+                                  }
+                                }
+
+                                if (aiResult.trim().isEmpty) {
+                                  debugPrint('--- FALLING BACK TO askSonTinhAgent ---');
+                                  final agentRes = await ApiService.askSonTinhAgent(aiPrompt, '[]');
+                                  debugPrint('--- askSonTinhAgent RESPONSE: $agentRes ---');
+                                  if (agentRes != null && agentRes.trim().isNotEmpty) {
+                                    aiResult = agentRes;
+                                  }
+                                }
+
+                                aiResult = aiResult.replaceAll('```markdown', '').replaceAll('```json', '').replaceAll('```', '').trim();
+                                if (aiResult.isNotEmpty) {
+                                  quillController.document = quill.Document()..insert(0, '$aiResult\n');
+                                }
+                              }
+                            } catch (e, stack) {
+                              debugPrint('AI process voice prompt error: $e\n$stack');
+                            } finally {
+                              setModalState(() => isAiProcessing = false);
+                            }
+                          },
+                          onPointerCancel: (_) async {
+                            voiceTimer?.cancel();
+                            if (isVoiceRecording) {
+                              setModalState(() => isVoiceRecording = false);
+                              await voiceSpeech.stop();
+                            }
+                          },
+                          child: ElevatedButton.icon(
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: isVoiceRecording
+                                  ? Colors.red
+                                  : (isAiProcessing ? const Color(0xFF5B21B6) : const Color(0xFF7C3AED)),
+                              foregroundColor: Colors.white,
+                              disabledForegroundColor: Colors.white,
+                              disabledBackgroundColor: const Color(0xFF5B21B6),
+                            ),
+                            onPressed: isAiProcessing ? null : () {},
+                            icon: isAiProcessing
+                                ? const SizedBox(
+                                    width: 14,
+                                    height: 14,
+                                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                                  )
+                                : Icon(isVoiceRecording ? Icons.mic : Icons.mic_rounded, size: 18, color: Colors.white),
+                            label: Text(
+                              isVoiceRecording
+                                  ? 'Đang thu...'
+                                  : (isAiProcessing ? 'AI đang sửa...' : 'AI sửa'),
+                            ),
+                          ),
+                        ),
                     const SizedBox(width: 8),
-                    ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: AppColors.primary,
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(horizontal: 24),
-                      ),
+                    ElevatedButton.icon(
+                      style: AppStyles.primaryButton,
                       onPressed: () {
-                        final newText = _cleanHtmlText(editController.text);
+                        final newText = quillController.document.toPlainText().trim();
                         if (newText.isNotEmpty) {
                           setState(() {
-                            if (_source['prompt'] == null || _source['prompt'] is! List) {
-                              _source['prompt'] = [];
+                            if (_source[targetKey] == null || _source[targetKey] is! List) {
+                              _source[targetKey] = [];
                             }
-                            if (index != null) {
-                              (_source['prompt'] as List)[index] = newText;
+                            final list = _source[targetKey] as List;
+                            final valToInsert = targetKey == 'prompt'
+                                ? newText
+                                : (newText.startsWith('<p') ? newText : '<p id="source-p-${DateTime.now().millisecondsSinceEpoch}">$newText</p>');
+
+                            if (index != null && index >= 0 && index < list.length) {
+                              list[index] = valToInsert;
                             } else {
-                              (_source['prompt'] as List).add(newText);
+                              list.add(valToInsert);
                             }
                           });
                         }
                         Navigator.pop(ctx);
                       },
-                      child: const Text('Lưu'),
+                      icon: const Icon(Icons.save_rounded, size: 18),
+                      label: const Text('Lưu'),
                     ),
                   ],
                 ),
@@ -1902,37 +2507,235 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
             ),
           );
         },
+      );
+    },
+  ),
+);
+}
+
+  Widget _buildFormatChip(TextEditingController controller, String openTag, String closeTag, String label, IconData icon) {
+    return InkWell(
+      onTap: () {
+        final text = controller.text;
+        final selection = controller.selection;
+        if (selection.isValid && selection.start >= 0 && selection.end > selection.start) {
+          final selectedText = text.substring(selection.start, selection.end);
+          final replacement = '$openTag$selectedText$closeTag';
+          final newText = text.replaceRange(selection.start, selection.end, replacement);
+          final newCursorPos = selection.start + replacement.length;
+          controller.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: newCursorPos),
+          );
+        } else if (selection.isValid && selection.start >= 0) {
+          final replacement = '$openTag$closeTag';
+          final cursorPos = selection.start;
+          final newText = text.replaceRange(cursorPos, cursorPos, replacement);
+          controller.value = TextEditingValue(
+            text: newText,
+            selection: TextSelection.collapsed(offset: cursorPos + openTag.length),
+          );
+        } else {
+          final replacement = '$openTag$closeTag';
+          controller.value = TextEditingValue(
+            text: text + replacement,
+            selection: TextSelection.collapsed(offset: text.length + openTag.length),
+          );
+        }
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: Colors.teal.shade50,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: Colors.teal.shade200),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: Colors.teal.shade800),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(fontSize: 12, color: Colors.teal.shade900, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildVariableChipDialog(TextEditingController controller, String tag, String label) {
-    return InkWell(
-      onTap: () {
-        final text = controller.text;
-        final selection = controller.selection;
-        if (selection.isValid && selection.start >= 0) {
-          final newText = text.replaceRange(selection.start, selection.end, tag);
-          controller.value = TextEditingValue(
-            text: newText,
-            selection: TextSelection.collapsed(offset: selection.start + tag.length),
-          );
-        } else {
-          controller.text = text + tag;
-        }
+    return _buildFormatChip(controller, tag, '', label, Icons.code);
+  }
+
+  void _showVoicePromptDialog(BuildContext parentContext, TextEditingController controller) {
+    bool isListening = false;
+    bool isInit = false;
+    final speechTextController = TextEditingController();
+    final stt.SpeechToText speech = stt.SpeechToText();
+
+    showDialog(
+      context: parentContext,
+      barrierDismissible: true,
+      builder: (dCtx) {
+        return StatefulBuilder(
+          builder: (context, setVoiceState) {
+            void stopListening() async {
+              try {
+                await speech.stop();
+              } catch (_) {}
+              if (context.mounted) setVoiceState(() => isListening = false);
+            }
+
+            void startListening() async {
+              bool available = await speech.initialize(
+                onStatus: (status) {
+                  if (status == 'done' || status == 'notListening') {
+                    if (context.mounted) setVoiceState(() => isListening = false);
+                  }
+                },
+                onError: (_) {
+                  if (context.mounted) setVoiceState(() => isListening = false);
+                },
+              );
+              if (available) {
+                if (context.mounted) setVoiceState(() => isListening = true);
+                speech.listen(
+                  onResult: (result) {
+                    if (context.mounted) {
+                      setVoiceState(() {
+                        speechTextController.text = result.recognizedWords;
+                      });
+                    }
+                  },
+                  listenOptions: stt.SpeechListenOptions(
+                    localeId: 'vi_VN',
+                  ),
+                );
+              }
+            }
+
+            if (!isInit) {
+              isInit = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                startListening();
+              });
+            }
+
+            return Dialog(
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Nói Prompt cho AI Chỉnh Sửa',
+                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 20),
+                          onPressed: () {
+                            stopListening();
+                            Navigator.pop(dCtx);
+                          },
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      isListening
+                          ? 'Đang lắng nghe giọng nói... Nói yêu cầu để AI chỉnh sửa'
+                          : 'Nhấn vào mic để bắt đầu nói yêu cầu',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(fontSize: 13, color: Colors.grey.shade600),
+                    ),
+                    const SizedBox(height: 20),
+                    GestureDetector(
+                      onTap: () {
+                        if (isListening) {
+                          stopListening();
+                        } else {
+                          startListening();
+                        }
+                      },
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: isListening ? AppColors.primary.withValues(alpha: 0.15) : Colors.grey.shade100,
+                          border: Border.all(
+                            color: isListening ? AppColors.primary : Colors.grey.shade400,
+                            width: isListening ? 3 : 1,
+                          ),
+                        ),
+                        child: Icon(
+                          isListening ? Icons.mic : Icons.mic_off,
+                          size: 36,
+                          color: isListening ? AppColors.primary : Colors.grey.shade600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    TextField(
+                      controller: speechTextController,
+                      maxLines: 3,
+                      minLines: 2,
+                      decoration: InputDecoration(
+                        hintText: 'Nói hoặc nhập prompt yêu cầu AI...',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        contentPadding: const EdgeInsets.all(12),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: OutlinedButton(
+                            onPressed: () {
+                              stopListening();
+                              Navigator.pop(dCtx);
+                            },
+                            child: const Text('Hủy'),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            style: AppStyles.primaryButton,
+                            onPressed: () {
+                              stopListening();
+                              final spokenText = speechTextController.text.trim();
+                              if (spokenText.isNotEmpty) {
+                                final current = controller.text;
+                                controller.text = current.isEmpty
+                                    ? spokenText
+                                    : '$current\n[Yêu cầu AI: $spokenText]';
+                                ScaffoldMessenger.of(parentContext).showSnackBar(
+                                  const SnackBar(content: Text('Đã chèn lệnh Voice vào Prompt!')),
+                                );
+                              }
+                              Navigator.pop(dCtx);
+                            },
+                            icon: const Icon(Icons.check, size: 18),
+                            label: const Text('Áp dụng'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        );
       },
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-        decoration: BoxDecoration(
-          color: Colors.teal.shade50,
-          borderRadius: BorderRadius.circular(4),
-          border: Border.all(color: Colors.teal.shade200),
-        ),
-        child: Text(
-          tag,
-          style: TextStyle(fontSize: 11, color: Colors.teal.shade800),
-        ),
-      ),
     );
   }
 
@@ -2113,7 +2916,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
   Widget _buildPromptBlockContent() {
     final promptList = (_source['prompt'] as List?) ?? [];
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.only(left: 12, right: 12, bottom: 8, top: 2),
       color: Colors.white,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2135,7 +2938,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
               itemBuilder: (context, index) {
                 final promptStr = promptList[index].toString();
                 return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  padding: const EdgeInsets.symmetric(vertical: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -2143,18 +2946,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                              decoration: BoxDecoration(
-                                color: Colors.teal.shade50,
-                                borderRadius: BorderRadius.circular(4),
-                              ),
-                              child: Text(
-                                'Prompt #${index + 1}',
-                                style: TextStyle(fontSize: 11, color: Colors.teal.shade800, fontWeight: FontWeight.bold),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
                             _buildRichText(promptStr),
                           ],
                         ),

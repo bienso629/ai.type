@@ -596,7 +596,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.connections.forEach(conn => {
       conn.path = this.getConnectionPath(conn);
       const fromObj = this.nodes.find(n => n.id === conn.fromNode);
-      conn.color = fromObj?.type === 'storyboard' ? '#eab308' : '#5eead4';
+      conn.color = fromObj?.type === 'storyboard' ? '#eab308' : (fromObj?.type === 'tts' ? '#d97706' : '#5eead4');
     });
   }
 
@@ -605,15 +605,15 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const to = this.nodes.find(n => n.id === conn.toNode);
     if (!from || !to) return '';
 
-    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : (from.type === 'storyboard' ? 140 : 250));
+    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 100 : (from.type === 'storyboard' ? 140 : 250));
     let fromWidth = this.getNodeWidth(from);
-    let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 130 : (to.type === 'storyboard' ? 140 : 250));
+    let toHeight = this.nodeHeights[to.id] || (to.type === 'tts' ? 100 : (to.type === 'storyboard' ? 140 : 250));
 
     const fromX = from.x + fromWidth; 
-    const fromY = from.y + (fromHeight / 2); 
+    const fromY = from.type === 'tts' ? (from.y + 66) : (from.y + (fromHeight / 2)); 
     
     const toX = to.x; 
-    let toY = to.y + (toHeight / 2); 
+    let toY = to.type === 'tts' ? (to.y + 66) : (to.y + (toHeight / 2)); 
     
     const numPorts = to.inputs.length;
     const portIndex = to.inputs.indexOf(conn.toPort);
@@ -623,7 +623,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
        toY = startY + (portIndex * 32) + 12;
     }
 
-    const dx = toX > fromX ? (toX - fromX) * 0.5 : 250;
+    let dx = Math.abs(toX - fromX) * 0.4;
+    dx = Math.min(Math.max(dx, 50), 120);
     
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   }
@@ -633,16 +634,17 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const from = this.nodes.find(n => n.id === this.draggedConnection!.fromNode);
     if (!from) return '';
     
-    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 130 : (from.type === 'storyboard' ? 140 : 250));
+    let fromHeight = this.nodeHeights[from.id] || (from.type === 'tts' ? 100 : (from.type === 'storyboard' ? 140 : 250));
     let fromWidth = this.getNodeWidth(from);
     
     const fromX = from.x + fromWidth; 
-    const fromY = from.y + (fromHeight / 2); 
+    const fromY = from.type === 'tts' ? (from.y + 66) : (from.y + (fromHeight / 2)); 
     
     const toX = this.draggedConnection.toX;
     const toY = this.draggedConnection.toY;
     
-    const dx = toX > fromX ? (toX - fromX) * 0.5 : 250;
+    let dx = Math.abs(toX - fromX) * 0.4;
+    dx = Math.min(Math.max(dx, 50), 120);
     
     return `M ${fromX} ${fromY} C ${fromX + dx} ${fromY}, ${toX - dx} ${toY}, ${toX} ${toY}`;
   }
@@ -1257,6 +1259,12 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
   }
 
   private saveProjectTimeout: any;
+
+  manualSave() {
+    this.saveEditorState();
+    this.saveProject(true);
+    this.toastr.success('Đã lưu dữ liệu!');
+  }
 
   saveProject(immediate: boolean = false) {
     if (!this.uuid || !this.projectData) return;

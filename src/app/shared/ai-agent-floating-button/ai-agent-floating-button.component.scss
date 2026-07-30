@@ -10,7 +10,7 @@
 }
 
 .ai-fab.magical-icon {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: var(--fuse-primary, #0d9488);
   color: white;
   border: none;
   border-radius: 50%;
@@ -41,17 +41,17 @@
 @keyframes magical-blink {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 5px rgba(13, 148, 136, 0.4);
     filter: brightness(1);
   }
   50% {
     transform: scale(1.1);
-    box-shadow: 0 0 15px rgba(102, 126, 234, 0.8), 0 0 20px rgba(118, 75, 162, 0.5);
+    box-shadow: 0 0 15px rgba(13, 148, 136, 0.8), 0 0 20px rgba(15, 118, 110, 0.6);
     filter: brightness(1.2);
   }
   100% {
     transform: scale(1);
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 5px rgba(13, 148, 136, 0.4);
     filter: brightness(1);
   }
 }
@@ -59,12 +59,12 @@
 @keyframes magical-blink-cooldown {
   0% {
     transform: scale(1);
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 5px rgba(13, 148, 136, 0.4);
     filter: brightness(1);
   }
   50% {
     transform: scale(1.05);
-    box-shadow: 0 0 10px rgba(102, 126, 234, 0.5);
+    box-shadow: 0 0 10px rgba(13, 148, 136, 0.6);
     filter: brightness(1.1);
   }
   100% {
@@ -76,15 +76,15 @@
 
 @keyframes hover-blink {
   0% {
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 5px rgba(13, 148, 136, 0.4);
     filter: brightness(1);
   }
   50% {
-    box-shadow: 0 0 15px rgba(102, 126, 234, 0.8), 0 0 20px rgba(118, 75, 162, 0.5);
+    box-shadow: 0 0 15px rgba(13, 148, 136, 0.8), 0 0 20px rgba(15, 118, 110, 0.6);
     filter: brightness(1.2);
   }
   100% {
-    box-shadow: 0 0 5px rgba(102, 126, 234, 0.3);
+    box-shadow: 0 0 5px rgba(13, 148, 136, 0.4);
     filter: brightness(1);
   }
 }

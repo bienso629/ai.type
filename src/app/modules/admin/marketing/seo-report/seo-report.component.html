@@ -30,36 +30,40 @@
     </div>
 
     <div class="flex-auto p-6 overflow-y-auto" cdkScrollable>
-        <div class="flex flex-col sm:flex-row flex-wrap gap-4 items-start">
-            <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
-                [subscriptSizing]="'dynamic'">
-                <mat-label>Domain</mat-label>
-                <mat-select class="w-full" (selectionChange)="onDomainChange()" [(ngModel)]="siteUrl">
-                    <ng-container *ngFor="let d of domainOptions; let i = index">
-                        <mat-option [value]="d.domain">{{d.domain}}</mat-option>
-                    </ng-container>
-                </mat-select>
-            </mat-form-field>
+        <div class="flex flex-col gap-4 items-start">
+            <!-- Row 1: Domain -->
+            <div>
+                <mat-form-field class="w-full sm:w-64 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'">
+                    <mat-label>Domain</mat-label>
+                    <mat-select class="w-full" (selectionChange)="onDomainChange()" [(ngModel)]="siteUrl">
+                        <ng-container *ngFor="let d of domainOptions; let i = index">
+                            <mat-option [value]="d.domain">{{d.domain}}</mat-option>
+                        </ng-container>
+                    </mat-select>
+                </mat-form-field>
+            </div>
 
-            <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
-                [subscriptSizing]="'dynamic'">
-                <mat-label>Từ</mat-label>
-                <input matInput type="date" [(ngModel)]="startDate">
-            </mat-form-field>
+            <!-- Row 2: Từ, Đến & Nút Báo cáo từ khóa -->
+            <div class="flex flex-col sm:flex-row flex-wrap gap-4 items-end">
+                <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'">
+                    <mat-label>Từ</mat-label>
+                    <input matInput type="date" [(ngModel)]="startDate">
+                </mat-form-field>
 
-            <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
-                [subscriptSizing]="'dynamic'">
-                <mat-label>{{ 'app.auto_arrive' | transloco }}</mat-label>
-                <input matInput type="date" [(ngModel)]="endDate">
-            </mat-form-field>
-        </div>
+                <mat-form-field class="w-full sm:w-50 fuse-mat-dense fuse-mat-emphasized-affix"
+                    [subscriptSizing]="'dynamic'">
+                    <mat-label>{{ 'app.auto_arrive' | transloco }}</mat-label>
+                    <input matInput type="date" [(ngModel)]="endDate">
+                </mat-form-field>
 
-        <div class="mt-4">
-            <button mat-flat-button color="primary" (click)="loadFromGSC()" [disabled]="gscLoading">
-                <mat-icon *ngIf="!gscLoading" class="icon-size-4" [svgIcon]="'feather:download'"></mat-icon>
-                <mat-icon *ngIf="gscLoading" class="icon-size-4 animate-spin" svgIcon="feather:loader"></mat-icon>
-                <span class="ml-2">{{ 'app.keyword_report' | transloco }}</span>
-            </button>
+                <button mat-flat-button color="primary" (click)="loadFromGSC()" [disabled]="gscLoading">
+                    <mat-icon *ngIf="!gscLoading" class="icon-size-4" [svgIcon]="'feather:key'"></mat-icon>
+                    <mat-icon *ngIf="gscLoading" class="icon-size-4 animate-spin" svgIcon="feather:loader"></mat-icon>
+                    <span class="ml-2">{{ 'app.keyword_report' | transloco }}</span>
+                </button>
+            </div>
         </div>
 
         <div class="w-full my-6 border-t border-gray-50"></div>
@@ -131,75 +135,106 @@
             <div class="flex flex-col items-start justify-start h-full w-full">
                 <div class="pt-8 w-full">
                     <div class="grid grid-cols-1 sm:grid-cols-4 gap-4">
-                        <div class="p-4 border rounded-lg bg-blue-50 border-blue-100">
-                            <div class="text-base text-blue-600">{{ 'app.auto_total_clicks' | transloco }}</div>
-                            <div class="text-xl font-semibold text-blue-800">{{ totalClicks | number }}</div>
-                            <apx-chart *ngIf="chartOptionsGscClicksTrend" [series]="chartOptionsGscClicksTrend.series"
-                                [chart]="chartOptionsGscClicksTrend.chart" [colors]="chartOptionsGscClicksTrend['colors']"
-                                [xaxis]="chartOptionsGscClicksTrend.xaxis" [dataLabels]="chartOptionsGscClicksTrend.dataLabels">
-                            </apx-chart>
+                        <div class="p-4 border rounded-lg bg-blue-50 border-blue-100 flex flex-col justify-between">
+                            <div>
+                                <div class="text-base text-blue-600">{{ 'app.auto_total_clicks' | transloco }}</div>
+                                <div class="text-xl font-semibold text-blue-800">{{ totalClicks | number }}</div>
+                                <apx-chart *ngIf="chartOptionsGscClicksTrend" [series]="chartOptionsGscClicksTrend.series"
+                                    [chart]="chartOptionsGscClicksTrend.chart" [colors]="chartOptionsGscClicksTrend['colors']"
+                                    [xaxis]="chartOptionsGscClicksTrend.xaxis" [dataLabels]="chartOptionsGscClicksTrend.dataLabels">
+                                </apx-chart>
+                            </div>
+                            <div class="text-xs text-blue-600/80 mt-2 border-t border-blue-100/80 pt-1.5">
+                                Tổng số lượt người dùng nhấp vào kết quả tìm kiếm Google để đến website.
+                            </div>
                         </div>
-                        <div class="p-4 border rounded-lg bg-green-50 border-green-100">
-                            <div class="text-base text-green-600">{{ 'app.auto_total_impressions' | transloco }}</div>
-                            <div class="text-xl font-semibold text-green-800">{{ totalImpressions | number }}</div>
-                            <apx-chart *ngIf="chartOptionsGscImpressionsTrend" [series]="chartOptionsGscImpressionsTrend.series"
-                                [chart]="chartOptionsGscImpressionsTrend.chart" [colors]="chartOptionsGscImpressionsTrend['colors']"
-                                [xaxis]="chartOptionsGscImpressionsTrend.xaxis" [dataLabels]="chartOptionsGscImpressionsTrend.dataLabels">
-                            </apx-chart>
+                        <div class="p-4 border rounded-lg bg-green-50 border-green-100 flex flex-col justify-between">
+                            <div>
+                                <div class="text-base text-green-600">{{ 'app.auto_total_impressions' | transloco }}</div>
+                                <div class="text-xl font-semibold text-green-800">{{ totalImpressions | number }}</div>
+                                <apx-chart *ngIf="chartOptionsGscImpressionsTrend" [series]="chartOptionsGscImpressionsTrend.series"
+                                    [chart]="chartOptionsGscImpressionsTrend.chart" [colors]="chartOptionsGscImpressionsTrend['colors']"
+                                    [xaxis]="chartOptionsGscImpressionsTrend.xaxis" [dataLabels]="chartOptionsGscImpressionsTrend.dataLabels">
+                                </apx-chart>
+                            </div>
+                            <div class="text-xs text-green-600/80 mt-2 border-t border-green-100/80 pt-1.5">
+                                Số lần liên kết website xuất hiện trên trang kết quả tìm kiếm Google.
+                            </div>
                         </div>
-                        <div class="p-4 border rounded-lg bg-purple-50 border-purple-100">
-                            <div class="text-base text-purple-600">{{ 'app.average_ctr' | transloco }}</div>
-                            <div class="text-xl font-semibold text-purple-800">{{ avgCtr | number:'1.1-2' }}%</div>
-                            <apx-chart *ngIf="chartOptionsGscCtrTrend" [series]="chartOptionsGscCtrTrend.series"
-                                [chart]="chartOptionsGscCtrTrend.chart" [colors]="chartOptionsGscCtrTrend['colors']"
-                                [xaxis]="chartOptionsGscCtrTrend.xaxis" [dataLabels]="chartOptionsGscCtrTrend.dataLabels"
-                                [yaxis]="chartOptionsGscCtrTrend.yaxis">
-                            </apx-chart>
+                        <div class="p-4 border rounded-lg bg-purple-50 border-purple-100 flex flex-col justify-between">
+                            <div>
+                                <div class="text-base text-purple-600">{{ 'app.average_ctr' | transloco }}</div>
+                                <div class="text-xl font-semibold text-purple-800">{{ avgCtr | number:'1.1-2' }}%</div>
+                                <apx-chart *ngIf="chartOptionsGscCtrTrend" [series]="chartOptionsGscCtrTrend.series"
+                                    [chart]="chartOptionsGscCtrTrend.chart" [colors]="chartOptionsGscCtrTrend['colors']"
+                                    [xaxis]="chartOptionsGscCtrTrend.xaxis" [dataLabels]="chartOptionsGscCtrTrend.dataLabels"
+                                    [yaxis]="chartOptionsGscCtrTrend.yaxis">
+                                </apx-chart>
+                            </div>
+                            <div class="text-xs text-purple-600/80 mt-2 border-t border-purple-100/80 pt-1.5">
+                                Tỷ lệ nhấp chuột trung bình (Lượt nhấp / Lượt hiển thị × 100%).
+                            </div>
                         </div>
-                        <div class="p-4 border rounded-lg bg-orange-50 border-orange-100">
-                            <div class="text-base text-orange-600">{{ 'app.auto_average_position' | transloco }}</div>
-                            <div class="text-xl font-semibold text-orange-800">{{ avgPosition | number:'1.1-2' }}</div>
-                            <apx-chart *ngIf="chartOptionsGscPositionTrend" [series]="chartOptionsGscPositionTrend.series"
-                                [chart]="chartOptionsGscPositionTrend.chart" [colors]="chartOptionsGscPositionTrend['colors']"
-                                [xaxis]="chartOptionsGscPositionTrend.xaxis" [dataLabels]="chartOptionsGscPositionTrend.dataLabels"
-                                [yaxis]="chartOptionsGscPositionTrend.yaxis">
-                            </apx-chart>
+                        <div class="p-4 border rounded-lg bg-orange-50 border-orange-100 flex flex-col justify-between">
+                            <div>
+                                <div class="text-base text-orange-600">{{ 'app.auto_average_position' | transloco }}</div>
+                                <div class="text-xl font-semibold text-orange-800">{{ avgPosition | number:'1.1-2' }}</div>
+                                <apx-chart *ngIf="chartOptionsGscPositionTrend" [series]="chartOptionsGscPositionTrend.series"
+                                    [chart]="chartOptionsGscPositionTrend.chart" [colors]="chartOptionsGscPositionTrend['colors']"
+                                    [xaxis]="chartOptionsGscPositionTrend.xaxis" [dataLabels]="chartOptionsGscPositionTrend.dataLabels"
+                                    [yaxis]="chartOptionsGscPositionTrend.yaxis">
+                                </apx-chart>
+                            </div>
+                            <div class="text-xs text-orange-600/80 mt-2 border-t border-orange-100/80 pt-1.5">
+                                Thứ hạng vị trí hiển thị trung bình trên bảng xếp hạng Google.
+                            </div>
                         </div>
                     </div>
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-8 w-full">
-                    <div class="w-full p-4 border rounded-lg bg-white shadow-sm hover:shadow transition-shadow">
-                        <div class="flex items-center gap-2 mb-3 pb-2 border-b">
-                            <div class="w-3 h-3 rounded-full bg-blue-500"></div>
-                            <h3 class="text-base font-semibold text-gray-800">
-                                {{ 'app.auto_clicks_impressions_by_top_keyw' | transloco }}
-                            </h3>
-                        </div>
+                    <div class="w-full p-4 border rounded-lg bg-white flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-3 pb-2 border-b">
+                                <div class="w-3 h-3 rounded-full bg-blue-500"></div>
+                                <h3 class="text-base font-semibold text-gray-800">
+                                    {{ 'app.auto_clicks_impressions_by_top_keyw' | transloco }}
+                                </h3>
+                            </div>
 
-                        <apx-chart *ngIf="chartOptionsTopQueries" [series]="chartOptionsTopQueries.series"
-                            [chart]="chartOptionsTopQueries.chart" [xaxis]="chartOptionsTopQueries.xaxis"
-                            [colors]="chartOptionsTopQueries.colors" [grid]="chartOptionsTopQueries.grid"
-                            [dataLabels]="chartOptionsTopQueries.dataLabels"
-                            [plotOptions]="chartOptionsTopQueries.plotOptions" [legend]="chartOptionsTopQueries.legend">
-                        </apx-chart>
+                            <apx-chart *ngIf="chartOptionsTopQueries" [series]="chartOptionsTopQueries.series"
+                                [chart]="chartOptionsTopQueries.chart" [xaxis]="chartOptionsTopQueries.xaxis"
+                                [yaxis]="chartOptionsTopQueries.yaxis" [colors]="chartOptionsTopQueries.colors"
+                                [stroke]="chartOptionsTopQueries.stroke" [markers]="chartOptionsTopQueries.markers"
+                                [grid]="chartOptionsTopQueries.grid" [dataLabels]="chartOptionsTopQueries.dataLabels"
+                                [plotOptions]="chartOptionsTopQueries.plotOptions" [legend]="chartOptionsTopQueries.legend">
+                            </apx-chart>
+                        </div>
+                        <div class="mt-3 p-3 rounded-lg bg-blue-50/60 border border-blue-100 text-xs text-slate-600">
+                            <span class="font-semibold text-blue-700">💡 Giải thích biểu đồ:</span> So sánh xu hướng giữa <strong>Lượt nhấp (đường xanh dương)</strong> và <strong>Lượt hiển thị (đường xanh lá)</strong> của các từ khóa hàng đầu. Khoảng cách giữa 2 đường giúp phát hiện các từ khóa có hiển thị cao nhưng nhấp thấp để tối ưu tiêu đề & mô tả.
+                        </div>
                     </div>
 
-                    <div class="w-full p-4 border rounded-lg bg-white shadow-sm hover:shadow transition-shadow">
-                        <div class="flex items-center gap-2 mb-3 pb-2 border-b">
-                            <div class="w-3 h-3 rounded-full bg-purple-500"></div>
-                            <h3 class="text-base font-semibold text-gray-800">
-                                {{ 'app.auto_average_ctr_rate_by_top_keywor' | transloco }}
-                            </h3>
-                        </div>
+                    <div class="w-full p-4 border rounded-lg bg-white flex flex-col justify-between">
+                        <div>
+                            <div class="flex items-center gap-2 mb-3">
+                                <div class="w-3 h-3 rounded-full bg-purple-500"></div>
+                                <h3 class="text-base font-semibold text-gray-800">
+                                    {{ 'app.auto_average_ctr_rate_by_top_keywor' | transloco }}
+                                </h3>
+                            </div>
 
-                        <apx-chart *ngIf="chartOptionsCtr" [series]="chartOptionsCtr.series"
-                            [chart]="chartOptionsCtr.chart" [xaxis]="chartOptionsCtr.xaxis"
-                            [colors]="chartOptionsCtr.colors" [stroke]="chartOptionsCtr.stroke"
-                            [fill]="chartOptionsCtr.fill" [markers]="chartOptionsCtr.markers"
-                            [grid]="chartOptionsCtr.grid"
-                            [yaxis]="chartOptionsCtr.yaxis" [dataLabels]="chartOptionsCtr.dataLabels">
-                        </apx-chart>
+                            <apx-chart *ngIf="chartOptionsCtr" [series]="chartOptionsCtr.series"
+                                [chart]="chartOptionsCtr.chart" [xaxis]="chartOptionsCtr.xaxis"
+                                [colors]="chartOptionsCtr.colors" [stroke]="chartOptionsCtr.stroke"
+                                [fill]="chartOptionsCtr.fill" [markers]="chartOptionsCtr.markers"
+                                [grid]="chartOptionsCtr.grid"
+                                [yaxis]="chartOptionsCtr.yaxis" [dataLabels]="chartOptionsCtr.dataLabels">
+                            </apx-chart>
+                        </div>
+                        <div class="mt-3 p-3 rounded-lg bg-purple-50/60 border border-purple-100 text-xs text-slate-600">
+                            <span class="font-semibold text-purple-700">💡 Giải thích biểu đồ:</span> Thể hiện tỷ lệ nhấp chuột <strong>CTR (%)</strong> tương ứng với các từ khóa hàng đầu. Chỉ số CTR cao cho thấy thẻ tiêu đề (Title) và mô tả (Meta Description) đang thu hút người dùng nhấp vào tốt.
+                        </div>
                     </div>
                 </div>
 
@@ -332,7 +367,7 @@
                             {{ 'app.auto_google_analytics_4_users_engag' | transloco }}
                         </h3>
 
-                        <div class="flex flex-col gap-4 mb-4">
+                        <div class="flex flex-col gap-2 mb-4">
                             <mat-form-field class="w-full sm:w-80 fuse-mat-dense fuse-mat-emphasized-affix"
                                 [subscriptSizing]="'dynamic'">
                                 <mat-label>GA4 property ID</mat-label>
@@ -343,11 +378,11 @@
                                         {{ id }}
                                     </mat-option>
                                 </mat-autocomplete>
-                                <mat-hint>Số liệu từ {{ startDate }} → {{ endDate }}. Cách lấy Property ID: Vào
-                                    analytics.google.com → chọn website → bấm biểu tượng bánh răng (Admin) ở góc dưới
-                                    trái → cột "Property" chọn "Property details" → Property ID là dãy số hiển thị ở
-                                    đầu trang (VD: 123456789).</mat-hint>
                             </mat-form-field>
+
+                            <div class="text-xs text-slate-500">
+                                Số liệu từ <strong>{{ startDate }}</strong> → <strong>{{ endDate }}</strong>. Cách lấy Property ID: Vào analytics.google.com → chọn website → bấm biểu tượng bánh răng (Admin) ở góc dưới trái → cột "Property" chọn "Property details" → Property ID là dãy số hiển thị ở đầu trang (VD: 123456789).
+                            </div>
                         </div>
 
                         <div class="flex flex-col gap-2 mb-6">
@@ -565,18 +600,18 @@
         <div class="flex flex-col gap-2 mt-8 pagespeed-tab">
             <div class="flex flex-col items-start justify-start h-full w-full">
                 
-                <div class="mt-4 mb-6 w-full gap-2">
-                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                        <div class="flex items-center gap-3">
-                            <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                                <mat-icon class="icon-size-5" svgIcon="feather:trending-up"></mat-icon>
-                            </div>
-                            <div>
-                                <h3 class="text-base font-semibold text-slate-800 m-0 hidden">PageSpeed Insights</h3>
-                                <p class="text-base text-slate-700 m-0">Phân tích tốc độ và trải nghiệm (Core Web Vitals) cho: <strong class="text-primary">{{siteUrl}}</strong></p>
-                            </div>
+                <div class="mt-4 mb-6 w-full flex flex-col gap-4 items-start">
+                    <div class="flex items-center gap-3">
+                        <div class="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
+                            <mat-icon class="icon-size-5" svgIcon="feather:trending-up"></mat-icon>
                         </div>
+                        <div>
+                            <h3 class="text-base font-semibold text-slate-800 m-0 hidden">PageSpeed Insights</h3>
+                            <p class="text-base text-slate-700 m-0">Phân tích tốc độ và trải nghiệm (Core Web Vitals) cho: <strong class="text-primary">{{siteUrl}}</strong></p>
+                        </div>
+                    </div>
 
+                    <div>
                         <button mat-flat-button color="primary" (click)="fetchPageSpeedData()" [disabled]="isPageSpeedLoading">
                             <mat-icon *ngIf="!isPageSpeedLoading" class="icon-size-4" svgIcon="feather:play"></mat-icon>
                             <mat-icon *ngIf="isPageSpeedLoading" class="icon-size-4 animate-spin" svgIcon="feather:loader"></mat-icon>

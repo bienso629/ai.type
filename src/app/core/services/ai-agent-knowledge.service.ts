@@ -64,7 +64,8 @@ export class AiAgentKnowledgeService {
       this._doSaveKnowledge(route, schema);
     });
     
-    // Just-in-Time Loading on Route Change
+    /*
+    // Just-in-Time Loading on Route Change (Đã tắt theo yêu cầu)
     this.router.events.pipe(
       filter((event: RouterEvent): event is NavigationEnd => event instanceof NavigationEnd)
     ).subscribe((event: NavigationEnd) => {
@@ -89,6 +90,7 @@ export class AiAgentKnowledgeService {
       // Khôi phục lại ngữ cảnh của trang gốc sau khi tắt popup
       this.loadKnowledgeForRoute(this.baseRoute || this.router.url);
     });
+    */
   }
 
 
@@ -185,77 +187,16 @@ ${JSON.stringify(recentAPIs, null, 2)}`;
   }
 
   private _doSaveKnowledge(route: string, knowledge: ScreenKnowledge) {
-
-    // GỌI API LƯU VÀO DATABASE THẬT
-    let activeInfo = this._multiAccountService.getItem('active_info');
-    if (activeInfo) {
-      activeInfo = AuthUtils._getActiveInfo(activeInfo);
-      if (activeInfo && activeInfo['user']) {
-        (knowledge as any).appId = 'ai.typing';
-        (knowledge as any).appToken = activeInfo['user']['appToken'];
-      }
-    }
-
-    let postData = {
-      params: this._h.encrypt(knowledge, this.config.settings.gen)
-    };
-
-    const apiUrl = this.getApiUrl();
-    if (!apiUrl) return;
-
-    this.http.post<any>(apiUrl + '/save', postData).subscribe({
-      next: (res) => {
-        this._currentKnowledge.next(knowledge);
-        this.injectIntoAgentContext(knowledge);
-        console.log('[AI Agent] Saved context to DB successfully!');
-      },
-      error: (err) => {
-        console.error('[AI Agent] API Error saving context to DB:', err);
-      }
-    });
+    // Đã tắt gọi API /agent/docs/save
+    return;
   }
 
   /**
    * Load instructions for the specific route (JIT Context)
    */
   public loadKnowledgeForRoute(route: string) {
-    const apiUrl = this.getApiUrl();
-    if (!apiUrl) return;
-    
-    let dataForm: any = { screenRoute: route };
-
-    let activeInfo = this._multiAccountService.getItem('active_info');
-    if (activeInfo) {
-      activeInfo = AuthUtils._getActiveInfo(activeInfo);
-      if (activeInfo && activeInfo['user']) {
-        dataForm.appId = 'ai.typing';
-        dataForm.appToken = activeInfo['user']['appToken'];
-      }
-    }
-
-    let data = {
-      params: this._h.encrypt(dataForm, this.config.settings.gen)
-    };
-    
-    this.http.post<any>(apiUrl + '/get', data).subscribe({
-      next: (res) => {
-        // Tuỳ thuộc vào format trả về của API, lấy data tương ứng
-        const data = res.data ? res.data : (res.uiSchema ? res : null);
-        
-        if (data) {
-          this.cachedSchemas[route] = data.uiSchema;
-          this._currentKnowledge.next(data);
-          this.injectIntoAgentContext(data);
-          console.log('[AI Agent] Loaded context from DB for route:', route);
-        } else {
-          this._currentKnowledge.next(null);
-        }
-      },
-      error: (err) => {
-        console.log('[AI Agent] No existing context in DB or error for route:', route);
-        this._currentKnowledge.next(null);
-      }
-    });
+    // Đã tắt gọi API /agent/docs/get để tránh lỗi 404
+    return;
   }
 
   /**

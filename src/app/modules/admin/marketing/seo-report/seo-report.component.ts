@@ -520,19 +520,27 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             ],
             colors: ['#2563eb', '#16a34a'],
             chart: {
-                type: 'bar',
+                type: 'line',
                 height: 380,
                 toolbar: { show: false }
             },
+            stroke: { curve: 'smooth', width: 3 } as any,
+            markers: {
+                size: 4
+            } as any,
             xaxis: {
                 categories,
-                labels: { rotate: -45, trim: false, style: { fontSize: '12px' } }
+                labels: { show: false },
+                axisBorder: { show: false },
+                axisTicks: { show: false }
             },
-            grid: { borderColor: '#f1f5f9' },
+            yaxis: {
+                labels: { show: false },
+                axisBorder: { show: false },
+                axisTicks: { show: false }
+            },
+            grid: { show: false },
             dataLabels: { enabled: false },
-            plotOptions: {
-                bar: { horizontal: false, columnWidth: '50%', borderRadius: 4 }
-            },
             legend: { position: 'top', horizontalAlign: 'right' }
         };
 
@@ -562,15 +570,17 @@ export class GSCReportComponent implements OnInit, OnDestroy {
                 strokeColors: '#ffffff',
                 strokeWidth: 2
             } as any,
-            grid: { borderColor: '#f1f5f9' },
+            grid: { show: false },
             xaxis: {
                 categories,
-                labels: { rotate: -45, trim: false, style: { fontSize: '12px' } }
+                labels: { show: false },
+                axisBorder: { show: false },
+                axisTicks: { show: false }
             },
             yaxis: {
-                labels: {
-                    formatter: (val: number) => `${val.toFixed(1)}%`
-                }
+                labels: { show: false },
+                axisBorder: { show: false },
+                axisTicks: { show: false }
             },
             dataLabels: {
                 enabled: true,
@@ -621,6 +631,10 @@ export class GSCReportComponent implements OnInit, OnDestroy {
             series: [{ name, data }],
             chart: { type: 'area', height: 80, sparkline: { enabled: true } } as any,
             colors: [color],
+            stroke: { curve: 'smooth', width: 2.5 } as any,
+            grid: {
+                padding: { top: 12, bottom: 4, left: 4, right: 4 }
+            },
             xaxis: { categories },
             dataLabels: { enabled: false },
             yaxis: isPercent ? { labels: { formatter: (val: number) => `${val.toFixed(1)}%` } } : undefined,
