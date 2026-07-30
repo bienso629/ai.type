@@ -145,6 +145,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     detectForm: UntypedFormGroup;
     selectedIndex = 0;
+    rightSelectedIndex = 0;
     arr_keyword = [];
 
     seoScore: SEOScorePipe = new SEOScorePipe();
@@ -4018,7 +4019,29 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             const fullHtml = contentArray.join('');
             const htmlConverted = htmlToPdfmake(fullHtml);
 
+            const rawTitle = this.detectForm?.get('step1')?.get('title')?.value || this.uuid || 'Bài viết';
+            const fileName = rawTitle.replace(/[/\\?%*:|"<>]/g, '-').trim();
+
             const docDefinition = {
+                header: (currentPage: number, pageCount: number) => {
+                    return {
+                        columns: [
+                            { text: rawTitle, alignment: 'left', fontSize: 9, color: '#666666' },
+                            { text: 'Type.vn - Sáng tạo nội dung AI', alignment: 'right', fontSize: 9, color: '#666666' }
+                        ],
+                        margin: [40, 15, 40, 0]
+                    };
+                },
+                footer: (currentPage: number, pageCount: number) => {
+                    return {
+                        columns: [
+                            { text: `Xuất ngày: ${new Date().toLocaleDateString('vi-VN')}`, alignment: 'left', fontSize: 9, color: '#888888' },
+                            { text: `Trang ${currentPage} / ${pageCount}`, alignment: 'right', fontSize: 9, color: '#888888' }
+                        ],
+                        margin: [40, 10, 40, 0]
+                    };
+                },
+                pageMargins: [40, 45, 40, 45],
                 content: [
                     htmlConverted
                 ],
@@ -4027,7 +4050,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 }
             };
 
-            pdfMake.createPdf(docDefinition).download(`${this.uuid}.pdf`);
+            pdfMake.createPdf(docDefinition).download(`${fileName}.pdf`);
         } catch (error) {
             console.log(error);
         }
@@ -4919,6 +4942,13 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
     changetab(e: any) {
         if (e && e.index !== undefined) {
             this.selectedIndex = e.index;
+        }
+        this.showComments();
+    }
+
+    changeRightTab(e: any) {
+        if (e && e.index !== undefined) {
+            this.rightSelectedIndex = e.index;
         }
         this.showComments();
     }
