@@ -675,15 +675,10 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
                 } catch (e) {}
 
                 if (agentContext && (forceContext || agentContext.action || agentContext.prompt)) {
-                    let ctxData = '';
-                    try { ctxData = JSON.stringify(agentContext.data); } catch (e) {}
-                    systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt: ${ctxData}\n\nHãy ưu tiên trả lời dựa trên Dữ liệu tóm tắt trên màn hình.\n\n`;
-                    
+                    systemContext = '';
                     if (agentContext.prompt) {
                         systemContext += `HƯỚNG DẪN ĐẶC BIỆT TỪ MÀN HÌNH NÀY: ${agentContext.prompt}\n\n`;
                     }
-                    
-                    // Removed sendUserPrompt call
                 } else if (apiContextStr) {
                     // systemContext = `Ngữ cảnh màn hình hiện tại (người dùng đang xem):${apiContextStr}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
                     systemContext = ``;
@@ -1222,10 +1217,8 @@ export class ChatGPTLayoutComponent implements OnInit, OnDestroy {
             });
             // Inject context into the last user message
             const agentContext = this.globalAgentService.getContext();
-            if (agentContext && contents.length > 0 && contents[contents.length - 1].role === 'user') {
-                let ctxData = '';
-                try { ctxData = JSON.stringify(agentContext.data); } catch (e) {}
-                const systemContext = `Ngữ cảnh màn hình hiện tại:\n- Màn hình: ${agentContext.sourcePage}\n- Dữ liệu tóm tắt: ${ctxData}\n\nHãy ưu tiên trả lời hoặc thực hiện yêu cầu dựa trên ngữ cảnh này.\n\n`;
+            if (agentContext && agentContext.prompt && contents.length > 0 && contents[contents.length - 1].role === 'user') {
+                const systemContext = `HƯỚNG DẪN ĐẶC BIỆT: ${agentContext.prompt}\n\n`;
                 contents[contents.length - 1].parts[0].text = systemContext + contents[contents.length - 1].parts[0].text;
             }
             
