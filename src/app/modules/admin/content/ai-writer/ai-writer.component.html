@@ -2443,7 +2443,7 @@
 
                         <div class="flex-1 min-h-0 flex flex-col">
                             <!-- <h2 class="text-base font-semibold border-b border-dashed border-opacity-70 py-2">{{ 'app.auto_preview' | transloco }}</h2> -->
-                            <mat-tab-group class="mt-0 flex-1 min-h-0 custom-scrollable-tabs" mat-stretch-tabs="false" (selectedTabChange)="changetab($event)"
+                            <mat-tab-group class="mt-0 flex-1 min-h-0 custom-scrollable-tabs" mat-stretch-tabs="false" [selectedIndex]="rightSelectedIndex" (selectedTabChange)="changeRightTab($event)"
                                 [animationDuration]="'0'">
                                 <mat-tab label="{{ 'app.outline' | transloco }}">
                                     <mat-accordion MatAccordionDisplayMode="flat" multi>
