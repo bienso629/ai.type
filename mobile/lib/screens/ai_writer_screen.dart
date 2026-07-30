@@ -1977,14 +1977,12 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   }
 
   Widget _buildImageList() {
-    final List<String> imageUrls = [];
-
-    final thumb = _thumbnailController.text.trim();
-    if (thumb.isNotEmpty) {
-      imageUrls.add(thumb);
+    final imgList = (_source['img'] as List?) ?? [];
+    if (imgList.isEmpty) {
+      return const SizedBox.shrink();
     }
 
-    final imgList = (_source['img'] as List?) ?? (_source['image'] as List?) ?? [];
+    final List<String> imageUrls = [];
     for (var item in imgList) {
       final str = item.toString();
       final match = RegExp('src="([^"]+)"', caseSensitive: false).firstMatch(str) ??
@@ -2008,7 +2006,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
       separatorBuilder: (_, __) => const Divider(height: 1),
       itemBuilder: (context, index) {
         final url = imageUrls[index];
-        final isThumb = index == 0 && thumb.isNotEmpty && url == thumb;
 
         return Padding(
           padding: const EdgeInsets.all(12.0),
@@ -2058,11 +2055,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                     );
                   } else if (value == 'delete') {
                     setState(() {
-                      if (isThumb) {
-                        _thumbnailController.clear();
-                      }
-                      if (_source['img'] != null && _source['img'] is List) {
-                        (_source['img'] as List).removeWhere((e) => e.toString().contains(url));
+                      if (_source['img'] != null && _source['img'] is List && index < (_source['img'] as List).length) {
+                        (_source['img'] as List).removeAt(index);
                       }
                     });
                     ScaffoldMessenger.of(context).showSnackBar(

@@ -272,6 +272,8 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     collections: any[] = [];
     articlesInCollection: any[] = [];
     selectedArticleInCollection: string | null = null;
+    isGeneratingNextChapter: boolean = false;
+    hasCustomSavedStyle: boolean = false;
 
     // tạo kết quả chỉnh sửa của đồng tác giả
     comments = [];
@@ -432,6 +434,7 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     applyDomainStyle(domainObj: any) {
         if (!domainObj) return;
+        if (this.hasCustomSavedStyle) return;
         let settings = this.multiAccountService.getItem('settings') || {};
         let domainStyles = settings.domainStyles || {};
         let styleName = domainStyles[domainObj.domain];
@@ -452,12 +455,20 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
 
     compareStyleFn = (o1: any, o2: any) => {
         if (!o1 || !o2) return o1 === o2;
-        return o1.name === o2.name;
+        const name1 = typeof o1 === 'string' ? o1 : (o1.name || o1._id || o1);
+        const name2 = typeof o2 === 'string' ? o2 : (o2.name || o2._id || o2);
+        return name1 === name2;
     };
 
     chooseStyle(e: any) {
         this.style = e.value;
+        this.hasCustomSavedStyle = true;
+        if (!this.source) this.source = {};
+        this.source.style = this.style;
         localStorage.setItem('style', JSON.stringify(this.style));
+        if (this.uuid) {
+            this.update(false);
+        }
     }
 
     /**
@@ -3736,6 +3747,10 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
         this.checkseo();
 
+        if (this.style && this.source) {
+            this.source.style = this.style;
+        }
+
         let data = {
             uuid: this.uuid,
             title: this.detectForm.get('step1').get('title').value,
@@ -4238,6 +4253,217 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         }
     }
 
+    async generateNextChapterInCollection() {
+        if (!this.selectedCollections || this.selectedCollections.length === 0) {
+            this.toastr.warning('Vui lòng chọn bộ bài viết (Collection) trước.');
+            return;
+        }
+
+        let uuids: string[] = [];
+        this.selectedCollections.forEach((col: any) => {
+            const fullCol = this.collections.find((c: any) => c._id === col._id || c.id === col.id);
+            const targetCol = fullCol || col;
+            if (Array.isArray(targetCol.uuid)) {
+                uuids = uuids.concat(targetCol.uuid);
+            } else if (targetCol.uuid) {
+                uuids.push(targetCol.uuid);
+            }
+        });
+
+        uuids = Array.from(new Set(uuids));
+
+        if (uuids.length === 0) {
+            this.toastr.warning('Không tìm thấy bài viết nào trong Collection này.');
+            return;
+        }
+
+        this.isGeneratingNextChapter = true;
+        this.cd.detectChanges();
+
+        try {
+            // Truy vấn CHI TIẾT từng bài viết qua API /crawl/node/archive/:uuid để lấy 100% dữ liệu data.done
+            const detailPromises = uuids.map(uuid => 
+                firstValueFrom(this._crawlService.detail({ uuid: uuid, username: this.user?.name || this.name })).catch(() => null)
+            );
+
+            const detailResults: any[] = await Promise.all(detailPromises);
+            const fullDocs = detailResults
+                .filter(res => res && res.data)
+                .map(res => res.data);
+
+            if (!fullDocs || fullDocs.length === 0) {
+                this.toastr.warning('Không lấy được dữ liệu chi tiết các bài viết trước trong CSDL.');
+                return;
+            }
+
+            const previousSummary = fullDocs.map((art: any, idx: number) => {
+                const title = art.title || `Phần ${idx + 1}`;
+                const desc = art.seo?.description?.text || art.description ? `Mô tả: ${art.seo?.description?.text || art.description}` : '';
+                
+                // Trích xuất Toàn bộ Nội dung từ mảng data.done (truy vấn trực tiếp từ API /crawl/node/archive/:uuid)
+                let contentFromDone = '';
+                if (art.done) {
+                    if (Array.isArray(art.done)) {
+                        contentFromDone = art.done
+                            .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                            .filter((text: string) => text.length > 0)
+                            .join('\n\n');
+                    } else if (typeof art.done === 'string') {
+                        contentFromDone = art.done.replace(/<[^>]*>?/gm, '').trim();
+                    }
+                }
+
+                // Nếu chưa có done, trích xuất thêm từ source.prompt hoặc source.pre
+                if (!contentFromDone && art.source) {
+                    if (art.source.prompt && Array.isArray(art.source.prompt)) {
+                        contentFromDone = art.source.prompt
+                            .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                            .filter((text: string) => text.length > 0)
+                            .join('\n\n');
+                    } else if (art.source.pre && Array.isArray(art.source.pre)) {
+                        contentFromDone = art.source.pre
+                            .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                            .filter((text: string) => text.length > 0)
+                            .join('\n\n');
+                    }
+                }
+
+                if (contentFromDone.length > 4000) {
+                    contentFromDone = contentFromDone.substring(0, 4000) + '... [còn tiếp]';
+                }
+
+                return `========================================
+[CHƯƠNG ${idx + 1} / PHẦN ${idx + 1}]
+Tiêu đề: ${title}
+${desc ? desc + '\n' : ''}Nội dung chi tiết (Dữ liệu data.done truy vấn từ /crawl/node/archive/${art.uuid}):
+${contentFromDone || '(Chưa có văn bản trong done)'}
+========================================`;
+            }).join('\n\n');
+
+            const activeStyle = this.style || (fullDocs[0]?.source?.style) || (fullDocs[0]?.style);
+            const styleName = typeof activeStyle === 'string' ? activeStyle : (activeStyle?.name || 'Nhà văn / tác giả tiểu thuyết chuyên nghiệp');
+            const styleDesc = typeof activeStyle === 'object' && activeStyle?.desc ? ` (${activeStyle.desc})` : '';
+
+            const prompt = `Bạn là một tác giả / chuyên gia sáng tạo nội dung theo phong cách "${styleName}"${styleDesc}.
+Dưới đây là TOÀN BỘ CÁC CHƯƠNG/PHẦN ĐÃ VIẾT TRƯỚC ĐÓ trong cùng bộ tiểu thuyết (Collection) được TRUY VẤN TRỰC TIẾP TỪ CSDL (dữ liệu trường 'done'):
+
+${previousSummary}
+
+Dựa vào TOÀN BỘ NỘI DUNG & TÌNH TIẾT CỦA CÁC CHƯƠNG TRƯỚC Ở TRÊN, hãy sáng tạo và lập kịch bản nối tiếp cho PHẦN TIẾP THEO (Chương tiếp theo/Phần nối tiếp) chuẩn theo phong cách "${styleName}".
+
+YÊU CẦU QUAN TRỌNG:
+1. TIÊU ĐỀ: Tên tiêu đề bài viết/chương tiếp theo.
+2. MÔ TẢ: Mô tả tổng quan chi tiết mạch truyện của chương mới này.
+3. CÁC PROMPT GỢI Ý CHI TIẾT (prompts):
+   - Đưa ra 4 đến 6 đoạn Prompt gợi ý miêu tả thật CHI TIẾT, ĐẦY ĐỦ, GIÀU HÌNH ẢNH về hành động nhân vật, bối cảnh, mâu thuẫn và diễn biến tâm lý của từng phân cảnh trong chương này, thể hiện rõ nét phong cách "${styleName}".
+   - KHÔNG ĐÁNH SỐ THỨ TỰ (TUYỆT ĐỐI KHÔNG ghi "1. ", "2. ", "3. " ở đầu các câu prompt).
+
+Trả về kết quả bằng định dạng JSON duy nhất như sau:
+{
+    "title": "Tên tiêu đề bài viết/chương tiếp theo (Ví dụ: Chương I: Phần II: ...)",
+    "description": "Mô tả chi tiết nội dung và diễn biến chính của chương mới này",
+    "prompts": [
+        "Mô tả chi tiết phân cảnh 1: nhân vật làm gì, bối cảnh ra sao, cảm xúc và hành động cụ thể...",
+        "Mô tả chi tiết phân cảnh 2: biến cố tiếp theo diễn ra như thế nào, chi tiết hình ảnh kịch tính...",
+        "Mô tả chi tiết phân cảnh 3: cuộc chạm trán hoặc cao trào của phân đoạn...",
+        "Mô tả chi tiết phân cảnh 4: kết thúc phân đoạn với nút thắt mở ra diễn biến mới..."
+    ]
+}
+Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng '}', không bọc trong markdown block.`;
+
+            const response = await this._genaiService.generateContent({
+                model: 'gemini-3.6-flash',
+                contents: [{ role: 'user', parts: [{ text: prompt }] }],
+            });
+
+            const rawText = response.text || '';
+            let cleanJson = rawText.trim();
+            if (cleanJson.includes('{') && cleanJson.includes('}')) {
+                cleanJson = cleanJson.substring(cleanJson.indexOf('{'), cleanJson.lastIndexOf('}') + 1);
+            }
+
+            const data = JSON.parse(cleanJson);
+
+            if (data && data.title) {
+                const newTitle = data.title;
+                const newDescription = data.description || '';
+                const rawList = Array.isArray(data.prompts) ? data.prompts : (Array.isArray(data.outline) ? data.outline : []);
+                
+                // Làm sạch các số thứ tự ở đầu dòng nếu có ("1. ", "2. ", "1/ ")
+                const promptList = rawList.map((item: string) => {
+                    return item.replace(/^\d+[\.\/]\s*/, '').trim();
+                }).filter((item: string) => item.length > 0);
+
+                // Build source object for new article (bỏ dany trùng lặp, lưu style vào source.style)
+                const newSource: any = {
+                    description: newDescription,
+                    pre: [],
+                    prompt: promptList.map((item: string) => `<p id="source-prompt-${uuid.v4()}">${item}</p>`),
+                    style: this.style || this.source?.style || ''
+                };
+
+                const newSeo: any = {
+                    title: newTitle,
+                    description: newDescription,
+                };
+
+                const newUuid = uuid.v4();
+                const newSlug = this.slugifyPipe.transform(newTitle);
+
+                const newArchiveData: any = {
+                    uuid: newUuid,
+                    title: newTitle,
+                    url: newSlug,
+                    source: newSource,
+                    done: [],
+                    trash: [],
+                    seo: newSeo,
+                    arr_keyword: [],
+                    domain: this.domain,
+                    style: this.style || this.source?.style || '',
+                    username: this.user?.name || this.name,
+                    thumbnail: '',
+                    confirm: false
+                };
+
+                const saveRes: any = await firstValueFrom(this._crawlService.storeArchive(newArchiveData));
+                if (saveRes && saveRes.success) {
+                    // Gắn bài viết mới vào Collection hiện tại
+                    const colPromises = this.selectedCollections.map((col: any) => {
+                        const targetId = col._id || col.id;
+                        if (targetId) {
+                            return firstValueFrom(this._crawlService.storeCollection({
+                                _id: targetId,
+                                uuid: newUuid,
+                                username: this.user?.name || this.name
+                            })).catch(() => null);
+                        }
+                        return Promise.resolve(null);
+                    });
+
+                    await Promise.all(colPromises);
+
+                    this.toastr.success(`Đã tạo phần tiếp theo: "${newTitle}" thành công!`);
+                    
+                    // Chuyển hướng sang bài viết mới vừa tạo
+                    this.router.navigate(['/ai-writer', this.user?.name || this.name, newUuid]).then(() => {
+                        window.location.reload();
+                    });
+                } else {
+                    this.toastr.error('Không thể tạo bài viết mới trong CSDL.');
+                }
+            } else {
+                this.toastr.error('AI không thể tạo cấu trúc bài viết mới.');
+            }
+        } catch (err: any) {
+            console.error('Error generating next chapter:', err);
+            this.toastr.error('Có lỗi xảy ra khi tạo phần tiếp theo bằng AI.');
+        } finally {
+            this.isGeneratingNextChapter = false;
+            this.cd.detectChanges();
+        }
+    }
+
     /**
      * Thêm mới vào Collection
      */
@@ -4477,23 +4703,18 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
             }
         }
 
-        if (editor.style) {
-            if (typeof editor.style === 'string' && this.styles) {
-                let foundStyle = this.styles.find(s => s.name === editor.style || s._id === editor.style);
-                if (foundStyle) {
-                    this.style = foundStyle;
-                    localStorage.setItem('style', JSON.stringify(this.style));
-                }
-            } else if (typeof editor.style === 'object') {
-                if (this.styles && this.styles.length > 0) {
-                    let foundStyle = this.styles.find(s => s.name === editor.style.name || s._id === editor.style._id);
-                    this.style = foundStyle || editor.style;
-                } else {
-                    this.style = editor.style;
-                }
-                localStorage.setItem('style', JSON.stringify(this.style));
+        const savedStyle = editor.source?.style || editor.style;
+        if (savedStyle) {
+            this.hasCustomSavedStyle = true;
+            const styleName = typeof savedStyle === 'string' ? savedStyle : (savedStyle.name || savedStyle._id);
+            if (this.styles && this.styles.length > 0) {
+                let foundStyle = this.styles.find(s => s.name === styleName || s._id === styleName);
+                this.style = foundStyle || (typeof savedStyle === 'object' ? savedStyle : { name: styleName });
+            } else {
+                this.style = typeof savedStyle === 'object' ? savedStyle : { name: styleName };
             }
-        } else if (this.domain) {
+            localStorage.setItem('style', JSON.stringify(this.style));
+        } else if (this.domain && !this.hasCustomSavedStyle) {
             this.applyDomainStyle(this.domain);
         }
         // kiểm tra nếu used là -1 có nghĩa là nó được convert từ node sang
