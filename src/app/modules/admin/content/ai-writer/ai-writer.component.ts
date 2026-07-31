@@ -4268,11 +4268,10 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
     goToArticle(event: any) {
         let articleUuid = event?.uuid || event;
         if (!articleUuid || articleUuid === this.uuid) return;
-        const article = this.articlesInCollection.find(a => a.uuid === articleUuid);
-        if (article) {
-            this.router.navigate(['/ai-writer', article.username || this.name, articleUuid]).then(() => {
-                window.location.reload();
-            });
+        const article = this.articlesInCollection ? this.articlesInCollection.find(a => a.uuid === articleUuid) : null;
+        const targetUsername = article?.username || this.user?.name || this.name;
+        if (targetUsername) {
+            this.router.navigate(['/ai-writer', targetUsername, articleUuid]);
         }
     }
 
@@ -4469,9 +4468,7 @@ Chỉ trả về JSON thuần túy, bắt đầu từ '{' và kết thúc bằng
                     this.toastr.success(`Đã tạo phần tiếp theo: "${newTitle}" thành công!`);
                     
                     // Chuyển hướng sang bài viết mới vừa tạo
-                    this.router.navigate(['/ai-writer', this.user?.name || this.name, newUuid]).then(() => {
-                        window.location.reload();
-                    });
+                    this.router.navigate(['/ai-writer', this.user?.name || this.name, newUuid]);
                 } else {
                     this.toastr.error('Không thể tạo bài viết mới trong CSDL.');
                 }
