@@ -633,7 +633,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
                     this.toastr.warning('Lỗi tải hình ảnh thứ ' + (i + 1));
                 }
             }
-            this.editorForm.get('content').setValue(content);
+            this.editorForm.get('content').setValue(this.sanitizeQuillContent(content));
             this.loading = false;
             this.cdr.markForCheck();
         }
@@ -768,6 +768,7 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
 
         let submitData = {
             ...this.editorForm.value,
+            content: this.sanitizeQuillContent(this.editorForm.get('content').value),
             domain_id: this.domain ? (this.domain._id || this.domain.id) : null
         };
 
@@ -808,6 +809,8 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
 
         let submitData = {
             ...this.editorForm.value,
+            id: this.editorForm.get('wp_post_id').value,
+            content: this.sanitizeQuillContent(this.editorForm.get('content').value),
             domain_id: this.domain ? (this.domain._id || this.domain.id) : null
         };
 
@@ -933,19 +936,23 @@ export class EditBeforeExportSheet implements OnInit, OnDestroy {
             thumbnail: [this.data.thumbnail]
         });
 
-        this.data.content.map((item: string) => {
-            let formattedItem = item;
-            if (formattedItem) {
-                // Dọn dẹp các thẻ xuống dòng trống trước thẻ table
-                formattedItem = formattedItem.replace(/(?:<p><br><\/p>\s*)+<table/gi, '<table');
-                formattedItem = formattedItem.replace(/(?:<br\s*\/?>\s*)+<table/gi, '<table');
-
-                formattedItem = formattedItem.replace(/<th/gi, '<td').replace(/<\/th>/gi, '</td>');
-                formattedItem = formattedItem.replace(/<thead/gi, '<tbody').replace(/<\/thead>/gi, '</tbody>');
-                formattedItem = formattedItem.replace(/<\/p>\s*<table/gi, '</p><table');
-            }
-            this.editorForm.controls['content'].setValue(this.editorForm.controls['content'].value + formattedItem);
-        });
+        let fullContent = '';
+        if (Array.isArray(this.data.content)) {
+            this.data.content.forEach((item: string) => {
+                let formattedItem = item || '';
+                if (formattedItem) {
+                    formattedItem = formattedItem.replace(/(?:<p><br><\/p>\s*)+<table/gi, '<table');
+                    formattedItem = formattedItem.replace(/(?:<br\s*\/?>\s*)+<table/gi, '<table');
+                    formattedItem = formattedItem.replace(/<th/gi, '<td').replace(/<\/th>/gi, '</td>');
+                    formattedItem = formattedItem.replace(/<thead/gi, '<tbody').replace(/<\/tbody>/gi, '</tbody>');
+                    formattedItem = formattedItem.replace(/<\/p>\s*<table/gi, '</p><table');
+                }
+                fullContent += formattedItem;
+            });
+        } else if (typeof this.data.content === 'string') {
+            fullContent = this.data.content;
+        }
+        this.editorForm.controls['content'].setValue(this.sanitizeQuillContent(fullContent));
 
         let domainacc: any = localStorage.getItem(`${this.domain['domain']}.account`);
         if (domainacc) {

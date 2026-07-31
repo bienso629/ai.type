@@ -3606,6 +3606,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 }
                 formattedContent += formattedItem;
             });
+            formattedContent = this.sanitizeAIText(formattedContent);
 
             if (!formattedContent || formattedContent.trim() === '') {
                 formattedContent = this.source.text.join('');
@@ -3740,7 +3741,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
     /**
      * Sửa archive
      */
-    update(confirm: boolean = false) {
+    update(confirm: boolean = false, syncWp: boolean = true) {
         if (!this.uuid) {
             this.archive();
             return;
@@ -3802,7 +3803,9 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                         }
 
                         this.toastr.success(`Văn bản đã được lưu trữ.`);
-                        this.syncToWordpress();
+                        if (syncWp) {
+                            this.syncToWordpress();
+                        }
                     }
 
                     // lam moi lai giao dien
@@ -4163,7 +4166,7 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                     if (this.domain && this.domain['domain']) {
                         this.source.wp_domain = this.domain['domain'];
                     }
-                    this.update(false); // Lưu lại WP ID vào CSDL ngay
+                    this.update(false, false); // Lưu lại WP ID vào CSDL ngay, không cần sync Wp trùng lặp
                 }
 
                 // tinh toan lai done
