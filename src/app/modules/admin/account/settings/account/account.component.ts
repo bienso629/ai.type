@@ -44,6 +44,8 @@ export class SettingsAccountComponent implements OnInit {
     showSearchAPIKey: boolean = false;
     showUmodelverseKey: boolean = false;
     showN8N: boolean = false;
+    showFigmaToken: boolean = false;
+    showFigmaMcp: boolean = false;
     private _unsubscribeAll: Subject<any> = new Subject<any>();
 
     toggleKeyVisibility(index: number): void {
@@ -151,6 +153,8 @@ export class SettingsAccountComponent implements OnInit {
                 secretKey: this.accountForm.value['secretKey'],
                 searchAPIKey: this.accountForm.value['searchAPIKey'],
                 n8n: this.accountForm.value['n8n'],
+                figmaToken: this.accountForm.value['figmaToken'],
+                figmaMcp: this.accountForm.value['figmaMcp'],
                 umodelverseUrl: this.accountForm.value['umodelverseUrl'],
                 umodelverseKey: this.accountForm.value['umodelverseKey'],
                 umodelverseChatModel: this.accountForm.value['umodelverseChatModel'],
@@ -336,6 +340,8 @@ export class SettingsAccountComponent implements OnInit {
             sst: [(settings && settings.sst) ? settings.sst : ''],
             mxhauto: [(settings && settings.mxhauto) ? settings.mxhauto : ''],
             n8n: [(settings && settings.n8n) ? settings.n8n : ''],
+            figmaToken: [(settings && settings.figmaToken) ? settings.figmaToken : ''],
+            figmaMcp: [(settings && settings.figmaMcp) ? settings.figmaMcp : ''],
             umodelverseUrl: [(settings && settings.umodelverseUrl) ? settings.umodelverseUrl : ''],
             umodelverseKey: [(settings && settings.umodelverseKey) ? settings.umodelverseKey : ''],
             umodelverseChatModel: [(settings && settings.umodelverseChatModel) ? settings.umodelverseChatModel : ''],
