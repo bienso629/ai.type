@@ -206,6 +206,32 @@ export class WordpressService {
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
         dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
 
+        const postId = dataForm.id || dataForm.wp_post_id || dataForm.post_id;
+        if (postId) {
+            dataForm.id = postId;
+            dataForm.wp_post_id = postId;
+            dataForm.post_id = postId;
+        }
+
+        const uname = dataForm.username || dataForm.wp_username;
+        if (uname) {
+            dataForm.username = uname;
+            dataForm.wp_username = uname;
+        }
+
+        const pass = dataForm.apppass || dataForm.wp_password || dataForm.password;
+        if (pass) {
+            dataForm.apppass = pass;
+            dataForm.wp_password = pass;
+            dataForm.password = pass;
+        }
+
+        if (dataForm && typeof dataForm.content === 'string') {
+            dataForm.content = dataForm.content
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
+        }
+
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/update`;
 
         let options = {
@@ -407,6 +433,25 @@ export class WordpressService {
         dataForm.appToken = activeInfo['user']['appToken'];
         dataForm.sys_username = this.user ? this.user.name : (activeInfo['user']['username'] || activeInfo['user']['name']);
         dataForm.domain_id = dataForm.domain_id || (dataForm.domainObj ? (dataForm.domainObj.id || dataForm.domainObj._id) : null) || dataForm.id;
+
+        const uname = dataForm.username || dataForm.wp_username;
+        if (uname) {
+            dataForm.username = uname;
+            dataForm.wp_username = uname;
+        }
+
+        const pass = dataForm.apppass || dataForm.wp_password || dataForm.password;
+        if (pass) {
+            dataForm.apppass = pass;
+            dataForm.wp_password = pass;
+            dataForm.password = pass;
+        }
+
+        if (dataForm && typeof dataForm.content === 'string') {
+            dataForm.content = dataForm.content
+                .replace(/&nbsp;/gi, ' ')
+                .replace(/[\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]/g, ' ');
+        }
 
         const url = `${this.config.settings.api[this.user.server]}/plugins/wordpress/post/create`;
 
