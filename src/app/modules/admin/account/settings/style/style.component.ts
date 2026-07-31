@@ -24,12 +24,17 @@ export class SettingsStyleComponent implements OnInit {
 
     add() {
         const dialogRef = this.dialog.open(AddStyleDialog, {
-            width: '540px'
+            width: '540px',
+            data: {
+                styles: this.styles,
+                index: -1
+            }
         });
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.styles.push(result);
+                let styles: any = this.multiAccountService.getItem('styles') || [];
+                this.styles = styles;
                 this.cd.markForCheck();
             }
         });
@@ -51,7 +56,8 @@ export class SettingsStyleComponent implements OnInit {
 
         dialogRef.afterClosed().subscribe(result => {
             if (result) {
-                this.styles[i] = result;
+                let styles: any = this.multiAccountService.getItem('styles') || [];
+                this.styles = styles;
                 this.cd.markForCheck();
             }
         });

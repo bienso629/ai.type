@@ -13,7 +13,8 @@ import { MultiAccountService } from "app/_services/multi-account.service";
     providers: [UserClientService],
     template: `<div class="text-xl font-normal text-gray-500 tracking-tight flex items-stretch">
         <mat-icon class="self-center mr-2 icon-size-5" [svgIcon]="'feather:coffee'"></mat-icon>
-        <mat-label class="self-center">{{ 'app.add_style' | transloco }}</mat-label>
+        <mat-label class="self-center" *ngIf="index < 0">{{ 'app.add_style' | transloco }}</mat-label>
+        <mat-label class="self-center" *ngIf="index > -1">{{ 'app.edit_style' | transloco }}</mat-label>
     </div>
 
     <div mat-dialog-content class="mt-4 p-0">
@@ -52,7 +53,6 @@ import { MultiAccountService } from "app/_services/multi-account.service";
     <button mat-flat-button *ngIf="index > -1" (click)="update()" color="primary" class="">
             {{ 'app.edit_style' | transloco }}
         </button>
-    <button mat-flat-button (click)="onNoClick()" color="medium" class="">{{ 'app.close_window' | transloco }}</button>
 </div>`,
 })
 export class AddStyleDialog implements OnInit, OnDestroy {
@@ -149,11 +149,11 @@ export class AddStyleDialog implements OnInit, OnDestroy {
         private _userService: UserService,
         private _userClientService: UserClientService,
         public dialogRef: MatDialogRef<AddStyleDialog>,
-        @Inject(MAT_DIALOG_DATA) public data: AddStyleDialog,
+        @Inject(MAT_DIALOG_DATA) public data: any,
         private toastr: ToastrService,
         private multiAccountService: MultiAccountService
     ) {
-        if (data && data['index'] > -1) {
+        if (data && data['index'] !== undefined && data['index'] > -1) {
             this.index = data['index'];
         }
 
@@ -170,11 +170,12 @@ export class AddStyleDialog implements OnInit, OnDestroy {
     }
 
     ngOnInit(): void {
+        const targetStyle = (this.data && this.data['styles'] && this.index > -1 && this.data['styles'][this.index]) ? this.data['styles'][this.index] : null;
         // Create the form
         this.editForm = this._formBuilder.group({
-            name: [(this.data && this.data['styles'][this.data['index']]['name']) ? this.data['styles'][this.data['index']]['name'] : '', Validators.required],
-            desc: [this.data && (this.data['styles'][this.data['index']]['desc']) ? this.data['styles'][this.data['index']]['desc'] : '', Validators.required],
-            avatar: [(this.data && this.data['styles'][this.data['index']]['avatar']) ? this.data['styles'][this.data['index']]['avatar'] : 'assets/images/avatars/brian-hughes.jpg', Validators.required]
+            name: [targetStyle ? targetStyle['name'] : '', Validators.required],
+            desc: [targetStyle ? targetStyle['desc'] : '', Validators.required],
+            avatar: [(targetStyle && targetStyle['avatar']) ? targetStyle['avatar'] : 'assets/images/avatars/brian-hughes.jpg', Validators.required]
         });
     }
 }
