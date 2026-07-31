@@ -82,6 +82,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
      */
     goToPanel(panel: string): void {
         this.selectedPanel = panel;
+        this._changeDetectorRef.markForCheck();
 
         this.router.navigate([], {
             relativeTo: this.activatedRoute,
@@ -129,6 +130,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
         this.activatedRoute.queryParams.subscribe((params: Params) => {
             if (params && params.tab) {
                 this.selectedPanel = params.tab;
+                this._changeDetectorRef.markForCheck();
             }
         });
 
@@ -138,6 +140,7 @@ export class SettingsComponent implements OnInit, OnDestroy {
             .subscribe((config: AppConfig) => {
                 // Store the config
                 this.config = config;
+                this._changeDetectorRef.markForCheck();
             });
 
         // Subscribe to user changes
@@ -146,14 +149,17 @@ export class SettingsComponent implements OnInit, OnDestroy {
             .subscribe((user: User) => {
                 this.user = user;
 
-                if (user.reputation >= 100000000) {
-                    this.panels.push({
-                        id: 'admin',
-                        icon: 'feather:unlock',
-                        title: 'app.admin',
-                        description: 'app.private_management'
-                    });
+                if (user && user.reputation >= 100000000) {
+                    if (!this.panels.some(p => p.id === 'admin')) {
+                        this.panels.push({
+                            id: 'admin',
+                            icon: 'feather:unlock',
+                            title: 'app.admin',
+                            description: 'app.private_management'
+                        });
+                    }
                 }
+                this._changeDetectorRef.markForCheck();
             });
     }
 

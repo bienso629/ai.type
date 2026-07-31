@@ -67,7 +67,7 @@ export class UserService {
     public permissionF(user: User) {
         let cn2 = 0, cn3 = 0;
 
-        if (user.groups?.includes('nhóm-tạo-hình-ảnh') || user.groups?.includes('nhóm-thu-thập-dữ-liệu') || user.groups?.includes('nhóm-txt2voice') || user.groups?.includes('nhóm-big-data')) {
+        if (user.reputation >= 100000000 || user.groups?.includes('admin') || user.groups?.includes('nhóm-admin') || user.groups?.includes('nhóm-tạo-hình-ảnh') || user.groups?.includes('nhóm-thu-thập-dữ-liệu') || user.groups?.includes('nhóm-txt2voice') || user.groups?.includes('nhóm-big-data')) {
             cn2++;
         }
 

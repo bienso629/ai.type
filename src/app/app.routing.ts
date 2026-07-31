@@ -111,6 +111,7 @@ export const appRoutes: Route[] = [
             { path: 'customers', loadChildren: () => import('app/modules/admin/marketing/x-cms/x-cms.module').then(m => m.XCmsModule) },
             { path: 'data', loadChildren: () => import('app/modules/admin/marketing/bigdata/bigdata.module').then(m => m.BigDataModule) },
             { path: 'zalo', loadChildren: () => import('app/modules/admin/marketing/zalo/zalo.module').then(m => m.ZaloModule) },
+            { path: 'figma', loadChildren: () => import('app/modules/admin/marketing/figma/figma.module').then(m => m.FigmaModule) },
         ]
     },
 ];

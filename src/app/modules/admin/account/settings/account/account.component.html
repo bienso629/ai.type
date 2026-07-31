@@ -197,6 +197,81 @@
                     </mat-form-field>
                     <div class="mt-1 text-md text-hint">{{ 'account.jobs.mxhauto_hint' | transloco }}</div>
                 </div>
+
+                <ng-container *ngIf="user.reputation >= 100000000">
+                    <!-- Section -->
+                    <div class="w-full mt-10">
+                        <div class="text-secondary">{{ 'account.automation.title' | transloco }}</div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="mt-2 mb-2 border-t"></div>
+
+                    <div class="w-full mt-4">
+                        <!-- Search API Key -->
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>{{ 'account.automation.search_engine' | transloco }}</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
+                            <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
+                                matInput>
+                            <button mat-icon-button type="button" matSuffix
+                                (click)="showSearchAPIKey = !showSearchAPIKey">
+                                <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility'
+                                    }}</mat-icon>
+                            </button>
+                        </mat-form-field>
+                        <div class="mt-1 text-md text-hint" [innerHTML]="'account.automation.search_api_hint_here' | transloco"></div>
+                    </div>
+
+                    <div class="w-full mt-2" *ngIf="user.reputation >= 4000000">
+                        <!-- Search API Key -->
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>{{ 'account.automation.n8n' | transloco }}</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
+                            <input [formControlName]="'n8n'" [type]="showN8N ? 'text' : 'password'" matInput>
+                            <button mat-icon-button type="button" matSuffix (click)="showN8N = !showN8N">
+                                <mat-icon class="icon-size-4">{{ showN8N ? 'visibility_off' : 'visibility' }}</mat-icon>
+                            </button>
+                        </mat-form-field>
+                    </div>
+
+                    <!-- Section Figma -->
+                    <div class="w-full mt-10">
+                        <div class="text-secondary">Cấu hình Figma</div>
+                    </div>
+
+                    <!-- Divider -->
+                    <div class="mt-2 mb-2 border-t"></div>
+
+                    <div class="w-full mt-4">
+                        <!-- Figma Token -->
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>Token</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
+                            <input [formControlName]="'figmaToken'" [type]="showFigmaToken ? 'text' : 'password'" matInput>
+                            <button mat-icon-button type="button" matSuffix
+                                (click)="showFigmaToken = !showFigmaToken">
+                                <mat-icon class="icon-size-4">{{ showFigmaToken ? 'visibility_off' : 'visibility' }}</mat-icon>
+                            </button>
+                        </mat-form-field>
+                    </div>
+
+                    <div class="w-full mt-2">
+                        <!-- Figma MCP -->
+                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
+                            [subscriptSizing]="'dynamic'">
+                            <mat-label>MCP</mat-label>
+                            <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
+                            <input [formControlName]="'figmaMcp'" [type]="showFigmaMcp ? 'text' : 'password'" matInput>
+                            <button mat-icon-button type="button" matSuffix (click)="showFigmaMcp = !showFigmaMcp">
+                                <mat-icon class="icon-size-4">{{ showFigmaMcp ? 'visibility_off' : 'visibility' }}</mat-icon>
+                            </button>
+                        </mat-form-field>
+                    </div>
+                </ng-container>
             </mat-tab>
 
             <mat-tab label="{{ 'account.tabs.ai' | transloco }}">
@@ -345,45 +420,6 @@
                     </div>
                 </div>
 
-                <ng-container *ngIf="user.reputation >= 100000000">
-                    <!-- Section -->
-                    <div class="w-full mt-10">
-                        <div class="text-secondary">{{ 'account.automation.title' | transloco }}</div>
-                    </div>
-
-                    <!-- Divider -->
-                    <div class="mt-2 mb-2 border-t"></div>
-
-                    <div class="w-full mt-4">
-                        <!-- Search API Key -->
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.automation.search_engine' | transloco }}</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'heroicons_solid:key'" matPrefix></mat-icon>
-                            <input [formControlName]="'searchAPIKey'" [type]="showSearchAPIKey ? 'text' : 'password'"
-                                matInput>
-                            <button mat-icon-button type="button" matSuffix
-                                (click)="showSearchAPIKey = !showSearchAPIKey">
-                                <mat-icon class="icon-size-4">{{ showSearchAPIKey ? 'visibility_off' : 'visibility'
-                                    }}</mat-icon>
-                            </button>
-                        </mat-form-field>
-                        <div class="mt-1 text-md text-hint" [innerHTML]="'account.automation.search_api_hint_here' | transloco"></div>
-                    </div>
-
-                    <div class="w-full mt-2" *ngIf="user.reputation >= 4000000">
-                        <!-- Search API Key -->
-                        <mat-form-field class="w-1/2 mt-2 fuse-mat-dense fuse-mat-emphasized-affix"
-                            [subscriptSizing]="'dynamic'">
-                            <mat-label>{{ 'account.automation.n8n' | transloco }}</mat-label>
-                            <mat-icon class="icon-size-4" [svgIcon]="'feather:compass'" matPrefix></mat-icon>
-                            <input [formControlName]="'n8n'" [type]="showN8N ? 'text' : 'password'" matInput>
-                            <button mat-icon-button type="button" matSuffix (click)="showN8N = !showN8N">
-                                <mat-icon class="icon-size-4">{{ showN8N ? 'visibility_off' : 'visibility' }}</mat-icon>
-                            </button>
-                        </mat-form-field>
-                    </div>
-                </ng-container>
             </mat-tab>
         </mat-tab-group>
 
