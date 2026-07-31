@@ -66,15 +66,6 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
         this._intervalId = setInterval(() => {
             this.checkZaloStatus();
         }, 5000);
-
-        this._openWebToolListener = (e: any) => {
-            const toolId = e.detail?.id || 'zalo';
-            const foundTool = this.tools.find(t => t.id === toolId || t.url.includes(toolId));
-            if (foundTool) {
-                this.openTool(foundTool);
-            }
-        };
-        (window as any).addEventListener('open-web-tool', this._openWebToolListener);
     }
 
     async checkZaloStatus() {
@@ -290,32 +281,48 @@ export class QuickChatComponent implements OnInit, AfterViewInit, OnDestroy {
 
     @HostListener('window:open-web-tool', ['$event'])
     onOpenWebTool(event: CustomEvent): void {
-        const url = event.detail.url;
-        if (!url) return;
+        const detail = event.detail || {};
+        const url = detail.url;
+        const toolId = detail.id;
+        let tool: ToolItem = null;
 
-        // Cố gắng tìm tool cũ (cùng URL tĩnh hoặc cùng là Auto Tools)
-        let tool = this.tools.find(t => t.url === url || (t.name === 'Auto Tools' && url.includes('facebook.com')));
+        if (url) {
+            const toolName = detail.name || 'Figma Make';
+            const cleanUrl = url.trim();
 
-        if (!tool) {
-            tool = { id: Date.now().toString(), name: 'Auto Tools', url: url };
-            this.tools.unshift(tool);
-        } else {
-            // Cập nhật lại URL mới (vì có uniqueID thay đổi liên tục)
-            tool.url = url;
+            // Tìm tool theo tên dự án chuẩn
+            tool = this.tools.find(t => {
+                if (!t) return false;
+                if (t.name && t.name.trim().toLowerCase() === toolName.trim().toLowerCase()) return true;
+                if (t.url && t.url.trim() === cleanUrl) return true;
+                return false;
+            });
 
-            // Cập nhật thẻ webview luôn nếu nó đã được render
-            const container = document.getElementById('webview-container-div');
-            if (container) {
-                const webview = container.querySelector(`webview[data-tool-id="${tool.id}"]`) as any;
-                if (webview && webview.src !== url) {
-                    webview.setAttribute('src', url);
+            if (!tool) {
+                tool = { id: Date.now().toString(), name: toolName, url: cleanUrl };
+                this.tools.unshift(tool);
+            } else {
+                tool.url = cleanUrl;
+                tool.name = toolName;
+
+                // Cập nhật thẻ webview luôn nếu nó đã được render
+                const container = document.getElementById('webview-container-div');
+                if (container) {
+                    const webview = container.querySelector(`webview[data-tool-id="${tool.id}"]`) as any;
+                    if (webview) {
+                        webview.setAttribute('src', cleanUrl);
+                    }
                 }
             }
+        } else if (toolId) {
+            tool = this.tools.find(t => t.id === toolId || t.url.includes(toolId));
         }
 
-        this.multiAccountService.setItem('tools_urls', this.tools);
-        this.open();
-        this.openTool(tool);
+        if (tool) {
+            this.multiAccountService.setItem('tools_urls', this.tools);
+            this.open();
+            this.openTool(tool);
+        }
     }
 
     ngAfterViewInit(): void {
