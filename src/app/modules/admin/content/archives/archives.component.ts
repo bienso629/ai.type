@@ -17,11 +17,12 @@ import { UserService } from 'app/core/user/user.service';
 import { User } from 'app/core/user/user.types';
 import { CrawlService } from 'app/_services/crawl';
 import { Clipboard } from '@angular/cdk/clipboard';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { ToastrService } from 'ngx-toastr';
 import { AppConfig } from 'app/core/config/app.config';
 import { FuseConfigService } from '@fuse/services/config/config.service';
 import { ForumService } from 'app/_services/forum';
+import { BlogService } from 'app/_services/blog';
 import { FormControl } from '@angular/forms';
 import { FuseConfirmationService } from '@fuse/services/confirmation';
 import { Router } from '@angular/router';
@@ -34,7 +35,7 @@ import { GenaiService } from 'app/genai.service';
     selector: 'archives',
     styleUrls: ['./archives.component.scss'],
     templateUrl: './archives.component.html',
-    providers: [CrawlService, ForumService],
+    providers: [CrawlService, ForumService, BlogService],
     encapsulation: ViewEncapsulation.None,
 })
 export class AIArchiveComponent implements OnInit, OnDestroy {
@@ -47,6 +48,7 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     apiFetchedCount: number = 0;
     pageNumber: number;
     isLoading: boolean = false;
+    isGeneratingCollectionScript: boolean = false;
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
     keyword: String = '';
@@ -862,6 +864,7 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         private cd: ChangeDetectorRef,
         private multiAccountService: MultiAccountService,
         private _genaiService: GenaiService,
+        private _blogService: BlogService,
         public _matDialog: MatDialog
     ) {
         this.titleService.setTitle(`lưu trữ | ai.type - công cụ tạo content`);
@@ -979,5 +982,324 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         dialogRef.afterClosed().subscribe((_) => {
             this.router.navigate(['/tools']);
         });
+    }
+
+    hasCollectionScriptFromArchives(): boolean {
+        let targetCols = this.selectedCollections || [];
+        if ((!targetCols || targetCols.length === 0) && this.collections && this.collections.length > 0) {
+            targetCols = [this.collections[0]];
+        }
+        if (!targetCols || targetCols.length === 0) return false;
+
+        const col = targetCols[0];
+        let firstUuid = '';
+        if (Array.isArray(col.uuid) && col.uuid.length > 0) {
+            firstUuid = col.uuid[0];
+        } else if (typeof col.uuid === 'string') {
+            firstUuid = col.uuid;
+        }
+
+        if (!firstUuid) return false;
+        if (col.has_script) return true;
+
+        if (this.multiAccountService) {
+            return !!this.multiAccountService.getItem(`ai_type_script_data_${firstUuid}`);
+        }
+        return false;
+    }
+
+    readCollectionScriptFromArchives() {
+        let targetCols = this.selectedCollections || [];
+        if ((!targetCols || targetCols.length === 0) && this.collections && this.collections.length > 0) {
+            targetCols = [this.collections[0]];
+        }
+        if (!targetCols || targetCols.length === 0) return;
+
+        const col = targetCols[0];
+        let firstUuid = '';
+        if (Array.isArray(col.uuid) && col.uuid.length > 0) {
+            firstUuid = col.uuid[0];
+        } else if (typeof col.uuid === 'string') {
+            firstUuid = col.uuid;
+        }
+
+        if (!firstUuid) return;
+        const username = this.user?.name || 'admin';
+        this.router.navigate(['/ai-writer', username, firstUuid, 'script']);
+    }
+
+    extractCleanDoneContent(art: any): string {
+        if (!art) return '';
+        let content = '';
+        const rawDone = art.done || art.content || art.text || (art.source ? (art.source.done || art.source.text || art.source.prompt) : null);
+        if (rawDone) {
+            if (Array.isArray(rawDone)) {
+                content = rawDone
+                    .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                    .filter((text: string) => text.length > 0)
+                    .join('\n\n');
+            } else if (typeof rawDone === 'string') {
+                content = rawDone.replace(/<[^>]*>?/gm, '').trim();
+            }
+        }
+        return content;
+    }
+
+    async fetchCollectionContentBulk(uuids: string[], username: string): Promise<any[]> {
+        if (!uuids || uuids.length === 0) return [];
+        let docsMap: Record<string, any> = {};
+
+        try {
+            const bulkRes: any = await firstValueFrom(this._crawlService.archive({
+                username: username,
+                uuids: uuids,
+                page: { size: Math.max(uuids.length, 2000) }
+            })).catch(() => null);
+
+            let docsList: any[] = [];
+            if (bulkRes && bulkRes.data) {
+                if (Array.isArray(bulkRes.data.docs)) {
+                    docsList = bulkRes.data.docs;
+                } else if (Array.isArray(bulkRes.data)) {
+                    docsList = bulkRes.data;
+                } else if (Array.isArray(bulkRes.data.data)) {
+                    docsList = bulkRes.data.data;
+                }
+            } else if (bulkRes && Array.isArray(bulkRes.docs)) {
+                docsList = bulkRes.docs;
+            }
+
+            docsList.forEach((doc: any) => {
+                if (doc) {
+                    const cleanContent = this.extractCleanDoneContent(doc);
+                    const docItem = {
+                        uuid: doc.uuid || doc._id || doc.id,
+                        title: doc.title || doc.name || '',
+                        done: cleanContent,
+                        style: (doc.source && doc.source.style) ? doc.source.style : (doc.style || null),
+                        createdAt: doc.createdAt || doc.created_at || doc.date || doc.updatedAt || 0
+                    };
+                    if (doc.uuid) docsMap[doc.uuid] = docItem;
+                    if (doc._id) docsMap[doc._id] = docItem;
+                    if (doc.id) docsMap[doc.id] = docItem;
+                }
+            });
+        } catch (err) {
+            console.warn('Lỗi gọi bulk archive:', err);
+        }
+
+        let resultDocs = uuids.map(uuid => docsMap[uuid]).filter(doc => !!doc && !!doc.done);
+        if (resultDocs.length === 0 && Object.keys(docsMap).length > 0) {
+            resultDocs = Object.values(docsMap).filter((doc: any) => !!doc && !!doc.done);
+        }
+
+        resultDocs.sort((a: any, b: any) => {
+            const dateA = new Date(a.createdAt || a.created_at || a.date || a.updatedAt || 0).getTime();
+            const dateB = new Date(b.createdAt || b.created_at || b.date || b.updatedAt || 0).getTime();
+            return dateA - dateB;
+        });
+        return resultDocs;
+    }
+
+    async generateCollectionScriptFromArchives() {
+        if (this.isGeneratingCollectionScript) return;
+
+        let targetCols = this.selectedCollections || [];
+        
+        if ((!targetCols || targetCols.length === 0) && this.selected && this.selected.length > 0) {
+            targetCols = (this.collections || []).filter((c: any) => {
+                return (this.selected || []).some((sel: any) => {
+                    if (Array.isArray(c.uuid)) return c.uuid.includes(sel.uuid);
+                    return c.uuid === sel.uuid;
+                });
+            });
+        }
+
+        if (!targetCols || targetCols.length === 0) {
+            if (this.collections && this.collections.length > 0) {
+                targetCols = [this.collections[0]];
+            } else {
+                this.toastr.warning('Vui lòng chọn 1 Collection ở bộ lọc bên trên để tạo kịch bản!', 'Chưa chọn Collection');
+                return;
+            }
+        }
+
+        this.isGeneratingCollectionScript = true;
+        this.cd.markForCheck();
+
+        let collectionTitle = targetCols[0]?.title || 'Kịch bản Bộ Tiểu Thuyết';
+        let uuids: string[] = [];
+
+        targetCols.forEach((col: any) => {
+            if (Array.isArray(col.uuid)) {
+                uuids = uuids.concat(col.uuid);
+            } else if (col.uuid) {
+                uuids.push(col.uuid);
+            }
+        });
+
+        uuids = Array.from(new Set(uuids));
+
+        if (uuids.length === 0 && this.rows && this.rows.length > 0) {
+            uuids = this.rows.map((r: any) => r.uuid).filter((u: any) => !!u);
+        }
+
+        if (uuids.length === 0) {
+            this.toastr.warning('Collection này chưa có bài viết nào để dựng kịch bản!', 'Trống');
+            this.isGeneratingCollectionScript = false;
+            this.cd.markForCheck();
+            return;
+        }
+
+        try {
+            this.toastr.info(`Đang siêu tối ưu đọc ${uuids.length} chương trong Collection "${collectionTitle}"...`, 'Đang xử lý siêu tốc');
+            const username = this.user?.name || 'admin';
+            
+            const fullDocs = await this.fetchCollectionContentBulk(uuids, username);
+
+            if (fullDocs && fullDocs.length > 0) {
+                const firstUuid = uuids[0];
+                let fullScriptParts: string[] = [];
+                let currentSceneNumber = 1;
+
+                this.toastr.info(`Bắt đầu chuyển thể chi tiết trọn vẹn ${fullDocs.length} chương sang kịch bản...`, 'Chuyển thể siêu chi tiết');
+
+                for (let idx = 0; idx < fullDocs.length; idx++) {
+                    const art = fullDocs[idx];
+                    const chapterTitle = art.title || `Chương ${idx + 1}`;
+                    
+                    let contentFromDone = '';
+                    if (art.done) {
+                        if (Array.isArray(art.done)) {
+                            contentFromDone = art.done
+                                .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                                .filter((text: string) => text.length > 0)
+                                .join('\n\n');
+                        } else if (typeof art.done === 'string') {
+                            contentFromDone = art.done.replace(/<[^>]*>?/gm, '').trim();
+                        }
+                    }
+
+                    if (!contentFromDone && art.source) {
+                        if (art.source.prompt && Array.isArray(art.source.prompt)) {
+                            contentFromDone = art.source.prompt
+                                .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                .filter((text: string) => text.length > 0)
+                                .join('\n\n');
+                        } else if (art.source.pre && Array.isArray(art.source.pre)) {
+                            contentFromDone = art.source.pre
+                                .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                .filter((text: string) => text.length > 0)
+                                .join('\n\n');
+                        }
+                    }
+
+                    if (!contentFromDone || !contentFromDone.trim()) {
+                        continue;
+                    }
+
+                    this.toastr.info(`[Chương ${idx + 1}/${fullDocs.length}] Đang dựng kịch bản mổ xẻ chi tiết cho: "${chapterTitle}"...`, 'Đang xử lý từng chương');
+
+                    let prompt = `Bạn là một Nhà biên kịch Điện ảnh Chuyên nghiệp.
+Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% High-Fidelity Adaptation) CHƯƠNG ${idx + 1}/${fullDocs.length} thuộc tác phẩm dưới đây thành một KỊCH BẢN PHIM ĐIỆN ẢNH chuẩn mực chiếu rạp.
+
+TIÊU ĐỀ TÁC PHẨM TỔNG THỂ: ${collectionTitle}
+CHƯƠNG HIỆN TẠI (CHƯƠNG ${idx + 1}/${fullDocs.length}): ${chapterTitle}
+
+NỘI DUNG VĂN BẢN GỐC CỦA CHƯƠNG NÀY (TRƯỜNG DONE):
+${contentFromDone}
+
+QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
+1. BÁM SÁT 100% TỪNG ĐOẠN VĂN CỦA CHƯƠNG NÀY - ZERO OMISSION:
+- Chuyển thể TUẦN TỰ TỪNG ĐOẠN VĂN từ đầu tới cuối của Chương này sang phân cảnh kịch bản. KHÔNG BỎ SÓT BẤT KỲ ĐOẠN VĂN HAY CHI TIẾT NÀO.
+- ĐÁNH SỐ CẢNH: Bắt đầu đánh số phân cảnh từ CẢNH ${currentSceneNumber}. Tăng dần số cảnh liên tục (Cảnh ${currentSceneNumber}, Cảnh ${currentSceneNumber + 1}, ...).
+
+2. VIẾT CỰC KỲ CHI TIẾT HÀNH ĐỘNG, THOẠI VÀ BỐI CẢNH (ULTRA-DETAILED ACTION & FULL DIALOGUE):
+- DÒNG HÀNH ĐỘNG (ACTION LINES) SIÊU CHI TIẾT: Mổ xẻ tỉ mỉ cử chỉ, biểu cảm, ánh mắt, tư thế, di chuyển, âm thanh môi trường và ánh sáng bối cảnh.
+- LỜI THOẠI (DIALOGUE) TRỌN VẸN 100%: Viết đầy đủ từng câu thoại, mở ngoặc đơn sắc thái tình cảm. CẤM VIẾT TẮT, cấm dùng các từ tóm tắt hời hợt như "v.v.", "...", "hai người tiếp tục trò chuyện...".
+- ĐỘ TUỔI, TÊN GỐC & NGHỀ NGHIỆP: Giữ nguyên 100% tên gốc, con số độ tuổi (Ví dụ: Nếu nguyên tác ghi "40 tuổi" thì kịch bản BẮT BUỘC ghi (40), TUYỆT ĐỐI KHÔNG ĐỔI THÀNH 20 hay 30 tuổi!) và nghề nghiệp nguyên tác.
+
+3. ĐỊNH DẠNG KỊCH BẢN ĐIỆN ẢNH CHUẨN ĐIỆN ẢNH CHIẾU RẠP:
+- TUYỆT ĐỐI KHÔNG VIẾT MỤC 'NHÂN VẬT:' HOẶC LIỆT KÊ DANH SÁCH NHÂN VẬT Ở ĐẦU KỊCH BẢN.
+- GIỚI THIỆU NHÂN VẬT TRỰC TIẾP TRONG DÒNG HÀNH ĐỘNG (ACTION LINES) khi nhân vật xuất hiện lần đầu tiên ở phân cảnh (Ví dụ: MAI (27), một phụ nữ trẻ cương nghị...).
+- Bắt đầu kịch bản ngay bằng CẢNH ${currentSceneNumber} hoặc "FADE IN:". KHÔNG kèm lời dẫn hay giải thích thừa.`;
+
+                    try {
+                        const response = await this._genaiService.generateContent({
+                            model: 'gemini-3.6-flash',
+                            contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                            config: { temperature: 0.1 }
+                        });
+
+                        const chapterScript = response.text ? response.text.trim() : '';
+                        if (chapterScript) {
+                            const sceneMatches = chapterScript.match(/(?:CẢNH|SCENE)\s+(\d+)/gi);
+                            if (sceneMatches && sceneMatches.length > 0) {
+                                const lastMatch = sceneMatches[sceneMatches.length - 1];
+                                const numMatch = lastMatch.match(/\d+/);
+                                if (numMatch) {
+                                    currentSceneNumber = parseInt(numMatch[0], 10) + 1;
+                                }
+                            } else {
+                                currentSceneNumber += 5;
+                            }
+
+                            fullScriptParts.push(`========================================\n[PHẦN KỊCH BẢN CHƯƠNG ${idx + 1}: ${chapterTitle}]\n========================================\n\n` + chapterScript);
+                        }
+                    } catch (e) {
+                        console.warn(`Lỗi khi dựng kịch bản cho Chương ${idx + 1}:`, e);
+                    }
+                }
+
+                const scriptText = fullScriptParts.join('\n\n');
+
+                if (!scriptText || !scriptText.trim()) {
+                    this.toastr.error('Không thể dựng kịch bản cho Collection này!', 'Lỗi');
+                    this.isGeneratingCollectionScript = false;
+                    this.cd.markForCheck();
+                    return;
+                }
+
+                if (scriptText) {
+                    const scriptTitle = `${collectionTitle}`;
+                    this._blogService.storeScript({
+                        username: username,
+                        uuid: firstUuid,
+                        title: scriptTitle,
+                        outline: `Toàn bộ Collection (${uuids.length} chương)`,
+                        script: scriptText
+                    }).subscribe({
+                        next: (res) => {
+                            this.multiAccountService.setItem(`ai_type_script_data_${firstUuid}`, true);
+                            this.toastr.success(`Dựng kịch bản trọn vẹn chi tiết toàn bộ Collection "${collectionTitle}" (${fullDocs.length} chương) thành công!`);
+                            this.isGeneratingCollectionScript = false;
+                            this.cd.markForCheck();
+                            
+                            const firstRowName = (this.rows && this.rows.length > 0 && this.rows[0].name) ? this.rows[0].name : username;
+                            this.router.navigate(['/ai-writer', firstRowName, firstUuid, 'script']);
+                        },
+                        error: (err) => {
+                            console.error('Lỗi khi lưu kịch bản Collection:', err);
+                            this.toastr.error('Dựng kịch bản thành công nhưng không thể lưu vào database.', 'Lỗi lưu trữ');
+                            this.isGeneratingCollectionScript = false;
+                            this.cd.markForCheck();
+                        }
+                    });
+                } else {
+                    this.toastr.error('AI không phản hồi nội dung kịch bản.', 'Lỗi AI');
+                    this.isGeneratingCollectionScript = false;
+                    this.cd.markForCheck();
+                }
+            } else {
+                this.toastr.error('Không thể đọc nội dung các chương trong Collection.', 'Lỗi dữ liệu');
+                this.isGeneratingCollectionScript = false;
+                this.cd.markForCheck();
+            }
+        } catch (error) {
+            console.error('Lỗi dựng kịch bản Collection:', error);
+            this.toastr.error('Không thể kết nối đến máy chủ AI để dựng kịch bản Collection.', 'Lỗi kết nối');
+            this.isGeneratingCollectionScript = false;
+            this.cd.markForCheck();
+        }
     }
 }

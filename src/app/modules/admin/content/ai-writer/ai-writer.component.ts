@@ -2777,60 +2777,33 @@ ${contentFromDone || '(Chưa có văn bản)'}
         
         const title = (this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || '').trim() || 'Kịch bản chưa đặt tên';
 
-        let prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.\n\n`;
+        let prompt = `Bạn là một Nhà biên kịch Điện ảnh Chuyên nghiệp. Nhiệm vụ của bạn là CHUYỂN THỂ TRUNG THỰC TUYỆT ĐỐI (100% High-Fidelity Adaptation) tác phẩm dưới đây thành một KỊCH BẢN PHIM ĐIỆN ẢNH chuẩn mực chiếu rạp.\n\n`;
 
         if (collectionSummary && collectionSummary.trim()) {
-            prompt += `TOÀN BỘ DIỄN BIẾN & CÁC CHƯƠNG TRONG BỘ TIỂU THUYẾT (COLLECTION) TRUY VẤN TRỰC TIẾP TỪ CSDL:\n${collectionSummary}\n\n`;
-            prompt += `Dựa vào TOÀN BỘ NỘI DUNG VÀ MẠCH TRUYỆN CỦA TOÀN BỘ TIỂU THUYẾT Ó TRÊN, kết hợp với NỘI DUNG CỤ THỂ CỦA BÀI VIẾT/CHƯƠNG NÀY NÊU BÊN DƯỚI để dựng kịch bản phim chuẩn xác, liên kết chặt chẽ với bối cảnh và mạch truyện chung:\n\n`;
+            prompt += `TOÀN BỘ NỘI DUNG VĂN BẢN GỐC (TRƯỜNG DONE):\n${collectionSummary}\n\n`;
         }
 
-        prompt += `DÀN Ý / NỘI DUNG CỦA BÀI VIẾT NÀY:\n${outlineText}\n\n`;
+        prompt += `NỘI DUNG VĂN BẢN / DÀN Ý BÀI VIẾT NÀY:\n${outlineText}\n\n`;
 
-        prompt += `Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
+        prompt += `QUY TẮC BẮT BUỘC - BẢO TỒN NGUYÊN VẸN NGUYÊN TÁC VÀ BÁM SÁT TỪNG ĐOẠN VĂN:
 
-0. DANH SÁCH NHÂN VẬT & TIÊU ĐỀ (BẮT BUỘC Ở ĐẦU KỊCH BẢN):
-- BẮT BUỘC BẢO TỒN 100% TIÊU ĐỀ GỐC: "${title}" (Tuyệt đối không cắt bớt hay đổi thành tiêu đề khác).
-- TRƯỚC FADE IN: / CẢNH ĐẦU TIÊN, bạn BẮT BUỘC phải viết mục DANH SÁCH NHÂN VẬT mô tả chi tiết tất cả các nhân vật xuất hiện trong chương/tập này:
-  + Tên nhân vật (Viết hoa tên gốc)
-  + Độ tuổi chính xác từ tác phẩm
-  + Diện mạo, trang phục, kính mắt, đầu tóc... đặc trưng từ tác phẩm gốc
-  + Tính cách & vai trò đặc trưng
-  
-CẤU TRÚC MẪU DANH SÁCH NHÂN VẬT:
-DANH SÁCH NHÂN VẬT:
-• LÂM VŨ: 40 tuổi. Đầu trọc lốc, râu mọc lấm tấm phong trần, đeo kính cận tròn màu đen, mặc áo ba lỗ cháo lòng, quần đùi đùi gà. Căn hộ chung cư cũ. Tính cách lãng tử, tự do, dí dỏm và sâu sắc.
+1. BÁM SÁT 100% TỪNG ĐOẠN VĂN GỐC - KHÔNG ĐƯỢC THIẾU BẤT KỲ CHI TIẾT NÀO (100% ZERO-OMISSION PARAGRAPH COVERAGE):
+- Bạn PHẢI chuyển thể TUẦN TỰ TỪNG ĐOẠN VĂN của bài viết nguồn trong trường DONE sang các phân cảnh phim (Scene).
+- KHÔNG BỎ SÓT BẤT KỲ ĐOẠN VĂN NÀO, KHÔNG BỎ SÓT BẤT KỲ CHI TIẾT NÀO. Mọi ý niệm, câu chuyện, nhân vật, đồ vật, sự kiện dù là nhỏ nhất trong văn bản DONE đều BẮT BUỘC phải xuất hiện trong kịch bản.
+- THỨ TỰ DIỄN BIẾN: Bắt đầu lần lượt từ đoạn văn đầu tiên cho tới đoạn văn cuối cùng. TUYỆT ĐỐI KHÔNG đảo trật tự, KHÔNG nhảy cảnh, KHÔNG đưa đoạn sau lên trước.
 
-- PHẢI GIỮ NGUYÊN 100% TÊN NHÂN VẬT GỐC (Ví dụ: "Lâm Vũ, 40 tuổi..."). TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT TÊN NHÂN VẬT MỚI (như Nam, Minh, Tuấn...) hay tự đổi độ tuổi/ngoại hình khi bài viết gốc đã ghi rõ.
+2. VIẾT CỰC KỲ CHI TIẾT HÀNH ĐỘNG, THOẠI VÀ BỐI CẢNH (ULTRA-DETAILED ACTION & FULL DIALOGUE):
+- DÒNG HÀNH ĐỘNG (ACTION LINES) SIÊU CHI TIẾT: Chuyển hóa từng đoạn văn thành các mô tả điện ảnh sinh động: mổ xẻ tỉ mỉ từng cử chỉ tay chân, ánh mắt, nụ cười, nhíu mày, tư thế, di chuyển, âm thanh môi trường (tiếng gió, tiếng mưa, tiếng gõ cửa), ánh sáng (nắng gắt, đèn vàng âm u) và góc quay máy ảnh.
+- LỜI THOẠI (DIALOGUE) TRỌN VẸN 100%: Chuyển thể đầy đủ từng câu thoại của nhân vật. Đặt rõ sắc thái cảm xúc trong ngoặc đơn bên dưới tên nhân vật. CẤM TẮT THOẠI, cấm dùng các từ tóm tắt hời hợt như "hai người tiếp tục trò chuyện...", "v.v.", "...".
+- ĐỘ TUỔI, TÊN GỐC & NGHỀ NGHIỆP: Giữ nguyên 100% tên gốc, con số độ tuổi (Ví dụ: Nếu nguyên tác ghi "40 tuổi" thì kịch bản BẮT BUỘC ghi (40), TUYỆT ĐỐI KHÔNG ĐỔI THÀNH 20 hay 30 tuổi!) và nghề nghiệp nguyên tác.
 
-1. SCENE HEADING (Tiêu đề cảnh):
-- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. CĂN HỘ CHUNG CƯ CŨ - NIGHT".
-- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian giúp mạch phim liên tục.
-
-2. ACTION LINES (Dòng hành động - Rất quan trọng):
-- QUY TẮC VÀNG: Chỉ miêu tả những gì khán giả có thể NHÌN THẤY và NGHE THẤY. Tuyệt đối không miêu tả suy nghĩ nội tâm. Hãy dùng hành động để thể hiện cảm xúc.
-- Viết ở ngôi thứ ba, thì hiện tại. Lược bỏ các đại từ, liên từ thừa thãi. Viết câu ngắn để tạo nhịp điệu dồn dập, câu dài để tạo sự tĩnh lặng.
-- IN HOA (ALL CAPS) các âm thanh lớn (VD: BÙM, RĂNG RẮC) và các sự vật, hiện tượng quan trọng tác động mạnh đến cốt truyện (VD: QUẢ CẦU LỬA, SÓNG THẦN).
-
-3. CHARACTER INTRODUCTIONS (Giới thiệu nhân vật):
-- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN GỐC, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất từ tác phẩm gốc. VD: "LÂM VŨ (40 tuổi, trọc lốc, râu lấm tấm, đeo kính cận tròn màu đen)".
-
-4. DIALOGUE & PARENTHETICALS (Thoại & Ngoặc đơn):
-- Tên nhân vật in hoa đặt ở giữa lề (Phải dùng đúng TÊN NHÂN VẬT GỐC).
-- Dùng phần mở rộng (O.S.) cho tiếng ngoài khung hình, và (V.O.) cho giọng tự sự/độc thoại nội tâm.
-- Ngoặc đơn Parentheticals: Dùng CỰC KỲ HẠN CHẾ chỉ để hướng dẫn hành động siêu nhỏ hoặc sắc thái thoại (VD: "(thì thầm)", "(bàng hoàng)"). Không dùng để thay thế dòng hành động.
-
-5. CAMERA SHOTS & TRANSITIONS (Góc máy & Chuyển cảnh):
-- KHÔNG trực tiếp chỉ đạo máy quay (Không dùng "Máy quay lia tới..."). Hãy miêu tả hành động để "gợi ý" góc máy một cách tinh tế.
-- Chuyển cảnh: Dùng CUT TO: hoặc FADE TO BLACK. một cách tiết chế, thường đặt ở cuối các đoạn cao trào.
-
-6. CẤU TRÚC KỂ CHUYỆN (Structure):
-- Cảm nhận nhịp điệu của nguyên tác. Xây dựng đúng cấu trúc: Bối cảnh (Exposition) -> Biến cố (Rising Action) -> Đỉnh điểm (Climax) -> Hệ quả (Falling action). 
-- Biến mọi tính từ miêu tả trong văn xuôi thành các "Beat" hành động cụ thể.
-
-HƯỚNG DẪN ĐẦU RA:
-- Hãy định dạng văn bản giống một trang kịch bản thực thụ nhất có thể (Sử dụng Markdown để in đậm, viết hoa và giãn dòng hợp lý).
-- Bạn phải viết kịch bản đầy đủ diễn biến, phân tích tâm lý, hành động cụ thể và các câu thoại đầy đủ của các nhân vật.
-- Tránh việc cắt cụt kịch bản giữa chừng. Bắt đầu viết kịch bản ngay lập tức mà không kèm theo bất kỳ lời dẫn hay giải thích nào khác.`;
+3. ĐỊNH DẠNG KỊCH BẢN ĐIỆN ẢNH CHIẾU RẠP CHUẨN MỰC:
+- BẢO TỒN TIÊU ĐỀ: BẮT BUỘC giữ nguyên 100% Tiêu đề chính xác của tác phẩm: "${title}".
+- GIỚI THIỆU NHÂN VẬT TRONG ACTION LINE: Lần đầu tiên nhân vật xuất hiện trên màn ảnh, IN HOA TÊN GỐC, kèm theo độ tuổi chính xác từ nguyên tác.
+- TIÊU ĐỀ CẢNH (SCENE HEADING): Đánh số cảnh tăng dần từ Cảnh 1 đến hết theo đúng thứ tự thời gian của bài viết. Định dạng: [Số cảnh] [NỘI. / NGOẠI.] [ĐỊA ĐIỂM] - [NGÀY / ĐÊM].
+- DÒNG HÀNH ĐỘNG (ACTION LINES): Miêu tả trực quan những gì ống kính máy quay thấy và nghe thấy. Viết ở ngôi thứ ba, thì hiện tại, súc tích. IN HOA tiếng động và góc nhìn đặc biệt.
+- LỜI THOẠI (DIALOGUE): Tên nhân vật IN HOA ở giữa lề, dùng (O.S.), (V.O.) khi cần. Đặt sắc thái thoại trong ngoặc đơn bên dưới tên nhân vật.
+- BẮT ĐẦU NGAY LẬP TỨC: Bắt đầu kịch bản trực tiếp bằng cảnh 1 hoặc "FADE IN:" mà không kèm lời giới thiệu hay giải thích thừa.`;
 
         try {
             this.stepper.selectedIndex = 0;
@@ -2840,6 +2813,7 @@ HƯỚNG DẪN ĐẦU RA:
             const response = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
                 contents: [{ role: 'user', parts: [{ text: prompt }] }],
+                config: { temperature: 0.1 }
             });
 
             const scriptText = response.text;

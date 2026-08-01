@@ -2657,7 +2657,12 @@
 
                                     <button mat-menu-item (click)="generateScript()">
                                         <mat-icon class="icon-size-4" svgIcon="feather:feather"></mat-icon>
-                                        <mat-label>Tạo kịch bản</mat-label>
+                                        <mat-label>Tạo kịch bản (Bài viết này)</mat-label>
+                                    </button>
+
+                                    <button mat-menu-item (click)="generateCollectionScript()">
+                                        <mat-icon class="icon-size-4" svgIcon="feather:layers"></mat-icon>
+                                        <mat-label>Tạo kịch bản (Toàn bộ Collection)</mat-label>
                                     </button>
 
                                     <button mat-menu-item (click)="share()" [color]="'primary'">

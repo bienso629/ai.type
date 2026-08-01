@@ -235,6 +235,14 @@
                                 </div>
                                 <mat-label class="ml-2">{{ bulkEditInProgress ? 'Đang sửa (' + bulkEditProgress + '/' + bulkEditTotal + ')' : 'Sửa hàng loạt (' + selected.length + ')' }}</mat-label>
                             </button>
+                            <button *ngIf="hasCollectionScriptFromArchives()" mat-flat-button class="bg-emerald-600 hover:bg-emerald-700 text-white mr-2" (click)="readCollectionScriptFromArchives()" matTooltip="Đọc kịch bản phim điện ảnh của Collection này">
+                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:book-open'"></mat-icon>
+                                <mat-label class="ml-2">Đọc kịch bản</mat-label>
+                            </button>
+                            <button *ngIf="!hasCollectionScriptFromArchives()" mat-flat-button color="primary" class="mr-2" (click)="generateCollectionScriptFromArchives()" [disabled]="isGeneratingCollectionScript" matTooltip="Dựng kịch bản phim điện ảnh cho toàn bộ Collection">
+                                <mat-icon class="icon-size-4 mr-1.5" [class.animate-spin]="isGeneratingCollectionScript" [svgIcon]="'feather:layers'"></mat-icon>
+                                <mat-label class="ml-2">{{ isGeneratingCollectionScript ? 'Đang tạo kịch bản...' : 'Tạo kịch bản' }}</mat-label>
+                            </button>
 
                             <div class="page-count font-medium text-secondary">
                                 Đã chọn {{ (selectedCount) ? selectedCount.toLocaleString() : 0 }} trong {{ (actualTotalElements) ?

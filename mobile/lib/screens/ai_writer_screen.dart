@@ -111,6 +111,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   final TextEditingController _requestController = TextEditingController();
   bool _isGeneratingAi = false;
   bool _showCode = false;
+  bool _isSaving = false;
   List<dynamic> _articlesInCollection = [];
   String? _selectedArticleInCollection;
 
@@ -404,6 +405,86 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     }
   }
 
+  Future<void> _saveTaskData() async {
+    if (_isSaving) return;
+
+    final title = _titleController.text.trim();
+    if (title.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Vui lòng nhập Tên công việc / Tiêu đề trước khi lưu!'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final String taskUuid = widget.uuid ?? _taskData?['uuid'] ?? '';
+      final String taskId = _taskData?['_id'] ?? _taskData?['id'] ?? '';
+      final String taskRev = _taskData?['_rev'] ?? '';
+
+      final Map<String, dynamic> payload = {
+        if (taskUuid.isNotEmpty) 'uuid': taskUuid,
+        if (taskId.isNotEmpty) '_id': taskId,
+        if (taskId.isNotEmpty) 'id': taskId,
+        if (taskRev.isNotEmpty) '_rev': taskRev,
+        'title': title,
+        'name': title,
+        'meta': _descController.text.trim(),
+        'thumbnail': _thumbnailController.text.trim(),
+        'picture': _thumbnailController.text.trim(),
+        'style': _selectedStyle,
+        'domain': _selectedDomain,
+        'mainkey': _mainkeyController.text.trim(),
+        'source': _source,
+        'updatedAt': DateTime.now().toIso8601String(),
+      };
+
+      dynamic response;
+      if (taskUuid.isNotEmpty || taskId.isNotEmpty) {
+        response = await ApiService.editTask(payload);
+      } else {
+        response = await ApiService.addTask(payload);
+      }
+
+      if (mounted) {
+        setState(() {
+          _isSaving = false;
+          if (response != null && response is Map) {
+            _taskData = Map<String, dynamic>.from(response);
+          }
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.white, size: 18),
+                const SizedBox(width: 8),
+                Expanded(child: Text('Đã lưu thành công: $title')),
+              ],
+            ),
+            backgroundColor: Colors.green.shade700,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error saving task: $e');
+      if (mounted) {
+        setState(() => _isSaving = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Đã xảy ra lỗi khi lưu: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -436,6 +517,44 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
               fontWeight: FontWeight.bold,
             ),
           ),
+          actions: [
+            Padding(
+              padding: const EdgeInsets.only(right: 12.0),
+              child: InkWell(
+                onTap: _isSaving ? null : _saveTaskData,
+                borderRadius: BorderRadius.circular(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: Colors.white30),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _isSaving
+                          ? const SizedBox(
+                              width: 15,
+                              height: 15,
+                              child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                            )
+                          : const Icon(Icons.save_rounded, size: 18, color: Colors.white),
+                      const SizedBox(width: 6),
+                      Text(
+                        _isSaving ? 'Đang lưu...' : 'Lưu',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
           backgroundColor: AppColors.primary,
           iconTheme: const IconThemeData(color: Colors.white),
           bottom: TabBar(
@@ -1160,144 +1279,104 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   }
 
   Widget _buildOutlineTab() {
+    final outlineList = (_source['done'] as List?) ?? (_source['outline'] as List?) ?? (_source['script'] as List?) ?? [];
+
     return ListView(
-      key: UniqueKey(),
       physics: const AlwaysScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16.0),
       children: [
-        Container(
-          constraints: const BoxConstraints(minHeight: 100),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(4),
-          ),
-          child: _done.isEmpty
-              ? const Center(
-                  child: Padding(
-                    padding: EdgeInsets.all(16.0),
-                    child: Text('Chưa có nội dung dàn ý'),
-                  ),
-                )
-              : ListView.separated(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: _done.length,
-                  separatorBuilder: (_, __) => const Divider(height: 1),
-                  itemBuilder: (context, index) {
-                    final htmlStr = _done[index].toString();
-                    return Padding(
-                      padding: const EdgeInsets.all(12.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            child: _buildRichText(htmlStr),
-                          ),
-                          PopupMenuButton<String>(
-                            icon: const Icon(Icons.more_horiz, color: Colors.grey),
-                            onSelected: (value) {
-                              // TODO: Implement paragraph actions
-                            },
-                            itemBuilder: (BuildContext context) {
-                              PopupMenuItem<String> buildItem(String val, IconData icon, String text) {
-                                return PopupMenuItem<String>(
-                                  value: val,
-                                  child: Row(
-                                    children: [
-                                      Icon(icon, size: 16, color: Colors.grey.shade700),
-                                      const SizedBox(width: 12),
-                                      Text(text, style: const TextStyle(fontSize: 14)),
-                                    ],
-                                  ),
-                                );
-                              }
-
-                              return <PopupMenuEntry<String>>[
-                                buildItem('copy', Icons.copy, 'Sao chép'),
-                                buildItem('mp3', Icons.volume_up, 'Đọc văn bản'),
-                                buildItem('comment', Icons.chat_bubble_outline, 'Bình luận'),
-                                buildItem('image', Icons.auto_awesome, 'Tạo hình ảnh'),
-                                buildItem('keyword', Icons.local_offer, 'Từ khoá'),
-                                buildItem('edit', Icons.edit_outlined, 'Sửa đoạn văn'),
-                                buildItem('split', Icons.format_align_left, 'Tách đoạn văn'),
-                                buildItem('delete', Icons.delete_outline, 'Xoá đoạn văn'),
-                              ];
-                            },
-                          ),
-                        ],
+        if (outlineList.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: [
+                Icon(Icons.movie_creation_outlined, size: 48, color: Colors.grey.shade400),
+                const SizedBox(height: 12),
+                const Text(
+                  'Chưa có nội dung dàn ý kịch bản',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.textPrimary),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Tạo dàn ý kịch bản mới hoặc chuyển sang tab Đoạn văn để AI sinh dàn ý.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ],
+            ),
+          )
+        else
+          ListView.separated(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            itemCount: outlineList.length,
+            separatorBuilder: (_, __) => const SizedBox(height: 12),
+            itemBuilder: (context, index) {
+              final htmlStr = outlineList[index].toString();
+              return Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.02),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
                       ),
-                    );
-                  },
+                      child: Text(
+                        '#${index + 1}',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 12),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: _buildRichText(htmlStr),
+                    ),
+                    PopupMenuButton<String>(
+                      icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                      onSelected: (value) {
+                        if (value == 'edit') {
+                          _editPrompt(index, htmlStr, targetKey: 'done', customTitle: 'Chỉnh sửa Dàn ý #${index + 1}');
+                        } else if (value == 'copy') {
+                          Clipboard.setData(ClipboardData(text: _cleanHtmlText(htmlStr)));
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Đã sao chép nội dung dàn ý!')),
+                          );
+                        } else if (value == 'delete') {
+                          setState(() {
+                            outlineList.removeAt(index);
+                          });
+                        }
+                      },
+                      itemBuilder: (BuildContext context) => [
+                        const PopupMenuItem(value: 'copy', child: Row(children: [Icon(Icons.copy, size: 16), SizedBox(width: 8), Text('Sao chép')])),
+                        const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 16), SizedBox(width: 8), Text('Sửa dàn ý')])),
+                        const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xoá', style: TextStyle(color: Colors.red))])),
+                      ],
+                    ),
+                  ],
                 ),
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Tập của bạn',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
+              );
+            },
           ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-          ),
-          hint: const Text('Chọn tập'),
-          items: const [],
-          onChanged: (v) {},
-        ),
-        const SizedBox(height: 16),
-        const Text(
-          'Chọn phiên bản',
-          style: TextStyle(
-            fontWeight: FontWeight.bold,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<String>(
-          isExpanded: true,
-          decoration: const InputDecoration(
-            border: OutlineInputBorder(),
-            isDense: true,
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 12,
-              vertical: 12,
-            ),
-          ),
-          hint: const Text('Tạo bản nháp mới'),
-          items: const [],
-          onChanged: (v) {},
-        ),
-        const SizedBox(height: 16),
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            GestureDetector(
-              onTap: () {},
-              child: const Icon(Icons.delete, color: Colors.red, size: 16),
-            ),
-            const SizedBox(width: 8),
-            const Expanded(
-              child: Text(
-                'Cần có 0/600 từ, 0/5 link, 0/3 Tiêu đề, 0/1 Hình ảnh',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: Colors.black87,
-                ),
-              ),
-            ),
-          ],
-        ),
       ],
     );
   }
@@ -1321,13 +1400,15 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
               if (!hasUuid) ...[
                 Expanded(
                   child: ElevatedButton.icon(
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Đã lưu dữ liệu công việc!')),
-                      );
-                    },
-                    icon: const Icon(Icons.archive_outlined, size: 20, color: Colors.white),
-                    label: const Text('Lưu trữ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    onPressed: _isSaving ? null : _saveTaskData,
+                    icon: _isSaving
+                        ? const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                          )
+                        : const Icon(Icons.archive_outlined, size: 20, color: Colors.white),
+                    label: Text(_isSaving ? 'Đang lưu...' : 'Lưu trữ', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                     style: AppStyles.primaryButton,
                   ),
                 ),
@@ -1650,21 +1731,31 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     text = text.replaceAll(RegExp(r'<[^>]*>', multiLine: true, caseSensitive: false), '');
     text = text
         .replaceAll('&nbsp;', ' ')
+        .replaceAll('\u00A0', ' ')
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\u200B', '')
         .replaceAll('&amp;', '&')
         .replaceAll('&quot;', '"')
         .replaceAll('&#39;', "'")
         .replaceAll('&lt;', '<')
         .replaceAll('&gt;', '>');
+    text = text.replaceAll(RegExp(r'[\u00A0\u1680\u180e\u2000-\u200a\u202f\u205f\u3000]'), ' ');
     text = text.replaceAll(RegExp(r'\n{3,}'), '\n\n');
     return text.trim();
   }
 
   Widget _buildRichText(String htmlStr) {
     if (htmlStr.isEmpty) return const SizedBox.shrink();
+    final cleanInput = htmlStr
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('\u00A0', ' ')
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\u200B', '')
+        .replaceAll(RegExp(r'[\u00A0\u1680\u180e\u2000-\u200a\u202f\u205f\u3000]'), ' ');
 
     final List<InlineSpan> spans = [];
     final tagRegExp = RegExp(r'</?(?:b|strong|i|em|u|h[1-6]|p|a)[^>]*>|[^<]+', caseSensitive: false);
-    final matches = tagRegExp.allMatches(htmlStr);
+    final matches = tagRegExp.allMatches(cleanInput);
 
     bool isBold = false;
     bool isItalic = false;
@@ -1703,11 +1794,11 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           TextSpan(
             text: text,
             style: TextStyle(
-              fontSize: isHeading ? 17 : 14,
+              fontSize: 14,
               fontWeight: (isBold || isHeading) ? FontWeight.bold : FontWeight.normal,
               fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
               decoration: isUnderline ? TextDecoration.underline : TextDecoration.none,
-              color: isHeading ? Colors.teal.shade900 : Colors.black87,
+              color: Colors.black87,
               height: 1.4,
             ),
           ),
@@ -2093,13 +2184,47 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     });
   }
 
+  quill.Document _parseTextToQuillDocument(String text) {
+    if (text.trim().isEmpty) {
+      return quill.Document()..insert(0, '\n');
+    }
+
+    String trimmed = text.trim();
+
+    if ((trimmed.startsWith('[') && trimmed.endsWith(']')) || (trimmed.startsWith('{') && trimmed.endsWith('}'))) {
+      try {
+        final decoded = jsonDecode(trimmed);
+        if (decoded is List) {
+          return quill.Document.fromJson(decoded);
+        } else if (decoded is Map && decoded['ops'] is List) {
+          return quill.Document.fromJson(decoded['ops'] as List);
+        }
+      } catch (_) {}
+    }
+
+    String cleaned = _cleanHtmlText(trimmed);
+    cleaned = cleaned
+        .replaceAll(RegExp(r'<[^>]*>'), '')
+        .replaceAll('&nbsp;', ' ')
+        .replaceAll('\u00A0', ' ')
+        .replaceAll('\uFEFF', '')
+        .replaceAll('\u200B', '')
+        .replaceAll('&amp;', '&')
+        .replaceAll('&quot;', '"')
+        .replaceAll('&#39;', "'")
+        .replaceAll('&lt;', '<')
+        .replaceAll('&gt;', '>');
+
+    final textToInsert = cleaned.endsWith('\n') ? cleaned : '$cleaned\n';
+    return quill.Document()..insert(0, textToInsert);
+  }
+
   void _editPrompt(int? index, String currentText, {String targetKey = 'prompt', String? customTitle}) {
     late final quill.QuillController quillController;
     try {
-      final cleanText = currentText.replaceAll(RegExp(r'<[^>]*>'), '');
-      final textToInsert = cleanText.isEmpty ? '\n' : (cleanText.endsWith('\n') ? cleanText : '$cleanText\n');
+      final doc = _parseTextToQuillDocument(currentText);
       quillController = quill.QuillController(
-        document: quill.Document()..insert(0, textToInsert),
+        document: doc,
         selection: const TextSelection.collapsed(offset: 0),
       );
     } catch (_) {
@@ -2427,6 +2552,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                                 }
 
                                 aiResult = aiResult.replaceAll('```markdown', '').replaceAll('```json', '').replaceAll('```', '').trim();
+                                aiResult = _cleanHtmlText(aiResult);
                                 if (aiResult.isNotEmpty) {
                                   quillController.document = quill.Document()..insert(0, '$aiResult\n');
                                 }
@@ -2472,7 +2598,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                     ElevatedButton.icon(
                       style: AppStyles.primaryButton,
                       onPressed: () {
-                        final newText = quillController.document.toPlainText().trim();
+                        final rawText = quillController.document.toPlainText();
+                        final newText = _cleanHtmlText(rawText);
                         if (newText.isNotEmpty) {
                           setState(() {
                             if (_source[targetKey] == null || _source[targetKey] is! List) {
