@@ -8,6 +8,7 @@ import {
     ViewChild,
     ViewEncapsulation,
     HostListener,
+    TemplateRef,
 } from '@angular/core';
 import {
     UntypedFormBuilder,
@@ -39,7 +40,7 @@ import {
     moveItemInArray,
     transferArrayItem,
 } from '@angular/cdk/drag-drop';
-import { MatDialog } from '@angular/material/dialog';
+import { MatDialog, MatDialogRef } from '@angular/material/dialog';
 import { GenaiService } from 'app/genai.service';
 import { MatBottomSheet } from '@angular/material/bottom-sheet';
 import { SettingsDomainLoginComponent } from 'app/modules/admin/account/settings/domain/login/login.component';
@@ -211,6 +212,11 @@ export class AIWriterComponent implements OnInit, OnDestroy, AfterViewInit {
     }
 
     @ViewChild('stepper') stepper: any;
+    @ViewChild('generateImageDialog') generateImageDialog: TemplateRef<any>;
+    generateImageDialogRef: MatDialogRef<any>;
+    customImagePrompt: string = '';
+    referenceImageBase64: string | null = null;
+    currentParagraphItem: any = null;
 
     source: any = {
         p: [],
@@ -2657,7 +2663,92 @@ ${content}`;
 
         this.isGeneratingScript = true;
         this.cd.markForCheck();
-        
+
+        // Đọc toàn bộ nội dung các bài viết trong Collection để nắm rõ bối cảnh tiểu thuyết
+        let collectionSummary = '';
+        let targetCols = this.selectedCollections || [];
+        if ((!targetCols || targetCols.length === 0) && this.collections && this.uuid) {
+            targetCols = this.collections.filter((c: any) => {
+                if (Array.isArray(c.uuid)) return c.uuid.includes(this.uuid);
+                return c.uuid === this.uuid;
+            });
+        }
+
+        if (targetCols && targetCols.length > 0) {
+            let uuids: string[] = [];
+            targetCols.forEach((col: any) => {
+                const fullCol = (this.collections || []).find((c: any) => c._id === col._id || c.id === col.id);
+                const targetCol = fullCol || col;
+                if (Array.isArray(targetCol.uuid)) {
+                    uuids = uuids.concat(targetCol.uuid);
+                } else if (targetCol.uuid) {
+                    uuids.push(targetCol.uuid);
+                }
+            });
+
+            uuids = Array.from(new Set(uuids));
+
+            if (uuids.length > 0) {
+                try {
+                    this.toastr.info('Đang tải toàn bộ dữ liệu Collection để phân tích tiểu thuyết...', 'Đang đọc tác phẩm');
+                    const detailPromises = uuids.map(uuid => 
+                        firstValueFrom(this._crawlService.detail({ uuid: uuid, username: this.user?.name || this.name })).catch(() => null)
+                    );
+
+                    const detailResults: any[] = await Promise.all(detailPromises);
+                    const fullDocs = detailResults
+                        .filter(res => res && res.data)
+                        .map(res => res.data);
+
+                    if (fullDocs && fullDocs.length > 0) {
+                        collectionSummary = fullDocs.map((art: any, idx: number) => {
+                            const title = art.title || `Phần ${idx + 1}`;
+                            const desc = art.seo?.description?.text || art.description ? `Mô tả: ${art.seo?.description?.text || art.description}` : '';
+                            
+                            let contentFromDone = '';
+                            if (art.done) {
+                                if (Array.isArray(art.done)) {
+                                    contentFromDone = art.done
+                                        .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                                        .filter((text: string) => text.length > 0)
+                                        .join('\n\n');
+                                } else if (typeof art.done === 'string') {
+                                    contentFromDone = art.done.replace(/<[^>]*>?/gm, '').trim();
+                                }
+                            }
+
+                            if (!contentFromDone && art.source) {
+                                if (art.source.prompt && Array.isArray(art.source.prompt)) {
+                                    contentFromDone = art.source.prompt
+                                        .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                        .filter((text: string) => text.length > 0)
+                                        .join('\n\n');
+                                } else if (art.source.pre && Array.isArray(art.source.pre)) {
+                                    contentFromDone = art.source.pre
+                                        .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                        .filter((text: string) => text.length > 0)
+                                        .join('\n\n');
+                                }
+                            }
+
+                            if (contentFromDone.length > 4000) {
+                                contentFromDone = contentFromDone.substring(0, 4000) + '... [còn tiếp]';
+                            }
+
+                            return `========================================
+[CHƯƠNG ${idx + 1} / PHẦN ${idx + 1}]
+Tiêu đề: ${title}
+${desc ? desc + '\n' : ''}Nội dung:
+${contentFromDone || '(Chưa có văn bản)'}
+========================================`;
+                        }).join('\n\n');
+                    }
+                } catch (err) {
+                    console.warn('Lỗi khi đọc chi tiết Collection cho kịch bản:', err);
+                }
+            }
+        }
+
         this._blogService.getScript({
             username: this.user.name,
             uuid: this.uuid
@@ -2671,29 +2762,49 @@ ${content}`;
                     this.cd.markForCheck();
                     this.router.navigate(['/ai-writer', this.name, this.uuid, 'script']);
                 } else {
-                    this.proceedGenerateScript(outlineText);
+                    this.proceedGenerateScript(outlineText, collectionSummary);
                 }
             },
             error: (err) => {
                 console.warn('Lỗi kiểm tra kịch bản, tiến hành tạo mới:', err);
-                this.proceedGenerateScript(outlineText);
+                this.proceedGenerateScript(outlineText, collectionSummary);
             }
         });
     }
 
-    async proceedGenerateScript(outlineText: string) {
+    async proceedGenerateScript(outlineText: string, collectionSummary: string = '') {
         this.toastr.info('Đang gửi dàn ý lên AI để dựng kịch bản phim...', 'Đang xử lý');
         
-        const prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.
+        const title = (this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || '').trim() || 'Kịch bản chưa đặt tên';
 
-Dàn ý:
-${outlineText}
+        let prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.\n\n`;
 
-Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
+        if (collectionSummary && collectionSummary.trim()) {
+            prompt += `TOÀN BỘ DIỄN BIẾN & CÁC CHƯƠNG TRONG BỘ TIỂU THUYẾT (COLLECTION) TRUY VẤN TRỰC TIẾP TỪ CSDL:\n${collectionSummary}\n\n`;
+            prompt += `Dựa vào TOÀN BỘ NỘI DUNG VÀ MẠCH TRUYỆN CỦA TOÀN BỘ TIỂU THUYẾT Ó TRÊN, kết hợp với NỘI DUNG CỤ THỂ CỦA BÀI VIẾT/CHƯƠNG NÀY NÊU BÊN DƯỚI để dựng kịch bản phim chuẩn xác, liên kết chặt chẽ với bối cảnh và mạch truyện chung:\n\n`;
+        }
+
+        prompt += `DÀN Ý / NỘI DUNG CỦA BÀI VIẾT NÀY:\n${outlineText}\n\n`;
+
+        prompt += `Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
+
+0. DANH SÁCH NHÂN VẬT & TIÊU ĐỀ (BẮT BUỘC Ở ĐẦU KỊCH BẢN):
+- BẮT BUỘC BẢO TỒN 100% TIÊU ĐỀ GỐC: "${title}" (Tuyệt đối không cắt bớt hay đổi thành tiêu đề khác).
+- TRƯỚC FADE IN: / CẢNH ĐẦU TIÊN, bạn BẮT BUỘC phải viết mục DANH SÁCH NHÂN VẬT mô tả chi tiết tất cả các nhân vật xuất hiện trong chương/tập này:
+  + Tên nhân vật (Viết hoa tên gốc)
+  + Độ tuổi chính xác từ tác phẩm
+  + Diện mạo, trang phục, kính mắt, đầu tóc... đặc trưng từ tác phẩm gốc
+  + Tính cách & vai trò đặc trưng
+  
+CẤU TRÚC MẪU DANH SÁCH NHÂN VẬT:
+DANH SÁCH NHÂN VẬT:
+• LÂM VŨ: 40 tuổi. Đầu trọc lốc, râu mọc lấm tấm phong trần, đeo kính cận tròn màu đen, mặc áo ba lỗ cháo lòng, quần đùi đùi gà. Căn hộ chung cư cũ. Tính cách lãng tử, tự do, dí dỏm và sâu sắc.
+
+- PHẢI GIỮ NGUYÊN 100% TÊN NHÂN VẬT GỐC (Ví dụ: "Lâm Vũ, 40 tuổi..."). TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT TÊN NHÂN VẬT MỚI (như Nam, Minh, Tuấn...) hay tự đổi độ tuổi/ngoại hình khi bài viết gốc đã ghi rõ.
 
 1. SCENE HEADING (Tiêu đề cảnh):
-- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. TÒA NHÀ CHỌC TRỜI - TẦNG 45 - NIGHT".
-- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian (VD: "BÊN NGOÀI CỬA SỔ", "HÀNH LANG") giúp mạch phim liên tục.
+- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. CĂN HỘ CHUNG CƯ CŨ - NIGHT".
+- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian giúp mạch phim liên tục.
 
 2. ACTION LINES (Dòng hành động - Rất quan trọng):
 - QUY TẮC VÀNG: Chỉ miêu tả những gì khán giả có thể NHÌN THẤY và NGHE THẤY. Tuyệt đối không miêu tả suy nghĩ nội tâm. Hãy dùng hành động để thể hiện cảm xúc.
@@ -2701,10 +2812,10 @@ Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân 
 - IN HOA (ALL CAPS) các âm thanh lớn (VD: BÙM, RĂNG RẮC) và các sự vật, hiện tượng quan trọng tác động mạnh đến cốt truyện (VD: QUẢ CẦU LỬA, SÓNG THẦN).
 
 3. CHARACTER INTRODUCTIONS (Giới thiệu nhân vật):
-- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất. VD: "CHÀNG TRAI (20s, phờ phạc, đôi mắt dán chặt vào màn hình)".
+- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN GỐC, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất từ tác phẩm gốc. VD: "LÂM VŨ (40 tuổi, trọc lốc, râu lấm tấm, đeo kính cận tròn màu đen)".
 
 4. DIALOGUE & PARENTHETICALS (Thoại & Ngoặc đơn):
-- Tên nhân vật in hoa đặt ở giữa lề.
+- Tên nhân vật in hoa đặt ở giữa lề (Phải dùng đúng TÊN NHÂN VẬT GỐC).
 - Dùng phần mở rộng (O.S.) cho tiếng ngoài khung hình, và (V.O.) cho giọng tự sự/độc thoại nội tâm.
 - Ngoặc đơn Parentheticals: Dùng CỰC KỲ HẠN CHẾ chỉ để hướng dẫn hành động siêu nhỏ hoặc sắc thái thoại (VD: "(thì thầm)", "(bàng hoàng)"). Không dùng để thay thế dòng hành động.
 
@@ -2733,7 +2844,7 @@ HƯỚNG DẪN ĐẦU RA:
 
             const scriptText = response.text;
             if (scriptText) {
-                const title = this.detectForm.get('step1')?.get('title')?.value || 'Kịch bản chưa đặt tên';
+                const title = (this.detectForm?.get('step1')?.get('title')?.value || this.details?.title || '').trim() || 'Kịch bản chưa đặt tên';
                 
                 this._blogService.storeScript({
                     username: this.user.name,
@@ -2794,9 +2905,14 @@ HƯỚNG DẪN ĐẦU RA:
 
         try {
             // 1. Dùng Gemini dịch dàn ý thành visual prompt tiếng Anh
-            const promptForPrompt = `Dưới đây là dàn ý của một bài viết:
-"${outlineText}"
-Hãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
+            let promptForPrompt = `Dưới đây là dàn ý của một bài viết:
+"${outlineText}"`;
+
+            if (this.customImagePrompt && this.customImagePrompt.trim()) {
+                promptForPrompt += `\nYÊU CẦU / CHỈ DẪN THÊM TỪ NGƯỜI DÙNG VỀ HÌNH ẢNH:\n"${this.customImagePrompt.trim()}"`;
+            }
+
+            promptForPrompt += `\nHãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
 Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại (illustrative, clean vector art, hoặc 3D render style).
 Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
 
@@ -2805,17 +2921,31 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
             });
 
-            let imagePrompt = promptResponse.text ? promptResponse.text.trim() : outlineText.substring(0, 100);
-            
-            // Ép buộc dùng Tiếng Việt trên hình
+            let imagePrompt = promptResponse.text ? promptResponse.text.trim() : (this.customImagePrompt || outlineText.substring(0, 100));
             imagePrompt += ', if there is any text in the image, it MUST be written in Vietnamese language.';
 
             this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
 
+            const partsForImage: any[] = [{ text: imagePrompt }];
+
+            if (this.referenceImageBase64) {
+                const mimeType = this.referenceImageBase64.substring(
+                    this.referenceImageBase64.indexOf(':') + 1,
+                    this.referenceImageBase64.indexOf(';')
+                ) || 'image/jpeg';
+                const base64Data = this.referenceImageBase64.split(',')[1] || this.referenceImageBase64;
+                partsForImage.push({
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: base64Data
+                    }
+                });
+            }
+
             // 2. Tạo hình ảnh bằng Gemini
             const imageResponse = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
-                contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
+                contents: [{ role: 'user', parts: partsForImage }],
                 config: { responseModalities: ['IMAGE'] }
             } as any);
 
@@ -2893,9 +3023,14 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
         try {
             // 1. Tạo visual prompt tiếng Anh bằng Gemini
-            const promptForPrompt = `Dưới đây là một đoạn văn:
-"${paragraphText}"
-Hãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
+            let promptForPrompt = `Dưới đây là một đoạn văn:
+"${paragraphText}"`;
+
+            if (this.customImagePrompt && this.customImagePrompt.trim()) {
+                promptForPrompt += `\nYÊU CẦU / CHỈ DẪN THÊM TỪ NGƯỜI DÙNG VỀ HÌNH ẢNH:\n"${this.customImagePrompt.trim()}"`;
+            }
+
+            promptForPrompt += `\nHãy viết một prompt tiếng Anh ngắn gọn, chi tiết và có tính chất mô tả trực quan (khoảng 30-50 từ) để làm đầu vào cho mô hình tạo ảnh.
 Prompt nên tập trung vào bối cảnh chính, chủ thể chính và phong cách nghệ thuật hiện đại (illustrative, clean vector art, hoặc 3D render style).
 Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất kỳ lời giới thiệu, lời dẫn hay giải thích nào khác.`;
 
@@ -2904,13 +3039,29 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
                 contents: [{ role: 'user', parts: [{ text: promptForPrompt }] }]
             });
 
-            const imagePrompt = promptResponse.text ? promptResponse.text.trim() : paragraphText.substring(0, 100);
+            const imagePrompt = promptResponse.text ? promptResponse.text.trim() : (this.customImagePrompt || paragraphText.substring(0, 100));
             this.toastr.info('Đang tiến hành tạo ảnh bằng Gemini AI...', 'Tạo hình ảnh');
+
+            const partsForImage: any[] = [{ text: imagePrompt }];
+
+            if (this.referenceImageBase64) {
+                const mimeType = this.referenceImageBase64.substring(
+                    this.referenceImageBase64.indexOf(':') + 1,
+                    this.referenceImageBase64.indexOf(';')
+                ) || 'image/jpeg';
+                const base64Data = this.referenceImageBase64.split(',')[1] || this.referenceImageBase64;
+                partsForImage.push({
+                    inlineData: {
+                        mimeType: mimeType,
+                        data: base64Data
+                    }
+                });
+            }
 
             // 2. Tạo hình ảnh bằng Gemini
             const imageResponse = await this._genaiService.generateContent({
                 model: 'gemini-3.6-flash',
-                contents: [{ role: 'user', parts: [{ text: imagePrompt }] }],
+                contents: [{ role: 'user', parts: partsForImage }],
                 config: { responseModalities: ['IMAGE'] }
             } as any);
 
@@ -4278,6 +4429,41 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
         }
     }
 
+    openGenerateImageDialog(targetItem: any = null) {
+        this.currentParagraphItem = targetItem;
+        this.customImagePrompt = '';
+        this.referenceImageBase64 = null;
+
+        this.generateImageDialogRef = this.dialog.open(this.generateImageDialog, {
+            width: '600px',
+            panelClass: 'custom-dialog-bulk',
+            disableClose: false
+        });
+    }
+
+    onReferenceImageSelected(event: any) {
+        const file = event.target.files?.[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = (e: any) => {
+                this.referenceImageBase64 = e.target.result;
+                this.cd.markForCheck();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    confirmGenerateImage() {
+        if (this.generateImageDialogRef) {
+            this.generateImageDialogRef.close();
+        }
+        if (this.currentParagraphItem) {
+            this.generateImageFromParagraph(this.currentParagraphItem);
+        } else {
+            this.generateImageFromOutline();
+        }
+    }
+
     async generateNextChapterInCollection() {
         if (!this.selectedCollections || this.selectedCollections.length === 0) {
             this.toastr.warning('Vui lòng chọn bộ bài viết (Collection) trước.');
@@ -4318,6 +4504,8 @@ Chỉ trả về duy nhất chuỗi prompt tiếng Anh, không kèm theo bất k
 
             if (!fullDocs || fullDocs.length === 0) {
                 this.toastr.warning('Không lấy được dữ liệu chi tiết các bài viết trước trong CSDL.');
+                this.isGeneratingNextChapter = false;
+                this.cd.detectChanges();
                 return;
             }
 
@@ -4369,11 +4557,10 @@ ${contentFromDone || '(Chưa có văn bản trong done)'}
             const styleName = typeof activeStyle === 'string' ? activeStyle : (activeStyle?.name || 'Nhà văn / tác giả tiểu thuyết chuyên nghiệp');
             const styleDesc = typeof activeStyle === 'object' && activeStyle?.desc ? ` (${activeStyle.desc})` : '';
 
-            const prompt = `Bạn là một tác giả / chuyên gia sáng tạo nội dung theo phong cách "${styleName}"${styleDesc}.
+            let prompt = `Bạn là một tác giả / chuyên gia sáng tạo nội dung theo phong cách "${styleName}"${styleDesc}.
 Dưới đây là TOÀN BỘ CÁC CHƯƠNG/PHẦN ĐÃ VIẾT TRƯỚC ĐÓ trong cùng bộ tiểu thuyết (Collection) được TRUY VẤN TRỰC TIẾP TỪ CSDL (dữ liệu trường 'done'):
 
 ${previousSummary}
-
 Dựa vào TOÀN BỘ NỘI DUNG & TÌNH TIẾT CỦA CÁC CHƯƠNG TRƯỚC Ở TRÊN, hãy sáng tạo và lập kịch bản nối tiếp cho PHẦN TIẾP THEO (Chương tiếp theo/Phần nối tiếp) chuẩn theo phong cách "${styleName}".
 
 YÊU CẦU QUAN TRỌNG:

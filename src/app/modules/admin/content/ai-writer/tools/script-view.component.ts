@@ -4,8 +4,9 @@ import { BlogService } from 'app/_services/blog';
 import { Clipboard } from '@angular/cdk/clipboard';
 import { ToastrService } from 'ngx-toastr';
 import { MultiAccountService } from 'app/_services/multi-account.service';
-import { Subject, takeUntil } from 'rxjs';
+import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { GenaiService } from 'app/genai.service';
+import { CrawlService } from 'app/_services/crawl';
 
 interface ScreenplayLine {
     type: string;
@@ -81,6 +82,12 @@ interface ScreenplayLine {
 
                     <div class="screenplay-content">
                         <ng-container *ngFor="let item of page">
+                            <div *ngIf="item.type === 'character-list-header'" class="screenplay-character-list-header font-bold text-gray-900 uppercase my-4 border-b pb-1 text-base">
+                                {{ item.text }}
+                            </div>
+                            <div *ngIf="item.type === 'character-list-item'" class="screenplay-character-list-item text-gray-800 my-1.5 pl-4 border-l-2 border-primary-500 bg-gray-50/50 py-1 rounded-r">
+                                {{ item.text }}
+                            </div>
                             <div *ngIf="item.type === 'slugline'" class="screenplay-slugline">
                                 {{ item.text }}
                             </div>
@@ -123,6 +130,25 @@ interface ScreenplayLine {
             color: #111;
             font-size: 15px;
             line-height: 1.5;
+        }
+        .screenplay-character-list-header {
+            font-weight: bold;
+            text-transform: uppercase;
+            margin-top: 1.5rem;
+            margin-bottom: 0.5rem;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 0.25rem;
+            text-align: left !important;
+        }
+        .screenplay-character-list-item {
+            text-align: left !important;
+            margin-top: 0.25rem;
+            margin-bottom: 0.5rem;
+            padding-left: 0.75rem;
+            border-left: 3px solid #2563eb;
+            background-color: #f8fafc;
+            padding-top: 0.25rem;
+            padding-bottom: 0.25rem;
         }
         .screenplay-slugline {
             font-weight: bold;
@@ -185,7 +211,8 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         private toastr: ToastrService,
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
-        private _multiAccountService: MultiAccountService
+        private _multiAccountService: MultiAccountService,
+        private _crawlService: CrawlService
     ) { }
 
     ngOnInit(): void {
@@ -286,6 +313,23 @@ export class AIScriptComponent implements OnInit, OnDestroy {
             // Remove markdown bold tags and normalize multiple spaces to a single space
             let clean = trimmed.replace(/^\*\*|\*\*$/g, '').replace(/\s+/g, ' ').trim();
 
+            // Identify Character List Header & Items
+            const isCharacterListHeader = /^(DANH SÁCH NHÂN VẬT|CHARACTERS|DANH SÁCH CÁC NHÂN VẬT)/i.test(clean);
+            if (isCharacterListHeader) {
+                this.parsedLines.push({ type: 'character-list-header', text: clean.replace(/^#+\s*/, '').toUpperCase() });
+                lastType = 'character-list-header';
+                continue;
+            }
+
+            if ((lastType === 'character-list-header' || lastType === 'character-list-item') &&
+                (clean.startsWith('•') || clean.startsWith('-') || clean.startsWith('*') || clean.includes(':'))) {
+                if (!/^(INT\.|EXT\.|FADE\s+IN)/i.test(clean)) {
+                    this.parsedLines.push({ type: 'character-list-item', text: clean });
+                    lastType = 'character-list-item';
+                    continue;
+                }
+            }
+
             // Identify Sluglines
             const isSlugline = /^(INT\.|EXT\.|INT\/EXT\.|I\/E\.|CẢNH\s+\d+|PHÂN\s+CẢNH\s+\d+)/i.test(clean) ||
                                /^(INT\s|EXT\s)/i.test(clean) ||
@@ -354,6 +398,13 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         for (let item of this.parsedLines) {
             let itemHeight = 0;
             switch (item.type) {
+                case 'character-list-header':
+                    itemHeight = 6;
+                    break;
+                case 'character-list-item':
+                    const listItemLines = Math.max(1, Math.ceil(item.text.length / 50));
+                    itemHeight = 2 + (listItemLines * 3.5);
+                    break;
                 case 'slugline':
                     itemHeight = 8;
                     break;
@@ -422,18 +473,119 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         this.isLoading = true;
         this.cd.markForCheck();
 
-        this.toastr.info('Đang gửi dàn ý lên AI để dựng lại kịch bản phim...', 'Đang xử lý');
+        const username = this._blogService.user?.name || 'admin';
+        let collectionSummary = '';
+
+        // Tải danh sách collection để xem bài viết này có nằm trong bộ tác phẩm nào không
+        try {
+            this.toastr.info('Đang tải toàn bộ dữ liệu Collection để phân tích tiểu thuyết...', 'Đang đọc tác phẩm');
+            const colRes: any = await firstValueFrom(this._crawlService.collections({ username })).catch(() => null);
+            const allCollections = (colRes && colRes.success && colRes.data) ? colRes.data : [];
+
+            const targetCols = allCollections.filter((c: any) => {
+                if (Array.isArray(c.uuid)) return c.uuid.includes(this.uuid);
+                return c.uuid === this.uuid;
+            });
+
+            if (targetCols && targetCols.length > 0) {
+                let uuids: string[] = [];
+                targetCols.forEach((col: any) => {
+                    if (Array.isArray(col.uuid)) {
+                        uuids = uuids.concat(col.uuid);
+                    } else if (col.uuid) {
+                        uuids.push(col.uuid);
+                    }
+                });
+
+                uuids = Array.from(new Set(uuids));
+
+                if (uuids.length > 0) {
+                    const detailPromises = uuids.map(uuid => 
+                        firstValueFrom(this._crawlService.detail({ uuid: uuid, username })).catch(() => null)
+                    );
+
+                    const detailResults: any[] = await Promise.all(detailPromises);
+                    const fullDocs = detailResults
+                        .filter(res => res && res.data)
+                        .map(res => res.data);
+
+                    if (fullDocs && fullDocs.length > 0) {
+                        collectionSummary = fullDocs.map((art: any, idx: number) => {
+                            const title = art.title || `Phần ${idx + 1}`;
+                            const desc = art.seo?.description?.text || art.description ? `Mô tả: ${art.seo?.description?.text || art.description}` : '';
+                            
+                            let contentFromDone = '';
+                            if (art.done) {
+                                if (Array.isArray(art.done)) {
+                                    contentFromDone = art.done
+                                        .map((paragraph: any) => typeof paragraph === 'string' ? paragraph.replace(/<[^>]*>?/gm, '').trim() : '')
+                                        .filter((text: string) => text.length > 0)
+                                        .join('\n\n');
+                                } else if (typeof art.done === 'string') {
+                                    contentFromDone = art.done.replace(/<[^>]*>?/gm, '').trim();
+                                }
+                            }
+
+                            if (!contentFromDone && art.source) {
+                                if (art.source.prompt && Array.isArray(art.source.prompt)) {
+                                    contentFromDone = art.source.prompt
+                                        .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                        .filter((text: string) => text.length > 0)
+                                        .join('\n\n');
+                                } else if (art.source.pre && Array.isArray(art.source.pre)) {
+                                    contentFromDone = art.source.pre
+                                        .map((item: any) => typeof item === 'string' ? item.replace(/<[^>]*>?/gm, '').trim() : '')
+                                        .filter((text: string) => text.length > 0)
+                                        .join('\n\n');
+                                }
+                            }
+
+                                 return `========================================
+[CHƯƠNG ${idx + 1} / PHẦN ${idx + 1}]
+Tiêu đề: ${title}
+${desc ? desc + '\n' : ''}Nội dung:
+${contentFromDone || '(Chưa có văn bản)'}
+========================================`;
+                        }).join('\n\n');
+                    }
+                }
+            }
+        } catch (err) {
+            console.warn('Lỗi khi tải dữ liệu Collection cho tạo lại kịch bản:', err);
+        }
+
+        const scriptTitle = (this.scriptDoc?.title || this.draftTitleFallback || '').trim() || 'Kịch bản chưa đặt tên';
+
+        this.toastr.info('Đang gửi dữ liệu lên AI để dựng lại kịch bản phim...', 'Đang xử lý');
         
-        const prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.
+        let prompt = `Bạn là một nhà biên kịch phim Hollywood xuất chúng. Nhiệm vụ của bạn là chuyển thể dàn ý dưới đây thành một kịch bản phim (screenplay) chuẩn mực, tuân thủ khắt khe các nguyên tắc định dạng và cấu trúc chuyên nghiệp của ngành công nghiệp điện ảnh.\n\n`;
 
-Dàn ý:
-${outlineText}
+        if (collectionSummary && collectionSummary.trim()) {
+            prompt += `TOÀN BỘ DIỄN BIẾN & CÁC CHƯƠNG TRONG BỘ TIỂU THUYẾT (COLLECTION) TRUY VẤN TRỰC TIẾP TỪ CSDL:\n${collectionSummary}\n\n`;
+            prompt += `Dựa vào TOÀN BỘ NỘI DUNG VÀ MẠCH TRUYỆN CỦA TOÀN BỘ TIỂU THUYẾT Ó TRÊN, kết hợp với NỘI DUNG CỤ THỂ CỦA BÀI VIẾT/CHƯƠNG NÀY NÊU BÊN DƯỚI để dựng kịch bản phim chuẩn xác, liên kết chặt chẽ với bối cảnh và mạch truyện chung:\n\n`;
+        }
 
-Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
+        prompt += `DÀN Ý / NỘI DUNG CỦA BÀI VIẾT NÀY:\n${outlineText}\n\n`;
+
+        prompt += `Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân thủ khi viết:
+
+0. DANH SÁCH NHÂN VẬT & TIÊU ĐỀ (BẮT BUỘC Ở ĐẦU KỊCH BẢN):
+- BẮT BUỘC BẢO TỒN 100% TIÊU ĐỀ GỐC: "${scriptTitle}" (Tuyệt đối không cắt bớt hay đổi thành tiêu đề khác).
+- TRƯỚC FADE IN: / CẢNH ĐẦU TIÊN, bạn BẮT BUỘC phải viết mục DANH SÁCH NHÂN VẬT mô tả chi tiết tất cả các nhân vật xuất hiện trong chương/tập này:
+  + Tên nhân vật (Viết hoa tên gốc)
+  + Độ tuổi chính xác từ tác phẩm
+  + Diện mạo, trang phục, kính mắt, đầu tóc... đặc trưng từ tác phẩm gốc
+  + Tính cách & vai trò đặc trưng
+  
+CẤU TRÚC MẪU DANH SÁCH NHÂN VẬT:
+DANH SÁCH NHÂN VẬT:
+• LÂM VŨ: 40 tuổi. Đầu trọc lốc, râu mọc lấm tấm phong trần, đeo kính cận tròn màu đen, mặc áo ba lỗ cháo lòng, quần đùi đùi gà. Căn hộ chung cư cũ. Tính cách lãng tử, tự do, dí dỏm và sâu sắc.
+
+- PHẢI GIỮ NGUYÊN 100% TÊN NHÂN VẬT GỐC (Ví dụ: "Lâm Vũ, 40 tuổi..."). TUYỆT ĐỐI KHÔNG TỰ BỊA ĐẶT TÊN NHÂN VẬT MỚI (như Nam, Minh, Tuấn...) hay tự đổi độ tuổi/ngoại hình khi bài viết gốc đã ghi rõ.
 
 1. SCENE HEADING (Tiêu đề cảnh):
-- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. TÒA NHÀ CHỌC TRỜI - TẦNG 45 - NIGHT".
-- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian (VD: "BÊN NGOÀI CỬA SỔ", "HÀNH LANG") giúp mạch phim liên tục.
+- Bắt đầu bằng INT. (Nội cảnh) hoặc EXT. (Ngoại cảnh) + ĐỊA ĐIỂM + THỜI GIAN (DAY, NIGHT...). VD: "INT. CĂN HỘ CHUNG CƯ CŨ - NIGHT".
+- Sử dụng Subheading (Tiêu đề phụ) để chuyển vị trí nhỏ trong cùng một không gian giúp mạch phim liên tục.
 
 2. ACTION LINES (Dòng hành động - Rất quan trọng):
 - QUY TẮC VÀNG: Chỉ miêu tả những gì khán giả có thể NHÌN THẤY và NGHE THẤY. Tuyệt đối không miêu tả suy nghĩ nội tâm. Hãy dùng hành động để thể hiện cảm xúc.
@@ -441,10 +593,10 @@ Dưới đây là các nguyên tắc cốt lõi bạn BẮT BUỘC phải tuân 
 - IN HOA (ALL CAPS) các âm thanh lớn (VD: BÙM, RĂNG RẮC) và các sự vật, hiện tượng quan trọng tác động mạnh đến cốt truyện (VD: QUẢ CẦU LỬA, SÓNG THẦN).
 
 3. CHARACTER INTRODUCTIONS (Giới thiệu nhân vật):
-- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất. VD: "CHÀNG TRAI (20s, phờ phạc, đôi mắt dán chặt vào màn hình)".
+- Lần đầu tiên nhân vật xuất hiện, phải IN HOA TÊN GỐC, kèm theo độ tuổi và một câu ngắn gọn lột tả diện mạo hoặc nét tính cách đặc trưng nhất từ tác phẩm gốc. VD: "LÂM VŨ (40 tuổi, trọc lốc, râu lấm tấm, đeo kính cận tròn màu đen)".
 
 4. DIALOGUE & PARENTHETICALS (Thoại & Ngoặc đơn):
-- Tên nhân vật in hoa đặt ở giữa lề.
+- Tên nhân vật in hoa đặt ở giữa lề (Phải dùng đúng TÊN NHÂN VẬT GỐC).
 - Dùng phần mở rộng (O.S.) cho tiếng ngoài khung hình, và (V.O.) cho giọng tự sự/độc thoại nội tâm.
 - Ngoặc đơn Parentheticals: Dùng CỰC KỲ HẠN CHẾ chỉ để hướng dẫn hành động siêu nhỏ hoặc sắc thái thoại (VD: "(thì thầm)", "(bàng hoàng)"). Không dùng để thay thế dòng hành động.
 
@@ -469,13 +621,10 @@ HƯỚNG DẪN ĐẦU RA:
 
             const scriptText = response.text;
             if (scriptText) {
-                const title = this.scriptDoc?.title || this.draftTitleFallback || 'Kịch bản chưa đặt tên';
-                const username = this._blogService.user?.name || 'admin';
-                
                 this._blogService.storeScript({
                     username: username,
                     uuid: this.uuid,
-                    title: title,
+                    title: scriptTitle,
                     outline: outlineText,
                     script: scriptText
                 }).subscribe({
@@ -485,6 +634,7 @@ HƯỚNG DẪN ĐẦU RA:
                         this.scriptText = scriptText;
                         if (this.scriptDoc) {
                             this.scriptDoc.script = scriptText;
+                            this.scriptDoc.title = scriptTitle;
                         }
                         this.parseScriptText();
                         this.isRegenerating = false;
