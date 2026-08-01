@@ -58,13 +58,13 @@
                  [class.hidden]="!isNodeVisible(node)"
                  [style.left.px]="node.x"
                  [style.top.px]="node.y"
-                 [style.width.px]="node.type === 'composition' ? 540 : (node.type === 'video' || node.type === 'storyboard' ? (node.data?.aspectRatio === '9:16' ? 240 : 360) : 280)"
+                 [style.width.px]="getNodeWidth(node)"
                  [style.z-index]="draggedNode === node ? 100 : (node.type === 'tts' ? 20 : 10)"
                  (mousedown)="onNodeMouseDown($event, node)"
                  (mouseenter)="hoveredNode = node"
                  (mouseleave)="hoveredNode = null">
                 <!-- Inner wrapper for clipping content but not ports -->
-                <div class="rounded-2xl flex flex-col w-full h-full pointer-events-auto transition-all duration-200">
+                <div class="rounded-2xl flex flex-col w-full pointer-events-auto">
                 <!-- Node Header -->
                 <div class="px-4 pt-3 pb-1.5 flex items-center justify-between">
                     <div class="flex items-center space-x-2 text-gray-500 flex-1 min-w-0 pr-2">
@@ -93,29 +93,27 @@
                 <!-- Node Content -->
                 <div class="px-4 pb-3 pt-0 flex flex-col space-y-3">
                     <!-- Image / Video Preview -->
-                    <div *ngIf="node.type === 'video' || node.type === 'composition'" class="relative w-full">
-
-                        <div (dblclick)="onNodeVisualDoubleClick($event, node)" 
-                             class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" 
-                             [ngStyle]="{'aspect-ratio': node.data?.aspectRatio === '9:16' ? '9/16' : '16/9'}" 
-                             [style.minHeight.px]="node.data?.aspectRatio === '9:16' ? 426 : 202"
-                             [class.node-selected-ring]="selectedNode === node || draggedNode === node" 
-                             [class.animate-pulse]="node.data?.isGenerating && !node.data?.imageUrl && !node.data?.videoUrl" 
-                             [ngClass]="{'!bg-teal-100': node.data?.isGenerating}">
-                            <!-- Video Element -->
-                            <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover cursor-pointer" (loadedmetadata)="onVideoLoaded(node, videoEl)" (timeupdate)="onVideoTimeUpdate(node, videoEl)" (click)="!videoEl.paused ? videoEl.pause() : null; $event.preventDefault(); $event.stopPropagation()"></video>
-                            
-                            <!-- Image Fallback -->
-                            <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-full h-full object-contain pointer-events-none" />
-                            
-                            <!-- Empty State -->
-                            <div *ngIf="!node.data.imageUrl && !node.data.videoUrl && !node.data.isGenerating" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">Trống</div>
-                            
-                            <!-- Generating/Loading Spinner Overlay -->
-                            <div *ngIf="node.data.isGenerating && node.type !== 'composition'" class="absolute inset-0 flex flex-col items-center justify-center bg-teal-500/20 text-teal-600 z-10">
-                                <mat-icon class="icon-size-8 text-teal-600 animate-spin">refresh</mat-icon>
-                                <span class="text-[10px] font-bold uppercase tracking-wider mt-2 text-teal-600">Generating...</span>
-                            </div>
+                    <div *ngIf="node.type === 'video' || node.type === 'composition'" 
+                         (dblclick)="onNodeVisualDoubleClick($event, node)" 
+                         class="relative w-full rounded-xl overflow-hidden bg-teal-50 group shadow-[0_0_0_1px_#5eead4] ring-[6px] ring-teal-300/40" 
+                         [ngStyle]="{'aspect-ratio': getAspectRatioCss(getNodeAspectRatio(node))}" 
+                         [class.node-selected-ring]="selectedNode === node || draggedNode === node">
+                        <!-- Video Element -->
+                        <video #videoEl [hidden]="!node.data.isVideo || !(node.data.videoUrl || node.data.imageUrl)" [src]="getSafeUrl(node.data.isVideo ? (node.data.videoUrl || node.data.imageUrl) : null)" preload="metadata" playsinline class="w-full h-full object-cover cursor-pointer" (loadedmetadata)="onVideoLoaded(node, videoEl)" (timeupdate)="onVideoTimeUpdate(node, videoEl)" (click)="!videoEl.paused ? videoEl.pause() : null; $event.preventDefault(); $event.stopPropagation()"></video>
+                        
+                        <!-- Image Fallback -->
+                        <img *ngIf="!node.data.isVideo && node.data.imageUrl" [src]="getSafeUrl(node.data.imageUrl)" class="w-full h-full object-cover pointer-events-none" />
+                        
+                        <!-- Empty State -->
+                        <div *ngIf="!node.data.imageUrl && !node.data.videoUrl" class="w-full h-full flex items-center justify-center text-gray-400 text-sm font-medium">
+                            <span *ngIf="!node.data.isGenerating">Trống</span>
+                        </div>
+                        
+                        <!-- Generating/Loading Spinner Overlay -->
+                        <div *ngIf="node.data.isGenerating && node.type !== 'composition'" class="absolute inset-0 flex flex-col items-center justify-center bg-teal-500/20 text-teal-600 z-10">
+                            <mat-icon class="icon-size-8 text-teal-600 animate-spin">refresh</mat-icon>
+                            <span class="text-[10px] font-bold uppercase tracking-wider mt-2 text-teal-600">Generating...</span>
+                        </div>
                             
                             <!-- Render Button / Loading Spinner for Composition -->
                         <div *ngIf="node.type === 'composition'" class="absolute bottom-3 right-3 z-10">
@@ -199,12 +197,11 @@
                                      </div>
                                 </div>
                             </div>
-                        </div>
                     </div>
 
                     <!-- TTS Audio Player Preview -->
                     <div *ngIf="node.type === 'tts'" class="relative w-full">
-                        <div class="w-full bg-amber-50/50 rounded-xl py-2 px-3 flex items-center space-x-3 relative shadow-[0_0_0_1px_#d97706] ring-[4px] ring-[#d97706]/20" [ngClass]="{'animate-pulse bg-amber-100 !shadow-[0_0_0_1.5px_#d97706]': node.data.isGeneratingAudio}" [class.node-selected-ring]="selectedNode === node || draggedNode === node">
+                        <div class="w-full bg-amber-50/50 rounded-xl py-2 px-3 flex items-center space-x-3 relative shadow-[0_0_0_1px_#d97706] ring-[4px] ring-[#d97706]/20" [ngClass]="{'bg-amber-100 !shadow-[0_0_0_1.5px_#d97706]': node.data.isGeneratingAudio}" [class.node-selected-ring]="selectedNode === node || draggedNode === node">
                             <audio #audioEl [hidden]="true" [src]="node.data.audioUrl ? getSafeUrl(node.data.audioUrl) : null" (loadedmetadata)="updateDuration(node, audioEl.duration)" (error)="onAudioError($event, node)" (play)="cdr.detectChanges()" (pause)="cdr.detectChanges()" (ended)="cdr.detectChanges()"></audio>
                             
                             <div *ngIf="node.data.isGeneratingAudio" class="w-8 h-8 flex items-center justify-center shrink-0">
@@ -234,20 +231,20 @@
                             
                             <!-- Fake Waveform (animated when playing) -->
                             <div class="flex-1 h-6 flex items-center space-x-1 overflow-hidden" [class.opacity-50]="audioEl?.paused !== false && !node.data.isGeneratingAudio">
-                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '8px' : '4px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '24px' : '12px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '16px' : '8px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
-                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706] animate-pulse' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '8px' : '4px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '24px' : '12px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-75" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '16px' : '8px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '20px' : '10px'"></div>
+                                <div class="w-1 rounded-full transition-all duration-150 delay-100" [ngClass]="node.data.isGeneratingAudio ? 'bg-[#d97706]' : 'bg-[#d97706]'" [style.height]="(audioEl?.paused === false || node.data.isGeneratingAudio) ? '12px' : '6px'"></div>
                             </div>
                         </div>
                     </div>
 
                     <!-- Storyboard Textarea -->
                     <div *ngIf="node.type === 'storyboard'" class="relative w-full">
-                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" [placeholder]="'app.auto_enter_prompt_for_the_drawing' | transloco" [class.node-selected-ring]="selectedNode === node || draggedNode === node" [class.animate-pulse]="node.data?.isGenerating"></textarea>
+                        <textarea [(ngModel)]="node.data.prompt" (focus)="selectNode(node); editingType = 'scene'" (ngModelChange)="onScenePromptChange(node, $event)" class="w-full bg-yellow-50 rounded-xl p-3 text-sm text-gray-700 focus:outline-none resize-none pr-12 pb-8 shadow-[0_0_0_1px_#facc15] ring-[6px] ring-yellow-300/40 focus:ring-yellow-400/60" rows="4" [placeholder]="'app.auto_enter_prompt_for_the_drawing' | transloco" [class.node-selected-ring]="selectedNode === node || draggedNode === node"></textarea>
                         
                         <div class="absolute bottom-2 right-2 flex space-x-1.5">
                             <button (click)="$event.stopPropagation(); selectNode(node); editingType = 'scene'; submitPrompt(false, 'IMAGE')" class="w-8 h-8 rounded-full bg-teal-500 hover:bg-teal-600 flex items-center justify-center text-white transition-colors shrink-0 shadow-sm" [matTooltip]="'app.auto_create_image' | transloco" [class.opacity-50]="isGeneratingPrompt" [disabled]="isGeneratingPrompt">

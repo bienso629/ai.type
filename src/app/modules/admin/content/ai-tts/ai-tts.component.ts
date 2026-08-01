@@ -691,6 +691,23 @@ export class Voice2videoComponent implements OnInit, OnDestroy, AfterViewInit {
                 const clips = parsed.clips || [];
                 if (Array.isArray(clips) && clips.length > 0) {
                     this.restoreClips(clips);
+
+                    if (parsed.autoTriggerAction) {
+                        const autoAction = parsed.autoTriggerAction;
+                        delete parsed.autoTriggerAction;
+                        this.multiAccountService.setItem(storageKey, parsed);
+
+                        if (autoAction === 'create') {
+                            setTimeout(() => {
+                                this.createVideo();
+                            }, 600);
+                        } else if (autoAction === 'script' && this.videoProject) {
+                            setTimeout(() => {
+                                this.openTimelineDialog(this.videoProject);
+                            }, 600);
+                        }
+                    }
+
                     return true;
                 }
             } catch (e) {

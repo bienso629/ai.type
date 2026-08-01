@@ -7,6 +7,8 @@ import { MultiAccountService } from 'app/_services/multi-account.service';
 import { Subject, takeUntil, firstValueFrom } from 'rxjs';
 import { GenaiService } from 'app/genai.service';
 import { CrawlService } from 'app/_services/crawl';
+import { MatDialog } from '@angular/material/dialog';
+import { VideoEditorSettingsDialogComponent } from 'app/shared/components/video-editor-settings-dialog/video-editor-settings-dialog.component';
 
 interface ScreenplayLine {
     type: string;
@@ -48,7 +50,7 @@ interface ScreenplayLine {
 
             <!-- Right Actions: Nút Dựng video -->
             <div class="flex items-center gap-3 mt-2 sm:mt-0">
-                <button mat-flat-button color="primary" class="gap-2 font-semibold rounded-lg" [routerLink]="['/voice2video']">
+                <button mat-flat-button color="primary" class="gap-2 font-semibold" (click)="navigateToVideoGenerator()">
                     <mat-icon class="icon-size-5" svgIcon="heroicons_outline:video-camera"></mat-icon>
                     <span>Dựng video</span>
                 </button>
@@ -61,19 +63,19 @@ interface ScreenplayLine {
             <!-- LEFT SIDEBAR: DANH SÁCH BÀI VIẾT BỘ SƯU TẬP -->
             <div class="w-80 border-r border-t border-gray-200 bg-white flex flex-col shrink-0 z-20 overflow-hidden transition-all duration-300 rounded-tr-2xl" *ngIf="isSidebarOpen">
                 <!-- Sidebar Header -->
-                <div class="p-3.5 border-b border-gray-200 bg-gray-50/80 flex items-center justify-between">
+                <div class="p-3.5 border-b border-gray-200 bg-gray-50/80 flex items-center justify-between gap-2">
                     <div class="flex flex-col min-w-0">
                         <div class="flex items-center gap-2">
                             <mat-icon class="text-primary-600 icon-size-4" svgIcon="heroicons_outline:collection"></mat-icon>
-                            <span class="font-bold text-gray-800 text-xs uppercase tracking-wider">Danh sách bài viết</span>
-                            <span class="bg-primary-100 text-primary-800 font-bold text-[11px] px-2 py-0.5 rounded-full" *ngIf="availableChapters?.length">
-                                {{ availableChapters.length }}
-                            </span>
+                            <span class="font-bold text-gray-900 text-base">Danh sách bài viết</span>
                         </div>
-                        <span class="text-[11px] text-gray-500 truncate mt-0.5" [title]="draftTitleFallback || scriptDoc?.title">
+                        <span class="text-xs text-gray-500 truncate mt-0.5" [title]="draftTitleFallback || scriptDoc?.title">
                             {{ draftTitleFallback || scriptDoc?.title || 'Kịch bản Bộ Sưu Tập' }}
                         </span>
                     </div>
+                    <span class="shrink-0 bg-primary-100 text-primary-800 font-bold text-xs w-6 h-6 rounded-full flex items-center justify-center" *ngIf="availableChapters?.length">
+                        {{ availableChapters.length }}
+                    </span>
                 </div>
 
                 <!-- Sidebar Chapter List -->
@@ -511,7 +513,8 @@ export class AIScriptComponent implements OnInit, OnDestroy {
         private cd: ChangeDetectorRef,
         private _genaiService: GenaiService,
         private _multiAccountService: MultiAccountService,
-        private _crawlService: CrawlService
+        private _crawlService: CrawlService,
+        private dialog: MatDialog
     ) { }
 
     ngOnInit(): void {
@@ -1448,6 +1451,126 @@ QUY TẮC BẮT BUỘC CHUYỂN THỂ SIÊU CHI TIẾT:
         } else {
             this.toastr.warning(`Không tìm thấy vị trí ${chapterTitle} trong kịch bản.`);
         }
+    }
+
+    toSlug(str: string): string {
+        str = str || '';
+        str = str.toLowerCase();
+        str = str.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        str = str.replace(/[đĐ]/g, 'd');
+        str = str.replace(/([^0-9a-z-\s])/g, '');
+        str = str.replace(/(\s+)/g, '-');
+        str = str.replace(/^-+|-+$/g, '');
+        return str;
+    }
+
+    cleanDialogueText(text: string): string {
+        if (!text) return '';
+        let clean = text;
+
+        // 1. Loại bỏ các ghi chú sắc thái/hướng dẫn diễn xuất trong ngoặc đơn (kể cả có dấu * xung quanh)
+        // Ví dụ: *(Giọng độc thoại nội tâm...)* hay (Mỉa mai, giọng...) hay *(Gào lên trong gió nước)*
+        clean = clean.replace(/\*?\s*\([^)]*\)\s*\*?/gi, '');
+        clean = clean.replace(/\*?\s*\[[^\]]*\]\s*\*?/gi, '');
+
+        // 2. Loại bỏ các ký tự markdown dư thừa (*, _, ~, #)
+        clean = clean.replace(/[*_~#]/g, '');
+
+        // 3. Chuẩn hóa khoảng trắng dư thừa
+        clean = clean.replace(/\s+/g, ' ').trim();
+
+        return clean;
+    }
+
+    navigateToVideoGenerator(): void {
+        if (!this.uuid) {
+            this.toastr.error('Không tìm thấy mã hiệu kịch bản!');
+            return;
+        }
+
+        const scriptTitle = this.scriptDoc?.title || this.draftTitleFallback || 'Kịch bản phim';
+
+        if (!this.parsedLines || this.parsedLines.length === 0) {
+            this.parseScriptText();
+        }
+
+        const audioClips: any[] = [];
+        let currentCharacter = '';
+
+        for (let i = 0; i < this.parsedLines.length; i++) {
+            const lineItem = this.parsedLines[i];
+            if (lineItem.type === 'character') {
+                currentCharacter = lineItem.text.trim();
+            } else if (lineItem.type === 'dialogue') {
+                const rawDialogue = (lineItem.text || '').trim();
+
+                // Lọc bỏ nếu đây là tiêu đề chương / tiêu đề kịch bản
+                if (/^(PHẦN\s+KỊCH\s+BẢN|CHƯƠNG\s+\d+|PHẦN\s+\d+|CẢNH\s+\d+|PHÂN\s+CẢNH)/i.test(rawDialogue)) {
+                    continue;
+                }
+
+                const dialogueContent = this.cleanDialogueText(rawDialogue);
+                if (dialogueContent && dialogueContent.length > 1) {
+                    audioClips.push({
+                        id: String(audioClips.length + 1),
+                        name: dialogueContent,
+                        description: dialogueContent,
+                        voice: 'vi-VN-HoaiMyNeural',
+                        rate: 1.0,
+                        pitch: 0,
+                        duration: 0
+                    });
+                }
+            }
+        }
+
+        // Fallback nếu kịch bản không chứa thoại phân lập
+        if (audioClips.length === 0 && this.parsedLines.length > 0) {
+            for (let i = 0; i < this.parsedLines.length; i++) {
+                const lineItem = this.parsedLines[i];
+                if (lineItem.text && lineItem.type !== 'empty' && lineItem.type !== 'slugline') {
+                    const rawText = lineItem.text.trim();
+                    if (/^(PHẦN\s+KỊCH\s+BẢN|CHƯƠNG\s+\d+|PHẦN\s+\d+|CẢNH\s+\d+|PHÂN\s+CẢNH)/i.test(rawText)) {
+                        continue;
+                    }
+
+                    const textContent = this.cleanDialogueText(rawText);
+                    if (textContent && textContent.length > 5) {
+                        audioClips.push({
+                            id: String(audioClips.length + 1),
+                            name: textContent,
+                            description: textContent,
+                            voice: 'vi-VN-HoaiMyNeural',
+                            rate: 1.0,
+                            pitch: 0,
+                            duration: 0
+                        });
+                    }
+                }
+            }
+        }
+
+        if (audioClips.length === 0) {
+            this.toastr.warning('Kịch bản chưa có nội dung thoại để dựng video!');
+            return;
+        }
+
+        const storageKeyAudio = `ai_type_audio_merger_data_${this.uuid}`;
+        const dataToSave = {
+            uuid: this.uuid,
+            title: scriptTitle,
+            extraPrompt: '',
+            videoFormat: 'video',
+            aspectRatio: '16:9',
+            maxDuration: 0,
+            clips: audioClips
+        };
+
+        this._multiAccountService.setItem(storageKeyAudio, dataToSave);
+        this.toastr.success(`Đã trích xuất ${audioClips.length} câu thoại từ kịch bản để chuẩn bị dựng video!`, 'Chuyển sang Dựng video');
+
+        const scriptNameSlug = this.toSlug(scriptTitle) || 'kich-ban';
+        this.router.navigate([`/voice2video/${scriptNameSlug}/${this.uuid}`]);
     }
 
     ngOnDestroy(): void {

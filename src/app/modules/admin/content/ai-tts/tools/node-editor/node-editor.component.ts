@@ -564,8 +564,29 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.saveEditorState();
   }
 
+  getNodeAspectRatio(node: any): string {
+    if (!node) return '16:9';
+    return node.data?.aspectRatio || 
+           node.data?.sceneData?.aspectRatio || 
+           node.data?.sceneData?.ratio || 
+           node.data?.ratio || 
+           this.projectData?.aspectRatio || 
+           '16:9';
+  }
+
   getNodeWidth(n: any): number {
-    return n.type === 'composition' ? 540 : ((n.type === 'video' || n.type === 'storyboard') ? (n.data?.aspectRatio === '9:16' ? 240 : 360) : 280);
+    if (!n) return 280;
+    if (n.type === 'composition') return 540;
+    if (n.type === 'video' || n.type === 'storyboard') {
+      const ratio = this.getNodeAspectRatio(n);
+      return ratio === '9:16' ? 240 : 360;
+    }
+    return 280;
+  }
+
+  getAspectRatioCss(ratio?: string): string {
+    if (!ratio) return '16/9';
+    return ratio.replace(':', '/');
   }
 
   calculateCanvasSize() {
@@ -1694,12 +1715,13 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                         this.cdr.detectChanges();
 
                         const nodeDuration = nodesMapping[i].data?.sceneData?.forcedDuration || 5;
+                        const nodeRatio = nodesMapping[i]?.data?.aspectRatio || nodesMapping[i]?.data?.sceneData?.aspectRatio || this.projectData?.aspectRatio || '16:9';
 
                         const response = await this.genaiService.generateContent({
                             model: targetModality === 'VIDEO' ? (this.selectedVideoModel || this.selectedModel) : this.selectedModel,
                             contents: [{ role: 'user', parts: requestParts }],
                             config: {
-                                aspectRatio: ratio,
+                                aspectRatio: nodeRatio,
                                 duration: nodeDuration,
                                 responseModalities: [targetModality],
                                 bypassModelOverride: true
