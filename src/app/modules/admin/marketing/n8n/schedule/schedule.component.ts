@@ -1,4 +1,4 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ElementRef, NgZone, ChangeDetectionStrategy, TemplateRef, Input } from '@angular/core';
+import { ChangeDetectorRef, Component, ElementRef, HostListener, NgZone, OnDestroy, OnInit, TemplateRef, ViewChild, ViewEncapsulation, AfterViewInit, AfterViewChecked, ChangeDetectionStrategy, Input } from '@angular/core';
 import { Title } from '@angular/platform-browser';
 import { UserService } from 'app/core/user/user.service';
 import { DomainService } from 'app/_services/domain';
@@ -101,6 +101,18 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     currentZoomIndex: number;
 
     items: ICustomTimelineItem[] = [];
+    
+    timelineStartDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 1, 0, 0, 0, 0);
+    timelineEndDate: Date = new Date(new Date().getFullYear(), new Date().getMonth() + 2, 0, 23, 59, 59, 999);
+
+    updateTimeline3MonthsRange(month?: number) {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const targetMonth = (month && month >= 1 && month <= 12) ? (month - 1) : now.getMonth();
+        
+        this.timelineStartDate = new Date(currentYear, targetMonth - 1, 1, 0, 0, 0, 0);
+        this.timelineEndDate = new Date(currentYear, targetMonth + 2, 0, 23, 59, 59, 999);
+    }
     
     customZooms = [
         { columnWidth: 120, viewMode: TimelineViewMode.Day }, // Mức 0: Nhỏ nhất (5px mỗi giờ)
@@ -382,6 +394,71 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
         }
     }
 
+  private safeDate(d: any): Date {
+      if (!d) return new Date();
+      let dt: Date;
+      if (d instanceof Date) {
+          dt = isNaN(d.getTime()) ? new Date() : d;
+      } else if (typeof d === 'number') {
+          dt = new Date(d);
+          if (isNaN(dt.getTime())) dt = new Date();
+      } else if (typeof d === 'string') {
+          dt = new Date(d);
+          if (isNaN(dt.getTime())) {
+              if (d.includes('/') || d.includes('-')) {
+                  const parts = d.split(/[ T]/);
+                  const datePart = parts[0];
+                  const timePart = parts.length > 1 ? parts[1] : '08:00:00';
+                  const dParts = datePart.split(/[\/-]/);
+                  if (dParts.length === 3) {
+                      const year = new Date().getFullYear().toString();
+                      const otherParts = dParts.filter(p => p.length !== 4);
+                      if (otherParts.length === 2) {
+                          const p1 = parseInt(otherParts[0], 10);
+                          const p2 = parseInt(otherParts[1], 10);
+                          const month = p1 > 12 ? p2 : p1;
+                          const day = p1 > 12 ? p1 : p2;
+                          const formattedMonth = month.toString().padStart(2, '0');
+                          const formattedDay = day.toString().padStart(2, '0');
+                          dt = new Date(`${year}-${formattedMonth}-${formattedDay}T${timePart}`);
+                      }
+                  }
+              }
+          }
+          if (isNaN(dt.getTime())) dt = new Date();
+      } else {
+          dt = new Date();
+      }
+
+      // If the date's year is different from the current view year (e.g. 2023 vs 2026),
+      // adjust the year to current year so the timeline component doesn't attempt to compute 3 years of columns and freeze!
+      const currentYear = new Date().getFullYear();
+      if (dt.getFullYear() !== currentYear) {
+          dt.setFullYear(currentYear);
+      }
+
+      return dt;
+  }
+
+  private safeIsoString(d: any): string {
+      const dt = this.safeDate(d);
+      const year = dt.getFullYear();
+      const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+      const day = dt.getDate().toString().padStart(2, '0');
+      const hours = dt.getHours().toString().padStart(2, '0');
+      const minutes = dt.getMinutes().toString().padStart(2, '0');
+      const seconds = dt.getSeconds().toString().padStart(2, '0');
+      return `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+  }
+
+  private safeIsoDate(d: any): string {
+      const dt = this.safeDate(d);
+      const year = dt.getFullYear();
+      const month = (dt.getMonth() + 1).toString().padStart(2, '0');
+      const day = dt.getDate().toString().padStart(2, '0');
+      return `${year}-${month}-${day}`;
+  }
+
     ngAfterViewChecked(): void { 
         this.renderCheckboxesInHeader();
     }
@@ -402,8 +479,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             const scaleColumn = this.timelineComponent.scale.columns[index];
             if (!scaleColumn || !scaleColumn.date) return;
             
-            const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
-            const dateStr = tzOffsetStr(scaleColumn.date);
+            const dateStr = this.safeIsoDate(scaleColumn.date);
             const colWidth = col.offsetWidth || col.getBoundingClientRect().width;
 
             let checkboxDiv = col.querySelector('.day-disable-checkbox') as HTMLElement;
@@ -456,10 +532,10 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
                                     if (domain.domainData && domain.domainData.plan) {
                                         domain.domainData.plan = domain.domainData.plan.filter((t: any) => {
                                             if (!t.startDate) return true;
-                                            const tDateStr = new Date(new Date(t.startDate).getTime() - new Date(t.startDate).getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+                                            const tDateStr = this.safeIsoDate(t.startDate);
                                             return tDateStr !== dateStr;
                                         });
-                                        domain.childrenItems = this.packTasks(domain.domainData.plan, domain.id);
+                                        this.applyPackedTasks(domain, domain.domainData.plan);
                                     }
                                 });
                                 this.items = [...this.items];
@@ -558,10 +634,70 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     addEvent(event: any) { console.log('event', event); }
     trackByIndex = (_: number, c: { index: number }) => c.index;
     @ViewChild('taskDetailDialog') taskDetailDialog: any;
+    @ViewChild('groupTasksDialog') groupTasksDialog: any;
+    selectedGroupItem: any = null;
+    selectedGroupDomain: string = '';
+
     editingItem: any = null;
     editingItemDomain: string = '';
     editingItemWritingStyle: string = '';
+
+    toggleTaskExpanded(task: any, event?: Event) {
+        if (event) event.stopPropagation();
+        task._expanded = !task._expanded;
+        this.cd.markForCheck();
+    }
+
+    toggleAllGroupTasks(expand: boolean) {
+        if (this.selectedGroupItem && this.selectedGroupItem.tasks) {
+            this.selectedGroupItem.tasks.forEach((t: any) => t._expanded = expand);
+            this.cd.markForCheck();
+        }
+    }
+
+    toggleTaskDone(task: any, event?: Event) {
+        if (event) event.stopPropagation();
+        task.done = !task.done;
+        if (this._tasksService) {
+            this._tasksService.edit({ username: this.user?.name, task: task }).pipe(takeUntil(this._unsubscribeAll)).subscribe();
+        }
+        this.cd.markForCheck();
+    }
+
+    openSingleTaskDetail(task: any) {
+        this._matDialog.closeAll();
+        setTimeout(() => {
+            this.changeEvent(task);
+        }, 150);
+    }
+
     changeEvent(item: any) { 
+        if (!item) return;
+
+        if (item.isGroup) {
+            this.selectedGroupItem = item;
+            this.selectedGroupDomain = '';
+            for (let d of this.items) {
+                if (d.streamItems && d.streamItems.find((t: any) => t.id === item.id)) {
+                    this.selectedGroupDomain = d.name;
+                    break;
+                }
+            }
+            if (this.selectedGroupItem && this.selectedGroupItem.tasks) {
+                this.selectedGroupItem.tasks.forEach((t: any) => {
+                    t._expanded = false;
+                });
+            }
+            if (this.groupTasksDialog) {
+                this._matDialog.open(this.groupTasksDialog, {
+                    width: '640px',
+                    disableClose: false,
+                    panelClass: 'custom-dialog-prompt'
+                });
+            }
+            return;
+        }
+
         if (this.editingItem !== item) {
             console.log('item selected for AI edit', item); 
             this.editingItem = item;
@@ -570,24 +706,30 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             this.editingItemDomain = '';
             this.editingItemWritingStyle = 'Không xác định / Tự do';
             for (let d of this.items) {
-                if (d.childrenItems && d.childrenItems.length) {
-                    const streamItems = d.childrenItems[0].streamItems;
-                    if (streamItems && streamItems.find((t:any) => t.id === item.id)) {
-                        this.editingItemDomain = d.name;
-                        // get writing style
-                        let styleId = d.domainData?.writingStyle;
-                        if (!styleId && this.settings?.domainStyles) {
-                            styleId = this.settings.domainStyles[d.domainData?.domain || d.name];
-                        }
-                        if (styleId) {
-                            this.editingItemWritingStyle = styleId;
-                            if (this.settings?.styles) {
-                                const styleObj = this.settings.styles.find((s:any) => s.id === styleId || s.name === styleId);
-                                if (styleObj) this.editingItemWritingStyle = `${styleObj.name}: ${styleObj.desc}`;
-                            }
-                        }
-                        break;
+                let foundDomain: any = null;
+                if (d.streamItems && d.streamItems.find((t: any) => t.id === item.id || t._id === item._id || t.name === item.name)) {
+                    foundDomain = d;
+                } else if (d.childrenItems && d.childrenItems.length) {
+                    const foundChild = d.childrenItems.find((childRow: any) => {
+                        return childRow.streamItems && childRow.streamItems.find((t: any) => t.id === item.id || t._id === item._id || t.name === item.name);
+                    });
+                    if (foundChild) foundDomain = d;
+                }
+                
+                if (foundDomain) {
+                    this.editingItemDomain = foundDomain.name;
+                    let styleId = foundDomain.domainData?.writingStyle;
+                    if (!styleId && this.settings?.domainStyles) {
+                        styleId = this.settings.domainStyles[foundDomain.domainData?.domain || foundDomain.name];
                     }
+                    if (styleId) {
+                        this.editingItemWritingStyle = styleId;
+                        if (this.settings?.styles) {
+                            const styleObj = this.settings.styles.find((s: any) => s.id === styleId || s.name === styleId);
+                            if (styleObj) this.editingItemWritingStyle = `${styleObj.name}: ${styleObj.desc}`;
+                        }
+                    }
+                    break;
                 }
             }
             
@@ -694,6 +836,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
     async processDomains(domains: any[], statsData: any, month: number, forceGenerate: boolean = false) {
         this.statsData = statsData;
         this.month = month;
+        this.updateTimeline3MonthsRange(month);
         this.toastr.info('Đang nạp dữ liệu tên miền...', 'Xử lý');
         this.items = [];
         this.disabledDates.clear();
@@ -768,12 +911,11 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
             // Hiển thị kế hoạch hiện tại (tạm thời)
             const itemIndexForInit = this.items.findIndex(it => it.id === index);
             if (itemIndexForInit > -1) {
-                this.items[itemIndexForInit].childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
+                this.applyPackedTasks(this.items[itemIndexForInit], domainData.plan.map((task: any) => ({
                     ...task,
                     startDate: new Date(task.startDate),
                     endDate: new Date(task.endDate || new Date(task.startDate).setHours(17, 0, 0, 0))
-                })), index);
-                this.items[itemIndexForInit].streamItems = undefined;
+                })));
             }
         }
 
@@ -859,11 +1001,11 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
         let streamItems = domainData.plan ? [...domainData.plan] : [];
         // Xóa task rác (loading) và XÓA TOÀN BỘ CÁC TASK TỪ HÔM NAY TRỞ ĐI ĐỂ LÊN LỊCH LẠI
-        const todayStr = new Date().toISOString().split('T')[0];
+        const todayStr = this.safeIsoDate(new Date());
         streamItems = streamItems.filter((t: any) => {
             if (t.isLoading) return false;
             if (!t.startDate) return false;
-            const tDateStr = new Date(t.startDate).toISOString().split('T')[0];
+            const tDateStr = this.safeIsoDate(t.startDate);
             return tDateStr < todayStr; // Chỉ giữ lại task của quá khứ
         });
 
@@ -899,7 +1041,7 @@ export class AMXHScheduleComponent implements OnInit, OnDestroy, AfterViewInit, 
 
         const itemIndexForDummy = this.items.findIndex(it => it.id === index);
         if (itemIndexForDummy > -1) {
-            this.items[itemIndexForDummy].childrenItems = this.packTasks(dummyStreamItems, index);
+            this.applyPackedTasks(this.items[itemIndexForDummy], dummyStreamItems);
             this.items[itemIndexForDummy].childrenItemsExpanded = true;
             this.items = [...this.items];
             this.cd.detectChanges();
@@ -994,7 +1136,7 @@ Không dùng markdown \`\`\`json.`;
 
             // Update UI incrementally
             if (itemIndexForDummy > -1) {
-                this.items[itemIndexForDummy].childrenItems = this.packTasks([...finalStreamItems, ...dummyStreamItems.filter((t: any) => t.isLoading)], index);
+                this.applyPackedTasks(this.items[itemIndexForDummy], [...finalStreamItems, ...dummyStreamItems.filter((t: any) => t.isLoading)]);
                 this.items = [...this.items];
                 this.cd.detectChanges();
             }
@@ -1006,9 +1148,8 @@ Không dùng markdown \`\`\`json.`;
             streamItems = finalStreamItems;
             const itemIndex = this.items.findIndex(it => it.id === index);
             if (itemIndex > -1) {
-                this.items[itemIndex].childrenItems = this.packTasks(streamItems, index);
+                this.applyPackedTasks(this.items[itemIndex], streamItems);
                 this.items[itemIndex].childrenItemsExpanded = true;
-                this.items[itemIndex].streamItems = undefined;
                 this.items = [...this.items];
                 this.cd.markForCheck();
                 
@@ -1029,12 +1170,9 @@ Không dùng markdown \`\`\`json.`;
             const itemIndex = this.items.findIndex(it => it.id === index);
             if (itemIndex > -1) {
                 if (domainData.plan && domainData.plan.length > 0) {
-                    this.items[itemIndex].childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
-                        ...task,
-                        startDate: new Date(task.startDate),
-                        endDate: new Date(task.endDate || new Date(task.startDate).setHours(17, 0, 0, 0))
-                    })), index);
+                    this.applyPackedTasks(this.items[itemIndex], domainData.plan);
                 } else {
+                    this.items[itemIndex].streamItems = [];
                     this.items[itemIndex].childrenItems = [];
                 }
                 this.items[itemIndex].childrenItemsExpanded = true;
@@ -1779,7 +1917,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                             if (child.endDate) child.endDate = new Date(child.endDate);
                             return child;
                         });
-                        item.childrenItems = this.packTasks(streamItems, item.id);
+                        this.applyPackedTasks(item, streamItems);
                     } else {
                         item.childrenItems.forEach((child: any) => {
                             if (child.streamItems) {
@@ -1945,13 +2083,90 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         }, 100);
     }
 
+    applyPackedTasks(domainItem: any, plan: any[]) {
+        if (!domainItem) return;
+        const packed = this.packTasks(plan, domainItem.id);
+        domainItem.streamItems = packed.streamItems;
+        domainItem.childrenItems = packed.childrenItems;
+    }
+
     packTasks(tasks: any[], parentId: string | number) {
-        if (!tasks || !tasks.length) return [];
-        tasks.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
-        tasks.forEach((task, index) => {
-            task.taskIndex = index + 1;
+        if (!tasks || !tasks.length) return { streamItems: [], childrenItems: [] };
+
+        const validTasks: any[] = [];
+        for (const t of tasks) {
+            if (!t) continue;
+            const startDate = this.safeDate(t.startDate);
+            if (isNaN(startDate.getTime())) continue;
+
+            let endDate = t.endDate ? this.safeDate(t.endDate) : new Date(startDate.getTime() + 2 * 3600 * 1000);
+            if (isNaN(endDate.getTime()) || endDate.getTime() <= startDate.getTime()) {
+                endDate = new Date(startDate.getTime() + 2 * 3600 * 1000);
+            }
+
+            validTasks.push({
+                ...t,
+                startDate,
+                endDate
+            });
+        }
+
+        if (!validTasks.length) return { streamItems: [], childrenItems: [] };
+
+        // Group tasks by day (YYYY-MM-DD)
+        const dayGroups: { [key: string]: any[] } = {};
+        validTasks.forEach(t => {
+            const dayKey = this.safeIsoDate(t.startDate);
+            if (!dayGroups[dayKey]) dayGroups[dayKey] = [];
+            dayGroups[dayKey].push(t);
         });
-        return [{ id: parentId + "-child", name: 'Công việc', streamItems: tasks }];
+
+        const parentStreamItems: any[] = [];
+
+        Object.keys(dayGroups).forEach(dayKey => {
+            const dayTasks = dayGroups[dayKey];
+            const count = dayTasks.length;
+            
+            const baseDate = this.safeDate(dayTasks[0].startDate);
+            const sDate = new Date(baseDate.getTime());
+            sDate.setHours(8, 0, 0, 0);
+
+            const eDate = new Date(baseDate.getTime());
+            eDate.setHours(17, 0, 0, 0);
+
+            if (count === 1) {
+                const t = { ...dayTasks[0] };
+                t.startDate = sDate;
+                t.endDate = eDate;
+                t.isGroup = false;
+                parentStreamItems.push(t);
+            } else {
+                dayTasks.forEach((t, idx) => {
+                    t.taskIndex = idx + 1;
+                    t.isGroup = false;
+                });
+                
+                parentStreamItems.push({
+                    id: `${parentId}-${dayKey}-group`,
+                    name: `${count} công việc`,
+                    isGroup: true,
+                    startDate: sDate,
+                    endDate: eDate,
+                    tasks: dayTasks,
+                    taskCount: count,
+                    domainId: parentId
+                });
+            }
+        });
+
+        parentStreamItems.sort((a, b) => a.startDate.getTime() - b.startDate.getTime());
+        parentStreamItems.forEach((item, index) => {
+            if (!item.isGroup) {
+                item.taskIndex = index + 1;
+            }
+        });
+
+        return { streamItems: parentStreamItems, childrenItems: [] };
     }
 
     onChatInput(event: any, inputEl: any) {
@@ -2100,11 +2315,7 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
                             targetTask.done = true;
                             // Trigger view update
                             if (matchedItem) {
-                                matchedItem.childrenItems = this.packTasks(domainData.plan.map((task: any) => ({
-                                    ...task,
-                                    startDate: new Date(task.startDate),
-                                    endDate: new Date(task.endDate || new Date(task.startDate).setHours(17, 0, 0, 0))
-                                })), matchedItem.id);
+                                this.applyPackedTasks(matchedItem, domainData.plan);
                                 this.items = [...this.items];
                                 this.cd.detectChanges();
                             }
@@ -2189,12 +2400,12 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
 
             if (executeMatch && isToday) {
                 let todayTasks: any[] = [];
-                let todayStr = new Date().toISOString().split('T')[0];
+                let todayStr = this.safeIsoDate(new Date());
                 this.items.forEach((domain: any) => {
                     if (domain.childrenItems && domain.childrenItems[0] && domain.childrenItems[0].streamItems) {
                         domain.childrenItems[0].streamItems.forEach((task: any) => {
                             if (task.startDate) {
-                                let tDate = new Date(task.startDate).toISOString().split('T')[0];
+                                let tDate = this.safeIsoDate(task.startDate);
                                 if (tDate === todayStr) {
                                     todayTasks.push({ ...task, domain: domain.name, originalTask: task });
                                 }
@@ -2334,11 +2545,7 @@ Yêu cầu:${styleInstructions}
                         // Force Angular Calendar Timeline to detect changes deeply by rebuilding from plan
                         let itemIndex = this.items.findIndex(it => it.name === task.domain);
                         if (itemIndex > -1 && currentDomainData && currentDomainData.plan) {
-                            this.items[itemIndex].childrenItems = this.packTasks(currentDomainData.plan.map((t: any) => ({
-                                ...t,
-                                startDate: new Date(t.startDate),
-                                endDate: new Date(t.endDate || new Date(t.startDate).setHours(17, 0, 0, 0))
-                            })), this.items[itemIndex].id);
+                            this.applyPackedTasks(this.items[itemIndex], currentDomainData.plan);
                         }
                         this.items = [...this.items];
                         this.cd.detectChanges();
@@ -2379,8 +2586,8 @@ Yêu cầu:${styleInstructions}
   "id": "${this.editingItem.id}",
   "name": "${this.editingItem.name}",
   "meta": "${this.editingItem.meta || ''}",
-  "startDate": "${this.editingItem.startDate.toISOString()}",
-  "endDate": "${this.editingItem.endDate.toISOString()}"
+  "startDate": "${this.safeIsoString(this.editingItem.startDate)}",
+  "endDate": "${this.safeIsoString(this.editingItem.endDate)}"
 }
 \`\`\`
 
@@ -2422,10 +2629,10 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                             const streamItems = d.childrenItems?.[0]?.streamItems || [];
                             
                             // Đếm số lượng task đã lên lịch TỪ NGÀY MỤC TIÊU trở đi
-                            const targetDateStr = targetDate.toISOString().split('T')[0];
+                            const targetDateStr = this.safeIsoDate(targetDate);
                             const scheduledCount = streamItems.filter((t: any) => {
                                 if (!t.startDate) return false;
-                                const tDate = new Date(t.startDate).toISOString().split('T')[0];
+                                const tDate = this.safeIsoDate(t.startDate);
                                 return tDate >= targetDateStr;
                             }).length;
                             
@@ -2480,7 +2687,10 @@ Object JSON phải có cấu trúc y hệt trên, chứa nội dung đã sửa. 
                                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                                 writingStyle: writingStyleInfo,
                                 tasks: streamItems.map((t: any) => {
-                                    const tzOffsetStr = (date: Date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
+                                    const tzOffsetStr = (date: any) => {
+                                        const d = this.safeDate(date);
+                                        return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, -5);
+                                    };
                                     return {
                                         id: t.id,
                                         name: t.name,
@@ -2821,7 +3031,10 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     }
                 } as any);
                 
-                aiMessageForChat = response.text || (response as any).response?.text() || '';
+                const streamedContent = this.chatHistory[streamIndex]?.content;
+                aiMessageForChat = (streamedContent && streamedContent !== '⏳ Đang phân tích...') 
+                    ? streamedContent 
+                    : (response.text || (response as any).response?.text() || '');
                 
                 // --- BẮT ĐẦU CHÈN LOGIC INTERCEPT DÀN Ý ---
                 try {
@@ -2856,9 +3069,19 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 if (Array.isArray(parsed) && !isMonth) {
                     this.applyParsedTasks(parsed);
                 }
-                // Remove the raw streamed message (it contains raw JSON), 
-                // the cleaned message will be pushed at the end.
-                this.chatHistory.splice(streamIndex, 1);
+                
+                if (parsed) {
+                    // Remove the raw streamed message (it contains raw JSON), 
+                    // the cleaned message will be pushed at the end.
+                    this.chatHistory.splice(streamIndex, 1);
+                } else {
+                    const textOnly = this.getAiMessageText(aiMessageForChat);
+                    if (textOnly && textOnly.trim() !== '' && textOnly !== '⏳ Đang phân tích...') {
+                        this.chatHistory[streamIndex].content = textOnly;
+                    } else if (aiMessageForChat && aiMessageForChat.trim() !== '' && aiMessageForChat !== '⏳ Đang phân tích...') {
+                        this.chatHistory[streamIndex].content = aiMessageForChat;
+                    }
+                }
             }
             
             if (parsed) {
@@ -2867,8 +3090,8 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     if (taskObj && taskObj.name) {
                         this.editingItem.name = taskObj.name;
                         this.editingItem.meta = taskObj.meta;
-                        if (taskObj.startDate) this.editingItem.startDate = new Date(taskObj.startDate);
-                        if (taskObj.endDate) this.editingItem.endDate = new Date(taskObj.endDate);
+                        if (taskObj.startDate) this.editingItem.startDate = this.safeDate(taskObj.startDate);
+                        if (taskObj.endDate) this.editingItem.endDate = this.safeDate(taskObj.endDate);
                         
                         this.editingItem = null;
                         this.items = [...this.items];
@@ -2926,13 +3149,13 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         const monthlyTarget = (d as any).domainData?.monthlyTarget || this.getResolvedTarget(d.name, currentMonth, currentYear) || 0;
                         const currentResult = (this.statsData && this.statsData[d.name] && this.statsData[d.name][currentMonth]) ? this.statsData[d.name][currentMonth] : 0;
                         const streamItems = d.childrenItems?.[0]?.streamItems || [];
-                        const nowStr = new Date().toISOString().split('T')[0];
+                        const nowStr = this.safeIsoDate(new Date());
                         const scheduledCount = streamItems.filter((t: any) => {
                             if (!t.startDate) return false;
-                            const tDate = new Date(t.startDate);
+                            const tDate = this.safeDate(t.startDate);
                             if (tDate.getMonth() + 1 !== currentMonth || tDate.getFullYear() !== currentYear) return false;
                             
-                            const tDateStr = tDate.toISOString().split('T')[0];
+                            const tDateStr = this.safeIsoDate(tDate);
                             return tDateStr >= nowStr;
                         }).length;
                         
@@ -2947,9 +3170,9 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                                 let maxTime = 0;
                                 parsedDomain.tasks.forEach((t: any) => {
                                     if (t.startDate && !t._deleted) {
-                                        const tTime = new Date(t.startDate).getTime();
-                                        if (tTime > maxTime) {
-                                            maxTime = tTime;
+                                        const dTime = this.safeDate(t.startDate).getTime();
+                                        if (dTime > maxTime) {
+                                            maxTime = dTime;
                                             targetTask = t;
                                         }
                                     }
@@ -2957,7 +3180,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                             }
 
                             if (targetTask && targetTask.startDate) {
-                                const dTask = new Date(targetTask.startDate);
+                                const dTask = this.safeDate(targetTask.startDate);
                                 if (!isNaN(dTask.getTime())) {
                                     taskDate = dTask;
                                 }
@@ -2996,7 +3219,10 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                     this.chatHistory.push({ role: 'model', content: 'Lỗi: AI không trả về dữ liệu hợp lệ cho thao tác này.' });
                 }
             } else {
-                this.chatHistory.push({ role: 'model', content: aiMessageForChat || 'Lỗi: AI không trả về dữ liệu chuẩn JSON.' });
+                const lastMsg = this.chatHistory[this.chatHistory.length - 1];
+                if (!lastMsg || lastMsg.role !== 'model' || lastMsg.content === '⏳ Đang phân tích...') {
+                    this.chatHistory.push({ role: 'model', content: aiMessageForChat || 'Dạ sếp ơi, em đã ghi nhận yêu cầu. Sếp muốn điều chỉnh công việc nào ạ?' });
+                }
             }
         } catch (err: any) {
             if (!this.isChatting) return;
@@ -3183,7 +3409,7 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                         }
                     });
                     
-                    existingDomain.childrenItems = this.packTasks(newTasks, existingDomain.id);
+                    this.applyPackedTasks(existingDomain, newTasks);
                     if ((existingDomain as any).domainData) {
                         (existingDomain as any).domainData.plan = newTasks;
                         

@@ -63,7 +63,7 @@ interface ScreenplayLine {
             <!-- LEFT SIDEBAR: DANH SÁCH BÀI VIẾT BỘ SƯU TẬP -->
             <div class="w-80 border-r border-t border-gray-200 bg-white flex flex-col shrink-0 z-20 overflow-hidden transition-all duration-300 rounded-tr-2xl" *ngIf="isSidebarOpen">
                 <!-- Sidebar Header -->
-                <div class="p-3.5 border-b border-gray-200 bg-gray-50/80 flex items-center justify-between gap-2">
+                <div class="p-3.5 bg-gray-50/80 flex items-center justify-between gap-2">
                     <div class="flex flex-col min-w-0">
                         <div class="flex items-center gap-2">
                             <mat-icon class="text-primary-600 icon-size-4" svgIcon="heroicons_outline:collection"></mat-icon>
@@ -79,7 +79,7 @@ interface ScreenplayLine {
                 </div>
 
                 <!-- Sidebar Chapter List -->
-                <div class="flex-1 overflow-y-auto divide-y divide-gray-100 p-0">
+                <div class="flex-1 overflow-y-auto p-0">
                     <!-- Loading Skeleton -->
                     <div *ngIf="isLoadingChapterList" class="p-6 text-center text-gray-400 text-sm animate-pulse space-y-3">
                         <div class="h-12 bg-gray-100 rounded-lg w-full"></div>
@@ -91,7 +91,7 @@ interface ScreenplayLine {
                     <!-- Chapter Items (Standard Fuse List Rows) -->
                     <div *ngFor="let chapter of availableChapters; let cIdx = index" 
                          (click)="scrollToChapter(cIdx)"
-                         class="group flex flex-col p-4 border-b border-gray-100 hover:bg-gray-50/80 transition-colors cursor-pointer relative bg-white">
+                         class="group flex flex-col p-4 border-t border-gray-100 hover:bg-gray-50/80 transition-colors cursor-pointer relative bg-white">
                         
                         <!-- Top Row: Title & Status Badges -->
                         <div class="flex items-center justify-between gap-2">
