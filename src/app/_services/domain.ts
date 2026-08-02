@@ -51,7 +51,7 @@ export class DomainService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) { return of(null); }
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = 2023;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -76,7 +76,7 @@ export class DomainService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = 2023;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
 
@@ -101,7 +101,7 @@ export class DomainService {
         let activeInfo = this.multiAccountService.getItem('active_info'); if (!activeInfo) {return of(null);}
         activeInfo = AuthUtils._getActiveInfo(activeInfo); if (!activeInfo) return of(null);
 
-        dataForm.year = this.year;
+        dataForm.year = 2023;
         dataForm.appId = 'ai.typing';
         dataForm.appToken = activeInfo['user']['appToken'];
         

@@ -1414,6 +1414,58 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.cdr.detectChanges();
   }
 
+  private async extractBase64FromResponse(response: any): Promise<string | null> {
+      if (!response) return null;
+      if (response.image?.base64) return response.image.base64;
+      if (typeof response.image === 'string' && response.image.length > 50) {
+          return response.image.replace(/^data:image\/(png|jpg|jpeg|webp);base64,/, '');
+      }
+
+      const parts = response.candidates?.[0]?.content?.parts || response.parts || [];
+      if (!Array.isArray(parts)) return null;
+
+      const electron = (window as any).electron;
+
+      for (const part of parts) {
+          if (!part) continue;
+          if (part.inlineData?.data) {
+              return part.inlineData.data;
+          }
+          if (part.imageUrl && typeof part.imageUrl === 'string') {
+              if (part.imageUrl.startsWith('data:image/')) {
+                  return part.imageUrl.replace(/^data:image\/(png|jpg|jpeg|webp);base64,/, '');
+              }
+              if ((part.imageUrl.startsWith('file://') || part.imageUrl.startsWith('/')) && electron?.readFileBase64) {
+                  try {
+                      const filePath = part.imageUrl.replace('file://', '');
+                      const b64 = await electron.readFileBase64(filePath);
+                      if (b64) return b64;
+                  } catch (e) {}
+              }
+          }
+          if (part.image && typeof part.image === 'string') {
+              return part.image.replace(/^data:image\/(png|jpg|jpeg|webp);base64,/, '');
+          }
+          if (part.text && typeof part.text === 'string') {
+              const dataUrlMatch = part.text.match(/data:image\/(?:png|jpg|jpeg|webp);base64,([A-Za-z0-9+/=]+)/);
+              if (dataUrlMatch && dataUrlMatch[1]) {
+                  return dataUrlMatch[1];
+              }
+              const localMatch = part.text.match(/\[LOCAL_IMAGE:\s*(.+?)\]/) || part.text.match(/!\[.*?\]\((file:\/\/.+?|\/.+?)\)/);
+              if (localMatch && localMatch[1]) {
+                  const filePath = localMatch[1].replace('file://', '').trim();
+                  if (electron?.readFileBase64) {
+                      try {
+                          const b64 = await electron.readFileBase64(filePath);
+                          if (b64) return b64;
+                      } catch (e) {}
+                  }
+              }
+          }
+      }
+      return null;
+  }
+
   async submitPrompt(generateAll: boolean = false, forceModality?: 'IMAGE' | 'VIDEO' | 'AUDIO') {
     if (this.editingType === 'character' && this.editingCharacter) {
       const targetCharacter = this.editingCharacter;
@@ -1450,17 +1502,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               } as any
           });
 
-          let base64Data = null;
-          if ((response as any)?.image?.base64) {
-              base64Data = (response as any).image.base64;
-          } else if ((response as any)?.candidates?.[0]?.content?.parts) {
-              for (const part of (response as any).candidates[0].content.parts) {
-                  if (part.inlineData && part.inlineData.data) {
-                      base64Data = part.inlineData.data;
-                      break;
-                  }
-              }
-          }
+          const base64Data = await this.extractBase64FromResponse(response);
 
           if (base64Data) {
               const username = this.projectData?.username || 'anonymous';
@@ -1732,16 +1774,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                         const projectUuid = this.uuid || this.projectData?.uuid || 'default';
 
                         if (targetModality === 'IMAGE') {
-                            let base64Data = null;
-                            if ((response as any)?.image?.base64) {
-                                base64Data = (response as any).image.base64;
-                            } else if ((response as any)?.candidates?.[0]?.content?.parts) {
-                                const parts = (response as any).candidates[0].content.parts;
-                                const imgPart = parts.find((p: any) => p.inlineData && p.inlineData.data);
-                                if (imgPart) {
-                                    base64Data = imgPart.inlineData.data;
-                                }
-                            }
+                            const base64Data = await this.extractBase64FromResponse(response);
 
                             if (base64Data) {
                                 const saveResult = await electron.saveBase64({

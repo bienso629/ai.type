@@ -1105,37 +1105,52 @@ timeline-calendar .date-marker {
     padding: 0 !important;
 }
 
-/* Global scrollbar width 5px & soft dark track background without rounded corners */
+/* Global scrollbar rounded style with margin */
 ::-webkit-scrollbar {
-    width: 5px !important;
-    height: 5px !important;
-    background-color: rgba(0, 0, 0, 0.25) !important;
+    width: 8px !important;
+    height: 8px !important;
+    background-color: transparent !important;
     border: none !important;
-    border-radius: 0 !important;
 }
 
 ::-webkit-scrollbar-track,
 ::-webkit-scrollbar-track-piece {
-    background-color: rgba(0, 0, 0, 0.25) !important;
+    background-color: transparent !important;
     border: none !important;
     box-shadow: none !important;
-    border-radius: 0 !important;
 }
 
 ::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.65) !important;
-    border: none !important;
-    outline: none !important;
+    background-color: rgba(0, 0, 0, 0.25) !important;
+    background-clip: padding-box !important;
+    border: 2px solid transparent !important;
+    border-radius: 9999px !important;
     box-shadow: none !important;
-    border-radius: 0 !important;
 
     &:hover {
-        background-color: rgba(0, 0, 0, 0.85) !important;
+        background-color: rgba(0, 0, 0, 0.45) !important;
+        background-clip: padding-box !important;
     }
 }
 
 ::-webkit-scrollbar-corner {
-    background-color: rgba(0, 0, 0, 0.25) !important;
+    background-color: transparent !important;
+}
+
+/* Global Yellow/Amber Button Style */
+.btn-gray {
+    background-color: #f59e0b !important; /* Yellow / Amber 500 */
+    color: #ffffff !important;
     border: none !important;
-    border-radius: 0 !important;
+    border-bottom: 3px solid #b45309 !important; /* Darker amber border-bottom */
+
+    mat-icon, .mat-icon, svg {
+        color: #ffffff !important;
+    }
+
+    &:hover {
+        background-color: #d97706 !important; /* Yellow / Amber 600 */
+        border-bottom-color: #92400e !important;
+        color: #ffffff !important;
+    }
 }

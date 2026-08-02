@@ -180,7 +180,7 @@
             </p>
 
             <mat-form-field class="w-full mt-3" appearance="outline">
-                <mat-label>{{ 'app.auto_enter_additional_prompt' | transloco }}</mat-label>
+                <mat-label class="ml-2">{{ 'app.auto_enter_additional_prompt' | transloco }}</mat-label>
                 <textarea matInput [(ngModel)]="customPromptInput" [ngModelOptions]="{ standalone: true }" rows="5"
                     [placeholder]="'app.auto_for_example_video_link_https' | transloco"></textarea>
             </mat-form-field>
@@ -402,7 +402,7 @@
 
         <div class="p-6">
             <mat-form-field class="w-full mt-3" appearance="outline">
-                <mat-label>Link video TikTok</mat-label>
+                <mat-label class="ml-2">Link video TikTok</mat-label>
                 <input matInput [(ngModel)]="likeVideoUrl" placeholder="https://www.tiktok.com/@..." />
                 <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:link'"></mat-icon>
             </mat-form-field>
@@ -410,14 +410,14 @@
             <div class="flex flex-col gap-2">
                 <div class="flex gap-6">
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label>{{ 'app.auto_from_the_moment' | transloco }}</mat-label>
+                        <mat-label class="ml-2">{{ 'app.auto_from_the_moment' | transloco }}</mat-label>
                         <input matInput type="datetime-local" #startTimeInput (click)="startTimeInput.showPicker()"
                             [(ngModel)]="likeStartTime" />
                         <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:calendar'"></mat-icon>
                     </mat-form-field>
 
                     <mat-form-field class="flex-1" appearance="outline">
-                        <mat-label>{{ 'app.auto_by_the_time' | transloco }}</mat-label>
+                        <mat-label class="ml-2">{{ 'app.auto_by_the_time' | transloco }}</mat-label>
                         <input matInput type="datetime-local" #endTimeInput (click)="endTimeInput.showPicker()"
                             [(ngModel)]="likeEndTime" />
                         <mat-icon matSuffix class="icon-size-5" [svgIcon]="'feather:clock'"></mat-icon>

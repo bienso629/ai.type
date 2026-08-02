@@ -7,7 +7,7 @@
 
         <div class="flex gap-4 mb-4">
             <mat-form-field class="w-1/2 fuse-mat-dense">
-                <mat-label>{{ 'app.select_target_fanpage' | transloco }}</mat-label>
+                <mat-label class="ml-2">{{ 'app.select_target_fanpage' | transloco }}</mat-label>
                 <ng-container *ngIf="shareForm.get('pageIds').value?.length > 0; else defaultFbIcon">
                     <img matPrefix
                         [src]="'https://graph.facebook.com/' + shareForm.get('pageIds').value[0] + '/picture?type=normal'"
@@ -127,14 +127,14 @@
             </mat-form-field>
 
             <mat-form-field class="w-1/2 fuse-mat-dense">
-                <mat-label>{{ 'app.post_title' | transloco }}</mat-label>
+                <mat-label class="ml-2">{{ 'app.post_title' | transloco }}</mat-label>
                 <input matInput [formControlName]="'title'" [placeholder]="'app.auto_what_do_you_want_to_post_today' | transloco" required>
                 <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:edit-3'"></mat-icon>
             </mat-form-field>
         </div>
 
         <mat-form-field class="w-full custom-textarea fuse-mat-dense mb-2">
-            <mat-label>{{ 'app.auto_article_content' | transloco }}</mat-label>
+            <mat-label class="ml-2">{{ 'app.auto_article_content' | transloco }}</mat-label>
             <textarea matInput cdkTextareaAutosize [cdkAutosizeMinRows]="5" [formControlName]="'description'"
                 [placeholder]="'app.auto_detailed_content' | transloco"></textarea>
         </mat-form-field>
@@ -188,7 +188,7 @@
         </div>
 
         <mat-form-field class="w-full fuse-mat-dense mb-2">
-            <mat-label>{{ 'app.auto_schedule_post' | transloco }}</mat-label>
+            <mat-label class="ml-2">{{ 'app.auto_schedule_post' | transloco }}</mat-label>
             <input #scheduleInput matInput type="datetime-local" [formControlName]="'scheduleTime'"
                 (click)="scheduleInput.showPicker()">
             <mat-icon class="icon-size-4" matPrefix [svgIcon]="'feather:clock'"></mat-icon>

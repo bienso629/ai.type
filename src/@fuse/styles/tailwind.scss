@@ -86,65 +86,62 @@
         body:not(.os-mac) {
 
             ::-webkit-scrollbar {
-                width: 5px;
-                height: 5px;
-                background-color: rgba(0, 0, 0, 0.25) !important;
+                width: 8px !important;
+                height: 8px !important;
+                background-color: transparent !important;
                 border: none !important;
-                border-radius: 0 !important;
-            }
-
-            ::-webkit-scrollbar:hover {
-                width: 5px;
-                height: 5px;
-                background-color: rgba(0, 0, 0, 0.35) !important;
             }
 
             ::-webkit-scrollbar-track,
             ::-webkit-scrollbar-track-piece {
-                background-color: rgba(0, 0, 0, 0.25) !important;
+                background-color: transparent !important;
                 border: none !important;
                 box-shadow: none !important;
-                border-radius: 0 !important;
             }
 
             ::-webkit-scrollbar-thumb {
-                border: none !important;
-                border-radius: 0 !important;
+                background-color: rgba(0, 0, 0, 0.25) !important;
+                background-clip: padding-box !important;
+                border: 2px solid transparent !important;
+                border-radius: 9999px !important;
                 box-shadow: none !important;
-                background-color: rgba(0, 0, 0, 0.65) !important;
 
                 &:hover {
-                    background-color: rgba(0, 0, 0, 0.85) !important;
+                    background-color: rgba(0, 0, 0, 0.45) !important;
+                    background-clip: padding-box !important;
                 }
             }
 
             ::-webkit-scrollbar-thumb:active {
-                border-radius: 0 !important;
-                box-shadow: none !important;
-                background-color: #000000 !important;
+                background-color: rgba(0, 0, 0, 0.6) !important;
+                background-clip: padding-box !important;
+                border-radius: 9999px !important;
             }
 
             &.dark {
                 ::-webkit-scrollbar,
                 ::-webkit-scrollbar-track,
                 ::-webkit-scrollbar-track-piece {
-                    background-color: rgba(0, 0, 0, 0.3) !important;
+                    background-color: transparent !important;
                 }
 
                 ::-webkit-scrollbar-thumb {
-                    background-color: rgba(255, 255, 255, 0.4) !important;
-                    border-radius: 0 !important;
+                    background-color: rgba(255, 255, 255, 0.3) !important;
+                    background-clip: padding-box !important;
+                    border: 2px solid transparent !important;
+                    border-radius: 9999px !important;
                     box-shadow: none !important;
 
                     &:hover {
-                        background-color: rgba(255, 255, 255, 0.7) !important;
+                        background-color: rgba(255, 255, 255, 0.5) !important;
+                        background-clip: padding-box !important;
                     }
                 }
 
                 ::-webkit-scrollbar-thumb:active {
-                    background-color: #ffffff !important;
-                    border-radius: 0 !important;
-                    box-shadow: none !important;
+                    background-color: rgba(255, 255, 255, 0.7) !important;
+                    background-clip: padding-box !important;
+                    border-radius: 9999px !important;
                 }
             }
         }
