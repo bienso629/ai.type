@@ -34,6 +34,10 @@
 }
 
 .timeline-container {
+    .timeline-element {
+        overflow: visible !important;
+    }
+
     timeline-scale-header {
         background-color: #fff !important;
     }
@@ -249,6 +253,48 @@ timeline-calendar {
 
 ::ng-deep .markdown-content {
     line-height: 1.5 !important;
+    word-break: break-word !important;
+    overflow-wrap: anywhere !important;
+    -ms-overflow-style: none !important;
+    scrollbar-width: none !important;
+
+    &::-webkit-scrollbar {
+        display: none !important;
+        width: 0 !important;
+        height: 0 !important;
+    }
+
+    table {
+        display: table !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        border-collapse: collapse !important;
+        margin: 12px 0 !important;
+        font-size: 13px !important;
+
+        th {
+            background-color: #f3f4f6 !important;
+            color: #374151 !important;
+            font-weight: 600 !important;
+            text-align: center !important;
+            padding: 6px 8px !important;
+            border: 1px solid #e5e7eb !important;
+            white-space: nowrap !important;
+        }
+
+        td {
+            padding: 6px 8px !important;
+            border: 1px solid #e5e7eb !important;
+            font-size: 12px !important;
+            text-align: center !important;
+            white-space: nowrap !important;
+        }
+
+        td:first-child, th:first-child {
+            text-align: left !important;
+            font-family: monospace !important;
+        }
+    }
     
     ul, ol {
         margin-top: 8px !important;
@@ -264,6 +310,7 @@ timeline-calendar {
     li {
         margin-bottom: 6px !important;
         line-height: 1.5 !important;
+        word-break: break-word !important;
     }
     li > p {
         margin-bottom: 0 !important;
@@ -271,5 +318,6 @@ timeline-calendar {
     }
     p {
         margin-bottom: 8px !important;
+        word-break: break-word !important;
     }
 }

@@ -249,6 +249,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
               _descController.text = _taskData!['description'] ?? '';
               _urlController.text = _taskData!['url'] ?? '';
               _thumbnailController.text = _taskData!['thumbnail'] ?? '';
+              _mainkeyController.text = _taskData!['mainkey']?.toString() ?? _taskData!['keyword']?.toString() ?? '';
+              _keywordController.text = _taskData!['keyword']?.toString() ?? _taskData!['keywords']?.toString() ?? '';
               
               if (_taskData!['domain'] != null) {
                 String? rawTaskDomain;
@@ -326,6 +328,25 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
               }
               if (_taskData!['done'] != null && _taskData!['done'] is List) {
                 _done = List<dynamic>.from(_taskData!['done']);
+              }
+
+              final fallbackDone = (_source['done'] as List?) ??
+                  (_source['outline'] as List?) ??
+                  (_source['script'] as List?) ??
+                  (_taskData!['done'] as List?) ??
+                  (_taskData!['outline'] as List?) ??
+                  (_taskData!['script'] as List?) ??
+                  _done;
+              if (fallbackDone.isNotEmpty) {
+                _source['done'] = List<dynamic>.from(fallbackDone);
+              }
+
+              if (_taskData!['arr_keyword'] != null && _taskData!['arr_keyword'] is List) {
+                _source['arr_keyword'] = List<dynamic>.from(_taskData!['arr_keyword']);
+              } else if (_taskData!['long_keywords'] != null || _taskData!['short_keywords'] != null) {
+                final longKw = (_taskData!['long_keywords'] as List?) ?? [];
+                final shortKw = (_taskData!['short_keywords'] as List?) ?? [];
+                _source['arr_keyword'] = [...longKw, ...shortKw];
               }
             }
           });
@@ -1279,7 +1300,13 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
   }
 
   Widget _buildOutlineTab() {
-    final outlineList = (_source['done'] as List?) ?? (_source['outline'] as List?) ?? (_source['script'] as List?) ?? [];
+    final outlineList = (_source['done'] as List?) ??
+        (_source['outline'] as List?) ??
+        (_source['script'] as List?) ??
+        (_taskData?['done'] as List?) ??
+        (_taskData?['outline'] as List?) ??
+        (_taskData?['script'] as List?) ??
+        _done;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -1335,18 +1362,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                      decoration: BoxDecoration(
-                        color: AppColors.primary.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(4),
-                      ),
-                      child: Text(
-                        '#${index + 1}',
-                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary, fontSize: 12),
-                      ),
-                    ),
-                    const SizedBox(width: 10),
                     Expanded(
                       child: _buildRichText(htmlStr),
                     ),
@@ -1362,7 +1377,9 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
                           );
                         } else if (value == 'delete') {
                           setState(() {
-                            outlineList.removeAt(index);
+                            if (_source['done'] is List && index < (_source['done'] as List).length) {
+                              (_source['done'] as List).removeAt(index);
+                            }
                           });
                         }
                       },
@@ -1457,6 +1474,8 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     final wordCount = (_source['word'] as List?)?.length ?? 0;
     final sourceCount = (_source['source'] as List?)?.length ?? 0;
     final backlinkCount = (_source['a'] as List?)?.length ?? 0;
+    final keywordsList = _getKeywordsList();
+    final keyCount = keywordsList.length;
 
     return ListView(
       physics: const AlwaysScrollableScrollPhysics(),
@@ -1469,7 +1488,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           title: 'Prompt công việc ($promptCount)',
           titleColor: Colors.teal,
           borderColor: Colors.teal,
-          initiallyExpanded: true,
           iconPrefix: const Text(
             '>_ ',
             style: TextStyle(color: Colors.teal, fontWeight: FontWeight.bold),
@@ -1502,7 +1520,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           title: 'Nội dung sáng tạo ($textCount)',
           iconPrefix: const Icon(Icons.article, size: 16, color: Colors.blue),
           titleColor: Colors.black87,
-          initiallyExpanded: true,
           actions: [
             _buildIconBtn(Icons.copy, Colors.orange, tooltip: 'Sao chép tất cả', onPressed: () {
               final textList = (_source['text'] as List?) ?? [];
@@ -1534,7 +1551,6 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           title: 'Hình ảnh sang bài viết ($imgCount)',
           iconPrefix: const Icon(Icons.image, size: 16, color: Colors.green),
           titleColor: Colors.black87,
-          initiallyExpanded: true,
           actions: [
             _buildIconBtn(Icons.upload, Colors.teal, tooltip: 'Tải ảnh lên', onPressed: () {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -1637,7 +1653,15 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
           title: 'Thêm Backlink ($backlinkCount)',
           iconPrefix: const Icon(Icons.link, size: 16, color: Colors.orange),
           titleColor: Colors.black87,
-          contentWidgets: _buildHtmlList(_source['a']),
+          contentWidgets: _buildBacklinkList(_source['a']),
+        ),
+        const SizedBox(height: 12),
+        // 9. Tìm thấy từ khóa trong bài (Angular: <mat-expansion-panel [expanded]="true" *ngIf="arr_keyword.length > 0">)
+        _buildActionCard(
+          title: 'Tìm thấy $keyCount từ khoá trong bài.',
+          iconPrefix: const Icon(Icons.style, size: 16, color: Colors.indigo),
+          titleColor: Colors.black87,
+          contentWidgets: _buildKeywordListWidgets(keywordsList),
         ),
       ],
     );
@@ -1712,7 +1736,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
         _buildActionCard(
           title: 'a ($aCount)',
           iconPrefix: const Icon(Icons.link, size: 16, color: Colors.orange),
-          contentWidgets: _buildHtmlList(_source['a']),
+          contentWidgets: _buildBacklinkList(_source['a']),
         ),
         const SizedBox(height: 12),
         _buildActionCard(
@@ -1761,6 +1785,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
     bool isItalic = false;
     bool isUnderline = false;
     bool isHeading = false;
+    bool isLink = false;
 
     for (final match in matches) {
       final text = match.group(0) ?? '';
@@ -1783,6 +1808,10 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
       } else if (lower.startsWith('</h')) {
         isHeading = false;
         spans.add(const TextSpan(text: '\n'));
+      } else if (lower.startsWith('<a')) {
+        isLink = true;
+      } else if (lower == '</a>') {
+        isLink = false;
       } else if (lower == '<p>') {
         // paragraph start
       } else if (lower == '</p>') {
@@ -1798,7 +1827,7 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
               fontWeight: (isBold || isHeading) ? FontWeight.bold : FontWeight.normal,
               fontStyle: isItalic ? FontStyle.italic : FontStyle.normal,
               decoration: isUnderline ? TextDecoration.underline : TextDecoration.none,
-              color: Colors.black87,
+              color: isLink ? AppColors.primary : Colors.black87,
               height: 1.4,
             ),
           ),
@@ -1833,6 +1862,202 @@ class _AiWriterScreenState extends State<AiWriterScreen> with SingleTickerProvid
         ),
       );
     }).toList();
+  }
+
+  List<Widget>? _buildBacklinkList(dynamic sourceList) {
+    if (sourceList == null || sourceList is! List || sourceList.isEmpty) {
+      return null;
+    }
+    return [
+      ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: sourceList.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final htmlStr = sourceList[index].toString();
+          return InkWell(
+            onDoubleTap: () => _editPrompt(index, htmlStr, targetKey: 'a', customTitle: 'Chỉnh sửa Backlink'),
+            child: Padding(
+              padding: const EdgeInsets.all(12.0),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: _buildRichText(htmlStr),
+                  ),
+                  PopupMenuButton<String>(
+                    icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                    onSelected: (value) {
+                      if (value == 'edit') {
+                        _editPrompt(index, htmlStr, targetKey: 'a', customTitle: 'Chỉnh sửa Backlink');
+                      } else if (value == 'copy') {
+                        final textOnly = _cleanHtmlText(htmlStr);
+                        Clipboard.setData(ClipboardData(text: textOnly));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã sao chép backlink!')),
+                        );
+                      } else if (value == 'delete') {
+                        setState(() {
+                          (sourceList as List).removeAt(index);
+                        });
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Đã xoá backlink!')),
+                        );
+                      }
+                    },
+                    itemBuilder: (BuildContext context) => [
+                      const PopupMenuItem(value: 'copy', child: Row(children: [Icon(Icons.copy, size: 16), SizedBox(width: 8), Text('Sao chép')])),
+                      const PopupMenuItem(value: 'edit', child: Row(children: [Icon(Icons.edit_outlined, size: 16), SizedBox(width: 8), Text('Sửa backlink')])),
+                      const PopupMenuItem(value: 'delete', child: Row(children: [Icon(Icons.delete_outline, size: 16, color: Colors.red), SizedBox(width: 8), Text('Xoá backlink', style: TextStyle(color: Colors.red))])),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    ];
+  }
+
+  List<dynamic> _getKeywordsList() {
+    final rawList = (_source['arr_keyword'] as List?) ??
+        (_source['keyword'] as List?) ??
+        (_source['keywords'] as List?) ??
+        (_source['key'] as List?) ??
+        (_source['tag'] as List?) ??
+        (_source['tags'] as List?) ??
+        (_taskData?['arr_keyword'] as List?) ??
+        (_taskData?['keyword'] as List?) ??
+        (_taskData?['keywords'] as List?) ??
+        (_taskData?['key'] as List?);
+
+    if (rawList != null && rawList.isNotEmpty) {
+      final List<String> result = [];
+      for (var item in rawList) {
+        if (item != null) {
+          final clean = _cleanHtmlText(item.toString()).trim();
+          if (clean.isNotEmpty && !result.contains(clean)) {
+            result.add(clean);
+          }
+        }
+      }
+      return result;
+    }
+    return [];
+  }
+
+  List<Widget>? _buildKeywordListWidgets(List<dynamic> kwList) {
+    if (kwList.isEmpty) {
+      return [
+        Container(
+          padding: const EdgeInsets.all(16.0),
+          color: Colors.grey.shade50,
+          child: const Center(
+            child: Text(
+              'Chưa tìm thấy từ khóa nào trong bài',
+              style: TextStyle(fontSize: 13, color: Colors.grey),
+            ),
+          ),
+        ),
+      ];
+    }
+    return [
+      ListView.separated(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        itemCount: kwList.length,
+        separatorBuilder: (_, __) => const Divider(height: 1),
+        itemBuilder: (context, index) {
+          final kw = kwList[index].toString();
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    kw,
+                    style: const TextStyle(fontSize: 14, color: Colors.black87),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                PopupMenuButton<String>(
+                  icon: const Icon(Icons.more_horiz, color: Colors.grey),
+                  onSelected: (value) async {
+                    if (value == 'ask') {
+                      _addPrompt('Hỏi về từ khóa: $kw');
+                      _sendPromptToAi();
+                    } else if (value == 'explain') {
+                      _addPrompt('Giải nghĩa và tìm từ đồng nghĩa cho từ khóa: $kw');
+                      _sendPromptToAi();
+                    } else if (value == 'develop') {
+                      _addPrompt('Tự động phát triển nội dung từ từ khóa: $kw');
+                      _sendPromptToAi();
+                    } else if (value == 'backlink') {
+                      setState(() {
+                        if (_source['a'] == null || _source['a'] is! List) {
+                          _source['a'] = [];
+                        }
+                        (_source['a'] as List).add(
+                          '<p id="source-a-${DateTime.now().millisecondsSinceEpoch}">Xem thêm: <a href="https://${_selectedDomain ?? 'ai.type.vn'}/?s=${Uri.encodeComponent(kw)}" title="$kw" target="_blank">$kw</a></p>',
+                        );
+                      });
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Đã thêm Backlink cho từ khóa "$kw"!')),
+                      );
+                    }
+                  },
+                  itemBuilder: (BuildContext context) => [
+                    PopupMenuItem(
+                      value: 'ask',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.chat_bubble_outline, size: 16, color: AppColors.primary),
+                          const SizedBox(width: 8),
+                          Text('Hỏi về \'$kw\''),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'explain',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.translate, size: 16, color: Colors.purple),
+                          const SizedBox(width: 8),
+                          Text('Giải nghĩa \'$kw\''),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'develop',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.rss_feed, size: 16, color: Colors.orange),
+                          const SizedBox(width: 8),
+                          const Text('Tự động phát triển nội dung'),
+                        ],
+                      ),
+                    ),
+                    PopupMenuItem(
+                      value: 'backlink',
+                      child: Row(
+                        children: [
+                          const Icon(Icons.link, size: 16, color: Colors.blue),
+                          const SizedBox(width: 8),
+                          const Text('Thêm backlink'),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    ];
   }
 
   Widget _buildConfigHeader() {
