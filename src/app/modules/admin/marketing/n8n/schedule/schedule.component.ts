@@ -4055,6 +4055,18 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
             });
         }
 
+        const daysInMonth = new Date(year, month, 0).getDate();
+        const now = new Date();
+        const startDay = (year === now.getFullYear() && month === (now.getMonth() + 1)) ? now.getDate() : 1;
+        
+        let workingDaysLeft = 0;
+        for (let i = startDay; i <= daysInMonth; i++) {
+            const checkDate = `${year}-${monthStr}-${i.toString().padStart(2, '0')}`;
+            if (!this.disabledDates.has(checkDate)) {
+                workingDaysLeft++;
+            }
+        }
+
         let validItems = this.items.filter(item => {
             if (!item || item.id === 'total-summary-row' || item.id === 'monthly-total-summary-row') return false;
             const streamItems = item.childrenItems?.[0]?.streamItems || (item.domainData?.plan || []);
@@ -4097,10 +4109,25 @@ QUAN TRỌNG VỀ THỜI GIAN VÀ MÚI GIỜ:
                 }
             }
 
+            const createdTasksInMonth = streamItems.filter((t: any) => {
+                if (!t.startDate) return false;
+                const dObj = this.safeDate(t.startDate);
+                return dObj && dObj.getFullYear() === year && (dObj.getMonth() + 1) === month;
+            }).length;
+
+            const missingTasksToCreate = Math.max(0, monthlyTarget - createdTasksInMonth);
+            
+            let computedDailyTarget = 0;
+            if (tasksOnDay.length > 0) {
+                computedDailyTarget = tasksOnDay.length;
+            } else if (monthlyTarget > 0) {
+                computedDailyTarget = workingDaysLeft > 0 ? Math.ceil(missingTasksToCreate / workingDaysLeft) : missingTasksToCreate;
+            }
+
             return {
                 domain: d.name,
                 monthlyTarget: monthlyTarget,
-                dailyTarget: monthlyTarget > 0 ? (tasksOnDay.length > 0 ? tasksOnDay.length : 1) : 0,
+                dailyTarget: computedDailyTarget,
                 aiAnalysis: d.domainData?.note || 'Chưa có phân tích',
                 writingStyle: writingStyleInfo,
                 existingTasksOnDay: tasksOnDay
