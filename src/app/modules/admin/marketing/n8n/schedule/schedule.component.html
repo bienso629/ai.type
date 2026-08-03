@@ -107,11 +107,11 @@
                                 <div *ngIf="msg.role === 'model'" class="whitespace-normal break-words [&>p:first-child]:mt-0 [&>p:last-child]:mb-0 markdown-content overflow-hidden" [innerHTML]="msg.content | markdown"></div>
                                 <div *ngIf="msg.role === 'user'" class="whitespace-pre-wrap break-words">{{msg.content}}</div>
 
-                                <!-- Confirmation Action Button -->
-                                <div *ngIf="msg.isConfirmMessage && msg.confirmData" class="mt-3 pt-3 border-t border-gray-200/80 flex flex-col gap-2">
+                                 <!-- Confirmation Action Button -->
+                                <div *ngIf="msg.isConfirmMessage && msg.confirmData && !msg.isConfirmed" class="mt-3 pt-3 border-t border-gray-200/80 flex flex-col gap-2">
                                     <button mat-flat-button
                                             [color]="'primary'"
-                                            (click)="confirmAndExecuteTask(msg.confirmData)"
+                                            (click)="confirmAndExecuteTask(msg.confirmData, msg)"
                                             [disabled]="isChatting"
                                             class="w-full">
                                         <mat-icon class="icon-size-5 mr-1.5" [svgIcon]="'heroicons_solid:check-circle'"></mat-icon>
