@@ -2265,33 +2265,54 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         const dayMap: { [key: string]: { tasks: any[]; sDate: Date; eDate: Date } } = {};
 
         realDomainItems.forEach(domainItem => {
-            if (domainItem && domainItem.streamItems && domainItem.streamItems.length) {
-                domainItem.streamItems.forEach((st: any) => {
-                    let taskList: any[] = [];
-                    if (st.isGroup && st.tasks && st.tasks.length) {
-                        taskList = st.tasks;
-                    } else if (!st.isGroup) {
-                        taskList = [st];
+            let allStreamItems: any[] = [];
+            if (domainItem.streamItems && domainItem.streamItems.length) {
+                allStreamItems.push(...domainItem.streamItems);
+            }
+            if (domainItem.childrenItems && domainItem.childrenItems.length) {
+                domainItem.childrenItems.forEach((child: any) => {
+                    if (child && child.streamItems && child.streamItems.length) {
+                        allStreamItems.push(...child.streamItems);
+                    } else if (child && !child.streamItems) {
+                        allStreamItems.push(child);
                     }
-
-                    taskList.forEach(t => {
-                        if (!t || !t.startDate) return;
-                        const sDateObj = this.safeDate(t.startDate);
-                        if (isNaN(sDateObj.getTime())) return;
-                        const dayKey = this.safeIsoDate(sDateObj);
-
-                        if (!dayMap[dayKey]) {
-                            const sDate = new Date(sDateObj.getTime());
-                            sDate.setHours(8, 0, 0, 0);
-                            const eDate = new Date(sDateObj.getTime());
-                            eDate.setHours(17, 0, 0, 0);
-                            dayMap[dayKey] = { tasks: [], sDate, eDate };
-                        }
-
-                        dayMap[dayKey].tasks.push(t);
-                    });
                 });
             }
+            if (domainItem.domainData && domainItem.domainData.plan && Array.isArray(domainItem.domainData.plan)) {
+                allStreamItems.push(...domainItem.domainData.plan);
+            }
+
+            const uniqueStreamItems = Array.from(new Set(allStreamItems.map(st => st.id || st._id || st.name)))
+                .map(id => allStreamItems.find(st => (st.id || st._id || st.name) === id))
+                .filter(Boolean);
+
+            uniqueStreamItems.forEach((st: any) => {
+                let taskList: any[] = [];
+                if (st.isGroup && st.tasks && st.tasks.length) {
+                    taskList = st.tasks;
+                } else if (!st.isGroup) {
+                    taskList = [st];
+                }
+
+                taskList.forEach(t => {
+                    if (!t || !t.startDate) return;
+                    const sDateObj = this.safeDate(t.startDate);
+                    if (isNaN(sDateObj.getTime())) return;
+                    const dayKey = this.safeIsoDate(sDateObj);
+
+                    if (!dayMap[dayKey]) {
+                        const sDate = new Date(sDateObj.getTime());
+                        sDate.setHours(8, 0, 0, 0);
+                        const eDate = new Date(sDateObj.getTime());
+                        eDate.setHours(17, 0, 0, 0);
+                        dayMap[dayKey] = { tasks: [], sDate, eDate };
+                    }
+
+                    if (!dayMap[dayKey].tasks.some(existing => (existing.id && existing.id === t.id) || (existing._id && existing._id === t._id) || (existing.name === t.name && existing.startDate === t.startDate))) {
+                        dayMap[dayKey].tasks.push(t);
+                    }
+                });
+            });
         });
 
         const totalStreamItems: any[] = [];
