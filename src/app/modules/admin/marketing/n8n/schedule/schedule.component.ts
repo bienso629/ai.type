@@ -2860,6 +2860,45 @@ NGÀY BỊ VÔ HIỆU HÓA: ${disabledStr ? disabledStr : 'Không có'}. KHÔNG 
         });
     }
 
+    get promptSuggestions(): { label: string; text: string; icon: string }[] {
+        const now = new Date();
+        const dayStr = now.getDate().toString().padStart(2, '0');
+        const monthStr = (now.getMonth() + 1).toString().padStart(2, '0');
+        const year = now.getFullYear();
+
+        const nextMonthDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        const nextMonthStr = (nextMonthDate.getMonth() + 1).toString().padStart(2, '0');
+        const nextMonthYear = nextMonthDate.getFullYear();
+
+        return [
+            {
+                label: `Viết blog chuẩn SEO ngày ${dayStr}/${monthStr}`,
+                text: `Viết bài blog chi tiết dựa trên tasks ngày ${dayStr}/${monthStr}`,
+                icon: 'heroicons_outline:document-text'
+            },
+            {
+                label: `Tạo công việc tháng ${nextMonthStr}`,
+                text: `Tạo và phân bổ công việc tháng ${nextMonthStr}/${nextMonthYear} cho tất cả các tên miền`,
+                icon: 'heroicons_outline:calendar'
+            },
+            {
+                label: `Cập nhật công việc ngày ${dayStr}/${monthStr}`,
+                text: `Cập nhật công việc ngày ${dayStr}/${monthStr} cho tất cả tên miền`,
+                icon: 'heroicons_outline:refresh'
+            },
+            {
+                label: `Phân bổ công việc tháng ${monthStr}`,
+                text: `Tạo công việc tháng ${monthStr}/${year}`,
+                icon: 'heroicons_outline:sparkles'
+            }
+        ];
+    }
+
+    usePromptSuggestion(text: string) {
+        this.chatPrompt = text;
+        this.sendChat();
+    }
+
     async sendChat(event?: Event) {
         if (event) {
             event.preventDefault();
