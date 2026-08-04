@@ -2003,12 +2003,13 @@ class ApiService {
     return null;
   }
 
-  /// Upload tệp bytes/image lên CDN cdn1.type.vn
+  /// Upload tệp bytes/image lên CDN cdn1.type.vn (với fallback qua backend)
   static Future<String?> uploadBytesToCdn(
     Uint8List bytes,
     String filename, {
     String folder = 'thumbnails',
   }) async {
+    // Attempt 1: Upload directly to cdn1.type.vn/upload
     try {
       final uri = Uri.parse('https://cdn1.type.vn/upload');
       var request = http.MultipartRequest('POST', uri);
@@ -2025,7 +2026,7 @@ class ApiService {
       );
       request.files.add(multipartFile);
 
-      final streamedRes = await request.send().timeout(const Duration(seconds: 20));
+      final streamedRes = await request.send().timeout(const Duration(seconds: 15));
       final res = await http.Response.fromStream(streamedRes);
 
       if (res.statusCode == 200) {
@@ -2038,11 +2039,54 @@ class ApiService {
           return rawUrl.replaceAll(RegExp(r'^https?://[^/]+'), 'https://cdn1.type.vn');
         }
       } else {
-        print('[CDN Upload] HTTP ${res.statusCode}: ${res.body}');
+        print('[CDN cdn1.type.vn] HTTP ${res.statusCode}: ${res.body}');
       }
     } catch (e) {
-      print('[CDN Upload] Error: $e');
+      print('[CDN cdn1.type.vn] Error: $e');
     }
+
+    // Attempt 2: Upload via Backend /cdn/create/image (Angular BlogService parity)
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final activeInfoStr = prefs.getString('active_info');
+      if (activeInfoStr != null) {
+        final activeInfo = jsonDecode(activeInfoStr);
+        final server = activeInfo['user']['server'];
+        final baseUrl = apiUrls[server] ?? apiUrls['vn.s3']!;
+        final url = Uri.parse('$baseUrl/cdn/create/image');
+
+        final base64Str = base64Encode(bytes);
+        final payload = {
+          'year': 2023,
+          'appId': 'ai.typing',
+          'appToken': activeInfo['user']['appToken'],
+          'username': activeInfo['user']['name'],
+          'imageData': base64Str,
+          'folder': folder,
+          'ext': filename.endsWith('.png') ? 'png' : 'jpg',
+          'mimeType': filename.endsWith('.png') ? 'image/png' : 'image/jpeg',
+        };
+
+        final response = await http.post(
+          url,
+          headers: {
+            'content-type': 'application/json',
+            'Authorization': 'Bearer ' + generateJWTToken(activeInfo['user']),
+          },
+          body: jsonEncode(payload),
+        ).timeout(const Duration(seconds: 15));
+
+        if (response.statusCode == 200) {
+          final res = jsonDecode(response.body);
+          if (res != null && res['img'] != null) {
+            return res['img'].toString();
+          }
+        }
+      }
+    } catch (e) {
+      print('[CDN Backend Upload] Error: $e');
+    }
+
     return null;
   }
 

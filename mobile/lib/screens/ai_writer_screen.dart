@@ -3787,54 +3787,158 @@ Lưu ý: Chỉ trả về JSON thuần túy hợp lệ bắt đầu bằng '{' v
     );
   }
 
+  String _getOutlineText() {
+    final List<String> outlineTexts = [];
+    
+    // Check Dàn ý (_source['done'])
+    if (_source['done'] != null && _source['done'] is List) {
+      for (var item in (_source['done'] as List)) {
+        final clean = _cleanHtmlText(item.toString()).trim();
+        if (clean.isNotEmpty) outlineTexts.add(clean);
+      }
+    }
+
+    // Fallback to h2, h1, or p
+    if (outlineTexts.isEmpty && _source['h2'] != null && _source['h2'] is List) {
+      for (var item in (_source['h2'] as List)) {
+        final clean = _cleanHtmlText(item.toString()).trim();
+        if (clean.isNotEmpty) outlineTexts.add(clean);
+      }
+    }
+
+    if (outlineTexts.isEmpty && _source['h1'] != null && _source['h1'] is List) {
+      for (var item in (_source['h1'] as List)) {
+        final clean = _cleanHtmlText(item.toString()).trim();
+        if (clean.isNotEmpty) outlineTexts.add(clean);
+      }
+    }
+
+    if (outlineTexts.isEmpty && _source['p'] != null && _source['p'] is List) {
+      for (var item in (_source['p'] as List).take(5)) {
+        final clean = _cleanHtmlText(item.toString()).trim();
+        if (clean.isNotEmpty) outlineTexts.add(clean);
+      }
+    }
+
+    return outlineTexts.take(10).join('\n');
+  }
+
   Future<void> _generateAiThumbnailFromPrompt(String userPrompt) async {
     final title = _titleController.text.trim();
     final desc = _descController.text.trim();
-    if (title.isEmpty && userPrompt.trim().isEmpty) {
+    final outlineContent = _getOutlineText();
+
+    if (title.isEmpty && userPrompt.trim().isEmpty && outlineContent.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Vui lòng nhập Tiêu đề bài viết hoặc Prompt tạo ảnh!')),
+        const SnackBar(content: Text('Vui lòng nhập Tiêu đề bài viết, Dàn ý hoặc Prompt tạo ảnh!')),
       );
       return;
     }
 
     FocusScope.of(context).unfocus();
-    AppLoading.show(context, message: 'Đang tạo hình ảnh Thumbnail bằng AI...');
+    AppLoading.show(context, message: 'Đang đọc Dàn ý bài viết & tạo hình ảnh...');
 
     try {
-      final baseText = userPrompt.isNotEmpty ? userPrompt : 'Title: $title. Description: $desc';
-      final promptForEnglishVisual = '''
-Create a short, detailed English image generation prompt (30-50 words) for a modern, high-quality blog header image based on: "$baseText".
-Style: Clean, vibrant, modern 3D digital art or professional vector illustration, high resolution, 8k.
-If there is any text in the image, it MUST be written in Vietnamese.
-Return ONLY the raw English prompt, with no quotes or extra text.
-''';
-
-      String visualPrompt = await ApiService.executeAiRequest(promptForEnglishVisual) ?? '';
-      visualPrompt = visualPrompt.replaceAll(RegExp(r'^["\s]+|["\s]+$'), '').trim();
-      if (visualPrompt.isEmpty) {
-        visualPrompt = 'Modern vibrant illustration for blog article about $title, 8k resolution, cinematic lighting';
+      final baseText = StringBuffer();
+      if (title.isNotEmpty) baseText.writeln('Tiêu đề: $title');
+      if (desc.isNotEmpty) baseText.writeln('Mô tả: $desc');
+      if (userPrompt.trim().isNotEmpty) baseText.writeln('Yêu cầu tùy chỉnh (Custom Prompt): $userPrompt');
+      if (outlineContent.isNotEmpty) {
+        baseText.writeln('Nội dung Dàn ý bài viết:');
+        baseText.writeln(outlineContent);
       }
 
-      final encodedPrompt = Uri.encodeComponent(visualPrompt);
-      final seed = DateTime.now().millisecondsSinceEpoch;
-      final rawImageUrl = 'https://image.pollinations.ai/prompt/$encodedPrompt?width=1024&height=576&seed=$seed&nologo=true';
+      final promptForEnglishVisual = '''
+Dựa trên thông tin bài viết sau:
+---
+$baseText
+---
+Hãy tạo ra câu prompt tạo hình ảnh bằng tiếng Anh (ngắn gọn từ 8 đến 12 từ) để minh họa cho bài viết này.
+Hình ảnh phải đẹp mắt, phong cách 3D hoặc Vector minh họa hiện đại, chất lượng cao.
+Chỉ trả về danh sách 8-12 từ tiếng Anh ngăn cách bằng khoảng trắng, không kèm bất kỳ giải thích, dấu ngoặc hay kí tự đặc biệt nào.
+''';
 
-      // Upload generated image to cdn1.type.vn CDN server
-      String finalCdnUrl = rawImageUrl;
+      String visualPrompt = await ApiService.executeAiRequest(promptForEnglishVisual.toString()) ?? '';
+      visualPrompt = visualPrompt.replaceAll(RegExp(r'[^a-zA-Z0-9\s]'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+      if (visualPrompt.isEmpty || visualPrompt.length < 3) {
+        visualPrompt = '3d cloud server hosting technology illustration modern';
+      }
+      final shortPrompt = visualPrompt.split(' ').take(10).join(' ');
+
+      final encodedPrompt = Uri.encodeComponent(shortPrompt);
+      final seed = DateTime.now().millisecondsSinceEpoch;
+
+      final primaryUrl = 'https://image.pollinations.ai/prompt/$encodedPrompt?width=1024&height=576&seed=$seed&nologo=true';
+      final fallbackUrl1 = 'https://picsum.photos/seed/$seed/1024/576';
+      final fallbackUrl2 = 'https://loremflickr.com/1024/576/technology,cloud,server/all?lock=$seed';
+
+      Uint8List? imageBytes;
+
+      // Attempt 1: Fetch from Pollinations AI
       try {
-        final cdnRes = await ApiService.uploadUrlToCdn(rawImageUrl, folder: 'thumbnails');
-        if (cdnRes != null && cdnRes.isNotEmpty) {
-          finalCdnUrl = cdnRes;
+        final imgRes = await http.get(
+          Uri.parse(primaryUrl),
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Linux; Android 12) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Mobile Safari/537.36',
+          },
+        ).timeout(const Duration(seconds: 10));
+
+        if (imgRes.statusCode == 200 && imgRes.bodyBytes.length > 2000) {
+          imageBytes = imgRes.bodyBytes;
+          debugPrint('Successfully fetched Pollinations image bytes (${imageBytes.length} bytes)');
+        } else {
+          debugPrint('Pollinations returned HTTP status ${imgRes.statusCode}');
         }
       } catch (e) {
-        debugPrint('CDN Upload error: $e');
+        debugPrint('Pollinations fetch error: $e');
+      }
+
+      // Attempt 2: Fallback to Picsum if Pollinations failed/500/timeout
+      if (imageBytes == null) {
+        try {
+          final res1 = await http.get(Uri.parse(fallbackUrl1)).timeout(const Duration(seconds: 8));
+          if (res1.statusCode == 200 && res1.bodyBytes.length > 2000) {
+            imageBytes = res1.bodyBytes;
+            debugPrint('Successfully fetched Picsum fallback bytes');
+          }
+        } catch (e) {
+          debugPrint('Picsum fallback error: $e');
+        }
+      }
+
+      // Attempt 3: Fallback to LoremFlickr if Picsum failed
+      if (imageBytes == null) {
+        try {
+          final res2 = await http.get(Uri.parse(fallbackUrl2)).timeout(const Duration(seconds: 8));
+          if (res2.statusCode == 200 && res2.bodyBytes.length > 2000) {
+            imageBytes = res2.bodyBytes;
+            debugPrint('Successfully fetched LoremFlickr fallback bytes');
+          }
+        } catch (e) {
+          debugPrint('LoremFlickr fallback error: $e');
+        }
+      }
+
+      // Upload image bytes to CDN (cdn1.type.vn or Backend CDN)
+      String? finalCdnUrl;
+      if (imageBytes != null) {
+        final filename = 'thumb_$seed.jpg';
+        final cdnUploadedUrl = await ApiService.uploadBytesToCdn(imageBytes, filename, folder: 'thumbnails');
+        if (cdnUploadedUrl != null && cdnUploadedUrl.isNotEmpty) {
+          finalCdnUrl = cdnUploadedUrl;
+        }
+      }
+
+      if (finalCdnUrl == null || finalCdnUrl.isEmpty) {
+        finalCdnUrl = fallbackUrl1;
       }
 
       if (mounted) AppLoading.dismiss(context);
 
       final now = DateTime.now().millisecondsSinceEpoch;
       setState(() {
-        _thumbnailController.text = finalCdnUrl;
+        final existing = _thumbnailController.text.trim();
+        _thumbnailController.text = existing.isNotEmpty ? '$existing\n$finalCdnUrl' : finalCdnUrl!;
         
         if (_source['img'] == null || _source['img'] is! List) {
           _source['img'] = [];
@@ -3846,7 +3950,7 @@ Return ONLY the raw English prompt, with no quotes or extra text.
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Đã tạo ảnh Thumbnail bằng AI thành công!'),
+            content: Text('Đã tạo và tải hình ảnh lên CDN thành công!'),
             backgroundColor: Colors.green,
           ),
         );
