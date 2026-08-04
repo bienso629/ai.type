@@ -361,13 +361,11 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
                 const conn = this.connections.find(c => c.fromNode === node.id && c.toPort === 'tts_in');
                 if (conn) {
                     const vidNode = this.nodes.find(n => n.id === conn.toNode);
-                    if (vidNode) {
-                        const vidHeight = (vidNode.type === 'video' && vidNode.data?.aspectRatio === '9:16') ? 550 : 320;
-                        if (node.y < vidNode.y + vidHeight - 50) {
-                            node.y = vidNode.y + vidHeight;
+                        const vidHeight = this.getNodeHeight(vidNode);
+                        if (node.y < vidNode.y + vidHeight) {
+                            node.y = vidNode.y + vidHeight + 25;
                             node.baseY = node.y;
                         }
-                    }
                 }
             }
         });
@@ -564,14 +562,26 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     this.saveEditorState();
   }
 
+  getCurrentProjectAspectRatio(): string {
+    const existingNode = this.nodes?.find(n => (n.type === 'video' || n.type === 'storyboard' || n.type === 'composition') && 
+      (n.data?.aspectRatio || n.data?.sceneData?.aspectRatio || n.data?.sceneData?.ratio || n.data?.ratio));
+    if (existingNode) {
+      return this.getNodeAspectRatio(existingNode);
+    }
+    if (this.projectData?.aspectRatio) return this.projectData.aspectRatio;
+    if (this.projectData?.ratio) return this.projectData.ratio;
+    if (this.projectData?.settings?.aspectRatio) return this.projectData.settings.aspectRatio;
+    if (this.projectData?.settings?.ratio) return this.projectData.settings.ratio;
+    return '16:9';
+  }
+
   getNodeAspectRatio(node: any): string {
-    if (!node) return '16:9';
+    if (!node) return this.getCurrentProjectAspectRatio();
     return node.data?.aspectRatio || 
            node.data?.sceneData?.aspectRatio || 
            node.data?.sceneData?.ratio || 
            node.data?.ratio || 
-           this.projectData?.aspectRatio || 
-           '16:9';
+           this.getCurrentProjectAspectRatio();
   }
 
   getNodeWidth(n: any): number {
@@ -582,6 +592,21 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       return ratio === '9:16' ? 240 : 360;
     }
     return 280;
+  }
+
+  getNodeHeight(n: any): number {
+    if (!n) return 340;
+    if (n.type === 'composition') return 400;
+    if (n.type === 'tts') return 120;
+    if (n.type === 'video' || n.type === 'storyboard' || n.type === 'image') {
+      const ratio = this.getNodeAspectRatio(n);
+      if (ratio === '9:16') return 550;
+      if (ratio === '3:4') return 490;
+      if (ratio === '1:1') return 400;
+      if (ratio === '4:3') return 370;
+      return 340;
+    }
+    return 340;
   }
 
   getAspectRatioCss(ratio?: string): string {
@@ -936,7 +961,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           let totalColHeight = 0;
           const nodeHeights = colNodes.map(pNode => {
               const secondaries = primaryToSecondaries.get(pNode.id) || [];
-              const h = 320 + secondaries.length * 180;
+              const pHeight = this.getNodeHeight(pNode);
+              const h = pHeight + secondaries.length * 140;
               totalColHeight += h;
               return h;
           });
@@ -946,8 +972,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
           if (colNodes.length > 1) {
               currentY = Math.max(50, 300 - totalColHeight / 2);
           } else {
-              currentY = 150 + (Math.random() * 300 - 150);
-              if (currentY < 50) currentY = 50;
+              currentY = 150;
           }
           
           colNodes.forEach((pNode, rIdx) => {
@@ -958,9 +983,10 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
               pNode.y = currentY;
               pNode.baseY = pNode.y;
               
+              const pHeight = this.getNodeHeight(pNode);
               blockPositions.set(pNode.id, {
                   x: pNode.x,
-                  currentY: pNode.y + 320 
+                  currentY: pNode.y + pHeight + 30
               });
               
               if (colNodes.length > 1) {
@@ -991,19 +1017,27 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
       
       let unconnectedX = 150 + sortedCols.length * 450;
       
-      secondaryNodes.forEach(sNode => {
-          const targetId = secondaryToPrimary.get(sNode.id);
+      secondaryNodes.forEach((sNode, sIdx) => {
+          let targetId = secondaryToPrimary.get(sNode.id);
+          if (!targetId && sNode.data?.sceneIndex !== undefined) {
+              const matchedPrimary = primaryNodes.find(p => p.data?.sceneIndex === sNode.data.sceneIndex);
+              if (matchedPrimary) targetId = matchedPrimary.id;
+          }
+          if (!targetId && primaryNodes[sIdx]) {
+              targetId = primaryNodes[sIdx].id;
+          }
+
           if (targetId && blockPositions.has(targetId)) {
               const pos = blockPositions.get(targetId)!;
               sNode.x = pos.x;
               sNode.baseX = sNode.x;
               sNode.y = pos.currentY;
               sNode.baseY = sNode.y;
-              pos.currentY += 180;
+              pos.currentY += 140;
           } else {
               sNode.x = unconnectedX;
               sNode.baseX = sNode.x;
-              sNode.y = 470; 
+              sNode.y = 730; 
               sNode.baseY = sNode.y;
               unconnectedX += 450;
           }
@@ -1062,6 +1096,7 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
     const id = `scene_${Date.now()}`;
     const x = this.contextMenuCanvasPosition.x ? Math.round(this.contextMenuCanvasPosition.x) : 150;
     const y = this.contextMenuCanvasPosition.y ? Math.round(this.contextMenuCanvasPosition.y) : 150;
+    const currentRatio = this.getCurrentProjectAspectRatio();
     
     const newScene: NodeItem = {
       id,
@@ -1078,8 +1113,8 @@ export class NodeEditorComponent implements OnInit, AfterViewChecked, OnDestroy 
         text: '', 
         isVideo: false, 
         showOnCanvas: true,
-        aspectRatio: '16:9', 
-        sceneData: { visualPrompt: '' },
+        aspectRatio: currentRatio, 
+        sceneData: { visualPrompt: '', aspectRatio: currentRatio, ratio: currentRatio },
         projectCharacters: []
       }
     };

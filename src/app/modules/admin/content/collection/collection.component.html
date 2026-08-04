@@ -152,8 +152,8 @@
                                             [svgIcon]="'feather:feather'"></mat-icon>
                                     </button>
 
-                                    <button *ngIf="permissionText2Voice || hasVideoProject(row.uuid)" mat-icon-button matTooltipPosition="above"
-                                        matTooltip="Tạo/Xem kịch bản video cho bài '{{ row.title }}'"
+                                    <button *ngIf="hasVideoProject(row.uuid)" mat-icon-button matTooltipPosition="above"
+                                        matTooltip="Xem kịch bản video cho bài '{{ row.title }}'"
                                         [routerLink]="['/voice2video', user.name, row.uuid]" class="transition-colors">
                                         <mat-icon class="icon-size-4 text-blue-500"
                                             [svgIcon]="'heroicons_outline:film'"></mat-icon>
@@ -183,15 +183,6 @@
                                 <div class="flex w-full sm:items-center sm:justify-between">
                                     <div class="flex-1 min-w-0">
                                         <div class="page-count text-secondary font-medium flex items-center">
-                                            <button *ngIf="hasCollectionScript()" mat-flat-button class="bg-emerald-600 hover:bg-emerald-700 text-white mr-3" (click)="readCollectionScript()" matTooltip="Đọc kịch bản phim điện ảnh của Collection này">
-                                                <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:book-open'"></mat-icon>
-                                                <mat-label class="ml-2">Đọc kịch bản</mat-label>
-                                            </button>
-
-                                            <button *ngIf="!hasCollectionScript()" mat-flat-button color="primary" class="mr-3" (click)="generateCollectionScriptFromCollectionPage()" [disabled]="isGeneratingCollectionScript" matTooltip="Dựng kịch bản phim điện ảnh cho toàn bộ Collection này">
-                                                <mat-icon class="icon-size-4 mr-1.5" [class.animate-spin]="isGeneratingCollectionScript" [svgIcon]="'feather:layers'"></mat-icon>
-                                                <mat-label class="ml-2">{{ isGeneratingCollectionScript ? 'Đang tạo kịch bản...' : 'Tạo kịch bản' }}</mat-label>
-                                            </button>
 
                                             <button *ngIf="selectedCount > 0" mat-flat-button class="bg-amber-500 hover:bg-amber-600 text-white mr-3" (click)="removeSelectedFromCollection()">
                                                 <mat-icon class="icon-size-4 mr-1.5" [svgIcon]="'feather:trash-2'"></mat-icon>

@@ -52,6 +52,10 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
     cache: Record<string, boolean> = {};
     cachePageSize = 0;
     keyword: String = '';
+    dateGroupOptions = ['Tất cả thời gian', 'Hôm nay', 'Hôm qua', '7 ngày qua', '30 ngày qua', 'Cũ hơn'];
+    selectedDateGroup: string = 'Tất cả thời gian';
+    allRowsBackup: any[] = null;
+    masterLoadedRows: any[] = [];
     uuids: any[] = [];
     page: Page = {
         pageNumber: 0,
@@ -92,7 +96,8 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
 
     onSelect({ selected }) {
         this.selected.splice(0, this.selected.length);
-        this.selected.push(...selected);
+        const validSelected = selected ? selected.filter((item: any) => item && !item.isGroupHeader) : [];
+        this.selected.push(...validSelected);
     }
 
     deleteSelected() {
@@ -149,15 +154,9 @@ export class AIArchiveComponent implements OnInit, OnDestroy {
                 this.toastr.success(`Đã xóa ${uuids.length} bài viết.`);
                         
                 // Cập nhật lại UI (xóa khỏi mảng dữ liệu nội bộ)
-                const newRows = [];
-                for (let i = 0; i < this.rows.length; i++) {
-                    const row = this.rows[i];
-                    if (!row || !row.uuid || !uuids.includes(row.uuid)) {
-                        newRows.push(row);
-                    }
-                }
-                this.rows = [...newRows];
-                this.totalElements = Math.max(0, this.totalElements - uuids.length);
+                this.masterLoadedRows = (this.masterLoadedRows || []).filter((row: any) => row && row.uuid && !uuids.includes(row.uuid));
+                this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
+                this.totalElements = this.rows.length;
                 
                 this.cache = {}; // Reset cache
                 this.selected = [];
@@ -379,9 +378,14 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
     }
 
     displayCheck(row: any) {
-        // Kiểm tra nếu row tồn tại và có title mới thực hiện so sánh
-        return row && row.title ? row.title !== 'Ethel Price' : false;
+        return row && !row.isGroupHeader && !!row.uuid;
     }
+
+    getRowClass = (row: any) => {
+        return {
+            'is-group-header': row && row.isGroupHeader
+        };
+    };
 
     getRowHeight(row: any) {
         if (!row) {
@@ -561,6 +565,8 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         this.apiFetchedCount = 0;
         this.cachePageSize = 0;
         this.cache = {};
+        this.allRowsBackup = null;
+        this.masterLoadedRows = [];
 
         this.cd.markForCheck();
 
@@ -667,17 +673,26 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
                     const start = this.page.pageNumber * this.page.size;
                     const resData = result?.data;
                     if (resData && resData.docs && resData.docs.length > 0) {
+                        const docsWithGroup = resData.docs.map((doc: any) => ({
+                            ...doc,
+                            dateGroup: this.getDateGroup(doc)
+                        }));
+                        if (!this.masterLoadedRows) this.masterLoadedRows = [];
+                        docsWithGroup.forEach((doc: any) => {
+                            if (doc && doc.uuid && !this.masterLoadedRows.some((m: any) => m.uuid === doc.uuid)) {
+                                this.masterLoadedRows.push(doc);
+                            }
+                        });
 
-                        const rows = [...this.rows];
-                        rows.splice(start, resData.docs.length, ...resData.docs);
-                        this.rows = rows;
-
-                        // Nếu số docs ít hơn size tức là đã đến trang cuối, không cần cộng thêm ảo
-                        if (resData.docs.length < this.page.size) {
-                            this.totalElements = this.rows.length;
+                        if (this.selectedDateGroup && this.selectedDateGroup !== 'Tất cả thời gian') {
+                            this.applyDateFilter();
                         } else {
-                            // Cộng thêm một lượng pageSize ảo để ngx-datatable tạo thanh scrollbar cho phép kéo xuống load page tiếp theo
-                            this.totalElements = this.rows.length + this.page.size;
+                            this.rows = this.groupRowsWithHeaders(this.masterLoadedRows);
+                            if (resData.docs.length < this.page.size) {
+                                this.totalElements = this.rows.length;
+                            } else {
+                                this.totalElements = this.rows.length + this.page.size;
+                            }
                         }
 
                         this.apiFetchedCount += resData.docs.length;
@@ -982,6 +997,120 @@ Chỉ trả về JSON thuần túy hợp lệ. Không giải thích, không dùn
         dialogRef.afterClosed().subscribe((_) => {
             this.router.navigate(['/tools']);
         });
+    }
+
+    // Group date helper method
+    getDateGroup(doc: any): string {
+        if (!doc) return 'Cũ hơn';
+        let dateVal = doc.createdAt || doc.created_at || doc.updatedAt || doc.updated_at || doc.date || doc.updated || doc.created;
+        if (!dateVal) return 'Cũ hơn';
+
+        if (typeof dateVal === 'string' && /^\d+$/.test(dateVal)) {
+            dateVal = Number(dateVal);
+        }
+        if (typeof dateVal === 'number' && dateVal < 10000000000) {
+            dateVal = dateVal * 1000;
+        }
+
+        const d = new Date(dateVal);
+        if (isNaN(d.getTime())) return 'Cũ hơn';
+
+        const now = new Date();
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        const itemDate = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+
+        const diffTime = today.getTime() - itemDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+
+        if (diffDays <= 0) return 'Hôm nay';
+        if (diffDays === 1) return 'Hôm qua';
+        if (diffDays > 1 && diffDays <= 7) return '7 ngày qua';
+        if (diffDays > 7 && diffDays <= 30) return '30 ngày qua';
+        return 'Cũ hơn';
+    }
+
+    groupRowsWithHeaders(docs: any[]): any[] {
+        if (!docs || docs.length === 0) return [];
+
+        const realDocs = docs.filter((doc: any) => doc && !doc.isGroupHeader && doc.uuid);
+        if (realDocs.length === 0) return [];
+
+        const groupOrder = ['Hôm nay', 'Hôm qua', '7 ngày qua', '30 ngày qua', 'Cũ hơn'];
+        const grouped: { [key: string]: any[] } = {};
+
+        groupOrder.forEach(g => { grouped[g] = []; });
+
+        realDocs.forEach(doc => {
+            const group = this.getDateGroup(doc);
+            if (!grouped[group]) {
+                grouped[group] = [];
+            }
+            grouped[group].push(doc);
+        });
+
+        const result: any[] = [];
+        groupOrder.forEach(groupName => {
+            const docsInGroup = grouped[groupName] || [];
+            if (docsInGroup.length > 0) {
+                result.push({
+                    isGroupHeader: true,
+                    groupTitle: groupName,
+                    count: docsInGroup.length,
+                    uuid: 'group-header-' + groupName
+                });
+                result.push(...docsInGroup);
+            }
+        });
+
+        return result;
+    }
+
+    applyDateFilter() {
+        const selectedGroup = this.selectedDateGroup;
+        if (this.table) {
+            this.table.offset = 0;
+        }
+
+        if (!selectedGroup || selectedGroup === 'Tất cả thời gian') {
+            const docs = (this.masterLoadedRows && this.masterLoadedRows.length > 0)
+                ? this.masterLoadedRows
+                : (this.allRowsBackup ? this.allRowsBackup.filter(r => r && r.uuid && !r.isGroupHeader) : []);
+            this.rows = this.groupRowsWithHeaders(docs);
+            this.totalElements = (this.actualTotalElements > 0) ? this.actualTotalElements : this.rows.length;
+        } else {
+            const allDocs = (this.masterLoadedRows && this.masterLoadedRows.length > 0)
+                ? this.masterLoadedRows
+                : (this.allRowsBackup ? this.allRowsBackup.filter(r => r && r.uuid && !r.isGroupHeader) : (this.rows ? this.rows.filter(r => r && r.uuid && !r.isGroupHeader) : []));
+
+            const filtered = allDocs.filter(row => row && !row.isGroupHeader && this.getDateGroup(row) === selectedGroup);
+            this.rows = this.groupRowsWithHeaders(filtered);
+            this.totalElements = this.rows.length;
+        }
+
+        this.selected = [];
+        if (this.table) {
+            this.table.recalculatePages();
+            setTimeout(() => {
+                if (this.table) this.table.recalculate();
+            }, 50);
+        }
+        this.cd.markForCheck();
+    }
+
+    onFilterDateGroup(event: any) {
+        let selectedGroup = this.selectedDateGroup;
+        if (typeof event === 'string') {
+            selectedGroup = event;
+        } else if (event && event.value) {
+            selectedGroup = event.value;
+        }
+        this.selectedDateGroup = selectedGroup;
+
+        if (!this.allRowsBackup && this.rows && this.rows.length > 0) {
+            this.allRowsBackup = [...this.rows];
+        }
+
+        this.applyDateFilter();
     }
 
     hasCollectionScriptFromArchives(): boolean {
