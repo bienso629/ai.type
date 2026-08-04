@@ -549,8 +549,8 @@
 </ng-template>
 
 <ng-template #groupTasksDialog>
-    <div class="flex flex-col h-full bg-card p-0 rounded overflow-hidden" style="max-width: 680px; min-width: 480px;">
-        <div class="flex items-center justify-between p-4 bg-gray-50 border-b border-gray-200 shrink-0">
+    <div class="flex flex-col h-full bg-card p-0 rounded-lg overflow-hidden" style="max-width: 680px; min-width: 480px;">
+        <div class="flex items-center justify-between p-6 bg-gray-50 border-b border-gray-200 shrink-0">
             <div class="flex items-center gap-3">
                 <div class="w-10 h-10 rounded bg-primary text-white flex items-center justify-center">
                     <mat-icon class="icon-size-5 text-white" [svgIcon]="'feather:layers'"></mat-icon>
@@ -572,7 +572,7 @@
             </button>
         </div>
 
-        <div class="p-4 overflow-y-auto max-h-[70vh] flex flex-col gap-3 bg-white">
+        <div class="p-6 overflow-y-auto max-h-[70vh] flex flex-col gap-3 bg-white">
             <div *ngFor="let task of selectedGroupItem?.tasks; let i = index" 
                  class="flex flex-col shrink-0 rounded border border-gray-200 bg-white overflow-hidden transition-all duration-150">
 
@@ -639,7 +639,7 @@
         </div>
 
         <!-- Dialog Footer -->
-        <div class="flex items-center justify-start px-4 py-3 bg-gray-50 border-t border-gray-200 shrink-0">
+        <div class="flex items-center justify-start p-6 bg-gray-50 border-t border-gray-200 shrink-0">
             <div class="flex items-center gap-2">
                 <button mat-flat-button color="primary" (click)="toggleAllGroupTasks(true)">
                     <mat-icon class="icon-size-4 text-white" [svgIcon]="'feather:chevrons-down'"></mat-icon>
